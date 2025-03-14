@@ -1,0 +1,22 @@
+[package]
+name = "aiplan4rust"
+version = "0.1.0"
+authors = ["Damien Pellier <damien.pellier@imag.fr>"]
+edition = "2021"
+
+[dependencies]
+logos = "0.15"
+lalrpop-util = "0.22.1"
+ordered-float = "4.6.0"
+serde = { version = "1.0.217", features = ["derive"] }
+serde_yaml = "0.9.34"
+serde_json = "1.0"
+clap = { version = "4.5.29", features = ["derive"] }
+linked-hash-map = { version = "0.5.6", features = ["serde_impl"] }
+
+[build-dependencies]
+lalrpop = { version = "0.22.1", default-features = false }
+
+[[bin]]
+name = "aiplan"
+path = "src/bin/aiplan.rs"

@@ -1,0 +1,132 @@
+use crate::aiplan4rust::semantics::ast_table::AstTable;
+use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Represents an annotated syntax tree that includes both an Abstract Syntax Tree (AST) and a
+/// symbol table, alongside metadata such as the file from which it was derived and the time it was
+/// generated.
+///
+/// The `AnnotatedSyntaxTree` is used to store parsed information for further semantic analysis and
+/// manipulation. It holds an optional AST and symbol table that are necessary for performing
+/// operations such as linking and semantic analysis. The struct also stores metadata, including the
+/// filename and the time of creation.
+///
+/// This struct is commonly used as part of the lifting process, where it represents a higher-level,
+/// annotated version of the problem and domain described in the PDDL files.
+///
+/// The following aliases are provided:
+/// - `LiftedProblem`: A type alias for `AnnotatedSyntaxTree`, representing an annotated syntax tree
+///   for a problem.
+/// - `LiftedDomain`: A type alias for `AnnotatedSyntaxTree`, representing an annotated syntax tree
+///   for a domain.
+pub type LiftedProblem = AnnotatedSyntaxTree;
+pub type LiftedDomain = AnnotatedSyntaxTree;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AnnotatedSyntaxTree {
+    /// The Abstract Syntax Tree (AST) of the domain/problem (if available).
+    ast: AstTable,
+    /// The symbol table related to the AST (if available).
+    symbol_table: SymbolTable,
+    /// The filename where the AST was parsed from.
+    filename: String,
+    /// The timestamp of when the AST was generated.
+    generated_at: SystemTime,
+}
+
+impl Default for AnnotatedSyntaxTree {
+    fn default() -> Self {
+        AnnotatedSyntaxTree {
+            ast: Default::default(),
+            symbol_table: Default::default(),
+            filename: String::new(),
+            generated_at: SystemTime::now(),
+        }
+    }
+}
+
+impl AnnotatedSyntaxTree {
+    /// Creates a new `AnnotatedSyntaxTree` with the provided components.
+    ///
+    /// # Arguments
+    /// * `ast` - An `AstTable` representing the abstract syntax tree.
+    /// * `symbol_table` - A `SymbolTable` containing the symbols from the syntax tree.
+    /// * `filename` - A `String` representing the filename of the source.
+    /// * `generated_at` - A `SystemTime` representing when the AST was generated.
+    ///
+    /// # Returns
+    /// A new `AnnotatedSyntaxTree` instance initialized with the given values.
+    pub fn new(
+        ast: AstTable,
+        symbol_table: SymbolTable,
+        filename: String,
+        generated_at: std::time::SystemTime,
+    ) -> Self {
+        AnnotatedSyntaxTree {
+            ast,
+            symbol_table,
+            filename,
+            generated_at,
+        }
+    }
+
+    /// Returns a reference to the `AstTable` if available.
+    ///
+    /// # Returns
+    /// * `&AstTable` representing the AST.
+    pub fn ast(&self) -> &AstTable {
+        &self.ast
+    }
+
+    /// Returns a reference to the `SymbolTable` if available.
+    ///
+    /// # Returns
+    /// * `&SymbolTable` representing the symbol table.
+    pub fn symbol_table(&self) -> &SymbolTable {
+        &self.symbol_table
+    }
+
+    /// Returns a mutable reference to the `SymbolTable` if available.
+    ///
+    /// # Returns
+    /// * `&mut SymbolTable` for modifying the symbol table.
+    pub fn symbol_table_mut(&mut self) -> &mut SymbolTable {
+        &mut self.symbol_table
+    }
+
+    /// Returns the filename from which the AST was parsed.
+    ///
+    /// # Returns
+    /// * `&String` representing the filename of the source.
+    pub fn filename(&self) -> &String {
+        &self.filename
+    }
+}
+
+impl fmt::Display for AnnotatedSyntaxTree {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Display general information about the AST and symbol table
+        write!(f, "Annotated Syntax Tree Information:\n")?;
+
+        // Display the source file name
+        write!(f, "Source File: {}\n", self.filename)?;
+
+        // Display the generation timestamp
+        let duration_since_epoch = self
+            .generated_at
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_else(|_| std::time::Duration::new(0, 0));
+        let timestamp = duration_since_epoch.as_secs();
+        write!(f, "Generated at: {} seconds since UNIX epoch\n", timestamp)?;
+
+        // Display the AST if available
+        write!(f, "AST: \n{}", self.ast)?;
+
+        // Display the symbol table if available
+        write!(f, "Symbol Table: \n{}", self.symbol_table)?;
+
+        Ok(())
+    }
+}
