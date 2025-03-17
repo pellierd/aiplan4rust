@@ -332,7 +332,6 @@ impl SymbolTable {
             AstKind::AtomicFormula | AstKind::FunctionTerm => {
                 self.add_symbol_usage(ast, index, index_table, scope.clone())?;
                 // Process the children recursively
-
                 for child_index in ast.children() {
                     let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
                     self.init_from(child, *child_index, index_table, scope.clone())?;
@@ -342,6 +341,11 @@ impl SymbolTable {
             // Case 7: Forall or Exists are quantified expressions that require specialized handling
             AstKind::Forall | AstKind::Exists => {
                 self.init_from_quantified_expression(ast, index, index_table, scope.clone())?;
+            }
+
+            // Case 8: TaskDef is a task definition that requires specialized handling for HDDL
+            AstKind::TaskDef => {
+                self.init_from_task_def(ast, index, index_table, scope.clone())?;
             }
 
             // Default case: if none of the above matched, recursively process the children of the
@@ -399,6 +403,10 @@ impl SymbolTable {
                 AstKind::FunctionSymbol(String::new()),
                 AstKind::ActionSymbol(String::new()),
                 AstKind::DASymbol(String::new()),
+                // Add for HDDL
+                AstKind::MethodSymbol(String::new()),
+                AstKind::TaskSymbol(String::new()),
+                AstKind::TaskID(String::new()),
             ],
         )?;
 
@@ -879,6 +887,44 @@ impl SymbolTable {
         Ok(())
     }
 
+    fn init_from_task_def(
+        &mut self,
+        ast: &AstEntry,
+        index: usize,
+        index_table: &AstTable,
+        scope: Scope,
+    ) -> Result<(), ParserInternalError> {
+        // Ensure the AST node is either TaskDef
+        Self::assert_ast_kind(ast, &[AstKind::TaskDef])?;
+
+        // Ensure the node has exactly 2 children
+        Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
+
+        let children = ast.children();
+
+        // First child: action name, add to symbol table
+        let name = SymbolTable::get_ast_entry(children[0], index_table)?;
+        self.add_declaration_symbol(
+            name,
+            children[0],
+            index_table,
+            Scope::new(index, Some(&scope)),
+            None,
+            None,
+        )?;
+
+        // Second child: action parameters, recursively initialize the symbol table
+        let parameters = SymbolTable::get_ast_entry(children[1], index_table)?;
+        self.init_from(
+            parameters,
+            children[1],
+            index_table,
+            Scope::new(index, Some(&scope)),
+        )?;
+
+        Ok(())
+    }
+
     /// Initializes the symbol table for a quantified expression in the AST.
     ///
     /// This function validates that the given AST node is of a quantified expression type (either
@@ -1232,7 +1278,11 @@ impl SymbolTable {
             | AstKind::Metric(_)
             | AstKind::Operation(_)
             | AstKind::Parallel(_)
-            | AstKind::Serial(_) => {
+            | AstKind::Serial(_)
+            // Add for HDDL
+            | AstKind::MethodSymbol(_)
+            | AstKind::TaskSymbol(_)
+            | AstKind::TaskID(_) => {
                 // Check if the AST node's kind matches one of the valid kinds
                 if valid_kinds.iter().any(|_k| matches!(ast.kind(), _k)) {
                     Ok(())
