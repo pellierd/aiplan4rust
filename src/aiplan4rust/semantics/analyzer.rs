@@ -55,7 +55,7 @@ impl Analyzer {
         symbol_table.initialize_from_ast(0, &ast_table)?;
 
         // Print the symbol table for debugging
-        //println!("{}", symbol_table);
+        println!("{}", symbol_table);
 
         match ast.kind() {
             AstKind::Domain => {
