@@ -519,6 +519,11 @@ impl SymbolTable {
             AstKind::ActionSymbol(name) => Ok((name.to_string(), SymbolKind::Action)),
             AstKind::DASymbol(name) => Ok((name.to_string(), SymbolKind::DASymbol)),
 
+            // Add on for HDDL support
+            AstKind::MethodSymbol(name) => Ok((name.to_string(), SymbolKind::Method)),
+            AstKind::TaskSymbol(name) => Ok((name.to_string(), SymbolKind::Task)),
+            AstKind::TaskID(name) => Ok((name.to_string(), SymbolKind::TaskID)),
+
             // Special case for AtomicFormula and FunctionTerm: handle their children
             AstKind::AtomicFormula | AstKind::FunctionTerm => {
                 let children = ast.children();

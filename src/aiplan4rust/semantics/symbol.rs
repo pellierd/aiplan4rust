@@ -38,6 +38,18 @@ pub enum SymbolKind {
     /// model).
     DASymbol,
 
+    /// Represents a symbol associated with a method in the domain, used for defining methods
+    /// that perform actions or tasks, often related to processes or operations in the domain.
+    Method,
+
+    /// Represents a symbol associated with a task in the domain, typically used to define a
+    /// specific task or operation that can be planned and executed within the system.
+    Task,
+
+    /// Represents a unique identifier for a task in the domain, used for referencing tasks
+    /// within the domain model.
+    TaskID,
+
     /// Represents a constant value that does not change.
     Constant,
 
@@ -76,6 +88,10 @@ impl fmt::Display for SymbolKind {
             SymbolKind::DomainName => write!(f, "Domain Name"),
             SymbolKind::ProblemName => write!(f, "Problem Name"),
             SymbolKind::Requirement => write!(f, "Requirement"),
+            // Add for HDDL
+            SymbolKind::Method => write!(f, "Method"),
+            SymbolKind::Task => write!(f, "Task"),
+            SymbolKind::TaskID => write!(f, "TaskID"),
         }
     }
 }
