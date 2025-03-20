@@ -71,23 +71,23 @@ impl<'input> Iterator for Lexer<'input> {
                         let c = self.token_stream.slice().to_string();
                         // Returning the invalid token wrapped in a Token::Error variant
                         let t = Token::Error(c);
-                        println!(
+                        /*println!(
                             "ERROR Token: \'{}\' start: {} end: {}",
                             t.symbol(),
                             span.start,
                             span.end
-                        );
+                        );*/
                         // Returning the spanned error token with its start and end positions
                         Some(Ok((span.start, t, span.end)))
                     }
                     // Token is valid; wrap it in the result and return
                     Ok(t) => {
-                        println!(
+                        /*println!(
                             "OK Token: \'{}\' start: {} end: {}",
                             t.symbol(),
                             span.start,
                             span.end
-                        );
+                        );*/
                         Some(Ok((span.start, t, span.end)))
                     }
                 }

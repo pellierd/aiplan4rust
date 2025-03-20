@@ -528,11 +528,7 @@ pub ActionDef : Box<Ast> = {
 pub ParameterDef : Box<Ast> = {
     <start:@L>
        ":parameters" "(" <parameters:TypedList<Variable>> ")"
-    <end:@R>  => {
-        let mut children = Vec::new();
-        children.push(parameters);
-        Box::new(Ast::new(AstKind::ParameterDef, children , start, end))
-    }
+    <end:@R>  => parameters,
 }
 
 pub ActionDefBody : Box<Ast> = {
@@ -1559,6 +1555,7 @@ pub TaskNetworkdSubtaskDef: Box<Ast> = {
         Box::new(Ast::new(AstKind::PartiallyOrderedSubtaskDef, Vec::new(), start, end))
     },
 };
+
 
 pub SimpleTaskNetworkOrderingConstraint : Box<Ast> = {
     <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {

@@ -359,8 +359,6 @@ pub enum AstKind {
     ActionDef,
     /// Represents the definition of a durative action, where actions have durations.
     DurativeActionDef,
-    /// Represents the definition of parameters in actions or functions.
-    ParameterDef,
     /// Represents the body of an action definition, including preconditions and effects.
     ActionDefBody,
     /// Represents the preconditions of an action.
@@ -530,7 +528,6 @@ impl fmt::Display for AstKind {
             AstKind::FunctionsDef => write!(f, "FunctionsDef"),
             AstKind::AtomicFunctionSkeleton => write!(f, "AtomicFunctionSkeleton"),
             AstKind::ActionDef => write!(f, "ActionDef"),
-            AstKind::ParameterDef => write!(f, "ParameterDef"),
             AstKind::PreconditionDef => write!(f, "PreconditionDef"),
             AstKind::EffectDef => write!(f, "EffectDef"),
             AstKind::DurativeActionDef => write!(f, "DurativeActionDef"),
@@ -629,7 +626,6 @@ impl PDDLDisplay for AstKind {
             AstKind::PredicatesDef => PREDICATES.to_string(),
             AstKind::FunctionsDef => FUNCTIONS.to_string(),
             AstKind::ActionDef => ACTION.to_string(),
-            AstKind::ParameterDef => PARAMETERS.to_string(),
             AstKind::PreconditionDef => PRECONDITION.to_string(),
             AstKind::EffectDef => EFFECT.to_string(),
             AstKind::Or => OR.to_string(),
@@ -1244,16 +1240,6 @@ impl PDDLDisplay for Ast {
                 .unwrap();
                 write!(pddl, "{}", children[2].to_pddl_string_with_depth(depth + 1)).unwrap();
                 write!(pddl, "\n{})", offset).unwrap();
-            }
-            AstKind::ParameterDef => {
-                write!(
-                    pddl,
-                    "{}{} ({})",
-                    offset,
-                    self.kind.to_pddl_string(),
-                    self.children()[0].to_pddl_string()
-                )
-                .unwrap();
             }
             AstKind::ActionSymbol(symbol) => {
                 write!(pddl, "{}", symbol).unwrap();

@@ -1003,22 +1003,26 @@ impl SymbolTable {
 
         // First child: definition name, add to symbol table
         let name = SymbolTable::get_ast_entry(children[0], index_table)?;
-        self.add_declaration_symbol(
-            name,
-            children[0],
-            index_table,
-            Scope::new(index, Some(&scope)),
-            None,
-            None,
-        )?;
 
         // Second child: parameters, recursively initialize the symbol table
         let parameters = SymbolTable::get_ast_entry(children[1], index_table)?;
-        self.init_from(
+        self.extract_arguments_from_typed_list(parameters, children[1], index_table)?;
+        self.init_from_typed_list(
             parameters,
             children[1],
             index_table,
             Scope::new(index, Some(&scope)),
+        )?;
+
+        let parameters =
+            self.extract_arguments_from_typed_list(parameters, children[1], index_table)?;
+        self.add_declaration_symbol(
+            name,
+            children[0],
+            index_table,
+            scope.clone(),
+            None,
+            Some(parameters),
         )?;
 
         // Third child: body (if applicable)
@@ -1210,7 +1214,7 @@ impl SymbolTable {
         self.add_declaration_symbol(
             predicate,
             children[0],
-            index_table, // Predicate
+            index_table,
             scope.clone(),
             None,
             Some(arguments),
