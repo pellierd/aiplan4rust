@@ -384,6 +384,7 @@ impl Analyzer {
                 | SymbolKind::Requirement
                 | SymbolKind::Action
                 | SymbolKind::DASymbol
+                | SymbolKind::Method
         ) {
             return Ok(true);
         }
@@ -412,7 +413,10 @@ impl Analyzer {
                 .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, ast_table)?
                 || declaration
                     .scope()
-                    .contains_ast_of_kind(AstKind::AtomicFunctionSkeleton, ast_table)?)
+                    .contains_ast_of_kind(AstKind::AtomicFunctionSkeleton, ast_table)?
+                || declaration
+                    .scope()
+                    .contains_ast_of_kind(AstKind::TaskDef, ast_table)?)
         {
             return Ok(true);
         }
