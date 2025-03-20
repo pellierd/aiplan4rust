@@ -1608,17 +1608,26 @@ pub SimpleTaskLogicalConstraint : Box<Ast> = {
         children.push(t2);
         Box::new(Ast::new(AstKind::FComp(BinaryComp::Equal), children, start, end))
     },
+    <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.push(constraint);
+        Box::new(Ast::new(AstKind::Not, children, start, end))
+    },
 }
 
 pub TaskLogicalConstraint : Box<Ast> = {
     <start:@L> "(" ")" <end:@R> => {
         Box::new(Ast::new(AstKind::And, Vec::new(), start, end))
     },
-    <constraint:SimpleTaskLogicalConstraint> => constraint,
-    <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
+    <start:@L> <constraint:SimpleTaskLogicalConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(Ast::new(AstKind::Not, children, start, end))
+        Box::new(Ast::new(AstKind::And, children, start, end))
+    },
+    <start:@L> "(" "and" <constraints:SimpleTaskLogicalConstraint+> ")" <end:@R> => {
+        let mut children = Vec::new();
+        children.extend(constraints);
+        Box::new(Ast::new(AstKind::And, children, start, end))
     },
 }
 
