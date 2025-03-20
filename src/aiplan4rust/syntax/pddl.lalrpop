@@ -1485,7 +1485,7 @@ pub Task : Box<Ast> = {
 }
 
 pub Subtask: Box<Ast> = {
-    <start:@L> "(" <name:Name> <rest:SubtaskRest> <end:@R> => {
+     "(" <start:@L> <name:Name> <end:@R> <rest:SubtaskRest>  => {
         match name {
             Ok(name_value) => {
                 match rest.first().map(|node| node.kind()) {
@@ -1516,7 +1516,7 @@ pub Subtask: Box<Ast> = {
 }
 
 SubtaskRest : Vec<Box<Ast>> = {
-    <start:@L> "(" <task_symbol:TaskSymbol> <terms:TaskTerm*> ")" <end:@R> => {
+    <start:@L> "(" <task_symbol:TaskSymbol> <terms:TaskTerm*> ")" ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(task_symbol);
         children.extend(terms);
@@ -1561,7 +1561,7 @@ pub TaskNetworkdSubtaskDef: Box<Ast> = {
 };
 
 pub SimpleTaskNetworkOrderingConstraint : Box<Ast> = {
-    <start:@L> "(" <t1:TaskID> "<" <t2:TaskID> ")" <end:@R> => {
+    <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
@@ -1655,20 +1655,33 @@ pub MethodPreconditionDef: Box<Ast> = {
 
 pub MethodDef : Box<Ast> = {
     <start:@L>
-        "(" ":method" <name:MethodSymbol>
-        <parameters:ParameterDef>
-        ":task" <task:Task>
-        <precondition:MethodPreconditionDef?>
-        <task_network:TaskNetworkDef> ")"
+        "("":method"
+            <name:MethodSymbol>
+            <parameters:ParameterDef>
+            <body:MethodDefBody>
+        ")"
     <end:@R> => {
         let mut children = Vec::new();
         children.push(name);
+        children.push(parameters);
+        children.push(body);
+        Box::new(Ast::new(AstKind::MethodDef, children, start, end))
+    },
+}
+
+pub MethodDefBody: Box<Ast> = {
+    <start:@L>
+        ":task" <task:Task>
+        <precondition:MethodPreconditionDef?>
+        <task_network:TaskNetworkDef>
+    <end:@R> => {
+        let mut children = Vec::new();
         children.push(task);
         if let Some(precondition) = precondition {
             children.push(precondition);
         }
         children.push(task_network);
-        Box::new(Ast::new(AstKind::MethodDef, children, start, end))
+        Box::new(Ast::new(AstKind::MethodDefBody, children, start, end))
     },
 }
 

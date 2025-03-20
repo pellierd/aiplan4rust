@@ -471,6 +471,8 @@ pub enum AstKind {
     MethodSymbol(String),
     /// Represents the definition of the method precondition in HDDL.
     MethodPreconditionDef,
+    /// Represents the body of a method definition in HDDL.
+    MethodDefBody,
     /// Represents a list of ordered subtasks in a method in HDDL, where the order of execution
     /// matters.
     OrderedSubtaskDef,
@@ -578,6 +580,7 @@ impl fmt::Display for AstKind {
             AstKind::TaskDef => write!(f, "TaskDef"),
             AstKind::TaskSymbol(symbol) => write!(f, "TaskSymbol(\"{}\")", symbol),
             AstKind::MethodDef => write!(f, "MethodDef"),
+            AstKind::MethodDefBody => write!(f, "MethodDefBody"),
             AstKind::MethodSymbol(symbol) => write!(f, "MethodSymbol(\"{}\")", symbol),
             AstKind::MethodPreconditionDef => write!(f, "MethodPreconditionDef"),
             AstKind::OrderedSubtaskDef => write!(f, "OrderedSubtaskDef"),

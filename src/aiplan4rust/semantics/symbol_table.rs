@@ -284,8 +284,15 @@ impl SymbolTable {
     /// # Arguments
     /// * `ast` - A reference to the AST node to be processed. It can be a variety of types
     ///   depending on the node.
+    /// * `index` - The index of the AST entry, used to uniquely identify the node in the symbol table.
+    /// * `index_table` - A reference to the table that maps AST entries to their respective indices.
     /// * `scope` - The scope in which the symbol is being declared or used. It helps manage
-    ///   variable or function visibility.
+    ///   variable or function visibility, ensuring that symbols are correctly handled in the context
+    ///   of the program structure.
+    ///
+    /// # Returns
+    /// * `Result<(), ParserInternalError>` - Returns `Ok(())` on success, or an error if any problem
+    ///   is encountered during symbol table initialization.
     fn init_from(
         &mut self,
         ast: &AstEntry,
@@ -314,42 +321,51 @@ impl SymbolTable {
                 self.add_symbol_usage(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 4: ActionDef and DurativeActionDef are action definitions that require
-            // specialized handling
-            AstKind::ActionDef | AstKind::DurativeActionDef => {
+            // Case 4: ActionDef
+            AstKind::ActionDef => {
+                // Handle standard action definitions
                 self.init_from_action_def(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 5: AtomicFormulaSkeleton is a specialized structure
+            // Case 5: Durative action definition (includes timing constraints)
+            AstKind::DurativeActionDef => {
+                // Handle actions that include duration and timing constraints
+                self.init_from_durative_action_def(ast, index, index_table, scope.clone())?;
+            }
+
+            // Case 6: Method definition (used in hierarchical planning)
+            AstKind::MethodDef => {
+                // Handle methods in HTN (Hierarchical Task Networks) planning
+                self.init_from_method_def(ast, index, index_table, scope.clone())?;
+            }
+
+            // Case 7: TaskDef is a task definition that requires specialized handling
+            // for HDDL (Hierarchical Domain Definition Language).
+            AstKind::TaskDef => {
+                self.init_from_task_def(ast, index, index_table, scope.clone())?;
+            }
+
+            // Case 8: AtomicFormulaSkeleton is a specialized structure
             // It needs custom handling for symbol table initialization.
             AstKind::AtomicFormulaSkeleton => {
                 self.init_from_atomic_formula_skeleton(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 6: AtomicFormula or FunctionTerm need symbol usage, with recursive processing of
+            // Case 9: AtomicFormula or FunctionTerm need symbol usage, with recursive processing of
             // their children. These AST nodes represent functional terms or atomic formulas that
             // are used in the scope, and they require recursive initialization for their children.
             AstKind::AtomicFormula | AstKind::FunctionTerm => {
-                self.add_symbol_usage(ast, index, index_table, scope.clone())?;
-                // Process the children recursively
-                for child_index in ast.children() {
-                    let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
-                    self.init_from(child, *child_index, index_table, scope.clone())?;
-                }
+                self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 7: Forall or Exists are quantified expressions that require specialized handling
+            // Case 10: Forall or Exists are quantified expressions that require specialized handling.
+            // These are used to process logical quantification and may require nested processing.
             AstKind::Forall | AstKind::Exists => {
                 self.init_from_quantified_expression(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 8: TaskDef is a task definition that requires specialized handling for HDDL
-            AstKind::TaskDef => {
-                self.init_from_task_def(ast, index, index_table, scope.clone())?;
-            }
-
-            // Default case: if none of the above matched, recursively process the children of the
-            // current node This ensures that we do not miss any other types that may have children
+            // Default case: If none of the above matched, recursively process the children of the
+            // current node. This ensures that we do not miss any other types that may have children
             // needing further processing.
             _ => {
                 for child_index in ast.children() {
@@ -588,7 +604,7 @@ impl SymbolTable {
     fn init_from_typed_list(
         &mut self,
         ast: &AstEntry,
-        index: usize,
+        _index: usize,
         index_table: &AstTable,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -797,49 +813,34 @@ impl SymbolTable {
         Ok(())
     }
 
-    /// Initializes the symbol table from an Action Definition AST node.
+    /// Initializes the symbol table for an action definition.
     ///
-    /// This function processes an `Ast` node representing an action definition (either
-    /// an `ActionDef` or a `DurativeActionDef`), ensuring that the AST node has the correct
-    /// type and structure. It extracts the name, parameters, and body of the action, adding
-    /// relevant symbols to the symbol table in the current scope.
+    /// This function processes an `ActionDef`, `DurativeActionDef`, or `MethodDef` AST node.
+    /// It extracts the action name, parameters, and body, adding relevant symbols to the table.
     ///
-    /// It performs the following checks:
-    /// 1. Verifies that the AST node is either of type `AstKind::ActionDef` or
-    ///   `AstKind::DurativeActionDef`.
-    /// 2. Ensures that the node contains exactly three children:
-    ///    - The first child is the action's name, which is added to the symbol table as a
-    ///     declaration.
-    ///    - The second child is the action's parameters, for which the symbol table is recursively
-    ///     initialized.
-    ///    - The third child is the action's body, for which the symbol table is also recursively
-    ///     initialized.
+    /// # Parameters
+    /// - `ast`: The AST node representing the action definition.
+    /// - `index`: The index of the node in the AST table.
+    /// - `index_table`: The table containing all AST nodes.
+    /// - `scope`: The current scope in which the action is being defined.
     ///
-    /// # Arguments:
-    /// * `ast`: The AST node representing an action definition. It must be of type
-    ///   `AstKind::ActionDef` or `AstKind::DurativeActionDef`.
-    /// * `scope`: The current scope where the symbols should be added.
+    /// # Returns
+    /// - `Ok(())` if the initialization succeeds.
+    /// - `Err(ParserInternalError)` if the AST structure is invalid.
     ///
-    /// # Returns:
-    /// * `Ok(())` if the symbol table was successfully initialized.
-    /// * `Err(ParserInternalError)` if there was an error in verifying the AST node type or
-    ///   structure.
+    /// # AST Structure
+    /// The function expects the node to have exactly three children:
+    /// 1. **Name**: The action/method name, which is added as a declaration symbol.
+    /// 2. **Parameters**: The parameter list, which is recursively processed.
+    /// 3. **Body**: The action/method body, which is recursively processed.
     ///
-    /// # Errors:
-    /// This function may return an error if the AST node does not match the expected type or if the
-    /// number of children is incorrect.
-    ///
-    /// # Example:
+    /// # Example
     /// ```rust
-    /// let ast = ...; // Some AST node of type ActionDef or DurativeActionDef
-    /// let scope = ...; // Some valid scope
-    /// let result = symbol_table.init_symbol_table_from_action_def(&ast, scope);
+    /// // Assuming `ast`, `index`, `index_table`, and `scope` are correctly initialized:
+    /// parser.init_from_action_def(&ast, index, &index_table, scope)?;
     /// ```
     ///
-    /// # Notes:
-    /// - The function assumes that the `ast` node is valid according to the rules of the domain.
-    /// - Recursive initialization of the symbol table is done for the parameters and body of the
-    ///   action.
+    /// This function delegates to `init_from_definition` for common logic.
     fn init_from_action_def(
         &mut self,
         ast: &AstEntry,
@@ -847,46 +848,109 @@ impl SymbolTable {
         index_table: &AstTable,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
-        // Ensure the AST node is either ActionDef or DurativeActionDef
-        Self::assert_ast_kind(ast, &[AstKind::ActionDef, AstKind::DurativeActionDef])?;
-
-        // Ensure the node has exactly 3 children
-        Self::assert_ast_children_number(ast, 3, Comparator::Equal)?;
-
-        let children = ast.children();
-
-        // First child: action name, add to symbol table
-        let name = SymbolTable::get_ast_entry(children[0], index_table)?;
-        self.add_declaration_symbol(
-            name,
-            children[0],
+        self.init_from_def(
+            ast,
+            index,
             index_table,
-            Scope::new(index, Some(&scope)),
-            None,
-            None,
-        )?;
-
-        // Second child: action parameters, recursively initialize the symbol table
-        let parameters = SymbolTable::get_ast_entry(children[1], index_table)?;
-        self.init_from(
-            parameters,
-            children[1],
-            index_table,
-            Scope::new(index, Some(&scope)),
-        )?;
-
-        // Third child: action body, recursively initialize the symbol table
-        let body = SymbolTable::get_ast_entry(children[2], index_table)?;
-        self.init_from(
-            body,
-            children[2],
-            index_table,
-            Scope::new(index, Some(&scope)),
-        )?;
-
-        Ok(())
+            scope,
+            &[
+                AstKind::ActionDef,
+                AstKind::DurativeActionDef,
+                AstKind::MethodDef,
+            ],
+            3,    // ActionDef has 3 children (name, parameters, body)
+            true, // It has a body
+        )
     }
 
+    /// Initializes the symbol table for a method definition.
+    ///
+    /// This function ensures that the given AST node is a `MethodDef` and has
+    /// the expected number of children (name, parameters, and body). It then
+    /// processes these components accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `ast` - A reference to the AST entry representing the method definition.
+    /// * `index` - The index of the AST entry.
+    /// * `index_table` - A reference to the AST table containing all nodes.
+    /// * `scope` - The current scope in which the method definition resides.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the initialization is successful, or a `ParserInternalError`
+    /// if an issue occurs.
+    fn init_from_method_def(
+        &mut self,
+        ast: &AstEntry,
+        index: usize,
+        index_table: &AstTable,
+        scope: Scope,
+    ) -> Result<(), ParserInternalError> {
+        self.init_from_def(
+            ast,
+            index,
+            index_table,
+            scope,
+            &[AstKind::MethodDef],
+            3,    // MethodDef has 3 children (name, parameters, body)
+            true, // It has a body
+        )
+    }
+
+    /// Initializes the symbol table for a durative action definition.
+    ///
+    /// This function ensures that the given AST node is a `DurativeActionDef` and
+    /// has the expected number of children (name, parameters, and body). It then
+    /// processes these components accordingly.
+    ///
+    /// # Arguments
+    ///
+    /// * `ast` - A reference to the AST entry representing the durative action.
+    /// * `index` - The index of the AST entry.
+    /// * `index_table` - A reference to the AST table containing all nodes.
+    /// * `scope` - The current scope in which the durative action definition resides.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the initialization is successful, or a `ParserInternalError`
+    /// if an issue occurs.
+    fn init_from_durative_action_def(
+        &mut self,
+        ast: &AstEntry,
+        index: usize,
+        index_table: &AstTable,
+        scope: Scope,
+    ) -> Result<(), ParserInternalError> {
+        self.init_from_def(
+            ast,
+            index,
+            index_table,
+            scope,
+            &[AstKind::DurativeActionDef],
+            3,    // DurativeActionDef has 3 children (name, parameters, body)
+            true, // It has a body
+        )
+    }
+
+    /// Initializes the symbol table for a task definition.
+    ///
+    /// This function ensures that the given AST node is a `TaskDef` and has
+    /// the expected number of children (name and parameters). Since a task
+    /// definition does not include a body, the function processes only these
+    /// components.
+    ///
+    /// # Arguments
+    ///
+    /// * `ast` - A reference to the AST entry representing the task definition.
+    /// * `index` - The index of the AST entry.
+    /// * `index_table` - A reference to the AST table containing all nodes.
+    /// * `scope` - The current scope in which the task definition resides.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` if the initialization is successful, or a `ParserInternalError`
+    /// if an issue occurs.
     fn init_from_task_def(
         &mut self,
         ast: &AstEntry,
@@ -894,15 +958,50 @@ impl SymbolTable {
         index_table: &AstTable,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
-        // Ensure the AST node is either TaskDef
-        Self::assert_ast_kind(ast, &[AstKind::TaskDef])?;
+        self.init_from_def(
+            ast,
+            index,
+            index_table,
+            scope,
+            &[AstKind::TaskDef],
+            2,     // TaskDef has only 2 children (name, parameters)
+            false, // No body for tasks
+        )
+    }
 
-        // Ensure the node has exactly 2 children
-        Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
+    /// Initializes a definition node (ActionDef, DurativeActionDef, MethodDef, or TaskDef)
+    /// by extracting its name and parameters, and optionally its body.
+    ///
+    /// # Arguments
+    /// - `ast`: The AST entry to process.
+    /// - `index`: The index of the node in the AST table.
+    /// - `index_table`: Reference to the AST table.
+    /// - `scope`: The current scope for symbol resolution.
+    /// - `valid_kinds`: A slice of valid `AstKind` values.
+    /// - `expected_children`: The number of children expected (2 for `TaskDef`, 3 for actions).
+    /// - `has_body`: Whether the definition has a body (true for actions, false for tasks).
+    ///
+    /// # Returns
+    /// Returns `Ok(())` on success or a `ParserInternalError` if validation fails.
+    fn init_from_def(
+        &mut self,
+        ast: &AstEntry,
+        index: usize,
+        index_table: &AstTable,
+        scope: Scope,
+        valid_kinds: &[AstKind],
+        expected_children: usize,
+        has_body: bool,
+    ) -> Result<(), ParserInternalError> {
+        // Ensure the AST node is of the correct kind
+        Self::assert_ast_kind(ast, valid_kinds)?;
+
+        // Ensure the node has the expected number of children
+        Self::assert_ast_children_number(ast, expected_children, Comparator::Equal)?;
 
         let children = ast.children();
 
-        // First child: action name, add to symbol table
+        // First child: definition name, add to symbol table
         let name = SymbolTable::get_ast_entry(children[0], index_table)?;
         self.add_declaration_symbol(
             name,
@@ -913,7 +1012,7 @@ impl SymbolTable {
             None,
         )?;
 
-        // Second child: action parameters, recursively initialize the symbol table
+        // Second child: parameters, recursively initialize the symbol table
         let parameters = SymbolTable::get_ast_entry(children[1], index_table)?;
         self.init_from(
             parameters,
@@ -921,6 +1020,64 @@ impl SymbolTable {
             index_table,
             Scope::new(index, Some(&scope)),
         )?;
+
+        // Third child: body (if applicable)
+        if has_body {
+            let body = SymbolTable::get_ast_entry(children[2], index_table)?;
+            self.init_from(
+                body,
+                children[2],
+                index_table,
+                Scope::new(index, Some(&scope)),
+            )?;
+        }
+
+        Ok(())
+    }
+
+    /// Initializes the parser state from an atomic formula or function term AST node.
+    ///
+    /// This function processes an `AstEntry` of type `AtomicFormula` or `FunctionTerm`. It ensures that
+    /// the node has at least one child, representing the symbol. The function first registers the
+    /// symbol usage, then recursively processes the remaining children, which represent the arguments.
+    ///
+    /// # Arguments
+    /// * `ast` - A reference to the `AstEntry` to process.
+    /// * `_index` - The index of the AST node in the table (not used in this function).
+    /// * `index_table` - A reference to the `AstTable`, which contains the AST nodes.
+    /// * `scope` - The current scope used for symbol resolution.
+    ///
+    /// # Returns
+    /// Returns `Ok(())` if the AST node is successfully processed. Otherwise, returns a `ParserInternalError`.
+    ///
+    /// # Errors
+    /// This function returns an error if:
+    /// * The `ast` is not of type `AtomicFormula` or `FunctionTerm`.
+    /// * The `ast` has no children (it must have at least one, representing the symbol).
+    /// * Any recursive call to `init_from` fails.
+    fn init_from_atomic_formula(
+        &mut self,
+        ast: &AstEntry,
+        _index: usize,
+        index_table: &AstTable,
+        scope: Scope,
+    ) -> Result<(), ParserInternalError> {
+        // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
+        Self::assert_ast_kind(ast, &[AstKind::AtomicFormula, AstKind::FunctionTerm])?;
+
+        // Ensure the node has at least one child (the symbol)
+        Self::assert_ast_children_number(ast, 1, Comparator::GreaterEq)?;
+
+        // Retrieve and register the first child (symbol)
+        let first_child_index = ast.children()[0];
+        let symbol = SymbolTable::get_ast_entry(first_child_index, index_table)?;
+        self.add_symbol_usage(symbol, first_child_index, index_table, scope.clone())?;
+
+        // Process the remaining children (arguments)
+        for child_index in &ast.children()[1..] {
+            let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
+            self.init_from(child, *child_index, index_table, scope.clone())?;
+        }
 
         Ok(())
     }
@@ -1108,7 +1265,7 @@ impl SymbolTable {
     fn extract_arguments_from_typed_list(
         &mut self,
         ast: &AstEntry,
-        index: usize,
+        _index: usize,
         index_table: &AstTable,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
@@ -1167,7 +1324,7 @@ impl SymbolTable {
     fn extract_type(
         &mut self,
         types: &AstEntry,
-        index: usize,
+        _index: usize,
         index_table: &AstTable,
     ) -> Result<Vec<String>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
