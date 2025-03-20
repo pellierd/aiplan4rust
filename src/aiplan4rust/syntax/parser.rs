@@ -183,6 +183,9 @@ impl<'a> Parser<'a> {
             match parse_result {
                 Ok(mut ast) => {
                     self.process_ast(&mut ast, source)?;
+
+                    println!("AST: {}", ast);
+
                     if self
                         .error_manager()
                         .has_errors_of_kind(ParserErrorKind::ParseError)

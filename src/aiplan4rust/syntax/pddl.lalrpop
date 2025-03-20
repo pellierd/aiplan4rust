@@ -1481,31 +1481,32 @@ pub Task : Box<Ast> = {
 }
 
 pub Subtask: Box<Ast> = {
-     "(" <start:@L> <name:Name> <end:@R> <rest:SubtaskRest>  => {
+     "(" <start_name:@L> <name:Name> <end_name:@R> <rest:SubtaskRest>  <end_rest:@R> => {
         match name {
             Ok(name_value) => {
                 match rest.first().map(|node| node.kind()) {
                     Some(AstKind::TaskSymbol(_)) => {
                         let mut children = Vec::new();
-                        let task_id = Box::new(Ast::new(AstKind::TaskID(name_value), Vec::new(), start, end));
+                        let task_id = Box::new(Ast::new(AstKind::TaskID(name_value), Vec::new(), start_name, end_name));
                         children.push(task_id);
-                        children.extend(rest);
-                        Box::new(Ast::new(AstKind::TaggedTask, children, start, end))
+                        let task = Box::new(Ast::new(AstKind::Task, rest, end_name, end_rest));
+                        children.push(task);
+                        Box::new(Ast::new(AstKind::TaggedTask, children, start_name, end_rest))
                     },
                     Some(AstKind::Constant(_)) | Some(AstKind::Variable(_)) => {
                         let mut children = Vec::new();
-                        let task_symbol = Box::new(Ast::new(AstKind::TaskSymbol(name_value), Vec::new(), start, end));
+                        let task_symbol = Box::new(Ast::new(AstKind::TaskSymbol(name_value), Vec::new(), start_name, end_name));
                         children.push(task_symbol);
                         children.extend(rest);
-                        Box::new(Ast::new(AstKind::Task, children, start, end))
+                        Box::new(Ast::new(AstKind::Task, children, start_name, end_rest))
                     },
                     _ => {
-                        Box::new(Ast::new(AstKind::Error, Vec::new(), start, end))
+                        Box::new(Ast::new(AstKind::Error, Vec::new(), start_name, end_name))
                     }
                 }
             },
             Err(_) => {
-                Box::new(Ast::new(AstKind::Error, Vec::new(), start, end))
+                Box::new(Ast::new(AstKind::Error, Vec::new(), start_name, end_rest))
             }
         }
     },
@@ -1522,7 +1523,11 @@ SubtaskRest : Vec<Box<Ast>> = {
 }
 
 pub SubtaskDef : Box<Ast> = {
-    <start:@L> <subtask:Subtask> <end:@R> => subtask,
+    <start:@L> <subtask:Subtask> <end:@R> => {
+        let mut children = Vec::new();
+        children.push(subtask);
+        Box::new(Ast::new(AstKind::And, children, start, end))
+    },
     <start:@L> "(" ")" <end:@R> => {
         Box::new(Ast::new(AstKind::And, Vec::new(), start, end))
     },
@@ -1537,22 +1542,22 @@ pub TaskNetworkdSubtaskDef: Box<Ast> = {
     <start:@L> ":ordered-tasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(Ast::new(AstKind::OrderedSubtaskDef, Vec::new(), start, end))
+        Box::new(Ast::new(AstKind::OrderedSubtaskDef, children, start, end))
     },
     <start:@L> ":ordered-subtasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(Ast::new(AstKind::OrderedSubtaskDef, Vec::new(), start, end))
+        Box::new(Ast::new(AstKind::OrderedSubtaskDef, children, start, end))
     },
     <start:@L> ":tasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(Ast::new(AstKind::PartiallyOrderedSubtaskDef, Vec::new(), start, end))
+        Box::new(Ast::new(AstKind::PartiallyOrderedSubtaskDef, children, start, end))
     },
     <start:@L> ":subtasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(Ast::new(AstKind::PartiallyOrderedSubtaskDef, Vec::new(), start, end))
+        Box::new(Ast::new(AstKind::PartiallyOrderedSubtaskDef, children, start, end))
     },
 };
 
