@@ -89,6 +89,7 @@ impl Analyzer {
                     SymbolKind::Constant,
                     SymbolKind::Predicate,
                     SymbolKind::Function,
+                    SymbolKind::Task, // Add for HDDL
                 ];
                 self.check_undeclared_symbol(&symbol_table, &ast_table, skip_symbols)?;
 
@@ -349,6 +350,7 @@ impl Analyzer {
                         }
                     }
                 }
+                //println!("USAGE OPT: {} {:?}", symbol, usage_opt);
             }
         }
 

@@ -124,6 +124,7 @@ fn parse(
     let frontend = Frontend::new();
     match frontend.parse(domain_file, problem_file, language) {
         Ok(result) => {
+            result.error_manager().display_all();
             if let Some(planning_task) = result.planning_task() {
                 if let Err(e) =
                     frontend.serialize_planning_task_to_file(&planning_task, format, output)
@@ -132,8 +133,6 @@ fn parse(
                 } else {
                     println!("Output saved to {}", output);
                 }
-            } else {
-                result.error_manager().display_all();
             }
         }
         Err(e) => {
@@ -146,14 +145,13 @@ fn parse_file(input_file: &str, language: &Language, format: &FileFormat, output
     let frontend = Frontend::new();
     match frontend.parse_file(input_file, language) {
         Ok(result) => {
+            result.error_manager().display_all();
             if let Some(ast) = result.annotated_syntax_tree() {
                 if let Err(e) = frontend.serialize_to_file(&ast, format, output) {
                     eprintln!("Error saving file: {}", e);
                 } else {
                     println!("Output saved to {}", output);
                 }
-            } else {
-                result.error_manager().display_all();
             }
         }
         Err(e) => {
