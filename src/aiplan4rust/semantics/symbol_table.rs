@@ -300,78 +300,76 @@ impl SymbolTable {
         index_table: &AstTable,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
-        // Matching the kind of the AST node to determine the appropriate action
+        // Determine the type of the AST node and apply appropriate processing
         match ast.kind() {
-            // Case 1: DomainName, ProblemName, or Requirement are declarations
-            // These AST kinds are handled as simple declarations, no further processing needed.
+            // Handle declarations: These simply register symbols without additional processing
             AstKind::DomainName(_) | AstKind::ProblemName(_) | AstKind::Requirement(_) => {
                 self.add_declaration_symbol(ast, index, index_table, scope.clone(), None, None)?;
             }
 
-            // Case 2: TypedList needs special handling
-            // A TypedList requires the symbol table to be initialized with specific logic.
+            // Handle typed lists: Requires specialized initialization logic
             AstKind::TypedList => {
                 self.init_from_typed_list(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 3: PrimitiveType, Constant, and Variable are considered symbol usages
-            // These are elements that are used within the scope and should be added as symbol
-            // usages.
+            // Handle primitive types, constants, and variables: Register them as symbol usages
             AstKind::PrimitiveType(_) | AstKind::Constant(_) | AstKind::Variable(_) => {
                 self.add_symbol_usage(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 4: ActionDef
+            // Handle action definitions
             AstKind::ActionDef => {
-                // Handle standard action definitions
                 self.init_from_action_def(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 5: Durative action definition (includes timing constraints)
+            // Handle durative actions, which include timing constraints
             AstKind::DurativeActionDef => {
-                // Handle actions that include duration and timing constraints
                 self.init_from_durative_action_def(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 6: Method definition (used in hierarchical planning)
-            AstKind::MethodDef => {
-                // Handle methods in HTN (Hierarchical Task Networks) planning
-                self.init_from_method_def(ast, index, index_table, scope.clone())?;
-            }
-
-            // Case 7: TaskDef is a task definition that requires specialized handling
-            // for HDDL (Hierarchical Domain Definition Language).
-            AstKind::TaskDef => {
-                self.init_from_task_def(ast, index, index_table, scope.clone())?;
-            }
-
-            // Case 8: AtomicFormulaSkeleton is a specialized structure
-            // It needs custom handling for symbol table initialization.
+            // Handle atomic formula skeletons: Requires custom symbol table handling
             AstKind::AtomicFormulaSkeleton => {
                 self.init_from_atomic_formula_skeleton(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 9: AtomicFormula or FunctionTerm need symbol usage, with recursive processing of
-            // their children. These AST nodes represent functional terms or atomic formulas that
-            // are used in the scope, and they require recursive initialization for their children.
+            // Handle atomic formulas and function terms: These require recursive processing
             AstKind::AtomicFormula | AstKind::FunctionTerm => {
                 self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 10: Forall or Exists are quantified expressions that require specialized handling.
-            // These are used to process logical quantification and may require nested processing.
+            // Handle quantified expressions (`Forall` and `Exists`): Need special treatment for
+            // logical scopes
             AstKind::Forall | AstKind::Exists => {
                 self.init_from_quantified_expression(ast, index, index_table, scope.clone())?;
             }
 
-            // Case 11: Subtask def
+            // Handle hierarchical task network (HTN) method definitions
+            AstKind::MethodDef => {
+                self.init_from_method_def(ast, index, index_table, scope.clone())?;
+            }
+
+            // Handle task definitions in HTN planning
+            AstKind::TaskDef => {
+                self.init_from_task_def(ast, index, index_table, scope.clone())?;
+            }
+
+            // Handle ordered and partially ordered subtasks in HTN planning
             AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
                 self.init_from_subtask_def(ast, index, index_table, scope.clone())?;
             }
 
-            // Default case: If none of the above matched, recursively process the children of the
-            // current node. This ensures that we do not miss any other types that may have children
-            // needing further processing.
+            // Handle individual task references in HTN planning
+            AstKind::Task => {
+                self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
+            }
+
+            // Handle tagged tasks, which include additional metadata in HTN planning
+            AstKind::TaggedTask => {
+                self.init_from_tagged_task(ast, index, index_table, scope.clone())?;
+            }
+
+            // Default case: If the AST node is not explicitly handled, process its children
+            // recursively
             _ => {
                 for child_index in ast.children() {
                     let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
@@ -380,7 +378,7 @@ impl SymbolTable {
             }
         }
 
-        // Return Ok if the function executes successfully without errors
+        // Successfully completed processing the AST node
         Ok(())
     }
 
@@ -723,7 +721,8 @@ impl SymbolTable {
     /// - Validates that the AST node is of type `AtomicFunctionSkeleton`.
     /// - Ensures the node has at least two children: the function symbol and the list of arguments.
     /// - Validates that the first child is of type `FunctionSymbol` and extracts it.
-    /// - Creates a new scope for the function and initializes the symbol table for the function's arguments.
+    /// - Creates a new scope for the function and initializes the symbol table for the function's
+    ///   arguments.
     /// - Extracts the arguments and calculates their arity.
     /// - Adds the function declaration to the symbol table with the provided types and arguments.
     ///
@@ -1431,21 +1430,7 @@ impl SymbolTable {
         // Iterate over subtask children and initialize them accordingly
         for child_index in subtasks.children() {
             let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
-            match child.kind() {
-                AstKind::Task => {
-                    self.init_from_atomic_formula(child, *child_index, index_table, scope.clone())?;
-                }
-                AstKind::TaggedTask => {
-                    self.init_from_tagged_task(child, *child_index, index_table, scope.clone())?;
-                }
-                _ => {
-                    return Err(ParserInternalError::new(format!(
-                        "Unexpected AST node '{:?}'. Expected one of {:?}.",
-                        ast.kind(),
-                        &[AstKind::Task, AstKind::TaggedTask]
-                    )))
-                }
-            }
+            self.init_from(child, *child_index, index_table, scope.clone())?;
         }
 
         Ok(())
