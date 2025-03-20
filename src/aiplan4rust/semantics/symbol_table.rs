@@ -5,6 +5,7 @@ use crate::aiplan4rust::semantics::symbol::{
     Declaration, FilterableSymbol, Symbol, SymbolKind, Usage,
 };
 use crate::aiplan4rust::semantics::typed_symbol::TypedSymbol;
+use crate::aiplan4rust::syntax::ast::BinaryComp;
 use crate::aiplan4rust::syntax::ast::{AstKind, Requirement};
 use crate::aiplan4rust::syntax::token::TOTAL_TIME;
 use linked_hash_map::LinkedHashMap;
@@ -353,11 +354,6 @@ impl SymbolTable {
                 self.init_from_task_def(ast, index, index_table, scope.clone())?;
             }
 
-            // Handle ordered and partially ordered subtasks in HTN planning
-            AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
-                self.init_from_subtask_def(ast, index, index_table, scope.clone())?;
-            }
-
             // Handle individual task references in HTN planning
             AstKind::Task => {
                 self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
@@ -366,6 +362,11 @@ impl SymbolTable {
             // Handle tagged tasks, which include additional metadata in HTN planning
             AstKind::TaggedTask => {
                 self.init_from_tagged_task(ast, index, index_table, scope.clone())?;
+            }
+
+            // Handle task ordering constraints in HTN planning
+            AstKind::TaskOrderingConstraint(_) => {
+                self.init_from_task_ordering_constraint(ast, index, index_table, scope.clone())?;
             }
 
             // Default case: If the AST node is not explicitly handled, process its children
@@ -1390,52 +1391,6 @@ impl SymbolTable {
         Ok(super_types)
     }
 
-    /// Initializes the symbol table from a subtask definition in the AST.
-    ///
-    /// This function processes ordered or partially ordered subtask definitions
-    /// by iterating over their child nodes and initializing them accordingly.
-    ///
-    /// # Arguments
-    /// * `ast` - A reference to the AST entry representing the subtask definition.
-    /// * `_index` - The index of the AST entry (not used in this function).
-    /// * `index_table` - A reference to the AST table containing all parsed nodes.
-    /// * `scope` - The scope in which the subtask symbols should be declared or used.
-    ///
-    /// # Returns
-    /// * `Result<(), ParserInternalError>` - Returns `Ok(())` if successful, or an error if the AST
-    ///  structure is unexpected.
-    fn init_from_subtask_def(
-        &mut self,
-        ast: &AstEntry,
-        _index: usize,
-        index_table: &AstTable,
-        scope: Scope,
-    ) -> Result<(), ParserInternalError> {
-        let children = ast.children();
-
-        // Ensure the AST node is a valid ordered or partially ordered subtask definition
-        Self::assert_ast_kind(
-            ast,
-            &[
-                AstKind::OrderedSubtaskDef,
-                AstKind::PartiallyOrderedSubtaskDef,
-            ],
-        )?;
-
-        // Ensure the subtask definition has exactly one child
-        Self::assert_ast_children_number(ast, 1, Comparator::Equal)?;
-        let subtasks = SymbolTable::get_ast_entry(children[0], index_table)?;
-        Self::assert_ast_kind(subtasks, &[AstKind::And])?;
-
-        // Iterate over subtask children and initialize them accordingly
-        for child_index in subtasks.children() {
-            let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
-            self.init_from(child, *child_index, index_table, scope.clone())?;
-        }
-
-        Ok(())
-    }
-
     /// Initializes the symbol table from a tagged task definition in the AST.
     ///
     /// This function processes a tagged task by extracting its identifier and associated task,
@@ -1473,6 +1428,29 @@ impl SymbolTable {
         Self::assert_ast_kind(task, &[AstKind::Task])?;
 
         self.init_from_atomic_formula(task, children[1], index_table, scope.clone())?;
+
+        Ok(())
+    }
+
+    fn init_from_task_ordering_constraint(
+        &mut self,
+        ast: &AstEntry,
+        _index: usize,
+        index_table: &AstTable,
+        scope: Scope,
+    ) -> Result<(), ParserInternalError> {
+        // Ensure the AST node is a tagged task
+        Self::assert_ast_kind(ast, &[AstKind::TaskOrderingConstraint(BinaryComp::Less)])?;
+        Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
+
+        let children = ast.children();
+        let t1 = SymbolTable::get_ast_entry(children[0], index_table)?;
+        Self::assert_ast_kind(t1, &[AstKind::TaskID(String::new())])?;
+        self.add_symbol_usage(t1, children[0], index_table, scope.clone())?;
+
+        let t2 = SymbolTable::get_ast_entry(children[1], index_table)?;
+        Self::assert_ast_kind(t2, &[AstKind::TaskID(String::new())])?;
+        self.add_symbol_usage(t2, children[1], index_table, scope.clone())?;
 
         Ok(())
     }

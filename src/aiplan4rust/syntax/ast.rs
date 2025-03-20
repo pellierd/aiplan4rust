@@ -480,9 +480,11 @@ pub enum AstKind {
     /// Represents a task ID to reference subtask in HDDL.
     TaskID(String),
     /// Represents a collection of task ordering constraints.
-    TaskNetworkOrderingConstraintDef,
+    TaskOrderingConstraintDef,
+    /// Represents a task ordering constraint in HDDL
+    TaskOrderingConstraint(BinaryComp),
     /// Represents a collection of logical constraints in HDDL.
-    TaskNetworkLogicalConstraintDef,
+    TaskLogicalConstraintDef,
     /// Represents a task network in HDDL.
     TaskNetworkDef,
     /// Represents the initial task network of the HDDL problem.
@@ -583,11 +585,14 @@ impl fmt::Display for AstKind {
             AstKind::OrderedSubtaskDef => write!(f, "OrderedSubtaskDef"),
             AstKind::PartiallyOrderedSubtaskDef => write!(f, "PartiallyOrderedSubtaskDef"),
             AstKind::TaskID(id) => write!(f, "TaskID(\"{}\")", id),
-            AstKind::TaskNetworkOrderingConstraintDef => {
-                write!(f, "TaskNetworkOrderingConstraintDef")
+            AstKind::TaskOrderingConstraintDef => {
+                write!(f, "TaskOrderingConstraintDef")
             }
-            AstKind::TaskNetworkLogicalConstraintDef => {
-                write!(f, "TaskNetworkLogicalConstraintDef")
+            AstKind::TaskOrderingConstraint(comparator) => {
+                write!(f, "TaskOrderingConstraint(\"{}\")", comparator)
+            }
+            AstKind::TaskLogicalConstraintDef => {
+                write!(f, "TaskLogicalConstraintDef")
             }
             AstKind::TaskNetworkDef => write!(f, "TaskNetworkDef"),
             AstKind::InitialTaskNetwork => write!(f, "InitialTaskNetwork"),

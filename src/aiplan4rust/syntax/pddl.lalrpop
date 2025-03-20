@@ -1561,22 +1561,25 @@ pub TaskNetworkdSubtaskDef: Box<Ast> = {
     },
 };
 
-
-pub SimpleTaskNetworkOrderingConstraint : Box<Ast> = {
+pub SimpleTaskOrderingConstraint : Box<Ast> = {
     <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
-        Box::new(Ast::new(AstKind::FComp(BinaryComp::Less), children, start, end))
+        Box::new(Ast::new(AstKind::TaskOrderingConstraint(BinaryComp::Less), children, start, end))
     },
 }
 
-pub TaskNetworkOrderingConstraint : Box<Ast> = {
-    <constraint:SimpleTaskNetworkOrderingConstraint> => constraint,
+pub TaskOrderingConstraint : Box<Ast> = {
+    <start:@L> <constraint:SimpleTaskOrderingConstraint> <end:@R> => {
+        let mut children = Vec::new();
+        children.push(constraint);
+        Box::new(Ast::new(AstKind::And, children, start, end))
+    },
     <start:@L> "(" ")" <end:@R> => {
             Box::new(Ast::new(AstKind::And, Vec::new(), start, end))
     },
-    <start:@L> "(" "and" <constraints:SimpleTaskNetworkOrderingConstraint+> ")" <end:@R> => {
+    <start:@L> "(" "and" <constraints:SimpleTaskOrderingConstraint+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
         Box::new(Ast::new(AstKind::And, children, start, end))
@@ -1584,19 +1587,19 @@ pub TaskNetworkOrderingConstraint : Box<Ast> = {
 }
 
 pub TaskNetworkOrderingConstraintDef : Box<Ast> = {
-    <start:@L> ":ordering" <constraint:TaskNetworkOrderingConstraint> <end:@R> => {
+    <start:@L> ":ordering" <constraints:TaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
-        children.push(constraint);
-        Box::new(Ast::new(AstKind::TaskNetworkOrderingConstraintDef, children, start, end))
+        children.push(constraints);
+        Box::new(Ast::new(AstKind::TaskOrderingConstraintDef, children, start, end))
     },
-     <start:@L> ":order" <constraint:TaskNetworkOrderingConstraint> <end:@R> => {
+     <start:@L> ":order" <constraints:TaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
-        children.push(constraint);
-        Box::new(Ast::new(AstKind::TaskNetworkOrderingConstraintDef, children, start, end))
+        children.push(constraints);
+        Box::new(Ast::new(AstKind::TaskOrderingConstraintDef, children, start, end))
     },
 }
 
-pub SimpleTaskNetworkLogicalConstraint : Box<Ast> = {
+pub SimpleTaskLogicalConstraint : Box<Ast> = {
     <start:@L>
         "(" "=" <t1:Term> <t2:Term> ")"
     <end:@R> => {
@@ -1607,12 +1610,12 @@ pub SimpleTaskNetworkLogicalConstraint : Box<Ast> = {
     },
 }
 
-pub TaskNetworkLogicalConstraint : Box<Ast> = {
+pub TaskLogicalConstraint : Box<Ast> = {
     <start:@L> "(" ")" <end:@R> => {
         Box::new(Ast::new(AstKind::And, Vec::new(), start, end))
     },
-    <constraint:SimpleTaskNetworkLogicalConstraint> => constraint,
-    <start:@L> "(" "not" <constraint:SimpleTaskNetworkLogicalConstraint> ")" <end:@R> => {
+    <constraint:SimpleTaskLogicalConstraint> => constraint,
+    <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
         Box::new(Ast::new(AstKind::Not, children, start, end))
@@ -1620,10 +1623,10 @@ pub TaskNetworkLogicalConstraint : Box<Ast> = {
 }
 
 pub TaskNetworkLogicalConstraintDef : Box<Ast> = {
-    <start:@L> ":constraints" <constraint:TaskNetworkLogicalConstraint> <end:@R> => {
+    <start:@L> ":constraints" <constraint:TaskLogicalConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(Ast::new(AstKind::TaskNetworkLogicalConstraintDef, children, start, end))
+        Box::new(Ast::new(AstKind::TaskLogicalConstraintDef, children, start, end))
     },
 }
 
