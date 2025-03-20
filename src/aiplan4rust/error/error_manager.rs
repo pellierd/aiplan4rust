@@ -148,7 +148,12 @@ impl ErrorManager {
     /// error_manager.display_all(); // Displays all sorted errors
     /// ```
     pub fn display_all(&self) {
-        for error in &self.errors {
+        let mut sorted_errors = self.errors.clone();
+
+        // Sort errors by line number, then by column number if line numbers are equal
+        sorted_errors.sort_by_key(|e| (e.line(), e.column()));
+
+        for error in sorted_errors {
             println!("{}", error);
         }
     }

@@ -139,8 +139,40 @@ impl ParsingError {
     /// # Returns
     /// Returns a reference to the `Kind` of this error (either `Kind::LexerError`,
     /// `Kind::ParseError`, or `Kind::ParseWarning`).
+
     pub fn kind(&self) -> &ParserErrorKind {
         &self.kind
+    }
+    /// Retrieves the file path where the error occurred, if available.
+    ///
+    /// # Returns
+    /// An `Option<&str>` containing the file path if provided, or `None` if no file path is available.
+    pub fn file_path(&self) -> Option<&str> {
+        self.file_path.as_deref()
+    }
+
+    /// Retrieves the line number where the error occurred.
+    ///
+    /// # Returns
+    /// A `usize` representing the line number in the source document.
+    pub fn line(&self) -> usize {
+        self.line
+    }
+
+    /// Retrieves the column number where the error occurred.
+    ///
+    /// # Returns
+    /// A `usize` representing the column number within the line.
+    pub fn column(&self) -> usize {
+        self.column
+    }
+
+    /// Retrieves the error message or description.
+    ///
+    /// # Returns
+    /// A reference to a `String` containing the error message.
+    pub fn content(&self) -> &str {
+        &self.content
     }
 }
 
