@@ -2,6 +2,7 @@ use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
+use crate::aiplan4rust::syntax::ast::Requirement;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::parser_result::ParserResult;
@@ -377,90 +378,94 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
-    /// Normalizes the requirements within an abstract syntax tree (AST) by removing duplicate
-    /// `Requirement` nodes. It ensures that only unique requirements are retained in the tree.
+    /// Identifies duplicate `Requirement` nodes within the given AST children.
     ///
-    /// This function modifies the provided `Ast` by removing duplicate requirements. If a duplicate
-    /// is found, a warning is printed, and the duplicate is removed. If any non-`Requirement` nodes
-    /// are encountered in the AST, a `ParserInternalError` is returned.
+    /// This function scans the list of AST nodes and tracks seen `Requirement`
+    /// nodes using a `HashSet`. If a requirement appears more than once, its
+    /// index is stored for later removal.
     ///
     /// # Arguments
-    /// * `ast` - A mutable reference to the `Ast` (Abstract Syntax Tree) to be modified. The AST
-    ///   should contain `Requirement` nodes, and this function will filter out any duplicate ones.
+    /// * `children` - A slice of `Ast` representing the AST's children.
+    ///
+    /// # Returns
+    /// A tuple containing:
+    /// - A `HashSet` of unique `Requirement` references.
+    /// - A `Vec<usize>` containing indices of duplicate `Requirement` nodes.
+    fn find_duplicate_requirements(children: &[Box<Ast>]) -> (HashSet<&Requirement>, Vec<usize>) {
+        let mut seen_requirements = HashSet::new();
+        let mut duplicates_indices = Vec::new();
+
+        for (index, child) in children.iter().enumerate() {
+            if let AstKind::Requirement(requirement) = child.kind() {
+                // If the requirement is already in the set, mark its index as a duplicate
+                if !seen_requirements.insert(requirement) {
+                    duplicates_indices.push(index);
+                }
+            }
+        }
+
+        (seen_requirements, duplicates_indices)
+    }
+
+    /// Normalizes the requirements within the given AST by removing duplicates.
+    ///
+    /// This function first identifies duplicate `Requirement` nodes using
+    /// `find_duplicate_requirements`, then removes them from the AST while logging
+    /// appropriate warnings.
+    ///
+    /// # Arguments
+    /// * `ast` - A mutable reference to the `Ast` to be modified.
     ///
     /// # Errors
-    /// This function returns a `ParserInternalError` if it encounters a non-`Requirement` node in the
-    /// `Ast`'s children.
+    /// Returns a `ParserInternalError` if any unexpected node type is encountered.
     ///
     /// # Example
     /// ```rust
-    /// let mut ast = Ast::new(); // Assume Ast is properly initialized with children
-    /// normalize_require_def(&mut ast)?;
+    /// let mut ast = Ast::new(); // Assume the AST is properly initialized
+    /// parser.normalize_require_def(&mut ast)?;
     /// ```
-    /// The function will modify `ast` by retaining only unique `Requirement` nodes and printing a
-    /// warning for any duplicates that are removed.
-    ///
-    /// # Notes
-    /// - The function uses a `HashSet` to track seen requirements and ensures that only the first
-    ///   occurrence of each requirement is kept.
-    /// - The `retain` method is used to filter out duplicate `Requirement` nodes in-place.
-    /// - If a non-`Requirement` node is encountered, a `ParserInternalError` is returned.
+    /// This modifies `ast` by retaining only unique `Requirement` nodes.
     fn normalize_require_def(&mut self, ast: &mut Ast) -> Result<(), ParserInternalError> {
-        let mut seen_requirements = HashSet::new();
         let children = ast.children_mut();
 
-        // Variable to handle errors
-        let mut encountered_error = None;
+        // Step 1: Identify duplicate requirements
+        let (_, duplicates_indices) = Self::find_duplicate_requirements(children);
 
-        // Filter duplicates using `retain`
-        children.retain(|child| {
-            match child.kind() {
-                AstKind::Requirement(requirement) => {
-                    if !seen_requirements.insert(requirement.clone()) {
-                        // Ensure `source` is not None before using `unwrap`
-                        if let Some(source) = &self.source {
-                            let (line, column) = self.get_position(child.start_offset(), source);
-                            let content = format!(
-                                "Duplicate declaration of requirement '{}' detected. Please ensure requirements are not repeated.",
-                                requirement.to_pddl_string()
-                            );
-                            let warning = ParsingError::new(
-                                ParserErrorKind::ParseWarning,
-                                self.filename.as_deref().map(|s| s.to_string()), // Using `as_deref()` to avoid unwrap
-                                line,
-                                column,
-                                content,
-                            );
-                            self.error_manager.add_error(warning);
-                            false // Ignore this duplicate requirement
-                        } else {
-                            // If `source` is None, return an error
-                            encountered_error = Some(ParserInternalError::new(
-                                "Source string is missing".to_string(),
-                            ));
-                            false
-                        }
-                    } else {
-                        true // Keep this requirement as it's not a duplicate
-                    }
-                }
-                _ => {
-                    let error_message = format!(
-                        "Unexpected child type found: Expected a requirement, found {:?}",
-                        child.kind()
-                    );
-                    encountered_error = Some(ParserInternalError::new(error_message));
-                    false
-                }
-            }
-        });
-
-        // Return the encountered error if it exists
-        if let Some(error) = encountered_error {
-            return Err(error);
+        // Step 2: Remove duplicates and log warnings
+        for &index in duplicates_indices.iter().rev() {
+            let duplicate = children.swap_remove(index); // Removes efficiently without shifting elements
+            self.log_duplicate_warning(&duplicate);
         }
 
         Ok(())
+    }
+
+    /// Logs a warning message for a duplicate `Requirement` node.
+    ///
+    /// This function extracts the `Requirement` from the given AST node,
+    /// determines its position in the source file, and adds a warning message
+    /// to the parser's error manager.
+    ///
+    /// # Arguments
+    /// * `duplicate` - A reference to the duplicate `Ast` to log.
+    fn log_duplicate_warning(&mut self, duplicate: &Ast) {
+        if let Some(source) = &self.source {
+            let (line, column) = self.get_position(duplicate.start_offset(), source);
+            if let AstKind::Requirement(requirement) = duplicate.kind() {
+                let content = format!(
+                    "Duplicate declaration of requirement '{}' detected. Please ensure requirements are not repeated.",
+                    requirement.to_pddl_string()
+                );
+                let warning = ParsingError::new(
+                    ParserErrorKind::ParseWarning,
+                    self.filename.as_deref().map(|s| s.to_string()),
+                    line,
+                    column,
+                    content,
+                );
+                self.error_manager.add_error(warning);
+            }
+        }
     }
 
     /// Normalizes a `TypedList` node in the Abstract Syntax Tree (AST).

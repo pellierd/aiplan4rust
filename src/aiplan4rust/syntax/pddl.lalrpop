@@ -1720,7 +1720,7 @@ pub HDDLRequirement : Box<Ast> = {
             Box::new(Ast::new(AstKind::Requirement(Requirement::Hierarchy), Vec::new(), start, end))
     },
     <start:@L> ":method-preconditions" <end:@R> => {
-        Box::new(Ast::new(AstKind::Requirement(Requirement::Hierarchy), Vec::new(), start, end))
+        Box::new(Ast::new(AstKind::Requirement(Requirement::MethodPreconditions), Vec::new(), start, end))
     },
 }
 
