@@ -1531,7 +1531,7 @@ pub SubtaskDef : Box<Ast> = {
     <start:@L> "(" ")" <end:@R> => {
         Box::new(Ast::new(AstKind::And, Vec::new(), start, end))
     },
-    <start:@L> "(" "and" <subtasks:Subtask+> ")" <end:@R> => {
+    <start:@L> "(" "and" <subtasks:Subtask*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(subtasks);
         Box::new(Ast::new(AstKind::And, children, start, end))
@@ -1579,7 +1579,7 @@ pub TaskOrderingConstraint : Box<Ast> = {
     <start:@L> "(" ")" <end:@R> => {
             Box::new(Ast::new(AstKind::And, Vec::new(), start, end))
     },
-    <start:@L> "(" "and" <constraints:SimpleTaskOrderingConstraint+> ")" <end:@R> => {
+    <start:@L> "(" "and" <constraints:SimpleTaskOrderingConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
         Box::new(Ast::new(AstKind::And, children, start, end))
@@ -1624,7 +1624,7 @@ pub TaskLogicalConstraint : Box<Ast> = {
         children.push(constraint);
         Box::new(Ast::new(AstKind::And, children, start, end))
     },
-    <start:@L> "(" "and" <constraints:SimpleTaskLogicalConstraint+> ")" <end:@R> => {
+    <start:@L> "(" "and" <constraints:SimpleTaskLogicalConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
         Box::new(Ast::new(AstKind::And, children, start, end))

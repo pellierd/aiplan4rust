@@ -228,7 +228,9 @@ impl Analyzer {
 
                 let declaration_found = symbol.declarations().iter().any(|declaration| {
                     usage_scope.starts_with(&declaration.scope())
-                        && declaration.kind() == usage.kind()
+                        && (declaration.kind() == usage.kind()
+                            || (*declaration.kind() == SymbolKind::Action
+                                && *usage.kind() == SymbolKind::Task))
                 });
 
                 // If no declaration is found, report an error for the undeclared symbol.
@@ -376,7 +378,7 @@ impl Analyzer {
         declaration: &Declaration,
         ast_table: &AstTable,
     ) -> Result<bool, ParserInternalError> {
-        // Skip if the declaration is of a built-in kind: Requirement, Action, or DASymbol.
+        // Skip if the declaration is of a built-in kind: Requirement, Action, DASymbol or Method
         if matches!(
             declaration.kind(),
             SymbolKind::DomainName
@@ -414,7 +416,7 @@ impl Analyzer {
                 || declaration
                     .scope()
                     .contains_ast_of_kind(AstKind::AtomicFunctionSkeleton, ast_table)?
-                || declaration
+                || declaration // Add for HDDL
                     .scope()
                     .contains_ast_of_kind(AstKind::TaskDef, ast_table)?)
         {
