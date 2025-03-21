@@ -1660,7 +1660,7 @@ pub TaskNetworkDef : Box<Ast> = {
 }
 
 pub MethodPreconditionDef: Box<Ast> = {
-    <start:@L> ":precondition" <gd:GD> <end:@R> => {
+    <start:@L> ":precondition" <gd:EmptyOr<GD>> <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
         Box::new(Ast::new(AstKind::MethodPreconditionDef, children, start, end))
