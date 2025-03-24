@@ -177,11 +177,14 @@ impl Linker {
         for symbol in problem_symbol_table.values() {
             if symbol.declarations().is_empty() {
                 for usage in symbol.usages() {
-                    if let domain_declaration = domain_symbol_table.get_declarations_by_filter(
-                        Some(symbol.name().as_str()),
-                        Some(usage.kind()),
-                        None,
-                    )[0]
+                    if let Some(domain_declaration) = domain_symbol_table
+                        .get_declarations_by_filter(
+                            Some(symbol.name().as_str()),
+                            Some(usage.kind()),
+                            None,
+                        )
+                        .into_iter()
+                        .next()
                     {
                         let mut domain_declaration = domain_declaration.clone();
                         domain_declaration.set_source(Source::Domain);
