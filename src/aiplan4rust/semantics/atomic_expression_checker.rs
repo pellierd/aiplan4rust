@@ -308,27 +308,22 @@ impl<'a> AtomicExpressionChecker<'a> {
                     Some(scope),
                 );
 
-                if declarations.is_empty() {
-                    return Err(ParserInternalError::new(format!(
-                        "No declaration found for symbol '{}'.",
-                        current_type
-                    )));
-                }
+                if !declarations.is_empty() {
+                    if declarations.len() > 1 {
+                        return Err(ParserInternalError::new(format!(
+                            "Expected exactly one declaration for symbol '{}', but found {} declarations.",
+                            current_type,
+                            declarations.len()
+                        )));
+                    }
 
-                if declarations.len() > 1 {
-                    return Err(ParserInternalError::new(format!(
-                        "Expected exactly one declaration for symbol '{}', but found {} declarations.",
-                        current_type,
-                        declarations.len()
-                    )));
-                }
+                    let ty_symbol = declarations[0];
 
-                let ty_symbol = declarations[0];
-
-                // Retrieve the symbols corresponding to the type
-                if let Some(s_types) = ty_symbol.types() {
-                    // Dereference s_types to get the actual HashSet<String> and extend the stack
-                    to_visit.extend(s_types.iter());
+                    // Retrieve the symbols corresponding to the type
+                    if let Some(s_types) = ty_symbol.types() {
+                        // Dereference s_types to get the actual HashSet<String> and extend the stack
+                        to_visit.extend(s_types.iter());
+                    }
                 }
             }
         }

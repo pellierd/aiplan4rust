@@ -483,11 +483,15 @@ impl SymbolTable {
                 AstKind::Variable(String::new()),
                 AstKind::AtomicFormula,
                 AstKind::FunctionTerm,
+                AstKind::Task,
             ],
         )?;
 
         // Handle specific cases for AtomicFormula and FunctionTerm, which need to have a child.
-        if matches!(ast.kind(), AstKind::AtomicFormula | AstKind::FunctionTerm) {
+        if matches!(
+            ast.kind(),
+            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+        ) {
             Self::assert_ast_children_number(ast, 1, Comparator::GreaterEq)?;
         }
 
@@ -509,25 +513,66 @@ impl SymbolTable {
 
     /// Extracts the symbol name and its corresponding symbol kind from the AST.
     ///
-    /// This function processes different types of AST nodes, extracting relevant
-    /// information about the symbol represented by the node (e.g., its name and kind).
-    /// If the AST node type is unexpected or has invalid children, it returns an error.
+    /// This function processes various AST node types, extracting relevant information about the
+    /// symbol represented by the node (e.g., its name and kind). It supports different symbol
+    /// categories, including domain and problem elements, function and predicate symbols, task and
+    /// method symbols, and special cases such as `AtomicFormula` and `FunctionTerm`.
+    ///
+    /// If the AST node type is unexpected or has an invalid structure, the function
+    /// returns an error.
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to a boxed `Ast` object representing the AST node.
+    /// * `ast` - A reference to an `AstEntry` representing the AST node.
+    /// * `index_table` - A reference to an `AstTable` used for resolving child nodes.
     ///
     /// # Returns
     ///
     /// * `Ok((String, SymbolKind))` - A tuple containing the symbol name and its kind.
-    /// * `Err(ParserInternalError)` - If the AST node kind is unrecognized or has invalid structure.
+    /// * `Err(ParserInternalError)` - If the AST node kind is unrecognized or has an invalid
+    ///   structure.
+    ///
+    /// # Supported AST Node Kinds
+    ///
+    /// The function handles the following AST node types:
+    ///
+    /// - **Basic Symbol Types:**
+    ///   - `DomainName` → `SymbolKind::DomainName`
+    ///   - `PrimitiveType` → `SymbolKind::PrimitiveType`
+    ///   - `ProblemName` → `SymbolKind::ProblemName`
+    ///   - `Requirement` → `SymbolKind::Requirement`
+    ///   - `Constant` → `SymbolKind::Constant`
+    ///   - `Variable` → `SymbolKind::Variable`
+    ///   - `FunctionSymbol` → `SymbolKind::Function`
+    ///   - `Predicate` → `SymbolKind::Predicate`
+    ///   - `ActionSymbol` → `SymbolKind::Action`
+    ///   - `DASymbol` → `SymbolKind::DASymbol`
+    ///
+    /// - **Hierarchical Task Network (HTN) and HDDL Support:**
+    ///   - `MethodSymbol` → `SymbolKind::Method`
+    ///   - `TaskSymbol` → `SymbolKind::Task`
+    ///   - `TaskID` → `SymbolKind::TaskID`
+    ///
+    /// - **Structured Symbols (Handled via First Child Resolution):**
+    ///   - `AtomicFormula`
+    ///   - `FunctionTerm`
+    ///   - `Task`
+    ///
+    ///   These require a valid first child, which must be one of:
+    ///   - `Predicate` → `SymbolKind::Predicate`
+    ///   - `FunctionSymbol` → `SymbolKind::Function`
+    ///   - `TaskSymbol` → `SymbolKind::Task`
+    ///   - `TotalTime` (Special case, treated as `SymbolKind::Function`)
     ///
     /// # Errors
     ///
-    /// Returns a `ParserInternalError` if:
-    /// * The AST node is of an unsupported type.
-    /// * A `FunctionTerm` or `AtomicFormula` has an unexpected first child.
-    /// * The AST node type has no children when they are expected.
+    /// The function returns a `ParserInternalError` in the following cases:
+    ///
+    /// * The AST node type is unrecognized.
+    /// * An `AtomicFormula`, `FunctionTerm`, or `Task` node has no children when they are expected.
+    /// * The first child of an `AtomicFormula`, `FunctionTerm`, or `Task` is not a `Predicate`,
+    /// `FunctionSymbol`, or `TaskSymbol`.
+
     fn extract_symbol(
         ast: &AstEntry,
         index_table: &AstTable,
@@ -553,7 +598,7 @@ impl SymbolTable {
             AstKind::TaskID(name) => Ok((name.to_string(), SymbolKind::TaskID)),
 
             // Special case for AtomicFormula and FunctionTerm: handle their children
-            AstKind::AtomicFormula | AstKind::FunctionTerm => {
+            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task => {
                 let children = ast.children();
                 if children.is_empty() {
                     return Err(ParserInternalError::new(format!(
@@ -565,6 +610,7 @@ impl SymbolTable {
                 match first_child.kind() {
                     AstKind::Predicate(s) => Ok((s.to_string(), SymbolKind::Predicate)),
                     AstKind::FunctionSymbol(s) => Ok((s.to_string(), SymbolKind::Function)),
+                    AstKind::TaskSymbol(s) => Ok((s.to_string(), SymbolKind::Task)),
                     // Deal special TotalTime symbol as a classical function symbol
                     AstKind::TotalTime => Ok((TOTAL_TIME.to_string(), SymbolKind::Function)),
                     // Error if the first child is not a Predicate or FunctionSymbol
@@ -1067,7 +1113,7 @@ impl SymbolTable {
     fn init_from_atomic_formula(
         &mut self,
         ast: &AstEntry,
-        _index: usize,
+        index: usize,
         index_table: &AstTable,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -1081,12 +1127,10 @@ impl SymbolTable {
         Self::assert_ast_children_number(ast, 1, Comparator::GreaterEq)?;
 
         // Retrieve and register the first child (symbol)
-        let first_child_index = ast.children()[0];
-        let symbol = SymbolTable::get_ast_entry(first_child_index, index_table)?;
-        self.add_symbol_usage(symbol, first_child_index, index_table, scope.clone())?;
+        self.add_symbol_usage(ast, index, index_table, scope.clone())?;
 
         // Process the remaining children (arguments)
-        for child_index in &ast.children()[1..] {
+        for child_index in ast.children() {
             let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
             self.init_from(child, *child_index, index_table, scope.clone())?;
         }
@@ -1432,6 +1476,44 @@ impl SymbolTable {
         Ok(())
     }
 
+    /// Initializes a task ordering constraint from the given AST node.
+    ///
+    /// This function processes an `AstEntry` representing a task ordering constraint,
+    /// ensuring its validity and extracting the referenced task identifiers. It verifies
+    /// that the AST node is correctly structured and that it contains exactly two child
+    /// nodes representing ordered tasks.
+    ///
+    /// # Arguments
+    ///
+    /// * `ast` - A reference to an `AstEntry` representing the task ordering constraint.
+    /// * `_index` - An unused index parameter.
+    /// * `index_table` - A reference to an `AstTable` used for resolving AST entries.
+    /// * `scope` - The current `Scope` used for symbol tracking.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - If the task ordering constraint is correctly initialized.
+    /// * `Err(ParserInternalError)` - If the AST node has an invalid structure or unexpected child
+    ///   types.
+    ///
+    /// # Behavior
+    ///
+    /// 1. **Validation Checks:**
+    ///    - Ensures that the AST node is of type `TaskOrderingConstraint(BinaryComp::Less)`.
+    ///    - Ensures that the AST node has exactly **two children** (representing tasks).
+    ///
+    /// 2. **Extracting Task Identifiers:**
+    ///    - Retrieves the first child and verifies it is of type `TaskID(String)`.
+    ///    - Registers its usage in the symbol table.
+    ///    - Retrieves the second child and verifies it is also of type `TaskID(String)`.
+    ///    - Registers its usage in the symbol table.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `ParserInternalError` if:
+    /// - The AST node is not of kind `TaskOrderingConstraint(BinaryComp::Less)`.
+    /// - The AST node does not have exactly two children.
+    /// - Either child is not of kind `TaskID(String)`.
     fn init_from_task_ordering_constraint(
         &mut self,
         ast: &AstEntry,
