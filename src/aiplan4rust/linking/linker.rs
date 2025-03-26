@@ -37,6 +37,7 @@ impl Linker {
         println!("Domain and problem linking");
 
         // TO DO: Vérifier la consistence des requirements déclarés dans le problem et dans le domaine
+        // et vérifier ici qu''ils ne sont pas contradictoires
         self.check_domain_name_declaration(domain, problem)?;
 
         let mut problem = problem.clone();
@@ -235,6 +236,8 @@ impl Linker {
         }
     }
 
+    // TO DO: Il faudrait mutualiser avec celle de l'analyser la seul diffréence est l'appel à
+    // check_problem_atomic_expression
     pub fn check_atomic_formula_usages(
         &mut self,
         symbol_table: &SymbolTable,
@@ -251,7 +254,8 @@ impl Linker {
             for declaration in symbol.declarations() {
                 if !matches!(
                     declaration.kind(),
-                    SymbolKind::Predicate | SymbolKind::Function
+                    SymbolKind::Predicate | SymbolKind::Function | SymbolKind::Task // Add to check compound task in HTN
+                        | SymbolKind::Action // Add to check primitive task in HTN
                 ) {
                     continue;
                 }
@@ -265,10 +269,9 @@ impl Linker {
                         let entry = ast_table.get_entry(usage.ast()).unwrap();
                         let (line, column) = entry.span().start_position();
                         let content = format!(
-                            "Predicate or function '{}' used at line {} column {} does not match any declaration.",
-                            symbol.name(),
-                            line,
-                            column
+                            "{} '{}' does not match any declaration.",
+                            usage.kind(),
+                            symbol.name()
                         );
                         let error = ParsingError::new(
                             ParserErrorKind::ParseError, // Use a different error kind if needed
