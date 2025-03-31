@@ -224,7 +224,7 @@ impl<'a> AtomicExpressionChecker<'a> {
     /// `true` if there is at least one type in `ty2` that is compatible with any type in `ty1`
     /// based on type closure, `false` otherwise.
     ///
-    fn match_type(
+    pub fn match_type(
         ty1: &Vec<String>,
         ty2: &Vec<String>,
         symbol_table: &SymbolTable,

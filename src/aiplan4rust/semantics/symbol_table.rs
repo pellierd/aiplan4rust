@@ -248,6 +248,97 @@ impl SymbolTable {
         result
     }
 
+    pub fn get_declaration_by_index(&self, index: usize) -> Option<&Declaration> {
+        for symbol in self.symbols.values() {
+            for declaration in symbol.declarations() {
+                if declaration.ast() == index {
+                    return Some(declaration);
+                }
+            }
+        }
+        None
+    }
+    pub fn get_usage_by_index(&self, index: usize) -> Option<&Usage> {
+        for symbol in self.symbols.values() {
+            for usage in symbol.usages() {
+                if usage.ast() == index {
+                    return Some(usage);
+                }
+            }
+        }
+        None
+    }
+
+    /// Retrieves the declarations associated with a specific usage index.
+    ///
+    /// This function searches through the symbols and their usages to find any
+    /// usages that match the given `index`. If a matching usage is found, it then
+    /// checks the associated declarations and returns them if their scopes match.
+    /// The result is wrapped in an `Option` to differentiate between a missing usage
+    /// and the case where matching declarations are found.
+    ///
+    /// # Parameters
+    /// - `index`: The index of the usage to search for.
+    ///
+    /// # Returns
+    /// - `Some(Vec<&Declaration>)`: A vector containing the declarations that match
+    ///   the given usage index and scope.
+    /// - `None`: If no matching usage is found for the provided index, or if no
+    ///   declarations are found that match the usage's scope.
+    ///
+    /// # Example
+    /// ```rust
+    /// let result = get_declaration_by_usage(42);
+    /// match result {
+    ///     Some(declarations) => {
+    ///         for declaration in declarations {
+    ///             // Handle each declaration
+    ///         }
+    ///     },
+    ///     None => {
+    ///         // Handle the case where no matching usage was found
+    ///         println!("No usage found for index 42.");
+    ///     }
+    /// }
+    /// ```
+    pub fn get_declaration_by_usage(
+        &self,
+        index: usize,
+    ) -> Result<Vec<&Declaration>, ParserInternalError> {
+        let mut result = Vec::new();
+        let mut index_found = false; // Flag to track if the index exists in usages
+
+        // Iterate through each symbol in the symbols map
+        for symbol in self.symbols.values() {
+            // Iterate through the usages of the current symbol
+            for usage in symbol.usages() {
+                // If a usage matches the provided index
+                if usage.ast() == index {
+                    index_found = true; // Mark that we found the index
+
+                    // Search through the declarations of the current symbol
+                    for declaration in symbol.declarations() {
+                        // Check if the scope of the declaration matches the usage
+                        if usage.scope().starts_with(declaration.scope()) {
+                            result.push(declaration);
+                        }
+                    }
+
+                    // If we found matching declarations, return them immediately
+                    if !result.is_empty() {
+                        return Ok(result);
+                    }
+                }
+            }
+        }
+
+        // If the index was never found in usages, return an error
+        Err(ParserInternalError::new(format!(
+            "AST index {} not found in symbol table usages.",
+            index
+        )))
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // From this point the code is dedicated to the initialization of the symbol table from an AST
     ///////////////////////////////////////////////////////////////////////////////////////////////

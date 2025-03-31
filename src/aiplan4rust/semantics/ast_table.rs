@@ -1,6 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, Requirement};
 use crate::aiplan4rust::syntax::span::Span;
+use linked_hash_map::IntoIter;
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
 
@@ -102,11 +103,6 @@ impl AstTable {
         self.map.contains_key(&id)
     }
 
-    // Méthode pour obtenir tous les noeuds de la table sous forme d'itérateur
-    pub fn iter(&self) -> impl Iterator<Item = (&usize, &AstEntry)> {
-        self.map.iter()
-    }
-
     // Méthode pour ajouter un nouveau noeud à la table
     pub fn add_requirement(&mut self, requirement: Requirement) {
         self.requirements.insert(requirement);
@@ -114,6 +110,88 @@ impl AstTable {
 
     pub fn requirements(&self) -> &HashSet<Requirement> {
         &self.requirements
+    }
+
+    /// Returns an iterator over the elements of the `AstTable`.
+    ///
+    /// The iterator yields pairs of `(key, value)`, where `key` is a `usize`
+    /// and `value` is an `AstEntry`. The elements are borrowed immutably.
+    ///
+    /// # Example
+    /// ```
+    /// for (key, ast_entry) in ast_table.iter() {
+    ///     println!("{key}: {:?}", ast_entry);
+    /// }
+    /// ```
+    pub fn iter(&self) -> impl Iterator<Item = (&usize, &AstEntry)> {
+        self.map.iter()
+    }
+
+    /// Returns a mutable iterator over the elements of the `AstTable`.
+    ///
+    /// The iterator yields pairs of `(key, value)`, where `key` is a `usize`
+    /// and `value` is a mutable reference to an `AstEntry`. This allows
+    /// modifications of the values during iteration.
+    ///
+    /// # Example
+    /// ```
+    /// for (key, ast_entry) in ast_table.iter_mut() {
+    ///     ast_entry.some_field = new_value;
+    /// }
+    /// ```
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut AstEntry)> {
+        self.map.iter_mut()
+    }
+    /// Returns an immutable iterator over the keys of the `AstTable`.
+    ///
+    /// The iterator yields immutable references to the keys (`usize`).
+    /// This allows for read-only access to the keys without consuming the structure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// for key in ast_table.keys() {
+    ///     println!("{key}");
+    /// }
+    /// ```
+    pub fn keys(&self) -> impl Iterator<Item = &usize> {
+        self.map.keys()
+    }
+
+    /// Returns an immutable iterator over the values of the `AstTable`.
+    ///
+    /// The iterator yields immutable references to the values (`AstEntry`).
+    /// This allows for read-only access to the values without consuming the structure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// for value in ast_table.values() {
+    ///     println!("{:?}", value);
+    /// }
+    /// ```
+    pub fn values(&self) -> impl Iterator<Item = &AstEntry> {
+        self.map.values()
+    }
+}
+
+impl IntoIterator for AstTable {
+    type Item = (usize, AstEntry);
+    type IntoIter = IntoIter<usize, AstEntry>;
+
+    /// Consumes the `AstTable` and returns an iterator over its elements.
+    ///
+    /// The iterator yields owned `(key, value)` pairs, consuming the `AstTable` in the process.
+    /// This means that the original `AstTable` will no longer be accessible after calling this method.
+    ///
+    /// # Example
+    /// ```
+    /// for (key, ast_entry) in ast_table {
+    ///     println!("{key}: {:?}", ast_entry);
+    /// }
+    /// ```
+    fn into_iter(self) -> Self::IntoIter {
+        self.map.into_iter()
     }
 }
 

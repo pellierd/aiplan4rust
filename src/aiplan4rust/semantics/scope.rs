@@ -23,6 +23,10 @@ impl Scope {
         scope
     }
 
+    pub fn root_scope() -> Self {
+        Scope::new(0, None)
+    }
+
     /// Returns `true` if `self` starts with the given `prefix` scope.
     pub fn starts_with(&self, prefix: &Scope) -> bool {
         self.stack.starts_with(&prefix.stack)
