@@ -23,7 +23,7 @@ impl Scope {
         scope
     }
 
-    pub fn root_scope() -> Self {
+    pub fn root() -> Self {
         Scope::new(0, None)
     }
 

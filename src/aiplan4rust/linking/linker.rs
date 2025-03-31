@@ -7,9 +7,9 @@ use crate::aiplan4rust::semantics::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };
 use crate::aiplan4rust::semantics::ast_table::AstTable;
-use crate::aiplan4rust::semantics::atomic_expression_checker::AtomicExpressionChecker;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Source, SymbolKind, Usage};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantics::type_checker::TypeChecker;
 use std::mem;
 use std::mem::take;
 
@@ -236,7 +236,7 @@ impl Linker {
         }
     }
 
-    // TO DO: Il faudrait mutualiser avec celle de l'analyser la seul diffréence est l'appel à
+    // TO DO: Il faudrait mutualiser avec celle de l'analyser à
     // check_problem_atomic_expression
     pub fn check_atomic_formula_usages(
         &mut self,
@@ -248,7 +248,7 @@ impl Linker {
         let mut no_error = true;
         // Iterate over each symbol in the symbol table.
         println!("{}", ast_table);
-        let atomic_expression_checker = AtomicExpressionChecker::new(symbol_table, ast_table);
+        let atomic_expression_checker = TypeChecker::new(domain_symbol_table);
 
         for symbol in symbol_table.values() {
             for declaration in symbol.declarations() {
@@ -260,10 +260,11 @@ impl Linker {
                     continue;
                 }
                 for usage in symbol.usages() {
-                    if !atomic_expression_checker.check_problem_atomic_expression(
+                    if !atomic_expression_checker.match_declaration_with_usage(
                         declaration,
                         usage,
-                        domain_symbol_table,
+                        symbol_table,
+                        ast_table,
                     )? {
                         no_error = false;
                         let entry = ast_table.get_entry(usage.ast()).unwrap();

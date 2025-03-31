@@ -6,11 +6,11 @@ use crate::aiplan4rust::semantics::analyser_result::AnalyzerResult;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantics::ast_table::AstEntry;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
-use crate::aiplan4rust::semantics::atomic_expression_checker::AtomicExpressionChecker;
 use crate::aiplan4rust::semantics::scope::Scope;
 use crate::aiplan4rust::semantics::symbol::Usage;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Symbol, SymbolKind};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantics::type_checker::TypeChecker;
 use crate::aiplan4rust::syntax::ast::AssignOp;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::BinaryComp;
@@ -611,7 +611,7 @@ impl Analyzer {
     ) -> Result<bool, ParserInternalError> {
         let mut no_error = true;
 
-        let atomic_expression_checker = AtomicExpressionChecker::new(symbol_table, ast_table);
+        let type_checker = TypeChecker::new(symbol_table);
 
         // Iterate over each symbol in the symbol table.
 
@@ -627,9 +627,12 @@ impl Analyzer {
                     continue;
                 }
                 for usage in symbol.usages() {
-                    if !atomic_expression_checker
-                        .check_domain_atomic_expression(declaration, usage)?
-                    {
+                    if !type_checker.match_declaration_with_usage(
+                        declaration,
+                        usage,
+                        symbol_table,
+                        ast_table,
+                    )? {
                         no_error = false;
                         let entry = ast_table.get_entry(usage.ast()).unwrap();
                         let (line, column) = entry.span().start_position();
@@ -831,7 +834,7 @@ impl Analyzer {
     ) -> Result<bool, ParserInternalError> {
         let mut no_error = true;
 
-        let type_checker = AtomicExpressionChecker::new(symbol_table, ast_table);
+        let type_checker = TypeChecker::new(symbol_table);
 
         for ast in ast_table.values() {
             match ast.kind() {
@@ -841,8 +844,13 @@ impl Analyzer {
                         Self::get_binary_operation_types(ast, symbol_table, ast_table)?;
 
                     // Call check_equal_and_assign function to handle this case
-                    no_error &=
-                        self.check_equal_and_assignment_expression(ast, symbol_table, &ty1, &ty2)?;
+                    no_error &= self.check_equal_and_assignment_expression(
+                        ast,
+                        symbol_table,
+                        &ty1,
+                        &ty2,
+                        ast_table,
+                    )?;
                 }
 
                 // Case for other comparison and assignment operations (Greater, Less, ScaleUp, etc.)
@@ -899,13 +907,15 @@ impl Analyzer {
     fn check_equal_and_assignment_expression(
         &mut self,
         ast: &AstEntry,
-        symbol_table: &SymbolTable,
+        domain_symbol_table: &SymbolTable,
         ty1: &Vec<String>,
         ty2: &Vec<String>,
+        ast_table: &AstTable,
     ) -> Result<bool, ParserInternalError> {
         let mut no_error = true;
 
-        if !AtomicExpressionChecker::match_type(ty1, ty2, symbol_table, &Scope::root_scope())? {
+        let type_checker = TypeChecker::new(domain_symbol_table);
+        if !type_checker.match_type(ty1, ty2)? {
             no_error = false;
             let (line, column) = ast.span().start_position();
             let content = format!("Type incompatibility in expression {}: ", ast);
