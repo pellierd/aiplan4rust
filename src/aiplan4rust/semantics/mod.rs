@@ -13,3 +13,4 @@ pub mod symbol_table;
 pub mod type_checker;
 pub mod typed_symbol;
 pub mod undeclared_symbol_checker;
+mod unused_symbol_checker;
