@@ -6,7 +6,7 @@ use crate::aiplan4rust::linking::linker_result::LinkerResult;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };
-use crate::aiplan4rust::semantics::ast_table::AstTable;
+use crate::aiplan4rust::semantics::atomic_formula_checker::AtomicFormulaChecker;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Source, SymbolKind, Usage};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantics::type_checker::TypeChecker;
@@ -48,12 +48,8 @@ impl Linker {
                 problem.symbol_table()
             );
 
-            self.check_atomic_formula_usages(
-                problem.symbol_table(),
-                domain.symbol_table(),
-                problem.ast(),
-                problem.filename(),
-            )?;
+            let type_checker = TypeChecker::new(&domain.symbol_table());
+            AtomicFormulaChecker::check(&problem, &type_checker, &mut self.error_manager)?;
         }
 
         // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs
@@ -234,58 +230,5 @@ impl Linker {
             );
             self.error_manager.add_error(error);
         }
-    }
-
-    // TO DO: Il faudrait mutualiser avec celle de l'analyser à
-    // check_problem_atomic_expression
-    pub fn check_atomic_formula_usages(
-        &mut self,
-        symbol_table: &SymbolTable,
-        domain_symbol_table: &SymbolTable,
-        ast_table: &AstTable,
-        filename: &String,
-    ) -> Result<bool, ParserInternalError> {
-        let mut no_error = true;
-        // Iterate over each symbol in the symbol table.
-        println!("{}", ast_table);
-        let atomic_expression_checker = TypeChecker::new(domain_symbol_table);
-
-        for symbol in symbol_table.values() {
-            for declaration in symbol.declarations() {
-                if !matches!(
-                    declaration.kind(),
-                    SymbolKind::Predicate | SymbolKind::Function | SymbolKind::Task // Add to check compound task in HTN
-                        | SymbolKind::Action // Add to check primitive task in HTN
-                ) {
-                    continue;
-                }
-                for usage in symbol.usages() {
-                    if !atomic_expression_checker.match_declaration_with_usage(
-                        declaration,
-                        usage,
-                        symbol_table,
-                        ast_table,
-                    )? {
-                        no_error = false;
-                        let entry = ast_table.get_entry(usage.ast()).unwrap();
-                        let (line, column) = entry.span().start_position();
-                        let content = format!(
-                            "{} '{}' does not match any declaration.",
-                            usage.kind(),
-                            symbol.name()
-                        );
-                        let error = ParsingError::new(
-                            ParserErrorKind::ParseError, // Use a different error kind if needed
-                            Some(filename.clone()),
-                            line,
-                            column,
-                            content,
-                        );
-                        self.error_manager.add_error(error);
-                    }
-                }
-            }
-        }
-        Ok(no_error)
     }
 }

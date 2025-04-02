@@ -577,7 +577,7 @@ impl fmt::Display for Usage {
 ///
 /// ```rust
 /// let mut symbol = Symbol::new("exampleSymbol");
-/// symbol.add_declaration(declaration);
+/// symbol.add_ (declaration);
 /// symbol.add_usage(usage);
 /// println!("{}", symbol);
 /// ```
