@@ -3,9 +3,9 @@ use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
+use crate::aiplan4rust::semantics::checkers::TypeChecker;
 use crate::aiplan4rust::semantics::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantics::type_checker::TypeChecker;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// A struct responsible for checking atomic formulas in the context of an annotated syntax tree.

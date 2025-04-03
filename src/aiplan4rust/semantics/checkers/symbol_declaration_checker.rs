@@ -6,9 +6,9 @@ use crate::aiplan4rust::semantics::scope::Scope;
 use crate::aiplan4rust::semantics::symbol::{Declaration, SymbolKind};
 use std::collections::HashSet;
 
-pub struct DeclarationChecker;
+pub struct SymbolDeclarationChecker;
 
-impl DeclarationChecker {
+impl SymbolDeclarationChecker {
     /// Checks for duplicate symbol declarations in the symbol table and logs errors
     /// to the error manager if duplicates are found.
     ///

@@ -6,10 +6,10 @@ use crate::aiplan4rust::linking::linker_result::LinkerResult;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };
-use crate::aiplan4rust::semantics::atomic_formula_checker::AtomicFormulaChecker;
+use crate::aiplan4rust::semantics::checkers::AtomicFormulaChecker;
+use crate::aiplan4rust::semantics::checkers::TypeChecker;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Source, SymbolKind, Usage};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantics::type_checker::TypeChecker;
 use std::mem;
 use std::mem::take;
 

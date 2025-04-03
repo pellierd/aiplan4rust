@@ -4,14 +4,13 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::analyser_result::AnalyzerResult;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
-use crate::aiplan4rust::semantics::atomic_formula_checker::AtomicFormulaChecker;
-use crate::aiplan4rust::semantics::functional_expression_checker::FunctionalExpressionChecker;
+use crate::aiplan4rust::semantics::checkers::FunctionalExpressionChecker;
+use crate::aiplan4rust::semantics::checkers::TypeChecker;
+use crate::aiplan4rust::semantics::checkers::UndeclaredSymbolChecker;
+use crate::aiplan4rust::semantics::checkers::UnusedSymbolChecker;
+use crate::aiplan4rust::semantics::checkers::{AtomicFormulaChecker, SymbolDeclarationChecker};
 use crate::aiplan4rust::semantics::symbol::SymbolKind;
-use crate::aiplan4rust::semantics::symbol_declaration_checker::DeclarationChecker;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantics::type_checker::TypeChecker;
-use crate::aiplan4rust::semantics::undeclared_symbol_checker::UndeclaredSymbolChecker;
-use crate::aiplan4rust::semantics::unused_symbol_checker::UnusedSymbolChecker;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::syntax_tree::SyntaxTree;
 use std::mem;
@@ -60,7 +59,7 @@ impl Analyzer {
 
         match ast.kind() {
             AstKind::Domain => {
-                if DeclarationChecker::check(&annotated_syntax_tree, &mut self.error_manager)?
+                if SymbolDeclarationChecker::check(&annotated_syntax_tree, &mut self.error_manager)?
                     && UndeclaredSymbolChecker::check(
                         &annotated_syntax_tree,
                         &[],
@@ -91,7 +90,7 @@ impl Analyzer {
                 )?;
             }
             AstKind::Problem => {
-                DeclarationChecker::check(&annotated_syntax_tree, &mut self.error_manager)?;
+                SymbolDeclarationChecker::check(&annotated_syntax_tree, &mut self.error_manager)?;
 
                 // Vérification des symboles non déclarés
                 let skip_symbols = &[
