@@ -1,6 +1,8 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{Ast, AstKind, Requirement};
+use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::span::Span;
+use crate::aiplan4rust::syntax::tree::ParsedNode;
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::IntoIter;
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
@@ -17,7 +19,7 @@ pub struct AstTable {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AstEntry {
-    kind: AstKind,
+    kind: SyntaxNodeKind,
     span: Span,
     children: Vec<usize>,
 }
@@ -33,8 +35,8 @@ impl AstTable {
     pub fn source(&self) -> Source {
         if let Some(first_node) = self.map.values().next() {
             match first_node.kind() {
-                AstKind::Domain => Source::Domain,
-                AstKind::Problem => Source::Problem,
+                SyntaxNodeKind::Domain => Source::Domain,
+                SyntaxNodeKind::Problem => Source::Problem,
                 _ => Source::Unknown,
             }
         } else {
@@ -42,10 +44,10 @@ impl AstTable {
         }
     }
 
-    pub fn from(ast: &Ast) -> Result<AstTable, ParserInternalError> {
+    pub fn from(ast: &ParsedNode) -> Result<AstTable, ParserInternalError> {
         // Vérification du type de l'AST
         match ast.kind() {
-            AstKind::Domain | AstKind::Problem => {
+            SyntaxNodeKind::Domain | SyntaxNodeKind::Problem => {
                 let index_table = ast.to_hash_map();
                 let mut ast_table = AstTable::new();
                 let mut next_index = 0;
@@ -59,13 +61,13 @@ impl AstTable {
     }
 
     fn from_rec(
-        ast: &Ast,
-        index_table: &HashMap<&Ast, usize>,
+        ast: &ParsedNode,
+        index_table: &HashMap<&ParsedNode, usize>,
         ast_table: &mut AstTable,
         next_index: &mut usize,
     ) -> Result<(), ParserInternalError> {
         let entry = AstEntry::from(ast, index_table)?;
-        if let AstKind::Requirement(req) = entry.kind() {
+        if let SyntaxNodeKind::Requirement(req) = entry.kind() {
             ast_table.add_requirement(req.clone());
         }
         ast_table.insert(*next_index, entry);
@@ -80,7 +82,7 @@ impl AstTable {
     }
 
     // Vérifie si un AstKind spécifique existe déjà dans la table
-    pub fn contains_kind(&self, kind: AstKind) -> bool {
+    pub fn contains_kind(&self, kind: SyntaxNodeKind) -> bool {
         self.map.iter().any(|(_, entry)| *entry.kind() == kind)
     }
 
@@ -206,7 +208,7 @@ impl fmt::Display for AstTable {
 }
 
 impl AstEntry {
-    pub fn new(kind: AstKind, span: Span, children: Vec<usize>) -> Self {
+    pub fn new(kind: SyntaxNodeKind, span: Span, children: Vec<usize>) -> Self {
         AstEntry {
             kind,
             span,
@@ -215,8 +217,8 @@ impl AstEntry {
     }
 
     pub fn from(
-        ast: &Ast,
-        index_table: &HashMap<&Ast, usize>,
+        ast: &ParsedNode,
+        index_table: &HashMap<&ParsedNode, usize>,
     ) -> Result<AstEntry, ParserInternalError> {
         let mut children = Vec::new();
 
@@ -240,7 +242,7 @@ impl AstEntry {
     }
 
     // Accesseur pour obtenir le `kind` d'un noeud
-    pub fn kind(&self) -> &crate::aiplan4rust::syntax::ast::AstKind {
+    pub fn kind(&self) -> &SyntaxNodeKind {
         &self.kind
     }
 
@@ -282,24 +284,24 @@ impl AstEntry {
         match &self.kind {
             // For symbols like constants, variables, action symbols, etc., return the symbol's
             // name directly.
-            AstKind::Constant(name)
-            | AstKind::Variable(name)
-            | AstKind::PrimitiveType(name)
-            | AstKind::DomainName(name)
-            | AstKind::ProblemName(name)
-            | AstKind::ActionSymbol(name)
-            | AstKind::DASymbol(name)
-            | AstKind::PrefName(name) => Ok(name.to_string()),
+            SyntaxNodeKind::Constant(name)
+            | SyntaxNodeKind::Variable(name)
+            | SyntaxNodeKind::PrimitiveType(name)
+            | SyntaxNodeKind::DomainName(name)
+            | SyntaxNodeKind::ProblemName(name)
+            | SyntaxNodeKind::ActionSymbol(name)
+            | SyntaxNodeKind::DASymbol(name)
+            | SyntaxNodeKind::PrefName(name) => Ok(name.to_string()),
             // For `FunctionTerm` and `AtomicFormula`, derive the key from their first child
-            AstKind::FunctionTerm | AstKind::AtomicFormula => {
+            SyntaxNodeKind::FunctionTerm | SyntaxNodeKind::AtomicFormula => {
                 // Check if the node has children
                 if let Some(child_index) = self.children.first() {
                     let child = ast_table.get_entry(*child_index).unwrap();
                     // Check the type of the first child (it should be either a FunctionSymbol or
                     // PredicateSymbol)
                     match &child.kind {
-                        AstKind::FunctionSymbol(name) => Ok(name.to_string()),
-                        AstKind::Predicate(name) => Ok(name.to_string()),
+                        SyntaxNodeKind::FunctionSymbol(name) => Ok(name.to_string()),
+                        SyntaxNodeKind::Predicate(name) => Ok(name.to_string()),
                         _ => {
                             // If the first child is neither a FunctionSymbol nor a PredicateSymbol, return an error
                             Err(ParserInternalError::new(

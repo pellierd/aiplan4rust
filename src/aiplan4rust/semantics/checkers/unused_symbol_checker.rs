@@ -4,9 +4,11 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Symbol, SymbolKind};
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::Requirement::{Adl, DurativeActions, NumericFluents, Typing};
+use crate::aiplan4rust::syntax::elements::Requirement::{
+    Adl, DurativeActions, NumericFluents, Typing,
+};
 use crate::aiplan4rust::syntax::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 
 /// Checks for symbols that are declared but never used in the same or a parent scope.
 /// This function reports warnings for any unused symbols found.
@@ -162,13 +164,13 @@ fn skip_unused_symbol_declaration(
     if matches!(declaration.kind(), SymbolKind::Variable)
         && (declaration
             .scope()
-            .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, ast_table)?
+            .contains_ast_of_kind(SyntaxNodeKind::AtomicFormulaSkeleton, ast_table)?
             || declaration
                 .scope()
-                .contains_ast_of_kind(AstKind::AtomicFunctionSkeleton, ast_table)?
+                .contains_ast_of_kind(SyntaxNodeKind::AtomicFunctionSkeleton, ast_table)?
             || declaration // Add for HDDL
                 .scope()
-                .contains_ast_of_kind(AstKind::TaskDef, ast_table)?)
+                .contains_ast_of_kind(SyntaxNodeKind::TaskDef, ast_table)?)
     {
         return Ok(true);
     }

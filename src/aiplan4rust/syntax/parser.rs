@@ -2,13 +2,14 @@ use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use crate::aiplan4rust::syntax::ast::Requirement;
-use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::parser_result::ParserResult;
 use crate::aiplan4rust::syntax::pddl::{HDDLParser, PDDLParser};
-use crate::aiplan4rust::syntax::syntax_tree::SyntaxTree;
 use crate::aiplan4rust::syntax::token::{LexicalError, Token, NUMBER_TYPE, OBJECT_TYPE};
+use crate::aiplan4rust::syntax::tree::ParsedNode;
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 use lalrpop_util::{ErrorRecovery, ParseError};
 use serde::{Deserialize, Serialize};
@@ -234,7 +235,7 @@ impl<'a> Parser<'a> {
     /// * `source`: The source code to initialize AST positions.
     fn process_ast(
         &mut self,
-        ast: &mut Box<Ast>,
+        ast: &mut Box<ParsedNode>,
         source: &'a str,
     ) -> Result<(), ParserInternalError> {
         // Normalize the AST to ensure its structure is consistent
@@ -251,7 +252,7 @@ impl<'a> Parser<'a> {
     /// # Arguments
     /// - `ast`: A mutable reference to the root node of the AST.
     /// - `source`: The source code string from which the AST was parsed.
-    fn init_ast_position(&self, ast: &mut Ast, source: &str) {
+    fn init_ast_position(&self, ast: &mut ParsedNode, source: &str) {
         // Create a `FastLineTable` with an interval of 100 lines for coarse indexing.
         // The interval value (100) can be adjusted depending on the size of the source text.
         let table = FastLineTable::new(source, 100);
@@ -265,7 +266,7 @@ impl<'a> Parser<'a> {
     /// # Arguments
     /// - `ast`: A mutable reference to an AST node.
     /// - `table`: A reference to the `FastLineTable` used to compute positions.
-    fn init_ast_position_rec(&self, ast: &mut Ast, table: &FastLineTable) {
+    fn init_ast_position_rec(&self, ast: &mut ParsedNode, table: &FastLineTable) {
         // Compute and set the start position of the current AST node
         let (line, column) = table.get_position(ast.start_offset());
         ast.set_start_position(line, column);
@@ -358,13 +359,13 @@ impl<'a> Parser<'a> {
     /// let mut ast = ... // AST that may contain `TypedList` nodes
     /// checker.normalise_ast(&mut ast); // Normalizes all `TypedList` nodes in the AST
     /// ```
-    fn normalize_ast(&mut self, ast: &mut Ast) -> Result<(), ParserInternalError> {
+    fn normalize_ast(&mut self, ast: &mut ParsedNode) -> Result<(), ParserInternalError> {
         // Match on the kind of the current AST node
         match ast.kind() {
-            AstKind::RequireDef => {
+            SyntaxNodeKind::RequireDef => {
                 self.normalize_require_def(ast)?;
             }
-            AstKind::TypedList => {
+            SyntaxNodeKind::TypedList => {
                 self.normalize_typed_list(ast)?;
             }
             // For other nodes, recursively normalize their children
@@ -391,12 +392,14 @@ impl<'a> Parser<'a> {
     /// A tuple containing:
     /// - A `HashSet` of unique `Requirement` references.
     /// - A `Vec<usize>` containing indices of duplicate `Requirement` nodes.
-    fn find_duplicate_requirements(children: &[Box<Ast>]) -> (HashSet<&Requirement>, Vec<usize>) {
+    fn find_duplicate_requirements(
+        children: &[Box<ParsedNode>],
+    ) -> (HashSet<&Requirement>, Vec<usize>) {
         let mut seen_requirements = HashSet::new();
         let mut duplicates_indices = Vec::new();
 
         for (index, child) in children.iter().enumerate() {
-            if let AstKind::Requirement(requirement) = child.kind() {
+            if let SyntaxNodeKind::Requirement(requirement) = child.kind() {
                 // If the requirement is already in the set, mark its index as a duplicate
                 if !seen_requirements.insert(requirement) {
                     duplicates_indices.push(index);
@@ -425,7 +428,7 @@ impl<'a> Parser<'a> {
     /// parser.normalize_require_def(&mut ast)?;
     /// ```
     /// This modifies `ast` by retaining only unique `Requirement` nodes.
-    fn normalize_require_def(&mut self, ast: &mut Ast) -> Result<(), ParserInternalError> {
+    fn normalize_require_def(&mut self, ast: &mut ParsedNode) -> Result<(), ParserInternalError> {
         let children = ast.children_mut();
 
         // Step 1: Identify duplicate requirements
@@ -448,10 +451,10 @@ impl<'a> Parser<'a> {
     ///
     /// # Arguments
     /// * `duplicate` - A reference to the duplicate `Ast` to log.
-    fn log_duplicate_warning(&mut self, duplicate: &Ast) {
+    fn log_duplicate_warning(&mut self, duplicate: &ParsedNode) {
         if let Some(source) = &self.source {
             let (line, column) = self.get_position(duplicate.start_offset(), source);
-            if let AstKind::Requirement(requirement) = duplicate.kind() {
+            if let SyntaxNodeKind::Requirement(requirement) = duplicate.kind() {
                 let content = format!(
                     "Duplicate declaration of requirement '{}' detected. Please ensure requirements are not repeated.",
                     requirement.to_pddl_string()
@@ -501,7 +504,7 @@ impl<'a> Parser<'a> {
     /// This function performs a split and normalization on the components of the `TypedList`,
     /// which involves a traversal of the child nodes of the AST. The complexity is linear relative
     /// to the number of child nodes.
-    fn normalize_typed_list(&mut self, ast: &mut Ast) -> Result<(), ParserInternalError> {
+    fn normalize_typed_list(&mut self, ast: &mut ParsedNode) -> Result<(), ParserInternalError> {
         // Split the `TypedList` into its components: elements, types, and the next `TypedList`
         let (elements, types, next_typed_list) = self.split_typed_list(ast)?;
 
@@ -550,13 +553,20 @@ impl<'a> Parser<'a> {
     ///     of the method. In case of an invalid AST type or unexpected node, an error is returned.
     fn split_typed_list(
         &self,
-        ast: &mut Ast,
-    ) -> Result<(Vec<Box<Ast>>, Option<Box<Ast>>, Option<Box<Ast>>), ParserInternalError> {
-        let mut elements: Vec<Box<Ast>> = Vec::new();
-        let mut types: Option<Box<Ast>> = None;
-        let mut next_typed_list: Option<Box<Ast>> = None;
+        ast: &mut ParsedNode,
+    ) -> Result<
+        (
+            Vec<Box<ParsedNode>>,
+            Option<Box<ParsedNode>>,
+            Option<Box<ParsedNode>>,
+        ),
+        ParserInternalError,
+    > {
+        let mut elements: Vec<Box<ParsedNode>> = Vec::new();
+        let mut types: Option<Box<ParsedNode>> = None;
+        let mut next_typed_list: Option<Box<ParsedNode>> = None;
 
-        if *ast.kind() != AstKind::TypedList {
+        if *ast.kind() != SyntaxNodeKind::TypedList {
             return Err(ParserInternalError::new(format!(
                 "Expected AST of type 'TypedList', found: '{:?}'",
                 ast.kind()
@@ -565,16 +575,16 @@ impl<'a> Parser<'a> {
 
         for child in ast.children() {
             match child.kind() {
-                AstKind::PrimitiveType(_)
-                | AstKind::Constant(_)
-                | AstKind::Variable(_)
-                | AstKind::AtomicFunctionSkeleton => {
+                SyntaxNodeKind::PrimitiveType(_)
+                | SyntaxNodeKind::Constant(_)
+                | SyntaxNodeKind::Variable(_)
+                | SyntaxNodeKind::AtomicFunctionSkeleton => {
                     elements.push(child.clone());
                 }
-                AstKind::Type => {
+                SyntaxNodeKind::Type => {
                     types = Some(child.clone());
                 }
-                AstKind::TypedList => {
+                SyntaxNodeKind::TypedList => {
                     next_typed_list = Some(child.clone());
                 }
                 _ => {
@@ -626,18 +636,18 @@ impl<'a> Parser<'a> {
     /// ```
     fn apply_normalisation(
         &mut self,
-        ast: &mut Ast,
-        elements: Vec<Box<Ast>>,
-        mut types: Option<Box<Ast>>,
-        next_typed_list: Option<Box<Ast>>,
+        ast: &mut ParsedNode,
+        elements: Vec<Box<ParsedNode>>,
+        mut types: Option<Box<ParsedNode>>,
+        next_typed_list: Option<Box<ParsedNode>>,
     ) -> Result<(), ParserInternalError> {
         // Filter the types in place if they are provided
         if let Some(ref mut ty) = types {
             self.filter_duplicate_types(ty)?; // Modify the types directly
         }
 
-        let mut normalised_typed_list = Box::new(Ast::new(
-            AstKind::TypedList,
+        let mut normalised_typed_list = Box::new(ParsedNode::new(
+            SyntaxNodeKind::TypedList,
             Vec::new(),
             ast.start_offset(),
             ast.end_offset(),
@@ -649,7 +659,10 @@ impl<'a> Parser<'a> {
             let end = element.end_offset();
             let mut children = Vec::new();
             let mut cloned_element = element.clone();
-            if matches!(cloned_element.kind(), AstKind::AtomicFunctionSkeleton) {
+            if matches!(
+                cloned_element.kind(),
+                SyntaxNodeKind::AtomicFunctionSkeleton
+            ) {
                 self.normalize_ast(&mut cloned_element)?
             }
             children.push(cloned_element);
@@ -658,8 +671,12 @@ impl<'a> Parser<'a> {
             } else {
                 children.push(self.create_default_type(&element, start, end));
             }
-            let next_typed_list_node =
-                Box::new(Ast::new(AstKind::TypedList, Vec::new(), start, end));
+            let next_typed_list_node = Box::new(ParsedNode::new(
+                SyntaxNodeKind::TypedList,
+                Vec::new(),
+                start,
+                end,
+            ));
             children.push(next_typed_list_node);
             current_typed_list.set_children(children);
             current_typed_list = current_typed_list.children_mut().last_mut().unwrap();
@@ -694,12 +711,12 @@ impl<'a> Parser<'a> {
     ///     Err(e) => println!("Error: {}", e),
     /// }
     /// ```
-    fn filter_duplicate_types(&mut self, ty: &mut Ast) -> Result<(), ParserInternalError> {
+    fn filter_duplicate_types(&mut self, ty: &mut ParsedNode) -> Result<(), ParserInternalError> {
         let mut seen_types = HashSet::new(); // A set to track unique type names
         let mut unique_children = Vec::new(); // A vector for unique children
 
         for child in ty.children_mut() {
-            if let AstKind::PrimitiveType(name) = &child.kind() {
+            if let SyntaxNodeKind::PrimitiveType(name) = &child.kind() {
                 if seen_types.insert(name.clone()) {
                     unique_children.push(child.clone()); // Keep unique type declarations
                 } else {
@@ -770,13 +787,25 @@ impl<'a> Parser<'a> {
     /// let end = 5;
     /// let default_type = checker.create_default_type(&element, start, end);
     /// ```
-    fn create_default_type(&self, element: &Ast, start: usize, end: usize) -> Box<Ast> {
+    fn create_default_type(
+        &self,
+        element: &ParsedNode,
+        start: usize,
+        end: usize,
+    ) -> Box<ParsedNode> {
         let primitive_type_kind = match element.kind() {
-            AstKind::AtomicFunctionSkeleton => AstKind::PrimitiveType(NUMBER_TYPE.to_string()),
-            _ => AstKind::PrimitiveType(OBJECT_TYPE.to_string()),
+            SyntaxNodeKind::AtomicFunctionSkeleton => {
+                SyntaxNodeKind::PrimitiveType(NUMBER_TYPE.to_string())
+            }
+            _ => SyntaxNodeKind::PrimitiveType(OBJECT_TYPE.to_string()),
         };
-        let primitive_type = Box::new(Ast::new(primitive_type_kind, Vec::new(), start, end));
-        let mut ty = Box::new(Ast::new(AstKind::Type, Vec::new(), start, end));
+        let primitive_type = Box::new(ParsedNode::new(primitive_type_kind, Vec::new(), start, end));
+        let mut ty = Box::new(ParsedNode::new(
+            SyntaxNodeKind::Type,
+            Vec::new(),
+            start,
+            end,
+        ));
         ty.children_mut().push(primitive_type);
         ty
     }

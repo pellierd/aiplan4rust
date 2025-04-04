@@ -5,9 +5,11 @@ use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantics::ast_table::{AstEntry, AstTable};
 use crate::aiplan4rust::semantics::checkers::TypeChecker;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
-use crate::aiplan4rust::syntax::ast::Requirement::{DurativeActions, NumericFluents};
-use crate::aiplan4rust::syntax::ast::{AssignOp, AstKind, BinaryComp};
+use crate::aiplan4rust::syntax::elements::AssignOp;
+use crate::aiplan4rust::syntax::elements::BinaryComp;
+use crate::aiplan4rust::syntax::elements::Requirement::{DurativeActions, NumericFluents};
 use crate::aiplan4rust::syntax::token::{DURATION_VARIABLE, NUMBER_TYPE, TOTAL_TIME};
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 
 /// Verifies the types of expressions used in function calls and assignment operations.
 ///
@@ -52,7 +54,7 @@ pub fn check(
     for ast in ast_table.values() {
         match ast.kind() {
             // Case for equality check (AssignOp::Assign and BinaryComp::Equal)
-            AstKind::FComp(BinaryComp::Equal) | AstKind::Assign(AssignOp::Assign) => {
+            SyntaxNodeKind::FComp(BinaryComp::Equal) | SyntaxNodeKind::Assign(AssignOp::Assign) => {
                 let (ty1, ty2) = get_binary_operation_types(ast, symbol_table, ast_table)?;
 
                 // Call check_equal_and_assign function to handle this case
@@ -67,14 +69,14 @@ pub fn check(
             }
 
             // Case for other comparison and assignment operations (Greater, Less, ScaleUp, etc.)
-            AstKind::FComp(BinaryComp::Greater)
-            | AstKind::FComp(BinaryComp::GreaterEq)
-            | AstKind::FComp(BinaryComp::Less)
-            | AstKind::FComp(BinaryComp::LessEq)
-            | AstKind::Assign(AssignOp::ScaleUp)
-            | AstKind::Assign(AssignOp::ScaleDown)
-            | AstKind::Assign(AssignOp::Increase)
-            | AstKind::Assign(AssignOp::Decrease) => {
+            SyntaxNodeKind::FComp(BinaryComp::Greater)
+            | SyntaxNodeKind::FComp(BinaryComp::GreaterEq)
+            | SyntaxNodeKind::FComp(BinaryComp::Less)
+            | SyntaxNodeKind::FComp(BinaryComp::LessEq)
+            | SyntaxNodeKind::Assign(AssignOp::ScaleUp)
+            | SyntaxNodeKind::Assign(AssignOp::ScaleDown)
+            | SyntaxNodeKind::Assign(AssignOp::Increase)
+            | SyntaxNodeKind::Assign(AssignOp::Decrease) => {
                 let (ty1, ty2) = get_binary_operation_types(ast, symbol_table, ast_table)?;
 
                 // Call check_other_cases function to handle these cases
@@ -288,16 +290,18 @@ pub fn get_type(
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     match ast.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
-        AstKind::Number(_) => get_number_type(),
+        SyntaxNodeKind::Number(_) => get_number_type(),
 
         // Case 2: Variable
-        AstKind::Variable(symbol) => get_variable_type(index, symbol, symbol_table, ast_table),
+        SyntaxNodeKind::Variable(symbol) => {
+            get_variable_type(index, symbol, symbol_table, ast_table)
+        }
 
         // Case 3: Constant
-        AstKind::Constant(symbol) => get_constant_type(index, symbol, symbol_table),
+        SyntaxNodeKind::Constant(symbol) => get_constant_type(index, symbol, symbol_table),
 
         // Case 4: Function Term
-        AstKind::FunctionTerm => get_function_term_type(index, ast, symbol_table, ast_table),
+        SyntaxNodeKind::FunctionTerm => get_function_term_type(index, ast, symbol_table, ast_table),
 
         // Default case: Unexpected AST node
         _ => Err(ParserInternalError::new(format!(
@@ -426,7 +430,7 @@ fn get_function_term_type(
         ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 
-    if let AstKind::FunctionSymbol(symbol) = functor_entry.kind() {
+    if let SyntaxNodeKind::FunctionSymbol(symbol) = functor_entry.kind() {
         if symbol == TOTAL_TIME && ast_table.requirements().contains(&NumericFluents) {
             return get_number_type();
         }

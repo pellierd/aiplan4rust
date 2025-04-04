@@ -5,9 +5,10 @@ use crate::aiplan4rust::semantics::symbol::TypedSymbol;
 use crate::aiplan4rust::semantics::symbol::{
     Declaration, FilterableSymbol, Symbol, SymbolKind, Usage,
 };
-use crate::aiplan4rust::syntax::ast::BinaryComp;
-use crate::aiplan4rust::syntax::ast::{AstKind, Requirement};
+use crate::aiplan4rust::syntax::elements::BinaryComp;
+use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::token::TOTAL_TIME;
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -395,68 +396,72 @@ impl SymbolTable {
         // Determine the type of the AST node and apply appropriate processing
         match ast.kind() {
             // Handle declarations: These simply register symbols without additional processing
-            AstKind::DomainName(_) | AstKind::ProblemName(_) | AstKind::Requirement(_) => {
+            SyntaxNodeKind::DomainName(_)
+            | SyntaxNodeKind::ProblemName(_)
+            | SyntaxNodeKind::Requirement(_) => {
                 self.add_declaration_symbol(ast, index, index_table, scope.clone(), None, None)?;
             }
 
             // Handle typed lists: Requires specialized initialization logic
-            AstKind::TypedList => {
+            SyntaxNodeKind::TypedList => {
                 self.init_from_typed_list(ast, index, index_table, scope.clone())?;
             }
 
             // Handle primitive types, constants, and variables: Register them as symbol usages
-            AstKind::PrimitiveType(_) | AstKind::Constant(_) | AstKind::Variable(_) => {
+            SyntaxNodeKind::PrimitiveType(_)
+            | SyntaxNodeKind::Constant(_)
+            | SyntaxNodeKind::Variable(_) => {
                 self.add_symbol_usage(ast, index, index_table, scope.clone())?;
             }
 
             // Handle action definitions
-            AstKind::ActionDef => {
+            SyntaxNodeKind::ActionDef => {
                 self.init_from_action_def(ast, index, index_table, scope.clone())?;
             }
 
             // Handle durative actions, which include timing constraints
-            AstKind::DurativeActionDef => {
+            SyntaxNodeKind::DurativeActionDef => {
                 self.init_from_durative_action_def(ast, index, index_table, scope.clone())?;
             }
 
             // Handle atomic formula skeletons: Requires custom symbol table handling
-            AstKind::AtomicFormulaSkeleton => {
+            SyntaxNodeKind::AtomicFormulaSkeleton => {
                 self.init_from_atomic_formula_skeleton(ast, index, index_table, scope.clone())?;
             }
 
             // Handle atomic formulas and function terms: These require recursive processing
-            AstKind::AtomicFormula | AstKind::FunctionTerm => {
+            SyntaxNodeKind::AtomicFormula | SyntaxNodeKind::FunctionTerm => {
                 self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
             }
 
             // Handle quantified expressions (`Forall` and `Exists`): Need special treatment for
             // logical scopes
-            AstKind::Forall | AstKind::Exists => {
+            SyntaxNodeKind::Forall | SyntaxNodeKind::Exists => {
                 self.init_from_quantified_expression(ast, index, index_table, scope.clone())?;
             }
 
             // Handle hierarchical task network (HTN) method definitions
-            AstKind::MethodDef => {
+            SyntaxNodeKind::MethodDef => {
                 self.init_from_method_def(ast, index, index_table, scope.clone())?;
             }
 
             // Handle task definitions in HTN planning
-            AstKind::TaskDef => {
+            SyntaxNodeKind::TaskDef => {
                 self.init_from_task_def(ast, index, index_table, scope.clone())?;
             }
 
             // Handle individual task references in HTN planning
-            AstKind::Task => {
+            SyntaxNodeKind::Task => {
                 self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
             }
 
             // Handle tagged tasks, which include additional metadata in HTN planning
-            AstKind::TaggedTask => {
+            SyntaxNodeKind::TaggedTask => {
                 self.init_from_tagged_task(ast, index, index_table, scope.clone())?;
             }
 
             // Handle task ordering constraints in HTN planning
-            AstKind::TaskOrderingConstraint(_) => {
+            SyntaxNodeKind::TaskOrderingConstraint(_) => {
                 self.init_from_task_ordering_constraint(ast, index, index_table, scope.clone())?;
             }
 
@@ -504,20 +509,20 @@ impl SymbolTable {
         Self::assert_ast_kind(
             ast,
             &[
-                AstKind::DomainName(String::new()),
-                AstKind::PrimitiveType(String::new()),
-                AstKind::ProblemName(String::new()),
-                AstKind::Requirement(Requirement::Strips),
-                AstKind::Constant(String::new()),
-                AstKind::Variable(String::new()),
-                AstKind::Predicate(String::new()),
-                AstKind::FunctionSymbol(String::new()),
-                AstKind::ActionSymbol(String::new()),
-                AstKind::DASymbol(String::new()),
+                SyntaxNodeKind::DomainName(String::new()),
+                SyntaxNodeKind::PrimitiveType(String::new()),
+                SyntaxNodeKind::ProblemName(String::new()),
+                SyntaxNodeKind::Requirement(Requirement::Strips),
+                SyntaxNodeKind::Constant(String::new()),
+                SyntaxNodeKind::Variable(String::new()),
+                SyntaxNodeKind::Predicate(String::new()),
+                SyntaxNodeKind::FunctionSymbol(String::new()),
+                SyntaxNodeKind::ActionSymbol(String::new()),
+                SyntaxNodeKind::DASymbol(String::new()),
                 // Add for HDDL
-                AstKind::MethodSymbol(String::new()),
-                AstKind::TaskSymbol(String::new()),
-                AstKind::TaskID(String::new()),
+                SyntaxNodeKind::MethodSymbol(String::new()),
+                SyntaxNodeKind::TaskSymbol(String::new()),
+                SyntaxNodeKind::TaskID(String::new()),
             ],
         )?;
 
@@ -568,20 +573,20 @@ impl SymbolTable {
         Self::assert_ast_kind(
             ast,
             &[
-                AstKind::DomainName(String::new()),
-                AstKind::ProblemName(String::new()),
-                AstKind::Constant(String::new()),
-                AstKind::Variable(String::new()),
-                AstKind::AtomicFormula,
-                AstKind::FunctionTerm,
-                AstKind::Task,
+                SyntaxNodeKind::DomainName(String::new()),
+                SyntaxNodeKind::ProblemName(String::new()),
+                SyntaxNodeKind::Constant(String::new()),
+                SyntaxNodeKind::Variable(String::new()),
+                SyntaxNodeKind::AtomicFormula,
+                SyntaxNodeKind::FunctionTerm,
+                SyntaxNodeKind::Task,
             ],
         )?;
 
         // Handle specific cases for AtomicFormula and FunctionTerm, which need to have a child.
         if matches!(
             ast.kind(),
-            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+            SyntaxNodeKind::AtomicFormula | SyntaxNodeKind::FunctionTerm | SyntaxNodeKind::Task
         ) {
             Self::assert_ast_children_number(ast, 1, Comparator::GreaterEq)?;
         }
@@ -670,26 +675,28 @@ impl SymbolTable {
     ) -> Result<(String, SymbolKind), ParserInternalError> {
         match ast.kind() {
             // Handling different AST node kinds and returning appropriate symbol information
-            AstKind::DomainName(name) => Ok((name.to_string(), SymbolKind::DomainName)),
-            AstKind::PrimitiveType(name) => Ok((name.to_string(), SymbolKind::PrimitiveType)),
-            AstKind::ProblemName(name) => Ok((name.to_string(), SymbolKind::ProblemName)),
-            AstKind::Requirement(requirement) => {
+            SyntaxNodeKind::DomainName(name) => Ok((name.to_string(), SymbolKind::DomainName)),
+            SyntaxNodeKind::PrimitiveType(name) => {
+                Ok((name.to_string(), SymbolKind::PrimitiveType))
+            }
+            SyntaxNodeKind::ProblemName(name) => Ok((name.to_string(), SymbolKind::ProblemName)),
+            SyntaxNodeKind::Requirement(requirement) => {
                 Ok((requirement.to_string(), SymbolKind::Requirement))
             }
-            AstKind::Constant(name) => Ok((name.to_string(), SymbolKind::Constant)),
-            AstKind::Variable(name) => Ok((name.to_string(), SymbolKind::Variable)),
-            AstKind::FunctionSymbol(name) => Ok((name.to_string(), SymbolKind::Function)),
-            AstKind::Predicate(name) => Ok((name.to_string(), SymbolKind::Predicate)),
-            AstKind::ActionSymbol(name) => Ok((name.to_string(), SymbolKind::Action)),
-            AstKind::DASymbol(name) => Ok((name.to_string(), SymbolKind::DASymbol)),
+            SyntaxNodeKind::Constant(name) => Ok((name.to_string(), SymbolKind::Constant)),
+            SyntaxNodeKind::Variable(name) => Ok((name.to_string(), SymbolKind::Variable)),
+            SyntaxNodeKind::FunctionSymbol(name) => Ok((name.to_string(), SymbolKind::Function)),
+            SyntaxNodeKind::Predicate(name) => Ok((name.to_string(), SymbolKind::Predicate)),
+            SyntaxNodeKind::ActionSymbol(name) => Ok((name.to_string(), SymbolKind::Action)),
+            SyntaxNodeKind::DASymbol(name) => Ok((name.to_string(), SymbolKind::DASymbol)),
 
             // Add on for HDDL support
-            AstKind::MethodSymbol(name) => Ok((name.to_string(), SymbolKind::Method)),
-            AstKind::TaskSymbol(name) => Ok((name.to_string(), SymbolKind::Task)),
-            AstKind::TaskID(name) => Ok((name.to_string(), SymbolKind::TaskID)),
+            SyntaxNodeKind::MethodSymbol(name) => Ok((name.to_string(), SymbolKind::Method)),
+            SyntaxNodeKind::TaskSymbol(name) => Ok((name.to_string(), SymbolKind::Task)),
+            SyntaxNodeKind::TaskID(name) => Ok((name.to_string(), SymbolKind::TaskID)),
 
             // Special case for AtomicFormula and FunctionTerm: handle their children
-            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task => {
+            SyntaxNodeKind::AtomicFormula | SyntaxNodeKind::FunctionTerm | SyntaxNodeKind::Task => {
                 let children = ast.children();
                 if children.is_empty() {
                     return Err(ParserInternalError::new(format!(
@@ -699,11 +706,11 @@ impl SymbolTable {
                 }
                 let first_child = SymbolTable::get_ast_entry(children[0], index_table)?;
                 match first_child.kind() {
-                    AstKind::Predicate(s) => Ok((s.to_string(), SymbolKind::Predicate)),
-                    AstKind::FunctionSymbol(s) => Ok((s.to_string(), SymbolKind::Function)),
-                    AstKind::TaskSymbol(s) => Ok((s.to_string(), SymbolKind::Task)),
+                    SyntaxNodeKind::Predicate(s) => Ok((s.to_string(), SymbolKind::Predicate)),
+                    SyntaxNodeKind::FunctionSymbol(s) => Ok((s.to_string(), SymbolKind::Function)),
+                    SyntaxNodeKind::TaskSymbol(s) => Ok((s.to_string(), SymbolKind::Task)),
                     // Deal special TotalTime symbol as a classical function symbol
-                    AstKind::TotalTime => Ok((TOTAL_TIME.to_string(), SymbolKind::Function)),
+                    SyntaxNodeKind::TotalTime => Ok((TOTAL_TIME.to_string(), SymbolKind::Function)),
                     // Error if the first child is not a Predicate or FunctionSymbol
                     _ => Err(ParserInternalError::new(format!(
                         "First child of {} must be a Predicate or FunctionSymbol, found: {:?}",
@@ -750,7 +757,7 @@ impl SymbolTable {
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the expected type 'TypedList'
-        Self::assert_ast_kind(ast, &[AstKind::TypedList])?;
+        Self::assert_ast_kind(ast, &[SyntaxNodeKind::TypedList])?;
 
         let children = ast.children();
 
@@ -827,20 +834,22 @@ impl SymbolTable {
         Self::assert_ast_kind(
             element,
             &[
-                AstKind::PrimitiveType(String::new()),
-                AstKind::Constant(String::new()),
-                AstKind::Variable(String::new()),
-                AstKind::AtomicFunctionSkeleton,
+                SyntaxNodeKind::PrimitiveType(String::new()),
+                SyntaxNodeKind::Constant(String::new()),
+                SyntaxNodeKind::Variable(String::new()),
+                SyntaxNodeKind::AtomicFunctionSkeleton,
             ],
         )?;
 
         match element.kind() {
             // Process PrimitiveType, Constant, or Variable
-            AstKind::PrimitiveType(_) | AstKind::Constant(_) | AstKind::Variable(_) => {
+            SyntaxNodeKind::PrimitiveType(_)
+            | SyntaxNodeKind::Constant(_)
+            | SyntaxNodeKind::Variable(_) => {
                 self.add_declaration_symbol(element, index, index_table, scope, Some(types), None)?;
             }
             // Handle AtomicFunctionSkeleton recursively
-            AstKind::AtomicFunctionSkeleton => {
+            SyntaxNodeKind::AtomicFunctionSkeleton => {
                 self.init_from_atomic_function_skeleton(element, index, index_table, scope, types)?;
             }
             _ => {
@@ -909,7 +918,7 @@ impl SymbolTable {
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
         // Check that the AST node is of the expected type 'Function'
-        Self::assert_ast_kind(ast, &[AstKind::AtomicFunctionSkeleton])?;
+        Self::assert_ast_kind(ast, &[SyntaxNodeKind::AtomicFunctionSkeleton])?;
 
         // Ensure the node has at least two children (function symbol and arguments)
         Self::assert_ast_children_number(ast, 2, Comparator::GreaterEq)?;
@@ -919,7 +928,7 @@ impl SymbolTable {
         // Retrieve the first child and validate it as a 'FunctionSymbol'
         let functor = SymbolTable::get_ast_entry(children[0], index_table)?;
         match functor.kind() {
-            AstKind::FunctionSymbol(s) => s,
+            SyntaxNodeKind::FunctionSymbol(s) => s,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "First child of 'Function' must match the expected kind. Encountered: '{:?}'",
@@ -996,9 +1005,9 @@ impl SymbolTable {
             index_table,
             scope,
             &[
-                AstKind::ActionDef,
-                AstKind::DurativeActionDef,
-                AstKind::MethodDef,
+                SyntaxNodeKind::ActionDef,
+                SyntaxNodeKind::DurativeActionDef,
+                SyntaxNodeKind::MethodDef,
             ],
             3,    // ActionDef has 3 children (name, parameters, body)
             true, // It has a body
@@ -1034,7 +1043,7 @@ impl SymbolTable {
             index,
             index_table,
             scope,
-            &[AstKind::MethodDef],
+            &[SyntaxNodeKind::MethodDef],
             3,    // MethodDef has 3 children (name, parameters, body)
             true, // It has a body
         )
@@ -1069,7 +1078,7 @@ impl SymbolTable {
             index,
             index_table,
             scope,
-            &[AstKind::DurativeActionDef],
+            &[SyntaxNodeKind::DurativeActionDef],
             3,    // DurativeActionDef has 3 children (name, parameters, body)
             true, // It has a body
         )
@@ -1105,7 +1114,7 @@ impl SymbolTable {
             index,
             index_table,
             scope,
-            &[AstKind::TaskDef],
+            &[SyntaxNodeKind::TaskDef],
             2,     // TaskDef has only 2 children (name, parameters)
             false, // No body for tasks
         )
@@ -1131,7 +1140,7 @@ impl SymbolTable {
         index: usize,
         index_table: &AstTable,
         scope: Scope,
-        valid_kinds: &[AstKind],
+        valid_kinds: &[SyntaxNodeKind],
         expected_children: usize,
         has_body: bool,
     ) -> Result<(), ParserInternalError> {
@@ -1211,7 +1220,11 @@ impl SymbolTable {
         // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
         Self::assert_ast_kind(
             ast,
-            &[AstKind::AtomicFormula, AstKind::FunctionTerm, AstKind::Task],
+            &[
+                SyntaxNodeKind::AtomicFormula,
+                SyntaxNodeKind::FunctionTerm,
+                SyntaxNodeKind::Task,
+            ],
         )?;
 
         // Ensure the node has at least one child (the symbol)
@@ -1270,7 +1283,7 @@ impl SymbolTable {
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Check if the AST node is of kind 'Exists' or 'Forall'
-        Self::assert_ast_kind(ast, &[AstKind::Exists, AstKind::Forall])?;
+        Self::assert_ast_kind(ast, &[SyntaxNodeKind::Exists, SyntaxNodeKind::Forall])?;
 
         // Ensure the AST has exactly 2 children (variables and inner expression)
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
@@ -1341,7 +1354,7 @@ impl SymbolTable {
 
         // Ensure the first child is of kind 'Predicate'
         let predicate = SymbolTable::get_ast_entry(children[0], index_table)?;
-        Self::assert_ast_kind(predicate, &[AstKind::Predicate(String::new())])?;
+        Self::assert_ast_kind(predicate, &[SyntaxNodeKind::Predicate(String::new())])?;
 
         // Retrieve and process arguments
         let arguments = SymbolTable::get_ast_entry(children[1], index_table)?;
@@ -1416,7 +1429,7 @@ impl SymbolTable {
         index_table: &AstTable,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
-        Self::assert_ast_kind(ast, &[AstKind::TypedList])?;
+        Self::assert_ast_kind(ast, &[SyntaxNodeKind::TypedList])?;
 
         let children = ast.children();
 
@@ -1431,7 +1444,7 @@ impl SymbolTable {
         // Extract the first child (must be a Variable or Constant)
         let element = SymbolTable::get_ast_entry(children[0], index_table)?;
         let name = match element.kind() {
-            AstKind::Variable(name) | AstKind::Constant(name) => name.clone(),
+            SyntaxNodeKind::Variable(name) | SyntaxNodeKind::Constant(name) => name.clone(),
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Expected Variable or Constant as the first child, but found {:?}.",
@@ -1475,12 +1488,12 @@ impl SymbolTable {
         index_table: &AstTable,
     ) -> Result<Vec<String>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
-        Self::assert_ast_kind(types, &[AstKind::Type])?;
+        Self::assert_ast_kind(types, &[SyntaxNodeKind::Type])?;
 
         let mut super_types = Vec::new();
         for ty_index in types.children() {
             let ty = SymbolTable::get_ast_entry(*ty_index, index_table)?;
-            if let AstKind::PrimitiveType(name) = ty.kind() {
+            if let SyntaxNodeKind::PrimitiveType(name) = ty.kind() {
                 super_types.push(name.clone());
             } else {
                 return Err(ParserInternalError::new(
@@ -1518,7 +1531,7 @@ impl SymbolTable {
         // Register each type as a symbol usage in the given scope
         for ty_index in types.children() {
             let ty = SymbolTable::get_ast_entry(*ty_index, index_table)?;
-            if matches!(ty.kind(), AstKind::PrimitiveType(_)) {
+            if matches!(ty.kind(), SyntaxNodeKind::PrimitiveType(_)) {
                 self.add_symbol_usage(ty, *ty_index, index_table, scope.clone())?;
             }
         }
@@ -1548,19 +1561,19 @@ impl SymbolTable {
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
-        Self::assert_ast_kind(ast, &[AstKind::TaggedTask])?;
+        Self::assert_ast_kind(ast, &[SyntaxNodeKind::TaggedTask])?;
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
 
         let children = ast.children();
         let task_id = SymbolTable::get_ast_entry(children[0], index_table)?;
-        Self::assert_ast_kind(task_id, &[AstKind::TaskID(String::new())])?;
+        Self::assert_ast_kind(task_id, &[SyntaxNodeKind::TaskID(String::new())])?;
 
         // Add the task identifier as a declaration symbol
         self.add_declaration_symbol(task_id, children[0], index_table, scope.clone(), None, None)?;
 
         // Process the actual task
         let task = SymbolTable::get_ast_entry(children[1], index_table)?;
-        Self::assert_ast_kind(task, &[AstKind::Task])?;
+        Self::assert_ast_kind(task, &[SyntaxNodeKind::Task])?;
 
         self.init_from_atomic_formula(task, children[1], index_table, scope.clone())?;
 
@@ -1613,16 +1626,19 @@ impl SymbolTable {
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
-        Self::assert_ast_kind(ast, &[AstKind::TaskOrderingConstraint(BinaryComp::Less)])?;
+        Self::assert_ast_kind(
+            ast,
+            &[SyntaxNodeKind::TaskOrderingConstraint(BinaryComp::Less)],
+        )?;
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
 
         let children = ast.children();
         let t1 = SymbolTable::get_ast_entry(children[0], index_table)?;
-        Self::assert_ast_kind(t1, &[AstKind::TaskID(String::new())])?;
+        Self::assert_ast_kind(t1, &[SyntaxNodeKind::TaskID(String::new())])?;
         self.add_symbol_usage(t1, children[0], index_table, scope.clone())?;
 
         let t2 = SymbolTable::get_ast_entry(children[1], index_table)?;
-        Self::assert_ast_kind(t2, &[AstKind::TaskID(String::new())])?;
+        Self::assert_ast_kind(t2, &[SyntaxNodeKind::TaskID(String::new())])?;
         self.add_symbol_usage(t2, children[1], index_table, scope.clone())?;
 
         Ok(())
@@ -1664,31 +1680,34 @@ impl SymbolTable {
     ///     Err(e) => println!("Error: {}", e),
     /// }
     /// ```
-    fn assert_ast_kind(ast: &AstEntry, valid_kinds: &[AstKind]) -> Result<(), ParserInternalError> {
+    fn assert_ast_kind(
+        ast: &AstEntry,
+        valid_kinds: &[SyntaxNodeKind],
+    ) -> Result<(), ParserInternalError> {
         match ast.kind() {
             // Case where the AST node's kind is one of the defined types (Predicate, DomainName, etc.)
-            AstKind::DomainName(_)
-            | AstKind::ProblemName(_)
-            | AstKind::Requirement(_)
-            | AstKind::PrimitiveType(_)
-            | AstKind::Constant(_)
-            | AstKind::Variable(_)
-            | AstKind::Predicate(_)
-            | AstKind::FunctionSymbol(_)
-            | AstKind::ActionSymbol(_)
-            | AstKind::DASymbol(_)
-            | AstKind::PrefName(_)
-            | AstKind::Number(_)
-            | AstKind::Assign(_)
-            | AstKind::FComp(_)
-            | AstKind::Metric(_)
-            | AstKind::Operation(_)
-            | AstKind::Parallel(_)
-            | AstKind::Serial(_)
+            SyntaxNodeKind::DomainName(_)
+            | SyntaxNodeKind::ProblemName(_)
+            | SyntaxNodeKind::Requirement(_)
+            | SyntaxNodeKind::PrimitiveType(_)
+            | SyntaxNodeKind::Constant(_)
+            | SyntaxNodeKind::Variable(_)
+            | SyntaxNodeKind::Predicate(_)
+            | SyntaxNodeKind::FunctionSymbol(_)
+            | SyntaxNodeKind::ActionSymbol(_)
+            | SyntaxNodeKind::DASymbol(_)
+            | SyntaxNodeKind::PrefName(_)
+            | SyntaxNodeKind::Number(_)
+            | SyntaxNodeKind::Assign(_)
+            | SyntaxNodeKind::FComp(_)
+            | SyntaxNodeKind::Metric(_)
+            | SyntaxNodeKind::Operation(_)
+            | SyntaxNodeKind::Parallel(_)
+            | SyntaxNodeKind::Serial(_)
             // Add for HDDL
-            | AstKind::MethodSymbol(_)
-            | AstKind::TaskSymbol(_)
-            | AstKind::TaskID(_) => {
+            | SyntaxNodeKind::MethodSymbol(_)
+            | SyntaxNodeKind::TaskSymbol(_)
+            | SyntaxNodeKind::TaskID(_) => {
                 // Check if the AST node's kind matches one of the valid kinds
                 if valid_kinds.iter().any(|_k| matches!(ast.kind(), _k)) {
                     Ok(())

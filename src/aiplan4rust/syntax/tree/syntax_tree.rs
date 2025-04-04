@@ -1,4 +1,4 @@
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::tree::ParsedNode;
 use std::fmt;
 
 /// A structure representing a syntax tree.
@@ -31,7 +31,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SyntaxTree {
     /// The Abstract Syntax Tree (AST) representing the structure of the program.
-    ast: Box<Ast>,
+    ast: Box<ParsedNode>,
 
     /// The optional filename from which the syntax tree was generated.
     filename: Option<String>,
@@ -53,7 +53,7 @@ impl SyntaxTree {
     ///
     /// A new `SyntaxTree` instance with the provided values.
     pub fn new(
-        ast: Box<Ast>,
+        ast: Box<ParsedNode>,
         filename: Option<String>,
         generated_at: std::time::SystemTime,
     ) -> Self {
@@ -69,7 +69,7 @@ impl SyntaxTree {
     /// # Returns
     ///
     /// A reference to the boxed `Ast` object.
-    pub fn ast(&self) -> &Box<Ast> {
+    pub fn ast(&self) -> &Box<ParsedNode> {
         &self.ast
     }
 

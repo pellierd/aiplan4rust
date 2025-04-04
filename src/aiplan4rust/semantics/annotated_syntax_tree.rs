@@ -1,7 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
-use crate::aiplan4rust::syntax::syntax_tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};

@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantics::ast_table::AstTable;
 use crate::aiplan4rust::semantics::checkers::TypeChecker;
 use crate::aiplan4rust::semantics::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
 ///
@@ -129,9 +129,9 @@ fn match_declaration_with_usage(
         let argument_entry = ast.get_entry(*argument).unwrap();
         let key = argument_entry.get_key(ast)?;
         let kind = match argument_entry.kind() {
-            AstKind::Variable(_) => SymbolKind::Variable,
-            AstKind::Constant(_) => SymbolKind::Constant,
-            AstKind::FunctionTerm => SymbolKind::Function,
+            SyntaxNodeKind::Variable(_) => SymbolKind::Variable,
+            SyntaxNodeKind::Constant(_) => SymbolKind::Constant,
+            SyntaxNodeKind::FunctionTerm => SymbolKind::Function,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST kind encountered: {}",

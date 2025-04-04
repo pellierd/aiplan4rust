@@ -1,10 +1,12 @@
 pub mod parser;
 pub mod pddl;
 
-pub mod ast;
 pub mod lexer;
 
+pub mod elements;
 pub mod parser_result;
 pub mod span;
-pub mod syntax_tree;
 pub mod token;
+pub mod tree;
+
+pub use span::Span;

@@ -10,8 +10,8 @@ use crate::aiplan4rust::semantics::checkers::{
 };
 use crate::aiplan4rust::semantics::checkers::{symbol_declaration_checker, unused_symbol_checker};
 use crate::aiplan4rust::semantics::symbol::SymbolKind;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::syntax_tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use std::mem;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
@@ -114,8 +114,8 @@ impl Analyzer {
 
         // Determine the AST kind and perform the appropriate checks
         match syntax_tree.ast().kind() {
-            AstKind::Domain => self.check_domain(&annotated_syntax_tree)?,
-            AstKind::Problem => self.check_problem(&annotated_syntax_tree)?,
+            SyntaxNodeKind::Domain => self.check_domain(&annotated_syntax_tree)?,
+            SyntaxNodeKind::Problem => self.check_problem(&annotated_syntax_tree)?,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST node kind found: {}",

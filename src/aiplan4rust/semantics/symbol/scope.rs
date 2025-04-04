@@ -1,6 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
-use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use crate::aiplan4rust::syntax::tree::ParsedNode;
+use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
@@ -59,7 +60,7 @@ impl Scope {
     /// ```
     pub fn contains_ast_of_kind(
         &self,
-        kind: AstKind,
+        kind: SyntaxNodeKind,
         ast: &AstTable,
     ) -> Result<bool, ParserInternalError> {
         for id in &self.stack {
@@ -83,7 +84,7 @@ impl Scope {
     pub fn display_with_bimap(
         &self,
         f: &mut fmt::Formatter<'_>,
-        map: &LinkedHashMap<usize, &Box<Ast>>,
+        map: &LinkedHashMap<usize, &Box<ParsedNode>>,
     ) -> fmt::Result {
         let mut scope_strings: Vec<String> = Vec::new();
         for ast_index in self.stack.iter() {

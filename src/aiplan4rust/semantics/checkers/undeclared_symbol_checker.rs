@@ -5,7 +5,9 @@ use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
 use crate::aiplan4rust::semantics::symbol::Scope;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Symbol, SymbolKind, Usage};
-use crate::aiplan4rust::syntax::ast::Requirement::{Adl, DurativeActions, NumericFluents, Typing};
+use crate::aiplan4rust::syntax::elements::Requirement::{
+    Adl, DurativeActions, NumericFluents, Typing,
+};
 use crate::aiplan4rust::syntax::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
 /// Checks if there are any undeclared symbols used in the given symbol table.
