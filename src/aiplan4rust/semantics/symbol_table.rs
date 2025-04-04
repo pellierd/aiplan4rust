@@ -1,10 +1,10 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::ast_table::{AstEntry, AstTable};
-use crate::aiplan4rust::semantics::scope::Scope;
+use crate::aiplan4rust::semantics::symbol::Scope;
+use crate::aiplan4rust::semantics::symbol::TypedSymbol;
 use crate::aiplan4rust::semantics::symbol::{
     Declaration, FilterableSymbol, Symbol, SymbolKind, Usage,
 };
-use crate::aiplan4rust::semantics::typed_symbol::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::BinaryComp;
 use crate::aiplan4rust::syntax::ast::{AstKind, Requirement};
 use crate::aiplan4rust::syntax::token::TOTAL_TIME;

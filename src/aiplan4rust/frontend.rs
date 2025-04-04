@@ -3,7 +3,6 @@ use crate::aiplan4rust::file_format::FileFormat;
 use crate::aiplan4rust::linking::lifted_planning_task::LiftedPlanningTask;
 use crate::aiplan4rust::linking::linker::Linker;
 use crate::aiplan4rust::linking::linker_result::LinkerResult;
-use crate::aiplan4rust::semantics::analyser_result::AnalyzerResult;
 use crate::aiplan4rust::semantics::analyzer::Analyzer;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
@@ -11,13 +10,13 @@ use crate::aiplan4rust::semantics::annotated_syntax_tree::{
 use crate::aiplan4rust::syntax::parser::Language;
 use crate::aiplan4rust::syntax::parser::Parser;
 
+use crate::aiplan4rust::semantics::analyser_result::AnalyzerResult;
 use serde::Deserialize;
 use std::backtrace::Backtrace;
 use std::fs::File;
 use std::io::Read;
 use std::string::String;
 use std::{fmt, mem};
-
 // Enum to represent file formats
 
 #[derive(Debug)]
@@ -56,11 +55,9 @@ impl Frontend {
 
         // Parse the domain file
         let domain = self.parse_file(domain_path, language)?;
-        error_manager.add_errors_from(&domain.error_manager());
 
         // Parse the problem file
         let problem = self.parse_file(problem_path, language)?;
-        error_manager.add_errors_from(&problem.error_manager());
 
         // Check if the annotated syntax tree exists for the domain
         let domain_tree = match domain.annotated_syntax_tree() {
@@ -138,7 +135,7 @@ impl Frontend {
         // Create a new parser instance.
         let mut parser = Parser::new();
 
-        // Attempt to parse the content, returning the result in `parser_result`.
+        // Attempt to parse the content, returning the result in parser_result.
         let mut parser_result = parser.parse(source_path, &content, language)?;
 
         // Match on the syntax tree from the parser result.

@@ -6,7 +6,7 @@ use crate::aiplan4rust::linking::linker_result::LinkerResult;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };
-use crate::aiplan4rust::semantics::checkers::AtomicFormulaChecker;
+use crate::aiplan4rust::semantics::checkers::atomic_formula_checker;
 use crate::aiplan4rust::semantics::checkers::TypeChecker;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Source, SymbolKind, Usage};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
@@ -49,7 +49,7 @@ impl Linker {
             );
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
-            AtomicFormulaChecker::check(&problem, &type_checker, &mut self.error_manager)?;
+            atomic_formula_checker::check(&problem, &type_checker, &mut self.error_manager)?;
         }
 
         // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs

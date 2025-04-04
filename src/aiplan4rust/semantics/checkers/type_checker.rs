@@ -1,5 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantics::scope::Scope;
+use crate::aiplan4rust::semantics::symbol::Scope;
 use crate::aiplan4rust::semantics::symbol::SymbolKind;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::token::{NUMBER_TYPE, OBJECT_TYPE};

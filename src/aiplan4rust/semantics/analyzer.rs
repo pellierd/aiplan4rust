@@ -4,11 +4,12 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::analyser_result::AnalyzerResult;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
-use crate::aiplan4rust::semantics::checkers::FunctionalExpressionChecker;
+use crate::aiplan4rust::semantics::checkers::symbol_declaration_checker;
+use crate::aiplan4rust::semantics::checkers::undeclared_symbol_checker;
 use crate::aiplan4rust::semantics::checkers::TypeChecker;
-use crate::aiplan4rust::semantics::checkers::UndeclaredSymbolChecker;
-use crate::aiplan4rust::semantics::checkers::UnusedSymbolChecker;
-use crate::aiplan4rust::semantics::checkers::{AtomicFormulaChecker, SymbolDeclarationChecker};
+use crate::aiplan4rust::semantics::checkers::{
+    atomic_formula_checker, functional_expression_checker,
+};
 use crate::aiplan4rust::semantics::symbol::SymbolKind;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -28,7 +29,7 @@ impl Analyzer {
         }
     }
 
-    pub fn errors_manager(&self) -> &ErrorManager {
+    pub fn error_manager(&self) -> &ErrorManager {
         &self.error_manager
     }
 
@@ -59,21 +60,22 @@ impl Analyzer {
 
         match ast.kind() {
             AstKind::Domain => {
-                if SymbolDeclarationChecker::check(&annotated_syntax_tree, &mut self.error_manager)?
-                    && UndeclaredSymbolChecker::check(
-                        &annotated_syntax_tree,
-                        &[],
-                        &mut self.error_manager,
-                    )?
-                {
+                if symbol_declaration_checker::check(
+                    &annotated_syntax_tree,
+                    &mut self.error_manager,
+                )? && undeclared_symbol_checker::check(
+                    &annotated_syntax_tree,
+                    &[],
+                    &mut self.error_manager,
+                )? {
                     let type_checker = TypeChecker::new(annotated_syntax_tree.symbol_table());
-                    AtomicFormulaChecker::check(
+                    atomic_formula_checker::check(
                         &annotated_syntax_tree,
                         &type_checker,
                         &mut self.error_manager,
                     )?;
 
-                    FunctionalExpressionChecker::check(
+                    functional_expression_checker::check(
                         &annotated_syntax_tree,
                         &type_checker,
                         &mut self.error_manager,
@@ -83,14 +85,14 @@ impl Analyzer {
                 // Vérification des symboles inutilisés, indépendamment des précédentes vérifications
                 let skip_symbols = &[SymbolKind::Constant];
                 //self.check_symbol_usage(&symbol_table, &ast_table, skip_symbols)?;
-                UnusedSymbolChecker::check(
+                undeclared_symbol_checker::check(
                     &annotated_syntax_tree,
                     skip_symbols,
                     &mut self.error_manager,
                 )?;
             }
             AstKind::Problem => {
-                SymbolDeclarationChecker::check(&annotated_syntax_tree, &mut self.error_manager)?;
+                symbol_declaration_checker::check(&annotated_syntax_tree, &mut self.error_manager)?;
 
                 // Vérification des symboles non déclarés
                 let skip_symbols = &[
@@ -100,14 +102,18 @@ impl Analyzer {
                     SymbolKind::Function,
                     SymbolKind::Task, // Add for HDDL
                 ];
-                UndeclaredSymbolChecker::check(
+                undeclared_symbol_checker::check(
                     &annotated_syntax_tree,
                     skip_symbols,
                     &mut self.error_manager,
                 )?;
 
                 // Vérification des symboles inutilisés, indépendamment des précédentes vérifications
-                UnusedSymbolChecker::check(&annotated_syntax_tree, &[], &mut self.error_manager)?;
+                undeclared_symbol_checker::check(
+                    &annotated_syntax_tree,
+                    &[],
+                    &mut self.error_manager,
+                )?;
             }
             _ => {
                 return Err(ParserInternalError::new(format!(
