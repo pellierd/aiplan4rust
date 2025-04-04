@@ -1,5 +1,7 @@
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::ast_table::AstTable;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
+use crate::aiplan4rust::syntax::syntax_tree::SyntaxTree;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -58,18 +60,39 @@ impl AnnotatedSyntaxTree {
     ///
     /// # Returns
     /// A new `AnnotatedSyntaxTree` instance initialized with the given values.
-    pub fn new(
-        ast: AstTable,
-        symbol_table: SymbolTable,
-        filename: String,
-        generated_at: std::time::SystemTime,
-    ) -> Self {
+    pub fn new(ast: AstTable, symbol_table: SymbolTable, filename: String) -> Self {
         AnnotatedSyntaxTree {
             ast,
             symbol_table,
             filename,
-            generated_at,
+            generated_at: SystemTime::now(),
         }
+    }
+
+    /// Creates a new `AnnotatedSyntaxTree` from a `SyntaxTree`.
+    ///
+    /// # Arguments
+    /// * `syntax_tree` - The original syntax tree to be annotated.
+    ///
+    /// # Returns
+    /// * A new `AnnotatedSyntaxTree` created from the provided `syntax_tree`.
+    pub fn from(syntax_tree: &SyntaxTree) -> Result<Self, ParserInternalError> {
+        // Check if the AST exists in the syntax_tree
+        let ast = syntax_tree.ast();
+
+        // Convert the AST into a hash map
+        let ast_table = AstTable::from(&ast)?;
+
+        // Create the SymbolTable with the AST and the Bimap
+        let mut symbol_table = SymbolTable::new();
+        symbol_table.initialize_from_ast(0, &ast_table)?;
+
+        // Create and return the annotated_syntax_tree
+        Ok(AnnotatedSyntaxTree::new(
+            ast_table,
+            symbol_table,
+            syntax_tree.filename().unwrap().clone(),
+        ))
     }
 
     /// Returns a reference to the `AstTable` if available.
