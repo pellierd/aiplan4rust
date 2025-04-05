@@ -7,7 +7,7 @@ use crate::aiplan4rust::semantics::symbol::{
 };
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::token::TOTAL_TIME;
+use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};

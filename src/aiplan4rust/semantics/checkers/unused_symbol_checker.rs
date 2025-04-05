@@ -7,7 +7,9 @@ use crate::aiplan4rust::semantics::symbol::{Declaration, Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::elements::Requirement::{
     Adl, DurativeActions, NumericFluents, Typing,
 };
-use crate::aiplan4rust::syntax::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
+use crate::aiplan4rust::syntax::lexer::token::{
+    DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME,
+};
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 
 /// Checks for symbols that are declared but never used in the same or a parent scope.

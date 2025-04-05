@@ -1,6 +1,7 @@
 use logos::{Logos, SpannedIter};
 
-use crate::aiplan4rust::syntax::token::{LexicalError, Token};
+use crate::aiplan4rust::syntax::lexer::LexicalError;
+use crate::aiplan4rust::syntax::lexer::Token;
 
 /// Type alias for a `Result` that includes token location information (start and end positions).
 ///

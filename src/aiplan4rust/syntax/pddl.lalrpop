@@ -2,8 +2,8 @@ use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
 use ordered_float::OrderedFloat;
 
-use crate::aiplan4rust::syntax::token::LexicalError;
-use crate::aiplan4rust::syntax::token::Token;
+use crate::aiplan4rust::syntax::lexer::LexicalError;
+use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::tree::ParsedNode;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use crate::aiplan4rust::syntax::elements::Requirement;

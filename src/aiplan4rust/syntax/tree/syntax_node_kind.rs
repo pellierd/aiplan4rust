@@ -2,7 +2,7 @@ use crate::aiplan4rust::pddl_display::PDDLDisplay;
 use crate::aiplan4rust::syntax::elements::{
     ArithmeticOp, AssignOp, BinaryComp, Optimization, Requirement,
 };
-use crate::aiplan4rust::syntax::token::{
+use crate::aiplan4rust::syntax::lexer::token::{
     ACTION, AND, CONSTANTS, DOMAIN, EFFECT, EXISTS, FORALL, FUNCTIONS, IMPLY, NOT, OR,
     PRECONDITION, PREDICATES, REQUIREMENTS, TYPES, WHEN,
 };

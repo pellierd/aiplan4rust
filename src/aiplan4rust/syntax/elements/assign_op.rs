@@ -1,5 +1,5 @@
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use crate::aiplan4rust::syntax::token::{ASSIGN, DECREASE, INCREASE, SCALE_DOWN, SCALE_UP};
+use crate::aiplan4rust::syntax::lexer::token::{ASSIGN, DECREASE, INCREASE, SCALE_DOWN, SCALE_UP};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

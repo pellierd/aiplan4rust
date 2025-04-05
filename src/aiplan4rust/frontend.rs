@@ -7,8 +7,8 @@ use crate::aiplan4rust::semantics::analyzer::Analyzer;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };
-use crate::aiplan4rust::syntax::parser::Language;
 use crate::aiplan4rust::syntax::parser::Parser;
+use crate::aiplan4rust::syntax::Language;
 
 use crate::aiplan4rust::semantics::analyser_result::AnalyzerResult;
 use serde::Deserialize;

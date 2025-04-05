@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::elements::AssignOp;
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement::{DurativeActions, NumericFluents};
-use crate::aiplan4rust::syntax::token::{DURATION_VARIABLE, NUMBER_TYPE, TOTAL_TIME};
+use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, TOTAL_TIME};
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 
 /// Verifies the types of expressions used in function calls and assignment operations.

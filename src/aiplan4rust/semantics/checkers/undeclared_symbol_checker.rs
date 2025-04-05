@@ -8,7 +8,9 @@ use crate::aiplan4rust::semantics::symbol::{Declaration, Symbol, SymbolKind, Usa
 use crate::aiplan4rust::syntax::elements::Requirement::{
     Adl, DurativeActions, NumericFluents, Typing,
 };
-use crate::aiplan4rust::syntax::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
+use crate::aiplan4rust::syntax::lexer::token::{
+    DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME,
+};
 
 /// Checks if there are any undeclared symbols used in the given symbol table.
 /// This function scans all usages of symbols in the `symbol_table` and verifies if
