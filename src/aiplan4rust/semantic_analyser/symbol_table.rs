@@ -312,7 +312,6 @@ impl SymbolTable {
         index: usize,
     ) -> Result<Vec<&Declaration>, ParserInternalError> {
         let mut result = Vec::new();
-        let mut index_found = false; // Flag to track if the index exists in usages
 
         // Iterate through each symbol in the symbols map
         for symbol in self.symbols.values() {
@@ -320,8 +319,6 @@ impl SymbolTable {
             for usage in symbol.usages() {
                 // If a usage matches the provided index
                 if usage.ast() == index {
-                    index_found = true; // Mark that we found the index
-
                     // Search through the declarations of the current symbol
                     for declaration in symbol.declarations() {
                         // Check if the scope of the declaration matches the usage
