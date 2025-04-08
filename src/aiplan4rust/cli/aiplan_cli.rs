@@ -1,6 +1,8 @@
 use crate::aiplan4rust::file_format::FileFormat;
 use crate::aiplan4rust::parser::Language;
-use clap::{Arg, Command};
+
+use clap::Arg;
+use clap::Command;
 
 /// Constants for command names and other strings
 pub const VERSION: &str = "1.0";

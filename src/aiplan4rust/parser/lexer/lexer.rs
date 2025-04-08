@@ -1,4 +1,5 @@
-use logos::{Logos, SpannedIter};
+use logos::Logos;
+use logos::SpannedIter;
 
 use crate::aiplan4rust::parser::lexer::LexicalError;
 use crate::aiplan4rust::parser::lexer::Token;

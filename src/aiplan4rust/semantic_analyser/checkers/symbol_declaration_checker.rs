@@ -1,11 +1,13 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
-use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
+use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::ParserErrorKind;
+use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, SymbolKind};
-use std::collections::HashSet;
+use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
+use std::collections::HashSet;
 /// Checks for duplicate symbol declarations in the symbol table and logs errors
 /// to the error manager if duplicates are found.
 ///

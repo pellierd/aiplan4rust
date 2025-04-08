@@ -1,21 +1,19 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::ParserErrorKind::ParseError;
+use crate::aiplan4rust::error::ErrorManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::semantic_analyser::analyser_result::AnalyzerResult;
-use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::checkers::atomic_formula_checker;
+use crate::aiplan4rust::semantic_analyser::checkers::functional_expression_checker;
+use crate::aiplan4rust::semantic_analyser::checkers::symbol_declaration_checker;
+use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
+use crate::aiplan4rust::semantic_analyser::checkers::undeclared_symbol_checker;
+use crate::aiplan4rust::semantic_analyser::checkers::unused_symbol_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_analyser::checkers::{
-    atomic_formula_checker, functional_expression_checker,
-};
-use crate::aiplan4rust::semantic_analyser::checkers::{
-    symbol_declaration_checker, unused_symbol_checker,
-};
-use crate::aiplan4rust::semantic_analyser::checkers::{
-    task_ordering_checker, undeclared_symbol_checker,
-};
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::semantic_analyser::AnalyzerResult;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+
 use std::mem;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.

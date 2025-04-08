@@ -1,5 +1,9 @@
-use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::{LiftedDomain, LiftedProblem};
-use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::semantic_analyser::LiftedDomain;
+use crate::aiplan4rust::semantic_analyser::LiftedProblem;
+
+use serde::Deserialize;
+use serde::Serialize;
+
 use std::fmt;
 
 /// Represents a lifted planning task consisting of a domain and a problem.

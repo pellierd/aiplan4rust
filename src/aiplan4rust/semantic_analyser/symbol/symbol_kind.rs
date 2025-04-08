@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt;
 
 /// Enum representing the different kinds of symbols in the system.

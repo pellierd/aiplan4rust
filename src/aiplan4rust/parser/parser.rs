@@ -1,19 +1,25 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
-use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
+use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::ParserErrorKind;
+use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement;
-use crate::aiplan4rust::parser::lexer::token::{Token, NUMBER_TYPE, OBJECT_TYPE};
+use crate::aiplan4rust::parser::lexer::token::Token;
+use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
+use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::parser::lexer::Lexer;
 use crate::aiplan4rust::parser::lexer::LexicalError;
 use crate::aiplan4rust::parser::parser_result::ParserResult;
-use crate::aiplan4rust::parser::pddl::{HDDLParser, PDDLParser};
+use crate::aiplan4rust::parser::pddl::HDDLParser;
+use crate::aiplan4rust::parser::pddl::PDDLParser;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
-
 use crate::aiplan4rust::parser::Language;
-use lalrpop_util::{ErrorRecovery, ParseError};
+use crate::aiplan4rust::PDDLDisplay;
+
+use lalrpop_util::ErrorRecovery;
+use lalrpop_util::ParseError;
+
 use std::collections::HashSet;
 use std::mem;
 use std::time::SystemTime;

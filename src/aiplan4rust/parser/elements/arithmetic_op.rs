@@ -1,6 +1,12 @@
-use crate::aiplan4rust::parser::lexer::token::{ADD, DIV, MUL, SUB};
+use crate::aiplan4rust::parser::lexer::token::ADD;
+use crate::aiplan4rust::parser::lexer::token::DIV;
+use crate::aiplan4rust::parser::lexer::token::MUL;
+use crate::aiplan4rust::parser::lexer::token::SUB;
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use serde::{Deserialize, Serialize};
+
+use serde::Deserialize;
+use serde::Serialize;
+
 use std::fmt;
 
 /// Represents binary comparison operators used in logical and

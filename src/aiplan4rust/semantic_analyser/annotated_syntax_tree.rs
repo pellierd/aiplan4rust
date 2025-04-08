@@ -1,10 +1,13 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
-use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::semantic_analyser::SymbolTable;
+
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+use std::time::UNIX_EPOCH;
 
 /// Represents an annotated syntax tree that includes both an Abstract Syntax Tree (AST) and a
 /// symbol table, alongside metadata such as the file from which it was derived and the time it was

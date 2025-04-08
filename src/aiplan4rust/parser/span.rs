@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt;
 
 /// Represents a span in the source code with information about the start and end positions.

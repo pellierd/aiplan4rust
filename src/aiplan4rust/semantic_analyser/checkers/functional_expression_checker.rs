@@ -1,16 +1,20 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
-use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
+use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::ParserErrorKind;
+use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::AssignOp;
 use crate::aiplan4rust::parser::elements::BinaryComp;
-use crate::aiplan4rust::parser::elements::Requirement::{DurativeActions, NumericFluents};
-use crate::aiplan4rust::parser::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, TOTAL_TIME};
+use crate::aiplan4rust::parser::elements::Requirement::DurativeActions;
+use crate::aiplan4rust::parser::elements::Requirement::NumericFluents;
+use crate::aiplan4rust::parser::lexer::token::DURATION_VARIABLE;
+use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
+use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
 /// Verifies the types of expressions used in function calls and assignment operations.
 ///

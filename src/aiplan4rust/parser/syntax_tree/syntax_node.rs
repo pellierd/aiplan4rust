@@ -1,7 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::Span;
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
+use crate::aiplan4rust::PDDLDisplay;
 
 use std::collections::HashMap;
 use std::fmt;

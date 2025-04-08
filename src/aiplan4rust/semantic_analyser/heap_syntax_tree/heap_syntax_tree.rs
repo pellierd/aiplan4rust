@@ -2,13 +2,13 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use linked_hash_map::IntoIter;
-use linked_hash_map::LinkedHashMap;
-use std::collections::{HashMap, HashSet};
-
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::symbol::Source;
+
+use linked_hash_map::IntoIter;
+use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

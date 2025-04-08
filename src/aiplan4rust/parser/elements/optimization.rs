@@ -1,6 +1,10 @@
-use crate::aiplan4rust::parser::lexer::token::{MAXIMIZE, MINIMIZE};
+use crate::aiplan4rust::parser::lexer::token::MAXIMIZE;
+use crate::aiplan4rust::parser::lexer::token::MINIMIZE;
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use serde::{Deserialize, Serialize};
+
+use serde::Deserialize;
+use serde::Serialize;
+
 use std::fmt;
 
 /// This enum represents the two possible types of optimization.

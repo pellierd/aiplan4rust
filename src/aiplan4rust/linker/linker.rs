@@ -1,15 +1,20 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
-use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
+use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::ParserErrorKind;
+use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::linker::lifted_planning_task::LiftedPlanningTask;
-use crate::aiplan4rust::linker::linker_result::LinkerResult;
-use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::{
-    AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
-};
+use crate::aiplan4rust::linker::LiftedPlanningTask;
+use crate::aiplan4rust::linker::LinkerResult;
 use crate::aiplan4rust::semantic_analyser::checkers::atomic_formula_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Source, SymbolKind, Usage};
-use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
+use crate::aiplan4rust::semantic_analyser::symbol::Source;
+use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::semantic_analyser::symbol::Usage;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::LiftedDomain;
+use crate::aiplan4rust::semantic_analyser::LiftedProblem;
+use crate::aiplan4rust::semantic_analyser::SymbolTable;
+
 use std::mem;
 use std::mem::take;
 

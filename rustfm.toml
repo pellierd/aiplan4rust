@@ -1,3 +1,5 @@
 # rustfmt.toml
 max_width = 100
 tab_spaces = 4
+
+merge_imports = false

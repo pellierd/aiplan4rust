@@ -1,5 +1,6 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
+use crate::aiplan4rust::error::ErrorManager;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
+
 use std::fmt;
 
 /// A structure representing the result of a parsing operation.

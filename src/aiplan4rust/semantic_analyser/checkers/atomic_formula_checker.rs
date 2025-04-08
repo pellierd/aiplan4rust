@@ -1,12 +1,15 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
-use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
+use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::ParserErrorKind;
+use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, SymbolKind, Usage};
+use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
+use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
 ///

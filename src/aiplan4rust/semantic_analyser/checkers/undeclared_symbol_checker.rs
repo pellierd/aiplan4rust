@@ -1,16 +1,22 @@
-use crate::aiplan4rust::error::error_manager::ErrorManager;
-use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
+use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::ParserErrorKind;
+use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::parser::elements::Requirement::{
-    Adl, DurativeActions, NumericFluents, Typing,
-};
-use crate::aiplan4rust::parser::lexer::token::{
-    DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME,
-};
-use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::AnnotatedSyntaxTree;
+use crate::aiplan4rust::parser::elements::Requirement::Adl;
+use crate::aiplan4rust::parser::elements::Requirement::DurativeActions;
+use crate::aiplan4rust::parser::elements::Requirement::NumericFluents;
+use crate::aiplan4rust::parser::elements::Requirement::Typing;
+use crate::aiplan4rust::parser::lexer::token::DURATION_VARIABLE;
+use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
+use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
+use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
+use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::semantic_analyser::symbol::Usage;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
 /// Checks if there are any undeclared symbols used in the given symbol table.
 /// This function scans all usages of symbols in the `symbol_table` and verifies if

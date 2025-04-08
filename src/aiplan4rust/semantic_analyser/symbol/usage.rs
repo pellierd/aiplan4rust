@@ -1,5 +1,9 @@
-use crate::aiplan4rust::semantic_analyser::symbol::{Scope, Source, SymbolKind};
-use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::semantic_analyser::symbol::Scope;
+use crate::aiplan4rust::semantic_analyser::symbol::Source;
+use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt;
 
 /// Represents the usage of a symbol in a specific context within the AST.

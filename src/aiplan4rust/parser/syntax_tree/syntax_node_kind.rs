@@ -1,14 +1,37 @@
-use crate::aiplan4rust::parser::elements::{
-    ArithmeticOp, AssignOp, BinaryComp, Optimization, Requirement,
-};
-use crate::aiplan4rust::parser::lexer::token::{
-    ACTION, AND, CONSTANTS, DOMAIN, EFFECT, EXISTS, FORALL, FUNCTIONS, IMPLY, NOT, OR,
-    PRECONDITION, PREDICATES, REQUIREMENTS, TYPES, WHEN,
-};
+use crate::aiplan4rust::parser::elements::ArithmeticOp;
+use crate::aiplan4rust::parser::elements::AssignOp;
+use crate::aiplan4rust::parser::elements::BinaryComp;
+use crate::aiplan4rust::parser::elements::Optimization;
+use crate::aiplan4rust::parser::elements::Requirement;
+
+use crate::aiplan4rust::parser::lexer::token::ACTION;
+use crate::aiplan4rust::parser::lexer::token::AND;
+use crate::aiplan4rust::parser::lexer::token::CONSTANTS;
+use crate::aiplan4rust::parser::lexer::token::DOMAIN;
+use crate::aiplan4rust::parser::lexer::token::EFFECT;
+use crate::aiplan4rust::parser::lexer::token::EXISTS;
+use crate::aiplan4rust::parser::lexer::token::FORALL;
+use crate::aiplan4rust::parser::lexer::token::FUNCTIONS;
+use crate::aiplan4rust::parser::lexer::token::IMPLY;
+use crate::aiplan4rust::parser::lexer::token::NOT;
+use crate::aiplan4rust::parser::lexer::token::OR;
+use crate::aiplan4rust::parser::lexer::token::PRECONDITION;
+use crate::aiplan4rust::parser::lexer::token::PREDICATES;
+use crate::aiplan4rust::parser::lexer::token::REQUIREMENTS;
+use crate::aiplan4rust::parser::lexer::token::TYPES;
+use crate::aiplan4rust::parser::lexer::token::WHEN;
+
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
+
 use ordered_float::OrderedFloat;
+
+use serde::de;
 use serde::de::Visitor;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::Deserialize;
+use serde::Deserializer;
+use serde::Serialize;
+use serde::Serializer;
+
 use std::fmt;
 
 /// Represents the different types of Abstract Syntax Tree (AST) nodes.

@@ -1,4 +1,5 @@
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
+
 use std::fmt;
 
 /// A structure representing a syntax tree.

@@ -1,5 +1,10 @@
-use crate::aiplan4rust::semantic_analyser::symbol::{Scope, Source, SymbolKind, TypedSymbol};
-use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::semantic_analyser::symbol::Scope;
+use crate::aiplan4rust::semantic_analyser::symbol::Source;
+use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
+
+use serde::Deserialize;
+use serde::Serialize;
 use std::fmt;
 
 /// Represents a declaration in the abstract syntax tree (AST).

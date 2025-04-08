@@ -1,6 +1,13 @@
-use crate::aiplan4rust::parser::lexer::token::{ASSIGN, DECREASE, INCREASE, SCALE_DOWN, SCALE_UP};
+use crate::aiplan4rust::parser::lexer::token::ASSIGN;
+use crate::aiplan4rust::parser::lexer::token::DECREASE;
+use crate::aiplan4rust::parser::lexer::token::INCREASE;
+use crate::aiplan4rust::parser::lexer::token::SCALE_DOWN;
+use crate::aiplan4rust::parser::lexer::token::SCALE_UP;
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use serde::{Deserialize, Serialize};
+
+use serde::Deserialize;
+use serde::Serialize;
+
 use std::fmt;
 
 /// Represents assignment operations that can be used in planning and mathematical models.

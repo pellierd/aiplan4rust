@@ -1,4 +1,5 @@
-use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
+use crate::aiplan4rust::error::ParserErrorKind;
+use crate::aiplan4rust::error::ParsingError;
 
 /// The `ErrorManager` is responsible for centralized management of errors and warnings
 /// produced during the syntax analysis, normalization, and semantics analysis processes.

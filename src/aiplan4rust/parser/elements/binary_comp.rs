@@ -1,6 +1,13 @@
-use crate::aiplan4rust::parser::lexer::token::{EQUAL, GREATER, GREATER_EQ, LESS, LESS_EQ};
+use crate::aiplan4rust::parser::lexer::token::EQUAL;
+use crate::aiplan4rust::parser::lexer::token::GREATER;
+use crate::aiplan4rust::parser::lexer::token::GREATER_EQ;
+use crate::aiplan4rust::parser::lexer::token::LESS;
+use crate::aiplan4rust::parser::lexer::token::LESS_EQ;
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use serde::{Deserialize, Serialize};
+
+use serde::Deserialize;
+use serde::Serialize;
+
 use std::fmt;
 
 ///
