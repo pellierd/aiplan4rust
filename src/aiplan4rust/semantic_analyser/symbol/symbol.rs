@@ -1,22 +1,27 @@
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
+
 use std::fmt;
-use std::fmt::{Debug, Display};
-use std::hash::{Hash, Hasher};
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 /// Represents a symbol in a given context, with its associated declarations and usages.
 ///
-/// The `Symbol` struct is used to store the name, declarations, and usages of a symbol within a domain.
-/// It provides functionality for adding declarations and usages, checking for uniqueness,
+/// The `Symbol` struct is used to store the name, declarations, and usages of a symbol within a
+/// domain. It provides functionality for adding declarations and usages, checking for uniqueness,
 /// and formatting the symbol's name.
 ///
 /// # Fields
 ///
 /// - `name`: The unique name of the symbol. This name is used to identify the symbol in the system.
-/// - `declarations`: A vector of declarations where the symbol is declared. A symbol can have multiple declarations.
-/// - `usages`: A vector of usages of the symbol in various parts of the system. A symbol can be used in many places.
+/// - `declarations`: A vector of declarations where the symbol is declared. A symbol can have
+///   multiple declarations.
+/// - `usages`: A vector of usages of the symbol in various parts of the system. A symbol can be
+///   used in many places.
 ///
 /// # Methods
 ///
@@ -26,7 +31,8 @@ use std::hash::{Hash, Hasher};
 /// - `usages`: Returns a reference to the list of usages of the symbol.
 /// - `add_declaration`: Adds a new declaration for the symbol if it does not already exist.
 /// - `add_usage`: Adds a new usage for the symbol if it does not already exist.
-/// - `get_formatted_name`: Returns the part of the name before the first '/' character, if it exists.
+/// - `get_formatted_name`: Returns the part of the name before the first '/' character, if it
+///   exists.
 ///
 /// # Example
 ///
@@ -65,7 +71,8 @@ impl Symbol {
     ///
     /// # Returns
     ///
-    /// Returns a new `Symbol` instance with the specified name, and empty declarations and usages lists.
+    /// Returns a new `Symbol` instance with the specified name, and empty declarations and usages
+    /// lists.
     pub fn new(name: &str) -> Self {
         Symbol {
             name: name.to_string(),
