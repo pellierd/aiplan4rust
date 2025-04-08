@@ -63,19 +63,18 @@ pub fn check(
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
-    let symbol_table = tree.symbol_table();
-    let ast_table = tree.syntax_tree();
 
-    for ast in ast_table.values() {
-        match ast.kind() {
+    let syntax_tree = tree.syntax_tree();
+
+    for node in syntax_tree.values() {
+        match node.kind() {
             SyntaxNodeKind::TaskOrderingConstraintDef => {
-                let (line, column) = ast.span().start_position();
-                let task_ids = extract_task_ids(ast, ast_table)?;
+                let task_ids = extract_task_ids(node, syntax_tree)?;
                 let mut matrix = build_task_order_matrix(&task_ids)?;
                 transitive_closure(&mut matrix);
                 if is_cyclic(&matrix)? {
                     checked = false;
-                    let (line, column) = ast.span().start_position();
+                    let (line, column) = node.span().start_position();
                     let content = "Cyclic task ordering constraint detected.";
                     let error = ParsingError::new(
                         ParserErrorKind::ParseError,
