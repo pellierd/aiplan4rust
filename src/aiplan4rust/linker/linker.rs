@@ -1,8 +1,8 @@
 use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::linking::lifted_planning_task::LiftedPlanningTask;
-use crate::aiplan4rust::linking::linker_result::LinkerResult;
+use crate::aiplan4rust::linker::lifted_planning_task::LiftedPlanningTask;
+use crate::aiplan4rust::linker::linker_result::LinkerResult;
 use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };

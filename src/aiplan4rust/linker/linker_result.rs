@@ -1,5 +1,5 @@
 use crate::aiplan4rust::error::error_manager::ErrorManager;
-use crate::aiplan4rust::linking::lifted_planning_task::LiftedPlanningTask;
+use crate::aiplan4rust::linker::lifted_planning_task::LiftedPlanningTask;
 use std::fmt;
 
 /// `LinkerResult` represents the result of a linking process, which contains a lifted planning

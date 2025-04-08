@@ -1,8 +1,8 @@
 use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::file_format::FileFormat;
-use crate::aiplan4rust::linking::lifted_planning_task::LiftedPlanningTask;
-use crate::aiplan4rust::linking::linker::Linker;
-use crate::aiplan4rust::linking::linker_result::LinkerResult;
+use crate::aiplan4rust::linker::lifted_planning_task::LiftedPlanningTask;
+use crate::aiplan4rust::linker::linker::Linker;
+use crate::aiplan4rust::linker::linker_result::LinkerResult;
 use crate::aiplan4rust::parser::parser::Parser;
 use crate::aiplan4rust::parser::Language;
 use crate::aiplan4rust::semantic_analyser::analyzer::Analyzer;
