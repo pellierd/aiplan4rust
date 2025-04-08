@@ -51,7 +51,7 @@ impl Frontend {
         problem_path: &str,
         language: &Language,
     ) -> Result<LinkerResult, ParserInternalError> {
-        let mut error_manager = ErrorManager::new();
+        let error_manager = ErrorManager::new();
 
         // Parse the domain file
         let domain = self.parse_file(domain_path, language)?;
