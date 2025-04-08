@@ -1,5 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::syntax::tree::ParsedNode;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::LinkedHashMap;

@@ -6,8 +6,8 @@ use linked_hash_map::IntoIter;
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};
 
-use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxNode;
-use crate::aiplan4rust::semantics::symbol::Source;
+use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
+use crate::aiplan4rust::semantic_analyser::symbol::Source;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

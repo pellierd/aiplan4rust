@@ -3,13 +3,13 @@ use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linking::lifted_planning_task::LiftedPlanningTask;
 use crate::aiplan4rust::linking::linker_result::LinkerResult;
-use crate::aiplan4rust::semantics::annotated_syntax_tree::{
+use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };
-use crate::aiplan4rust::semantics::checkers::atomic_formula_checker;
-use crate::aiplan4rust::semantics::checkers::TypeChecker;
-use crate::aiplan4rust::semantics::symbol::{Declaration, Source, SymbolKind, Usage};
-use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantic_analyser::checkers::atomic_formula_checker;
+use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
+use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Source, SymbolKind, Usage};
+use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
 use std::mem;
 use std::mem::take;
 

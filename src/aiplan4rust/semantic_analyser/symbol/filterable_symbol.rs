@@ -1,4 +1,4 @@
-use crate::aiplan4rust::semantics::symbol::{Declaration, Scope, SymbolKind, Usage};
+use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope, SymbolKind, Usage};
 use std::fmt::{Debug, Display};
 
 /// A trait that defines methods to access the `kind` and `scope` of a symbol.

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::semantics::annotated_syntax_tree::{LiftedDomain, LiftedProblem};
+use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::{LiftedDomain, LiftedProblem};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

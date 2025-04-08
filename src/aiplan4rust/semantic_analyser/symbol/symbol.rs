@@ -1,4 +1,4 @@
-use crate::aiplan4rust::semantics::symbol::{Declaration, Usage};
+use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Usage};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Display};

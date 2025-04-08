@@ -1,4 +1,4 @@
-use crate::aiplan4rust::semantics::symbol::{Scope, Source, SymbolKind, TypedSymbol};
+use crate::aiplan4rust::semantic_analyser::symbol::{Scope, Source, SymbolKind, TypedSymbol};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

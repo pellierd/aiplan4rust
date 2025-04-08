@@ -1,11 +1,11 @@
 use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantics::checkers::TypeChecker;
-use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxNode;
-use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
-use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
+use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
+use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::elements::AssignOp;
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement::{DurativeActions, NumericFluents};

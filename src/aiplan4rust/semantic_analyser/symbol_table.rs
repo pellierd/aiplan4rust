@@ -1,9 +1,9 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxNode;
-use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
-use crate::aiplan4rust::semantics::symbol::Scope;
-use crate::aiplan4rust::semantics::symbol::TypedSymbol;
-use crate::aiplan4rust::semantics::symbol::{
+use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
+use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::symbol::Scope;
+use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
+use crate::aiplan4rust::semantic_analyser::symbol::{
     Declaration, FilterableSymbol, Symbol, SymbolKind, Usage,
 };
 use crate::aiplan4rust::syntax::elements::BinaryComp;
