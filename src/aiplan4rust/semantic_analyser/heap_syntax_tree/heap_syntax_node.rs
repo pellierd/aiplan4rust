@@ -1,6 +1,6 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
-use crate::aiplan4rust::syntax::tree::{ParsedNode, SyntaxNodeKind};
+use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxNodeKind};
 use crate::aiplan4rust::syntax::Span;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,8 +23,8 @@ impl HeapSyntaxNode {
     }
 
     pub fn from(
-        ast: &ParsedNode,
-        index_table: &HashMap<&ParsedNode, usize>,
+        ast: &SyntaxNode,
+        index_table: &HashMap<&SyntaxNode, usize>,
     ) -> Result<HeapSyntaxNode, ParserInternalError> {
         let mut children = Vec::new();
 

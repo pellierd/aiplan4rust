@@ -29,13 +29,13 @@ use std::hash::Hash;
 /// let ast = Ast::new(AstKind::Domain, 0, 10, 1, 1, 1, 10);
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ParsedNode {
+pub struct SyntaxNode {
     kind: SyntaxNodeKind,
-    children: Vec<Box<ParsedNode>>,
+    children: Vec<Box<SyntaxNode>>,
     span: Span,
 }
 
-impl ParsedNode {
+impl SyntaxNode {
     /// Creates a new AST node with the specified kind, children, start, and end positions.
     ///
     /// This function creates a new AST node with the provided kind, list of children nodes, start
@@ -63,11 +63,11 @@ impl ParsedNode {
     /// ```
     pub fn new(
         kind: SyntaxNodeKind,
-        children: Vec<Box<ParsedNode>>,
+        children: Vec<Box<SyntaxNode>>,
         start: usize,
         end: usize,
-    ) -> ParsedNode {
-        ParsedNode {
+    ) -> SyntaxNode {
+        SyntaxNode {
             kind,
             children,
             span: Span::new(start, end),
@@ -122,7 +122,7 @@ impl ParsedNode {
     ///
     /// # Returns
     /// Returns an immutable reference to `self.children` (the vector of `Box<Ast>`).
-    pub fn children(&self) -> &Vec<Box<ParsedNode>> {
+    pub fn children(&self) -> &Vec<Box<SyntaxNode>> {
         &self.children
     }
 
@@ -144,7 +144,7 @@ impl ParsedNode {
     ///
     /// * `new_children` - A vector of `Box<Ast>` representing the new set of children for the
     /// current node.
-    pub fn set_children(&mut self, new_children: Vec<Box<ParsedNode>>) {
+    pub fn set_children(&mut self, new_children: Vec<Box<SyntaxNode>>) {
         self.children = new_children;
     }
 
@@ -159,7 +159,7 @@ impl ParsedNode {
     ///
     /// # Returns
     /// Returns a mutable reference to `self.children` (the vector of `Box<Ast>`).
-    pub fn children_mut(&mut self) -> &mut Vec<Box<ParsedNode>> {
+    pub fn children_mut(&mut self) -> &mut Vec<Box<SyntaxNode>> {
         &mut self.children
     }
 
@@ -376,7 +376,7 @@ impl ParsedNode {
     /// let map = ast.to_hash_map();
     /// // Now `map` contains a mapping of AST node references to their indices
     /// ```
-    pub fn to_hash_map<'a>(&'a self) -> HashMap<&'a ParsedNode, usize> {
+    pub fn to_hash_map<'a>(&'a self) -> HashMap<&'a SyntaxNode, usize> {
         let mut map = HashMap::new();
         let mut id_counter = 0;
 
@@ -414,7 +414,7 @@ impl ParsedNode {
     /// ```
     fn to_recusive_hash_map<'a>(
         &'a self,
-        map: &mut HashMap<&'a ParsedNode, usize>,
+        map: &mut HashMap<&'a SyntaxNode, usize>,
         id_counter: &mut usize,
     ) {
         // Insert the current node and assign it an index
@@ -428,7 +428,7 @@ impl ParsedNode {
     }
 }
 
-impl fmt::Display for ParsedNode {
+impl fmt::Display for SyntaxNode {
     /// Formats the `Ast` with indentation based on its depth.
     ///
     /// This method implements the `Display` trait for the `Ast` struct, allowing it to be
@@ -442,7 +442,7 @@ impl fmt::Display for ParsedNode {
     }
 }
 
-impl PDDLDisplay for ParsedNode {
+impl PDDLDisplay for SyntaxNode {
     /// Converts the current AST node into a PDDL string representation, starting from depth 0.
     ///
     /// This function is a convenience method that delegates the actual conversion to the

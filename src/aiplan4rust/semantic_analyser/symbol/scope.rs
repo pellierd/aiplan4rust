@@ -1,6 +1,6 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
-use crate::aiplan4rust::syntax::tree::ParsedNode;
+use crate::aiplan4rust::syntax::tree::SyntaxNode;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
@@ -84,7 +84,7 @@ impl Scope {
     pub fn display_with_map(
         &self,
         f: &mut fmt::Formatter<'_>,
-        map: &LinkedHashMap<usize, &Box<ParsedNode>>,
+        map: &LinkedHashMap<usize, &Box<SyntaxNode>>,
     ) -> fmt::Result {
         let mut scope_strings: Vec<String> = Vec::new();
         for ast_index in self.stack.iter() {

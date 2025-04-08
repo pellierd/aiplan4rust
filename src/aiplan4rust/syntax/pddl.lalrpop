@@ -4,7 +4,7 @@ use ordered_float::OrderedFloat;
 
 use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::tree::ParsedNode;
+use crate::aiplan4rust::syntax::tree::SyntaxNode;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::elements::ArithmeticOp;
@@ -203,220 +203,220 @@ pub VarName : Result<String, ()> = {
     },
 }
 
-pub Constant: Box<ParsedNode> = {
+pub Constant: Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(ParsedNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub Variable : Box<ParsedNode> = {
+pub Variable : Box<SyntaxNode> = {
      <start:@L> <name:VarName> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(ParsedNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
     <var:DurationVariable> => var,
 }
 
-pub FunctionSymbol : Box<ParsedNode> = {
+pub FunctionSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-             Ok(name) =>  Box::new(ParsedNode::new(SyntaxNodeKind::FunctionSymbol(name.to_string()), Vec::new(), start, end)),
-             Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+             Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::FunctionSymbol(name.to_string()), Vec::new(), start, end)),
+             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
          }
     },
 }
 
-pub Number: Box<ParsedNode> = {
+pub Number: Box<SyntaxNode> = {
     <start:@L> <value:"number"> <end:@R> => { 
-        Box::new(ParsedNode::new(SyntaxNodeKind::Number(OrderedFloat(value)), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Number(OrderedFloat(value)), Vec::new(), start, end))
     },
 }
 
-pub DomainName : Box<ParsedNode> = {
+pub DomainName : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-             Ok(name) =>  Box::new(ParsedNode::new(SyntaxNodeKind::DomainName(name.to_string()), Vec::new(), start, end)),
-             Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+             Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::DomainName(name.to_string()), Vec::new(), start, end)),
+             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
          }
      },
 }
 
-pub ProblemName : Box<ParsedNode> = {
+pub ProblemName : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(ParsedNode::new(SyntaxNodeKind::ProblemName(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::ProblemName(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub PrimitiveType : Box<ParsedNode> = {
+pub PrimitiveType : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) =>  Box::new(ParsedNode::new(SyntaxNodeKind::PrimitiveType(name.to_string()), Vec::new(), start, end)),
-            Err(name) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::PrimitiveType(name.to_string()), Vec::new(), start, end)),
+            Err(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub Predicate : Box<ParsedNode> = {
+pub Predicate : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) => Box::new(ParsedNode::new(SyntaxNodeKind::Predicate(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::Predicate(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub ActionSymbol : Box<ParsedNode> = {
+pub ActionSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) =>  Box::new(ParsedNode::new(SyntaxNodeKind::ActionSymbol(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::ActionSymbol(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub DASymbol : Box<ParsedNode> = {
+pub DASymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) => Box::new(ParsedNode::new(SyntaxNodeKind::DASymbol(name.to_string()), Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::DASymbol(name.to_string()), Vec::new(), start, end)),
             Err(_) => {
-                Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end))
+                Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end))
             }
         }
     },
 }
 
-pub PrefName : Box<ParsedNode> = {
+pub PrefName : Box<SyntaxNode> = {
      <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(ParsedNode::new(SyntaxNodeKind::PrefName(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::PrefName(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub Requirement : Box<ParsedNode> = {
+pub Requirement : Box<SyntaxNode> = {
     <start:@L> ":strips" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Strips), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Strips), Vec::new(), start, end))
     },
     <start:@L> ":typing" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Typing), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Typing), Vec::new(), start, end))
     },
     <start:@L> ":equality" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Equality), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Equality), Vec::new(), start, end))
     },
     <start:@L> ":negative-preconditions" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::NegativePreconditions), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::NegativePreconditions), Vec::new(), start, end))
     },
     <start:@L> ":disjunctive-preconditions" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::DisjunctivePreconditions), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::DisjunctivePreconditions), Vec::new(), start, end))
     },
     <start:@L> ":existential-preconditions" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::ExistentialPreconditions), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::ExistentialPreconditions), Vec::new(), start, end))
     },
     <start:@L> ":universal-preconditions" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::UniversalPreconditions), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::UniversalPreconditions), Vec::new(), start, end))
     },
     <start:@L> ":quantified-preconditions" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::QuantifiedPreconditions), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::QuantifiedPreconditions), Vec::new(), start, end))
     },
     <start:@L> ":conditional-effects" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::ConditionalEffects), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::ConditionalEffects), Vec::new(), start, end))
     },
     <start:@L> ":fluents" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Fluents), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Fluents), Vec::new(), start, end))
     },
     <start:@L> ":numeric-fluents" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::NumericFluents), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::NumericFluents), Vec::new(), start, end))
     },
     <start:@L> ":adl" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Adl), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Adl), Vec::new(), start, end))
     },
     <start:@L> ":durative-actions" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::DurativeActions), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::DurativeActions), Vec::new(), start, end))
     },
     <start:@L> ":duration-inequalities" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::DurationInequalities), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::DurationInequalities), Vec::new(), start, end))
     },
     <start:@L> ":continuous-effects" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::ContinuousEffects), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::ContinuousEffects), Vec::new(), start, end))
     },
     <start:@L> ":derived-predicates" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::DerivedPredicates), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::DerivedPredicates), Vec::new(), start, end))
     },
     <start:@L> ":timed-initial-literals" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::TimedInitialLiterals), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::TimedInitialLiterals), Vec::new(), start, end))
     },
     <start:@L> ":preferences" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Preferences), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Preferences), Vec::new(), start, end))
     },
     <start:@L> ":constraints" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Constraints), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Constraints), Vec::new(), start, end))
     },
     <start:@L> ":action-costs" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::ActionCosts), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::ActionCosts), Vec::new(), start, end))
     },
     <start:@L> <error:!> <end:@R>  => {
         errors.push(error);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end))
     },
 }
 
-pub RequireDef : Box<ParsedNode> = {
+pub RequireDef : Box<SyntaxNode> = {
      <start:@L> "(" ":requirements" <requirements:Requirement*> ")" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::RequireDef, requirements, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::RequireDef, requirements, start, end))
      },
 }
 
-pub Type : Box<ParsedNode> = {
+pub Type : Box<SyntaxNode> = {
     <start:@L> <t:PrimitiveType> <end:@R> => {
         let mut children = Vec::new();
         children.push(t);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Type, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Type, children, start, end))
     },
     <start:@L> "(" "either" <types:PrimitiveType+> ")" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Type, types, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Type, types, start, end))
     },
 }
 
-TypedList<T>: Box<ParsedNode> = {
+TypedList<T>: Box<SyntaxNode> = {
    <start:@L>  <list:T*> <end:@R> => {
         let mut children = Vec::new();
         children.extend(list);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TypedList, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end))
     },
     <start:@L> <list:T+>  "-" <ty:Type> <end:@R> <next:TypedList<T>> => {
         let mut children = Vec::new();
         children.extend(list);
         children.push(ty);
         children.push(next);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TypedList, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end))
     },
 }
 
-/*TypedList<T>: Vec<Box<ParsedNode>> = {
+/*TypedList<T>: Vec<Box<SyntaxNode>> = {
    <start:@L>  <list:T*> <end:@R> => {
         let mut typed_list = Vec::new();
         for element in list {
             let mut children = Vec::new();
-            let mut ty = Box::new(ParsedNode::new(SyntaxNodeKind::Type, Vec::new(), start, end));
+            let mut ty = Box::new(SyntaxNode::new(SyntaxNodeKind::Type, Vec::new(), start, end));
             let primitive_type = if SyntaxNodeKind::AtomicFunctionSkeleton == *element.kind() {
                 SyntaxNodeKind::PrimitiveType("number".to_string())
             } else {
                 SyntaxNodeKind::PrimitiveType("object".to_string())
             };
-            let primitive_node = Box::new(ParsedNode::new(primitive_type, Vec::new(), start, end));
+            let primitive_node = Box::new(SyntaxNode::new(primitive_type, Vec::new(), start, end));
             ty.children_mut().push(primitive_node);
             children.push(element);
             children.push(ty);
-            typed_list.push(Box::new(ParsedNode::new(SyntaxNodeKind::TypedList, children, start, end)));
+            typed_list.push(Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end)));
         }
         typed_list
 
@@ -427,7 +427,7 @@ TypedList<T>: Box<ParsedNode> = {
             let mut children = Vec::new();
             children.push(element);
             children.push(ty.clone());
-            typed_list.push(Box::new(ParsedNode::new(SyntaxNodeKind::TypedList, children, start, end)));
+            typed_list.push(Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end)));
         }
         if next.len() > 1 || (next.len() == 1 && next[0].children().len() > 0) {
             typed_list.extend(next);
@@ -436,17 +436,17 @@ TypedList<T>: Box<ParsedNode> = {
     },
 }*/
 
-/*TypedList<T>: Vec<Box<ParsedNode>> = {
+/*TypedList<T>: Vec<Box<SyntaxNode>> = {
    <start:@L>  <list:T*> <end:@R> => {
         let mut children = Vec::new();
         children.extend(list);
-        vec![Box::new(ParsedNode::new(SyntaxNodeKind::TypedList, children, start, end))]
+        vec![Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end))]
     },
     <start:@L> <list:T+>  "-" <ty:Type> <end:@R> <next:TypedList<T>> => {
         let mut children = Vec::new();
         children.extend(list);
         children.push(ty);
-        let mut typed_list = vec![Box::new(ParsedNode::new(SyntaxNodeKind::TypedList, children, start, end))];
+        let mut typed_list = vec![Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end))];
         if next.len() > 1 || (next.len() == 1 && next[0].children().len() > 0) {
             typed_list.extend(next);
         }
@@ -454,62 +454,62 @@ TypedList<T>: Box<ParsedNode> = {
     },
 }*/
 
-pub TypesDef : Box<ParsedNode> = {
+pub TypesDef : Box<SyntaxNode> = {
     <start:@L> "(" ":types" <types:TypedList<PrimitiveType>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(types);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TypesDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TypesDef, children , start, end))
      },
 }
 
-pub ConstantsDef : Box<ParsedNode> = {
+pub ConstantsDef : Box<SyntaxNode> = {
     <start:@L> "(" ":constants" <constants:TypedList<Constant>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(constants);
-        Box::new(ParsedNode::new(SyntaxNodeKind::ConstantsDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::ConstantsDef, children , start, end))
      },
 }
 
-pub PredicatesDef : Box<ParsedNode> = {
+pub PredicatesDef : Box<SyntaxNode> = {
      <start:@L> "(" ":predicates" <predicates:AtomicFormulaSkeleton+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(predicates);
-        Box::new(ParsedNode::new(SyntaxNodeKind::PredicatesDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::PredicatesDef, children , start, end))
     },
 }
-pub AtomicFormulaSkeleton : Box<ParsedNode> = {
+pub AtomicFormulaSkeleton : Box<SyntaxNode> = {
     <start:@L> "(" <predicate:Predicate> <arguments:TypedList<Variable>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(predicate);
         children.push(arguments);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtomicFormulaSkeleton, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtomicFormulaSkeleton, children , start, end))
     }
 }
 
-pub FunctionsDef :  Box<ParsedNode> = {
+pub FunctionsDef :  Box<SyntaxNode> = {
     <start:@L> "(" ":functions" <functions:TypedList<AtomicFunctionSkeleton>>  ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(functions);
-        Box::new(ParsedNode::new(SyntaxNodeKind::FunctionsDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::FunctionsDef, children , start, end))
     }
 }
 
-pub AtomicFunctionSkeleton : Box<ParsedNode> = {
+pub AtomicFunctionSkeleton : Box<SyntaxNode> = {
     <start:@L> "(" <functor:FunctionSymbol> <arguments:TypedList<Variable>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(functor);
         children.push(arguments);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtomicFunctionSkeleton, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtomicFunctionSkeleton, children , start, end))
     }
 }
 
-pub StructureDef : Box<ParsedNode> = {
+pub StructureDef : Box<SyntaxNode> = {
     <action:ActionDef> =>  action,
     <derived:DerivedDef> => derived,
     <durative_action:DurativeActionDef> => durative_action,
 }
 
-pub ActionDef : Box<ParsedNode> = {
+pub ActionDef : Box<SyntaxNode> = {
     <start:@L>
         "(" ":action"
             <name:ActionSymbol>
@@ -521,17 +521,17 @@ pub ActionDef : Box<ParsedNode> = {
         children.push(name);
         children.push(parameters);
         children.push(body);
-        Box::new(ParsedNode::new(SyntaxNodeKind::ActionDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::ActionDef, children , start, end))
     }
 }
 
-pub ParameterDef : Box<ParsedNode> = {
+pub ParameterDef : Box<SyntaxNode> = {
     <start:@L>
        ":parameters" "(" <parameters:TypedList<Variable>> ")"
     <end:@R>  => parameters,
 }
 
-pub ActionDefBody : Box<ParsedNode> = {
+pub ActionDefBody : Box<SyntaxNode> = {
     <start:@L>
         <precondition:PreconditionDef?>
         <effect:EffectDef?>
@@ -543,65 +543,65 @@ pub ActionDefBody : Box<ParsedNode> = {
         if let Some(effect) = effect {
             children.push(effect);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::ActionDefBody, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::ActionDefBody, children , start, end))
     }
 }
 
-pub PreconditionDef : Box<ParsedNode> = {
+pub PreconditionDef : Box<SyntaxNode> = {
     <start:@L>
         ":precondition" <precondition:EmptyOr<PreGD>>
     <end:@R>  => {
         let mut children = Vec::new();
         children.push(precondition);
-        Box::new(ParsedNode::new(SyntaxNodeKind::PreconditionDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::PreconditionDef, children , start, end))
     }
 }
 
-pub EffectDef : Box<ParsedNode> = {
+pub EffectDef : Box<SyntaxNode> = {
     <start:@L>
         ":effect" <effect:EmptyOr<Effect>>
     <end:@R>  => {
         let mut children = Vec::new();
         children.push(effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::EffectDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::EffectDef, children , start, end))
     }
 }
 
-EmptyOr<T> : Box<ParsedNode> = {
+EmptyOr<T> : Box<SyntaxNode> = {
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Or, Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Or, Vec::new(), start, end))
     },
     <start:@L> <element:T> <end:@R> => {
         let mut children = Vec::new();
         children.push(element);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Or, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Or, children, start, end))
     },
 }
 
-pub PreGD : Box<ParsedNode> = {
+pub PreGD : Box<SyntaxNode> = {
     <start:@L> <pref_gd:PrefGD> <end:@R> => pref_gd,
     //<start:@L> <gd:GD> <end:@R> => gd,
     <atom:AtomicFormula<Term>> => atom,
     <start:@L> "(" "and" <pre_gd:PreGD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(pre_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L> "(" "or" <gd:GD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Or, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Or, children, start, end))
     },
     <start:@L> "(" "not" <gd:GD> ")" <end:@R> => {
          let mut children = Vec::new();
          children.push(gd);
-         Box::new(ParsedNode::new(SyntaxNodeKind::Not, children, start, end))
+         Box::new(SyntaxNode::new(SyntaxNodeKind::Not, children, start, end))
     },
     <start:@L> "(" "imply" <antecedent:GD> <consequence:GD>")" <end:@R>  => {
         let mut children = Vec::new();
         children.push(antecedent);
         children.push(consequence);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Imply, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Imply, children, start, end))
     },
     <start:@L>
         "(" "exists"
@@ -612,7 +612,7 @@ pub PreGD : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Exists, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Exists, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -623,44 +623,44 @@ pub PreGD : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(pre_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Forall, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Forall, children, start, end))
     },
     <fcomp:FComp> => fcomp,
 }
 
-pub PrefGD : Box<ParsedNode> = {
+pub PrefGD : Box<SyntaxNode> = {
     <start:@L> "(" "preference" <pref_name:PrefName?> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         if let Some(pref_name) = pref_name {
             children.push(pref_name);
         }
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Preference, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Preference, children , start, end))
     },
 }
 
-pub GD : Box<ParsedNode> = {
+pub GD : Box<SyntaxNode> = {
     <atom:AtomicFormula<Term>> => atom,
     <start:@L> "(" "and" <gd:GD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L> "(" "or" <gd:GD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Or, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Or, children, start, end))
     },
     <start:@L> "(" "not" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Not, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Not, children, start, end))
     },
     <start:@L> "(" "imply" <antecedent:GD> <consequence:GD>")" <end:@R>  => {
         let mut children = Vec::new();
         children.push(antecedent);
         children.push(consequence);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Imply, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Imply, children, start, end))
     },
      <start:@L>
         "(" "exists"
@@ -671,7 +671,7 @@ pub GD : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Exists, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Exists, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -682,21 +682,21 @@ pub GD : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Forall, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Forall, children, start, end))
     },
     <fcomp:FComp> => fcomp,
 }
 
-pub Effect : Box<ParsedNode> = {
+pub Effect : Box<SyntaxNode> = {
     <start:@L> "(" "and" <effects:CEffect*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(effects);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <effect:CEffect> => effect,
 }
 
-pub CEffect : Box<ParsedNode> = {
+pub CEffect : Box<SyntaxNode> = {
     <start:@L>
         "(" "forall"
             <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
@@ -706,67 +706,67 @@ pub CEffect : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Forall, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Forall, children, start, end))
     },
     <start:@L> "(" "when" <gd:GD> <effect:CondEffect> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
         children.push(effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::When, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::When, children, start, end))
     },
     <effect:PEffect> => effect,
 }
 
-pub PEffect : Box<ParsedNode> = {
+pub PEffect : Box<SyntaxNode> = {
     <literal:Literal<Term>> => literal,
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexp:_FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fhead);
         children.push(fexp);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Assign(op), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Assign(op), children, start, end))
     },
 }
 
-pub CondEffect : Box<ParsedNode> = {
+pub CondEffect : Box<SyntaxNode> = {
     <start:@L> "(" "and" <effects:PEffect*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(effects);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <effect:PEffect> => effect,
 }
 
-pub Term: Box<ParsedNode> = {
+pub Term: Box<SyntaxNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(ParsedNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end))
         } else {
-            Box::new(ParsedNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end))
         }
     },
     <duration:DurationVariable> => duration,
     <function:FunctionTerm> => function,
 }
 
-pub FunctionTerm: Box<ParsedNode> = {
+pub FunctionTerm: Box<SyntaxNode> = {
     <function_term:_FunctionTerm<Term>> => function_term
 }
 
-_FunctionTerm<T>: Box<ParsedNode> = {
+_FunctionTerm<T>: Box<SyntaxNode> = {
    <start:@L> "(" <function_symbol:FunctionSymbol> <arguments:T*> ")" <end:@R> => {
             let mut children = Vec::new();
             children.push(function_symbol);
             children.extend(arguments);
-            Box::new(ParsedNode::new(SyntaxNodeKind::FunctionTerm, children, start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::FunctionTerm, children, start, end))
        },
 }
 
-pub FComp : Box<ParsedNode> = {
+pub FComp : Box<SyntaxNode> = {
     <start:@L> "(" <comparator:BinaryComp> <arg1:_FExp> <arg2:_FExp> ")"  <end:@R> => {
         let mut children = Vec::new();
          children.push(arg1);
          children.push(arg2);
-         Box::new(ParsedNode::new(SyntaxNodeKind::FComp(comparator), children, start, end))
+         Box::new(SyntaxNode::new(SyntaxNodeKind::FComp(comparator), children, start, end))
     },
 }
 
@@ -793,25 +793,25 @@ pub ArithmeticOp : ArithmeticOp = {
     "*" => ArithmeticOp::Mul,
 }
 
-Literal<T> : Box<ParsedNode> = {
+Literal<T> : Box<SyntaxNode> = {
     <atom:AtomicFormula<T>> => atom,
     <start:@L> "(" "not" <atom:AtomicFormula<T>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(atom);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Not, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Not, children, start, end))
     },
 }
 
-AtomicFormula<T> : Box<ParsedNode> = {
+AtomicFormula<T> : Box<SyntaxNode> = {
     <start:@L> "(" <predicate:Predicate> <terms:T*> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(predicate);
         children.extend(terms);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtomicFormula, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtomicFormula, children, start, end))
     },
 }
 
-_FExp : Box<ParsedNode> = {
+_FExp : Box<SyntaxNode> = {
     <term:Term> => term,
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:_FExp> <arg2:_FExp?> ")" <end:@R> => {
@@ -820,29 +820,29 @@ _FExp : Box<ParsedNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
     },
 }
 
-pub FExp : Box<ParsedNode> = {
+pub FExp : Box<SyntaxNode> = {
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:FExp> <arg2:FExp?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -850,30 +850,30 @@ pub FExp : Box<ParsedNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:FExp> <arg2:FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <fhead:FHead> => fhead,
 }
 
-pub FExpDA : Box<ParsedNode> = {
+pub FExpDA : Box<SyntaxNode> = {
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:FExpDA> <arg2:FExpDA?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -881,53 +881,53 @@ pub FExpDA : Box<ParsedNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:FExpDA> <arg2:FExpDA> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <fhead:FHead> => fhead, // Add to accept the good syntax
     //<fexp:FExp> => fexp, // Remove for conflict
     <duration:DurationVariable> => duration,
 }
 
-pub FHead: Box<ParsedNode> = {
+pub FHead: Box<SyntaxNode> = {
     <function:FunctionTerm> => function,
      <start:@L> <symbol:FunctionSymbol> <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
-        Box::new(ParsedNode::new(SyntaxNodeKind::FunctionTerm, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::FunctionTerm, children, start, end))
     }
 }
 
-pub Constraints : Box<ParsedNode> = {
+pub Constraints : Box<SyntaxNode> = {
     <start:@L> "(" ":constraints" <con_gd:ConGD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(con_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Constraints, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Constraints, children, start, end))
     },
 }
 
-pub ConGD : Box<ParsedNode> = {
+pub ConGD : Box<SyntaxNode> = {
     <start:@L> "(" "and" <con_gd:ConGD*> ")" <end:@R> => {
          let mut children = Vec::new();
         children.extend(con_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -938,78 +938,78 @@ pub ConGD : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(con_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Forall, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Forall, children, start, end))
     },
     <start:@L> "(" "at end" <gd:GD> ")"<end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtEnd, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtEnd, children, start, end))
     },
     <start:@L> "(" "always" <gd:GD> ")"<end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Always, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Always, children, start, end))
     },
     <start:@L> "(" "sometime" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Sometime, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Sometime, children, start, end))
     },
     <start:@L> "(" "within" <number:Number> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Within, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Within, children, start, end))
     },
     <start:@L> "(" "at-most-once" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtMostOnce, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtMostOnce, children, start, end))
     },
     <start:@L> "(" "sometime-after" <gd1:GD> <gd2:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd1);
         children.push(gd2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::SometimeAfter, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::SometimeAfter, children, start, end))
     },
     <start:@L> "(" "sometime-before" <gd1:GD> <gd2:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd1);
         children.push(gd2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::SometimeBefore, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::SometimeBefore, children, start, end))
     },
     <start:@L> "(" "always-within" <number:Number> <gd1:GD> <gd2:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(gd1);
         children.push(gd2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AlwaysWithin, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AlwaysWithin, children, start, end))
     },
     <start:@L> "(" "hold-during" <lower:Number> <upper:Number> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(lower);
         children.push(upper);
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::HoldDuring, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::HoldDuring, children, start, end))
     },
     <start:@L> "(" "hold-after" <number:Number> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::HoldAfter, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::HoldAfter, children, start, end))
     },
 }
 
-pub DerivedDef : Box<ParsedNode> = {
+pub DerivedDef : Box<SyntaxNode> = {
     <start:@L> "(" ":derived" <atom:AtomicFormulaSkeleton> <gd:GD> ")"<end:@R>  => {
         let mut children = Vec::new();
         children.push(atom);
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::DerivedDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::DerivedDef, children, start, end))
     },
 }
 
-pub DurativeActionDef : Box<ParsedNode> = {
+pub DurativeActionDef : Box<SyntaxNode> = {
     <start:@L>
         "(" ":durative-action" <name:DASymbol>
         <parameters:ParameterDef>
@@ -1019,11 +1019,11 @@ pub DurativeActionDef : Box<ParsedNode> = {
         children.push(name);
         children.push(parameters);
         children.push(body);
-        Box::new(ParsedNode::new(SyntaxNodeKind::DurativeActionDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::DurativeActionDef, children , start, end))
     },
 }
 
-pub DADefBody : Box<ParsedNode> = {
+pub DADefBody : Box<SyntaxNode> = {
     <start:@L>
         ":duration" <constraint:DurationConstraint>
         ":condition" <condition:EmptyOr<DAGD>>
@@ -1033,44 +1033,44 @@ pub DADefBody : Box<ParsedNode> = {
         children.push(constraint);
         children.push(condition);
         children.push(effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::DADefBody, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::DADefBody, children , start, end))
     },
 }
 
-pub DurationConstraint : Box<ParsedNode> = {
+pub DurationConstraint : Box<SyntaxNode> = {
     <start:@L> "(" "and" <constraints:SimpleDurationConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
     },
     <constraint:SimpleDurationConstraint> => constraint,
 }
 
-pub SimpleDurationConstraint : Box<ParsedNode> = {
+pub SimpleDurationConstraint : Box<SyntaxNode> = {
     <start:@L> "(" <op:DOp> <var:DurationVariable> <value:DValue> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(var);
         children.push(value);
-        Box::new(ParsedNode::new(SyntaxNodeKind::FComp(op), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::FComp(op), children, start, end))
     },
     <start:@L> "at start" <constraints:SimpleDurationConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtStart, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtStart, children, start, end))
     },
     <start:@L> "at end" <constraints:SimpleDurationConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtEnd, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtEnd, children, start, end))
     },
 }
 
-pub DurationVariable : Box<ParsedNode> = {
+pub DurationVariable : Box<SyntaxNode> = {
     <start:@L> <var:"?duration"> <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Variable(var.to_string()), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(var.to_string()), Vec::new(), start, end))
     }
 }
 
@@ -1080,16 +1080,16 @@ pub DOp : BinaryComp = {
     "=" => BinaryComp::Equal,
 }
 
-pub DValue : Box<ParsedNode> = {
+pub DValue : Box<SyntaxNode> = {
     <fexp:FExp> => fexp,
 }
 
-pub DAGD : Box<ParsedNode> = {
+pub DAGD : Box<SyntaxNode> = {
     <pref_timed_gd:PrefTimedGD> => pref_timed_gd,
     <start:@L> "(" "and" <da_gd:DAGD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(da_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -1100,11 +1100,11 @@ pub DAGD : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(da_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Forall, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Forall, children, start, end))
     },
 }
 
-pub PrefTimedGD : Box<ParsedNode> = {
+pub PrefTimedGD : Box<SyntaxNode> = {
     <timed_gd:TimedGD> => timed_gd,
     <start:@L> "(" "preference" <pref_name:PrefName?> <timed_gd:TimedGD> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -1112,33 +1112,33 @@ pub PrefTimedGD : Box<ParsedNode> = {
             children.push(pref_name);
         }
         children.push(timed_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Preference, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Preference, children , start, end))
     },
 }
 
-pub TimedGD : Box<ParsedNode> = {
+pub TimedGD : Box<SyntaxNode> = {
     <start:@L> "(" "at start" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtStart, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtStart, children, start, end))
     },
     <start:@L> "(" "at end" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtEnd, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtEnd, children, start, end))
     },
     <start:@L> "(" "over all" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Overall, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Overall, children, start, end))
     },
 }
 
-pub DAEffect : Box<ParsedNode> = {
+pub DAEffect : Box<SyntaxNode> = {
     <start:@L>  "(" "and" <da_effect:DAEffect*> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.extend(da_effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <timed_effect:TimedEffect>  => timed_effect,
     <start:@L>
@@ -1150,41 +1150,41 @@ pub DAEffect : Box<ParsedNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(da_effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Forall, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Forall, children, start, end))
     },
     <start:@L> "(" "when" <da_gd:DAGD> <time_effect:TimedEffect> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(da_gd);
         children.push(time_effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::When, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::When, children, start, end))
     },
 }
 
-pub TimedEffect : Box<ParsedNode> = {
+pub TimedEffect : Box<SyntaxNode> = {
     <start:@L> "(" "at start" <con_effect:CondEffect> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(con_effect);
-        Box::new(ParsedNode::new(SyntaxNodeKind::AtStart, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::AtStart, children, start, end))
     },
     <start:@L> "(" "at end" <con_effect:CondEffect> ")" <end:@R> => {
          let mut children = Vec::new();
          children.push(con_effect);
-         Box::new(ParsedNode::new(SyntaxNodeKind::AtEnd, children, start, end))
+         Box::new(SyntaxNode::new(SyntaxNodeKind::AtEnd, children, start, end))
     },
     <start:@L> "(" <op:AssignOpT> <fhead:FHead> <fexpt:FExpT> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fhead);
         children.push(fexpt);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Assign(op), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Assign(op), children, start, end))
     },
 }
 
-pub FAssignDA : Box<ParsedNode> = {
+pub FAssignDA : Box<SyntaxNode> = {
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexpda:FExpDA> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fhead);
         children.push(fexpda);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Assign(op), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Assign(op), children, start, end))
     },
 }
 
@@ -1193,29 +1193,29 @@ pub AssignOpT : AssignOp = {
     "decrease" => AssignOp::Decrease,
 }
 
-pub FExpT : Box<ParsedNode> = {
+pub FExpT : Box<SyntaxNode> = {
     <start:@L> "(" "*" <fexp:FExp> <var:ContinusVariable> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fexp);
         children.push(var);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <start:@L> "(" "*" <var:ContinusVariable> <fexp:FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(var);
         children.push(fexp);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <var:ContinusVariable> => var,
 }
 
-pub ContinusVariable : Box<ParsedNode> = {
+pub ContinusVariable : Box<SyntaxNode> = {
     <start:@L> <var:"#t"> <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Variable(var.to_string()), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(var.to_string()), Vec::new(), start, end))
     }
 }
 
-pub Domain : Box<ParsedNode> = {
+pub Domain : Box<SyntaxNode> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
             <require_def:RequireDef?>
@@ -1249,58 +1249,58 @@ pub Domain : Box<ParsedNode> = {
         }
 
         children.extend(structure_def);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Domain, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Domain, children, start, end))
     },
  }
 
-pub ObjectsDef : Box<ParsedNode> = {
+pub ObjectsDef : Box<SyntaxNode> = {
     <start:@L> "(" ":objects" <objects:TypedList<Constant>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(objects);
-        Box::new(ParsedNode::new(SyntaxNodeKind::ObjectsDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::ObjectsDef, children , start, end))
     },
 }
 
-pub BasicFunctionTerm : Box<ParsedNode> = {
+pub BasicFunctionTerm : Box<SyntaxNode> = {
     <function:FunctionTerm> => function,
     <symbol:FunctionSymbol> => symbol,
 }
 
-pub InitEl : Box<ParsedNode> = {
+pub InitEl : Box<SyntaxNode> = {
     <literal:Literal<Constant>> => literal,
     <start:@L> "(" <number:Number> <literal:Literal<Constant>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(literal);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TimedInitialLiteral, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TimedInitialLiteral, children , start, end))
     },
     <start:@L> "(" "=" <function:BasicFunctionTerm> <number:Number> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(function);
         children.push(number);
-        Box::new(ParsedNode::new(SyntaxNodeKind::FComp(BinaryComp::Equal), children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::FComp(BinaryComp::Equal), children , start, end))
     },
     <start:@L> "(" "=" <function:BasicFunctionTerm> <constant:Constant> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(function);
         children.push(constant);
-        Box::new(ParsedNode::new(SyntaxNodeKind::FComp(BinaryComp::Equal), children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::FComp(BinaryComp::Equal), children , start, end))
     },
 }
 
-pub Init : Box<ParsedNode> = {
+pub Init : Box<SyntaxNode> = {
     <start:@L> "(" ":init" <init_els:InitEl*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(init_els);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Init, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Init, children , start, end))
     },
 }
 
-pub Goal : Box<ParsedNode> = {
+pub Goal : Box<SyntaxNode> = {
      <start:@L> "(" ":goal" <pre_gd:PreGD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(pre_gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Goal, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Goal, children , start, end))
      },
 }
 
@@ -1309,13 +1309,13 @@ pub Optimization : Optimization = {
     "maximize" => Optimization::Maximize,
 }
 
-pub MetricFExp : Box<ParsedNode> = {
+pub MetricFExp : Box<SyntaxNode> = {
     <number:Number> => number,
     <function:_FunctionTerm<Constant>> => function,
     <start:@L> <symbol:FunctionSymbol> <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
-        Box::new(ParsedNode::new(SyntaxNodeKind::FunctionTerm, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::FunctionTerm, children, start, end))
     },
     <start:@L> "(" "-" <arg1:MetricFExp> <arg2:MetricFExp?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -1323,45 +1323,45 @@ pub MetricFExp : Box<ParsedNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:MetricFExp> <arg2:MetricFExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Operation(ArithmeticOp::Mul), children, start, end))
     },
     //<start:@L> "total-time" <end:@R> => {
-    //    Box::new(ParsedNode::new(SyntaxNodeKind::TotalTime, Vec::new(), start, end))
+    //    Box::new(SyntaxNode::new(SyntaxNodeKind::TotalTime, Vec::new(), start, end))
     //},
     <start:@L> "(" "is-violated" <pref:PrefName> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(pref);
-        Box::new(ParsedNode::new(SyntaxNodeKind::IsViolated, Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::IsViolated, Vec::new(), start, end))
     },
 }
 
-pub MetricSpec : Box<ParsedNode> = {
+pub MetricSpec : Box<SyntaxNode> = {
     <start:@L> "(" ":metric" <op:Optimization> <fexp:MetricFExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fexp);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Metric(op), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Metric(op), children, start, end))
     },
 }
 
-pub Length : Box<ParsedNode> = {
+pub Length : Box<SyntaxNode> = {
     <start:@L>
         "(" ":length"
             <start_serial:@L> "(" ":serial" <serial_value:"number"?> ")" <end_serial:@R>
@@ -1370,16 +1370,16 @@ pub Length : Box<ParsedNode> = {
     <end:@R> => {
         let mut children = Vec::new();
         if let Some(serial_value) = serial_value {
-            children.push(Box::new(ParsedNode::new(SyntaxNodeKind::Serial(OrderedFloat(serial_value)), Vec::new(), start_serial, end_serial)));
+            children.push(Box::new(SyntaxNode::new(SyntaxNodeKind::Serial(OrderedFloat(serial_value)), Vec::new(), start_serial, end_serial)));
         }
         if let Some(parallel_value) = parallel_value {
-            children.push(Box::new(ParsedNode::new(SyntaxNodeKind::Parallel(OrderedFloat(parallel_value)), Vec::new(), start_parallel, end_parallel)));
+            children.push(Box::new(SyntaxNode::new(SyntaxNodeKind::Parallel(OrderedFloat(parallel_value)), Vec::new(), start_parallel, end_parallel)));
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::Length, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Length, children, start, end))
     },
 }
 
-pub Problem : Box<ParsedNode> = {
+pub Problem : Box<SyntaxNode> = {
     <start:@L>
         "(" "define" "(" "problem" <problem:ProblemName> ")"
         "(" ":domain" <domain:DomainName> ")"
@@ -1412,11 +1412,11 @@ pub Problem : Box<ParsedNode> = {
         if let Some(length_spec) = length_spec {
             children.push(length_spec);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::Problem, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Problem, children, start, end))
     },
 }
 
-pub PDDL : Box<ParsedNode> = {
+pub PDDL : Box<SyntaxNode> = {
     <domain:Domain> => domain,
     <problem:Problem> => problem,
 }
@@ -1425,94 +1425,94 @@ pub PDDL : Box<ParsedNode> = {
 // HDDL Dialect
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub TaskSymbol : Box<ParsedNode> = {
+pub TaskSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(ParsedNode::new(SyntaxNodeKind::TaskSymbol(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::TaskSymbol(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub TaskDef : Box<ParsedNode> = {
+pub TaskDef : Box<SyntaxNode> = {
     <start:@L> "(" ":task" <symbol:TaskSymbol> <parameters:ParameterDef> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
         children.push(parameters);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TaskDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TaskDef, children, start, end))
     },
 }
 
-pub MethodSymbol : Box<ParsedNode> = {
+pub MethodSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(ParsedNode::new(SyntaxNodeKind::MethodSymbol(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::MethodSymbol(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub TaskID : Box<ParsedNode> = {
+pub TaskID : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(ParsedNode::new(SyntaxNodeKind::TaskID(name.to_string()), Vec::new(), start, end)),
-            Err(_) => Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::TaskID(name.to_string()), Vec::new(), start, end)),
+            Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
 }
 
-pub TaskTerm: Box<ParsedNode> = {
+pub TaskTerm: Box<SyntaxNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(ParsedNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end))
         } else {
-            Box::new(ParsedNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end))
         }
     },
 }
 
-pub Task : Box<ParsedNode> = {
+pub Task : Box<SyntaxNode> = {
     <start:@L> "(" <symbol:TaskSymbol> <terms:TaskTerm*> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
         children.extend(terms);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Task, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Task, children, start, end))
     },
 }
 
-pub Subtask: Box<ParsedNode> = {
+pub Subtask: Box<SyntaxNode> = {
      "(" <start_name:@L> <name:Name> <end_name:@R> <rest:SubtaskRest>  <end_rest:@R> => {
         match name {
             Ok(name_value) => {
                 match rest.first().map(|node| node.kind()) {
                     Some(SyntaxNodeKind::TaskSymbol(_)) => {
                         let mut children = Vec::new();
-                        let task_id = Box::new(ParsedNode::new(SyntaxNodeKind::TaskID(name_value), Vec::new(), start_name, end_name));
+                        let task_id = Box::new(SyntaxNode::new(SyntaxNodeKind::TaskID(name_value), Vec::new(), start_name, end_name));
                         children.push(task_id);
-                        let task = Box::new(ParsedNode::new(SyntaxNodeKind::Task, rest, end_name, end_rest));
+                        let task = Box::new(SyntaxNode::new(SyntaxNodeKind::Task, rest, end_name, end_rest));
                         children.push(task);
-                        Box::new(ParsedNode::new(SyntaxNodeKind::TaggedTask, children, start_name, end_rest))
+                        Box::new(SyntaxNode::new(SyntaxNodeKind::TaggedTask, children, start_name, end_rest))
                     },
                     Some(SyntaxNodeKind::Constant(_)) | Some(SyntaxNodeKind::Variable(_)) => {
                         let mut children = Vec::new();
-                        let task_symbol = Box::new(ParsedNode::new(SyntaxNodeKind::TaskSymbol(name_value), Vec::new(), start_name, end_name));
+                        let task_symbol = Box::new(SyntaxNode::new(SyntaxNodeKind::TaskSymbol(name_value), Vec::new(), start_name, end_name));
                         children.push(task_symbol);
                         children.extend(rest);
-                        Box::new(ParsedNode::new(SyntaxNodeKind::Task, children, start_name, end_rest))
+                        Box::new(SyntaxNode::new(SyntaxNodeKind::Task, children, start_name, end_rest))
                     },
                     _ => {
-                        Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start_name, end_name))
+                        Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start_name, end_name))
                     }
                 }
             },
             Err(_) => {
-                Box::new(ParsedNode::new(SyntaxNodeKind::Error, Vec::new(), start_name, end_rest))
+                Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start_name, end_rest))
             }
         }
     },
 }
 
-SubtaskRest : Vec<Box<ParsedNode>> = {
+SubtaskRest : Vec<Box<SyntaxNode>> = {
     <start:@L> "(" <task_symbol:TaskSymbol> <terms:TaskTerm*> ")" ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(task_symbol);
@@ -1522,124 +1522,124 @@ SubtaskRest : Vec<Box<ParsedNode>> = {
     <start:@L> <terms:TaskTerm*> ")" <end:@R> => terms,
 }
 
-pub SubtaskDef : Box<ParsedNode> = {
+pub SubtaskDef : Box<SyntaxNode> = {
     <start:@L> <subtask:Subtask> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtask);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
     },
     <start:@L> "(" "and" <subtasks:Subtask*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(subtasks);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
 }
 
-pub TaskNetworkdSubtaskDef: Box<ParsedNode> = {
+pub TaskNetworkdSubtaskDef: Box<SyntaxNode> = {
     <start:@L> ":ordered-tasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(ParsedNode::new(SyntaxNodeKind::OrderedSubtaskDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::OrderedSubtaskDef, children, start, end))
     },
     <start:@L> ":ordered-subtasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(ParsedNode::new(SyntaxNodeKind::OrderedSubtaskDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::OrderedSubtaskDef, children, start, end))
     },
     <start:@L> ":tasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(ParsedNode::new(SyntaxNodeKind::PartiallyOrderedSubtaskDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::PartiallyOrderedSubtaskDef, children, start, end))
     },
     <start:@L> ":subtasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(ParsedNode::new(SyntaxNodeKind::PartiallyOrderedSubtaskDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::PartiallyOrderedSubtaskDef, children, start, end))
     },
 };
 
-pub SimpleTaskOrderingConstraint : Box<ParsedNode> = {
+pub SimpleTaskOrderingConstraint : Box<SyntaxNode> = {
     <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TaskOrderingConstraint(BinaryComp::Less), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TaskOrderingConstraint(BinaryComp::Less), children, start, end))
     },
 }
 
-pub TaskOrderingConstraint : Box<ParsedNode> = {
+pub TaskOrderingConstraint : Box<SyntaxNode> = {
     <start:@L> <constraint:SimpleTaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L> "(" ")" <end:@R> => {
-            Box::new(ParsedNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
     },
     <start:@L> "(" "and" <constraints:SimpleTaskOrderingConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
 }
 
-pub TaskNetworkOrderingConstraintDef : Box<ParsedNode> = {
+pub TaskNetworkOrderingConstraintDef : Box<SyntaxNode> = {
     <start:@L> ":ordering" <constraints:TaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TaskOrderingConstraintDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TaskOrderingConstraintDef, children, start, end))
     },
      <start:@L> ":order" <constraints:TaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TaskOrderingConstraintDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TaskOrderingConstraintDef, children, start, end))
     },
 }
 
-pub SimpleTaskLogicalConstraint : Box<ParsedNode> = {
+pub SimpleTaskLogicalConstraint : Box<SyntaxNode> = {
     <start:@L>
         "(" "=" <t1:Term> <t2:Term> ")"
     <end:@R> => {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
-        Box::new(ParsedNode::new(SyntaxNodeKind::FComp(BinaryComp::Equal), children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::FComp(BinaryComp::Equal), children, start, end))
     },
     <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Not, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Not, children, start, end))
     },
 }
 
-pub TaskLogicalConstraint : Box<ParsedNode> = {
+pub TaskLogicalConstraint : Box<SyntaxNode> = {
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, Vec::new(), start, end))
     },
     <start:@L> <constraint:SimpleTaskLogicalConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
     <start:@L> "(" "and" <constraints:SimpleTaskLogicalConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
-        Box::new(ParsedNode::new(SyntaxNodeKind::And, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::And, children, start, end))
     },
 }
 
-pub TaskNetworkLogicalConstraintDef : Box<ParsedNode> = {
+pub TaskNetworkLogicalConstraintDef : Box<SyntaxNode> = {
     <start:@L> ":constraints" <constraint:TaskLogicalConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(ParsedNode::new(SyntaxNodeKind::TaskLogicalConstraintDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TaskLogicalConstraintDef, children, start, end))
     },
 }
 
-pub TaskNetworkDef : Box<ParsedNode> = {
+pub TaskNetworkDef : Box<SyntaxNode> = {
     <start:@L>
         <subtasks:TaskNetworkdSubtaskDef?>
         <ordering_constraints:TaskNetworkOrderingConstraintDef?>
@@ -1655,19 +1655,19 @@ pub TaskNetworkDef : Box<ParsedNode> = {
         if let Some(logical_constraints) = logical_constraints {
             children.push(logical_constraints);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::TaskNetworkDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TaskNetworkDef, children, start, end))
     },
 }
 
-pub MethodPreconditionDef: Box<ParsedNode> = {
+pub MethodPreconditionDef: Box<SyntaxNode> = {
     <start:@L> ":precondition" <gd:EmptyOr<GD>> <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(ParsedNode::new(SyntaxNodeKind::MethodPreconditionDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::MethodPreconditionDef, children, start, end))
     },
 }
 
-pub MethodDef : Box<ParsedNode> = {
+pub MethodDef : Box<SyntaxNode> = {
     <start:@L>
         "("":method"
             <name:MethodSymbol>
@@ -1679,11 +1679,11 @@ pub MethodDef : Box<ParsedNode> = {
         children.push(name);
         children.push(parameters);
         children.push(body);
-        Box::new(ParsedNode::new(SyntaxNodeKind::MethodDef, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::MethodDef, children, start, end))
     },
 }
 
-pub MethodDefBody: Box<ParsedNode> = {
+pub MethodDefBody: Box<SyntaxNode> = {
     <start:@L>
         ":task" <task:Task>
         <precondition:MethodPreconditionDef?>
@@ -1695,11 +1695,11 @@ pub MethodDefBody: Box<ParsedNode> = {
             children.push(precondition);
         }
         children.push(task_network);
-        Box::new(ParsedNode::new(SyntaxNodeKind::MethodDefBody, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::MethodDefBody, children, start, end))
     },
 }
 
-pub InitialTaskNetwork : Box<ParsedNode> = {
+pub InitialTaskNetwork : Box<SyntaxNode> = {
      <start:@L>
         "(" ":htn"
         <parameters:ParameterDef?>
@@ -1710,27 +1710,27 @@ pub InitialTaskNetwork : Box<ParsedNode> = {
             children.push(parameters);
         }
         children.push(task_network);
-        Box::new(ParsedNode::new(SyntaxNodeKind::InitialTaskNetwork, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::InitialTaskNetwork, children, start, end))
      },
 }
 
-pub HDDLRequirement : Box<ParsedNode> = {
+pub HDDLRequirement : Box<SyntaxNode> = {
     <requirement:Requirement> => requirement,
     <start:@L> ":hierarchy" <end:@R> => {
-            Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::Hierarchy), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Hierarchy), Vec::new(), start, end))
     },
     <start:@L> ":method-preconditions" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::Requirement(Requirement::MethodPreconditions), Vec::new(), start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::MethodPreconditions), Vec::new(), start, end))
     },
 }
 
-pub HDDLRequireDef : Box<ParsedNode> = {
+pub HDDLRequireDef : Box<SyntaxNode> = {
      <start:@L> "(" ":requirements" <requirements:HDDLRequirement*> ")" <end:@R> => {
-        Box::new(ParsedNode::new(SyntaxNodeKind::RequireDef, requirements, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::RequireDef, requirements, start, end))
      },
 }
 
-pub HDDLStructureDef : Box<ParsedNode> = {
+pub HDDLStructureDef : Box<SyntaxNode> = {
     <action:ActionDef> =>  action,
     <derived:DerivedDef> => derived,
     <durative_action:DurativeActionDef> => durative_action,
@@ -1738,7 +1738,7 @@ pub HDDLStructureDef : Box<ParsedNode> = {
     <method:MethodDef> => method,
 }
 
-pub HDDLDomain : Box<ParsedNode> = {
+pub HDDLDomain : Box<SyntaxNode> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
             <require_def:HDDLRequireDef?>
@@ -1767,11 +1767,11 @@ pub HDDLDomain : Box<ParsedNode> = {
             children.push(functions_def);
         }
         children.extend(structure_def);
-        Box::new(ParsedNode::new(SyntaxNodeKind::Domain, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Domain, children, start, end))
     },
  }
 
-pub HDDLProblem : Box<ParsedNode> = {
+pub HDDLProblem : Box<SyntaxNode> = {
     <start:@L>
         "(" "define" "(" "problem" <problem:ProblemName> ")"
         "(" ":domain" <domain:DomainName> ")"
@@ -1796,11 +1796,11 @@ pub HDDLProblem : Box<ParsedNode> = {
         if let Some(goal) = goal {
             children.push(goal);
         }
-        Box::new(ParsedNode::new(SyntaxNodeKind::Problem, children, start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Problem, children, start, end))
     },
 }
 
-pub HDDL : Box<ParsedNode> = {
+pub HDDL : Box<SyntaxNode> = {
     <domain:HDDLDomain> => domain,
     <problem:HDDLProblem> => problem,
 }

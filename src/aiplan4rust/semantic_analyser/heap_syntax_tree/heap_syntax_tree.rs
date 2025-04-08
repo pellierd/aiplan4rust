@@ -1,6 +1,6 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::tree::ParsedNode;
+use crate::aiplan4rust::syntax::tree::SyntaxNode;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::IntoIter;
 use linked_hash_map::LinkedHashMap;
@@ -37,7 +37,7 @@ impl HeapSyntaxTree {
         }
     }
 
-    pub fn from(ast: &ParsedNode) -> Result<HeapSyntaxTree, ParserInternalError> {
+    pub fn from(ast: &SyntaxNode) -> Result<HeapSyntaxTree, ParserInternalError> {
         // Vérification du type de l'AST
         match ast.kind() {
             SyntaxNodeKind::Domain | SyntaxNodeKind::Problem => {
@@ -54,8 +54,8 @@ impl HeapSyntaxTree {
     }
 
     fn from_rec(
-        ast: &ParsedNode,
-        index_table: &HashMap<&ParsedNode, usize>,
+        ast: &SyntaxNode,
+        index_table: &HashMap<&SyntaxNode, usize>,
         ast_table: &mut HeapSyntaxTree,
         next_index: &mut usize,
     ) -> Result<(), ParserInternalError> {
