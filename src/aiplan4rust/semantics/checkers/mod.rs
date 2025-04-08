@@ -8,6 +8,7 @@ pub mod type_checker;
 
 pub mod undeclared_symbol_checker;
 
+pub mod task_ordering_checker;
 pub mod unused_symbol_checker;
 
 pub use type_checker::TypeChecker;

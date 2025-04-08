@@ -63,7 +63,6 @@ pub fn check(
             match usage_opt {
                 None => {
                     // Aucun usage trouvé : générer un avertissement
-                    no_error = false;
                     let entry = ast_table.get_entry(declaration.ast()).unwrap();
                     let (line, column) = entry.span().start_position();
                     let content = format!(

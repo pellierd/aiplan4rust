@@ -3,12 +3,12 @@ use crate::aiplan4rust::error::parsing_error::ParserErrorKind::ParseError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::analyser_result::AnalyzerResult;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantics::checkers::undeclared_symbol_checker;
 use crate::aiplan4rust::semantics::checkers::TypeChecker;
 use crate::aiplan4rust::semantics::checkers::{
     atomic_formula_checker, functional_expression_checker,
 };
 use crate::aiplan4rust::semantics::checkers::{symbol_declaration_checker, unused_symbol_checker};
+use crate::aiplan4rust::semantics::checkers::{task_ordering_checker, undeclared_symbol_checker};
 use crate::aiplan4rust::semantics::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
@@ -199,6 +199,9 @@ impl Analyzer {
                 &type_checker,
                 &mut self.error_manager,
             )?;
+
+            checked &=
+                task_ordering_checker::check(annotated_syntax_tree, &mut self.error_manager)?;
         }
 
         // Return the result of the checks (true if all checks passed, false otherwise)
@@ -233,12 +236,16 @@ impl Analyzer {
             SymbolKind::Task, // Add for HDDL
         ];
 
-        Ok(Self::check_symbols(
+        let mut checked = Self::check_symbols(
             annotated_syntax_tree,
             skip_types_undeclared,
             &[],
             &mut self.error_manager,
-        )?)
+        )?;
+
+        checked &= task_ordering_checker::check(annotated_syntax_tree, &mut self.error_manager)?;
+
+        Ok(checked)
     }
 
     /// Checks the symbols in the given annotated syntax tree for various types of symbol-related
