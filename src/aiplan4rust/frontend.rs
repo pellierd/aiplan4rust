@@ -3,12 +3,12 @@ use crate::aiplan4rust::file_format::FileFormat;
 use crate::aiplan4rust::linking::lifted_planning_task::LiftedPlanningTask;
 use crate::aiplan4rust::linking::linker::Linker;
 use crate::aiplan4rust::linking::linker_result::LinkerResult;
+use crate::aiplan4rust::parser::parser::Parser;
+use crate::aiplan4rust::parser::Language;
 use crate::aiplan4rust::semantic_analyser::analyzer::Analyzer;
 use crate::aiplan4rust::semantic_analyser::annotated_syntax_tree::{
     AnnotatedSyntaxTree, LiftedDomain, LiftedProblem,
 };
-use crate::aiplan4rust::syntax::parser::Parser;
-use crate::aiplan4rust::syntax::Language;
 
 use crate::aiplan4rust::semantic_analyser::analyser_result::AnalyzerResult;
 use serde::Deserialize;

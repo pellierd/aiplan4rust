@@ -2,15 +2,15 @@ use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
 use ordered_float::OrderedFloat;
 
-use crate::aiplan4rust::syntax::lexer::LexicalError;
-use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::tree::SyntaxNode;
-use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
-use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::elements::ArithmeticOp;
-use crate::aiplan4rust::syntax::elements::BinaryComp;
-use crate::aiplan4rust::syntax::elements::AssignOp;
-use crate::aiplan4rust::syntax::elements::Optimization;
+use crate::aiplan4rust::parser::lexer::LexicalError;
+use crate::aiplan4rust::parser::lexer::Token;
+use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
+use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
+use crate::aiplan4rust::parser::elements::Requirement;
+use crate::aiplan4rust::parser::elements::ArithmeticOp;
+use crate::aiplan4rust::parser::elements::BinaryComp;
+use crate::aiplan4rust::parser::elements::AssignOp;
+use crate::aiplan4rust::parser::elements::Optimization;
 
 grammar<'err>(errors: &'err mut Vec<ErrorRecovery<usize, Token, LexicalError>>);
 

@@ -1,5 +1,5 @@
+use crate::aiplan4rust::parser::lexer::token::{ADD, DIV, MUL, SUB};
 use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use crate::aiplan4rust::syntax::lexer::token::{ADD, DIV, MUL, SUB};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

@@ -1,4 +1,8 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::parser::elements::BinaryComp;
+use crate::aiplan4rust::parser::elements::Requirement;
+use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
+use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
@@ -6,10 +10,6 @@ use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
 use crate::aiplan4rust::semantic_analyser::symbol::{
     Declaration, FilterableSymbol, Symbol, SymbolKind, Usage,
 };
-use crate::aiplan4rust::syntax::elements::BinaryComp;
-use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt;

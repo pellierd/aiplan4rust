@@ -1,8 +1,8 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::parser::lexer::token::{NUMBER_TYPE, OBJECT_TYPE};
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
-use crate::aiplan4rust::syntax::lexer::token::{NUMBER_TYPE, OBJECT_TYPE};
 use std::collections::HashSet;
 
 /// PDDL Built-in symbols.

@@ -3,7 +3,7 @@ use aiplan4rust::aiplan4rust::cli::aiplan_cli::{
 };
 use aiplan4rust::aiplan4rust::file_format::FileFormat;
 use aiplan4rust::aiplan4rust::frontend::Frontend;
-use aiplan4rust::aiplan4rust::syntax::Language;
+use aiplan4rust::aiplan4rust::parser::Language;
 
 use clap::ArgMatches;
 use std::path::Path;

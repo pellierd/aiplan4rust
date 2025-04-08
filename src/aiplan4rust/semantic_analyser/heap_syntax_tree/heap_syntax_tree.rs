@@ -1,7 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::tree::SyntaxNode;
-use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
+use crate::aiplan4rust::parser::elements::Requirement;
+use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
+use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use linked_hash_map::IntoIter;
 use linked_hash_map::LinkedHashMap;
 use std::collections::{HashMap, HashSet};

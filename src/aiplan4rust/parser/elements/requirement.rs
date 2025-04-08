@@ -1,11 +1,11 @@
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
-use crate::aiplan4rust::syntax::lexer::token::{
+use crate::aiplan4rust::parser::lexer::token::{
     ACTION_COSTS, ADL, CONDITIONAL_EFFECTS, CONSTRAINTS, DERIVED_PREDICATES,
     DISJUNCTIVE_PRECONDITION, DURATIVE_ACTIONS, DURATIVE_INEQUALITIES, EQUALITY,
     EXISTENTIAL_PRECONDITIONS, FLUENTS, HIERARCHY, METHOD_PRECONDITIONS, NEGATIVE_PRECONDITION,
     NUMERIC_FLUENTS, PREFERENCES, QUANTIFIED_PRECONDITIONS, STRIPS, TIME_INITIAL_LITERALS, TYPING,
     UNIVERSAL_PRECONDITIONS,
 };
+use crate::aiplan4rust::pddl_display::PDDLDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

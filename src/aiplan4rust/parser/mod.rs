@@ -7,7 +7,7 @@ pub mod elements;
 pub mod language;
 pub mod parser_result;
 pub mod span;
-pub mod tree;
+pub mod syntax_tree;
 
 pub use language::Language;
 pub use parser::Parser;
