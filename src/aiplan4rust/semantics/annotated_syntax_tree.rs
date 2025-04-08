@@ -1,5 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantics::ast_table::AstTable;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use serde::{Deserialize, Serialize};
@@ -29,7 +29,7 @@ pub type LiftedDomain = AnnotatedSyntaxTree;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnotatedSyntaxTree {
     /// The Abstract Syntax Tree (AST) of the domain/problem (if available).
-    ast: AstTable,
+    syntax_tree: HeapSyntaxTree,
     /// The symbol table related to the AST (if available).
     symbol_table: SymbolTable,
     /// The filename where the AST was parsed from.
@@ -41,7 +41,7 @@ pub struct AnnotatedSyntaxTree {
 impl Default for AnnotatedSyntaxTree {
     fn default() -> Self {
         AnnotatedSyntaxTree {
-            ast: Default::default(),
+            syntax_tree: Default::default(),
             symbol_table: Default::default(),
             filename: String::new(),
             generated_at: SystemTime::now(),
@@ -60,9 +60,9 @@ impl AnnotatedSyntaxTree {
     ///
     /// # Returns
     /// A new `AnnotatedSyntaxTree` instance initialized with the given values.
-    pub fn new(ast: AstTable, symbol_table: SymbolTable, filename: String) -> Self {
+    pub fn new(ast: HeapSyntaxTree, symbol_table: SymbolTable, filename: String) -> Self {
         AnnotatedSyntaxTree {
-            ast,
+            syntax_tree: ast,
             symbol_table,
             filename,
             generated_at: SystemTime::now(),
@@ -78,10 +78,10 @@ impl AnnotatedSyntaxTree {
     /// * A new `AnnotatedSyntaxTree` created from the provided `syntax_tree`.
     pub fn from(syntax_tree: &SyntaxTree) -> Result<Self, ParserInternalError> {
         // Check if the AST exists in the syntax_tree
-        let ast = syntax_tree.ast();
+        let ast = syntax_tree.root();
 
         // Convert the AST into a hash map
-        let ast_table = AstTable::from(&ast)?;
+        let ast_table = HeapSyntaxTree::from(&ast)?;
 
         // Create the SymbolTable with the AST and the Bimap
         let mut symbol_table = SymbolTable::new();
@@ -99,8 +99,8 @@ impl AnnotatedSyntaxTree {
     ///
     /// # Returns
     /// * `&AstTable` representing the AST.
-    pub fn ast(&self) -> &AstTable {
-        &self.ast
+    pub fn syntax_tree(&self) -> &HeapSyntaxTree {
+        &self.syntax_tree
     }
 
     /// Returns a reference to the `SymbolTable` if available.
@@ -145,7 +145,7 @@ impl fmt::Display for AnnotatedSyntaxTree {
         write!(f, "Generated at: {} seconds since UNIX epoch\n", timestamp)?;
 
         // Display the AST if available
-        write!(f, "AST: \n{}", self.ast)?;
+        write!(f, "AST: \n{}", self.syntax_tree)?;
 
         // Display the symbol table if available
         write!(f, "Symbol Table: \n{}", self.symbol_table)?;

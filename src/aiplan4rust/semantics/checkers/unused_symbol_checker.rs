@@ -2,7 +2,7 @@ use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantics::ast_table::AstTable;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantics::symbol::{Declaration, Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::elements::Requirement::{
     Adl, DurativeActions, NumericFluents, Typing,
@@ -34,7 +34,7 @@ pub fn check(
     let mut no_error = true;
 
     let symbol_table = tree.symbol_table();
-    let ast_table = tree.ast();
+    let ast_table = tree.syntax_tree();
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
@@ -129,7 +129,7 @@ pub fn check(
 fn skip_unused_symbol_declaration(
     symbol: &Symbol,
     declaration: &Declaration,
-    ast_table: &AstTable,
+    ast_table: &HeapSyntaxTree,
 ) -> Result<bool, ParserInternalError> {
     // Skip if the declaration is of a built-in kind: Requirement, Action, DASymbol or Method
     if matches!(
@@ -211,7 +211,7 @@ fn check_pddl_builtin_symbol_declaration(
     tree: &AnnotatedSyntaxTree,
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
-    let ast_table = tree.ast();
+    let ast_table = tree.syntax_tree();
     let (expected_kind, requirement, error_message) = match symbol.name().as_str() {
         OBJECT_TYPE
             if ast_table.requirements().contains(&Typing)

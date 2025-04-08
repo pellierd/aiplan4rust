@@ -113,13 +113,13 @@ impl Analyzer {
         let annotated_syntax_tree = AnnotatedSyntaxTree::from(syntax_tree)?;
 
         // Determine the AST kind and perform the appropriate checks
-        match syntax_tree.ast().kind() {
+        match syntax_tree.root().kind() {
             SyntaxNodeKind::Domain => self.check_domain(&annotated_syntax_tree)?,
             SyntaxNodeKind::Problem => self.check_problem(&annotated_syntax_tree)?,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST node kind found: {}",
-                    syntax_tree.ast().kind()
+                    syntax_tree.root().kind()
                 )));
             }
         };

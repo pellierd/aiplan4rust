@@ -1,5 +1,6 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantics::ast_table::{AstEntry, AstTable};
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxNode;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantics::symbol::Scope;
 use crate::aiplan4rust::semantics::symbol::TypedSymbol;
 use crate::aiplan4rust::semantics::symbol::{
@@ -343,7 +344,10 @@ impl SymbolTable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // From this point the code is dedicated to the initialization of the symbol table from an AST
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    fn get_ast_entry(index: usize, ast: &AstTable) -> Result<&AstEntry, ParserInternalError> {
+    fn get_ast_entry(
+        index: usize,
+        ast: &HeapSyntaxTree,
+    ) -> Result<&HeapSyntaxNode, ParserInternalError> {
         ast.get_entry(index).ok_or_else(|| {
             ParserInternalError::new(format!("AstEntry not found for index: {}", index))
         })
@@ -361,7 +365,7 @@ impl SymbolTable {
     pub fn initialize_from_ast(
         &mut self,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
     ) -> Result<(), ParserInternalError> {
         let ast = index_table.get_entry(index).unwrap();
         //let ast = SymbolTable::get_ast_entry(index, index_table)?;
@@ -388,9 +392,9 @@ impl SymbolTable {
     ///   is encountered during symbol table initialization.
     fn init_from(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Determine the type of the AST node and apply appropriate processing
@@ -498,9 +502,9 @@ impl SymbolTable {
     /// * `Err(ParserInternalError)` - If any error occurs during the symbol extraction or insertion process.
     fn add_declaration_symbol(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
@@ -564,9 +568,9 @@ impl SymbolTable {
     ///   invalid child node structure.
     fn add_symbol_usage(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST node is of a valid kind for symbol usage.
@@ -670,8 +674,8 @@ impl SymbolTable {
     /// `FunctionSymbol`, or `TaskSymbol`.
 
     fn extract_symbol(
-        ast: &AstEntry,
-        index_table: &AstTable,
+        ast: &HeapSyntaxNode,
+        index_table: &HeapSyntaxTree,
     ) -> Result<(String, SymbolKind), ParserInternalError> {
         match ast.kind() {
             // Handling different AST node kinds and returning appropriate symbol information
@@ -751,9 +755,9 @@ impl SymbolTable {
     /// the problem.
     fn init_from_typed_list(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the expected type 'TypedList'
@@ -824,9 +828,9 @@ impl SymbolTable {
     /// - `types`: The types associated with the element.
     fn init_from_typed_list_element(
         &mut self,
-        element: &AstEntry,
+        element: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -911,9 +915,9 @@ impl SymbolTable {
     ///   and their scope resolution.
     fn init_from_atomic_function_skeleton(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -994,9 +998,9 @@ impl SymbolTable {
     /// This function delegates to `init_from_definition` for common logic.
     fn init_from_action_def(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1033,9 +1037,9 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_method_def(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1068,9 +1072,9 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_durative_action_def(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1104,9 +1108,9 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_task_def(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1136,9 +1140,9 @@ impl SymbolTable {
     /// Returns `Ok(())` on success or a `ParserInternalError` if validation fails.
     fn init_from_def(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
         valid_kinds: &[SyntaxNodeKind],
         expected_children: usize,
@@ -1212,9 +1216,9 @@ impl SymbolTable {
     /// * Any recursive call to `init_from` fails.
     fn init_from_atomic_formula(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
@@ -1277,9 +1281,9 @@ impl SymbolTable {
     /// ```
     fn init_from_quantified_expression(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Check if the AST node is of kind 'Exists' or 'Forall'
@@ -1342,9 +1346,9 @@ impl SymbolTable {
     /// ```
     fn init_from_atomic_formula_skeleton(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         let children = ast.children();
@@ -1424,9 +1428,9 @@ impl SymbolTable {
     /// ```
     fn extract_arguments_from_typed_list(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
         Self::assert_ast_kind(ast, &[SyntaxNodeKind::TypedList])?;
@@ -1483,9 +1487,9 @@ impl SymbolTable {
     ///   node is invalid.
     fn extract_type(
         &mut self,
-        types: &AstEntry,
+        types: &HeapSyntaxNode,
         _index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
     ) -> Result<Vec<String>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
         Self::assert_ast_kind(types, &[SyntaxNodeKind::Type])?;
@@ -1521,9 +1525,9 @@ impl SymbolTable {
     /// node is invalid.
     fn init_from_type(
         &mut self,
-        types: &AstEntry,
+        types: &HeapSyntaxNode,
         index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<Vec<String>, ParserInternalError> {
         let super_types = self.extract_type(types, index, index_table)?; // Reuse `extract_type` to get type names
@@ -1555,9 +1559,9 @@ impl SymbolTable {
     ///   structure is unexpected.
     fn init_from_tagged_task(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1620,9 +1624,9 @@ impl SymbolTable {
     /// - Either child is not of kind `TaskID(String)`.
     fn init_from_task_ordering_constraint(
         &mut self,
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &AstTable,
+        index_table: &HeapSyntaxTree,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1681,7 +1685,7 @@ impl SymbolTable {
     /// }
     /// ```
     fn assert_ast_kind(
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         valid_kinds: &[SyntaxNodeKind],
     ) -> Result<(), ParserInternalError> {
         match ast.kind() {
@@ -1772,7 +1776,7 @@ impl SymbolTable {
     /// parsing, ensuring that the number of children aligns with the expectations set by the aiplan4rust
     /// logic.
     fn assert_ast_children_number(
-        ast: &AstEntry,
+        ast: &HeapSyntaxNode,
         expected_len: usize,
         comparator: Comparator,
     ) -> Result<(), ParserInternalError> {

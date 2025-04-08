@@ -2,8 +2,8 @@ use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantics::ast_table::AstTable;
 use crate::aiplan4rust::semantics::checkers::TypeChecker;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantics::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
@@ -47,7 +47,7 @@ pub fn check(
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let symbol_table = tree.symbol_table();
-    let ast_table = tree.ast();
+    let ast_table = tree.syntax_tree();
     let mut no_error = true;
 
     // Loop over all symbols in the symbol table.
@@ -118,7 +118,7 @@ fn match_declaration_with_usage(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    ast: &AstTable,
+    ast: &HeapSyntaxTree,
     type_checker: &TypeChecker,
 ) -> Result<bool, ParserInternalError> {
     let ast_usage = ast.get_entry(usage.ast()).ok_or_else(|| {

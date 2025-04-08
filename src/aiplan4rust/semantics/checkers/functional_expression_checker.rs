@@ -2,8 +2,9 @@ use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantics::ast_table::{AstEntry, AstTable};
 use crate::aiplan4rust::semantics::checkers::TypeChecker;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxNode;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantics::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::elements::AssignOp;
 use crate::aiplan4rust::syntax::elements::BinaryComp;
@@ -48,7 +49,7 @@ pub fn check(
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
-    let ast_table = tree.ast();
+    let ast_table = tree.syntax_tree();
     let symbol_table = tree.symbol_table();
 
     for ast in ast_table.values() {
@@ -121,7 +122,7 @@ pub fn check(
 fn check_equal_and_assignment_expression(
     tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
-    ast: &AstEntry,
+    ast: &HeapSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
     errors: &mut ErrorManager,
@@ -171,7 +172,7 @@ fn check_equal_and_assignment_expression(
 /// ```
 fn check_numeric_expression(
     tree: &AnnotatedSyntaxTree,
-    ast: &AstEntry,
+    ast: &HeapSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
     errors: &mut ErrorManager,
@@ -236,9 +237,9 @@ fn check_numeric_expression(
 /// let (ty1, ty2) = get_binary_operation_types(&ast, &symbol_table, &ast_table)?;
 /// ```
 fn get_binary_operation_types(
-    ast: &AstEntry,
+    ast: &HeapSyntaxNode,
     symbol_table: &SymbolTable,
-    ast_table: &AstTable,
+    ast_table: &HeapSyntaxTree,
 ) -> Result<(Vec<String>, Vec<String>), ParserInternalError> {
     // Validate that there are exactly 2 children
     if ast.children().len() != 2 {
@@ -284,9 +285,9 @@ fn get_binary_operation_types(
 /// Returns a `ParserInternalError` if the AST node kind is not one of the expected types.
 pub fn get_type(
     index: usize,
-    ast: &AstEntry,
+    ast: &HeapSyntaxNode,
     symbol_table: &SymbolTable,
-    ast_table: &AstTable,
+    ast_table: &HeapSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     match ast.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
@@ -339,7 +340,7 @@ fn get_variable_type(
     index: usize,
     symbol: &str,
     symbol_table: &SymbolTable,
-    ast_table: &AstTable,
+    ast_table: &HeapSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     if symbol == DURATION_VARIABLE && ast_table.requirements().contains(&DurativeActions) {
         return get_number_type();
@@ -414,9 +415,9 @@ fn get_declaration_type(
 /// function term, or an error if the functor is invalid or the term has no functor.
 fn get_function_term_type(
     index: usize,
-    ast: &AstEntry,
+    ast: &HeapSyntaxNode,
     symbol_table: &SymbolTable,
-    ast_table: &AstTable,
+    ast_table: &HeapSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     let children = ast.children();
     if children.is_empty() {

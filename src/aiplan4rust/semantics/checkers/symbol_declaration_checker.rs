@@ -25,7 +25,7 @@ pub fn check(
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
     let symbol_table = tree.symbol_table();
-    let ast_table = tree.ast();
+    let ast_table = tree.syntax_tree();
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {

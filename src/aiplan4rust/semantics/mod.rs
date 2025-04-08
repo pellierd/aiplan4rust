@@ -3,7 +3,7 @@ pub mod symbol;
 
 pub mod analyser_result;
 pub mod annotated_syntax_tree;
-pub mod ast_table;
+pub mod heap_syntax_tree;
 
 pub mod symbol_table;
 

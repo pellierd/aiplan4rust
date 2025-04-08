@@ -111,7 +111,7 @@ impl Linker {
                 None,
             )[0];
             let ast_entry = problem
-                .ast()
+                .syntax_tree()
                 .get_entry(domain_name_declaration.ast())
                 .unwrap();
             let (line, column) = ast_entry.span().start_position();
@@ -218,7 +218,7 @@ impl Linker {
         undeclared: Vec<(String, Usage)>,
     ) {
         for (symbol_name, usage) in undeclared {
-            let ast_entry = problem.ast().get_entry(usage.ast()).unwrap();
+            let ast_entry = problem.syntax_tree().get_entry(usage.ast()).unwrap();
             let (line, column) = ast_entry.span().start_position();
             let content = format!("{} '{}' not declared in domain", usage.kind(), symbol_name);
             let error = ParsingError::new(

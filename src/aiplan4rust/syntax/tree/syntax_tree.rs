@@ -31,7 +31,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct SyntaxTree {
     /// The Abstract Syntax Tree (AST) representing the structure of the program.
-    ast: Box<ParsedNode>,
+    root: Box<ParsedNode>,
 
     /// The optional filename from which the syntax tree was generated.
     filename: Option<String>,
@@ -58,7 +58,7 @@ impl SyntaxTree {
         generated_at: std::time::SystemTime,
     ) -> Self {
         SyntaxTree {
-            ast,
+            root: ast,
             filename,
             generated_at,
         }
@@ -69,8 +69,8 @@ impl SyntaxTree {
     /// # Returns
     ///
     /// A reference to the boxed `Ast` object.
-    pub fn ast(&self) -> &Box<ParsedNode> {
-        &self.ast
+    pub fn root(&self) -> &Box<ParsedNode> {
+        &self.root
     }
 
     /// Accessor for the filename.
@@ -93,7 +93,7 @@ impl fmt::Display for SyntaxTree {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the AST (assuming `Ast` implements `Display`).
         writeln!(f, "SyntaxTree:")?;
-        writeln!(f, " - AST: {}", self.ast())?;
+        writeln!(f, " - AST: {}", self.root())?;
 
         // Display the filename if available.
         match &self.filename {

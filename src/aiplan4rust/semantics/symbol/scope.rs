@@ -1,5 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantics::ast_table::AstTable;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::syntax::tree::ParsedNode;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use linked_hash_map::LinkedHashMap;
@@ -61,7 +61,7 @@ impl Scope {
     pub fn contains_ast_of_kind(
         &self,
         kind: SyntaxNodeKind,
-        ast: &AstTable,
+        ast: &HeapSyntaxTree,
     ) -> Result<bool, ParserInternalError> {
         for id in &self.stack {
             match ast.get_entry(*id) {
@@ -81,7 +81,7 @@ impl Scope {
         Ok(false)
     }
 
-    pub fn display_with_bimap(
+    pub fn display_with_map(
         &self,
         f: &mut fmt::Formatter<'_>,
         map: &LinkedHashMap<usize, &Box<ParsedNode>>,

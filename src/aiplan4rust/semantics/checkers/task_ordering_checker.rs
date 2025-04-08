@@ -2,7 +2,8 @@ use crate::aiplan4rust::error::error_manager::ErrorManager;
 use crate::aiplan4rust::error::parsing_error::{ParserErrorKind, ParsingError};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantics::annotated_syntax_tree::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantics::ast_table::{AstEntry, AstTable};
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxNode;
+use crate::aiplan4rust::semantics::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::syntax::tree::SyntaxNodeKind;
 use std::collections::HashMap;
 
@@ -61,7 +62,7 @@ pub fn check(
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
     let symbol_table = tree.symbol_table();
-    let ast_table = tree.ast();
+    let ast_table = tree.syntax_tree();
 
     for ast in ast_table.values() {
         match ast.kind() {
@@ -139,8 +140,8 @@ pub fn check(
 /// - If a node does not directly contain a `TaskID`, the function will recursively search through
 ///   its child nodes.
 fn extract_task_ids<'a>(
-    node: &'a AstEntry,
-    tree: &'a AstTable,
+    node: &'a HeapSyntaxNode,
+    tree: &'a HeapSyntaxTree,
 ) -> Result<Vec<&'a String>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {

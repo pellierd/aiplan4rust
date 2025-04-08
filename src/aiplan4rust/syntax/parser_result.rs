@@ -94,7 +94,7 @@ impl fmt::Display for ParserResult {
         match &self.syntax_tree {
             Some(tree) => {
                 // If the syntax tree exists, display the tree and any errors.
-                write!(f, "Parsing successful:\n{}", tree.ast())?;
+                write!(f, "Parsing successful:\n{}", tree.root())?;
                 if !self.error_manager.is_empty() {
                     write!(f, "\nErrors encountered during parsing:\n")?;
                     for error in self.error_manager.errors() {
