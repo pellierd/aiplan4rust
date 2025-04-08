@@ -23,12 +23,12 @@ use std::mem;
 /// It manages the detection and collection of errors encountered during the analysis process.
 /// The `error_manager` field stores any errors found while analyzing the syntax tree.
 #[derive(Debug)]
-pub struct Analyzer {
+pub struct SemanticAnalyzer {
     /// Manages and tracks parsing and semantic errors encountered during analysis.
     error_manager: ErrorManager,
 }
 
-impl Analyzer {
+impl SemanticAnalyzer {
     /// Creates a new instance of `Analyzer`.
     ///
     /// # Returns

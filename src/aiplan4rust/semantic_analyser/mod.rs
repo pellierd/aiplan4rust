@@ -1,4 +1,4 @@
-pub mod analyzer;
+pub mod semantic_analyzer;
 pub mod symbol;
 
 pub mod analyser_result;
