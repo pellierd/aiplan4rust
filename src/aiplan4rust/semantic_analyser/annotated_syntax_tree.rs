@@ -1,10 +1,12 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
+use crate::aiplan4rust::parser::elements::Requirement;
+use crate::aiplan4rust::parser::syntax_tree::{SyntaxNodeKind, SyntaxTree};
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::SymbolTable;
 
 use serde::Deserialize;
 use serde::Serialize;
+use std::collections::HashSet;
 use std::fmt;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
@@ -29,15 +31,32 @@ use std::time::UNIX_EPOCH;
 pub type LiftedProblem = AnnotatedSyntaxTree;
 pub type LiftedDomain = AnnotatedSyntaxTree;
 
+/// A structure that encapsulates the annotated abstract syntax tree (AST),
+/// along with associated semantic information.
+///
+/// The `AnnotatedSyntaxTree` combines the parsed syntax tree with additional
+/// context such as declared requirements, the symbol table, and metadata
+/// like the source filename and generation timestamp.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnotatedSyntaxTree {
-    /// The Abstract Syntax Tree (AST) of the domain/problem (if available).
+    /// The abstract syntax tree (AST) of the domain or problem.
     syntax_tree: HeapSyntaxTree,
-    /// The symbol table related to the AST (if available).
+
+    /// The set of declared `Requirement`s extracted from the AST.
+    ///
+    /// These influence the semantics of the problem and control which
+    /// constructs are permitted in the syntax tree.
+    requirements: HashSet<Requirement>,
+
+    /// The symbol table constructed from the AST.
+    ///
+    /// Contains all symbols (e.g., types, constants, functions) defined in the input.
     symbol_table: SymbolTable,
-    /// The filename where the AST was parsed from.
+
+    /// The name of the file from which the AST was parsed.
     filename: String,
-    /// The timestamp of when the AST was generated.
+
+    /// The timestamp indicating when the AST was generated.
     generated_at: SystemTime,
 }
 
@@ -46,6 +65,7 @@ impl Default for AnnotatedSyntaxTree {
         AnnotatedSyntaxTree {
             syntax_tree: Default::default(),
             symbol_table: Default::default(),
+            requirements: Default::default(),
             filename: String::new(),
             generated_at: SystemTime::now(),
         }
@@ -63,10 +83,16 @@ impl AnnotatedSyntaxTree {
     ///
     /// # Returns
     /// A new `AnnotatedSyntaxTree` instance initialized with the given values.
-    pub fn new(ast: HeapSyntaxTree, symbol_table: SymbolTable, filename: String) -> Self {
+    fn new(
+        ast: HeapSyntaxTree,
+        symbol_table: SymbolTable,
+        requirements: HashSet<Requirement>,
+        filename: String,
+    ) -> Self {
         AnnotatedSyntaxTree {
             syntax_tree: ast,
             symbol_table,
+            requirements,
             filename,
             generated_at: SystemTime::now(),
         }
@@ -81,21 +107,73 @@ impl AnnotatedSyntaxTree {
     /// * A new `AnnotatedSyntaxTree` created from the provided `syntax_tree`.
     pub fn from(syntax_tree: &SyntaxTree) -> Result<Self, ParserInternalError> {
         // Check if the AST exists in the syntax_tree
-        let ast = syntax_tree.root();
+        let root = syntax_tree.root();
 
-        // Convert the AST into a hash map
-        let ast_table = HeapSyntaxTree::from(&ast)?;
+        // Convert the syntax tree into a heap syntax tree
+        let heap_syntax_tree = HeapSyntaxTree::from(&root)?;
+
+        // Extract the requirements from the syntax tree
+        let requirements = Self::extract_requirements(&heap_syntax_tree);
 
         // Create the SymbolTable with the AST and the Bimap
         let mut symbol_table = SymbolTable::new();
-        symbol_table.initialize_from_ast(0, &ast_table)?;
+        symbol_table.initialize_from_ast(0, &heap_syntax_tree)?;
 
         // Create and return the annotated_syntax_tree
         Ok(AnnotatedSyntaxTree::new(
-            ast_table,
+            heap_syntax_tree,
             symbol_table,
+            requirements,
             syntax_tree.filename().unwrap().clone(),
         ))
+    }
+
+    /// Extracts all `Requirement` nodes from the given syntax tree.
+    ///
+    /// This function iterates over the nodes of the provided `HeapSyntaxTree`
+    /// and collects all nodes of kind `SyntaxNodeKind::Requirement`.
+    ///
+    /// # Arguments
+    ///
+    /// * `syntax_tree` - A reference to the syntax tree from which to extract requirements.
+    ///
+    /// # Returns
+    ///
+    /// A `HashSet` containing all unique `Requirement` instances found in the syntax tree.
+    ///
+    fn extract_requirements(syntax_tree: &HeapSyntaxTree) -> HashSet<Requirement> {
+        let mut requirements = HashSet::new();
+        for node in syntax_tree.values() {
+            if let SyntaxNodeKind::Requirement(req) = node.kind() {
+                requirements.insert(req.clone());
+            }
+        }
+        requirements
+    }
+
+    /// Checks whether a specific `Requirement` is declared in the syntax tree.
+    ///
+    /// This method returns `true` if the given `requirement` is present in the
+    /// set of declared requirements, meaning the corresponding feature is enabled
+    /// and may be used in the domain or problem description.
+    ///
+    /// # Arguments
+    ///
+    /// * `requirement` - A reference to the `Requirement` to check for.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the requirement is declared; `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if annotated_syntax_tree.has_requirement(&Requirement::Fluent) {
+    ///     println!("Fluent support is enabled.");
+    /// }
+    /// ```
+    pub fn has_requirement(&self, requirement: &Requirement) -> bool {
+        self.requirements.contains(requirement)
     }
 
     /// Returns a reference to the `AstTable` if available.

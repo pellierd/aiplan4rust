@@ -13,6 +13,7 @@ use crate::aiplan4rust::parser::lexer::token::HIERARCHY;
 use crate::aiplan4rust::parser::lexer::token::METHOD_PRECONDITIONS;
 use crate::aiplan4rust::parser::lexer::token::NEGATIVE_PRECONDITION;
 use crate::aiplan4rust::parser::lexer::token::NUMERIC_FLUENTS;
+use crate::aiplan4rust::parser::lexer::token::OBJECT_FLUENTS;
 use crate::aiplan4rust::parser::lexer::token::PREFERENCES;
 use crate::aiplan4rust::parser::lexer::token::QUANTIFIED_PRECONDITIONS;
 use crate::aiplan4rust::parser::lexer::token::STRIPS;
@@ -55,6 +56,8 @@ pub enum Requirement {
     Fluents,
     /// Supports numeric state variables and arithmetic expressions.
     NumericFluents,
+    /// Supports function with type that differ from number
+    ObjectFluents,
     /// A general requirement encompassing `NegativePreconditions`, `DisjunctivePreconditions`,
     /// `Equality`, `ExistentialPreconditions`, `UniversalPreconditions`, and `ConditionalEffects`.
     Adl,
@@ -78,6 +81,41 @@ pub enum Requirement {
     Hierarchy,
     /// Specifies method preconditions in HTN for HDDL.
     MethodPreconditions,
+}
+
+impl Requirement {
+    // Returns all atomic requirements implied by this requirement, including itself.
+    pub fn imply(&self) -> Vec<Requirement> {
+        match self {
+            Requirement::QuantifiedPreconditions => vec![
+                Requirement::QuantifiedPreconditions,
+                Requirement::ExistentialPreconditions,
+                Requirement::UniversalPreconditions,
+            ],
+            Requirement::Fluents => vec![
+                Requirement::Fluents,
+                Requirement::NumericFluents,
+                Requirement::ObjectFluents,
+            ],
+            Requirement::Adl => vec![
+                Requirement::Adl,
+                Requirement::Strips,
+                Requirement::Typing,
+                Requirement::NegativePreconditions,
+                Requirement::DisjunctivePreconditions,
+                Requirement::Equality,
+                Requirement::QuantifiedPreconditions,
+                Requirement::ExistentialPreconditions,
+                Requirement::UniversalPreconditions,
+                Requirement::ConditionalEffects,
+            ],
+            Requirement::TimedInitialLiterals => vec![
+                Requirement::TimedInitialLiterals,
+                Requirement::DurativeActions,
+            ],
+            _ => vec![self.clone()],
+        }
+    }
 }
 
 impl fmt::Display for Requirement {
@@ -104,6 +142,7 @@ impl fmt::Display for Requirement {
             Requirement::ConditionalEffects => write!(f, "{}", CONDITIONAL_EFFECTS),
             Requirement::Fluents => write!(f, "{}", FLUENTS),
             Requirement::NumericFluents => write!(f, "{}", NUMERIC_FLUENTS),
+            Requirement::ObjectFluents => write!(f, "{}", OBJECT_FLUENTS),
             Requirement::Adl => write!(f, "{}", ADL),
             Requirement::DurativeActions => write!(f, "{}", DURATIVE_ACTIONS),
             Requirement::DurationInequalities => write!(f, "{}", DURATIVE_INEQUALITIES),

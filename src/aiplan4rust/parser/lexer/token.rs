@@ -187,6 +187,9 @@ pub const FLUENTS: &str = ":fluents";
 /// Represents the ":numeric-fluents" requirement in PDDL.
 pub const NUMERIC_FLUENTS: &str = ":numeric-fluents";
 
+/// Represents the ":object-fluents" requirement in PDDL.
+pub const OBJECT_FLUENTS: &str = ":object-fluents";
+
 /// Represents the ":adl" requirement in PDDL.
 pub const ADL: &str = ":adl";
 
