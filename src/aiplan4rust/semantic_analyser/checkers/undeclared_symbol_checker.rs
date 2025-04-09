@@ -10,7 +10,6 @@ use crate::aiplan4rust::parser::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
@@ -21,45 +20,53 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 /// Checks if there are any undeclared symbols used in the given symbol table.
 /// This function scans all usages of symbols in the `symbol_table` and verifies if
 /// each symbol has been declared correctly. If no declaration is found for a symbol,
-/// an error is generated and added to the error manager.
+/// an error is generated and added to the error manager. The function also respects
+/// a list of symbols to skip during the check (e.g., certain symbol kinds or those
+/// that are exempt from declaration checks).
 ///
 /// # Arguments
 ///
-/// * `symbol_table` - A reference to the `SymbolTable` that contains all the symbols.
-/// * `ast_table` - A reference to the `AstTable` for looking up AST entries related to the usages.
-/// * `skip_symbols` - A list of `SymbolKind`s to skip during the check.
+/// * `annotated_syntax_tree` - A reference to the `AnnotatedSyntaxTree` that contains
+///   the symbol table and syntax tree to verify symbol usages.
+/// * `skip_symbols` - A list of `SymbolKind`s to skip during the check, allowing for
+///   exemptions where certain symbols should not trigger errors.
+/// * `errors` - A mutable reference to the `ErrorManager` where any found errors will
+///   be recorded.
 ///
 /// # Returns
 ///
-/// * `Result<bool, ParserInternalError>` - Returns `Ok(true)` if no undeclared symbol was found,
-///   otherwise `Ok(false)`. Returns an error if an internal parser error occurs.
+/// This function returns:
+/// - `Ok(true)` if no undeclared symbols were found.
+/// - `Ok(false)` if undeclared symbols were found, but no errors occurred during execution.
+/// - `Err(ParserInternalError)` if an internal error occurs during the check process.
 ///
 /// # Example
 ///
-/// ```
-/// let result = check(&symbol_table, &ast_table, &[SymbolKind::Action]);
+/// ```rust
+/// let result = check(&annotated_syntax_tree, &[SymbolKind::Action], &mut error_manager);
 /// match result {
 ///     Ok(true) => println!("No undeclared symbols found."),
 ///     Ok(false) => println!("Some undeclared symbols were found."),
 ///     Err(e) => println!("Error: {}", e),
 /// }
 /// ```
+
 pub fn check(
-    tree: &AnnotatedSyntaxTree,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
-    let symbol_table = tree.symbol_table();
-    let ast_table = tree.syntax_tree();
+    let symbol_table = annotated_syntax_tree.symbol_table();
+    let syntax_tree = annotated_syntax_tree.syntax_tree();
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
         // Iterate over all usages of the symbol.
         for usage in symbol.usages() {
             // Skip the symbol if it meets the criteria (e.g., already declared or needs to be skipped).
-            if should_skip_symbol(symbol, ast_table, usage.kind(), skip_symbols)? {
+            if should_skip_symbol(symbol, annotated_syntax_tree, usage.kind(), skip_symbols)? {
                 continue;
             }
 
@@ -67,7 +74,7 @@ pub fn check(
             if !is_declaration_found(symbol, usage) {
                 no_error = false;
                 // If no declaration is found, report an undeclared symbol error.
-                let entry = ast_table.get_entry(usage.ast()).unwrap();
+                let entry = syntax_tree.get_entry(usage.ast()).unwrap();
                 let (line, column) = entry.span().start_position();
                 let content = format!(
                     "{} '{}' used but not declared at line {} column {}.",
@@ -79,7 +86,7 @@ pub fn check(
 
                 let error = ParsingError::new(
                     ParserErrorKind::ParseError,
-                    Some(tree.filename().clone()),
+                    Some(annotated_syntax_tree.filename().clone()),
                     line,
                     column,
                     content,
@@ -96,15 +103,20 @@ pub fn check(
 /// This decision is based on whether the symbol is predefined in PDDL (according to the
 /// requirements) or if the symbol's kind matches any entry in the `skip_symbols` list.
 ///
+/// The function checks if the symbol is one of the predefined symbols in the Planning Domain
+/// Definition Language (PDDL) or if the symbol’s usage kind matches an entry in the provided
+/// `skip_symbols` list. The function also takes into account the requirements of the problem
+/// as specified in the `annotated_syntax_tree` (such as whether Typing or NumericFluents are
+/// required).
+///
 /// # Arguments
 ///
 /// * `symbol` - The symbol to check. This is typically a symbol from the symbol table that may
 ///   be used in the program or expression being analyzed.
-/// * `ast_table` - The AST (Abstract Syntax Tree) table used to fetch relevant AST data,
-///   including the problem's requirements (such as Typing, NumericFluents, etc.) that influence
-///   whether a symbol is predefined in PDDL.
+/// * `annotated_syntax_tree` - A reference to the `AnnotatedSyntaxTree` that provides access to
+///   the problem’s requirements and other metadata affecting symbol definitions.
 /// * `usage_kind` - The kind of symbol usage, which determines the context in which the symbol
-///   is being used, e.g., a task, action, primitive type, etc.
+///   is being used, such as a task, action, or primitive type.
 /// * `skip_symbols` - A list of symbol kinds (e.g., `SymbolKind::Action`) that should be
 ///   skipped during the check.
 ///
@@ -117,42 +129,52 @@ pub fn check(
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// let should_skip = should_skip_symbol(
 ///     &symbol,
-///     &ast_table,
+///     &annotated_syntax_tree,
 ///     SymbolKind::Action,
 ///     &[SymbolKind::Action]
 /// );
 /// assert_eq!(should_skip, Ok(true));  // Assuming the symbol kind matches and is in the skip list.
 /// ```
+
 fn should_skip_symbol(
     symbol: &Symbol,
-    ast_table: &HeapSyntaxTree,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
     usage_kind: &SymbolKind,
     skip_symbols: &[SymbolKind],
 ) -> Result<bool, ParserInternalError> {
     // Skip if the symbol is predefined in PDDL or if it matches a symbol kind in the skip list.
-    Ok(is_pddl_builtin_symbol(symbol, ast_table)? || skip_symbols.contains(usage_kind))
+    Ok(is_pddl_builtin_symbol(symbol, annotated_syntax_tree)? || skip_symbols.contains(usage_kind))
 }
 
 /// Checks if a declaration for the given symbol usage exists in the symbol's declarations.
 /// This function handles different `SymbolKind`s and checks if the corresponding declaration
 /// matches the usage within the given scope.
 ///
+/// The function verifies whether a declaration for the symbol exists that matches the scope
+/// and kind of the given usage. Special handling is provided for certain kinds of symbols,
+/// such as `PrimitiveType` and `Task`, to allow for cases where the declaration may be implicit
+/// or when certain symbols (like tasks or primitive types) can be used in special ways in PDDL.
+///
 /// # Arguments
 ///
-/// * `symbol` - The symbol to check for declaration.
-/// * `usage` - The usage of the symbol that needs to be checked.
+/// * `symbol` - The symbol to check for declaration. This is the symbol that has potential
+///   declarations and usages in the symbol table.
+/// * `usage` - The usage of the symbol that needs to be checked. This indicates the context
+///   in which the symbol is being used, including the scope and kind of usage.
 ///
 /// # Returns
 ///
-/// * `bool` - Returns `true` if a matching declaration was found, otherwise `false`.
+/// * `bool` - Returns `true` if a matching declaration was found for the symbol usage,
+///   otherwise returns `false`.
 ///
 /// # Example
 ///
-/// ```
+/// ```rust
 /// let declaration_found = is_declaration_found(&symbol, &usage);
+/// assert_eq!(declaration_found, true);  // Assuming a matching declaration was found.
 /// ```
 fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
     let usage_scope = usage.scope();
@@ -202,48 +224,58 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
         _ => symbol.declarations().iter().any(check_declarations),
     }
 }
+
 /// Checks if a symbol is a predefined PDDL symbol based on the requirements in the given
-/// `ast_table`.
+/// `annotated_syntax_tree`.
 ///
-/// This function takes into account the context of the PDDL problem, i.e., which requirements
-/// are enabled in the current problem (such as `Typing`, `Adl`, `NumericFluents`, and
-/// `DurativeActions`), to determine if a symbol is considered a predefined symbol in PDDL.
+/// This function determines whether a symbol is predefined in PDDL, depending on the current
+/// PDDL problem's enabled requirements (e.g., `Typing`, `Adl`, `NumericFluents`, and
+/// `DurativeActions`). It checks the symbol's name against known predefined symbols that are
+/// activated by these requirements.
 ///
 /// # Arguments
-/// - `symbol`: The symbol to check.
-/// - `ast_table`: The abstract syntax tree table that holds information about the PDDL problem
-///   requirements.
+/// - `symbol`: The symbol to check. This symbol will be matched against predefined PDDL symbols.
+/// - `annotated_syntax_tree`: The annotated syntax tree, which contains information about the
+///   enabled requirements in the PDDL problem. This is used to determine if a given symbol
+///   is predefined based on the current problem's requirements.
 ///
 /// # Returns
-/// - `Ok(true)` if the symbol is predefined and matches the requirements.
-/// - `Ok(false)` if the symbol is not predefined.
+/// - `Ok(true)` if the symbol is predefined and matches the enabled requirements.
+/// - `Ok(false)` if the symbol is not predefined based on the requirements.
 /// - `Err(ParserInternalError)` if there is an internal error while checking the symbol.
 ///
 /// # Examples
 /// ```
 /// let symbol = Symbol::new("object_type");
 /// let result = is_pddl_builtin_symbol(&symbol, &ast_table);
-/// assert_eq!(result, Ok(true));
+/// assert_eq!(result, Ok(true));  // Assuming 'Typing' or 'Adl' requirements are enabled.
 /// ```
+///
+/// # Predefined Symbols Based on Requirements
+/// - `object_type`: Predefined when the `Typing` or `Adl` requirements are enabled.
+/// - `number_type` and `total_time`: Predefined when the `NumericFluents` requirement is enabled.
+/// - `duration_variable`: Predefined when the `DurativeActions` requirement is enabled.
 fn is_pddl_builtin_symbol(
     symbol: &Symbol,
-    ast_table: &HeapSyntaxTree,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<bool, ParserInternalError> {
     match symbol.name().as_str() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
         OBJECT_TYPE
-            if ast_table.requirements().contains(&Typing)
-                || ast_table.requirements().contains(&Adl) =>
+            if annotated_syntax_tree.has_requirement(&Typing)
+                || annotated_syntax_tree.has_requirement(&Adl) =>
         {
             Ok(true)
         }
 
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
-        NUMBER_TYPE | TOTAL_TIME if ast_table.requirements().contains(&NumericFluents) => Ok(true),
+        NUMBER_TYPE | TOTAL_TIME if annotated_syntax_tree.has_requirement(&NumericFluents) => {
+            Ok(true)
+        }
 
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        DURATION_VARIABLE if ast_table.requirements().contains(&DurativeActions) => Ok(true),
+        DURATION_VARIABLE if annotated_syntax_tree.has_requirement(&DurativeActions) => Ok(true),
 
         // Default case for any other symbols.
         _ => Ok(false),
