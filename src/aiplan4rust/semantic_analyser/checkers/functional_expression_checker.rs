@@ -12,61 +12,63 @@ use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
 use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
-/// Verifies the types of expressions used in function calls and assignment operations.
+/// Verifies the type correctness of expressions in function calls and assignment operations.
 ///
-/// This function checks the types of expressions in the abstract syntax tree (AST) to ensure
-/// that they are compatible for their respective operations, specifically focusing on equality
-/// checks, assignment operations, and other comparisons and assignments. The function processes
-/// the following cases:
+/// This function traverses the abstract syntax tree (AST) to check that expression types are
+/// valid for specific operations, including equality comparisons, assignments, and numerical
+/// operations. It performs type checking for the following cases:
 ///
-/// - Equality check (`=`) and assignment (`assign`): Verifies that the types of the operands
-///   match.
-/// - Other comparisons (greater than, less than, etc.) and assignments (scale up, scale down,
-///   etc.): Verifies that both operands are numeric or compatible for the operation.
+/// - **Equality checks** (`=`) and **simple assignments** (`assign`): Ensures that the operand
+///   types are compatible.
+/// - **Other comparisons** (`>`, `<`, `>=`, `<=`) and **arithmetic assignments** (`+=`, `-=`, `*=`,
+///   `/=`):
+///   Ensures that the operands are numeric or otherwise compatible with the operation.
 ///
-/// The function uses `AtomicExpressionChecker` to validate type compatibility for each
-/// operation and logs errors  if any type mismatches are found.
+/// The function delegates type compatibility checks to `AtomicExpressionChecker` and reports
+/// any mismatches via the provided `ErrorManager`.
 ///
 /// # Parameters
-/// - `symbol_table`: A reference to the `SymbolTable` used to resolve variable types.
-/// - `ast_table`: A reference to the `AstTable` that contains the abstract syntax tree entries.
+/// - `annotated_syntax_tree`: The annotated syntax tree containing both the AST and symbol table.
+/// - `type_checker`: The `TypeChecker` instance used to perform type resolution and compatibility
+///   checks.
+/// - `errors`: A mutable reference to the `ErrorManager` for collecting any detected errors.
 ///
 /// # Returns
-/// - `Ok(true)` if no type mismatches were found for the expressions.
-/// - `Ok(false)` if one or more type mismatches were found, and errors were logged.
-/// - `Err(ParserInternalError)` if an internal error occurs while processing the AST.
+/// - `Ok(true)` if no type mismatches are found.
+/// - `Ok(false)` if one or more type mismatches are found (errors are logged).
+/// - `Err(ParserInternalError)` if an internal error occurs during AST processing.
 ///
 /// # Example
 /// ```rust
-/// let symbol_table = ...;
-/// let ast_table = ...;
-/// let result = check(&symbol_table, &ast_table);
+/// let result = check(&annotated_syntax_tree, &type_checker, &mut error_manager)?;
+/// if result {
+///     println!("All expressions are type correct.");
+/// }
 /// ```
+
 pub fn check(
-    tree: &AnnotatedSyntaxTree,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
-    let ast_table = tree.syntax_tree();
-    let symbol_table = tree.symbol_table();
+    let syntax_tree = annotated_syntax_tree.syntax_tree();
 
-    for ast in ast_table.values() {
-        match ast.kind() {
+    for node in syntax_tree.values() {
+        match node.kind() {
             // Case for equality check (AssignOp::Assign and BinaryComp::Equal)
             SyntaxNodeKind::FComp(BinaryComp::Equal) | SyntaxNodeKind::Assign(AssignOp::Assign) => {
-                let (ty1, ty2) = get_binary_operation_types(ast, symbol_table, ast_table)?;
+                let (ty1, ty2) = get_binary_operation_types(node, annotated_syntax_tree)?;
 
                 // Call check_equal_and_assign function to handle this case
                 no_error &= check_equal_and_assignment_expression(
-                    tree,
+                    annotated_syntax_tree,
                     type_checker,
-                    ast,
+                    node,
                     &ty1,
                     &ty2,
                     errors,
@@ -82,10 +84,11 @@ pub fn check(
             | SyntaxNodeKind::Assign(AssignOp::ScaleDown)
             | SyntaxNodeKind::Assign(AssignOp::Increase)
             | SyntaxNodeKind::Assign(AssignOp::Decrease) => {
-                let (ty1, ty2) = get_binary_operation_types(ast, symbol_table, ast_table)?;
+                let (ty1, ty2) = get_binary_operation_types(node, annotated_syntax_tree)?;
 
                 // Call check_other_cases function to handle these cases
-                no_error &= check_numeric_expression(tree, ast, &ty1, &ty2, errors)?;
+                no_error &=
+                    check_numeric_expression(annotated_syntax_tree, node, &ty1, &ty2, errors)?;
             }
 
             _ => {}
@@ -95,38 +98,47 @@ pub fn check(
     Ok(no_error)
 }
 
-/// Verifies that the types of the operands in an equality (`=`) or assignment (`assign`)
-/// expression are compatible.
+/// Checks the type compatibility of operands in equality (`=`) or assignment (`assign`) expressions.
 ///
-/// This function handles both equality (`=`) and assignment (`assign`) operations. The types of
-/// the left and right operands must be compatible for the expression to be valid. While
-/// equality (`=`) typically involves comparing operands of the same type, assignments
-/// (`assign`) can involve various types depending on the PDDL domain, including numbers, or
-/// other user-defined types.
+/// This function verifies that the types of both operands involved in an equality or assignment
+/// operation are compatible. Equality comparisons (`=`) require operands of the same type,
+/// while assignment operations (`assign`) may allow some flexibility depending on the domain,
+/// such as assigning numeric values or specific user-defined types.
+///
+/// Type compatibility is checked using the provided `TypeChecker`. If a mismatch is found,
+/// an error is reported through the `ErrorManager`.
 ///
 /// # Parameters
-/// - `ast`: A reference to the `AstEntry` representing the expression to check.
-/// - `symbol_table`: A reference to the `SymbolTable` used to resolve type information.
-/// - `ty1`: A reference to a vector of strings representing the type of the first operand.
-/// - `ty2`: A reference to a vector of strings representing the type of the second operand.
+/// - `annotated_syntax_tree`: The annotated syntax tree containing the AST and symbol information.
+/// - `type_checker`: The type checker used to validate type compatibility.
+/// - `node`: The syntax node representing the equality or assignment operation.
+/// - `ty1`: The type(s) of the left-hand side operand.
+/// - `ty2`: The type(s) of the right-hand side operand.
+/// - `errors`: The error manager used to log any type mismatches.
 ///
 /// # Returns
-/// Returns a `Result<bool, ParserInternalError>`.
-/// - `Ok(true)` if the types are compatible (i.e., the left and right operands match).
-/// - `Ok(false)` if there is a type incompatibility, and an error is logged.
-/// - `Err` if there is an internal parsing error.
+/// - `Ok(true)` if the operand types are compatible.
+/// - `Ok(false)` if the types are incompatible and an error is logged.
+/// - `Err(ParserInternalError)` if an internal error occurs during the check.
 ///
 /// # Example
 /// ```rust
-/// let ast_entry = ...;
-/// let ty1 = vec!["object".to_string()]; // An object type in PDDL
-/// let ty2 = vec!["object".to_string()]; // Another object type in PDDL
-/// let result = check_equal_and_assignment_expression(&ast_entry, &symbol_table, &ty1, &ty2);
+/// let ty1 = vec!["number".to_string()];
+/// let ty2 = vec!["object".to_string()];
+/// let result = check_equal_and_assignment_expression(
+///     &annotated_syntax_tree,
+///     &type_checker,
+///     &node,
+///     &ty1,
+///     &ty2,
+///     &mut errors,
+/// );
 /// ```
+
 fn check_equal_and_assignment_expression(
-    tree: &AnnotatedSyntaxTree,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
-    ast: &HeapSyntaxNode,
+    node: &HeapSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
     errors: &mut ErrorManager,
@@ -135,11 +147,11 @@ fn check_equal_and_assignment_expression(
 
     if !type_checker.match_type(ty1, ty2)? {
         no_error = false;
-        let (line, column) = ast.span().start_position();
-        let content = format!("Type incompatibility in expression {}: ", ast);
+        let (line, column) = node.span().start_position();
+        let content = format!("Type incompatibility in expression {}: ", node);
         let error = ParsingError::new(
             ParserErrorKind::ParseError,
-            Some(tree.filename().clone()),
+            Some(annotated_syntax_tree.filename().clone()),
             line,
             column,
             content,
@@ -150,33 +162,39 @@ fn check_equal_and_assignment_expression(
     Ok(no_error)
 }
 
-/// Verifies that the types of the operands in a numeric comparison or assignment expression
-/// are compatible with the numeric type (i.e., `number`).
+/// Checks whether the operand types in a numeric comparison or assignment expression
+/// are compatible with numeric operations (i.e., of type `number`).
 ///
-/// This function is specifically for handling operations like Greater, Less, etc., where the
-/// operands must be of the numeric type.
+/// This function is used specifically for expressions involving numeric comparisons
+/// (e.g., `greater`, `less`, `>=`, `<=`) and numeric assignment operations
+/// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such expressions
+/// to be valid, both operands must have the `number` type.
+///
+/// If either operand does not have the `number` type, the function logs a
+/// type mismatch error.
 ///
 /// # Parameters
-/// - `ast`: A reference to the `AstEntry` representing the expression to check.
-/// - `ty1`: A reference to a vector of strings representing the types of the first operand.
-/// - `ty2`: A reference to a vector of strings representing the types of the second operand.
+/// - `annotated_syntax_tree`: The annotated syntax tree containing the AST and metadata.
+/// - `node`: The syntax node representing the numeric expression.
+/// - `ty1`: A reference to a vector of strings representing the type of the left operand.
+/// - `ty2`: A reference to a vector of strings representing the type of the right operand.
+/// - `errors`: The error manager used to report type errors.
 ///
 /// # Returns
-/// Returns a `Result<bool, ParserInternalError>`.
-/// - `Ok(true)` if the types are compatible with numeric operations (`number`).
-/// - `Ok(false)` if there is a type incompatibility, and an error is logged.
-/// - `Err` if there is an internal parsing error.
+/// - `Ok(true)` if both operands have the `number` type.
+/// - `Ok(false)` if a type mismatch is found and an error is logged.
+/// - `Err(ParserInternalError)` if an internal error occurs during type checking.
 ///
 /// # Example
 /// ```rust
-/// let ast_entry = ...;
 /// let ty1 = vec!["number".to_string()];
 /// let ty2 = vec!["number".to_string()];
-/// let result = check_numeric_expression(&ast_entry, &ty1, &ty2);
+/// let result = check_numeric_expression(&annotated_syntax_tree, &node, &ty1, &ty2, &mut errors);
 /// ```
+
 fn check_numeric_expression(
-    tree: &AnnotatedSyntaxTree,
-    ast: &HeapSyntaxNode,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
+    node: &HeapSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
     errors: &mut ErrorManager,
@@ -187,11 +205,11 @@ fn check_numeric_expression(
     let number = vec![NUMBER_TYPE.to_string()];
     if ty1 != &number || ty2 != &number {
         no_error = false;
-        let (line, column) = ast.span().start_position();
-        let content = format!("Type incompatibility in expression {}: ", ast);
+        let (line, column) = node.span().start_position();
+        let content = format!("Type incompatibility in expression {}: ", node);
         let error = ParsingError::new(
             ParserErrorKind::ParseError,
-            Some(tree.filename().clone()),
+            Some(annotated_syntax_tree.filename().clone()),
             line,
             column,
             content,
@@ -202,189 +220,228 @@ fn check_numeric_expression(
     Ok(no_error)
 }
 
-/// Retrieves the types of the two operands involved in a binary operation.
+/// Retrieves and returns the types of both operands in a binary expression.
 ///
-/// This function is designed to validate that the given abstract syntax tree (AST) entry
-/// represents a binary operation with exactly two children. It then retrieves the types
-/// of both operands (the children) by consulting the provided symbol table and AST table.
-/// If any issues arise, such as missing children, undeclared types, or incorrect numbers
-/// of children, an error is returned.
+/// This function ensures that the given syntax node represents a binary operation
+/// with exactly two children. It then looks up the types of both operand nodes
+/// using the annotated syntax tree and associated symbol table.
 ///
-/// # Arguments
-///
-/// * `ast` - A reference to the `AstEntry` representing the binary operation in the AST.
-/// * `symbol_table` - A reference to the `SymbolTable` that holds the variable types for the
-///   scope.
-/// * `ast_table` - A reference to the `AstTable` that holds the full set of AST entries.
+/// # Parameters
+/// - `node`: The syntax node representing the binary operation.
+/// - `annotated_syntax_tree`: The annotated syntax tree containing the full AST and symbol
+///   information.
 ///
 /// # Returns
-///
-/// This function returns a `Result` containing a tuple of two `Vec<String>` values representing
-/// the types of the two operands if successful. The types are derived from the symbol table and
-/// AST table based on the respective operands' positions in the AST. If an error occurs, a
-/// `ParserInternalError` is returned.
+/// A `Result` containing a pair of vectors of strings:
+/// - The first vector represents the type(s) of the left operand.
+/// - The second vector represents the type(s) of the right operand.
 ///
 /// # Errors
-///
-/// The function may return an error in the following cases:
-/// - If the `ast` entry does not have exactly two children, a `ParserInternalError` is returned
-///   with the message "Binary operations must have exactly two children."
-/// - If either of the two operands is missing from the `ast_table`, a `ParserInternalError`
-///   with the message "Missing first argument." or "Missing second argument." will be returned
-///   accordingly.
-/// - If either of the two operands does not have a declared type in the symbol table, a
-///   `ParserInternalError` will be returned with the message "No type declared for the first
-///   argument." or "No type declared for the second argument."
+/// This function returns a `ParserInternalError` in the following cases:
+/// - The node does not have exactly two children (binary operations must have two).
+/// - One of the children is missing in the syntax tree.
+/// - One of the operands has no associated type in the symbol table.
 ///
 /// # Example
 /// ```rust
-/// let (ty1, ty2) = get_binary_operation_types(&ast, &symbol_table, &ast_table)?;
+/// let (ty1, ty2) = get_binary_operation_types(&node, &annotated_syntax_tree)?;
 /// ```
 fn get_binary_operation_types(
-    ast: &HeapSyntaxNode,
-    symbol_table: &SymbolTable,
-    ast_table: &HeapSyntaxTree,
+    node: &HeapSyntaxNode,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<(Vec<String>, Vec<String>), ParserInternalError> {
     // Validate that there are exactly 2 children
-    if ast.children().len() != 2 {
+    if node.children().len() != 2 {
         return Err(ParserInternalError::new(
             "Binary operations must have exactly two children.".to_string(),
         ));
     }
 
-    let arg1 = ast_table
-        .get_entry(ast.children()[0])
+    let syntax_tree = annotated_syntax_tree.syntax_tree();
+    let arg1 = syntax_tree
+        .get_entry(node.children()[0])
         .ok_or_else(|| ParserInternalError::new("Missing first argument.".to_string()))?;
-    let arg2 = ast_table
-        .get_entry(ast.children()[1])
+    let arg2 = syntax_tree
+        .get_entry(node.children()[1])
         .ok_or_else(|| ParserInternalError::new("Missing second argument.".to_string()))?;
 
-    let ty1 = get_type(ast.children()[0], arg1, symbol_table, ast_table)?.ok_or_else(|| {
+    let ty1 = get_type(node.children()[0], arg1, annotated_syntax_tree)?.ok_or_else(|| {
         ParserInternalError::new("No type declared for the first argument.".to_string())
     })?;
-    let ty2 = get_type(ast.children()[1], arg2, symbol_table, ast_table)?.ok_or_else(|| {
+    let ty2 = get_type(node.children()[1], arg2, annotated_syntax_tree)?.ok_or_else(|| {
         ParserInternalError::new("No type declared for the second argument.".to_string())
     })?;
 
     Ok((ty1, ty2))
 }
 
-/// Retrieves the type of an AST node based on its kind.
+/// Determines the type of a syntax node based on its kind.
 ///
-/// This function handles several AST node types, including numbers, variables, constants,
-/// and function terms. It delegates the actual type retrieval to specific helper functions
-/// for each type of AST node.
+/// This function supports several kinds of nodes: numbers, variables, constants,
+/// and function terms. It delegates type resolution to specialized helper functions
+/// depending on the node kind. The function is used during type checking to retrieve
+/// the declared or inferred type of an expression or symbol.
 ///
 /// # Parameters
-/// - `index`: The index of the symbol in the symbol table.
-/// - `ast`: A reference to the AST entry to analyze.
-/// - `symbol_table`: A reference to the symbol table.
-/// - `ast_table`: A reference to the AST table.
+/// - `index`: The index of the current node in the syntax tree.
+/// - `node`: A reference to the `HeapSyntaxNode` representing the AST node to analyze.
+/// - `annotated_syntax_tree`: A reference to the annotated syntax tree that provides access
+///   to both the symbol table and the full syntax structure.
 ///
 /// # Returns
-/// Returns a `Result` containing an `Option<Vec<String>>`, which represents the type of
-/// the AST node, or an error if the node type is unexpected.
+/// A `Result` containing:
+/// - `Some(Vec<String>)` if the node has an associated type.
+/// - `None` if the type is undefined but not erroneous (e.g., optional typing).
+/// - `Err(ParserInternalError)` if the node kind is invalid or cannot be typed.
 ///
 /// # Errors
-/// Returns a `ParserInternalError` if the AST node kind is not one of the expected types.
+/// - Returns an error if the node kind is not one of the expected kinds (`Number`, `Variable`,
+///   `Constant`, `FunctionTerm`).
+///
+/// # Example
+/// ```rust
+/// let ty = get_type(index, &node, &annotated_syntax_tree)?;
+/// ```
 pub fn get_type(
     index: usize,
-    ast: &HeapSyntaxNode,
-    symbol_table: &SymbolTable,
-    ast_table: &HeapSyntaxTree,
+    node: &HeapSyntaxNode,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
-    match ast.kind() {
+    match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         SyntaxNodeKind::Number(_) => get_number_type(),
 
         // Case 2: Variable
-        SyntaxNodeKind::Variable(symbol) => {
-            get_variable_type(index, symbol, symbol_table, ast_table)
-        }
+        SyntaxNodeKind::Variable(symbol) => get_variable_type(index, symbol, annotated_syntax_tree),
 
         // Case 3: Constant
-        SyntaxNodeKind::Constant(symbol) => get_constant_type(index, symbol, symbol_table),
+        SyntaxNodeKind::Constant(symbol) => get_constant_type(index, symbol, annotated_syntax_tree),
 
         // Case 4: Function Term
-        SyntaxNodeKind::FunctionTerm => get_function_term_type(index, ast, symbol_table, ast_table),
+        SyntaxNodeKind::FunctionTerm => get_function_term_type(index, node, annotated_syntax_tree),
 
         // Default case: Unexpected AST node
         _ => Err(ParserInternalError::new(format!(
             "Unexpected AST node kind found: {}",
-            ast.kind()
+            node.kind()
         ))),
     }
 }
 
-/// Helper to return a type `NUMBER_TYPE`.
+/// Returns the predefined type for numeric values.
 ///
-/// This function returns the type for a number, which is predefined as `NUMBER_TYPE`.
+/// This helper function is used when an AST node represents a numeric literal.
+/// It returns the predefined type associated with numbers (i.e., `NUMBER_TYPE`),
+/// wrapped in a `Vec<String>` to be consistent with other type representations
+/// in the type checking system.
 ///
 /// # Returns
-/// Returns a `Result` containing an `Option<Vec<String>>`, with a single element `NUMBER_TYPE`.
+/// A `Result` containing:
+/// - `Ok(Some(vec!["number"]))` if the type resolution is successful.
+/// - `Err(ParserInternalError)` is not expected in this implementation, but
+///   the return type remains consistent with other type-checking helpers.
+///
+/// # Example
+/// ```rust
+/// let ty = get_number_type()?; // Returns Some(["number".to_string()])
+/// ```
 fn get_number_type() -> Result<Option<Vec<String>>, ParserInternalError> {
     Ok(Some(vec![NUMBER_TYPE.to_string()]))
 }
 
-/// Helper to retrieve the type of a variable.
+/// Retrieves the type of a variable symbol from the symbol table.
 ///
-/// This function handles the special case of a `DURATION_VARIABLE` and delegates to
-/// `get_declaration_type` for other variables.
+/// This function resolves the type of a variable used in the AST by consulting the
+/// symbol table. If the variable is the special `DURATION_VARIABLE` and the domain
+/// declares the `:durative-actions` requirement, the type is directly inferred as
+/// `number`. Otherwise, it delegates the lookup to `get_declaration_type`.
 ///
 /// # Parameters
-/// - `index`: The index of the symbol in the symbol table.
-/// - `symbol`: The name of the variable symbol.
-/// - `symbol_table`: A reference to the symbol table.
-/// - `ast_table`: A reference to the AST table.
+/// - `index`: The index of the AST node, used for error tracking.
+/// - `symbol`: The name of the variable (e.g., `"?x"`).
+/// - `annotated_syntax_tree`: A reference to the annotated syntax tree containing the
+///   symbol table and domain requirements.
 ///
 /// # Returns
-/// Returns a `Result` containing an `Option<Vec<String>>`, representing the type of the variable,
-/// or an error if the variable has multiple declarations.
+/// A `Result` containing:
+/// - `Ok(Some(types))`: A vector of type names if the variable was successfully resolved.
+/// - `Ok(None)`: If the variable is declared but without a type (unusual).
+/// - `Err(ParserInternalError)`: If the variable has conflicting declarations or is undeclared.
+///
+/// # Special Case
+/// - If the symbol is `?duration` and the domain has the `:durative-actions` requirement,
+///   the function directly returns `Some(["number"])` as its type.
+///
+/// # Example
+/// ```rust
+/// let ty = get_variable_type(42, "?x", &annotated_syntax_tree)?;
+/// ```
 fn get_variable_type(
     index: usize,
     symbol: &str,
-    symbol_table: &SymbolTable,
-    ast_table: &HeapSyntaxTree,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
-    if symbol == DURATION_VARIABLE && ast_table.requirements().contains(&DurativeActions) {
+    if symbol == DURATION_VARIABLE && annotated_syntax_tree.has_requirement(&DurativeActions) {
         return get_number_type();
     }
-    get_declaration_type(index, symbol, symbol_table)
+    get_declaration_type(index, symbol, annotated_syntax_tree.symbol_table())
 }
 
-/// Helper to retrieve the type of a constant.
+/// Retrieves the type of a constant symbol from the symbol table.
 ///
-/// This function delegates to `get_declaration_type` to retrieve the type of a constant.
+/// This function resolves the type of a constant declared in the domain or problem file.
+/// It delegates the actual lookup to `get_declaration_type`, which handles symbol table
+/// access and conflict resolution.
 ///
 /// # Parameters
-/// - `index`: The index of the symbol in the symbol table.
-/// - `symbol`: The name of the constant symbol.
-/// - `symbol_table`: A reference to the symbol table.
+/// - `index`: The index of the AST node, used for error reporting.
+/// - `symbol`: The name of the constant (e.g., `"loc1"`).
+/// - `annotated_syntax_tree`: A reference to the annotated syntax tree containing the
+///   symbol table and other context.
 ///
 /// # Returns
-/// Returns a `Result` containing an `Option<Vec<String>>`, representing the type of the constant,
-/// or an error if the constant has multiple declarations.
+/// A `Result` containing:
+/// - `Ok(Some(types))`: A vector of type names if the constant was successfully resolved.
+/// - `Ok(None)`: If the constant exists but has no declared type.
+/// - `Err(ParserInternalError)`: If the constant is not declared or declared inconsistently.
+///
+/// # Example
+/// ```rust
+/// let ty = get_constant_type(12, "loc1", &annotated_syntax_tree)?;
+/// ```
 fn get_constant_type(
     index: usize,
     symbol: &str,
-    symbol_table: &SymbolTable,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
-    get_declaration_type(index, symbol, symbol_table)
+    get_declaration_type(index, symbol, annotated_syntax_tree.symbol_table())
 }
 
 /// Helper function to retrieve the type of a symbol from the symbol table.
 ///
-/// This function looks up a symbol in the symbol table and returns its associated type.
-/// If the symbol has multiple declarations, it returns an error.
+/// This function looks up a symbol in the symbol table using its index and returns its associated
+/// type. If the symbol has multiple declarations, it raises an error to ensure that the symbol is
+/// declared only once. It accesses the symbol's type through the `declarations` and handles cases
+/// where there are no types declared for the symbol.
 ///
 /// # Parameters
-/// - `index`: The index of the symbol in the symbol table.
-/// - `symbol`: The name of the symbol.
-/// - `symbol_table`: A reference to the symbol table.
+/// - `index`: The index of the symbol in the symbol table. This is used to retrieve the correct
+///   declaration.
+/// - `symbol`: The name of the symbol being looked up.
+/// - `symbol_table`: A reference to the symbol table, which holds all symbol declarations and their
+///   associated types.
 ///
 /// # Returns
-/// Returns a `Result` containing an `Option<Vec<String>>` representing the symbol's type,
-/// or an error if the symbol has multiple declarations.
+/// This function returns a `Result` containing:
+/// - `Ok(Some(types))`: A vector of type names if the symbol has a single declaration with types.
+/// - `Ok(None)`: If the symbol exists but does not have any declared types.
+/// - `Err(ParserInternalError)`: If the symbol has multiple declarations, an error is returned
+///   indicating a conflict.
+///
+/// # Example
+/// ```rust
+/// let ty = get_declaration_type(10, "varX", &symbol_table)?;
+/// ```
 fn get_declaration_type(
     index: usize,
     symbol: &str,
@@ -405,25 +462,35 @@ fn get_declaration_type(
 
 /// Helper to handle `FunctionTerm` and retrieve its type.
 ///
-/// This function checks if the `FunctionTerm` has a valid functor and determines
-/// the type based on the associated function symbol.
+/// This function checks if the first child of the `FunctionTerm` node is a valid functor,
+/// retrieves its symbol, and determines the type associated with the function term.
+/// Specifically, it handles the special case where the functor is a `TOTAL_TIME` symbol and
+/// ensures the presence of the `NumericFluents` requirement for the `number` type.
+/// If the functor is invalid or missing, an error is returned.
 ///
 /// # Parameters
-/// - `index`: The index of the symbol in the symbol table.
-/// - `ast`: A reference to the AST entry representing the function term.
-/// - `symbol_table`: A reference to the symbol table.
-/// - `ast_table`: A reference to the AST table.
+/// - `index`: The index of the symbol in the symbol table. This is used for symbol lookup.
+/// - `node`: A reference to the AST entry representing the function term to analyze.
+/// - `annotated_syntax_tree`: A reference to the annotated syntax tree, providing access to the
+///   syntax tree and symbol table.
 ///
 /// # Returns
-/// Returns a `Result` containing an `Option<Vec<String>>`, representing the type of the
-/// function term, or an error if the functor is invalid or the term has no functor.
+/// This function returns a `Result` containing:
+/// - `Ok(Some(types))`: A vector of type names if the functor is valid, and its type is determined.
+/// - `Ok(None)`: If the function term has no functor, or no type is declared for it.
+/// - `Err(ParserInternalError)`: If the functor is missing, invalid, or the child is not a
+///  `FunctionSymbol`.
+///
+/// # Example
+/// ```rust
+/// let ty = get_function_term_type(10, &node, &annotated_syntax_tree)?;
+/// ```
 fn get_function_term_type(
     index: usize,
-    ast: &HeapSyntaxNode,
-    symbol_table: &SymbolTable,
-    ast_table: &HeapSyntaxTree,
+    node: &HeapSyntaxNode,
+    annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
-    let children = ast.children();
+    let children = node.children();
     if children.is_empty() {
         return Err(ParserInternalError::new(
             "Function term has no functor (empty children).".to_string(),
@@ -431,15 +498,16 @@ fn get_function_term_type(
     }
 
     let functor_index = children[0];
-    let functor_entry = ast_table.get_entry(functor_index).ok_or_else(|| {
+    let syntax_tree = annotated_syntax_tree.syntax_tree();
+    let functor_entry = syntax_tree.get_entry(functor_index).ok_or_else(|| {
         ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 
     if let SyntaxNodeKind::FunctionSymbol(symbol) = functor_entry.kind() {
-        if symbol == TOTAL_TIME && ast_table.requirements().contains(&NumericFluents) {
+        if symbol == TOTAL_TIME && annotated_syntax_tree.has_requirement(&NumericFluents) {
             return get_number_type();
         }
-        return get_declaration_type(index, symbol, symbol_table);
+        return get_declaration_type(index, symbol, annotated_syntax_tree.symbol_table());
     }
 
     Err(ParserInternalError::new(
