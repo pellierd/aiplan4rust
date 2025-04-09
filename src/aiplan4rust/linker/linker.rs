@@ -4,10 +4,10 @@ use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
+use crate::aiplan4rust::parser::Source;
 use crate::aiplan4rust::semantic_analyser::checkers::atomic_formula_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::Source;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
@@ -115,10 +115,7 @@ impl Linker {
                 Some(&SymbolKind::DomainName),
                 None,
             )[0];
-            let ast_entry = problem
-                .syntax_tree()
-                .get_entry(domain_name_declaration.ast())
-                .unwrap();
+            let ast_entry = problem.get_entry(domain_name_declaration.ast()).unwrap();
             let (line, column) = ast_entry.span().start_position();
             let error = ParsingError::new(
                 ParserErrorKind::ParseWarning,
@@ -223,7 +220,7 @@ impl Linker {
         undeclared: Vec<(String, Usage)>,
     ) {
         for (symbol_name, usage) in undeclared {
-            let ast_entry = problem.syntax_tree().get_entry(usage.ast()).unwrap();
+            let ast_entry = problem.get_entry(usage.ast()).unwrap();
             let (line, column) = ast_entry.span().start_position();
             let content = format!("{} '{}' not declared in domain", usage.kind(), symbol_name);
             let error = ParsingError::new(

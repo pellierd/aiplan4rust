@@ -1,12 +1,14 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement;
-use crate::aiplan4rust::parser::syntax_tree::{SyntaxNodeKind, SyntaxTree};
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
+use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind, SyntaxTree};
+use crate::aiplan4rust::semantic_analyser::HeapSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::SymbolTable;
 
+use crate::aiplan4rust::parser::Source;
+use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
@@ -40,17 +42,12 @@ pub type LiftedDomain = AnnotatedSyntaxTree;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnnotatedSyntaxTree {
     /// The abstract syntax tree (AST) of the domain or problem.
-    syntax_tree: HeapSyntaxTree,
+    syntax_tree: LinkedHashMap<usize, HeapSyntaxNode>,
 
     /// The set of declared `Requirement`s extracted from the AST.
-    ///
-    /// These influence the semantics of the problem and control which
-    /// constructs are permitted in the syntax tree.
     requirements: HashSet<Requirement>,
 
     /// The symbol table constructed from the AST.
-    ///
-    /// Contains all symbols (e.g., types, constants, functions) defined in the input.
     symbol_table: SymbolTable,
 
     /// The name of the file from which the AST was parsed.
@@ -73,6 +70,53 @@ impl Default for AnnotatedSyntaxTree {
 }
 
 impl AnnotatedSyntaxTree {
+    pub fn source(&self) -> Source {
+        if let Some(first_node) = self.syntax_tree.values().next() {
+            match first_node.kind() {
+                SyntaxNodeKind::Domain => Source::Domain,
+                SyntaxNodeKind::Problem => Source::Problem,
+                _ => Source::Unknown,
+            }
+        } else {
+            Source::Unknown
+        }
+    }
+    pub fn contains_kind(&self, kind: SyntaxNodeKind) -> bool {
+        self.syntax_tree
+            .iter()
+            .any(|(_, entry)| *entry.kind() == kind)
+    }
+
+    pub fn insert(&mut self, index: usize, entry: HeapSyntaxNode) -> Option<HeapSyntaxNode> {
+        self.syntax_tree.insert(index, entry)
+    }
+
+    pub fn get_entry(&self, id: usize) -> Option<&HeapSyntaxNode> {
+        self.syntax_tree.get(&id)
+    }
+
+    pub fn add_entry(&mut self, id: usize, entry: HeapSyntaxNode) {
+        self.syntax_tree.insert(id, entry);
+    }
+    pub fn contains_entry(&self, id: usize) -> bool {
+        self.syntax_tree.contains_key(&id)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&usize, &HeapSyntaxNode)> {
+        self.syntax_tree.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&usize, &mut HeapSyntaxNode)> {
+        self.syntax_tree.iter_mut()
+    }
+    pub fn keys(&self) -> impl Iterator<Item = &usize> {
+        self.syntax_tree.keys()
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &HeapSyntaxNode> {
+        self.syntax_tree.values()
+    }
+
     /// Creates a new `AnnotatedSyntaxTree` with the provided components.
     ///
     /// # Arguments
@@ -84,7 +128,7 @@ impl AnnotatedSyntaxTree {
     /// # Returns
     /// A new `AnnotatedSyntaxTree` instance initialized with the given values.
     fn new(
-        ast: HeapSyntaxTree,
+        ast: LinkedHashMap<usize, HeapSyntaxNode>,
         symbol_table: SymbolTable,
         requirements: HashSet<Requirement>,
         filename: String,
@@ -110,22 +154,58 @@ impl AnnotatedSyntaxTree {
         let root = syntax_tree.root();
 
         // Convert the syntax tree into a heap syntax tree
-        let heap_syntax_tree = HeapSyntaxTree::from(&root)?;
+        let heap = Self::to_heap(&root)?;
 
         // Extract the requirements from the syntax tree
-        let requirements = Self::extract_requirements(&heap_syntax_tree);
+        let requirements = Self::extract_requirements(&heap);
 
         // Create the SymbolTable with the AST and the Bimap
-        let mut symbol_table = SymbolTable::new();
-        symbol_table.initialize_from_ast(0, &heap_syntax_tree)?;
+        let mut symbol_table = SymbolTable::new(syntax_tree.source());
+        symbol_table.initialize_from_ast(0, &heap)?;
 
         // Create and return the annotated_syntax_tree
         Ok(AnnotatedSyntaxTree::new(
-            heap_syntax_tree,
+            heap,
             symbol_table,
             requirements,
             syntax_tree.filename().unwrap().clone(),
         ))
+    }
+
+    pub fn to_heap(
+        ast: &SyntaxNode,
+    ) -> Result<LinkedHashMap<usize, HeapSyntaxNode>, ParserInternalError> {
+        // Vérification du type de l'AST
+        match ast.kind() {
+            SyntaxNodeKind::Domain | SyntaxNodeKind::Problem => {
+                let index_table = ast.to_hash_map();
+                let mut ast_table = LinkedHashMap::new();
+                let mut next_index = 0;
+                Self::to_heap_rec(ast, &index_table, &mut ast_table, &mut next_index)?;
+                Ok(ast_table)
+            }
+            _ => Err(ParserInternalError::new(
+                "AST must be of type Domain or Problem".to_string(),
+            )),
+        }
+    }
+
+    fn to_heap_rec(
+        ast: &SyntaxNode,
+        index_table: &HashMap<&SyntaxNode, usize>,
+        ast_table: &mut LinkedHashMap<usize, HeapSyntaxNode>,
+        next_index: &mut usize,
+    ) -> Result<(), ParserInternalError> {
+        let entry = HeapSyntaxNode::from(ast, index_table)?;
+        ast_table.insert(*next_index, entry);
+
+        *next_index += 1; // Incrémente pour le prochain nœud
+
+        for child in ast.children() {
+            Self::to_heap_rec(child.as_ref(), index_table, ast_table, next_index)?;
+        }
+
+        Ok(())
     }
 
     /// Extracts all `Requirement` nodes from the given syntax tree.
@@ -141,7 +221,9 @@ impl AnnotatedSyntaxTree {
     ///
     /// A `HashSet` containing all unique `Requirement` instances found in the syntax tree.
     ///
-    fn extract_requirements(syntax_tree: &HeapSyntaxTree) -> HashSet<Requirement> {
+    fn extract_requirements(
+        syntax_tree: &LinkedHashMap<usize, HeapSyntaxNode>,
+    ) -> HashSet<Requirement> {
         let mut requirements = HashSet::new();
         for node in syntax_tree.values() {
             if let SyntaxNodeKind::Requirement(req) = node.kind() {
@@ -174,14 +256,6 @@ impl AnnotatedSyntaxTree {
     /// ```
     pub fn has_requirement(&self, requirement: &Requirement) -> bool {
         self.requirements.contains(requirement)
-    }
-
-    /// Returns a reference to the `AstTable` if available.
-    ///
-    /// # Returns
-    /// * `&AstTable` representing the AST.
-    pub fn syntax_tree(&self) -> &HeapSyntaxTree {
-        &self.syntax_tree
     }
 
     /// Returns a reference to the `SymbolTable` if available.
@@ -226,7 +300,11 @@ impl fmt::Display for AnnotatedSyntaxTree {
         write!(f, "Generated at: {} seconds since UNIX epoch\n", timestamp)?;
 
         // Display the AST if available
-        write!(f, "AST: \n{}", self.syntax_tree)?;
+        writeln!(f, "Abstract Syntax Tree : {{")?;
+        for (index, entry) in &self.syntax_tree {
+            writeln!(f, "  {}: {}", index, entry)?;
+        }
+        write!(f, "}}")?;
 
         // Display the symbol table if available
         write!(f, "Symbol Table: \n{}", self.symbol_table)?;

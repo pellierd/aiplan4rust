@@ -1,7 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
@@ -61,10 +61,10 @@ impl Scope {
     pub fn contains_ast_of_kind(
         &self,
         kind: SyntaxNodeKind,
-        ast: &HeapSyntaxTree,
+        syntax_tree: &AnnotatedSyntaxTree,
     ) -> Result<bool, ParserInternalError> {
         for id in &self.stack {
-            match ast.get_entry(*id) {
+            match syntax_tree.get_entry(*id) {
                 Some(ast) => {
                     if *ast.kind() == kind {
                         return Ok(true);

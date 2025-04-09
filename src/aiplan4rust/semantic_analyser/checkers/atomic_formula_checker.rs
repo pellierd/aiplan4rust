@@ -4,7 +4,6 @@ use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
@@ -45,12 +44,11 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 /// ```
 
 pub fn check(
-    tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
-    let symbol_table = tree.symbol_table();
-    let ast_table = tree.syntax_tree();
+    let symbol_table = syntax_tree.symbol_table();
     let mut no_error = true;
 
     // Loop over all symbols in the symbol table.
@@ -73,11 +71,11 @@ pub fn check(
                     declaration,
                     usage,
                     symbol_table,
-                    ast_table,
+                    syntax_tree,
                     type_checker,
                 )? {
                     no_error &= false;
-                    let entry = ast_table.get_entry(usage.ast()).unwrap();
+                    let entry = syntax_tree.get_entry(usage.ast()).unwrap();
                     let (line, column) = entry.span().start_position();
                     let content = format!(
                         "{} '{}' does not match any declaration.",
@@ -86,7 +84,7 @@ pub fn check(
                     );
                     let error = ParsingError::new(
                         ParserErrorKind::ParseError, // Error kind can be customized.
-                        Some(tree.filename().clone()),
+                        Some(syntax_tree.filename().clone()),
                         line,
                         column,
                         content,
@@ -121,7 +119,7 @@ fn match_declaration_with_usage(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    ast: &HeapSyntaxTree,
+    ast: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
 ) -> Result<bool, ParserInternalError> {
     let ast_usage = ast.get_entry(usage.ast()).ok_or_else(|| {

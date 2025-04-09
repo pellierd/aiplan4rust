@@ -3,8 +3,7 @@ use crate::aiplan4rust::parser::elements::BinaryComp;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
+use crate::aiplan4rust::parser::Source;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::FilterableSymbol;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
@@ -12,6 +11,7 @@ use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
+use crate::aiplan4rust::semantic_analyser::HeapSyntaxNode;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
@@ -60,6 +60,7 @@ enum Comparator {
 /// It provides methods to insert, retrieve, and serialize symbols during parsing.
 pub struct SymbolTable {
     symbols: LinkedHashMap<String, Symbol>,
+    source: Source,
 }
 
 impl SymbolTable {
@@ -68,10 +69,15 @@ impl SymbolTable {
     /// # Returns
     ///
     /// A new instance of `SymbolTable` with no symbols.
-    pub fn new() -> Self {
+    pub fn new(source: Source) -> Self {
         SymbolTable {
             symbols: LinkedHashMap::new(),
+            source,
         }
+    }
+
+    pub fn source(&self) -> &Source {
+        &self.source
     }
 
     /// Inserts a symbol into the symbol table using a unique key.
@@ -347,9 +353,9 @@ impl SymbolTable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     fn get_ast_entry(
         index: usize,
-        ast: &HeapSyntaxTree,
+        ast: &LinkedHashMap<usize, HeapSyntaxNode>,
     ) -> Result<&HeapSyntaxNode, ParserInternalError> {
-        ast.get_entry(index).ok_or_else(|| {
+        ast.get(&index).ok_or_else(|| {
             ParserInternalError::new(format!("AstEntry not found for index: {}", index))
         })
     }
@@ -366,10 +372,9 @@ impl SymbolTable {
     pub fn initialize_from_ast(
         &mut self,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
     ) -> Result<(), ParserInternalError> {
-        let ast = index_table.get_entry(index).unwrap();
-        //let ast = SymbolTable::get_ast_entry(index, index_table)?;
+        let ast = index_table.get(&index).unwrap();
         self.init_from(ast, index, index_table, Scope::new(index, None))?;
 
         Ok(())
@@ -395,7 +400,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Determine the type of the AST node and apply appropriate processing
@@ -505,7 +510,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
@@ -535,15 +540,16 @@ impl SymbolTable {
         let (name, kind) = Self::extract_symbol(ast, index_table)?;
 
         // Check if the symbol is already in the symbol table and add a declaration
+        let source = self.source().clone();
         if let Some(symbol) = self.get_symbol_mut(&name) {
             let declaration =
-                Declaration::new(index, kind, scope, index_table.source(), types, arguments);
+                Declaration::new(index, kind, scope, source.clone(), types, arguments);
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
             let mut symbol = Symbol::new(&name);
             let declaration =
-                Declaration::new(index, kind, scope, index_table.source(), types, arguments);
+                Declaration::new(index, kind, scope, source.clone(), types, arguments);
             symbol.add_declaration(declaration);
             self.insert_symbol(name, symbol); // Insert the new symbol into the table
         }
@@ -571,7 +577,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST node is of a valid kind for symbol usage.
@@ -600,12 +606,13 @@ impl SymbolTable {
         let (name, kind) = Self::extract_symbol(ast, index_table)?;
 
         // If the symbol exists, add the usage; otherwise, create a new symbol.
+        let source = self.source().clone();
         if let Some(symbol) = self.get_symbol_mut(&name) {
-            let usage = Usage::new(index, kind, scope, index_table.source());
+            let usage = Usage::new(index, kind, scope, source.clone());
             symbol.add_usage(usage);
         } else {
             let mut symbol = Symbol::new(&name);
-            let usage = Usage::new(index, kind, scope, index_table.source());
+            let usage = Usage::new(index, kind, scope, source.clone());
             symbol.add_usage(usage);
             self.insert_symbol(name, symbol);
         }
@@ -676,7 +683,7 @@ impl SymbolTable {
 
     fn extract_symbol(
         ast: &HeapSyntaxNode,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
     ) -> Result<(String, SymbolKind), ParserInternalError> {
         match ast.kind() {
             // Handling different AST node kinds and returning appropriate symbol information
@@ -758,7 +765,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the expected type 'TypedList'
@@ -831,7 +838,7 @@ impl SymbolTable {
         &mut self,
         element: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -918,7 +925,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -1001,7 +1008,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1040,7 +1047,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1075,7 +1082,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1111,7 +1118,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1143,7 +1150,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
         valid_kinds: &[SyntaxNodeKind],
         expected_children: usize,
@@ -1219,7 +1226,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
@@ -1284,7 +1291,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Check if the AST node is of kind 'Exists' or 'Forall'
@@ -1349,7 +1356,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         let children = ast.children();
@@ -1431,7 +1438,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
         Self::assert_ast_kind(ast, &[SyntaxNodeKind::TypedList])?;
@@ -1490,7 +1497,7 @@ impl SymbolTable {
         &mut self,
         types: &HeapSyntaxNode,
         _index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
     ) -> Result<Vec<String>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
         Self::assert_ast_kind(types, &[SyntaxNodeKind::Type])?;
@@ -1528,7 +1535,7 @@ impl SymbolTable {
         &mut self,
         types: &HeapSyntaxNode,
         index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<Vec<String>, ParserInternalError> {
         let super_types = self.extract_type(types, index, index_table)?; // Reuse `extract_type` to get type names
@@ -1562,7 +1569,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1627,7 +1634,7 @@ impl SymbolTable {
         &mut self,
         ast: &HeapSyntaxNode,
         _index: usize,
-        index_table: &HeapSyntaxTree,
+        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task

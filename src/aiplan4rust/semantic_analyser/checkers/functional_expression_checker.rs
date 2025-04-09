@@ -11,9 +11,9 @@ use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::HeapSyntaxNode;
 
 /// Verifies the type correctness of expressions in function calls and assignment operations.
 ///
@@ -50,23 +50,21 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 /// ```
 
 pub fn check(
-    annotated_syntax_tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
-    let syntax_tree = annotated_syntax_tree.syntax_tree();
-
     for node in syntax_tree.values() {
         match node.kind() {
             // Case for equality check (AssignOp::Assign and BinaryComp::Equal)
             SyntaxNodeKind::FComp(BinaryComp::Equal) | SyntaxNodeKind::Assign(AssignOp::Assign) => {
-                let (ty1, ty2) = get_binary_operation_types(node, annotated_syntax_tree)?;
+                let (ty1, ty2) = get_binary_operation_types(node, syntax_tree)?;
 
                 // Call check_equal_and_assign function to handle this case
                 no_error &= check_equal_and_assignment_expression(
-                    annotated_syntax_tree,
+                    syntax_tree,
                     type_checker,
                     node,
                     &ty1,
@@ -84,11 +82,10 @@ pub fn check(
             | SyntaxNodeKind::Assign(AssignOp::ScaleDown)
             | SyntaxNodeKind::Assign(AssignOp::Increase)
             | SyntaxNodeKind::Assign(AssignOp::Decrease) => {
-                let (ty1, ty2) = get_binary_operation_types(node, annotated_syntax_tree)?;
+                let (ty1, ty2) = get_binary_operation_types(node, syntax_tree)?;
 
                 // Call check_other_cases function to handle these cases
-                no_error &=
-                    check_numeric_expression(annotated_syntax_tree, node, &ty1, &ty2, errors)?;
+                no_error &= check_numeric_expression(syntax_tree, node, &ty1, &ty2, errors)?;
             }
 
             _ => {}
@@ -248,7 +245,7 @@ fn check_numeric_expression(
 /// ```
 fn get_binary_operation_types(
     node: &HeapSyntaxNode,
-    annotated_syntax_tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<(Vec<String>, Vec<String>), ParserInternalError> {
     // Validate that there are exactly 2 children
     if node.children().len() != 2 {
@@ -257,7 +254,6 @@ fn get_binary_operation_types(
         ));
     }
 
-    let syntax_tree = annotated_syntax_tree.syntax_tree();
     let arg1 = syntax_tree
         .get_entry(node.children()[0])
         .ok_or_else(|| ParserInternalError::new("Missing first argument.".to_string()))?;
@@ -265,10 +261,10 @@ fn get_binary_operation_types(
         .get_entry(node.children()[1])
         .ok_or_else(|| ParserInternalError::new("Missing second argument.".to_string()))?;
 
-    let ty1 = get_type(node.children()[0], arg1, annotated_syntax_tree)?.ok_or_else(|| {
+    let ty1 = get_type(node.children()[0], arg1, syntax_tree)?.ok_or_else(|| {
         ParserInternalError::new("No type declared for the first argument.".to_string())
     })?;
-    let ty2 = get_type(node.children()[1], arg2, annotated_syntax_tree)?.ok_or_else(|| {
+    let ty2 = get_type(node.children()[1], arg2, syntax_tree)?.ok_or_else(|| {
         ParserInternalError::new("No type declared for the second argument.".to_string())
     })?;
 
@@ -488,7 +484,7 @@ fn get_declaration_type(
 fn get_function_term_type(
     index: usize,
     node: &HeapSyntaxNode,
-    annotated_syntax_tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     let children = node.children();
     if children.is_empty() {
@@ -498,16 +494,15 @@ fn get_function_term_type(
     }
 
     let functor_index = children[0];
-    let syntax_tree = annotated_syntax_tree.syntax_tree();
     let functor_entry = syntax_tree.get_entry(functor_index).ok_or_else(|| {
         ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 
     if let SyntaxNodeKind::FunctionSymbol(symbol) = functor_entry.kind() {
-        if symbol == TOTAL_TIME && annotated_syntax_tree.has_requirement(&NumericFluents) {
+        if symbol == TOTAL_TIME && syntax_tree.has_requirement(&NumericFluents) {
             return get_number_type();
         }
-        return get_declaration_type(index, symbol, annotated_syntax_tree.symbol_table());
+        return get_declaration_type(index, symbol, syntax_tree.symbol_table());
     }
 
     Err(ParserInternalError::new(

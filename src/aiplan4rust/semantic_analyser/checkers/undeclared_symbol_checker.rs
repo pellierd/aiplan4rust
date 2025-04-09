@@ -52,21 +52,20 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 /// ```
 
 pub fn check(
-    annotated_syntax_tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
-    let symbol_table = annotated_syntax_tree.symbol_table();
-    let syntax_tree = annotated_syntax_tree.syntax_tree();
+    let symbol_table = syntax_tree.symbol_table();
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
         // Iterate over all usages of the symbol.
         for usage in symbol.usages() {
             // Skip the symbol if it meets the criteria (e.g., already declared or needs to be skipped).
-            if should_skip_symbol(symbol, annotated_syntax_tree, usage.kind(), skip_symbols)? {
+            if should_skip_symbol(symbol, syntax_tree, usage.kind(), skip_symbols)? {
                 continue;
             }
 
@@ -86,7 +85,7 @@ pub fn check(
 
                 let error = ParsingError::new(
                     ParserErrorKind::ParseError,
-                    Some(annotated_syntax_tree.filename().clone()),
+                    Some(syntax_tree.filename().clone()),
                     line,
                     column,
                     content,

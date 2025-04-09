@@ -1,5 +1,6 @@
-use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
+use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind};
 
+use crate::aiplan4rust::parser::Source;
 use std::fmt;
 
 /// A structure representing a syntax tree.
@@ -81,6 +82,14 @@ impl SyntaxTree {
     /// An `Option<&String>` that is `Some(filename)` if a filename is available, or `None` if not.
     pub fn filename(&self) -> Option<&String> {
         self.filename.as_ref()
+    }
+
+    pub fn source(&self) -> Source {
+        match self.root.kind() {
+            SyntaxNodeKind::Domain => Source::Domain,
+            SyntaxNodeKind::Problem => Source::Problem,
+            _ => Source::Unknown,
+        }
     }
 }
 

@@ -2,8 +2,8 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::Span;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -89,7 +89,7 @@ impl HeapSyntaxNode {
     /// - If the node has no children or its first child is not a `FunctionSymbol` or
     ///   `PredicateSymbol`.
     /// - If the node is of an unexpected kind.
-    pub fn get_key(&self, ast_table: &HeapSyntaxTree) -> Result<String, ParserInternalError> {
+    pub fn get_key(&self, ast_table: &AnnotatedSyntaxTree) -> Result<String, ParserInternalError> {
         match &self.kind {
             // For symbols like constants, variables, action symbols, etc., return the symbol's
             // name directly.

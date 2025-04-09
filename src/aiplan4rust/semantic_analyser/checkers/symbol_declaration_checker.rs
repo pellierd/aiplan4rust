@@ -22,12 +22,11 @@ use std::collections::HashSet;
 /// - `Ok(())` if the check completes (errors are logged via the error manager).
 /// - `Err(ParserInternalError)` if an error occurs during processing.
 pub fn check(
-    tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
-    let symbol_table = tree.symbol_table();
-    let ast_table = tree.syntax_tree();
+    let symbol_table = syntax_tree.symbol_table();
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
@@ -39,15 +38,10 @@ pub fn check(
             // Skip duplicate checks for symbols of kind DomainName or ProblemName.
             // These can be used as symbols for types or predicates, so duplicates may be allowed.
             if skip_duplicated_declaration(declaration)? {
-                /*println!(
-                    "SKIP DUPLICATED SYMBOL: {} {}",
-                    declaration.kind(),
-                    symbol.name()
-                );*/
                 continue;
             }
 
-            let ast_entry = ast_table.get_entry(declaration.ast()).unwrap();
+            let ast_entry = syntax_tree.get_entry(declaration.ast()).unwrap();
             if seen_scopes
                 .iter()
                 .any(|s: &&Scope| declaration.scope().starts_with(s))
@@ -60,7 +54,7 @@ pub fn check(
                 );
                 let error = ParsingError::new(
                     ParserErrorKind::ParseError,
-                    Some(tree.filename().clone()),
+                    Some(syntax_tree.filename().clone()),
                     line,
                     column,
                     content,

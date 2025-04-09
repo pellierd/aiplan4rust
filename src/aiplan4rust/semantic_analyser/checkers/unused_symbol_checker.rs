@@ -32,32 +32,27 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 /// - The built-in PDDL symbols `"object"` and `"number"` are ignored, as they are always valid.
 /// - Symbols whose kind appears in `skip_symbols` are not checked.
 pub fn check(
-    annotated_syntax_tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
     // Get the symbol table from the annotated syntax tree
-    let symbol_table = annotated_syntax_tree.symbol_table();
+    let symbol_table = syntax_tree.symbol_table();
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
         for declaration in symbol.declarations() {
             // Skip the declaration if it should be ignored or is in the skip list
-            if skip_unused_symbol_declaration(symbol, declaration, annotated_syntax_tree)?
+            if skip_unused_symbol_declaration(symbol, declaration, syntax_tree)?
                 || skip_symbols.contains(declaration.kind())
             {
                 continue;
             }
 
             // Check if the symbol's declaration is a predefined PDDL symbol
-            check_pddl_builtin_symbol_declaration(
-                symbol,
-                declaration,
-                annotated_syntax_tree,
-                errors,
-            )?;
+            check_pddl_builtin_symbol_declaration(symbol, declaration, syntax_tree, errors)?;
 
             let declaration_scope = declaration.scope();
             let declaration_kind = declaration.kind();
@@ -68,7 +63,6 @@ pub fn check(
                 .iter()
                 .find(|usage| usage.scope().starts_with(&declaration_scope));
 
-            let syntax_tree = annotated_syntax_tree.syntax_tree();
             match usage_opt {
                 None => {
                     // If no usage is found, generate a warning
@@ -82,7 +76,7 @@ pub fn check(
                     );
                     let warning = ParsingError::new(
                         ParserErrorKind::ParseWarning,
-                        Some(annotated_syntax_tree.filename().clone()),
+                        Some(syntax_tree.filename().clone()),
                         line,
                         column,
                         content,
@@ -105,7 +99,7 @@ pub fn check(
                         );
                         let error = ParsingError::new(
                             ParserErrorKind::ParseError,
-                            Some(annotated_syntax_tree.filename().clone()),
+                            Some(syntax_tree.filename().clone()),
                             line,
                             column,
                             content,
@@ -180,17 +174,17 @@ fn skip_unused_symbol_declaration(
 
     // Skip if the declaration is a variable and its scope contains an atomic skeleton node.
     // Variables within such scopes are typically local and do not need to be checked for duplicates.
-    let syntax_tree = annotated_syntax_tree.syntax_tree();
     if matches!(declaration.kind(), SymbolKind::Variable)
         && (declaration
             .scope()
-            .contains_ast_of_kind(SyntaxNodeKind::AtomicFormulaSkeleton, syntax_tree)?
-            || declaration
-                .scope()
-                .contains_ast_of_kind(SyntaxNodeKind::AtomicFunctionSkeleton, syntax_tree)?
+            .contains_ast_of_kind(SyntaxNodeKind::AtomicFormulaSkeleton, annotated_syntax_tree)?
+            || declaration.scope().contains_ast_of_kind(
+                SyntaxNodeKind::AtomicFunctionSkeleton,
+                annotated_syntax_tree,
+            )?
             || declaration // Add for HDDL
                 .scope()
-                .contains_ast_of_kind(SyntaxNodeKind::TaskDef, syntax_tree)?)
+                .contains_ast_of_kind(SyntaxNodeKind::TaskDef, annotated_syntax_tree)?)
     {
         return Ok(true);
     }
@@ -227,28 +221,25 @@ fn skip_unused_symbol_declaration(
 fn check_pddl_builtin_symbol_declaration(
     symbol: &Symbol,
     declaration: &Declaration,
-    annotated_syntax_tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
-    let syntax_tree = annotated_syntax_tree.syntax_tree();
-
     // Match the symbol name with the expected built-in symbols and requirements
     let (expected_kind, requirement, error_message) = match symbol.name().as_str() {
         OBJECT_TYPE
-            if annotated_syntax_tree.has_requirement(&Typing)
-                || annotated_syntax_tree.has_requirement(&Adl) =>
+            if syntax_tree.has_requirement(&Typing) || syntax_tree.has_requirement(&Adl) =>
         {
             (SymbolKind::PrimitiveType, ":typing", "builtin type")
         }
-        NUMBER_TYPE if annotated_syntax_tree.has_requirement(&NumericFluents) => (
+        NUMBER_TYPE if syntax_tree.has_requirement(&NumericFluents) => (
             SymbolKind::PrimitiveType,
             ":numeric-fluents",
             "builtin type",
         ),
-        TOTAL_TIME if annotated_syntax_tree.has_requirement(&NumericFluents) => {
+        TOTAL_TIME if syntax_tree.has_requirement(&NumericFluents) => {
             (SymbolKind::Function, ":numeric-fluents", "builtin function")
         }
-        DURATION_VARIABLE if annotated_syntax_tree.has_requirement(&DurativeActions) => (
+        DURATION_VARIABLE if syntax_tree.has_requirement(&DurativeActions) => (
             SymbolKind::Variable,
             ":durative-actions",
             "builtin variable",
@@ -268,7 +259,7 @@ fn check_pddl_builtin_symbol_declaration(
             );
             let error = ParsingError::new(
                 ParserErrorKind::ParseError,
-                Some(annotated_syntax_tree.filename().clone()),
+                Some(syntax_tree.filename().clone()),
                 line,
                 column,
                 content,

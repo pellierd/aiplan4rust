@@ -3,9 +3,8 @@ use crate::aiplan4rust::error::ParserErrorKind;
 use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxNode;
-use crate::aiplan4rust::semantic_analyser::heap_syntax_tree::HeapSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::HeapSyntaxNode;
 
 use std::collections::HashMap;
 
@@ -59,12 +58,10 @@ use std::collections::HashMap;
 /// building the matrix, it will return a `ParserInternalError`.
 ///
 pub fn check(
-    tree: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     errors: &mut ErrorManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
-
-    let syntax_tree = tree.syntax_tree();
 
     for node in syntax_tree.values() {
         match node.kind() {
@@ -78,7 +75,7 @@ pub fn check(
                     let content = "Cyclic task ordering constraint detected.";
                     let error = ParsingError::new(
                         ParserErrorKind::ParseError,
-                        Some(tree.filename().clone()),
+                        Some(syntax_tree.filename().clone()),
                         line,
                         column,
                         content.to_string(),
@@ -142,7 +139,7 @@ pub fn check(
 ///   its child nodes.
 fn extract_task_ids<'a>(
     node: &'a HeapSyntaxNode,
-    tree: &'a HeapSyntaxTree,
+    tree: &'a AnnotatedSyntaxTree,
 ) -> Result<Vec<&'a String>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {
