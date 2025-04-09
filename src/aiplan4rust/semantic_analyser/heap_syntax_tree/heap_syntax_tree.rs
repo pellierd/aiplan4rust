@@ -60,9 +60,9 @@ impl HeapSyntaxTree {
         next_index: &mut usize,
     ) -> Result<(), ParserInternalError> {
         let entry = HeapSyntaxNode::from(ast, index_table)?;
-        if let SyntaxNodeKind::Requirement(req) = entry.kind() {
+        /*if let SyntaxNodeKind::Requirement(req) = entry.kind() {
             ast_table.add_requirement(req.clone());
-        }
+        }*/
         ast_table.insert(*next_index, entry);
 
         *next_index += 1; // Incrémente pour le prochain nœud
@@ -99,13 +99,13 @@ impl HeapSyntaxTree {
     }
 
     // Méthode pour ajouter un nouveau noeud à la table
-    pub fn add_requirement(&mut self, requirement: Requirement) {
+    /*pub fn add_requirement(&mut self, requirement: Requirement) {
         self.requirements.insert(requirement);
     }
 
     pub fn requirements(&self) -> &HashSet<Requirement> {
         &self.requirements
-    }
+    }*/
 
     /// Returns an iterator over the elements of the `AstTable`.
     ///
