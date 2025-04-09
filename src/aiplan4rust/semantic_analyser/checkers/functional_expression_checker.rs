@@ -12,8 +12,8 @@ use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::HeapSyntaxNode;
 
 /// Verifies the type correctness of expressions in function calls and assignment operations.
 ///
@@ -135,7 +135,7 @@ pub fn check(
 fn check_equal_and_assignment_expression(
     annotated_syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
-    node: &HeapSyntaxNode,
+    node: &AnnotatedSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
     errors: &mut ErrorManager,
@@ -191,7 +191,7 @@ fn check_equal_and_assignment_expression(
 
 fn check_numeric_expression(
     annotated_syntax_tree: &AnnotatedSyntaxTree,
-    node: &HeapSyntaxNode,
+    node: &AnnotatedSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
     errors: &mut ErrorManager,
@@ -244,7 +244,7 @@ fn check_numeric_expression(
 /// let (ty1, ty2) = get_binary_operation_types(&node, &annotated_syntax_tree)?;
 /// ```
 fn get_binary_operation_types(
-    node: &HeapSyntaxNode,
+    node: &AnnotatedSyntaxNode,
     syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<(Vec<String>, Vec<String>), ParserInternalError> {
     // Validate that there are exactly 2 children
@@ -300,7 +300,7 @@ fn get_binary_operation_types(
 /// ```
 pub fn get_type(
     index: usize,
-    node: &HeapSyntaxNode,
+    node: &AnnotatedSyntaxNode,
     annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     match node.kind() {
@@ -483,7 +483,7 @@ fn get_declaration_type(
 /// ```
 fn get_function_term_type(
     index: usize,
-    node: &HeapSyntaxNode,
+    node: &AnnotatedSyntaxNode,
     syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     let children = node.children();

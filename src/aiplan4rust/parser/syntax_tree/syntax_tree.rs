@@ -1,6 +1,10 @@
 use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind};
+use std::collections::HashMap;
 
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::Source;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
+use linked_hash_map::LinkedHashMap;
 use std::fmt;
 
 /// A structure representing a syntax tree.
@@ -90,6 +94,47 @@ impl SyntaxTree {
             SyntaxNodeKind::Problem => Source::Problem,
             _ => Source::Unknown,
         }
+    }
+
+    pub fn flatten(
+        &self,
+    ) -> Result<LinkedHashMap<usize, AnnotatedSyntaxNode>, ParserInternalError> {
+        // Vérification du type de l'AST
+        match self.root.kind() {
+            SyntaxNodeKind::Domain | SyntaxNodeKind::Problem => {
+                let index_table = self.root.to_hash_map();
+                let mut nodes = LinkedHashMap::new();
+                let mut next_index = 0;
+                Self::flatten_rec(
+                    self.root.as_ref(),
+                    &index_table,
+                    &mut nodes,
+                    &mut next_index,
+                )?;
+                Ok(nodes)
+            }
+            _ => Err(ParserInternalError::new(
+                "AST must be of type Domain or Problem".to_string(),
+            )),
+        }
+    }
+
+    fn flatten_rec(
+        node: &SyntaxNode,
+        index_table: &HashMap<&SyntaxNode, usize>,
+        nodes: &mut LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        next_index: &mut usize,
+    ) -> Result<(), ParserInternalError> {
+        let entry = AnnotatedSyntaxNode::from(node, index_table)?;
+        nodes.insert(*next_index, entry);
+
+        *next_index += 1; // Incrémente pour le prochain nœud
+
+        for child in node.children() {
+            Self::flatten_rec(child.as_ref(), index_table, nodes, next_index)?;
+        }
+
+        Ok(())
     }
 }
 

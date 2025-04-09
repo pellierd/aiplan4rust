@@ -11,7 +11,7 @@ use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
-use crate::aiplan4rust::semantic_analyser::HeapSyntaxNode;
+use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
@@ -353,8 +353,8 @@ impl SymbolTable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     fn get_ast_entry(
         index: usize,
-        ast: &LinkedHashMap<usize, HeapSyntaxNode>,
-    ) -> Result<&HeapSyntaxNode, ParserInternalError> {
+        ast: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+    ) -> Result<&AnnotatedSyntaxNode, ParserInternalError> {
         ast.get(&index).ok_or_else(|| {
             ParserInternalError::new(format!("AstEntry not found for index: {}", index))
         })
@@ -372,7 +372,7 @@ impl SymbolTable {
     pub fn initialize_from_ast(
         &mut self,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
     ) -> Result<(), ParserInternalError> {
         let ast = index_table.get(&index).unwrap();
         self.init_from(ast, index, index_table, Scope::new(index, None))?;
@@ -398,9 +398,9 @@ impl SymbolTable {
     ///   is encountered during symbol table initialization.
     fn init_from(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Determine the type of the AST node and apply appropriate processing
@@ -508,9 +508,9 @@ impl SymbolTable {
     /// * `Err(ParserInternalError)` - If any error occurs during the symbol extraction or insertion process.
     fn add_declaration_symbol(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
@@ -575,9 +575,9 @@ impl SymbolTable {
     ///   invalid child node structure.
     fn add_symbol_usage(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST node is of a valid kind for symbol usage.
@@ -682,8 +682,8 @@ impl SymbolTable {
     /// `FunctionSymbol`, or `TaskSymbol`.
 
     fn extract_symbol(
-        ast: &HeapSyntaxNode,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        ast: &AnnotatedSyntaxNode,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
     ) -> Result<(String, SymbolKind), ParserInternalError> {
         match ast.kind() {
             // Handling different AST node kinds and returning appropriate symbol information
@@ -763,9 +763,9 @@ impl SymbolTable {
     /// the problem.
     fn init_from_typed_list(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         _index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the expected type 'TypedList'
@@ -836,9 +836,9 @@ impl SymbolTable {
     /// - `types`: The types associated with the element.
     fn init_from_typed_list_element(
         &mut self,
-        element: &HeapSyntaxNode,
+        element: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -923,9 +923,9 @@ impl SymbolTable {
     ///   and their scope resolution.
     fn init_from_atomic_function_skeleton(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -1006,9 +1006,9 @@ impl SymbolTable {
     /// This function delegates to `init_from_definition` for common logic.
     fn init_from_action_def(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1045,9 +1045,9 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_method_def(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1080,9 +1080,9 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_durative_action_def(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1116,9 +1116,9 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_task_def(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
@@ -1148,9 +1148,9 @@ impl SymbolTable {
     /// Returns `Ok(())` on success or a `ParserInternalError` if validation fails.
     fn init_from_def(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
         valid_kinds: &[SyntaxNodeKind],
         expected_children: usize,
@@ -1224,9 +1224,9 @@ impl SymbolTable {
     /// * Any recursive call to `init_from` fails.
     fn init_from_atomic_formula(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
@@ -1289,9 +1289,9 @@ impl SymbolTable {
     /// ```
     fn init_from_quantified_expression(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Check if the AST node is of kind 'Exists' or 'Forall'
@@ -1354,9 +1354,9 @@ impl SymbolTable {
     /// ```
     fn init_from_atomic_formula_skeleton(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         let children = ast.children();
@@ -1436,9 +1436,9 @@ impl SymbolTable {
     /// ```
     fn extract_arguments_from_typed_list(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         _index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
         Self::assert_ast_kind(ast, &[SyntaxNodeKind::TypedList])?;
@@ -1495,9 +1495,9 @@ impl SymbolTable {
     ///   node is invalid.
     fn extract_type(
         &mut self,
-        types: &HeapSyntaxNode,
+        types: &AnnotatedSyntaxNode,
         _index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
     ) -> Result<Vec<String>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
         Self::assert_ast_kind(types, &[SyntaxNodeKind::Type])?;
@@ -1533,9 +1533,9 @@ impl SymbolTable {
     /// node is invalid.
     fn init_from_type(
         &mut self,
-        types: &HeapSyntaxNode,
+        types: &AnnotatedSyntaxNode,
         index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<Vec<String>, ParserInternalError> {
         let super_types = self.extract_type(types, index, index_table)?; // Reuse `extract_type` to get type names
@@ -1567,9 +1567,9 @@ impl SymbolTable {
     ///   structure is unexpected.
     fn init_from_tagged_task(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         _index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1632,9 +1632,9 @@ impl SymbolTable {
     /// - Either child is not of kind `TaskID(String)`.
     fn init_from_task_ordering_constraint(
         &mut self,
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         _index: usize,
-        index_table: &LinkedHashMap<usize, HeapSyntaxNode>,
+        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1693,7 +1693,7 @@ impl SymbolTable {
     /// }
     /// ```
     fn assert_ast_kind(
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         valid_kinds: &[SyntaxNodeKind],
     ) -> Result<(), ParserInternalError> {
         match ast.kind() {
@@ -1784,7 +1784,7 @@ impl SymbolTable {
     /// parsing, ensuring that the number of children aligns with the expectations set by the aiplan4rust
     /// logic.
     fn assert_ast_children_number(
-        ast: &HeapSyntaxNode,
+        ast: &AnnotatedSyntaxNode,
         expected_len: usize,
         comparator: Comparator,
     ) -> Result<(), ParserInternalError> {

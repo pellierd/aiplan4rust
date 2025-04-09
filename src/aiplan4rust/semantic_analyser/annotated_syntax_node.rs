@@ -10,15 +10,15 @@ use std::collections::HashMap;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct HeapSyntaxNode {
+pub struct AnnotatedSyntaxNode {
     kind: SyntaxNodeKind,
     span: Span,
     children: Vec<usize>,
 }
 
-impl HeapSyntaxNode {
+impl AnnotatedSyntaxNode {
     pub fn new(kind: SyntaxNodeKind, span: Span, children: Vec<usize>) -> Self {
-        HeapSyntaxNode {
+        AnnotatedSyntaxNode {
             kind,
             span,
             children,
@@ -28,7 +28,7 @@ impl HeapSyntaxNode {
     pub fn from(
         ast: &SyntaxNode,
         index_table: &HashMap<&SyntaxNode, usize>,
-    ) -> Result<HeapSyntaxNode, ParserInternalError> {
+    ) -> Result<AnnotatedSyntaxNode, ParserInternalError> {
         let mut children = Vec::new();
 
         for child in ast.children() {
@@ -43,7 +43,7 @@ impl HeapSyntaxNode {
             }
         }
 
-        Ok(HeapSyntaxNode::new(
+        Ok(AnnotatedSyntaxNode::new(
             ast.kind().clone(),
             ast.span().clone(),
             children,
@@ -140,7 +140,7 @@ impl HeapSyntaxNode {
     }
 }
 
-impl fmt::Display for HeapSyntaxNode {
+impl fmt::Display for AnnotatedSyntaxNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

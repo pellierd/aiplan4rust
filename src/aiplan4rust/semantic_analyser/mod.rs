@@ -8,7 +8,7 @@ pub mod checkers;
 pub mod symbol_table;
 
 pub use analyser_result::AnalyzerResult;
-pub use annotated_syntax_node::HeapSyntaxNode;
+pub use annotated_syntax_node::AnnotatedSyntaxNode;
 pub use annotated_syntax_tree::AnnotatedSyntaxTree;
 pub use annotated_syntax_tree::LiftedDomain;
 pub use annotated_syntax_tree::LiftedProblem;
