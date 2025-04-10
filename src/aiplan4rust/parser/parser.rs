@@ -151,7 +151,7 @@ impl<'a> Parser<'a> {
                 Ok(mut ast) => {
                     self.process_ast(&mut ast, source)?;
 
-                    println!("AST: {}", ast);
+                    //println!("AST: {}", ast);
 
                     if self
                         .error_manager()

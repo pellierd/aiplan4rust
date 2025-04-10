@@ -472,6 +472,8 @@ pub enum Token {
     Fluents,
     #[token(":numeric-fluents")]
     NumericFluents,
+    #[token(":object-fluents")]
+    ObjectFluents,
     #[token(":adl")]
     Adl,
     #[token(":durative-actions")]
@@ -694,6 +696,7 @@ impl Token {
             Token::ConditionalEffects => CONDITIONAL_EFFECTS.to_string(),
             Token::Fluents => FLUENTS.to_string(),
             Token::NumericFluents => NUMERIC_FLUENTS.to_string(),
+            Token::ObjectFluents => OBJECT_FLUENTS.to_string(),
             Token::Adl => ADL.to_string(),
             Token::DurativeActions => DURATIVE_ACTIONS.to_string(),
             Token::DurationInequalities => DURATIVE_INEQUALITIES.to_string(),

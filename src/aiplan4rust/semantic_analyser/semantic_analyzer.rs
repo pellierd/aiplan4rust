@@ -3,13 +3,15 @@ use crate::aiplan4rust::error::ErrorManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::semantic_analyser::checkers::atomic_formula_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::functional_expression_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::symbol_declaration_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::undeclared_symbol_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::unused_symbol_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
+use crate::aiplan4rust::semantic_analyser::checkers::{
+    atomic_formula_checker, requirement_checker,
+};
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::AnalyzerResult;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
@@ -204,6 +206,12 @@ impl SemanticAnalyzer {
 
             checked &=
                 task_ordering_checker::check(annotated_syntax_tree, &mut self.error_manager)?;
+
+            requirement_checker::check(
+                annotated_syntax_tree,
+                annotated_syntax_tree.requirements(),
+                &mut self.error_manager,
+            )?;
         }
 
         // Return the result of the checks (true if all checks passed, false otherwise)

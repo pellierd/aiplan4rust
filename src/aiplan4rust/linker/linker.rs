@@ -5,8 +5,12 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
 use crate::aiplan4rust::parser::Source;
-use crate::aiplan4rust::semantic_analyser::checkers::atomic_formula_checker;
-use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
+use crate::aiplan4rust::semantic_analyser::checkers::{
+    atomic_formula_checker, task_ordering_checker,
+};
+use crate::aiplan4rust::semantic_analyser::checkers::{
+    functional_expression_checker, requirement_checker, TypeChecker,
+};
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
@@ -55,6 +59,15 @@ impl Linker {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
             atomic_formula_checker::check(&problem, &type_checker, &mut self.error_manager)?;
+
+            // Check functional expressions in the domain using the type checker
+            functional_expression_checker::check(&problem, &type_checker, &mut self.error_manager)?;
+
+            task_ordering_checker::check(&problem, &mut self.error_manager)?;
+
+            let mut requirements = domain.requirements().clone();
+            requirements.extend(problem.requirements().clone());
+            requirement_checker::check(&problem, &requirements, &mut self.error_manager)?;
         }
 
         // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs

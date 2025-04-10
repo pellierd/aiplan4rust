@@ -77,6 +77,7 @@ extern {
         ":conditional-effects" => Token::ConditionalEffects,
         ":fluents" => Token::Fluents,
         ":numeric-fluents" => Token::NumericFluents,
+        ":object-fluents" => Token::ObjectFluents,
         ":adl" => Token::Adl,
         ":durative-actions" => Token::DurativeActions,
         ":duration-inequalities" => Token::DurationInequalities,
@@ -335,6 +336,9 @@ pub Requirement : Box<SyntaxNode> = {
     },
     <start:@L> ":numeric-fluents" <end:@R> => {
         Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::NumericFluents), Vec::new(), start, end))
+    },
+    <start:@L> ":object-fluents" <end:@R> => {
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::ObjectFluents), Vec::new(), start, end))
     },
     <start:@L> ":adl" <end:@R> => {
         Box::new(SyntaxNode::new(SyntaxNodeKind::Requirement(Requirement::Adl), Vec::new(), start, end))

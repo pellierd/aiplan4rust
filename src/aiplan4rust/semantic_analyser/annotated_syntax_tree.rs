@@ -71,6 +71,14 @@ impl Default for AnnotatedSyntaxTree {
 }
 
 impl AnnotatedSyntaxTree {
+    pub fn get_parent(&self, id: usize) -> Option<&AnnotatedSyntaxNode> {
+        for node in self.syntax_tree.values() {
+            if node.children().contains(&id) {
+                return Some(node);
+            }
+        }
+        None
+    }
     pub fn source(&self) -> Source {
         if let Some(first_node) = self.syntax_tree.values().next() {
             match first_node.kind() {
@@ -224,6 +232,10 @@ impl AnnotatedSyntaxTree {
     /// ```
     pub fn has_requirement(&self, requirement: &Requirement) -> bool {
         self.requirements.contains(requirement)
+    }
+
+    pub fn requirements(&self) -> &HashSet<Requirement> {
+        &self.requirements
     }
 
     /// Returns a reference to the `SymbolTable` if available.
