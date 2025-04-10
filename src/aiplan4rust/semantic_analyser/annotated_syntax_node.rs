@@ -142,72 +142,53 @@ impl AnnotatedSyntaxNode {
         !self.children.is_empty()
     }
 
-    /// Retrieves the key for the given AST node based on its type.
-    /// This function is used to extract the key for symbols used in the symbol table.
-    /// If the node is a constant, variable, or one of the predefined symbols, the key is the
-    /// symbol's name. For `FunctionTerm` and `AtomicFormula`, it returns a key formatted as
-    /// `name/arity` based on their first child.
+    /// Attempts to extract a symbol associated with this node.
     ///
-    /// The key is used to store and look up symbols in the symbol table. This function ensures that
-    /// each symbol has a unique identifier based on its structure, which is useful for semantics
-    /// analysis and symbol resolution.
+    /// This method returns:
+    /// - `Ok(Some(symbol))` if a symbol is found associated with the node.
+    /// - `Ok(None)` if the node does not have an associated symbol (this is not an error).
+    /// - `Err(ParserInternalError)` if the node is malformed (e.g., a `FunctionTerm` without children, or a non-existent child).
+    ///
+    /// This function checks if the node's kind directly contains a symbol. If not, it handles compound node types
+    /// like `FunctionTerm` or `AtomicFormula`, which derive their symbol from their first child node.
+    /// If the first child is not present or does not contain a valid symbol, an error is returned.
+    ///
+    /// # Parameters
+    /// - `syntax_tree`: The syntax tree to look up the child node from, if needed.
     ///
     /// # Returns
-    /// - Ok(String): The key derived from the node.
-    /// - Err(ParserInternalError): An error if the node cannot be processed or if it does not meet
-    ///   the expected structure.
-    ///
-    /// # Errors
-    /// - If the node has no children or its first child is not a `FunctionSymbol` or
-    ///   `PredicateSymbol`.
-    /// - If the node is of an unexpected kind.
-    pub fn get_key(&self, ast_table: &AnnotatedSyntaxTree) -> Result<String, ParserInternalError> {
+    /// - `Result<Option<String>, ParserInternalError>`: The result is either an `Option<String>` containing
+    ///   the symbol (if found), or an error indicating why no symbol could be retrieved.
+    pub fn get_symbol(
+        &self,
+        syntax_tree: &AnnotatedSyntaxTree,
+    ) -> Result<Option<String>, ParserInternalError> {
+        // Direct case: the kind of the node contains a recognizable symbol
+        if let Some(sym) = self.kind.get_symbol() {
+            return Ok(Some(sym));
+        }
+
+        // For compound nodes like FunctionTerm or AtomicFormula, the symbol is derived from the first child
         match &self.kind {
-            // For symbols like constants, variables, action symbols, etc., return the symbol's
-            // name directly.
-            SyntaxNodeKind::Constant(name)
-            | SyntaxNodeKind::Variable(name)
-            | SyntaxNodeKind::PrimitiveType(name)
-            | SyntaxNodeKind::DomainName(name)
-            | SyntaxNodeKind::ProblemName(name)
-            | SyntaxNodeKind::ActionSymbol(name)
-            | SyntaxNodeKind::DASymbol(name)
-            | SyntaxNodeKind::PrefName(name) => Ok(name.to_string()),
-            // For `FunctionTerm` and `AtomicFormula`, derive the key from their first child
             SyntaxNodeKind::FunctionTerm | SyntaxNodeKind::AtomicFormula => {
-                // Check if the node has children
-                if let Some(child_index) = self.children.first() {
-                    let child = ast_table.get_entry(*child_index).unwrap();
-                    // Check the type of the first child (it should be either a FunctionSymbol or
-                    // PredicateSymbol)
-                    match &child.kind {
-                        SyntaxNodeKind::FunctionSymbol(name) => Ok(name.to_string()),
-                        SyntaxNodeKind::Predicate(name) => Ok(name.to_string()),
-                        _ => {
-                            // If the first child is neither a FunctionSymbol nor a PredicateSymbol, return an error
-                            Err(ParserInternalError::new(
-                                format!(
-                                    "First child must be a 'FunctionSymbol' or 'PredicateSymbol', but found: {:?}.",
-                                    child.kind
-                                )
-                            ))
-                        }
-                    }
-                } else {
-                    // If there are no children, return an error
-                    Err(ParserInternalError::new(
+                let child_index = self.children.first().ok_or_else(|| {
+                    ParserInternalError::new(
                         "No children found for 'FunctionTerm' or 'AtomicFormula'.".to_string(),
+                    )
+                })?;
+
+                let child = syntax_tree.get_entry(*child_index).ok_or_else(|| {
+                    ParserInternalError::new(format!(
+                        "Child index {} not found in syntax tree.",
+                        child_index
                     ))
-                }
+                })?;
+
+                Ok(child.kind.get_symbol())
             }
-            // Handle unexpected AST node kinds
-            _ => {
-                // Return an error if the AST node kind is not recognized
-                Err(ParserInternalError::new(format!(
-                    "Unexpected AST kind: {:?}",
-                    self.kind
-                )))
-            }
+
+            // Default case: no symbol, but it's not an error
+            _ => Ok(None),
         }
     }
 }

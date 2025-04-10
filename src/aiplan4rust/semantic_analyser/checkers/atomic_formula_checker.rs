@@ -128,7 +128,11 @@ fn match_declaration_with_usage(
 
     for (index, argument) in ast_usage.children().iter().skip(1).enumerate() {
         let argument_entry = ast.get_entry(*argument).unwrap();
-        let key = argument_entry.get_key(ast)?;
+        let key = argument_entry.get_symbol(ast)?;
+        // If key is None, return an error
+        let key_ref = key.as_ref().ok_or_else(|| {
+            ParserInternalError::new(format!("Symbol for argument at index {} not found", index))
+        })?;
         let kind = match argument_entry.kind() {
             SyntaxNodeKind::Variable(_) => SymbolKind::Variable,
             SyntaxNodeKind::Constant(_) => SymbolKind::Constant,
@@ -145,7 +149,7 @@ fn match_declaration_with_usage(
             declaration,
             usage,
             symbol_table,
-            &key,
+            key_ref,
             kind,
             index,
             type_checker,
