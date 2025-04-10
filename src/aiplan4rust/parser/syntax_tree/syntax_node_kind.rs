@@ -239,6 +239,45 @@ pub enum SyntaxNodeKind {
     InitialTaskNetwork,
 }
 
+impl SyntaxNodeKind {
+    /// Returns the name associated with this `SyntaxNodeKind` if it represents a symbolic node.
+    ///
+    /// Symbolic nodes are those that carry a meaningful identifier such as constants, variables,
+    /// action symbols, function symbols, etc. This method extracts and returns that identifier
+    /// as a `String`.
+    ///
+    /// # Returns
+    /// - `Some(String)` containing the symbol's name, if the node kind represents a symbol.
+    /// - `None` if the node kind does not carry a name.
+    ///
+    /// # Examples
+    /// ```
+    /// let kind = SyntaxNodeKind::Constant("speed".to_string());
+    /// assert_eq!(kind.get_symbol(), Some("speed".to_string()));
+    ///
+    /// let kind = SyntaxNodeKind::And; // assuming it's a logical operator
+    /// assert_eq!(kind.get_symbol(), None);
+    /// ```
+    pub fn get_symbol(&self) -> Option<String> {
+        match self {
+            // Symbolic node kinds: return their name
+            SyntaxNodeKind::Constant(name)
+            | SyntaxNodeKind::Variable(name)
+            | SyntaxNodeKind::PrimitiveType(name)
+            | SyntaxNodeKind::DomainName(name)
+            | SyntaxNodeKind::ProblemName(name)
+            | SyntaxNodeKind::ActionSymbol(name)
+            | SyntaxNodeKind::DASymbol(name)
+            | SyntaxNodeKind::PrefName(name)
+            | SyntaxNodeKind::FunctionSymbol(name)
+            | SyntaxNodeKind::Predicate(name) => Some(name.to_string()),
+
+            // Other kinds of nodes don't have a symbolic name
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for SyntaxNodeKind {
     /// Implements the `fmt::Display` trait for `AstKind` to allow for human-readable string
     /// representations of various `AstKind` variants.
