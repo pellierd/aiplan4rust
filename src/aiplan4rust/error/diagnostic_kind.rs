@@ -1,20 +1,24 @@
+use std::fmt;
 use clap::builder::Str;
+use logos::Source;
+use crate::aiplan4rust::error::DiagnosticSeverity;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
-pub enum DiagnosticKind {
+#[derive(Clone, Debug, PartialEq)]
+pub enum DiagnosticKind<'a> {
     UnexpectedToken,
-    MissingSemicolon,
-    InvalidIndentation,
+    UnrecognizedToken {
+        token: String,
+        expected: &'a Vec<String>,
+    },
     CustomError(String),
-    // Ajoute d'autres types de diagnostics ici
 }
 
-impl DiagnosticKind {
+impl<'a> DiagnosticKind<'a> {
     pub fn code(&self) -> String {
         match self {
             DiagnosticKind::UnexpectedToken => "E0001".to_string(),
-            DiagnosticKind::MissingSemicolon => "E0002".to_string(),
-            DiagnosticKind::InvalidIndentation => "E0003".to_string(),
+            DiagnosticKind::UnrecognizedToken{ .. } => "E0002".to_string(),
             DiagnosticKind::CustomError(_) => "E0001".to_string()
         }
     }
@@ -22,20 +26,61 @@ impl DiagnosticKind {
     // Centraliser le message d'erreur directement dans l'enum
     pub fn message(&self) -> String {
         match self {
-            DiagnosticKind::UnexpectedToken => "Unexpected token encountered".to_string(),
-            DiagnosticKind::MissingSemicolon => "Missing semicolon".to_string(),
-            DiagnosticKind::InvalidIndentation => "Invalid indentation".to_string(),
+            DiagnosticKind::UnexpectedToken => "Unrecognized token encountered".to_string(),
+            DiagnosticKind::UnrecognizedToken {token, ..} => format!("Unexpected token '{}' encountered", token),
             DiagnosticKind::CustomError(msg) => msg.to_string(),
         }
     }
 
-    // Ajouter des suggestions, liées au type d'erreur
+    pub fn severity(&self) -> DiagnosticSeverity {
+        match self {
+            DiagnosticKind::UnexpectedToken => DiagnosticSeverity::Error,
+            DiagnosticKind::UnrecognizedToken { .. } => DiagnosticSeverity::Error,
+            DiagnosticKind::CustomError(_) => DiagnosticSeverity::Error,
+        }
+    }
     pub fn suggestion(&self) -> Option<String> {
         match self {
-            DiagnosticKind::MissingSemicolon => Some("Add a semicolon at the end of the statement.".to_string()),
-            DiagnosticKind::UnexpectedToken => Some("Check the token syntax.".to_string()),
-            DiagnosticKind::InvalidIndentation => Some("Align your code properly.".to_string()),
+            DiagnosticKind::UnexpectedToken => {
+                Some("Add a semicolon at the end of the statement.".to_string())
+            }
+            DiagnosticKind::UnrecognizedToken { token, expected } => {
+                if expected.is_empty() {
+                    Some("Check the token syntax.".to_string())
+                } else if expected.len() == 1 {
+                    Some(format!(
+                        "Expected token: `{}`.",
+                        expected[0]
+                    ))
+                } else {
+                    Some(format!(
+                        "Expected one of the following tokens: {}.",
+                        expected.iter().map(|t| format!("'{}'", t)).collect::<Vec<_>>().join(", ")
+                    ))
+                }
+            }
             DiagnosticKind::CustomError(_) => None,
+        }
+    }
+}
+
+impl<'a> fmt::Display for DiagnosticKind<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let code = self.code();
+        let message = self.message();
+        let severity = self.severity();
+        let suggestion = self.suggestion();
+
+        match suggestion {
+            Some(sugg) => write!(
+                f,
+                "[{}] ({}) {}. Suggestion: {}",
+                code,
+                severity,
+                message,
+                sugg
+            ),
+            None => write!(f, "[{}] ({}) {}", code, severity, message),
         }
     }
 }

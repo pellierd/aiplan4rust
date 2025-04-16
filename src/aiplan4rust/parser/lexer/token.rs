@@ -767,7 +767,6 @@ impl Token {
 
             // Error
             Token::Error(symbol) => symbol.to_string(),
-            // _ => "unexpected_lexeme".to_string()
 
             // HDDL
             Token::Task => TASK.to_string(),

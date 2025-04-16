@@ -13,6 +13,7 @@ serde_yaml = "0.9.34"
 serde_json = "1.0"
 clap = { version = "4.5.29", features = ["derive"] }
 linked-hash-map = { version = "0.5.6", features = ["serde_impl"] }
+colored = "2.2.0"
 
 [build-dependencies]
 lalrpop = { version = "0.22.1", default-features = false }

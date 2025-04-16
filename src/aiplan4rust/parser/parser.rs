@@ -1,4 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticRenderer, DiagnosticSeverity, DiagnosticSource, ErrorManager};
 use crate::aiplan4rust::error::ParserErrorKind;
 use crate::aiplan4rust::error::ParsingError;
 use crate::aiplan4rust::frontend::ParserInternalError;
@@ -14,7 +14,7 @@ use crate::aiplan4rust::parser::pddl::PDDLParser;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::parser::Language;
+use crate::aiplan4rust::parser::{Language, Span};
 use crate::aiplan4rust::PDDLDisplay;
 
 use lalrpop_util::ErrorRecovery;
@@ -167,7 +167,15 @@ impl<'a> Parser<'a> {
                         ))
                     }
                 }
-                Err(_) => Ok(ParserResult::new(None, mem::take(&mut self.error_manager))),
+                Err(e) => {
+                    let error = self.to_parser_error(
+                        &e,
+                        source,
+                        Some(filename),
+                    );
+                    self.error_manager.add_error(error);
+                    Ok(ParserResult::new(None, mem::take(&mut self.error_manager)))
+                },
             }
         }
     }
@@ -801,11 +809,41 @@ impl<'a> Parser<'a> {
         file_path: Option<&str>,
     ) -> ParsingError {
         let file_path = file_path.map(|s| s.to_string());
+        let file_path1 = file_path.clone();
         match error {
             ParseError::UnrecognizedToken {
-                token: (start, t, _end),
+                token: (start, t, end),
                 expected,
             } => {
+
+                let token = t.to_string();
+                let mut manager = DiagnosticManager::new();
+                manager.add_source(file_path.clone().unwrap(), source.to_string().clone());
+                let (sl, sc) = self.get_position(*start, source);
+                let (el, ec) = self.get_position(*end, source);
+                let mut span = Span::new(*start, *end);
+                span.set_begin_line(sl);
+                span.set_begin_column(sc);
+                span.set_end_line(el);
+                span.set_end_column(ec);
+
+                let cleaned_expected: Vec<String> = expected
+                    .iter()
+                    .map(|s| s.replace('"', ""))
+                    .collect();
+
+                let diag = Diagnostic::new(
+                    DiagnosticKind::UnrecognizedToken {token, expected: &cleaned_expected } ,
+                    DiagnosticSource::Lexer,
+                    file_path1.unwrap(),
+                    span,
+                );
+
+                manager.add_diagnostic(diag);
+
+                let mut renderer = DiagnosticRenderer::new(&manager);
+                renderer.display_with_suggestions();
+
                 let (line, column) = self.get_position(*start, source);
                 let token = t.symbol().escape_debug().to_string();
                 let content = format!("Unexpected token \"{}\". Expected: {:?}", token, expected);
