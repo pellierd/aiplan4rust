@@ -5,16 +5,16 @@ use crate::aiplan4rust::error::DiagnosticSeverity;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
 #[derive(Clone, Debug, PartialEq)]
-pub enum DiagnosticKind<'a> {
+pub enum DiagnosticKind {
     UnexpectedToken,
     UnrecognizedToken {
         token: String,
-        expected: &'a Vec<String>,
+        expected: Vec<String>,
     },
     CustomError(String),
 }
 
-impl<'a> DiagnosticKind<'a> {
+impl DiagnosticKind {
     pub fn code(&self) -> String {
         match self {
             DiagnosticKind::UnexpectedToken => "E0001".to_string(),
@@ -64,7 +64,7 @@ impl<'a> DiagnosticKind<'a> {
     }
 }
 
-impl<'a> fmt::Display for DiagnosticKind<'a> {
+impl fmt::Display for DiagnosticKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = self.code();
         let message = self.message();

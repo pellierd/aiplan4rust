@@ -6,15 +6,15 @@ use crate::aiplan4rust::parser::Span;
 
 // Structure Diagnostic qui représente un diagnostic complet
 #[derive(Clone, Debug, PartialEq)]
-pub struct Diagnostic<'a> {
-    pub kind: DiagnosticKind<'a>,
+pub struct Diagnostic {
+    pub kind: DiagnosticKind,
     pub source: DiagnosticSource,
     pub filename: String,
     pub span: Span,
 }
 
-impl<'a> Diagnostic<'a> {
-    pub fn new(kind: DiagnosticKind<'a>, source: DiagnosticSource, filename: String, span: Span) -> Self {
+impl Diagnostic {
+    pub fn new(kind: DiagnosticKind, source: DiagnosticSource, filename: String, span: Span) -> Self {
         Diagnostic {
             kind,
             source,
@@ -38,7 +38,7 @@ impl<'a> Diagnostic<'a> {
     pub fn span(&self) -> &Span {
         &self.span
     }
-    pub fn set_kind(&mut self, kind: DiagnosticKind<'a>) {
+    pub fn set_kind(&mut self, kind: DiagnosticKind) {
         self.kind = kind;
     }
 
@@ -55,7 +55,7 @@ impl<'a> Diagnostic<'a> {
     }
 }
 
-impl<'a> fmt::Display for Diagnostic<'a> {
+impl fmt::Display for Diagnostic {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(
             f,

@@ -833,7 +833,7 @@ impl<'a> Parser<'a> {
                     .collect();
 
                 let diag = Diagnostic::new(
-                    DiagnosticKind::UnrecognizedToken {token, expected: &cleaned_expected } ,
+                    DiagnosticKind::UnrecognizedToken {token, expected: cleaned_expected } ,
                     DiagnosticSource::Lexer,
                     file_path1.unwrap(),
                     span,

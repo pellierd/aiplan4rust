@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use colored::*;  // Pour coloration terminale
 
 pub struct DiagnosticRenderer<'a> {
-    diagnostic_manager: &'a DiagnosticManager<'a>,
+    diagnostic_manager: &'a DiagnosticManager,
     output: Box<dyn Write>,
 }
 
