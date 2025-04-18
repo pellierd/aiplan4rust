@@ -1,6 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement::Adl;
 use crate::aiplan4rust::parser::elements::Requirement::DurativeActions;
@@ -54,7 +52,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 pub fn check(
     syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
@@ -74,23 +72,16 @@ pub fn check(
                 no_error = false;
                 // If no declaration is found, report an undeclared symbol error.
                 let entry = syntax_tree.get_entry(usage.ast()).unwrap();
-                let (line, column) = entry.span().start_position();
-                let content = format!(
-                    "{} '{}' used but not declared at line {} column {}.",
-                    usage.kind(),
-                    symbol.name(),
-                    line,
-                    column
+                let error = Diagnostic::new(
+                    DiagnosticKind::UndeclaredSymbol {
+                        symbol: symbol.name().clone(),
+                        kind: usage.kind().clone(),
+                    },
+                    DiagnosticSource::SemanticAnalyzer,
+                    syntax_tree.filename().clone(),
+                    entry.span().clone(),
                 );
-
-                let error = ParsingError::new(
-                    ParserErrorKind::ParseError,
-                    Some(syntax_tree.filename().clone()),
-                    line,
-                    column,
-                    content,
-                );
-                errors.add_error(error);
+                diagnostic_manager.add_diagnostic(error);
             }
         }
     }

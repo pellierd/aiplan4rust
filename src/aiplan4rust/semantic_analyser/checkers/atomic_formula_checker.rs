@@ -1,6 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
@@ -46,7 +44,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 pub fn check(
     syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let symbol_table = syntax_tree.symbol_table();
     let mut no_error = true;
@@ -76,20 +74,30 @@ pub fn check(
                 )? {
                     no_error &= false;
                     let entry = syntax_tree.get_entry(usage.ast()).unwrap();
-                    let (line, column) = entry.span().start_position();
-                    let content = format!(
-                        "{} '{}' does not match any declaration.",
-                        usage.kind(),
-                        symbol.name()
+                    let diagnostic_kind = match declaration.kind() {
+                        SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
+                            symbol: symbol.name().clone()
+                        },
+                        SymbolKind::Function => DiagnosticKind::UnDefinedFunction {
+                            symbol: symbol.name().clone()
+                        },
+                        SymbolKind::Task => DiagnosticKind::UnDefinedCompoundTask {
+                            symbol: symbol.name().clone()
+                        },
+                        SymbolKind::Action => DiagnosticKind::UnDefinedPrimitiveTask {
+                            symbol: symbol.name().clone()
+                        },
+                        _ => unreachable!(),
+                    };
+
+                    let error = Diagnostic::new(
+                        diagnostic_kind,
+                        DiagnosticSource::SemanticAnalyzer,
+                        syntax_tree.filename().clone(),
+                        entry.span().clone(),
                     );
-                    let error = ParsingError::new(
-                        ParserErrorKind::ParseError, // Error kind can be customized.
-                        Some(syntax_tree.filename().clone()),
-                        line,
-                        column,
-                        content,
-                    );
-                    errors.add_error(error);
+
+                    diagnostic_manager.add_diagnostic(error);
                 }
             }
         }
@@ -236,4 +244,3 @@ fn match_argument(
     })?;
     type_checker.match_type(ty1, ty2)
 }
-//}

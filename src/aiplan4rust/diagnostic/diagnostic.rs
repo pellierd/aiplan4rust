@@ -1,7 +1,6 @@
 use std::fmt;
-use crate::aiplan4rust::error::diagnostic_kind::DiagnosticKind;
-use crate::aiplan4rust::error::DiagnosticSource;
-use crate::aiplan4rust::error::diagnotic_severity::DiagnosticSeverity;
+use crate::aiplan4rust::diagnostic::diagnostic_kind::DiagnosticKind;
+use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::parser::Span;
 
 // Structure Diagnostic qui représente un diagnostic complet

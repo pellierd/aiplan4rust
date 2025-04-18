@@ -1,6 +1,4 @@
-use crate::aiplan4rust::error::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticRenderer, DiagnosticSeverity, DiagnosticSource, ErrorManager};
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSeverity, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::lexer::token::Token;
@@ -15,7 +13,6 @@ use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 use crate::aiplan4rust::parser::{Language, Span};
-use crate::aiplan4rust::PDDLDisplay;
 
 use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
@@ -291,6 +288,7 @@ impl<'a> Parser<'a> {
     /// This function does not explicitly panic but assumes that the `offset` is within
     /// the range of valid indices for the string. Out-of-range values may result in unexpected
     /// behavior.
+    #[allow(dead_code)]
     fn get_position(&self, offset: usize, source: &str) -> (usize, usize) {
         let mut line = 1;
         let mut column = 1;
@@ -843,7 +841,7 @@ impl<'a> Parser<'a> {
         source: &str,
         file_path: Option<&str>,
     ) -> Diagnostic {
-        let file_path = file_path.unwrap().clone().to_string();
+        let file_path = file_path.unwrap().to_string();
         match error {
             ParseError::UnrecognizedToken {
                 token: (start, t, end),

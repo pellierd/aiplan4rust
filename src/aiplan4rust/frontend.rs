@@ -1,10 +1,10 @@
-use crate::aiplan4rust::error::{DiagnosticManager, DiagnosticRenderer, ErrorManager};
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::Linker;
 use crate::aiplan4rust::linker::LinkerResult;
 use crate::aiplan4rust::parser::Language;
 use crate::aiplan4rust::parser::Parser;
-use crate::aiplan4rust::semantic_analyser::semantic_analyzer::SemanticAnalyzer;
+use crate::aiplan4rust::semantic_analyser::SemanticAnalyzer;
 use crate::aiplan4rust::semantic_analyser::AnalyzerResult;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::LiftedDomain;
@@ -51,7 +51,7 @@ impl Frontend {
         problem_path: &str,
         language: &Language,
     ) -> Result<LinkerResult, ParserInternalError> {
-        let error_manager = ErrorManager::new();
+        let diagnostic_manager = DiagnosticManager::new();
 
         // Parse the domain file
         let domain = self.parse_file(domain_path, language)?;
@@ -63,7 +63,7 @@ impl Frontend {
         let domain_tree = match domain.annotated_syntax_tree() {
             Some(tree) => tree,
             None => {
-                return Ok(LinkerResult::new(None, error_manager));
+                return Ok(LinkerResult::new(None, diagnostic_manager));
             }
         };
 
@@ -71,7 +71,7 @@ impl Frontend {
         let problem_tree = match problem.annotated_syntax_tree() {
             Some(tree) => tree,
             None => {
-                return Ok(LinkerResult::new(None, error_manager));
+                return Ok(LinkerResult::new(None, diagnostic_manager));
             }
         };
 
@@ -81,8 +81,8 @@ impl Frontend {
 
         // Add all errors from the error manager into the linker result
         linker_result
-            .error_manager_mut()
-            .add_errors_from(&error_manager);
+            .diagnostic_manager_mut()
+            .add_diagnostic_from(&diagnostic_manager);
 
         // Return the result with the accumulated error state
         Ok(linker_result)
@@ -138,10 +138,6 @@ impl Frontend {
         // Attempt to parse the content, returning the result in parser_result.
         let mut parser_result = parser.parse(source_path, &content, language)?;
 
-        // Pour l'instant j'afficje les erreurs en attends de les transferer à l'analyseur
-        let mut renderer = DiagnosticRenderer::new(parser_result.diagnostic_manager());
-        renderer.display_with_suggestions();
-
         // Match on the syntax tree from the parser result.
         match parser_result.syntax_tree() {
             // If the syntax tree is present, perform semantic analysis.
@@ -151,9 +147,9 @@ impl Frontend {
                 let mut analysis_result = analyzer.analyze(syntax_tree)?;
 
                 // Add errors from the parser's error manager to the analysis result.
-                //analysis_result
-                //    .error_manager_mut()
-                //    .add_errors_from(&parser_result.error_manager());
+                analysis_result
+                    .diagnostic_manager_mut()
+                    .add_diagnostic_from(&parser_result.diagnostic_manager());
 
 
                 // Return the semantic analysis result.
@@ -162,8 +158,7 @@ impl Frontend {
             // If no syntax tree is available, return an analysis result with errors.
             None => Ok(AnalyzerResult::new(
                 None,
-                //mem::take(&mut parser_result.error_manager_mut()),
-                ErrorManager::new()
+                mem::take(&mut parser_result.diagnostic_manager_mut()),
             )),
         }
     }
@@ -173,7 +168,7 @@ impl Frontend {
         lifted_domain_path: &str,
         lifted_problem_path: &str,
     ) -> Result<LinkerResult, ParserInternalError> {
-        let error_manager = ErrorManager::new();
+        let diagnostic_manager = DiagnosticManager::new();
 
         // Désérialiser le fichier de domaine
         let lifted_domain = self.deserialize_domain_from_file(lifted_domain_path)?;
@@ -187,8 +182,8 @@ impl Frontend {
 
         // Ajouter toutes les erreurs du gestionnaire d'erreurs dans le résultat du linker
         linker_result
-            .error_manager_mut()
-            .add_errors_from(&error_manager);
+            .diagnostic_manager_mut()
+            .add_diagnostic_from(&diagnostic_manager);
 
         // Retourner le résultat avec l'état de l'erreur accumulée
         Ok(linker_result)

@@ -1,6 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::AssignOp;
 use crate::aiplan4rust::parser::elements::BinaryComp;
@@ -52,7 +50,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 pub fn check(
     syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
@@ -69,7 +67,7 @@ pub fn check(
                     node,
                     &ty1,
                     &ty2,
-                    errors,
+                    diagnostic_manager,
                 )?;
             }
 
@@ -85,7 +83,7 @@ pub fn check(
                 let (ty1, ty2) = get_binary_operation_types(node, syntax_tree)?;
 
                 // Call check_other_cases function to handle these cases
-                no_error &= check_numeric_expression(syntax_tree, node, &ty1, &ty2, errors)?;
+                no_error &= check_numeric_expression(syntax_tree, node, &ty1, &ty2, diagnostic_manager)?;
             }
 
             _ => {}
@@ -138,22 +136,18 @@ fn check_equal_and_assignment_expression(
     node: &AnnotatedSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
-
     if !type_checker.match_type(ty1, ty2)? {
         no_error = false;
-        let (line, column) = node.span().start_position();
-        let content = format!("Type incompatibility in expression {}: ", node);
-        let error = ParsingError::new(
-            ParserErrorKind::ParseError,
-            Some(annotated_syntax_tree.filename().clone()),
-            line,
-            column,
-            content,
+        let error = Diagnostic::new(
+            DiagnosticKind::TypeMismatchInExpression { ty1: ty1.clone(), ty2 : ty2.clone() },
+            DiagnosticSource::SemanticAnalyzer,
+            annotated_syntax_tree.filename().clone(),
+            node.span().clone(),
         );
-        errors.add_error(error);
+        diagnostic_manager.add_diagnostic(error);
     }
 
     Ok(no_error)
@@ -194,7 +188,7 @@ fn check_numeric_expression(
     node: &AnnotatedSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
-    errors: &mut ErrorManager,
+    diagnostic_manager:&mut DiagnosticManager
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
@@ -202,16 +196,13 @@ fn check_numeric_expression(
     let number = vec![NUMBER_TYPE.to_string()];
     if ty1 != &number || ty2 != &number {
         no_error = false;
-        let (line, column) = node.span().start_position();
-        let content = format!("Type incompatibility in expression {}: ", node);
-        let error = ParsingError::new(
-            ParserErrorKind::ParseError,
-            Some(annotated_syntax_tree.filename().clone()),
-            line,
-            column,
-            content,
+        let error = Diagnostic::new(
+            DiagnosticKind::InvalidTypesInNumericExpression { ty1: ty1.clone(), ty2 : ty2.clone() },
+            DiagnosticSource::SemanticAnalyzer,
+            annotated_syntax_tree.filename().clone(),
+            node.span().clone(),
         );
-        errors.add_error(error);
+        diagnostic_manager.add_diagnostic(error);
     }
 
     Ok(no_error)

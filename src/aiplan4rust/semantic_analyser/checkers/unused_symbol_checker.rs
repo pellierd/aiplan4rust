@@ -1,8 +1,7 @@
-use crate::aiplan4rust::error::ErrorManager;
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
+
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::parser::elements::Requirement::Adl;
+use crate::aiplan4rust::parser::elements::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::parser::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::parser::elements::Requirement::NumericFluents;
 use crate::aiplan4rust::parser::elements::Requirement::Typing;
@@ -34,7 +33,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 pub fn check(
     syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
@@ -52,7 +51,7 @@ pub fn check(
             }
 
             // Check if the symbol's declaration is a predefined PDDL symbol
-            check_pddl_builtin_symbol_declaration(symbol, declaration, syntax_tree, errors)?;
+            check_pddl_builtin_symbol_declaration(symbol, declaration, syntax_tree, diagnostic_manager)?;
 
             let declaration_scope = declaration.scope();
             let declaration_kind = declaration.kind();
@@ -67,44 +66,33 @@ pub fn check(
                 None => {
                     // If no usage is found, generate a warning
                     let entry = syntax_tree.get_entry(declaration.ast()).unwrap();
-                    let (line, column) = entry.span().start_position();
-                    let content = format!(
-                        "Symbol '{}' declared at line {} column {} but never used.",
-                        symbol.name(),
-                        line,
-                        column
+                    let warning = Diagnostic::new(
+                        DiagnosticKind::UnusedSymbol {
+                            symbol: symbol.name().clone(),
+                            kind: declaration.kind().clone(),
+                        },
+                        DiagnosticSource::SemanticAnalyzer,
+                        syntax_tree.filename().clone(),
+                        entry.span().clone(),
                     );
-                    let warning = ParsingError::new(
-                        ParserErrorKind::ParseWarning,
-                        Some(syntax_tree.filename().clone()),
-                        line,
-                        column,
-                        content,
-                    );
-                    errors.add_error(warning);
+                    diagnostic_manager.add_diagnostic(warning);
                 }
                 Some(usage) => {
                     // If a usage is found, check the consistency between the declaration and the usage
                     if usage.kind() != declaration_kind {
                         no_error = false;
                         let entry = syntax_tree.get_entry(usage.ast()).unwrap();
-                        let (line, column) = entry.span().start_position();
-                        let content = format!(
-                            "Symbol '{}' declared as {:?} but used as {:?} at line {} column {}.",
-                            symbol.name(),
-                            declaration_kind,
-                            usage.kind(),
-                            line,
-                            column
+                        let error = Diagnostic::new(
+                            DiagnosticKind::ConflictingSymbolUsage {
+                                symbol: symbol.name().clone(),
+                                declared_kind: declaration.kind().clone(),
+                                used_kind: usage.kind().clone(),
+                            },
+                            DiagnosticSource::SemanticAnalyzer,
+                            syntax_tree.filename().clone(),
+                            entry.span().clone(),
                         );
-                        let error = ParsingError::new(
-                            ParserErrorKind::ParseError,
-                            Some(syntax_tree.filename().clone()),
-                            line,
-                            column,
-                            content,
-                        );
-                        errors.add_error(error);
+                        diagnostic_manager.add_diagnostic(error);
                     }
                 }
             }
@@ -222,52 +210,60 @@ fn check_pddl_builtin_symbol_declaration(
     symbol: &Symbol,
     declaration: &Declaration,
     syntax_tree: &AnnotatedSyntaxTree,
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Match the symbol name with the expected built-in symbols and requirements
-    let (expected_kind, requirement, error_message) = match symbol.name().as_str() {
+    let (expected_kind, requirements) = match symbol.name().as_str() {
         OBJECT_TYPE
             if syntax_tree.has_requirement(&Typing) || syntax_tree.has_requirement(&Adl) =>
         {
-            (SymbolKind::PrimitiveType, ":typing", "builtin type")
+            (SymbolKind::PrimitiveType, vec![Typing, Adl])
         }
         NUMBER_TYPE if syntax_tree.has_requirement(&NumericFluents) => (
             SymbolKind::PrimitiveType,
-            ":numeric-fluents",
-            "builtin type",
+            vec![NumericFluents, Fluents]
         ),
         TOTAL_TIME if syntax_tree.has_requirement(&NumericFluents) => {
-            (SymbolKind::Function, ":numeric-fluents", "builtin function")
+            (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
         DURATION_VARIABLE if syntax_tree.has_requirement(&DurativeActions) => (
             SymbolKind::Variable,
-            ":durative-actions",
-            "builtin variable",
+            vec![DurativeActions]
         ),
-        _ => return Ok(false), // No match found, so return `false` immediately
+        _ => return Ok(true),
     };
+
+    let entry = syntax_tree.get_entry(declaration.ast())
+        .ok_or(ParserInternalError::new("Entry not found".to_string()))?;
 
     // Verify if the symbol has the correct type
     if *declaration.kind() != expected_kind {
-        if let Some(entry) = syntax_tree.get_entry(declaration.ast()) {
-            let (line, column) = entry.span().start_position();
-            let content = format!(
-                "'{}' is a {} in a domain with {} requirement.",
-                symbol.name(),
-                error_message,
-                requirement
+       let error = Diagnostic::new(
+           DiagnosticKind::ReservedSymbolUsedAs {
+                    symbol: symbol.name().clone(),
+                    actual_kind: declaration.kind().clone(),
+                    expected_kind: expected_kind.clone(),
+                    requirements
+                },
+                DiagnosticSource::SemanticAnalyzer,
+                syntax_tree.filename().clone(),
+                entry.span().clone(),
             );
-            let error = ParsingError::new(
-                ParserErrorKind::ParseError,
-                Some(syntax_tree.filename().clone()),
-                line,
-                column,
-                content,
-            );
-            errors.add_error(error);
-        }
-        return Ok(false);
-    }
+            diagnostic_manager.add_diagnostic(error);
+            return Ok(false);
+    } else {
+        let warning = Diagnostic::new(
+            DiagnosticKind::AmbiguousSymbolUsageWithKeyword {
+                symbol: symbol.name().clone(),
+                actual_kind: declaration.kind().clone(),
+                requirements
+            },
+            DiagnosticSource::SemanticAnalyzer,
+            syntax_tree.filename().clone(),
+            entry.span().clone(),
+        );
+        diagnostic_manager.add_diagnostic(warning);
 
-    Ok(true)
+        Ok(true)
+    }
 }

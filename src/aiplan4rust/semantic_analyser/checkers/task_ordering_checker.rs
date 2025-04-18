@@ -1,6 +1,5 @@
-use crate::aiplan4rust::error::ErrorManager;
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
+
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
@@ -59,7 +58,7 @@ use std::collections::HashMap;
 ///
 pub fn check(
     syntax_tree: &AnnotatedSyntaxTree,
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
 
@@ -71,16 +70,13 @@ pub fn check(
                 transitive_closure(&mut matrix);
                 if is_cyclic(&matrix)? {
                     checked = false;
-                    let (line, column) = node.span().start_position();
-                    let content = "Cyclic task ordering constraint detected.";
-                    let error = ParsingError::new(
-                        ParserErrorKind::ParseError,
-                        Some(syntax_tree.filename().clone()),
-                        line,
-                        column,
-                        content.to_string(),
+                    let error = Diagnostic::new(
+                        DiagnosticKind::CyclicOrderingConstraint,
+                        DiagnosticSource::SemanticAnalyzer,
+                        syntax_tree.filename().clone(),
+                        node.span().clone(),
                     );
-                    errors.add_error(error);
+                    diagnostic_manager.add_diagnostic(error);
                 }
             }
             _ => {}

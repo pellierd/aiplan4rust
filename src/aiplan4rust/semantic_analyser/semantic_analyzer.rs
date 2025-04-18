@@ -1,5 +1,4 @@
-use crate::aiplan4rust::error::parsing_error::ParserErrorKind::ParseError;
-use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
@@ -25,7 +24,7 @@ use std::mem;
 #[derive(Debug)]
 pub struct SemanticAnalyzer {
     /// Manages and tracks parsing and semantic errors encountered during analysis.
-    error_manager: ErrorManager,
+    diagnostic_manager: DiagnosticManager
 }
 
 impl SemanticAnalyzer {
@@ -42,7 +41,7 @@ impl SemanticAnalyzer {
     /// ```
     pub fn new() -> Self {
         Self {
-            error_manager: ErrorManager::new(),
+            diagnostic_manager: DiagnosticManager::new(),
         }
     }
 
@@ -58,8 +57,8 @@ impl SemanticAnalyzer {
     /// let analyzer = Analyzer::new();
     /// let errors = analyzer.error_manager();
     /// ```
-    pub fn error_manager(&self) -> &ErrorManager {
-        &self.error_manager
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        &self.diagnostic_manager
     }
 
     /// Analyzes the given `SyntaxTree` and performs semantic checks.
@@ -129,16 +128,16 @@ impl SemanticAnalyzer {
         };
 
         // If no parsing errors occurred, return the annotated syntax tree
-        if !self.error_manager.has_errors_of_kind(ParseError) {
+        if !self.diagnostic_manager.has_diagnotics_of_severity(DiagnosticSeverity::Error) {
             Ok(AnalyzerResult::new(
                 Some(annotated_syntax_tree),
-                mem::take(&mut self.error_manager),
+                mem::take(&mut self.diagnostic_manager),
             ))
         } else {
             // Otherwise, return an empty result with collected errors
             Ok(AnalyzerResult::new(
                 None,
-                mem::take(&mut self.error_manager),
+                mem::take(&mut self.diagnostic_manager),
             ))
         }
     }
@@ -182,7 +181,7 @@ impl SemanticAnalyzer {
             annotated_syntax_tree,
             &[],                 // No symbols to skip for declared symbols check
             skip_symbols_unused, // Skip symbols of type Constant for unused symbol check
-            &mut self.error_manager,
+            &mut self.diagnostic_manager,
         )?;
 
         // If the symbol check passes without errors, proceed with further checks
@@ -194,23 +193,23 @@ impl SemanticAnalyzer {
             checked &= atomic_formula_checker::check(
                 annotated_syntax_tree,
                 &type_checker,
-                &mut self.error_manager,
+                &mut self.diagnostic_manager,
             )?;
 
             // Check functional expressions in the domain using the type checker
             checked &= functional_expression_checker::check(
                 annotated_syntax_tree,
                 &type_checker,
-                &mut self.error_manager,
+                &mut self.diagnostic_manager,
             )?;
 
             checked &=
-                task_ordering_checker::check(annotated_syntax_tree, &mut self.error_manager)?;
+                task_ordering_checker::check(annotated_syntax_tree, &mut self.diagnostic_manager)?;
 
             requirement_checker::check(
                 annotated_syntax_tree,
                 annotated_syntax_tree.requirements(),
-                &mut self.error_manager,
+                &mut self.diagnostic_manager,
             )?;
         }
 
@@ -250,10 +249,10 @@ impl SemanticAnalyzer {
             annotated_syntax_tree,
             skip_types_undeclared,
             &[],
-            &mut self.error_manager,
+            &mut self.diagnostic_manager,
         )?;
 
-        checked &= task_ordering_checker::check(annotated_syntax_tree, &mut self.error_manager)?;
+        checked &= task_ordering_checker::check(annotated_syntax_tree, &mut self.diagnostic_manager)?;
 
         Ok(checked)
     }
@@ -299,13 +298,13 @@ impl SemanticAnalyzer {
         annotated_syntax_tree: &AnnotatedSyntaxTree,
         skip_types_undeclared: &[SymbolKind], // Types of symbols to ignore during undeclared symbol checking
         skip_symbols_unused: &[SymbolKind],   // Symbols to ignore during unused symbol checking
-        error_manager: &mut ErrorManager,
+        diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, ParserInternalError> {
         let mut checked = true;
 
         // Check declared symbols in the annotated syntax tree
         // This check ensures that declared symbols follow the correct syntax and declarations
-        checked &= symbol_declaration_checker::check(&annotated_syntax_tree, error_manager)?;
+        checked &= symbol_declaration_checker::check(&annotated_syntax_tree, diagnostic_manager)?;
 
         // Check for undeclared symbols, skipping specific types of symbols
         // This ensures that all symbols used in the tree are declared, except for those types in
@@ -313,7 +312,7 @@ impl SemanticAnalyzer {
         checked &= undeclared_symbol_checker::check(
             annotated_syntax_tree,
             skip_types_undeclared, // Skip certain symbol types for undeclared checking
-            error_manager,
+            diagnostic_manager,
         )?;
 
         // Check for unused symbols, skipping specific symbols
@@ -321,7 +320,7 @@ impl SemanticAnalyzer {
         checked &= unused_symbol_checker::check(
             annotated_syntax_tree,
             skip_symbols_unused, // Skip certain symbols for unused checking
-            error_manager,
+            diagnostic_manager,
         )?;
 
         // Return the result indicating whether all checks passed

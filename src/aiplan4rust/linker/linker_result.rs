@@ -1,4 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 
 use std::fmt;
@@ -30,7 +30,7 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct LinkerResult {
     planning_task: Option<LiftedPlanningTask>,
-    error_manager: ErrorManager,
+    diagnostic_manager: DiagnosticManager,
 }
 
 impl LinkerResult {
@@ -42,10 +42,10 @@ impl LinkerResult {
     ///
     /// # Returns
     /// A `LinkerResult` containing the provided values.
-    pub fn new(planning_task: Option<LiftedPlanningTask>, error_manager: ErrorManager) -> Self {
+    pub fn new(planning_task: Option<LiftedPlanningTask>, diagnostic_manager: DiagnosticManager) -> Self {
         LinkerResult {
             planning_task,
-            error_manager,
+            diagnostic_manager,
         }
     }
 
@@ -69,16 +69,16 @@ impl LinkerResult {
     ///
     /// # Returns
     /// A reference to the `ErrorManager`.
-    pub fn error_manager(&self) -> &ErrorManager {
-        &self.error_manager
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        &self.diagnostic_manager
     }
 
     /// Returns a mutable reference to the error manager.
     ///
     /// # Returns
     /// A mutable reference to the `ErrorManager`.
-    pub fn error_manager_mut(&mut self) -> &mut ErrorManager {
-        &mut self.error_manager
+    pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
+        &mut self.diagnostic_manager
     }
 
     /// Checks whether a lifted planning task is present.
@@ -106,10 +106,10 @@ impl fmt::Display for LinkerResult {
                 write!(f, "Linking successful:\n{}", task)?;
 
                 // Check if there are any errors in the error manager.
-                if !self.error_manager.is_empty() {
+                if !self.diagnostic_manager().is_empty() {
                     write!(f, "\nErrors encountered during linking:\n")?;
-                    for error in self.error_manager.errors() {
-                        write!(f, "{}\n", error)?;
+                    for diagnostic in self.diagnostic_manager().diagnostics() {
+                        write!(f, "{}\n", diagnostic)?;
                     }
                 } else {
                     write!(f, "\nNo errors detected.")?;
@@ -118,8 +118,8 @@ impl fmt::Display for LinkerResult {
             None => {
                 // If no lifted planning task is available, display linking failure and errors.
                 write!(f, "Linking failed:\n")?;
-                for error in self.error_manager.errors() {
-                    write!(f, "{}\n", error)?;
+                for diagnostic in self.diagnostic_manager().diagnostics() {
+                    write!(f, "{}\n", diagnostic)?;
                 }
             }
         }

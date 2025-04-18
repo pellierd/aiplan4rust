@@ -1,6 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSeverity, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
@@ -24,18 +22,18 @@ use std::mem::take;
 
 #[derive(Debug)]
 pub struct Linker {
-    error_manager: ErrorManager,
+    diagnostic_manager: DiagnosticManager,
 }
 
 impl Linker {
     pub fn new() -> Self {
         Self {
-            error_manager: ErrorManager::new(),
+            diagnostic_manager: DiagnosticManager::new(),
         }
     }
 
-    pub fn error_manager(&self) -> &ErrorManager {
-        &self.error_manager
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        &self.diagnostic_manager
     }
 
     pub fn link(
@@ -58,25 +56,25 @@ impl Linker {
             );
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
-            atomic_formula_checker::check(&problem, &type_checker, &mut self.error_manager)?;
+            atomic_formula_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
 
             // Check functional expressions in the domain using the type checker
-            functional_expression_checker::check(&problem, &type_checker, &mut self.error_manager)?;
+            functional_expression_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
 
-            task_ordering_checker::check(&problem, &mut self.error_manager)?;
+            task_ordering_checker::check(&problem, &mut self.diagnostic_manager)?;
 
             let mut requirements = domain.requirements().clone();
             requirements.extend(problem.requirements().clone());
-            requirement_checker::check(&problem, &requirements, &mut self.error_manager)?;
+            requirement_checker::check(&problem, &requirements, &mut self.diagnostic_manager)?;
         }
 
         // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs
         if self
-            .error_manager()
-            .has_errors_of_kind(ParserErrorKind::ParseError)
+            .diagnostic_manager()
+            .has_diagnotics_of_severity(DiagnosticSeverity::Error)
         {
             // Si des erreurs existent, renvoyer LinkerResult sans LiftedPlanningTask
-            Ok(LinkerResult::new(None, take(&mut self.error_manager)))
+            Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager)))
         } else {
             // Sinon, créer un LiftedPlanningTask à partir des domaines et problèmes déplaçés
             let mut domain = domain.clone();
@@ -86,7 +84,7 @@ impl Linker {
             // Retourner LinkerResult avec LiftedPlanningTask et l'ErrorManager mis à jour
             Ok(LinkerResult::new(
                 Some(lifted_planning_task),
-                mem::take(&mut self.error_manager),
+                mem::take(&mut self.diagnostic_manager),
             ))
         }
     }
@@ -129,19 +127,16 @@ impl Linker {
                 None,
             )[0];
             let ast_entry = problem.get_entry(domain_name_declaration.ast()).unwrap();
-            let (line, column) = ast_entry.span().start_position();
-            let error = ParsingError::new(
-                ParserErrorKind::ParseWarning,
-                Some(domain.filename().clone()),
-                line,
-                column,
-                format!(
-                    "Domain and Problem names do not match: '{}' != '{}'",
-                    domain_name_symbols[0].name(),
-                    problem_name_symbols[0].name()
-                ),
+            let warning = Diagnostic::new(
+                DiagnosticKind::DomainProblemNameMismatch {
+                    domain_name : domain_name_symbols[0].name().clone(),
+                    problem_name : problem_name_symbols[0].name().clone(),
+                },
+                DiagnosticSource::Linker,
+                problem.filename().clone(),
+                ast_entry.span().clone(),
             );
-            self.error_manager.add_error(error);
+            self.diagnostic_manager.add_diagnostic(warning);
         }
 
         Ok(true) // Tout est correct
@@ -220,9 +215,9 @@ impl Linker {
 
         for (symbol_name, domain_declaration) in updates {
             if let Some(symbol) = problem_symbol_table.get_symbol_mut(&symbol_name) {
-                let kind = domain_declaration.kind().clone();
+                //let kind = domain_declaration.kind().clone();
                 symbol.add_declaration(domain_declaration);
-                println!("{} '{}' is declared in domain", kind, symbol_name);
+                //println!("{} '{}' is declared in domain", kind, symbol_name);
             }
         }
     }
@@ -234,16 +229,17 @@ impl Linker {
     ) {
         for (symbol_name, usage) in undeclared {
             let ast_entry = problem.get_entry(usage.ast()).unwrap();
-            let (line, column) = ast_entry.span().start_position();
-            let content = format!("{} '{}' not declared in domain", usage.kind(), symbol_name);
-            let error = ParsingError::new(
-                ParserErrorKind::ParseError,
-                Some(problem.filename().clone()),
-                line,
-                column,
-                content,
+            let error = Diagnostic::new(
+                DiagnosticKind::UndeclaredSymbol {
+                    symbol: symbol_name.clone(),
+                    kind: usage.kind().clone(),
+                },
+                DiagnosticSource::SemanticAnalyzer,
+                problem.filename().clone(),
+                ast_entry.span().clone(),
             );
-            self.error_manager.add_error(error);
+
+            self.diagnostic_manager.add_diagnostic(error);
         }
     }
 }

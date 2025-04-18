@@ -1,11 +1,12 @@
-use crate::aiplan4rust::error::{ErrorManager, ParserErrorKind, ParsingError};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement::{
     ConditionalEffects, DerivedPredicates, DisjunctivePreconditions, DurativeActions, Equality,
     ExistentialPreconditions, Fluents, NegativePreconditions, NumericFluents, ObjectFluents,
     Preferences, Typing, UniversalPreconditions,
 };
-use crate::aiplan4rust::parser::elements::{BinaryComp, Requirement};
+use crate::aiplan4rust::parser::elements::BinaryComp;
+use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree};
 use std::collections::HashSet;
@@ -13,7 +14,7 @@ use std::collections::HashSet;
 pub fn check(
     syntax_tree: &AnnotatedSyntaxTree,
     requirements: &HashSet<Requirement>,
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
 
@@ -24,9 +25,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[Typing],
-                    "Typing feature requires requirement",
+                    diagnostic_manager,
+                    vec![Typing],
                 );
             }
 
@@ -35,9 +35,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[Fluents, NumericFluents, ObjectFluents],
-                    "Functions require requirement",
+                    diagnostic_manager,
+                    vec![Fluents, NumericFluents, ObjectFluents],
                 );
             }
 
@@ -46,9 +45,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[NumericFluents],
-                    "Number usage requires requirement",
+                    diagnostic_manager,
+                    vec![NumericFluents],
                 );
             }
 
@@ -57,9 +55,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[DurativeActions],
-                    "Durative actions require requirement",
+                    diagnostic_manager,
+                    vec![DurativeActions],
                 );
             }
 
@@ -68,9 +65,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[DerivedPredicates],
-                    "Derived predicates require requirement",
+                    diagnostic_manager,
+                    vec![DerivedPredicates],
                 );
             }
 
@@ -84,9 +80,8 @@ pub fn check(
                         node,
                         syntax_tree,
                         requirements,
-                        errors,
-                        &[DisjunctivePreconditions],
-                        "Or expressions require requirement",
+                        diagnostic_manager,
+                        vec![DisjunctivePreconditions],
                     );
                 }
             }
@@ -96,9 +91,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[NegativePreconditions],
-                    "Negative expressions require requirement",
+                    diagnostic_manager,
+                    vec![NegativePreconditions],
                 );
             }
 
@@ -107,9 +101,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[DisjunctivePreconditions],
-                    "Imply expressions require requirement",
+                    diagnostic_manager,
+                    vec![DisjunctivePreconditions],
                 );
             }
 
@@ -118,9 +111,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[UniversalPreconditions],
-                    "Universal expressions require requirement",
+                    diagnostic_manager,
+                    vec![UniversalPreconditions],
                 );
             }
 
@@ -129,9 +121,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[ExistentialPreconditions],
-                    "Existential expressions require requirement",
+                    diagnostic_manager,
+                    vec![ExistentialPreconditions],
                 );
             }
 
@@ -140,9 +131,8 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[Preferences],
-                    "Preferences require requirement",
+                    diagnostic_manager,
+                    vec![Preferences],
                 );
             }
 
@@ -151,46 +141,30 @@ pub fn check(
                     node,
                     syntax_tree,
                     requirements,
-                    errors,
-                    &[ConditionalEffects],
-                    "Conditional effects require requirement",
+                    diagnostic_manager,
+                    vec![ConditionalEffects],
                 );
             }
 
             SyntaxNodeKind::FComp(op) => {
                 match op {
                     BinaryComp::Equal => {
-                        // Il faut au moins Equality OU un des trois autres
-                        if !requirements.contains(&Equality)
-                            && !requirements.contains(&Fluents)
-                            && !requirements.contains(&NumericFluents)
-                            && !requirements.contains(&ObjectFluents)
-                        {
-                            add_requirement_error(
-                                node,
-                                &syntax_tree.filename(),
-                                errors,
-                                Equality,
-                                "Equality comparison requires either Equality or a fluents-related requirement",
-                            );
-                            checked = false;
-                        }
+                        checked &= check_requirements(
+                            node,
+                            syntax_tree,
+                            requirements,
+                            diagnostic_manager,
+                            vec![Equality, Fluents, NumericFluents,ObjectFluents],
+                        );
                     }
                     _ => {
-                        // Tous les autres opérateurs nécessitent un fluent numérique ou objet
-                        if !requirements.contains(&Fluents)
-                            && !requirements.contains(&NumericFluents)
-                            && !requirements.contains(&ObjectFluents)
-                        {
-                            add_requirement_error(
-                                node,
-                                &syntax_tree.filename(),
-                                errors,
-                                NumericFluents,
-                                "Comparison operator requires a numeric or fluent-related requirement",
-                            );
-                            checked = false;
-                        }
+                        checked &= check_requirements(
+                            node,
+                            syntax_tree,
+                            requirements,
+                            diagnostic_manager,
+                            vec![Fluents, NumericFluents,ObjectFluents],
+                        );
                     }
                 }
             }
@@ -199,41 +173,21 @@ pub fn check(
     }
     Ok(checked)
 }
-fn add_requirement_error(
-    node: &AnnotatedSyntaxNode,
-    filename: &str,
-    errors: &mut ErrorManager,
-    requirement: Requirement,
-    message: &str,
-) {
-    let (line, column) = node.span().start_position();
-    let content = format!("{} '{}'.", message, requirement);
-    let error = ParsingError::new(
-        ParserErrorKind::ParseError,
-        Some(filename.to_string()),
-        line,
-        column,
-        content,
-    );
-    errors.add_error(error);
-}
-
 fn check_requirements(
     node: &AnnotatedSyntaxNode,
     syntax_tree: &AnnotatedSyntaxTree,
     requirements: &HashSet<Requirement>,
-    errors: &mut ErrorManager,
-    required: &[Requirement],
-    message: &str,
+    diagnostic_manager: &mut DiagnosticManager,
+    required: Vec<Requirement>,
 ) -> bool {
     if required.iter().any(|r| !requirements.contains(r)) {
-        add_requirement_error(
-            node,
-            &syntax_tree.filename(),
-            errors,
-            required[0].clone(),
-            message,
+        let error = Diagnostic::new(
+            DiagnosticKind::RequirementViolation { node_kind: node.kind().clone(), required},
+            DiagnosticSource::SemanticAnalyzer,
+            syntax_tree.filename().clone(),
+            node.span().clone(),
         );
+        diagnostic_manager.add_diagnostic(error);
         false
     } else {
         true

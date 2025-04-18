@@ -33,6 +33,16 @@ impl Scope {
         self.stack.starts_with(&prefix.stack)
     }
 
+    // Fonction pour créer un itérateur sur `Scope`
+    pub fn iter(&self) -> impl Iterator<Item = &usize> {
+        self.stack.iter()
+    }
+
+    // Fonction pour obtenir un itérateur mutable si nécessaire
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut usize> {
+        self.stack.iter_mut()
+    }
+
     /// Checks if the scope contains at least one AST node of the specified kind.
     ///
     /// This function iterates over the IDs stored in the scope's `stack` and uses the shared `bimap`
@@ -97,6 +107,16 @@ impl Scope {
         write!(f, "{}", scope_strings.join(" -> "))
     }
 }
+
+// Implémentation du trait Iterator pour Scope
+impl Iterator for Scope {
+    type Item = usize;  // Définition du type d'élément à itérer (ici usize)
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.stack.pop() // Retourne et retire le dernier élément de la pile
+    }
+}
+
 
 impl fmt::Display for Scope {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

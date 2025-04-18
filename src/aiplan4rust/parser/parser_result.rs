@@ -1,4 +1,4 @@
-use crate::aiplan4rust::error::{DiagnosticManager, ErrorManager};
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 
 use std::fmt;

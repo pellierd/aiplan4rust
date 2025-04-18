@@ -1,4 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
 use std::fmt;
@@ -31,7 +31,7 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct AnalyzerResult {
     annotated_syntax_tree: Option<AnnotatedSyntaxTree>,
-    error_manager: ErrorManager,
+    diagnostic_manager: DiagnosticManager,
 }
 
 impl AnalyzerResult {
@@ -45,11 +45,11 @@ impl AnalyzerResult {
     /// An `AnalyzerResult` containing the provided values.
     pub fn new(
         annotated_syntax_tree: Option<AnnotatedSyntaxTree>,
-        error_manager: ErrorManager,
+        diagnostic_manager: DiagnosticManager,
     ) -> Self {
         AnalyzerResult {
             annotated_syntax_tree,
-            error_manager,
+            diagnostic_manager,
         }
     }
 
@@ -73,16 +73,16 @@ impl AnalyzerResult {
     ///
     /// # Returns
     /// A reference to the `ErrorManager`.
-    pub fn error_manager(&self) -> &ErrorManager {
-        &self.error_manager
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        &self.diagnostic_manager
     }
 
     /// Returns a mutable reference to the error manager.
     ///
     /// # Returns
     /// A mutable reference to the `ErrorManager`.
-    pub fn error_manager_mut(&mut self) -> &mut ErrorManager {
-        &mut self.error_manager
+    pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
+        &mut self.diagnostic_manager
     }
 
     /// Checks whether an annotated syntax tree is present.
@@ -110,10 +110,10 @@ impl fmt::Display for AnalyzerResult {
                 write!(f, "Semantic analysis successful:\n{}", tree)?;
 
                 // Check if there are any errors in the error manager.
-                if !self.error_manager.is_empty() {
+                if !self.diagnostic_manager().is_empty() {
                     write!(f, "\nErrors encountered during analysis:\n")?;
-                    for error in self.error_manager.errors() {
-                        write!(f, "{}\n", error)?;
+                    for diagnostic in self.diagnostic_manager().diagnostics() {
+                        write!(f, "{}\n", diagnostic)?;
                     }
                 } else {
                     write!(f, "\nNo errors detected.")?;
@@ -122,8 +122,8 @@ impl fmt::Display for AnalyzerResult {
             None => {
                 // If no annotated syntax tree is available, display analysis failure and errors.
                 write!(f, "Semantic analysis failed:\n")?;
-                for error in self.error_manager.errors() {
-                    write!(f, "{}\n", error)?;
+                for diagnostic in self.diagnostic_manager().diagnostics() {
+                    write!(f, "{}\n", diagnostic)?;
                 }
             }
         }

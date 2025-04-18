@@ -1,5 +1,5 @@
 pub mod cli;
-pub mod error;
+pub mod diagnostic;
 pub mod file_format;
 pub mod frontend;
 pub mod linker;

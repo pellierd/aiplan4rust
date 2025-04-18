@@ -4,9 +4,12 @@ use aiplan4rust::aiplan4rust::cli::aiplan_cli::{
 use aiplan4rust::aiplan4rust::parser::Language;
 use aiplan4rust::aiplan4rust::FileFormat;
 use aiplan4rust::aiplan4rust::Frontend;
+use aiplan4rust::aiplan4rust::diagnostic::{DiagnosticRenderer, DiagnosticSeverity};
 
 use clap::ArgMatches;
 use std::path::Path;
+use std::time::Instant;
+use colored::Colorize;
 
 /// Handles the `link` command logic.
 ///
@@ -105,7 +108,8 @@ fn link(domain_file: &str, problem_file: &str, format: &FileFormat, output: &str
                     println!("Output saved to {}", output);
                 }
             } else {
-                linker_result.error_manager().display_all();
+                let mut renderer = DiagnosticRenderer::new(linker_result.diagnostic_manager());
+                renderer.display();
             }
         }
         Err(e) => {
@@ -124,7 +128,8 @@ fn parse(
     let frontend = Frontend::new();
     match frontend.parse(domain_file, problem_file, language) {
         Ok(result) => {
-            result.error_manager().display_all();
+            let mut renderer = DiagnosticRenderer::new(result.diagnostic_manager());
+            renderer.display();
             if let Some(planning_task) = result.planning_task() {
                 if let Err(e) =
                     frontend.serialize_planning_task_to_file(&planning_task, format, output)
@@ -140,17 +145,64 @@ fn parse(
         }
     }
 }
+pub fn parse_file(input_file: &str, language: &Language, format: &FileFormat, output: &str) {
+    let start_time = Instant::now(); // Démarre le chronomètre
 
-fn parse_file(input_file: &str, language: &Language, format: &FileFormat, output: &str) {
+    let full_path = Path::new(input_file)
+        .canonicalize()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| input_file.to_string());
+
+    println!(
+        "{:>10} aiplan4rust v0.1.0 ({})",
+        "Parsing".green().bold(),
+        full_path
+    );
+
     let frontend = Frontend::new();
     match frontend.parse_file(input_file, language) {
         Ok(result) => {
-            result.error_manager().display_all();
-            if let Some(ast) = result.annotated_syntax_tree() {
-                if let Err(e) = frontend.serialize_to_file(&ast, format, output) {
-                    eprintln!("Error saving file: {}", e);
-                } else {
-                    println!("Output saved to {}", output);
+            let mut renderer = DiagnosticRenderer::new(result.diagnostic_manager());
+            renderer.display();
+
+            // Compte les erreurs et les warnings
+            let error_count = result.diagnostic_manager().count_diagnostics_of_severity(DiagnosticSeverity::Error);
+            let warning_count = result.diagnostic_manager().count_diagnostics_of_severity(DiagnosticSeverity::Warning);
+
+            // Chronomètre
+            let elapsed_time = start_time.elapsed().as_secs_f32();
+
+            // Affichage du message de fin
+            println!(
+                "{} {} error(s), {} warning(s) target(s) in {:.2}s",
+                "Finished".green().bold(),
+                format!("{}", error_count),
+                format!("{}", warning_count),
+                elapsed_time
+            );
+
+            // Si des erreurs sont présentes, indiquer qu'aucun fichier n'a été produit
+            if error_count > 0 {
+                println!(
+                    "{} No output file produced due to errors.",
+                    "===> ".blue().bold());
+            } else {
+                // Si aucun problème, afficher que le fichier a été produit
+                if let Some(ast) = result.annotated_syntax_tree() {
+                    if let Err(e) = frontend.serialize_to_file(&ast, format, output) {
+                        eprintln!("Error saving file: {}", e);
+                    } else {
+                        let absolute_output = Path::new(output)
+                            .canonicalize()
+                            .map(|p| p.display().to_string())
+                            .unwrap_or_else(|_| output.to_string());
+
+                        println!(
+                            "{} Output file produced ({})",
+                            "===> ".blue().bold(),
+                            absolute_output
+                        );
+                    }
                 }
             }
         }
@@ -159,6 +211,7 @@ fn parse_file(input_file: &str, language: &Language, format: &FileFormat, output
         }
     }
 }
+
 
 /// Generates an output file name based on the input file and the specified format.
 ///

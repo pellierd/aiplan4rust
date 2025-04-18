@@ -1,7 +1,8 @@
-use crate::aiplan4rust::error::{Diagnostic, DiagnosticManager, DiagnosticSeverity};
-use std::fs::File;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::diagnostic::DiagnosticSeverity;
+
 use std::io::{self, Write};
-use colored::*;  // Pour coloration terminale
+use colored::*;
 
 pub struct DiagnosticRenderer<'a> {
     diagnostic_manager: &'a DiagnosticManager,
@@ -20,7 +21,7 @@ impl<'a> DiagnosticRenderer<'a> {
         self.output = output;
     }
 
-    pub fn display_with_suggestions(&mut self) {
+    pub fn display(&mut self) {
         for diagnostic in self.diagnostic_manager.diagnostics() {
             let mut output = String::new();
 
@@ -92,7 +93,7 @@ impl<'a> DiagnosticRenderer<'a> {
             if let Some(suggestion) = kind.suggestion() {
                 output.push_str(&format!(
                     "{} {}\n",
-                    "  = note:".bright_cyan().bold(),
+                    "= help:".bright_cyan().bold(),
                     suggestion
                 ));
             }
@@ -108,17 +109,15 @@ const VERTICAL_BAR: &str = "|";
 
 fn compute_visual_offset(line: &str, column: usize) -> usize {
     let mut offset = 0;
-    let mut chars = line.chars();
-    for i in 0..(column - 1) {
-        if let Some(c) = chars.next() {
-            offset += match c {
-                '\t' => TAB_WIDTH - (offset % TAB_WIDTH),
-                _ => 1,
-            };
-        }
+    for c in line.chars().take(column.saturating_sub(1)) {
+        offset += match c {
+            '\t' => TAB_WIDTH - (offset % TAB_WIDTH),
+            _ => 1,
+        };
     }
     offset
 }
+
 
 fn expand_tabs(line: &str, tab_width: usize) -> String {
     let mut expanded = String::new();

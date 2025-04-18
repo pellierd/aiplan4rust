@@ -6,8 +6,11 @@
 //! It also handles associated source files so diagnostics
 //! can be contextualized with original source code.
 
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticSeverity};
+
 use std::collections::HashMap;
-use crate::aiplan4rust::error::{Diagnostic, DiagnosticKind, DiagnosticSeverity};
+use itertools::Itertools;
+
 
 /// Manages a collection of diagnostics and associated source files.
 ///
@@ -73,7 +76,9 @@ impl DiagnosticManager {
 
     /// Returns an iterator over all diagnostics.
     pub fn diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {
-        self.diagnostics.iter()
+        self.diagnostics
+            .iter()
+            .sorted_by_key(|d| d.span().start())
     }
 
     /// Checks if there are any diagnostics of a specific kind.
@@ -100,6 +105,12 @@ impl DiagnosticManager {
     /// `true` if at least one diagnostic of the given severity exists.
     pub fn has_diagnotics_of_severity(&self, severity: DiagnosticSeverity) -> bool {
         self.diagnostics.iter().any(|e| e.kind().severity() == severity)
+    }
+
+    pub fn count_diagnostics_of_severity(&self, severity: DiagnosticSeverity) -> usize {
+        self.diagnostics.iter()
+            .filter(|e| e.kind().severity() == severity)
+            .count()
     }
 
     /// Removes all diagnostics and sources, resetting the manager to its initial state.

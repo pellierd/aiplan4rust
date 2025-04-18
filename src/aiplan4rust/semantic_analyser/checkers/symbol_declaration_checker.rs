@@ -1,6 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
-use crate::aiplan4rust::error::ParserErrorKind;
-use crate::aiplan4rust::error::ParsingError;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
@@ -23,7 +21,7 @@ use std::collections::HashSet;
 /// - `Err(ParserInternalError)` if an error occurs during processing.
 pub fn check(
     syntax_tree: &AnnotatedSyntaxTree,
-    errors: &mut ErrorManager,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
     let symbol_table = syntax_tree.symbol_table();
@@ -31,7 +29,6 @@ pub fn check(
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
         let mut seen_scopes = HashSet::new();
-        let symbol_name = symbol.name(); // Avoid multiple borrows of `symbol`
 
         // Iterate over each declaration for the symbol.
         for declaration in symbol.declarations() {
@@ -47,19 +44,21 @@ pub fn check(
                 .any(|s: &&Scope| declaration.scope().starts_with(s))
             {
                 checked = false;
-                let (line, column) = ast_entry.span().start_position();
-                let content = format!(
-                    "Duplicate declaration of symbol '{}' in a related scope at line {} column {}.",
-                    symbol_name, line, column
+                let scope_index = declaration.scope().iter().last().unwrap();
+                let scope = syntax_tree.get_entry(*scope_index).unwrap();
+                let error = Diagnostic::new(
+                    DiagnosticKind::DuplicatedDeclarationInScope {
+                        symbol: symbol.name().clone(),
+                        declaration: declaration.clone(),
+                        scope: scope.clone()},
+                    DiagnosticSource::SemanticAnalyzer,
+                    syntax_tree.filename().clone(),
+                    ast_entry.span().clone(),
                 );
-                let error = ParsingError::new(
-                    ParserErrorKind::ParseError,
-                    Some(syntax_tree.filename().clone()),
-                    line,
-                    column,
-                    content,
-                );
-                errors.add_error(error);
+
+
+
+                diagnostic_manager.add_diagnostic(error);
             } else {
                 // Ajouter à seen_scopes si aucun élément existant ne commence par declaration.scope()
                 seen_scopes.insert(declaration.scope());
