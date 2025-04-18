@@ -13,7 +13,7 @@ pub enum LexicalError {
     #[default]
     InvalidToken,
     /// Represents a parsing error that occurred while attempting to parse a floating-point value.
-    InvalidFloat(ParseFloatError),
+    InvalidNumber(ParseFloatError),
 }
 
 /// Implementation of the `From<ParseFloatError>` trait for converting
@@ -23,7 +23,7 @@ pub enum LexicalError {
 /// error (`ParseFloatError`) into a lexical error of type `LexicalError::InvalidFloat`.
 impl From<ParseFloatError> for LexicalError {
     fn from(err: ParseFloatError) -> Self {
-        LexicalError::InvalidFloat(err)
+        LexicalError::InvalidNumber(err)
     }
 }
 
@@ -50,8 +50,8 @@ impl fmt::Display for LexicalError {
     /// The result of writing the formatted string to `f`.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            LexicalError::InvalidToken => write!(f, "Invalid Token"),
-            LexicalError::InvalidFloat(err) => write!(f, "Invalid Float: {}", err),
+            LexicalError::InvalidToken => write!(f, "Invalid token"),
+            LexicalError::InvalidNumber(err) => write!(f, "Invalid number: {}", err),
         }
     }
 }
