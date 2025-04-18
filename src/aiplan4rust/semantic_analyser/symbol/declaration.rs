@@ -1,4 +1,4 @@
-use crate::aiplan4rust::parser::Source;
+use crate::aiplan4rust::parser::SymbolOrigin;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
@@ -46,7 +46,7 @@ pub struct Declaration {
     scope: Scope,
 
     /// The source of the declaration
-    source: Source,
+    source: SymbolOrigin,
 
     /// Optional list of types associated with the symbol.
     types: Option<Vec<String>>,
@@ -61,7 +61,7 @@ impl Declaration {
         ast: usize,
         kind: SymbolKind,
         scope: Scope,
-        source: Source,
+        source: SymbolOrigin,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
     ) -> Self {
@@ -116,7 +116,7 @@ impl Declaration {
     /// # Returns
     ///
     /// * `&Source` - A reference to the source of the declaration.
-    pub fn source(&self) -> &Source {
+    pub fn source(&self) -> &SymbolOrigin {
         &self.source
     }
 
@@ -186,7 +186,7 @@ impl Declaration {
     /// # Arguments
     ///
     /// * `source` - The new source to set for the declaration.
-    pub fn set_source(&mut self, source: Source) {
+    pub fn set_source(&mut self, source: SymbolOrigin) {
         self.source = source;
     }
 

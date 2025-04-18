@@ -1,4 +1,4 @@
-use crate::aiplan4rust::parser::Source;
+use crate::aiplan4rust::parser::SymbolOrigin;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 
@@ -31,12 +31,12 @@ pub struct Usage {
     scope: Scope,
 
     /// The source of the usage (e.g., file or module).
-    source: Source,
+    source: SymbolOrigin,
 }
 
 impl Usage {
     /// Constructeur pour créer un nouveau `Usage`
-    pub fn new(ast: usize, kind: SymbolKind, scope: Scope, source: Source) -> Self {
+    pub fn new(ast: usize, kind: SymbolKind, scope: Scope, source: SymbolOrigin) -> Self {
         Usage {
             ast,
             kind,
@@ -85,7 +85,7 @@ impl Usage {
     /// # Returns
     ///
     /// * `&Source` - A reference to the source of the usage.
-    pub fn source(&self) -> &Source {
+    pub fn source(&self) -> &SymbolOrigin {
         &self.source
     }
 
@@ -107,7 +107,7 @@ impl Usage {
     /// # Returns
     ///
     /// * `&mut Source` - A mutable reference to the source of the usage.
-    pub fn source_mut(&mut self) -> &mut Source {
+    pub fn source_mut(&mut self) -> &mut SymbolOrigin {
         &mut self.source
     }
 
@@ -129,7 +129,7 @@ impl Usage {
     /// # Arguments
     ///
     /// * `source` - The new source to set for the usage.
-    pub fn set_source(&mut self, source: Source) {
+    pub fn set_source(&mut self, source: SymbolOrigin) {
         self.source = source;
     }
 }

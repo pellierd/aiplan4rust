@@ -3,7 +3,7 @@ use crate::aiplan4rust::parser::elements::BinaryComp;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::parser::Source;
+use crate::aiplan4rust::parser::SymbolOrigin;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::FilterableSymbol;
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
@@ -60,7 +60,7 @@ enum Comparator {
 /// It provides methods to insert, retrieve, and serialize symbols during parsing.
 pub struct SymbolTable {
     symbols: LinkedHashMap<String, Symbol>,
-    source: Source,
+    source: SymbolOrigin,
 }
 
 impl SymbolTable {
@@ -69,14 +69,14 @@ impl SymbolTable {
     /// # Returns
     ///
     /// A new instance of `SymbolTable` with no symbols.
-    pub fn new(source: Source) -> Self {
+    pub fn new(source: SymbolOrigin) -> Self {
         SymbolTable {
             symbols: LinkedHashMap::new(),
             source,
         }
     }
 
-    pub fn source(&self) -> &Source {
+    pub fn source(&self) -> &SymbolOrigin {
         &self.source
     }
 

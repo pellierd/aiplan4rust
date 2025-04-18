@@ -2,7 +2,7 @@ use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind};
 use std::collections::HashMap;
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::parser::Source;
+use crate::aiplan4rust::parser::SymbolOrigin;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 use linked_hash_map::LinkedHashMap;
 use std::fmt;
@@ -88,11 +88,11 @@ impl SyntaxTree {
         self.filename.as_ref()
     }
 
-    pub fn source(&self) -> Source {
+    pub fn source(&self) -> SymbolOrigin {
         match self.root.kind() {
-            SyntaxNodeKind::Domain => Source::Domain,
-            SyntaxNodeKind::Problem => Source::Problem,
-            _ => Source::Unknown,
+            SyntaxNodeKind::Domain => SymbolOrigin::Domain,
+            SyntaxNodeKind::Problem => SymbolOrigin::Problem,
+            _ => SymbolOrigin::Unknown,
         }
     }
 

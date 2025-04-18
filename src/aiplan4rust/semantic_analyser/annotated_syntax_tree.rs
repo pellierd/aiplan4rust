@@ -5,7 +5,7 @@ use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::SymbolTable;
 
-use crate::aiplan4rust::parser::Source;
+use crate::aiplan4rust::parser::SymbolOrigin;
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -79,15 +79,15 @@ impl AnnotatedSyntaxTree {
         }
         None
     }
-    pub fn source(&self) -> Source {
+    pub fn source(&self) -> SymbolOrigin {
         if let Some(first_node) = self.syntax_tree.values().next() {
             match first_node.kind() {
-                SyntaxNodeKind::Domain => Source::Domain,
-                SyntaxNodeKind::Problem => Source::Problem,
-                _ => Source::Unknown,
+                SyntaxNodeKind::Domain => SymbolOrigin::Domain,
+                SyntaxNodeKind::Problem => SymbolOrigin::Problem,
+                _ => SymbolOrigin::Unknown,
             }
         } else {
-            Source::Unknown
+            SymbolOrigin::Unknown
         }
     }
     pub fn contains_kind(&self, kind: SyntaxNodeKind) -> bool {

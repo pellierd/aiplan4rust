@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManag
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
-use crate::aiplan4rust::parser::Source;
+use crate::aiplan4rust::parser::SymbolOrigin;
 use crate::aiplan4rust::semantic_analyser::checkers::{
     atomic_formula_checker, task_ordering_checker,
 };
@@ -194,7 +194,7 @@ impl Linker {
                         .next()
                     {
                         let mut domain_declaration = domain_declaration.clone();
-                        domain_declaration.set_source(Source::Domain);
+                        domain_declaration.set_source(SymbolOrigin::Domain);
                         updates.push((symbol.name().to_string(), domain_declaration));
                     } else {
                         println!("{} '{}' not declared", usage.kind(), symbol.name());
