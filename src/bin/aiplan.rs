@@ -83,6 +83,8 @@ fn handle_parse_command(matches: &ArgMatches) {
 ///
 /// Parses command-line arguments and dispatches execution to the appropriate command handler.
 fn main() {
+    env_logger::init();
+
     let matches = build_cli().get_matches();
 
     if let Some(matches) = matches.subcommand_matches(LINK_SUBCOMMAND) {
