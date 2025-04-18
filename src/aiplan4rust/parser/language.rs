@@ -1,44 +1,61 @@
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
-/// An enum representing different types of PDDL and HDDL expressions.
+/// Constant representing the "pddl" language identifier (used in parsing).
+pub const PDDL_LANGUAGE: &str = "pddl";
+
+/// Constant representing the "hddl" language identifier (used in parsing).
+pub const HDDL_LANGUAGE: &str = "hddl";
+
+/// An enum representing different types of planning languages.
 ///
-/// The `Language` enum is used to specify which type of planning language is being
-/// used in the context of parsing. It currently supports two variants:
-/// PDDL (Planning Domain Definition Language) and HDDL (Hierarchical Domain Definition Language).
-/// These variants help determine the syntax and semantics of the expressions being parsed.
+/// This enum is used to identify the expected language of the domain/problem being parsed.
+/// It currently supports:
+/// - [`Language::PDDL`] — the classical Planning Domain Definition Language,
+/// - [`Language::HDDL`] — an extension of PDDL that introduces hierarchical task structures.
 ///
 /// # Variants
-/// - `PDDL`: Represents the Planning Domain Definition Language (PDDL), a widely used language for
-///   defining planning problems and domains.
-/// - `HDDL`: Represents the Hierarchical Domain Definition Language (HDDL), an extension of PDDL
-///   that incorporates hierarchical structures for domain and problem representations.
+/// - `PDDL`: The standard Planning Domain Definition Language.
+/// - `HDDL`: The Hierarchical Domain Definition Language (extension of PDDL).
+///
+/// # Default
+/// The default language is [`Language::PDDL`].
 ///
 /// # Example
 /// ```rust
-/// let language = Language::PDDL;
-/// ```
+/// use aiplan4rust::parser::Language;
+/// use std::str::FromStr;
 ///
-/// # Notes
-/// - This enum is designed to support multiple types of planning languages. As the `aiplan4rust`
-///   library evolves, additional languages or variants may be added to accommodate new planning
-///   languages or extensions.
-
+/// let lang: Language = "hddl".parse().unwrap();
+/// assert_eq!(lang, Language::HDDL);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Language {
     PDDL,
     HDDL,
 }
 
+impl Default for Language {
+    /// Returns [`Language::PDDL`] as the default language.
+    fn default() -> Self {
+        Language::PDDL
+    }
+}
+
 impl FromStr for Language {
     type Err = String;
 
+    /// Converts a string to a [`Language`] enum.
+    ///
+    /// Accepts lowercase identifiers `"pddl"` and `"hddl"` (case-insensitive).
+    ///
+    /// # Errors
+    /// Returns an error if the input string doesn't match any known language.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "pddl" => Ok(Language::PDDL),
-            "hddl" => Ok(Language::HDDL),
-            _ => Err(format!("Invalid language: {}", s)),
+            PDDL_LANGUAGE => Ok(Language::PDDL),
+            HDDL_LANGUAGE => Ok(Language::HDDL),
+            _ => Err(format!("Invalid language: '{}'", s)),
         }
     }
 }
