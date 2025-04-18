@@ -1,4 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::{DiagnosticManager, DiagnosticRenderer, ErrorManager};
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::Linker;
 use crate::aiplan4rust::linker::LinkerResult;
@@ -138,6 +138,10 @@ impl Frontend {
         // Attempt to parse the content, returning the result in parser_result.
         let mut parser_result = parser.parse(source_path, &content, language)?;
 
+        // Pour l'instant j'afficje les erreurs en attends de les transferer à l'analyseur
+        let mut renderer = DiagnosticRenderer::new(parser_result.diagnostic_manager());
+        renderer.display_with_suggestions();
+
         // Match on the syntax tree from the parser result.
         match parser_result.syntax_tree() {
             // If the syntax tree is present, perform semantic analysis.
@@ -147,9 +151,10 @@ impl Frontend {
                 let mut analysis_result = analyzer.analyze(syntax_tree)?;
 
                 // Add errors from the parser's error manager to the analysis result.
-                analysis_result
-                    .error_manager_mut()
-                    .add_errors_from(&parser_result.error_manager());
+                //analysis_result
+                //    .error_manager_mut()
+                //    .add_errors_from(&parser_result.error_manager());
+
 
                 // Return the semantic analysis result.
                 Ok(analysis_result)
@@ -157,7 +162,8 @@ impl Frontend {
             // If no syntax tree is available, return an analysis result with errors.
             None => Ok(AnalyzerResult::new(
                 None,
-                mem::take(&mut parser_result.error_manager_mut()),
+                //mem::take(&mut parser_result.error_manager_mut()),
+                ErrorManager::new()
             )),
         }
     }

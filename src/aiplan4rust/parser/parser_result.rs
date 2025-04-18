@@ -1,4 +1,4 @@
-use crate::aiplan4rust::error::ErrorManager;
+use crate::aiplan4rust::error::{DiagnosticManager, ErrorManager};
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 
 use std::fmt;
@@ -20,7 +20,7 @@ use std::fmt;
 #[derive(Debug, Clone)]
 pub struct ParserResult {
     syntax_tree: Option<SyntaxTree>,
-    error_manager: ErrorManager,
+    diagnostic_manager: DiagnosticManager,
 }
 
 impl ParserResult {
@@ -32,10 +32,10 @@ impl ParserResult {
     ///
     /// # Returns
     /// A new `ParserResult` instance.
-    pub fn new(syntax_tree: Option<SyntaxTree>, error_manager: ErrorManager) -> Self {
+    pub fn new(syntax_tree: Option<SyntaxTree>, diagnostic_manager: DiagnosticManager) -> Self {
         ParserResult {
             syntax_tree,
-            error_manager,
+            diagnostic_manager,
         }
     }
 
@@ -62,16 +62,16 @@ impl ParserResult {
     ///
     /// # Returns
     /// A reference to the `ErrorManager` instance associated with this `ParserResult`.
-    pub fn error_manager(&self) -> &ErrorManager {
-        &self.error_manager
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        &self.diagnostic_manager
     }
 
     /// Returns a mutable reference to the `ErrorManager`, allowing modification of the error state.
     ///
     /// # Returns
     /// A mutable reference to the `ErrorManager` instance associated with this `ParserResult`.
-    pub fn error_manager_mut(&mut self) -> &mut ErrorManager {
-        &mut self.error_manager
+    pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
+        &mut self.diagnostic_manager
     }
 
     /// Checks if the parsing was successful, i.e., the `SyntaxTree` is available.
@@ -96,10 +96,10 @@ impl fmt::Display for ParserResult {
             Some(tree) => {
                 // If the syntax tree exists, display the tree and any errors.
                 write!(f, "Parsing successful:\n{}", tree.root())?;
-                if !self.error_manager.is_empty() {
+                if !self.diagnostic_manager().is_empty() {
                     write!(f, "\nErrors encountered during parsing:\n")?;
-                    for error in self.error_manager.errors() {
-                        write!(f, "{}\n", error)?;
+                    for diagnostic in self.diagnostic_manager().diagnostics() {
+                        write!(f, "{}\n", diagnostic)?;
                     }
                 } else {
                     write!(f, "\nNo errors detected.")?;
@@ -108,8 +108,8 @@ impl fmt::Display for ParserResult {
             None => {
                 // If no syntax tree is available, display parsing failure and errors.
                 write!(f, "Parsing failed:\n")?;
-                for error in self.error_manager.errors() {
-                    write!(f, "{}\n", error)?;
+                for diagnostic in self.diagnostic_manager().diagnostics() {
+                    write!(f, "{}\n", diagnostic)?;
                 }
             }
         }

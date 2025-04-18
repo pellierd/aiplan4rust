@@ -53,7 +53,7 @@ use std::time::SystemTime;
 pub struct Parser<'a> {
     filename: Option<&'a str>,
     source: Option<&'a str>,
-    error_manager: ErrorManager,
+    diagnostic_manager: DiagnosticManager,
 }
 
 impl<'a> Parser<'a> {
@@ -65,7 +65,7 @@ impl<'a> Parser<'a> {
         Self {
             filename: None,
             source: None,
-            error_manager: ErrorManager::new(),
+            diagnostic_manager: DiagnosticManager::new(),
         }
     }
 
@@ -76,8 +76,8 @@ impl<'a> Parser<'a> {
     ///
     /// # Returns
     /// A reference to the `ErrorManager`.
-    pub fn error_manager(&self) -> &ErrorManager {
-        &self.error_manager
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        &self.diagnostic_manager
     }
 
     /// This function parses a PDDL or HDDL file and returns a `SyntaxTree` and handling errors.
@@ -132,6 +132,8 @@ impl<'a> Parser<'a> {
         // Create a lexer from the provided source code
         let lexer = Lexer::new(source);
 
+        self.diagnostic_manager.add_source(filename.to_string(), source.to_string());
+
         // Attempt to parse the source code according to the language specified
         let parse_result = match language {
             Language::PDDL => PDDLParser::new().parse(&mut larlpop_errors, lexer),
@@ -142,10 +144,10 @@ impl<'a> Parser<'a> {
         self.handle_syntax_errors(&larlpop_errors, source);
 
         if self
-            .error_manager()
-            .has_errors_of_kind(ParserErrorKind::LexicalError)
+            .diagnostic_manager()
+            .has_diagnotics_of_severity(DiagnosticSeverity::Error)
         {
-            Ok(ParserResult::new(None, mem::take(&mut self.error_manager)))
+            Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
         } else {
             match parse_result {
                 Ok(mut ast) => {
@@ -154,16 +156,16 @@ impl<'a> Parser<'a> {
                     //println!("AST: {}", ast);
 
                     if self
-                        .error_manager()
-                        .has_errors_of_kind(ParserErrorKind::ParseError)
+                        .diagnostic_manager()
+                        .has_diagnotics_of_severity(DiagnosticSeverity::Error)
                     {
-                        Ok(ParserResult::new(None, mem::take(&mut self.error_manager)))
+                        Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                     } else {
                         let syntax_tree =
                             SyntaxTree::new(ast, Some(filename.to_string()), SystemTime::now());
                         Ok(ParserResult::new(
                             Some(syntax_tree),
-                            mem::take(&mut self.error_manager),
+                            mem::take(&mut self.diagnostic_manager),
                         ))
                     }
                 }
@@ -173,8 +175,8 @@ impl<'a> Parser<'a> {
                         source,
                         Some(filename),
                     );
-                    self.error_manager.add_error(error);
-                    Ok(ParserResult::new(None, mem::take(&mut self.error_manager)))
+                    self.diagnostic_manager.add_diagnostic(error);
+                    Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                 },
             }
         }
@@ -194,7 +196,7 @@ impl<'a> Parser<'a> {
         for larlpop_error in larlpop_errors {
             // Convert each LALRPOP error into a ParserError and add it to the error manager
             let parser_error = self.to_parser_error(&larlpop_error.error, source, self.filename);
-            self.error_manager.add_error(parser_error);
+            self.diagnostic_manager.add_diagnostic(parser_error);
         }
     }
 
@@ -307,6 +309,46 @@ impl<'a> Parser<'a> {
             }
         }
         (line, column)
+    }
+
+    fn get_span(&self, start: &usize, end: &usize, source: &str) -> Span {
+        let mut line = 1;
+        let mut column = 1;
+        let mut sl = 1;
+        let mut sc = 1;
+        let mut el = 1;
+        let mut ec = 1;
+
+        for (i, ch) in source.char_indices() {
+            if i == *start {
+                sl = line;
+                sc = column;
+            }
+            if i == *end {
+                el = line;
+                ec = column;
+                break;
+            }
+            if ch == '\n' {
+                line += 1;
+                column = 1;
+            } else {
+                column += 1;
+            }
+        }
+
+        // Si end est égal à la longueur de la source, on doit capturer la dernière position manuellement
+        if *end == source.len() {
+            el = line;
+            ec = column;
+        }
+
+        let mut span = Span::new(*start, *end);
+        span.set_begin_line(sl);
+        span.set_begin_column(sc);
+        span.set_end_line(el);
+        span.set_end_column(ec);
+        span
     }
 
     /// Recursively normalizes an Abstract Syntax Tree (AST) by processing its nodes and normalizing
@@ -426,20 +468,16 @@ impl<'a> Parser<'a> {
     /// * `duplicate` - A reference to the duplicate `Ast` to log.
     fn log_duplicate_warning(&mut self, duplicate: &SyntaxNode) {
         if let Some(source) = &self.source {
-            let (line, column) = self.get_position(duplicate.start_offset(), source);
             if let SyntaxNodeKind::Requirement(requirement) = duplicate.kind() {
-                let content = format!(
-                    "Duplicate declaration of requirement '{}' detected. Please ensure requirements are not repeated.",
-                    requirement.to_pddl_string()
+                let warning = Diagnostic::new(
+                    DiagnosticKind::DuplicatedRequirementDeclaration {
+                        requirement: requirement.clone(),
+                    },
+                    DiagnosticSource::Parser,
+                    self.filename.unwrap().to_string(),
+                    self.get_span(&duplicate.start_offset(), &duplicate.end_offset(), source),
                 );
-                let warning = ParsingError::new(
-                    ParserErrorKind::ParseWarning,
-                    self.filename.as_deref().map(|s| s.to_string()),
-                    line,
-                    column,
-                    content,
-                );
-                self.error_manager.add_error(warning);
+                self.diagnostic_manager.add_diagnostic(warning);
             }
         }
     }
@@ -695,19 +733,15 @@ impl<'a> Parser<'a> {
                 } else {
                     // Ensure `source` is not None before using `unwrap`
                     if let Some(source) = &self.source {
-                        let (line, column) = self.get_position(child.start_offset(), source);
-                        let content = format!(
-                            "Duplicate type declaration detected and removed: {}. Duplicate declarations can lead to ambiguous behavior or parsing issues. Please ensure type declarations are unique.",
-                            name
+                        let warning = Diagnostic::new(
+                            DiagnosticKind::DuplicatedTypeDeclaration {
+                                ty: name.clone(),
+                            },
+                            DiagnosticSource::Parser,
+                            self.filename.unwrap().to_string(),
+                            self.get_span(&child.start_offset(), &child.end_offset(), source),
                         );
-                        let warning = ParsingError::new(
-                            ParserErrorKind::ParseWarning,
-                            self.filename.as_deref().map(|s| s.to_string()), // Using `as_deref()` to avoid unwrap
-                            line,
-                            column,
-                            content,
-                        );
-                        self.error_manager.add_error(warning);
+                        self.diagnostic_manager.add_diagnostic(warning);
                     } else {
                         // If `source` is None, return an error
                         return Err(ParserInternalError::new(
@@ -727,6 +761,7 @@ impl<'a> Parser<'a> {
         ty.set_children(unique_children); // Replace original children with unique ones
         Ok(())
     }
+
 
     /// Creates a default type for a given AST element. This function assigns a type to an element
     /// based on its kind. Specifically, it assigns the type `primitive` to `AtomicFunctionSkeleton`
@@ -807,95 +842,68 @@ impl<'a> Parser<'a> {
         error: &ParseError<usize, Token, LexicalError>,
         source: &str,
         file_path: Option<&str>,
-    ) -> ParsingError {
-        let file_path = file_path.map(|s| s.to_string());
-        let file_path1 = file_path.clone();
+    ) -> Diagnostic {
+        let file_path = file_path.unwrap().clone().to_string();
         match error {
             ParseError::UnrecognizedToken {
                 token: (start, t, end),
                 expected,
             } => {
-
-                let token = t.to_string();
-                let mut manager = DiagnosticManager::new();
-                manager.add_source(file_path.clone().unwrap(), source.to_string().clone());
-                let (sl, sc) = self.get_position(*start, source);
-                let (el, ec) = self.get_position(*end, source);
-                let mut span = Span::new(*start, *end);
-                span.set_begin_line(sl);
-                span.set_begin_column(sc);
-                span.set_end_line(el);
-                span.set_end_column(ec);
-
-                let cleaned_expected: Vec<String> = expected
-                    .iter()
-                    .map(|s| s.replace('"', ""))
-                    .collect();
-
-                let diag = Diagnostic::new(
-                    DiagnosticKind::UnexpectedToken {token, expected: cleaned_expected } ,
+                let clean_expected= Self::clean_expected(expected);
+                Diagnostic::new(
+                    DiagnosticKind::UnexpectedToken {
+                        token: t.to_string(),
+                        expected:  clean_expected} ,
                     DiagnosticSource::Lexer,
-                    file_path1.unwrap(),
-                    span,
-                );
-
-                manager.add_diagnostic(diag);
-
-                let mut renderer = DiagnosticRenderer::new(&manager);
-                renderer.display_with_suggestions();
-
-                let (line, column) = self.get_position(*start, source);
-                let token = t.symbol().escape_debug().to_string();
-                let content = format!("Unexpected token \"{}\". Expected: {:?}", token, expected);
-                ParsingError::new(
-                    ParserErrorKind::LexicalError,
                     file_path,
-                    line,
-                    column,
-                    content,
+                    self.get_span(start, end, source),
                 )
             }
             ParseError::InvalidToken { location } => {
-                let (line, column) = self.get_position(*location, source);
-                let content = "Invalid token".to_string();
-                ParsingError::new(
-                    ParserErrorKind::LexicalError,
+                Diagnostic::new(
+                    DiagnosticKind::InvalidToken,
+                    DiagnosticSource::Lexer,
                     file_path,
-                    line,
-                    column,
-                    content,
+                    self.get_span(location, location, source),
                 )
             }
             ParseError::User { error } => {
                 let content = error.to_string();
-                ParsingError::new(ParserErrorKind::LexicalError, file_path, 0, 0, content)
+                Diagnostic::new(
+                    DiagnosticKind::CustomError(content),
+                    DiagnosticSource::Lexer,
+                    file_path,
+                    self.get_span(&0, &0, source),
+                )
             }
             ParseError::UnrecognizedEof { location, expected } => {
-                let (line, column) = self.get_position(*location, source);
-                let content = format!("Unrecognized EOF. Expected: {:?}", expected);
-                ParsingError::new(
-                    ParserErrorKind::LexicalError,
+                let clean_expected= Self::clean_expected(expected);
+                Diagnostic::new(
+                    DiagnosticKind::UnexpectedEof {
+                        expected:  clean_expected} ,
+                    DiagnosticSource::Lexer,
                     file_path,
-                    line,
-                    column,
-                    content,
+                    self.get_span(location, location, source),
                 )
             }
             ParseError::ExtraToken {
-                token: (start, t, _end),
+                token: (start, t, end),
             } => {
-                let (line, column) = self.get_position(*start, source);
-                let token = t.symbol().escape_debug().to_string();
-                let content = format!("Extra token \"{}\" encountered.", token);
-                ParsingError::new(
-                    ParserErrorKind::LexicalError,
+                Diagnostic::new(
+                    DiagnosticKind::ExtraToken {
+                        token:  t.to_string(),
+                    },
+                    DiagnosticSource::Lexer,
                     file_path,
-                    line,
-                    column,
-                    content,
+                    self.get_span(start, end, source),
                 )
             }
         }
+    }
+    fn clean_expected(expected: &[String]) -> Vec<String> {
+        expected.iter()
+            .map(|s| s.replace('"', ""))
+            .collect()
     }
 }
 
