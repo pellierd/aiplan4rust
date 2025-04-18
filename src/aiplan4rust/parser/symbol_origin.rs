@@ -10,7 +10,8 @@ pub const SYMBOL_ORIGIN_UNKNOWN: &str = "Unknown";
 ///
 /// Symbols used in PDDL planning problems may come from different sources:
 /// - The domain file, which defines general planning constructs (e.g., types, predicates, actions).
-/// - The problem file, which defines a specific planning instance (e.g., objects, initial state, goal).
+/// - The problem file, which defines a specific planning instance (e.g., objects, initial state,
+///   goal).
 /// - Or an unknown context, typically resulting from parsing failures or incomplete input.
 ///
 /// This enum helps track the provenance of each symbol to assist in error reporting,

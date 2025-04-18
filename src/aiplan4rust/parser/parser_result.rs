@@ -1,22 +1,25 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-
 use std::fmt;
 
-/// A structure representing the result of a parsing operation.
+/// Represents the outcome of a parsing operation in the PDDL parser.
 ///
-/// The `ParserResult` contains an optional `SyntaxTree` and an `ErrorManager`.
-/// The `SyntaxTree` is the output of the parsing process, while the `ErrorManager` tracks
-/// errors that occurred during the parsing process, including recoverable errors.
+/// This structure encapsulates two core elements:
+/// - An optional [`SyntaxTree`], which is produced only if parsing succeeds without unrecoverable errors.
+/// - A [`DiagnosticManager`] that stores all diagnostics (errors, warnings, etc.) generated during parsing.
 ///
-/// This structure provides methods to access the `SyntaxTree` and manage the associated
-/// errors through the `ErrorManager`.
+/// The `ParserResult` acts as a unified return type for the parsing phase,
+/// making it easier to inspect whether parsing succeeded, and to access detailed error reports.
 ///
-/// # Fields
-/// - `syntax_tree`: An `Option<SyntaxTree>` that may contain the parsed syntax tree, or `None`
-///   if the parsing failed.
-/// - `error_manager`: An instance of `ErrorManager` which handles the errors encountered
-///   during parsing, including recoverable errors.
+/// # Example
+/// ```
+/// let result = parser.parse();
+/// if result.is_some() {
+///     println!("Parsed successfully!");
+/// } else {
+///     println!("Parsing failed: {:?}", result.diagnostic_manager().diagnostics());
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct ParserResult {
     syntax_tree: Option<SyntaxTree>,
@@ -24,14 +27,11 @@ pub struct ParserResult {
 }
 
 impl ParserResult {
-    /// Creates a new `ParserResult` with the given `SyntaxTree` and `ErrorManager`.
+    /// Constructs a new `ParserResult` with a given syntax tree and diagnostic manager.
     ///
     /// # Arguments
-    /// - `syntax_tree`: An optional `SyntaxTree` that represents the result of parsing.
-    /// - `error_manager`: An `ErrorManager` that tracks errors encountered during parsing.
-    ///
-    /// # Returns
-    /// A new `ParserResult` instance.
+    /// * `syntax_tree` - The resulting syntax tree, or `None` if parsing failed completely.
+    /// * `diagnostic_manager` - A manager that tracks diagnostics emitted during parsing.
     pub fn new(syntax_tree: Option<SyntaxTree>, diagnostic_manager: DiagnosticManager) -> Self {
         ParserResult {
             syntax_tree,
@@ -39,58 +39,52 @@ impl ParserResult {
         }
     }
 
-    /// Returns a reference to the `SyntaxTree` if available, or an error if no tree is present.
+    /// Returns an immutable reference to the parsed syntax tree, if available.
     ///
     /// # Returns
-    /// - `Some(&SyntaxTree)`: A reference to the parsed syntax tree if parsing was successful.
-    /// - `None`: If parsing failed and no syntax tree is available.
+    /// * `Some(&SyntaxTree)` if parsing succeeded.
+    /// * `None` if parsing failed.
     pub fn syntax_tree(&self) -> Option<&SyntaxTree> {
         self.syntax_tree.as_ref()
     }
 
-    /// Returns a mutable reference to the `SyntaxTree` if available, allowing modification of the
-    /// tree.
+    /// Returns a mutable reference to the parsed syntax tree, if available.
     ///
-    /// # Returns
-    /// - `Some(&mut SyntaxTree)`: A mutable reference to the parsed syntax tree.
-    /// - `None`: If no syntax tree is available, as the parsing has failed.
+    /// This allows further modifications to the tree after parsing.
     pub fn syntax_tree_mut(&mut self) -> Option<&mut SyntaxTree> {
         self.syntax_tree.as_mut()
     }
 
-    /// Returns a reference to the `ErrorManager`, which tracks errors encountered during parsing.
+    /// Returns an immutable reference to the diagnostic manager.
     ///
-    /// # Returns
-    /// A reference to the `ErrorManager` instance associated with this `ParserResult`.
+    /// The diagnostic manager contains all diagnostics produced during the parsing process.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
-    /// Returns a mutable reference to the `ErrorManager`, allowing modification of the error state.
+    /// Returns a mutable reference to the diagnostic manager.
     ///
-    /// # Returns
-    /// A mutable reference to the `ErrorManager` instance associated with this `ParserResult`.
+    /// Allows appending new diagnostics or modifying the internal state.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
 
-    /// Checks if the parsing was successful, i.e., the `SyntaxTree` is available.
-    ///
-    /// # Returns
-    /// `true` if the parsing was successful (i.e., `syntax_tree` is `Some`), otherwise `false`.
+    /// Returns `true` if parsing succeeded and a syntax tree is available.
     pub fn is_some(&self) -> bool {
         self.syntax_tree.is_some()
     }
 
-    /// Checks if the parsing was unsuccessful, i.e., the `SyntaxTree` is not available.
-    ///
-    /// # Returns
-    /// `true` if the parsing was unsuccessful (i.e., `syntax_tree` is `None`), otherwise `false`.
+    /// Returns `true` if parsing failed and no syntax tree was produced.
     pub fn is_none(&self) -> bool {
         self.syntax_tree.is_none()
     }
 }
+
 impl fmt::Display for ParserResult {
+    /// Formats the parser result into a human-readable string.
+    ///
+    /// Displays whether the parsing was successful, the root of the syntax tree (if any),
+    /// and all associated diagnostics.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.syntax_tree {
             Some(tree) => {
