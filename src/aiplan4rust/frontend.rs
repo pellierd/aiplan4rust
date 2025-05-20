@@ -51,41 +51,29 @@ impl Frontend {
         problem_path: &str,
         language: &Language,
     ) -> Result<LinkerResult, ParserInternalError> {
-        let diagnostic_manager = DiagnosticManager::new();
+        let mut diagnostic_manager = DiagnosticManager::new();
 
         // Parse the domain file
         let domain = self.parse_file(domain_path, language)?;
+        diagnostic_manager.add_diagnostic_from(domain.diagnostic_manager());
 
         // Parse the problem file
         let problem = self.parse_file(problem_path, language)?;
+        diagnostic_manager.add_diagnostic_from(problem.diagnostic_manager());
 
-        // Check if the annotated syntax tree exists for the domain
-        let domain_tree = match domain.annotated_syntax_tree() {
-            Some(tree) => tree,
-            None => {
-                return Ok(LinkerResult::new(None, diagnostic_manager));
+        match (domain.annotated_syntax_tree(), problem.annotated_syntax_tree()) {
+            (Some(domain_tree), Some(problem_tree)) => {
+                let mut linker = Linker::new();
+                let mut linker_result = linker.link(domain_tree, problem_tree)?;
+
+                linker_result
+                    .diagnostic_manager_mut()
+                    .add_diagnostic_from(&diagnostic_manager);
+
+                Ok(linker_result)
             }
-        };
-
-        // Check if the annotated syntax tree exists for the problem
-        let problem_tree = match problem.annotated_syntax_tree() {
-            Some(tree) => tree,
-            None => {
-                return Ok(LinkerResult::new(None, diagnostic_manager));
-            }
-        };
-
-        // Attempt to link the domain and problem
-        let mut linker = Linker::new();
-        let mut linker_result = linker.link(domain_tree, problem_tree)?;
-
-        // Add all errors from the error manager into the linker result
-        linker_result
-            .diagnostic_manager_mut()
-            .add_diagnostic_from(&diagnostic_manager);
-
-        // Return the result with the accumulated error state
-        Ok(linker_result)
+            _ => Ok(LinkerResult::new(None, diagnostic_manager)),
+        }
     }
 
     /// Parses the source file at the given path and performs semantic analysis on the parsed syntax

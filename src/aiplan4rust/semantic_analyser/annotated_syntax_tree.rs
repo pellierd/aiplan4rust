@@ -4,8 +4,8 @@ use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::SymbolTable;
-
 use crate::aiplan4rust::parser::SymbolOrigin;
+
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;

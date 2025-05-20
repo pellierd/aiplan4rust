@@ -143,7 +143,7 @@ fn parse(
             }
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("{}", e.message);
         }
     }
 }
@@ -209,7 +209,7 @@ pub fn parse_file(input_file: &str, language: &Language, format: &FileFormat, ou
             }
         }
         Err(e) => {
-            eprintln!("Error: {}", e);
+            eprintln!("{}", e.message);
         }
     }
 }
