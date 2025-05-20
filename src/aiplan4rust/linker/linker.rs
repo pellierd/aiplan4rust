@@ -41,7 +41,6 @@ impl Linker {
         domain: &LiftedDomain,
         problem: &LiftedProblem,
     ) -> Result<LinkerResult, ParserInternalError> {
-        println!("Domain and problem linking");
 
         // TO DO: Vérifier la consistence des requirements déclarés dans le problem et dans le domaine
         // et vérifier ici qu''ils ne sont pas contradictoires
@@ -50,11 +49,7 @@ impl Linker {
         let mut problem = problem.clone();
         // Si le nom de domaine est déclaré, vérifier les symboles non déclarés
         if self.check_undeclared_problem_symbols(domain, &mut problem)? {
-            println!(
-                "Table des symboles de problème liée \n: {}",
-                problem.symbol_table()
-            );
-
+            
             let type_checker = TypeChecker::new(&domain.symbol_table());
             atomic_formula_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
 

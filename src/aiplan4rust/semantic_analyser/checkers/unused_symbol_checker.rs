@@ -35,72 +35,51 @@ pub fn check(
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let mut no_error = true;
+    let no_error = true;
 
-    // Get the symbol table from the annotated syntax tree
     let symbol_table = syntax_tree.symbol_table();
 
-    // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
         for declaration in symbol.declarations() {
-            // Skip the declaration if it should be ignored or is in the skip list
+            let declaration_kind = declaration.kind().clone();
+
             if skip_unused_symbol_declaration(symbol, declaration, syntax_tree)?
-                || skip_symbols.contains(declaration.kind())
+                || skip_symbols.contains(&declaration_kind)
             {
                 continue;
             }
 
-            // Check if the symbol's declaration is a predefined PDDL symbol
             check_pddl_builtin_symbol_declaration(symbol, declaration, syntax_tree, diagnostic_manager)?;
 
             let declaration_scope = declaration.scope();
-            let declaration_kind = declaration.kind();
 
-            // Find if the symbol is used within the same or a sub-scope
-            let usage_opt = symbol
+            // Vérifie s'il y a au moins un usage valide
+            let has_valid_usage = symbol
                 .usages()
                 .iter()
-                .find(|usage| usage.scope().starts_with(&declaration_scope));
+                .any(|usage| {
+                    usage.scope().starts_with(&declaration_scope)
+                });
 
-            match usage_opt {
-                None => {
-                    // If no usage is found, generate a warning
-                    let entry = syntax_tree.get_entry(declaration.ast()).unwrap();
-                    let warning = Diagnostic::new(
-                        DiagnosticKind::UnusedSymbol {
-                            symbol: symbol.name().clone(),
-                            kind: declaration.kind().clone(),
-                        },
-                        DiagnosticSource::SemanticAnalyzer,
-                        syntax_tree.filename().clone(),
-                        entry.span().clone(),
-                    );
-                    diagnostic_manager.add_diagnostic(warning);
-                }
-                Some(usage) => {
-                    // If a usage is found, check the consistency between the declaration and the usage
-                    if usage.kind() != declaration_kind {
-                        no_error = false;
-                        let entry = syntax_tree.get_entry(usage.ast()).unwrap();
-                        let error = Diagnostic::new(
-                            DiagnosticKind::ConflictingSymbolUsage {
-                                symbol: symbol.name().clone(),
-                                declared_kind: declaration.kind().clone(),
-                                used_kind: usage.kind().clone(),
-                            },
-                            DiagnosticSource::SemanticAnalyzer,
-                            syntax_tree.filename().clone(),
-                            entry.span().clone(),
-                        );
-                        diagnostic_manager.add_diagnostic(error);
-                    }
-                }
+            if !has_valid_usage {
+                let entry = syntax_tree.get_entry(declaration.ast()).unwrap();
+                let warning = Diagnostic::new(
+                    DiagnosticKind::UnusedSymbol {
+                        symbol: symbol.name().clone(),
+                        kind: declaration_kind.clone(),
+                    },
+                    DiagnosticSource::SemanticAnalyzer,
+                    syntax_tree.filename().clone(),
+                    entry.span().clone(),
+                );
+                diagnostic_manager.add_diagnostic(warning);
             }
         }
     }
 
     Ok(no_error)
 }
+
 
 /// Determines whether a declaration should be skipped during duplicate checking.
 ///

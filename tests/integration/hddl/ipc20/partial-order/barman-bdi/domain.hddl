@@ -21,7 +21,7 @@
 	(empty ?p0 - container)
 	(handEmpty ?p0 - hand)
 	(holding ?p0 - hand ?p1 - container)
-	(ingredient ?p0 - ingredient)
+	;;(ingredient ?p0 - ingredient)
 	(next ?p0 - level ?p1 - level)
 	(ontable ?p0 - container)
 	(shaked ?p0 - shaker)

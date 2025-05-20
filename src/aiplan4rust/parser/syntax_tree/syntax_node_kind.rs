@@ -49,7 +49,7 @@ pub enum SyntaxNodeKind {
     Constant(String),
     /// Represents a variable used in actions or predicates, typically a placeholder for values.
     Variable(String),
-    /// Represents a function symbols, typically used in mathematical functions or expressions.
+    /// Represents a function symbol, typically used in mathematical functions or expressions.
     FunctionSymbol(String),
     /// Represents a basic data type, such as integers or booleans, used in the planning problem.
     PrimitiveType(String),
@@ -57,9 +57,9 @@ pub enum SyntaxNodeKind {
     DomainName(String),
     /// Represents the name of the problem in a PDDL file.
     ProblemName(String),
-    /// Represents a predicate symbols used in logical expressions or actions.
+    /// Represents a predicate symbol used in logical expressions or actions.
     Predicate(String),
-    /// Represents an action symbols used in the problem specification.
+    /// Represents an action symbol used in the problem specification.
     ActionSymbol(String),
     /// Represents a symbol used for defining Durative Actions.
     DASymbol(String),

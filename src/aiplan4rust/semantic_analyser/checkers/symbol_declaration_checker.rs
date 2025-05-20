@@ -5,7 +5,8 @@ use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
+
 /// Checks for duplicate symbol declarations in the symbol table and logs errors
 /// to the error manager if duplicates are found.
 ///
@@ -28,46 +29,102 @@ pub fn check(
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
-        let mut seen_scopes = HashSet::new();
+        let mut seen_scopes: HashMap<Scope, Declaration> = HashMap::new();
 
         // Iterate over each declaration for the symbol.
         for declaration in symbol.declarations() {
             // Skip duplicate checks for symbols of kind DomainName or ProblemName.
-            // These can be used as symbols for types or predicates, so duplicates may be allowed.
             if skip_duplicated_declaration(declaration)? {
                 continue;
             }
 
             let ast_entry = syntax_tree.get_entry(declaration.ast()).unwrap();
-            if seen_scopes
-                .iter()
-                .any(|s: &&Scope| declaration.scope().starts_with(s))
-            {
+            let current_scope = declaration.scope();
+
+            // Vérifie si une déclaration a déjà été rencontrée dans ce scope ou un super-scope
+            let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));
+
+            if let Some((conflicting_scope, previous_declaration)) = maybe_conflict {
                 checked = false;
-                let scope_index = declaration.scope().iter().last().unwrap();
+
+                let scope_index = conflicting_scope.iter().last().unwrap();
                 let scope = syntax_tree.get_entry(*scope_index).unwrap();
+
                 let error = Diagnostic::new(
                     DiagnosticKind::DuplicatedDeclarationInScope {
                         symbol: symbol.name().clone(),
-                        declaration: declaration.clone(),
-                        scope: scope.clone()},
+                        declaration1: previous_declaration.clone(),
+                        declaration2: declaration.clone(),
+                        scope: scope.clone(),
+                    },
                     DiagnosticSource::SemanticAnalyzer,
                     syntax_tree.filename().clone(),
                     ast_entry.span().clone(),
                 );
 
-
-
                 diagnostic_manager.add_diagnostic(error);
             } else {
-                // Ajouter à seen_scopes si aucun élément existant ne commence par declaration.scope()
-                seen_scopes.insert(declaration.scope());
+                seen_scopes.insert(current_scope.clone(), declaration.clone());
             }
         }
     }
 
     Ok(checked)
 }
+
+
+
+
+
+
+/*pub fn check(
+    syntax_tree: &AnnotatedSyntaxTree,
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<bool, ParserInternalError> {
+    let mut checked = true;
+    let symbol_table = syntax_tree.symbol_table();
+
+    // Iterate over each symbol in the symbol table.
+    for symbol in symbol_table.values() {
+        // Pour chaque couple (scope, kind) déjà vu pour ce symbole
+        let mut seen_scope_kind = HashSet::new();
+
+        for declaration in symbol.declarations() {
+            //if skip_duplicated_declaration(declaration)? {
+            //    continue;
+            //}
+
+            let scope = declaration.scope();
+            let kind = declaration.kind();
+            let scope_kind = (scope.clone(), kind);
+
+            let ast_entry = syntax_tree.get_entry(declaration.ast()).unwrap();
+
+            if seen_scope_kind.contains(&scope_kind) {
+                checked = false;
+                let scope_index = scope.iter().last().unwrap();
+                let scope_entry = syntax_tree.get_entry(*scope_index).unwrap();
+
+                let error = Diagnostic::new(
+                    DiagnosticKind::DuplicatedDeclarationInScope {
+                        symbol: symbol.name().clone(),
+                        declaration: declaration.clone(),
+                        scope: scope_entry.clone(),
+                    },
+                    DiagnosticSource::SemanticAnalyzer,
+                    syntax_tree.filename().clone(),
+                    ast_entry.span().clone(),
+                );
+
+                diagnostic_manager.add_diagnostic(error);
+            } else {
+                seen_scope_kind.insert(scope_kind);
+            }
+        }
+    }
+
+    Ok(checked)
+}*/
 
 fn skip_duplicated_declaration(declaration: &Declaration) -> Result<bool, ParserInternalError> {
     if matches!(

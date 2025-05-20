@@ -52,7 +52,8 @@ pub enum DiagnosticKind {
     },
     DuplicatedDeclarationInScope {
         symbol: String,
-        declaration: Declaration,
+        declaration1: Declaration,
+        declaration2: Declaration,
         scope: AnnotatedSyntaxNode,
     },
     CyclicOrderingConstraint,
@@ -74,11 +75,6 @@ pub enum DiagnosticKind {
     UnusedSymbol {
         symbol: String,
         kind: SymbolKind,
-    },
-    ConflictingSymbolUsage {
-        symbol: String,
-        declared_kind: SymbolKind,
-        used_kind: SymbolKind,
     },
     DomainProblemNameMismatch {
         domain_name: String,
@@ -105,15 +101,14 @@ impl DiagnosticKind {
             DiagnosticKind::UnDefinedPrimitiveTask { .. } => "E1004".to_string(),
             DiagnosticKind::TypeMismatchInExpression { .. } => "E1005".to_string(),
             DiagnosticKind::InvalidTypesInNumericExpression { .. } => "E1006".to_string(),
-            DiagnosticKind::RequirementViolation { .. } => "E1007".to_string(),
-            DiagnosticKind::DuplicatedDeclarationInScope { .. } => "E1010".to_string(),
-            DiagnosticKind::CyclicOrderingConstraint { .. } => "E1011".to_string(),
-            DiagnosticKind::UndeclaredSymbol { .. } => "E1012".to_string(),
-            DiagnosticKind::ReservedSymbolUsedAs { .. } => "E1013".to_string(),
-            DiagnosticKind::ConflictingSymbolUsage { .. } => "E1014".to_string(),
+            DiagnosticKind::DuplicatedDeclarationInScope { .. } => "E1007".to_string(),
+            DiagnosticKind::CyclicOrderingConstraint { .. } => "E1008".to_string(),
+            DiagnosticKind::UndeclaredSymbol { .. } => "E1009".to_string(),
+            DiagnosticKind::ReservedSymbolUsedAs { .. } => "E1010".to_string(),
             // WARNINGS ANALYSER
             DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => "W1010".to_string(),
             DiagnosticKind::UnusedSymbol { .. } => "W1011".to_string(),
+            DiagnosticKind::RequirementViolation { .. } => "W10012".to_string(),
 
             // WARNINGS LINKER
             DiagnosticKind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
@@ -169,7 +164,7 @@ impl DiagnosticKind {
                 format!("Duplicate declaration of symbol '{}'.", symbol)
             }
             DiagnosticKind::CyclicOrderingConstraint => {
-                "Cyclic task ordering constraint detected.".to_string()
+                "Cyclic task-ordering constraint detected.".to_string()
             }
             DiagnosticKind::UndeclaredSymbol { symbol , kind} => {
                 format!("{} symbol '{}' undeclared.", symbol, kind)
@@ -180,11 +175,8 @@ impl DiagnosticKind {
             DiagnosticKind::AmbiguousSymbolUsageWithKeyword {symbol, ..} => {
                 format!("Symbol '{}' is ambiguous as a language keyword", symbol)
             }
-            DiagnosticKind::UnusedSymbol {symbol, ..} => {
-                format!("Symbol '{}' is unused", symbol)
-            }
-            DiagnosticKind::ConflictingSymbolUsage {symbol, ..} => {
-                format!("Symbol '{}' is used inconsistently for different purposes.", symbol)
+            DiagnosticKind::UnusedSymbol {symbol, kind  } => {
+                format!("{} Symbol '{}' is unused", kind, symbol)
             }
             DiagnosticKind::DomainProblemNameMismatch { domain_name, problem_name } => {
                 format!("Domain name '{}' does not match problem name '{}'.", domain_name, problem_name)
@@ -211,15 +203,14 @@ impl DiagnosticKind {
             DiagnosticKind::UnDefinedPrimitiveTask { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::TypeMismatchInExpression { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::InvalidTypesInNumericExpression { .. } => DiagnosticSeverity::Error,
-            DiagnosticKind::RequirementViolation { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::DuplicatedDeclarationInScope { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::CyclicOrderingConstraint => DiagnosticSeverity::Error,
             DiagnosticKind::UndeclaredSymbol { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::ReservedSymbolUsedAs { .. } => DiagnosticSeverity::Error,
-            DiagnosticKind::ConflictingSymbolUsage { .. } => DiagnosticSeverity::Error,
             // ANALYSER WARNINGS
             DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::UnusedSymbol { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::RequirementViolation { .. } => DiagnosticSeverity::Warning,
 
             // LINKER WARNINGS
             DiagnosticKind::DomainProblemNameMismatch { .. } => DiagnosticSeverity::Warning,
@@ -276,11 +267,13 @@ impl DiagnosticKind {
                     Self::format_requirements_list(&required)
                 ))
             }
-            DiagnosticKind::DuplicatedDeclarationInScope { scope, .. } => {
+            DiagnosticKind::DuplicatedDeclarationInScope { symbol, declaration1, declaration2, .. } => {
                 Some(format!(
-                    "A symbol with the same name is already declared in the scope starting at line {}, column {}. Consider renaming one of them.",
-                    scope.span().begin_line(),
-                    scope.span().begin_column()
+                    "The symbol '{}' is declared once as a '{}' and again as a '{}'. \
+                        Consider renaming one of the declarations or ensuring consistent usage.",
+                    symbol,
+                    declaration1.kind(),
+                    declaration2.kind()
                 ))
             }
             DiagnosticKind::CyclicOrderingConstraint => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
@@ -363,12 +356,6 @@ impl DiagnosticKind {
                     "{} symbol '{}' is declared but not used. Consider removing it to clean up your code.",
                     kind,
                     symbol
-                ))
-            }
-            DiagnosticKind::ConflictingSymbolUsage { symbol, declared_kind, used_kind } => {
-                Some(format!(
-                    "Symbol '{}' declared as {} but used as {}. Ensure consistency in its usage across the program.",
-                    symbol, declared_kind, used_kind
                 ))
             }
             DiagnosticKind::DomainProblemNameMismatch { domain_name, .. } => {
