@@ -87,23 +87,12 @@ impl AnnotatedSyntaxNode {
     /// ```rust
     /// let annotated_node = AnnotatedSyntaxNode::from(&syntax_node, &index_table)?;
     /// ```
-    pub fn from(
-        node: &SyntaxNode,
-        index_table: &HashMap<&SyntaxNode, usize>,
-    ) -> Result<AnnotatedSyntaxNode, ParserInternalError> {
-        let mut children = Vec::new();
-
-        for child in node.children() {
-            match index_table.get(child.as_ref()) {
-                Some(&index) => children.push(index),
-                None => {
-                    return Err(ParserInternalError::new(format!(
-                        "Node not found in index table: {:?}",
-                        child
-                    )))
-                }
-            }
-        }
+    pub fn from(node: &SyntaxNode) -> Result<AnnotatedSyntaxNode, ParserInternalError> {
+        let children = node
+            .children()
+            .iter()
+            .map(|child| child.id())
+            .collect();
 
         Ok(AnnotatedSyntaxNode::new(
             node.kind().clone(),

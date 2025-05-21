@@ -99,20 +99,10 @@ impl SyntaxTree {
     pub fn flatten(
         &self,
     ) -> Result<LinkedHashMap<usize, AnnotatedSyntaxNode>, ParserInternalError> {
-        // Vérification du type de l'AST
         match self.root.kind() {
             SyntaxNodeKind::Domain | SyntaxNodeKind::Problem => {
-                println!("to_hash_map");
-                let index_table = self.root.to_hash_map();
-                println!("fin to_hash_map");
                 let mut nodes = LinkedHashMap::new();
-                let mut next_index = 0;
-                Self::flatten_rec(
-                    self.root.as_ref(),
-                    &index_table,
-                    &mut nodes,
-                    &mut next_index,
-                )?;
+                Self::flatten_rec(self.root.as_ref(), &mut nodes)?;
                 Ok(nodes)
             }
             _ => Err(ParserInternalError::new(
@@ -123,16 +113,14 @@ impl SyntaxTree {
 
     fn flatten_rec(
         root: &SyntaxNode,
-        index_table: &HashMap<&SyntaxNode, usize>,
         nodes: &mut LinkedHashMap<usize, AnnotatedSyntaxNode>,
-        next_index: &mut usize,
     ) -> Result<(), ParserInternalError> {
         let mut stack = vec![root];
 
         while let Some(node) = stack.pop() {
-            let entry = AnnotatedSyntaxNode::from(node, index_table)?;
-            nodes.insert(*next_index, entry);
-            *next_index += 1;
+            let id = node.id();
+            let entry = AnnotatedSyntaxNode::from(node)?;
+            nodes.insert(id, entry);
 
             for child in node.children().iter().rev() {
                 stack.push(child.as_ref());
