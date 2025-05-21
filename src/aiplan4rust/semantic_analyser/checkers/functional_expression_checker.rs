@@ -139,7 +139,7 @@ fn check_equal_and_assignment_expression(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
-    if !type_checker.match_type(ty1, ty2)? {
+    if !type_checker.match_type(ty1, ty2)? && !type_checker.match_type(ty2, ty1)? {
         no_error = false;
         let error = Diagnostic::new(
             DiagnosticKind::TypeMismatchInExpression { ty1: ty1.clone(), ty2 : ty2.clone() },

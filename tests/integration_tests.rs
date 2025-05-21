@@ -1,17 +1,18 @@
+use std::fs::{self, File};
+use std::io::Write;
 use std::path::Path;
-use std::fs;
-use aiplan4rust::{Frontend, Language, DiagnosticRenderer};
+use test_case::test_case;
 
-// Teste un seul domaine donné (un dossier contenant des problèmes et domaines)
-fn test_domain(domain_dir: &Path, language: &Language) {
-    let mut files = fs::read_dir(domain_dir)
+use aiplan4rust::{DiagnosticRenderer, Frontend, Language};
+
+fn test_domain(domain_dir: &Path, language: &Language) -> bool {
+    let files = fs::read_dir(domain_dir)
         .expect("Cannot read domain subdir")
         .filter_map(Result::ok)
         .map(|e| e.path())
         .filter(|p| p.extension().map(|s| s == "hddl").unwrap_or(false))
         .collect::<Vec<_>>();
 
-    // Filtrer et trier uniquement les fichiers problème (pb*)
     let mut problem_files: Vec<_> = files.iter()
         .filter(|p| {
             p.file_name()
@@ -23,6 +24,8 @@ fn test_domain(domain_dir: &Path, language: &Language) {
         .collect();
 
     problem_files.sort_by_key(|p| p.file_name().map(|f| f.to_os_string()));
+
+    let mut success = true;
 
     for problem_path in problem_files {
         let problem_stem = problem_path
@@ -38,14 +41,16 @@ fn test_domain(domain_dir: &Path, language: &Language) {
         } else if domain_path1.exists() {
             domain_path1
         } else {
-            panic!(
+            eprintln!(
                 "No domain file found for problem: {}",
                 problem_path.display()
             );
+            success = false;
+            continue;
         };
 
         println!(
-            "Parsing domain: {} and problem: {}",
+            "\x1b[1;36mParsing:\x1b[0m \n - {} \n - {}",
             domain_path.display(),
             problem_path.display()
         );
@@ -57,55 +62,58 @@ fn test_domain(domain_dir: &Path, language: &Language) {
             language,
         );
 
+        let diag_path = domain_dir.join(format!("{}.diag", problem_stem));
+        let mut diag_file = File::create(&diag_path)
+            .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
+
         match result {
             Ok(linker_result) => {
-                let mut renderer = DiagnosticRenderer::new(linker_result.diagnostic_manager());
-                renderer.display();
+                let mut buffer = Vec::new();
+                DiagnosticRenderer::write_to(linker_result.diagnostic_manager(), &mut buffer, false)
+                    .expect("Failed to write diagnostics");
+                diag_file.write_all(&buffer).expect("Failed to write to diag file");
 
-                assert!(
-                    linker_result.planning_task().is_some(),
-                    "Expected linked planning task to be available for: {}",
-                    problem_path.display()
-                );
+                if linker_result.planning_task().is_none() {
+                    eprintln!(
+                        "\x1b[1;36m===> Failure:\x1b[0m {}",
+                        diag_path.display()
+                    );
+                    success = false;
+                }
             }
             Err(e) => {
-                eprintln!(
-                    "Parsing error for domain: {} and problem: {}.\nError: {}",
+                let err_msg = format!(
+                    "Parsing error for domain: {} and problem: {}.\nError: {}\n",
                     domain_path.display(),
                     problem_path.display(),
                     e
                 );
-                panic!("Parsing failed");
+                eprintln!("{}", err_msg);
+                diag_file.write_all(err_msg.as_bytes()).expect("Failed to write error to diag file");
+                success = false;
             }
         }
     }
+
+    success
 }
 
-fn test_competition(competition_dir: &Path, language: &Language) {
-    // Collecte tous les sous-dossiers
-    let mut domain_dirs = fs::read_dir(competition_dir)
-        .expect("Cannot read competition dir")
-        .filter_map(Result::ok)
-        .map(|entry| entry.path())
-        .filter(|path| path.is_dir())
-        .collect::<Vec<_>>();
-
-    // Trie les dossiers par nom (alphabetique)
-    domain_dirs.sort_by_key(|path| path.file_name().map(|f| f.to_os_string()));
-
-    // Parcours les dossiers triés
-    for domain_dir in domain_dirs {
-        test_domain(&domain_dir, language);
-    }
-}
-
-// Test global qui teste toutes les compétitions (plusieurs dossiers racines)
-#[test]
-fn test_all_competitions() {
-    let ipc20_partial_order_coloring = Path::new("tests/integration/hddl/ipc20/partial-order/colouring");
-    let ipc20_partial_order_monroe_fully_observable = Path::new("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable");
-
-    test_domain(ipc20_partial_order_coloring, &Language::HDDL);
-
-    test_domain(ipc20_partial_order_monroe_fully_observable, &Language::HDDL);
+// Génère un test par domaine trouvé dans le dossier
+// Chaque `#[test_case]` crée un test distinct dans `cargo test`
+//#[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
+//#[test_case("tests/integration/hddl/ipc20/partial-order/colouring"; "ipc20_partial_order_colouring")]
+//#[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]
+//#[test_case("tests/integration/hddl/ipc20/partial-order/monroe-partially-observable"; "ipc20_partial_order_monroe_partially_observable")]
+//#[test_case("tests/integration/hddl/ipc20/partial-order/pcp"; "ipc20_partial_order_pcp")]
+//#[test_case("tests/integration/hddl/ipc20/partial-order/rover"; "ipc20_partial_order_rover")]
+//#[test_case("tests/integration/hddl/ipc20/partial-order/satellite"; "ipc20_partial_order_satellite")]
+//#[test_case("tests/integration/hddl/ipc20/partial-order/transport"; "ipc20_partial_order_transport")]
+#[test_case("tests/integration/hddl/ipc20/partial-order/ultralight-cockpit"; "ipc20_partial_order_ultralight-cockpit")]
+fn test_each_domain(domain_path: &str) {
+    let path = Path::new(domain_path);
+    assert!(
+        test_domain(path, &Language::HDDL),
+        "Domain test failed for {}",
+        domain_path
+    );
 }

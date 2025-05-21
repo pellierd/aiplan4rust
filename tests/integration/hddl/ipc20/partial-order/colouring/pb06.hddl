@@ -4,6 +4,14 @@
     n0 n1 n2 n3 - number
  c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 IGN - colour
   )
+  (:htn
+      :tasks (and
+        (rows n0)
+        (start_line n0)
+        (start_line n1)
+        (start_line n2)
+      )
+    )
   (:init
     (next n0 n1)
     (next n1 n2)
@@ -42,12 +50,5 @@
     (tile c7 c4 c8 c8 n1)
     (tile c9 c5 c1 c8 n1)
   )
-  (:htn
-    :tasks (and
-      (rows n0)
-      (start_line n0)
-      (start_line n1)
-      (start_line n2)
-    )
-  )
+
 )

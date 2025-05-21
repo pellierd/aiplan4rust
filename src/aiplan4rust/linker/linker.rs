@@ -49,7 +49,7 @@ impl Linker {
         let mut problem = problem.clone();
         // Si le nom de domaine est déclaré, vérifier les symboles non déclarés
         if self.check_undeclared_problem_symbols(domain, &mut problem)? {
-            
+
             let type_checker = TypeChecker::new(&domain.symbol_table());
             atomic_formula_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
 

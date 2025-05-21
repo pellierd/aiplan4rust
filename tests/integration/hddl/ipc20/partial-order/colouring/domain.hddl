@@ -6,8 +6,6 @@
 ;;;(:constants Y N - status U D L R - direction)
 
 
-
-
 (:predicates
 	(next ?x ?y - number)
 	(hasCounter ?x - number)

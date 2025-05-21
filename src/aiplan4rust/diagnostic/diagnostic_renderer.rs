@@ -10,6 +10,7 @@ pub struct DiagnosticRenderer<'a> {
 }
 
 impl<'a> DiagnosticRenderer<'a> {
+
     pub fn new(diagnostic_manager: &'a DiagnosticManager) -> Self {
         DiagnosticRenderer {
             diagnostic_manager,
@@ -17,91 +18,154 @@ impl<'a> DiagnosticRenderer<'a> {
         }
     }
 
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        self.diagnostic_manager
+    }
+
     pub fn set_output(&mut self, output: Box<dyn Write>) {
         self.output = output;
     }
 
     pub fn display(&mut self) {
-        for diagnostic in self.diagnostic_manager.diagnostics() {
+        // On prend une référence mutable au writer en dehors de l'appel
+        let writer = &mut self.output;
+        DiagnosticRenderer::write_to(self.diagnostic_manager, writer, true).expect("Failed to write diagnostics to output");
+    }
+
+    pub fn write_to<W: Write>(
+        diagnostic_manager: &DiagnosticManager,
+        writer: &mut W,
+        color: bool,
+    ) -> io::Result<()> {
+        for diagnostic in diagnostic_manager.diagnostics() {
             let mut output = String::new();
 
             let filename = diagnostic.filename();
             let span = diagnostic.span();
             let kind = diagnostic.kind();
 
-            // Couleur du message selon la sévérité
+            // Format severity string conditionnellement coloré
             let severity_str = match kind.severity() {
-                DiagnosticSeverity::Error => format!("error[{}]", kind.code()).red().bold(),
-                DiagnosticSeverity::Warning => format!("warning[{}]", kind.code()).yellow(),
-                _ => format!("{}", kind.code()).normal(),
+                DiagnosticSeverity::Error => {
+                    if color {
+                        format!("error[{}]", kind.code()).red().bold().to_string()
+                    } else {
+                        format!("error[{}]", kind.code())
+                    }
+                }
+                DiagnosticSeverity::Warning => {
+                    if color {
+                        format!("warning[{}]", kind.code()).yellow().to_string()
+                    } else {
+                        format!("warning[{}]", kind.code())
+                    }
+                }
+                _ => format!("{}", kind.code()),
             };
 
             output.push_str(&format!("{}: {}\n", severity_str, kind.message()));
 
+            // Flèche droite --> en bleu clair ou sans couleur
+            let arrow = if color {
+                RIGHT_ARROW.bright_blue().to_string()
+            } else {
+                RIGHT_ARROW.to_string()
+            };
             output.push_str(&format!(
                 "{} {}:{}:{}\n",
-                RIGHT_ARROW.bright_blue(),
+                arrow,
                 filename,
-                span.begin_line().to_string(),
-                span.begin_column().to_string()
+                span.begin_line(),
+                span.begin_column()
             ));
 
+            // Largeur de la colonne du numéro de ligne
             let line_num_str = span.begin_line().to_string();
             let gutter_width = line_num_str.len();
 
-            if let Some(source) = self.diagnostic_manager.get_source(filename) {
+            if let Some(source) = diagnostic_manager.get_source(filename) {
                 if let Some(line) = source.lines().nth(span.begin_line() - 1) {
-                    // Ligne vide avec barre verticale alignée
+                    // Bar vertical en bleu clair ou sans couleur
+                    let vertical_bar = if color {
+                        VERTICAL_BAR.bright_blue().to_string()
+                    } else {
+                        VERTICAL_BAR.to_string()
+                    };
+
                     output.push_str(&format!(
                         "{:>width$} {}\n",
-                        "", VERTICAL_BAR.bright_blue(),
+                        "",
+                        vertical_bar,
                         width = gutter_width
                     ));
-                    // Ligne de code avec numéro de ligne en violet
+
                     output.push_str(&format!(
                         "{} {} {}\n",
-                        format!("{:>width$}", span.begin_line(), width = gutter_width).bright_blue(),
-                        VERTICAL_BAR.bright_blue(),
+                        format!("{:>width$}", span.begin_line(), width = gutter_width),
+                        vertical_bar,
                         expand_tabs(line, TAB_WIDTH)
                     ));
 
-                    // Soulignement
                     let underline_start = compute_visual_offset(line, span.begin_column());
                     let underline_len = (span.end_column().saturating_sub(span.begin_column())).max(1);
 
+                    // Caret underline en couleur ou non selon la sévérité
                     let underline = match kind.severity() {
-                        DiagnosticSeverity::Error => "^".repeat(underline_len).red(),
-                        DiagnosticSeverity::Warning => "^".repeat(underline_len).yellow(),
-                        _ => "^".repeat(underline_len).normal(),
+                        DiagnosticSeverity::Error => {
+                            if color {
+                                "^".repeat(underline_len).red().to_string()
+                            } else {
+                                "^".repeat(underline_len)
+                            }
+                        }
+                        DiagnosticSeverity::Warning => {
+                            if color {
+                                "^".repeat(underline_len).yellow().to_string()
+                            } else {
+                                "^".repeat(underline_len)
+                            }
+                        }
+                        _ => "^".repeat(underline_len),
                     };
 
                     output.push_str(&format!(
                         "{:>width$} {} {}{}\n",
                         "",
-                        VERTICAL_BAR.bright_blue(),
+                        vertical_bar,
                         " ".repeat(underline_start),
                         underline,
                         width = gutter_width
                     ));
 
-                    // Ligne verticale vide
-                    output.push_str(&format!("{:>width$} {}\n", "", VERTICAL_BAR.bright_blue(), width = gutter_width));
+                    output.push_str(&format!(
+                        "{:>width$} {}\n",
+                        "",
+                        vertical_bar,
+                        width = gutter_width
+                    ));
                 }
             }
 
-            // Suggestion (note)
             if let Some(suggestion) = kind.suggestion() {
-                output.push_str(&format!(
-                    "{} {}\n",
-                    "= help:".bright_cyan().bold(),
-                    suggestion
-                ));
+                if color {
+                    output.push_str(&format!(
+                        "{} {}\n",
+                        "= help:".bright_cyan().bold(),
+                        suggestion
+                    ));
+                } else {
+                    output.push_str(&format!("= help: {}\n", suggestion));
+                }
             }
 
-            write!(self.output, "{}", output).unwrap();
+            write!(writer, "{}", output)?;
         }
+
+        Ok(())
     }
 }
+
+// Constantes, fonctions auxiliaires inchangées
 
 const TAB_WIDTH: usize = 4;
 const RIGHT_ARROW: &str = "-->";
@@ -117,7 +181,6 @@ fn compute_visual_offset(line: &str, column: usize) -> usize {
     }
     offset
 }
-
 
 fn expand_tabs(line: &str, tab_width: usize) -> String {
     let mut expanded = String::new();

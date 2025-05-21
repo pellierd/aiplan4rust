@@ -102,7 +102,9 @@ impl SyntaxTree {
         // Vérification du type de l'AST
         match self.root.kind() {
             SyntaxNodeKind::Domain | SyntaxNodeKind::Problem => {
+                println!("to_hash_map");
                 let index_table = self.root.to_hash_map();
+                println!("fin to_hash_map");
                 let mut nodes = LinkedHashMap::new();
                 let mut next_index = 0;
                 Self::flatten_rec(
@@ -120,22 +122,26 @@ impl SyntaxTree {
     }
 
     fn flatten_rec(
-        node: &SyntaxNode,
+        root: &SyntaxNode,
         index_table: &HashMap<&SyntaxNode, usize>,
         nodes: &mut LinkedHashMap<usize, AnnotatedSyntaxNode>,
         next_index: &mut usize,
     ) -> Result<(), ParserInternalError> {
-        let entry = AnnotatedSyntaxNode::from(node, index_table)?;
-        nodes.insert(*next_index, entry);
+        let mut stack = vec![root];
 
-        *next_index += 1; // Incrémente pour le prochain nœud
+        while let Some(node) = stack.pop() {
+            let entry = AnnotatedSyntaxNode::from(node, index_table)?;
+            nodes.insert(*next_index, entry);
+            *next_index += 1;
 
-        for child in node.children() {
-            Self::flatten_rec(child.as_ref(), index_table, nodes, next_index)?;
+            for child in node.children().iter().rev() {
+                stack.push(child.as_ref());
+            }
         }
 
         Ok(())
     }
+
 }
 
 /// Implement the `fmt::Display` trait for `SyntaxTree`.

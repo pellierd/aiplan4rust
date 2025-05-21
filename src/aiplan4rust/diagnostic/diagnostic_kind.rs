@@ -250,8 +250,9 @@ impl DiagnosticKind {
             }
             DiagnosticKind::TypeMismatchInExpression { ty1, ty2 } => {
                 Some(format!(
-                    "The expression has incompatible types: expected {:?}, but found {:?}. Check the operator or cast explicitly if needed.",
-                    Self::format_types(ty1), Self::format_types(ty2)
+                    "Incompatible types: {:?} is not related to {:?} by the type hierarchy.",
+                    Self::format_types(ty1),
+                    Self::format_types(ty2)
                 ))
             }
             DiagnosticKind::InvalidTypesInNumericExpression { ty1, ty2 } => {

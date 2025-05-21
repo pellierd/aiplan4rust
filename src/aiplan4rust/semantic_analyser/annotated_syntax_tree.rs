@@ -164,13 +164,17 @@ impl AnnotatedSyntaxTree {
     /// * A new `AnnotatedSyntaxTree` created from the provided `syntax_tree`.
     pub fn from(syntax_tree: &SyntaxTree) -> Result<Self, ParserInternalError> {
         // Convert the syntax tree into a linked map of nodes
+        println!("Flattening the syntax tree");
         let nodes = syntax_tree.flatten()?;
 
+        println!("Extracting requirements from the syntax tree");
         // Extract the requirements from the syntax tree
         let requirements = Self::extract_requirements(&nodes);
 
+        println!("Creating the symbol table from the syntax tree");
         // Create the symbol table from the syntax tree
         let mut symbol_table = SymbolTable::new(syntax_tree.source());
+        println!("Initializing the symbol table from the AST");
         symbol_table.initialize_from_ast(0, &nodes)?;
 
         // Create and return the annotated syntax tree

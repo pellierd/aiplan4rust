@@ -307,55 +307,23 @@ impl SyntaxNode {
     /// let map = ast.to_hash_map();
     /// // Now `map` contains a mapping of AST node references to their indices
     /// ```
-    pub fn to_hash_map<'a>(&'a self) -> HashMap<&'a SyntaxNode, usize> {
-        let mut map = HashMap::new();
+    pub fn to_hash_map(&self) -> HashMap<&SyntaxNode, usize> {
+        let mut map = HashMap::with_capacity(4096);
         let mut id_counter = 0;
+        let mut stack = vec![self];
 
-        // Recursively populate the map with unique indices for each AST node
-        self.to_recusive_hash_map(&mut map, &mut id_counter);
+        while let Some(node) = stack.pop() {
+
+            map.insert(node, id_counter);
+            id_counter += 1;
+
+            // Push children in reverse order to preserve left-to-right traversal
+            for child in node.children.iter().rev() {
+                stack.push(child);
+            }
+        }
 
         map
-    }
-
-    /// Recursively explores the AST tree and assigns unique indices to each node.
-    ///
-    /// This private helper function traverses the AST tree and assigns unique indices to each node.
-    /// The indices are based on the size of the `map`, which ensures that each node receives a
-    /// unique index as it is visited. The function performs a recursive descent into the children
-    /// nodes of the current node.
-    ///
-    /// # Parameters
-    /// - `map`: A mutable reference to a `HashMap<&Ast, usize>` that will store the mapping
-    ///     of node references to their respective indices.
-    /// - `id_counter`: A mutable reference to a `usize` that tracks the index to assign to the next node.
-    ///
-    /// # Details
-    /// This function is designed to be called internally from `to_hash_map()`. It starts from the
-    /// current node, adds an entry for that node in the map, and then recursively processes all of
-    /// its children nodes, ensuring every node in the AST structure is indexed.
-    ///
-    /// # Example
-    /// ```rust
-    /// // This is a private function, used inside `to_hash_map` to recursively assign indices
-    /// let ast = Ast::new(...); // Create or load an Ast structure
-    /// let mut map = HashMap::new();
-    /// let mut id_counter = 0;
-    /// ast.to_recusive_hash_map(&mut map, &mut id_counter);
-    /// // `map` now contains mappings of AST node references to unique indices
-    /// ```
-    fn to_recusive_hash_map<'a>(
-        &'a self,
-        map: &mut HashMap<&'a SyntaxNode, usize>,
-        id_counter: &mut usize,
-    ) {
-        // Insert the current node and assign it an index
-        map.insert(self, *id_counter);
-        *id_counter += 1;
-
-        // Recursively process each child node
-        for child in &self.children {
-            child.to_recusive_hash_map(map, id_counter); // Recursive call on each child
-        }
     }
 }
 
