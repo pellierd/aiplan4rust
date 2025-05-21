@@ -29,6 +29,7 @@ use std::hash::Hash;
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SyntaxNode {
+    id: usize,
     kind: SyntaxNodeKind,
     children: Vec<Box<SyntaxNode>>,
     span: Span,
@@ -67,10 +68,19 @@ impl SyntaxNode {
         end: usize,
     ) -> SyntaxNode {
         SyntaxNode {
+            id: usize::MAX,
             kind,
             children,
             span: Span::new(start, end),
         }
+    }
+
+    pub fn id(&self) -> usize {
+        self.id
+    }
+
+    pub fn set_id(&mut self, new_id: usize) {
+        self.id = new_id;
     }
 
     /// Returns the kind of AST node.

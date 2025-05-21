@@ -230,7 +230,7 @@ impl<'a> Parser<'a> {
         let table = FastLineTable::new(source, 100);
 
         // Recursively set positions for all AST nodes
-        self.init_ast_position_rec(ast, &table);
+        self.init_ast_position_rec(ast, &table, &mut 0);
     }
 
     /// Recursively sets the start and end positions (line, column) for each AST node.
@@ -238,7 +238,11 @@ impl<'a> Parser<'a> {
     /// # Arguments
     /// - `ast`: A mutable reference to an AST node.
     /// - `table`: A reference to the `FastLineTable` used to compute positions.
-    fn init_ast_position_rec(&self, ast: &mut SyntaxNode, table: &FastLineTable) {
+    fn init_ast_position_rec(&self, ast: &mut SyntaxNode, table: &FastLineTable, id: &mut usize,) {
+        // Assign an unique id to each node
+        ast.set_id(*id);
+        *id += 1;
+
         // Compute and set the start position of the current AST node
         let (line, column) = table.get_position(ast.start_offset());
         ast.set_start_position(line, column);
@@ -249,7 +253,7 @@ impl<'a> Parser<'a> {
 
         // Recursively process all child nodes of the current AST node
         for child in ast.children_mut() {
-            self.init_ast_position_rec(child, table);
+            self.init_ast_position_rec(child, table, id);
         }
     }
 
