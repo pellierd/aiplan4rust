@@ -120,7 +120,7 @@ impl SyntaxTree {
         while let Some(node) = stack.pop() {
             let id = node.id();
             let entry = AnnotatedSyntaxNode::from(node)?;
-            nodes.insert(id, entry);
+            nodes.insert(*id, entry);
 
             for child in node.children().iter().rev() {
                 stack.push(child.as_ref());

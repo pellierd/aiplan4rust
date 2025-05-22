@@ -151,7 +151,6 @@ impl<'a> Parser<'a> {
                     self.process_ast(&mut ast, source)?;
 
                     //println!("AST: {}", ast);
-
                     if self
                         .diagnostic_manager()
                         .has_diagnotics_of_severity(DiagnosticSeverity::Error)
@@ -377,6 +376,7 @@ impl<'a> Parser<'a> {
     /// checker.normalise_ast(&mut ast); // Normalizes all `TypedList` nodes in the AST
     /// ```
     fn normalize_ast(&mut self, ast: &mut SyntaxNode) -> Result<(), ParserInternalError> {
+
         // Match on the kind of the current AST node
         match ast.kind() {
             SyntaxNodeKind::RequireDef => {
@@ -523,6 +523,7 @@ impl<'a> Parser<'a> {
 
         // Apply normalization on the split components (elements, types, and next list)
         self.apply_normalisation(ast, elements, types, next_typed_list)?;
+
         Ok(())
     }
 
@@ -575,9 +576,9 @@ impl<'a> Parser<'a> {
         ),
         ParserInternalError,
     > {
-        let mut elements: Vec<Box<SyntaxNode>> = Vec::new();
-        let mut types: Option<Box<SyntaxNode>> = None;
-        let mut next_typed_list: Option<Box<SyntaxNode>> = None;
+        let mut elements = Vec::new();
+        let mut types = None;
+        let mut next_typed_list = None;
 
         if *ast.kind() != SyntaxNodeKind::TypedList {
             return Err(ParserInternalError::new(format!(
@@ -586,19 +587,21 @@ impl<'a> Parser<'a> {
             )));
         }
 
-        for child in ast.children() {
+        // On utilise `drain` si possible pour récupérer les enfants par ownership
+        //let mut new_children = Vec::new();
+        for child in ast.children_mut().drain(..) {
             match child.kind() {
                 SyntaxNodeKind::PrimitiveType(_)
                 | SyntaxNodeKind::Constant(_)
                 | SyntaxNodeKind::Variable(_)
                 | SyntaxNodeKind::AtomicFunctionSkeleton => {
-                    elements.push(child.clone());
+                    elements.push(child);
                 }
                 SyntaxNodeKind::Type => {
-                    types = Some(child.clone());
+                    types = Some(child);
                 }
                 SyntaxNodeKind::TypedList => {
-                    next_typed_list = Some(child.clone());
+                    next_typed_list = Some(child);
                 }
                 _ => {
                     return Err(ParserInternalError::new(format!(
@@ -611,6 +614,7 @@ impl<'a> Parser<'a> {
 
         Ok((elements, types, next_typed_list))
     }
+
 
     /// Applies normalization to the given `TypedList` node by splitting elements into individual
     /// typed elements and adding implicit types commonly used in PDDL, such as `primitive`,
@@ -658,7 +662,6 @@ impl<'a> Parser<'a> {
         if let Some(ref mut ty) = types {
             self.filter_duplicate_types(ty)?; // Modify the types directly
         }
-
         let mut normalised_typed_list = Box::new(SyntaxNode::new(
             SyntaxNodeKind::TypedList,
             Vec::new(),
@@ -698,7 +701,6 @@ impl<'a> Parser<'a> {
             self.normalize_typed_list(&mut list)?;
             *current_typed_list = Box::new(*list);
         }
-
         *ast = *normalised_typed_list;
         Ok(())
     }
@@ -727,7 +729,6 @@ impl<'a> Parser<'a> {
     fn filter_duplicate_types(&mut self, ty: &mut SyntaxNode) -> Result<(), ParserInternalError> {
         let mut seen_types = HashSet::new(); // A set to track unique type names
         let mut unique_children = Vec::new(); // A vector for unique children
-
         for child in ty.children_mut() {
             if let SyntaxNodeKind::PrimitiveType(name) = &child.kind() {
                 if seen_types.insert(name.clone()) {

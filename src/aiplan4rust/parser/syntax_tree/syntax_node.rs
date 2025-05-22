@@ -75,8 +75,8 @@ impl SyntaxNode {
         }
     }
 
-    pub fn id(&self) -> usize {
-        self.id
+    pub fn id(&self) -> &usize {
+        &self.id
     }
 
     pub fn set_id(&mut self, new_id: usize) {

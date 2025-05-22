@@ -2,7 +2,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::BinaryComp;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
+use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind};
 use crate::aiplan4rust::parser::SymbolOrigin;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::FilterableSymbol;
@@ -371,11 +371,9 @@ impl SymbolTable {
     ///   variable or function visibility.
     pub fn initialize_from_ast(
         &mut self,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
     ) -> Result<(), ParserInternalError> {
-        let ast = index_table.get(&index).unwrap();
-        self.init_from(ast, index, index_table, Scope::new(index, None))?;
+        self.init_from(ast, Scope::new(*ast.id(), None))?;
 
         Ok(())
     }
@@ -398,9 +396,7 @@ impl SymbolTable {
     ///   is encountered during symbol table initialization.
     fn init_from(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Determine the type of the AST node and apply appropriate processing
@@ -409,78 +405,77 @@ impl SymbolTable {
             SyntaxNodeKind::DomainName(_)
             | SyntaxNodeKind::ProblemName(_)
             | SyntaxNodeKind::Requirement(_) => {
-                self.add_declaration_symbol(ast, index, index_table, scope.clone(), None, None)?;
+                self.add_declaration_symbol(ast, scope.clone(), None, None)?;
             }
 
             // Handle typed lists: Requires specialized initialization logic
             SyntaxNodeKind::TypedList => {
-                self.init_from_typed_list(ast, index, index_table, scope.clone())?;
+                self.init_from_typed_list(ast, scope.clone())?;
             }
 
             // Handle primitive types, constants, and variables: Register them as symbol usages
             SyntaxNodeKind::PrimitiveType(_)
             | SyntaxNodeKind::Constant(_)
             | SyntaxNodeKind::Variable(_) => {
-                self.add_symbol_usage(ast, index, index_table, scope.clone())?;
+                self.add_symbol_usage(ast, scope.clone())?;
             }
 
             // Handle action definitions
             SyntaxNodeKind::ActionDef => {
-                self.init_from_action_def(ast, index, index_table, scope.clone())?;
+                self.init_from_action_def(ast, scope.clone())?;
             }
 
             // Handle durative actions, which include timing constraints
             SyntaxNodeKind::DurativeActionDef => {
-                self.init_from_durative_action_def(ast, index, index_table, scope.clone())?;
+                self.init_from_durative_action_def(ast, scope.clone())?;
             }
 
             // Handle atomic formula skeletons: Requires custom symbol table handling
             SyntaxNodeKind::AtomicFormulaSkeleton => {
-                self.init_from_atomic_formula_skeleton(ast, index, index_table, scope.clone())?;
+                self.init_from_atomic_formula_skeleton(ast, scope.clone())?;
             }
 
             // Handle atomic formulas and function terms: These require recursive processing
             SyntaxNodeKind::AtomicFormula | SyntaxNodeKind::FunctionTerm => {
-                self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
+                self.init_from_atomic_formula(ast, scope.clone())?;
             }
 
             // Handle quantified expressions (`Forall` and `Exists`): Need special treatment for
             // logical scopes
             SyntaxNodeKind::Forall | SyntaxNodeKind::Exists => {
-                self.init_from_quantified_expression(ast, index, index_table, scope.clone())?;
+                self.init_from_quantified_expression(ast, scope.clone())?;
             }
 
             // Handle hierarchical task network (HTN) method definitions
             SyntaxNodeKind::MethodDef => {
-                self.init_from_method_def(ast, index, index_table, scope.clone())?;
+                self.init_from_method_def(ast, scope.clone())?;
             }
 
             // Handle task definitions in HTN planning
             SyntaxNodeKind::TaskDef => {
-                self.init_from_task_def(ast, index, index_table, scope.clone())?;
+                self.init_from_task_def(ast, scope.clone())?;
             }
 
             // Handle individual task references in HTN planning
             SyntaxNodeKind::Task => {
-                self.init_from_atomic_formula(ast, index, index_table, scope.clone())?;
+                self.init_from_atomic_formula(ast, scope.clone())?;
             }
 
             // Handle tagged tasks, which include additional metadata in HTN planning
             SyntaxNodeKind::TaggedTask => {
-                self.init_from_tagged_task(ast, index, index_table, scope.clone())?;
+                self.init_from_tagged_task(ast, scope.clone())?;
             }
 
             // Handle task ordering constraints in HTN planning
             SyntaxNodeKind::TaskOrderingConstraint(_) => {
-                self.init_from_task_ordering_constraint(ast, index, index_table, scope.clone())?;
+                self.init_from_task_ordering_constraint(ast, scope.clone())?;
             }
 
             // Default case: If the AST node is not explicitly handled, process its children
             // recursively
             _ => {
-                for child_index in ast.children() {
-                    let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
-                    self.init_from(child, *child_index, index_table, scope.clone())?;
+                for child in ast.children() {
+                    self.init_from(child, scope.clone())?;
                 }
             }
         }
@@ -508,9 +503,7 @@ impl SymbolTable {
     /// * `Err(ParserInternalError)` - If any error occurs during the symbol extraction or insertion process.
     fn add_declaration_symbol(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
@@ -537,19 +530,19 @@ impl SymbolTable {
         )?;
 
         // Extract the symbol information from the AST
-        let (name, kind) = Self::extract_symbol(ast, index_table)?;
+        let (name, kind) = Self::extract_symbol(ast)?;
 
         // Check if the symbol is already in the symbol table and add a declaration
         let source = self.source().clone();
         if let Some(symbol) = self.get_symbol_mut(&name) {
             let declaration =
-                Declaration::new(index, kind, scope, source.clone(), types, arguments);
+                Declaration::new(*ast.id(), kind, scope, source.clone(), types, arguments);
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
             let mut symbol = Symbol::new(&name);
             let declaration =
-                Declaration::new(index, kind, scope, source.clone(), types, arguments);
+                Declaration::new(*ast.id(), kind, scope, source.clone(), types, arguments);
             symbol.add_declaration(declaration);
             self.insert_symbol(name, symbol); // Insert the new symbol into the table
         }
@@ -575,9 +568,7 @@ impl SymbolTable {
     ///   invalid child node structure.
     fn add_symbol_usage(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST node is of a valid kind for symbol usage.
@@ -603,16 +594,16 @@ impl SymbolTable {
         }
 
         // Extract symbol name and type based on the AST node's kind.
-        let (name, kind) = Self::extract_symbol(ast, index_table)?;
+        let (name, kind) = Self::extract_symbol(ast)?;
 
         // If the symbol exists, add the usage; otherwise, create a new symbol.
         let source = self.source().clone();
         if let Some(symbol) = self.get_symbol_mut(&name) {
-            let usage = Usage::new(index, kind, scope, source.clone());
+            let usage = Usage::new(*ast.id(), kind, scope, source.clone());
             symbol.add_usage(usage);
         } else {
             let mut symbol = Symbol::new(&name);
-            let usage = Usage::new(index, kind, scope, source.clone());
+            let usage = Usage::new(*ast.id(), kind, scope, source.clone());
             symbol.add_usage(usage);
             self.insert_symbol(name, symbol);
         }
@@ -682,8 +673,7 @@ impl SymbolTable {
     /// `FunctionSymbol`, or `TaskSymbol`.
 
     fn extract_symbol(
-        ast: &AnnotatedSyntaxNode,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
     ) -> Result<(String, SymbolKind), ParserInternalError> {
         match ast.kind() {
             // Handling different AST node kinds and returning appropriate symbol information
@@ -716,7 +706,7 @@ impl SymbolTable {
                         ast.kind()
                     )));
                 }
-                let first_child = SymbolTable::get_ast_entry(children[0], index_table)?;
+                let first_child = children[0].as_ref();
                 match first_child.kind() {
                     SyntaxNodeKind::Predicate(s) => Ok((s.to_string(), SymbolKind::Predicate)),
                     SyntaxNodeKind::FunctionSymbol(s) => Ok((s.to_string(), SymbolKind::Function)),
@@ -763,9 +753,7 @@ impl SymbolTable {
     /// the problem.
     fn init_from_typed_list(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        _index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the expected type 'TypedList'
@@ -782,17 +770,13 @@ impl SymbolTable {
         Self::assert_ast_children_number(ast, 2, Comparator::Greater)?;
 
         // Process the types (second child)
-        let types_entry = SymbolTable::get_ast_entry(children[1], index_table)?;
-        let types = self.init_from_type(types_entry, children[1], index_table, scope.clone())?;
+        let types = self.init_from_type(children[1].as_ref(), scope.clone())?;
 
         // Case 2: Exactly two children (no recursion needed)
-        let element_entry = SymbolTable::get_ast_entry(children[0], index_table)?;
         if children.len() == 2 {
             // Process the first element using a helper function
             self.init_from_typed_list_element(
-                element_entry,
-                children[0],
-                index_table,
+                children[0].as_ref(),
                 scope.clone(),
                 types,
             )?;
@@ -802,16 +786,13 @@ impl SymbolTable {
         // Case 3: More than two children (recursive processing)
         // Process the first element using a helper function
         self.init_from_typed_list_element(
-            element_entry,
-            children[0],
-            index_table,
+            children[0].as_ref(),
             scope.clone(),
             types,
         )?;
 
         // Process the next TypedList (third child)
-        let next_typed_list = SymbolTable::get_ast_entry(children[2], index_table)?;
-        self.init_from_typed_list(next_typed_list, children[2], index_table, scope)?;
+        self.init_from_typed_list(children[2].as_ref(), scope)?;
 
         Ok(())
     }
@@ -836,9 +817,7 @@ impl SymbolTable {
     /// - `types`: The types associated with the element.
     fn init_from_typed_list_element(
         &mut self,
-        element: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        element: &SyntaxNode,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -858,11 +837,11 @@ impl SymbolTable {
             SyntaxNodeKind::PrimitiveType(_)
             | SyntaxNodeKind::Constant(_)
             | SyntaxNodeKind::Variable(_) => {
-                self.add_declaration_symbol(element, index, index_table, scope, Some(types), None)?;
+                self.add_declaration_symbol(element, scope, Some(types), None)?;
             }
             // Handle AtomicFunctionSkeleton recursively
             SyntaxNodeKind::AtomicFunctionSkeleton => {
-                self.init_from_atomic_function_skeleton(element, index, index_table, scope, types)?;
+                self.init_from_atomic_function_skeleton(element, scope, types)?;
             }
             _ => {
                 // Handle any unexpected cases, though the assertion should prevent them
@@ -923,9 +902,7 @@ impl SymbolTable {
     ///   and their scope resolution.
     fn init_from_atomic_function_skeleton(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
@@ -938,7 +915,7 @@ impl SymbolTable {
         let children = ast.children();
 
         // Retrieve the first child and validate it as a 'FunctionSymbol'
-        let functor = SymbolTable::get_ast_entry(children[0], index_table)?;
+        let functor = children[0].as_ref();
         match functor.kind() {
             SyntaxNodeKind::FunctionSymbol(s) => s,
             _ => {
@@ -949,25 +926,20 @@ impl SymbolTable {
             }
         };
 
-        let arguments = SymbolTable::get_ast_entry(children[1], index_table)?;
-
+        let arguments = children[1].as_ref();
         // Initialize the symbol table for the arguments;
         self.init_from_typed_list(
             arguments,
-            index,
-            index_table,
-            Scope::new(index, Some(&scope)),
+            Scope::new(*ast.id(), Some(&scope)),
         )?;
 
         // Extract the arguments and calculate the arity
         let arguments =
-            self.extract_arguments_from_typed_list(arguments, children[1], index_table)?;
+            self.extract_arguments_from_typed_list(arguments)?;
 
         // Add the declaration to the symbol table
         self.add_declaration_symbol(
             functor,
-            index,
-            index_table,
             scope.clone(),
             Some(types),
             Some(arguments),
@@ -1006,15 +978,11 @@ impl SymbolTable {
     /// This function delegates to `init_from_definition` for common logic.
     fn init_from_action_def(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
-            index,
-            index_table,
             scope,
             &[
                 SyntaxNodeKind::ActionDef,
@@ -1045,15 +1013,11 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_method_def(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
-            index,
-            index_table,
             scope,
             &[SyntaxNodeKind::MethodDef],
             3,    // MethodDef has 3 children (name, parameters, body)
@@ -1080,15 +1044,11 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_durative_action_def(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
-            index,
-            index_table,
             scope,
             &[SyntaxNodeKind::DurativeActionDef],
             3,    // DurativeActionDef has 3 children (name, parameters, body)
@@ -1116,15 +1076,11 @@ impl SymbolTable {
     /// if an issue occurs.
     fn init_from_task_def(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
-            index,
-            index_table,
             scope,
             &[SyntaxNodeKind::TaskDef],
             2,     // TaskDef has only 2 children (name, parameters)
@@ -1148,9 +1104,7 @@ impl SymbolTable {
     /// Returns `Ok(())` on success or a `ParserInternalError` if validation fails.
     fn init_from_def(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
         valid_kinds: &[SyntaxNodeKind],
         expected_children: usize,
@@ -1165,24 +1119,20 @@ impl SymbolTable {
         let children = ast.children();
 
         // First child: definition name, add to symbol table
-        let name = SymbolTable::get_ast_entry(children[0], index_table)?;
+        let name = children[0].as_ref();
 
         // Second child: parameters, recursively initialize the symbol table
-        let parameters = SymbolTable::get_ast_entry(children[1], index_table)?;
-        self.extract_arguments_from_typed_list(parameters, children[1], index_table)?;
+        let parameters = children[1].as_ref();
+        self.extract_arguments_from_typed_list(parameters)?;
         self.init_from_typed_list(
             parameters,
-            children[1],
-            index_table,
-            Scope::new(index, Some(&scope)),
+            Scope::new(*ast.id(), Some(&scope)),
         )?;
 
         let parameters =
-            self.extract_arguments_from_typed_list(parameters, children[1], index_table)?;
+            self.extract_arguments_from_typed_list(parameters)?;
         self.add_declaration_symbol(
             name,
-            children[0],
-            index_table,
             scope.clone(),
             None,
             Some(parameters),
@@ -1190,12 +1140,10 @@ impl SymbolTable {
 
         // Third child: body (if applicable)
         if has_body {
-            let body = SymbolTable::get_ast_entry(children[2], index_table)?;
+            let body = children[2].as_ref();
             self.init_from(
                 body,
-                children[2],
-                index_table,
-                Scope::new(index, Some(&scope)),
+                Scope::new(*ast.id(), Some(&scope)),
             )?;
         }
 
@@ -1224,9 +1172,7 @@ impl SymbolTable {
     /// * Any recursive call to `init_from` fails.
     fn init_from_atomic_formula(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
@@ -1243,12 +1189,11 @@ impl SymbolTable {
         Self::assert_ast_children_number(ast, 1, Comparator::GreaterEq)?;
 
         // Retrieve and register the first child (symbol)
-        self.add_symbol_usage(ast, index, index_table, scope.clone())?;
+        self.add_symbol_usage(ast, scope.clone())?;
 
         // Process the remaining children (arguments)
-        for child_index in ast.children() {
-            let child = SymbolTable::get_ast_entry(*child_index, index_table)?;
-            self.init_from(child, *child_index, index_table, scope.clone())?;
+        for child in ast.children() {
+            self.init_from(child, scope.clone())?;
         }
 
         Ok(())
@@ -1289,9 +1234,7 @@ impl SymbolTable {
     /// ```
     fn init_from_quantified_expression(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Check if the AST node is of kind 'Exists' or 'Forall'
@@ -1302,23 +1245,19 @@ impl SymbolTable {
 
         let children = ast.children();
         // Retrieve the children (variables and inner expression)
-        let variables = SymbolTable::get_ast_entry(children[0], index_table)?;
-        let expression = SymbolTable::get_ast_entry(children[1], index_table)?;
+        let variables = children[0].as_ref();
+        let expression = children[1].as_ref();
 
         // Initialize the symbol table for the variables (first child)
         self.init_from_typed_list(
             variables,
-            children[0],
-            index_table,
-            Scope::new(index, Some(&scope)),
+            Scope::new(*ast.id(), Some(&scope)),
         )?;
 
         // Initialize the symbol table for the inner expression (second child)
         self.init_from(
             expression,
-            children[1],
-            index_table,
-            Scope::new(index, Some(&scope)),
+            Scope::new(*ast.id(), Some(&scope)),
         )?;
 
         Ok(())
@@ -1354,9 +1293,7 @@ impl SymbolTable {
     /// ```
     fn init_from_atomic_formula_skeleton(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         let children = ast.children();
@@ -1365,24 +1302,20 @@ impl SymbolTable {
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
 
         // Ensure the first child is of kind 'Predicate'
-        let predicate = SymbolTable::get_ast_entry(children[0], index_table)?;
+        let predicate = children[0].as_ref();
         Self::assert_ast_kind(predicate, &[SyntaxNodeKind::Predicate(String::new())])?;
 
         // Retrieve and process arguments
-        let arguments = SymbolTable::get_ast_entry(children[1], index_table)?;
+        let arguments = children[1].as_ref();
         self.init_from_typed_list(
             arguments,
-            children[1],
-            index_table,
-            Scope::new(index, Some(&scope)),
+            Scope::new(*ast.id(), Some(&scope)),
         )?;
 
         let arguments =
-            self.extract_arguments_from_typed_list(arguments, children[1], index_table)?;
+            self.extract_arguments_from_typed_list(arguments)?;
         self.add_declaration_symbol(
             predicate,
-            children[0],
-            index_table,
             scope.clone(),
             None,
             Some(arguments),
@@ -1436,9 +1369,7 @@ impl SymbolTable {
     /// ```
     fn extract_arguments_from_typed_list(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        _index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
         Self::assert_ast_kind(ast, &[SyntaxNodeKind::TypedList])?;
@@ -1454,7 +1385,7 @@ impl SymbolTable {
         Self::assert_ast_children_number(ast, 2, Comparator::Greater)?;
 
         // Extract the first child (must be a Variable or Constant)
-        let element = SymbolTable::get_ast_entry(children[0], index_table)?;
+        let element = children[0].as_ref();
         let name = match element.kind() {
             SyntaxNodeKind::Variable(name) | SyntaxNodeKind::Constant(name) => name.clone(),
             _ => {
@@ -1466,8 +1397,8 @@ impl SymbolTable {
         };
 
         // Extract types from the second child
-        let types_entry = SymbolTable::get_ast_entry(children[1], index_table)?;
-        let types = self.extract_type(types_entry, children[1], index_table)?;
+        let types_entry = children[1].as_ref();
+        let types = self.extract_type(types_entry)?;
 
         // Case 2: Exactly two children, no recursion needed
         if children.len() == 2 {
@@ -1475,9 +1406,9 @@ impl SymbolTable {
         }
 
         // Case 3: Three children, recursive extraction
-        let next_typed_list = SymbolTable::get_ast_entry(children[2], index_table)?;
+        let next_typed_list = children[2].as_ref();
         let mut results =
-            self.extract_arguments_from_typed_list(next_typed_list, children[2], index_table)?;
+            self.extract_arguments_from_typed_list(next_typed_list)?;
         results.insert(0, TypedSymbol::new(name, types));
 
         Ok(results)
@@ -1495,16 +1426,13 @@ impl SymbolTable {
     ///   node is invalid.
     fn extract_type(
         &mut self,
-        types: &AnnotatedSyntaxNode,
-        _index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        types: &SyntaxNode,
     ) -> Result<Vec<String>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
         Self::assert_ast_kind(types, &[SyntaxNodeKind::Type])?;
 
         let mut super_types = Vec::new();
-        for ty_index in types.children() {
-            let ty = SymbolTable::get_ast_entry(*ty_index, index_table)?;
+        for ty in types.children() {
             if let SyntaxNodeKind::PrimitiveType(name) = ty.kind() {
                 super_types.push(name.clone());
             } else {
@@ -1533,18 +1461,15 @@ impl SymbolTable {
     /// node is invalid.
     fn init_from_type(
         &mut self,
-        types: &AnnotatedSyntaxNode,
-        index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        types: &SyntaxNode,
         scope: Scope,
     ) -> Result<Vec<String>, ParserInternalError> {
-        let super_types = self.extract_type(types, index, index_table)?; // Reuse `extract_type` to get type names
+        let super_types = self.extract_type(types)?; // Reuse `extract_type` to get type names
 
         // Register each type as a symbol usage in the given scope
-        for ty_index in types.children() {
-            let ty = SymbolTable::get_ast_entry(*ty_index, index_table)?;
+        for ty in types.children() {
             if matches!(ty.kind(), SyntaxNodeKind::PrimitiveType(_)) {
-                self.add_symbol_usage(ty, *ty_index, index_table, scope.clone())?;
+                self.add_symbol_usage(ty, scope.clone())?;
             }
         }
 
@@ -1567,9 +1492,7 @@ impl SymbolTable {
     ///   structure is unexpected.
     fn init_from_tagged_task(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        _index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1577,17 +1500,17 @@ impl SymbolTable {
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
 
         let children = ast.children();
-        let task_id = SymbolTable::get_ast_entry(children[0], index_table)?;
+        let task_id = children[0].as_ref();
         Self::assert_ast_kind(task_id, &[SyntaxNodeKind::TaskID(String::new())])?;
 
         // Add the task identifier as a declaration symbol
-        self.add_declaration_symbol(task_id, children[0], index_table, scope.clone(), None, None)?;
+        self.add_declaration_symbol(task_id, scope.clone(), None, None)?;
 
         // Process the actual task
-        let task = SymbolTable::get_ast_entry(children[1], index_table)?;
+        let task = children[1].as_ref();
         Self::assert_ast_kind(task, &[SyntaxNodeKind::Task])?;
 
-        self.init_from_atomic_formula(task, children[1], index_table, scope.clone())?;
+        self.init_from_atomic_formula(task, scope.clone())?;
 
         Ok(())
     }
@@ -1632,9 +1555,7 @@ impl SymbolTable {
     /// - Either child is not of kind `TaskID(String)`.
     fn init_from_task_ordering_constraint(
         &mut self,
-        ast: &AnnotatedSyntaxNode,
-        _index: usize,
-        index_table: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
+        ast: &SyntaxNode,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1645,13 +1566,13 @@ impl SymbolTable {
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
 
         let children = ast.children();
-        let t1 = SymbolTable::get_ast_entry(children[0], index_table)?;
+        let t1 = children[0].as_ref();
         Self::assert_ast_kind(t1, &[SyntaxNodeKind::TaskID(String::new())])?;
-        self.add_symbol_usage(t1, children[0], index_table, scope.clone())?;
+        self.add_symbol_usage(t1, scope.clone())?;
 
-        let t2 = SymbolTable::get_ast_entry(children[1], index_table)?;
+        let t2 = children[1].as_ref();
         Self::assert_ast_kind(t2, &[SyntaxNodeKind::TaskID(String::new())])?;
-        self.add_symbol_usage(t2, children[1], index_table, scope.clone())?;
+        self.add_symbol_usage(t2, scope.clone())?;
 
         Ok(())
     }
@@ -1693,7 +1614,7 @@ impl SymbolTable {
     /// }
     /// ```
     fn assert_ast_kind(
-        ast: &AnnotatedSyntaxNode,
+        ast: &SyntaxNode,
         valid_kinds: &[SyntaxNodeKind],
     ) -> Result<(), ParserInternalError> {
         match ast.kind() {
@@ -1784,7 +1705,7 @@ impl SymbolTable {
     /// parsing, ensuring that the number of children aligns with the expectations set by the aiplan4rust
     /// logic.
     fn assert_ast_children_number(
-        ast: &AnnotatedSyntaxNode,
+        ast: &SyntaxNode,
         expected_len: usize,
         comparator: Comparator,
     ) -> Result<(), ParserInternalError> {

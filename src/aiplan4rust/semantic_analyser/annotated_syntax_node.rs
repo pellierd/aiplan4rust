@@ -92,6 +92,7 @@ impl AnnotatedSyntaxNode {
             .children()
             .iter()
             .map(|child| child.id())
+            .copied()
             .collect();
 
         Ok(AnnotatedSyntaxNode::new(
