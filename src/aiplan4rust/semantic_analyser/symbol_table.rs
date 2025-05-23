@@ -17,6 +17,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 use std::hash::Hash;
+use indexmap::IndexSet;
 
 /// `Comparator` is an enum that represents the different types of comparisons
 /// that can be made between values, specifically for validating the number of children
@@ -196,18 +197,21 @@ impl SymbolTable {
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Declaration> {
-        let mut result = Vec::new();
-
-        for symbol in self.symbols.values() {
-            if let Some(name) = symbol_name {
-                if symbol.name() != name {
-                    continue;
-                }
+        if let Some(name) = symbol_name {
+            // Si on connaît le nom, on récupère directement le symbole
+            if let Some(symbol) = self.symbols.get(name) {
+                // Filtrage sur les déclarations du symbole trouvé
+                return SymbolTable::get_by_filter(kind, scope, symbol.declarations());
+            } else {
+                // Pas de symbole avec ce nom, on retourne un vecteur vide
+                return Vec::new();
             }
-            let declarations = symbol.declarations();
-            result.extend(SymbolTable::get_by_filter(kind, scope, declarations));
         }
-        result
+
+        // Sinon, on parcourt tous les symboles comme avant
+        self.symbols.values()
+            .flat_map(|symbol| SymbolTable::get_by_filter(kind, scope, symbol.declarations()))
+            .collect()
     }
 
     pub fn get_usages_by_filter(
@@ -216,47 +220,39 @@ impl SymbolTable {
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Usage> {
-        let mut result = Vec::new();
-
-        for symbol in self.symbols.values() {
-            if let Some(name) = symbol_name {
-                if symbol.name() != name {
-                    continue;
-                }
+        if let Some(name) = symbol_name {
+            if let Some(symbol) = self.symbols.get(name) {
+                return SymbolTable::get_by_filter(kind, scope, symbol.usages());
+            } else {
+                return Vec::new();
             }
-
-            // Passer les usages à la fonction générique
-            let usages = symbol.usages();
-            result.extend(SymbolTable::get_by_filter(kind, scope, usages));
         }
 
-        result
+        self.symbols.values()
+            .flat_map(|symbol| SymbolTable::get_by_filter(kind, scope, symbol.usages()))
+            .collect()
     }
 
     pub fn get_by_filter<'a, T: FilterableSymbol>(
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
-        items: &'a [T],
+        items: &'a IndexSet<T>,
     ) -> Vec<&'a T> {
-        let mut result = Vec::new();
-        for item in items {
-            // Filtrage par type de symbole (kind)
-            if let Some(k) = kind {
-                if item.kind() != k {
-                    continue;
+        items.iter()
+            .filter(|item| {
+                if let Some(k) = kind {
+                    if item.kind() != k {
+                        return false;
+                    }
                 }
-            }
-
-            // Filtrage par scope
-            if let Some(s) = scope {
-                if !s.starts_with(item.scope()) {
-                    continue;
+                if let Some(s) = scope {
+                    if !s.starts_with(item.scope()) {
+                        return false;
+                    }
                 }
-            }
-            result.push(item);
-        }
-
-        result
+                true
+            })
+            .collect()
     }
 
     pub fn get_declaration_by_index(&self, index: usize) -> Option<&Declaration> {

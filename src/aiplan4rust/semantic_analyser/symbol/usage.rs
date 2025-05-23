@@ -19,7 +19,7 @@ use std::fmt;
 /// - `PartialEq`: To allow partial equality comparison.
 /// - `Serialize`: To allow serialization for storage or transmission.
 /// - `Deserialize`: To allow deserialization from serialized formats.
-#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
     /// The AST node index where the symbol is used.
     ast: usize,

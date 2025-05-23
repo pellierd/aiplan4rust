@@ -8,6 +8,7 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
+use indexmap::IndexSet;
 
 /// Represents a symbol in a given context, with its associated declarations and usages.
 ///
@@ -49,10 +50,10 @@ pub struct Symbol {
     name: String,
 
     /// The AST node where the symbol is declared (only once).
-    declarations: Vec<Declaration>,
+    declarations: IndexSet<Declaration>,
 
     /// The list of AST nodes where the symbol is used.
-    usages: Vec<Usage>,
+    usages: IndexSet<Usage>,
 }
 
 // Manually implement the `Hash` trait for `Symbol`, using only the `name` field.
@@ -76,8 +77,8 @@ impl Symbol {
     pub fn new(name: &str) -> Self {
         Symbol {
             name: name.to_string(),
-            declarations: Vec::new(),
-            usages: Vec::new(),
+            declarations: IndexSet::new(),
+            usages: IndexSet::new(),
         }
     }
 
@@ -95,7 +96,7 @@ impl Symbol {
     /// # Returns
     ///
     /// A reference to the list of `Declaration` objects.
-    pub fn declarations(&self) -> &[Declaration] {
+    pub fn declarations(&self) -> &IndexSet<Declaration> {
         &self.declarations
     }
 
@@ -104,7 +105,7 @@ impl Symbol {
     /// # Returns
     ///
     /// A reference to the list of `Usage` objects.
-    pub fn usages(&self) -> &[Usage] {
+    pub fn usages(&self) -> &IndexSet<Usage> {
         &self.usages
     }
 
@@ -118,12 +119,7 @@ impl Symbol {
     ///
     /// `true` if the declaration was added, `false` if it was already present.
     pub fn add_declaration(&mut self, declaration: Declaration) -> bool {
-        let mut added = false;
-        if !self.declarations.contains(&declaration) {
-            self.declarations.push(declaration);
-            added = true;
-        }
-        added
+        self.declarations.insert(declaration)
     }
 
     /// Adds a usage for the symbol if it is not already present.
@@ -136,12 +132,7 @@ impl Symbol {
     ///
     /// `true` if the usage was added, `false` if it was already present.
     pub fn add_usage(&mut self, usage: Usage) -> bool {
-        let mut added = false;
-        if !self.usages.contains(&usage) {
-            self.usages.push(usage);
-            added = true;
-        }
-        added
+        self.usages.insert(usage)
     }
 
     /// Returns the part of the name before the first '/' character, if it exists.
