@@ -390,7 +390,7 @@ pub Type : Box<SyntaxNode> = {
     },
 }
 
-TypedList<T>: Box<SyntaxNode> = {
+/*TypedList<T>: Box<SyntaxNode> = {
    <start:@L>  <list:T*> <end:@R> => {
         let mut children = Vec::new();
         children.extend(list);
@@ -403,7 +403,7 @@ TypedList<T>: Box<SyntaxNode> = {
         children.push(next);
         Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end))
     },
-}
+}*/
 
 /*TypedList<T>: Vec<Box<SyntaxNode>> = {
    <start:@L>  <list:T*> <end:@R> => {
@@ -445,24 +445,42 @@ TypedList<T>: Box<SyntaxNode> = {
         let mut children = Vec::new();
         children.extend(list);
         vec![Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end))]
-    },
-    <start:@L> <list:T+>  "-" <ty:Type> <end:@R> <next:TypedList<T>> => {
+   },
+   <start:@L> <list:T+>  "-" <ty:Type> <end:@R> <next:TypedList<T>> => {
         let mut children = Vec::new();
         children.extend(list);
         children.push(ty);
         let mut typed_list = vec![Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, children, start, end))];
-        if next.len() > 1 || (next.len() == 1 && next[0].children().len() > 0) {
-            typed_list.extend(next);
-        }
-        typed_list
+         if next.len() > 1 || (next.len() == 1 && next[0].children().len() > 0) {
+                    typed_list.extend(next);
+                }
+         typed_list
     },
 }*/
 
+
+TypedList<T>: Box<SyntaxNode> = {
+   <start:@L>  <elements:T*> <end:@R> => {
+        let typed_item_elt = Box::new(SyntaxNode::new(SyntaxNodeKind::TypedItemElements, elements, start, end));
+        let typed_item = Box::new(SyntaxNode::new(SyntaxNodeKind::TypedItem, vec![typed_item_elt], start, end));
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, vec![typed_item], start, end))
+   },
+   <start:@L> <elements:T+> <end_elements:@R> "-" <ty:Type> <end_typed_item:@R> <mut next:TypedList<T>> <end:@R> => {
+        let typed_item_elt = Box::new(SyntaxNode::new(SyntaxNodeKind::TypedItemElements, elements, start, end_elements));
+        let typed_item = Box::new(SyntaxNode::new(SyntaxNodeKind::TypedItem, vec![typed_item_elt, ty], start, end_typed_item));
+        let mut typed_list = Box::new(SyntaxNode::new(SyntaxNodeKind::TypedList, vec![typed_item], start, end));
+        if let Some(first_child) = next.children().get(0) {
+           if !first_child.children().is_empty() {
+               typed_list.children_mut().extend(next.children_mut().drain(..));
+           }
+       }
+        typed_list
+    },
+}
+
 pub TypesDef : Box<SyntaxNode> = {
     <start:@L> "(" ":types" <types:TypedList<PrimitiveType>> ")" <end:@R> => {
-        let mut children = Vec::new();
-        children.push(types);
-        Box::new(SyntaxNode::new(SyntaxNodeKind::TypesDef, children , start, end))
+        Box::new(SyntaxNode::new(SyntaxNodeKind::TypesDef, vec![types] , start, end))
      },
 }
 

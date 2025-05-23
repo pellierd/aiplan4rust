@@ -74,8 +74,12 @@ pub enum SyntaxNodeKind {
     Requirement(Requirement),
     /// Represents a type definition, which may be used to define object types.
     Type,
-    /// Represents a list of typed elements.
+    /// A list of typed elements containing multiple `TypedItem`s.
     TypedList,
+    /// A single typed item pairing elements with a type.
+    TypedItem,
+    /// The untyped elements part of a `TypedItem`.
+    TypedItemElements,
     /// Represents the definition of types, often seen in the domain description.
     TypesDef,
     /// Represents the definition of constants in the problem.
@@ -311,6 +315,8 @@ impl fmt::Display for SyntaxNodeKind {
             }
             SyntaxNodeKind::Type => write!(f, "Type"),
             SyntaxNodeKind::TypedList => write!(f, "TypedList"),
+            SyntaxNodeKind::TypedItem => write!(f, "TypedItem"),
+            SyntaxNodeKind::TypedItemElements => write!(f, "TypedItemElements"),
             SyntaxNodeKind::TypesDef => write!(f, "TypesDef"),
             SyntaxNodeKind::ConstantsDef => write!(f, "ConstantsDef"),
             SyntaxNodeKind::ObjectsDef => write!(f, "ObjectsDef"),
@@ -431,6 +437,8 @@ impl PDDLDisplay for SyntaxNodeKind {
             SyntaxNodeKind::When => WHEN.to_string(),
 
             SyntaxNodeKind::TypedList
+            | SyntaxNodeKind::TypedItem
+            | SyntaxNodeKind::TypedItemElements
             | SyntaxNodeKind::AtomicFormulaSkeleton
             | SyntaxNodeKind::AtomicFunctionSkeleton
             | SyntaxNodeKind::AtomicFormula

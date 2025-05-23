@@ -11,7 +11,6 @@ use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
@@ -351,14 +350,6 @@ impl SymbolTable {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // From this point the code is dedicated to the initialization of the symbol table from an AST
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    fn get_ast_entry(
-        index: usize,
-        ast: &LinkedHashMap<usize, AnnotatedSyntaxNode>,
-    ) -> Result<&AnnotatedSyntaxNode, ParserInternalError> {
-        ast.get(&index).ok_or_else(|| {
-            ParserInternalError::new(format!("AstEntry not found for index: {}", index))
-        })
-    }
 
     /// This function initializes the symbol table based on the Abstract Syntax Tree (AST) nodes.
     /// It processes different AST kinds and either adds declaration symbols, symbol usages, or
@@ -766,35 +757,72 @@ impl SymbolTable {
             return Ok(());
         }
 
-        // Ensure we have at least two children for valid processing
-        Self::assert_ast_children_number(ast, 2, Comparator::Greater)?;
-
-        // Process the types (second child)
-        let types = self.init_from_type(children[1].as_ref(), scope.clone())?;
-
-        // Case 2: Exactly two children (no recursion needed)
-        if children.len() == 2 {
-            // Process the first element using a helper function
-            self.init_from_typed_list_element(
-                children[0].as_ref(),
-                scope.clone(),
-                types,
-            )?;
-            return Ok(());
+        for typed_item in children.iter() {
+            self.init_from_typed_item(typed_item, scope.clone())?;
         }
 
-        // Case 3: More than two children (recursive processing)
-        // Process the first element using a helper function
-        self.init_from_typed_list_element(
-            children[0].as_ref(),
-            scope.clone(),
-            types,
-        )?;
-
-        // Process the next TypedList (third child)
-        self.init_from_typed_list(children[2].as_ref(), scope)?;
-
         Ok(())
+    }
+
+    /// Initializes symbol declarations from a `TypedItem` syntax node.
+    ///
+    /// A `TypedItem` node typically represents a declaration where a list of symbols (constants or
+    /// variables) are associated with a type (e.g., `?x - type`). This function handles parsing
+    /// both the symbol list and the type annotation, and registers the symbols in the internal
+    /// symbol table.
+    ///
+    /// # Parameters
+    /// - `typed_item`: A reference to the `SyntaxNode` representing the `TypedItem`.
+    /// - `scope`: The current `Scope` in which the symbols are declared. This is cloned when needed
+    ///   to preserve scoping across recursive calls.
+    ///
+    /// # Behavior
+    /// - The function first ensures the node is of kind `TypedItem`.
+    /// - It retrieves the children of the node:
+    ///     - If there is only one child, it is treated as an untyped declaration (empty type
+    ///       vector).
+    ///     - If there are two children, the second is parsed to extract the associated types.
+    ///     - Any other number of children is treated as an error.
+    /// - The first child (the symbol list) is then processed with the extracted types.
+    /// - Each symbol in the list is added to the internal symbol table with the given scope and
+    ///   types.
+    ///
+    /// # Errors
+    /// - Returns `ParserInternalError` if:
+    ///     - The node is not a `TypedItem`.
+    ///     - The number of children is invalid (neither 1 nor 2).
+    ///     - Parsing the type fails.
+    ///     - Inserting the declaration fails (e.g., due to a duplicate symbol).
+    ///
+    /// # Example
+    /// ```text
+    /// (?x ?y - location)      => symbols: [?x, ?y], type: location
+    /// (?z)                    => symbol: [?z], no type
+    /// ```
+    fn init_from_typed_item(
+        &mut self,
+        typed_item: &SyntaxNode,
+        scope: Scope,
+    ) -> Result<(), ParserInternalError> {
+        // Ensure the node is of the expected kind
+        Self::assert_ast_kind(typed_item, &[SyntaxNodeKind::TypedItem])?;
+
+        // Get its children
+        let children = typed_item.children();
+
+        // Match on the number of children to extract the types or fallback to an empty vector
+        let types = match children.len() {
+            1 => Vec::new(),
+            2 => self.init_from_type(children[1].as_ref(), scope.clone())?,
+            _ => {
+                return Err(ParserInternalError::new(format!(
+                    "TypedItem node has unexpected number of children: {}",
+                    children.len()
+                )))
+            }
+        };
+        // Process the first element of the pair
+        self.init_from_typed_item_elements(children[0].as_ref(), scope, types)
     }
 
     /// Helper function to process an individual element of the TypedList.
@@ -815,37 +843,41 @@ impl SymbolTable {
     /// - `element`: The AST node representing the element (could be PrimitiveType, Constant, etc.).
     /// - `scope`: The scope in which the symbol table is being updated.
     /// - `types`: The types associated with the element.
-    fn init_from_typed_list_element(
+    fn init_from_typed_item_elements(
         &mut self,
-        element: &SyntaxNode,
+        elements: &SyntaxNode,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
-        // Ensure the element is one of the expected types before proceeding
-        Self::assert_ast_kind(
-            element,
-            &[
-                SyntaxNodeKind::PrimitiveType(String::new()),
-                SyntaxNodeKind::Constant(String::new()),
-                SyntaxNodeKind::Variable(String::new()),
-                SyntaxNodeKind::AtomicFunctionSkeleton,
-            ],
-        )?;
+        Self::assert_ast_kind(elements, &[SyntaxNodeKind::TypedItemElements])?;
 
-        match element.kind() {
-            // Process PrimitiveType, Constant, or Variable
-            SyntaxNodeKind::PrimitiveType(_)
-            | SyntaxNodeKind::Constant(_)
-            | SyntaxNodeKind::Variable(_) => {
-                self.add_declaration_symbol(element, scope, Some(types), None)?;
-            }
-            // Handle AtomicFunctionSkeleton recursively
-            SyntaxNodeKind::AtomicFunctionSkeleton => {
-                self.init_from_atomic_function_skeleton(element, scope, types)?;
-            }
-            _ => {
-                // Handle any unexpected cases, though the assertion should prevent them
-                unreachable!("Unexpected AST node type: {:?}", element.kind());
+        for elt in elements.children() {
+            // Ensure the element is one of the expected types before proceeding
+            Self::assert_ast_kind(
+                elt,
+                &[
+                    SyntaxNodeKind::PrimitiveType(String::new()),
+                    SyntaxNodeKind::Constant(String::new()),
+                    SyntaxNodeKind::Variable(String::new()),
+                    SyntaxNodeKind::AtomicFunctionSkeleton,
+                ],
+            )?;
+
+            match elt.kind() {
+                // Process PrimitiveType, Constant, or Variable
+                SyntaxNodeKind::PrimitiveType(_)
+                | SyntaxNodeKind::Constant(_)
+                | SyntaxNodeKind::Variable(_) => {
+                    self.add_declaration_symbol(elt, scope.clone(), Some(types.clone()), None)?;
+                }
+                // Handle AtomicFunctionSkeleton recursively
+                SyntaxNodeKind::AtomicFunctionSkeleton => {
+                    self.init_from_atomic_function_skeleton(elt, scope.clone(), types.clone())?;
+                }
+                _ => {
+                    // Handle any unexpected cases, though the assertion should prevent them
+                    unreachable!("Unexpected AST node type: {:?}", elt.kind());
+                }
             }
         }
 
@@ -1374,45 +1406,64 @@ impl SymbolTable {
         // Ensure the AST node is of kind TypedList
         Self::assert_ast_kind(ast, &[SyntaxNodeKind::TypedList])?;
 
-        let children = ast.children();
-
-        // Case 1: No children, return an empty vector
-        if children.is_empty() {
-            return Ok(Vec::new());
+        let mut typed_arguments = Vec::new();
+        for typed_item in ast.children() {
+            typed_arguments.extend(self.extract_arguments_from_typed_item(typed_item)?);
         }
+        Ok(typed_arguments)
+    }
 
-        // Ensure we have at least 2 children for valid processing
-        Self::assert_ast_children_number(ast, 2, Comparator::Greater)?;
+    /// Extracts `TypedSymbol`s from a `TypedItem` node. A `TypedItem` consists of:
+    /// - A first child: list of Constant or Variable nodes.
+    /// - An optional second child: the associated type(s).
+    ///
+    /// This function validates the structure, extracts the type information,
+    /// and returns a list of typed symbols.
+    ///
+    /// # Errors
+    /// Return a `ParserInternalError` if the node is not a `TypedItem`, or if its
+    /// children are not valid constants or variables.
+    fn extract_arguments_from_typed_item(
+        &mut self,
+        typed_item: &SyntaxNode,
+    ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
+        // Ensure the node is of the correct kind
+        Self::assert_ast_kind(typed_item, &[SyntaxNodeKind::TypedItem])?;
 
-        // Extract the first child (must be a Variable or Constant)
-        let element = children[0].as_ref();
-        let name = match element.kind() {
-            SyntaxNodeKind::Variable(name) | SyntaxNodeKind::Constant(name) => name.clone(),
+        let children = typed_item.children();
+
+        // Extract types if available, or use an empty vector
+        let types = match children.len() {
+            1 => Vec::new(),
+            2 => self.extract_type(children[1].as_ref())?,
             _ => {
                 return Err(ParserInternalError::new(format!(
-                    "Expected Variable or Constant as the first child, but found {:?}.",
-                    element.kind()
+                    "TypedItem must have 1 or 2 children, got {}",
+                    children.len()
                 )))
             }
         };
 
-        // Extract types from the second child
-        let types_entry = children[1].as_ref();
-        let types = self.extract_type(types_entry)?;
+        let mut typed_arguments = Vec::new();
+        let symbol_nodes = children[0].children();
 
-        // Case 2: Exactly two children, no recursion needed
-        if children.len() == 2 {
-            return Ok(vec![TypedSymbol::new(name, types)]);
+        for elt in symbol_nodes {
+            match elt.kind() {
+                SyntaxNodeKind::Constant(ref name) | SyntaxNodeKind::Variable(ref name) => {
+                    typed_arguments.push(TypedSymbol::new(name.clone(), types.clone()));
+                }
+                _ => {
+                    return Err(ParserInternalError::new(format!(
+                        "Expected Constant or Variable in TypedItem, found {:?}",
+                        elt.kind()
+                    )));
+                }
+            }
         }
 
-        // Case 3: Three children, recursive extraction
-        let next_typed_list = children[2].as_ref();
-        let mut results =
-            self.extract_arguments_from_typed_list(next_typed_list)?;
-        results.insert(0, TypedSymbol::new(name, types));
-
-        Ok(results)
+        Ok(typed_arguments)
     }
+
 
     /// Extracts type names from an AST node without recording symbol usage.
     ///
@@ -1464,13 +1515,13 @@ impl SymbolTable {
         types: &SyntaxNode,
         scope: Scope,
     ) -> Result<Vec<String>, ParserInternalError> {
+        Self::assert_ast_kind(types, &[SyntaxNodeKind::Type])?;
         let super_types = self.extract_type(types)?; // Reuse `extract_type` to get type names
 
         // Register each type as a symbol usage in the given scope
         for ty in types.children() {
-            if matches!(ty.kind(), SyntaxNodeKind::PrimitiveType(_)) {
-                self.add_symbol_usage(ty, scope.clone())?;
-            }
+            Self::assert_ast_kind(ty, &[SyntaxNodeKind::PrimitiveType(String::new())])?;
+            self.add_symbol_usage(ty, scope.clone())?;
         }
 
         Ok(super_types)

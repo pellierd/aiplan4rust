@@ -401,14 +401,15 @@ impl ParserInternalError {
 }
 
 impl fmt::Display for ParserInternalError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "ParserInternalError: {} \n{}",
-            self.message(),
-            self.backtrace()
-        )
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "ParserInternalError : {}", self.message)?;
+
+        // Affiche la backtrace seulement en mode debug
+        if cfg!(debug_assertions) {
+            writeln!(f, "Backtrace :\n{}", self.backtrace)?;
+        }
+
+        Ok(())
     }
 }
-
 impl std::error::Error for ParserInternalError {}

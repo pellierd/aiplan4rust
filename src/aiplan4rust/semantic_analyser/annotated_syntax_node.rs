@@ -6,7 +6,6 @@ use crate::aiplan4rust::parser::Span;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use serde::Deserialize;
 use serde::Serialize;
-use std::collections::HashMap;
 use std::fmt;
 
 /// A node in the annotated syntax tree with additional metadata.

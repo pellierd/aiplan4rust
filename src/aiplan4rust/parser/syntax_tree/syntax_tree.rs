@@ -1,5 +1,4 @@
 use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind};
-use std::collections::HashMap;
 
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::SymbolOrigin;
