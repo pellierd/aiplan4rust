@@ -41,29 +41,52 @@ pub fn check(
             let ast_entry = syntax_tree.get_entry(declaration.ast()).unwrap();
             let current_scope = declaration.scope();
 
-            // Vérifie si une déclaration a déjà été rencontrée dans ce scope ou un super-scope
+            // Check if a declaration has already been encountered in this scope or any parent scope
             let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));
 
             if let Some((conflicting_scope, previous_declaration)) = maybe_conflict {
-                checked = false;
+                let current_kind = declaration.kind();
+                let previous_kind = previous_declaration.kind();
 
-                let scope_index = conflicting_scope.iter().last().unwrap();
-                let scope = syntax_tree.get_entry(*scope_index).unwrap();
+                // Hack to allow a symbol declared as a PrimitiveType with the same name as a Predicate symbol
+                // It's not good practice, but it's a hack and not an error
+                if (current_kind == &SymbolKind::PrimitiveType && previous_kind == &SymbolKind::Predicate) ||
+                    (current_kind == &SymbolKind::Predicate && previous_kind == &SymbolKind::PrimitiveType) {
+                    let warning = Diagnostic::new(
+                        DiagnosticKind::WarningAmbiguousTypePredicateSymbol {
+                            symbol: symbol.name().clone(),
+                        },
+                        DiagnosticSource::SemanticAnalyzer,
+                        syntax_tree.filename().clone(),
+                        ast_entry.span().clone(),
+                    );
 
-                let error = Diagnostic::new(
-                    DiagnosticKind::DuplicatedDeclarationInScope {
-                        symbol: symbol.name().clone(),
-                        declaration1: previous_declaration.clone(),
-                        declaration2: declaration.clone(),
-                        scope: scope.clone(),
-                    },
-                    DiagnosticSource::SemanticAnalyzer,
-                    syntax_tree.filename().clone(),
-                    ast_entry.span().clone(),
-                );
+                    diagnostic_manager.add_diagnostic(warning);
 
-                diagnostic_manager.add_diagnostic(error);
+
+                } else {
+                    // Otherwise, this is a normal error
+                    checked = false;
+
+                    let scope_index = conflicting_scope.iter().last().unwrap();
+                    let scope = syntax_tree.get_entry(*scope_index).unwrap();
+
+                    let error = Diagnostic::new(
+                        DiagnosticKind::DuplicatedDeclarationInScope {
+                            symbol: symbol.name().clone(),
+                            declaration1: previous_declaration.clone(),
+                            declaration2: declaration.clone(),
+                            scope: scope.clone(),
+                        },
+                        DiagnosticSource::SemanticAnalyzer,
+                        syntax_tree.filename().clone(),
+                        ast_entry.span().clone(),
+                    );
+
+                    diagnostic_manager.add_diagnostic(error);
+                }
             } else {
+                // No conflict found, record this declaration's scope
                 seen_scopes.insert(current_scope.clone(), declaration.clone());
             }
         }
@@ -71,6 +94,7 @@ pub fn check(
 
     Ok(checked)
 }
+
 
 
 

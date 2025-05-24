@@ -80,6 +80,9 @@ pub enum DiagnosticKind {
         domain_name: String,
         problem_name: String,
     },
+    WarningAmbiguousTypePredicateSymbol {
+        symbol: String,
+    },
     CustomError(String),
 }
 
@@ -109,6 +112,7 @@ impl DiagnosticKind {
             DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => "W1010".to_string(),
             DiagnosticKind::UnusedSymbol { .. } => "W1011".to_string(),
             DiagnosticKind::RequirementViolation { .. } => "W10012".to_string(),
+            DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
 
             // WARNINGS LINKER
             DiagnosticKind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
@@ -181,6 +185,9 @@ impl DiagnosticKind {
             DiagnosticKind::DomainProblemNameMismatch { domain_name, problem_name } => {
                 format!("Domain name '{}' does not match problem name '{}'.", domain_name, problem_name)
             }
+            DiagnosticKind::WarningAmbiguousTypePredicateSymbol { symbol, .. } => {
+                format!("Ambiguous symbol '{}': declared both as a type and a predicate in the same scope.", symbol)
+            }
             DiagnosticKind::CustomError(msg) => msg.to_string(),
         }
     }
@@ -211,6 +218,7 @@ impl DiagnosticKind {
             DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::UnusedSymbol { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::RequirementViolation { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => DiagnosticSeverity::Warning,
 
             // LINKER WARNINGS
             DiagnosticKind::DomainProblemNameMismatch { .. } => DiagnosticSeverity::Warning,
@@ -363,6 +371,12 @@ impl DiagnosticKind {
                 Some(format!(
                     "Ensure that the domain name in the problem file matches the domain definition: expected '{}'.",
                     domain_name
+                ))
+            }
+            DiagnosticKind::WarningAmbiguousTypePredicateSymbol { symbol} => {
+                Some(format!(
+                    "The symbol '{}' is declared both as a type and a predicate in the same scope. This can lead to confusion. Consider renaming one of them.",
+                    symbol
                 ))
             }
         }
