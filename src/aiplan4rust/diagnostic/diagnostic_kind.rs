@@ -83,6 +83,11 @@ pub enum DiagnosticKind {
     WarningAmbiguousTypePredicateSymbol {
         symbol: String,
     },
+    WarningTaskArgumentIsSupertypeOfDeclaration {
+        argument: String,
+        type_declared: Vec<String>,
+        type_used: Vec<String>,
+    },
     CustomError(String),
 }
 
@@ -113,7 +118,7 @@ impl DiagnosticKind {
             DiagnosticKind::UnusedSymbol { .. } => "W1011".to_string(),
             DiagnosticKind::RequirementViolation { .. } => "W10012".to_string(),
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
-
+            DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
             // WARNINGS LINKER
             DiagnosticKind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
 
@@ -188,6 +193,10 @@ impl DiagnosticKind {
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { symbol, .. } => {
                 format!("Ambiguous symbol '{}': declared both as a type and a predicate in the same scope.", symbol)
             }
+            DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { argument, .. } => {
+                format!("Upcasting detected: argument '{}' has broader type(s) than declared.",
+                argument)
+            }
             DiagnosticKind::CustomError(msg) => msg.to_string(),
         }
     }
@@ -219,6 +228,7 @@ impl DiagnosticKind {
             DiagnosticKind::UnusedSymbol { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::RequirementViolation { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => DiagnosticSeverity::Warning,
 
             // LINKER WARNINGS
             DiagnosticKind::DomainProblemNameMismatch { .. } => DiagnosticSeverity::Warning,
@@ -377,6 +387,15 @@ impl DiagnosticKind {
                 Some(format!(
                     "The symbol '{}' is declared both as a type and a predicate in the same scope. This can lead to confusion. Consider renaming one of them.",
                     symbol
+                ))
+            }
+            DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration {argument, type_declared, type_used} => {
+                Some(format!(
+                    "The argument '{}' uses type(s) '{}', which are supertypes of the declared type(s) '{}'. \
+                        Consider using the exact or a more specific type.",
+                    argument,
+                    Self::format_types(type_declared),
+                    Self::format_types(type_used)
                 ))
             }
         }

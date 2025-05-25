@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree};
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
 ///
@@ -71,6 +71,7 @@ pub fn check(
                     symbol_table,
                     syntax_tree,
                     type_checker,
+                    diagnostic_manager,
                 )? {
                     no_error &= false;
                     let entry = syntax_tree.get_entry(usage.ast()).unwrap();
@@ -127,28 +128,25 @@ fn match_declaration_with_usage(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    ast: &AnnotatedSyntaxTree,
+    syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let ast_usage = ast.get_entry(usage.ast()).ok_or_else(|| {
+    let ast_usage = syntax_tree.get_entry(usage.ast()).ok_or_else(|| {
         ParserInternalError::new(format!("AST entry not found for usage '{}'", usage.ast()))
     })?;
 
-    for (index, argument) in ast_usage.children().iter().skip(1).enumerate() {
-        let argument_entry = ast.get_entry(*argument).unwrap();
-        let key = argument_entry.get_symbol(ast)?;
-        // If key is None, return an error
-        let key_ref = key.as_ref().ok_or_else(|| {
-            ParserInternalError::new(format!("Symbol for argument at index {} not found", index))
-        })?;
-        let kind = match argument_entry.kind() {
+    for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
+        let argument = syntax_tree.get_entry(*argument_index).unwrap();
+
+        let kind = match argument.kind() {
             SyntaxNodeKind::Variable(_) => SymbolKind::Variable,
             SyntaxNodeKind::Constant(_) => SymbolKind::Constant,
             SyntaxNodeKind::FunctionTerm => SymbolKind::Function,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST kind encountered: {}",
-                    argument_entry.kind()
+                    argument.kind()
                 )))
             }
         };
@@ -157,10 +155,12 @@ fn match_declaration_with_usage(
             declaration,
             usage,
             symbol_table,
-            key_ref,
+            syntax_tree,
+            argument,
             kind,
             index,
             type_checker,
+            diagnostic_manager
         )? {
             return Ok(false);
         }
@@ -192,11 +192,19 @@ fn match_argument(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    name: &str,
+    syntax_tree: &AnnotatedSyntaxTree,
+    argument: &AnnotatedSyntaxNode,
     kind: SymbolKind,
     index: usize,
     type_checker: &TypeChecker,
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
+
+    let name = argument.get_symbol(syntax_tree)?;
+    let name = name.ok_or_else(|| {
+        ParserInternalError::new(format!("Symbol for argument at index {} not found", index))
+    })?;
+
     let declarations =
         symbol_table.get_declarations_by_filter(Some(name), Some(&kind), Some(usage.scope()));
 
@@ -242,5 +250,42 @@ fn match_argument(
             usage.scope()
         ))
     })?;
-    type_checker.match_type(ty1, ty2)
+
+    // This condition is a special case: we allow a primitive task `(t ?x)` declared in a method
+    // with `?x` of type A to match an action `a` where `?x` has type B, as long as B is a supertype
+    // of A. This means we tolerate upcasting at usage time.
+    //
+    // In practice, this doesn't make much semantic sense and should be handled explicitly during
+    // grounding. This situation arises, for example, in the `ultralight_cockpit` domain.
+    // (No way to convince Gregor Behnke to write it more cleanly…)
+    //
+    // Outside of this exception, we apply strict subtype checking.
+    // Check if ty1 is a subtype of ty2
+    let is_subtype = type_checker.is_any_subtype_of(ty1, ty2)?;
+
+    // Special tolerated case: allow primitive task to match an action/method with a supertype
+    if !is_subtype
+        && (*declaration.kind() == SymbolKind::Action
+        || *declaration.kind() == SymbolKind::DASymbol
+        || *declaration.kind() == SymbolKind::Method)
+        && *usage.kind() == SymbolKind::Task
+    {
+        let warning = Diagnostic::new(
+            DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration {
+                argument: name.clone(),
+                type_declared: ty1.clone(),
+                type_used: ty2.clone(),
+            },
+            DiagnosticSource::SemanticAnalyzer,
+            syntax_tree.filename().clone(),
+            argument.span().clone(),
+        );
+        diagnostic_manager.add_diagnostic(warning);
+
+        // Accept the match if ty1 is a supertype of ty2
+        return type_checker.is_any_supertype_of(ty1, ty2);
+    }
+
+    // Normal case: return the subtype match result
+    Ok(is_subtype)
 }

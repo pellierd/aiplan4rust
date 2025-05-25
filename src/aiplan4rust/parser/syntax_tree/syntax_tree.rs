@@ -114,12 +114,11 @@ impl SyntaxTree {
         root: &SyntaxNode,
         nodes: &mut LinkedHashMap<usize, AnnotatedSyntaxNode>,
     ) -> Result<(), ParserInternalError> {
-        let mut stack = vec![root];
+        let mut stack = Vec::with_capacity(64);
+        stack.push(root);
 
         while let Some(node) = stack.pop() {
-            let id = node.id();
-            let entry = AnnotatedSyntaxNode::from(node)?;
-            nodes.insert(*id, entry);
+            nodes.insert(*node.id(), AnnotatedSyntaxNode::from(node)?);
 
             for child in node.children().iter().rev() {
                 stack.push(child.as_ref());

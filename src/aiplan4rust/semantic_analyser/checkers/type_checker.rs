@@ -57,51 +57,43 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    /// Compares two sets of types to determine if they are compatible within a given scope.
+    /// Checks if any type in the second set (`ty2`) is a subtype of any type in the first set (`ty1`) within the given scope.
     ///
-    /// This function checks if there is an overlap between two sets of types by looking for a match
-    /// in the first type set (`ty1`) and any type from the second set (`ty2`). It performs this
-    /// comparison based on the ascending type closure, which considers parent or derived types. The
-    /// function checks if any type in `ty2` is compatible with types in `ty1` by looking for a
-    /// common type in their type hierarchies within the given `scope`.
+    /// This function determines whether there exists at least one type in `ty2` that is a subtype of any type in `ty1`.
+    /// It uses the ascending type closure to consider all supertypes of each type in `ty2`, and checks if any of these
+    /// supertypes match a type in `ty1`.
     ///
     /// # Arguments
-    /// * `ty1` - A reference to a vector of strings representing the first set of types to be
-    ///   checked.
-    /// * `ty2` - A reference to a vector of strings representing the second set of types to be
-    ///   checked.
+    /// * `ty1` - A reference to a vector of strings representing the first set of types (supertypes).
+    /// * `ty2` - A reference to a vector of strings representing the second set of types (potential subtypes).
     ///
     /// # Returns
-    /// * `Ok(true)` if there is at least one type in `ty2` that is compatible with any type in `ty1`
-    ///   based on their type closure.
-    /// * `Ok(false)` if no compatible type is found after checking all types in `ty2`.
-    /// * `Err(ParserInternalError)` if an error occurs while fetching the ascending type closure.
+    /// * `Ok(true)` if any type in `ty2` is a subtype of any type in `ty1`.
+    /// * `Ok(false)` if no such subtype relation is found.
+    /// * `Err(ParserInternalError)` if an error occurs while computing the ascending type closure.
     ///
     /// # Algorithm
-    /// This function first converts `ty1` into a `HashSet` to ensure that type lookups are
-    /// efficient. It then iterates over each type in `ty2`, checking if any type from `ty2` is
-    /// compatible with the types in `ty1`. For each type in `ty2`, the function retrieves the
-    /// ascending type closure, which is a set of that type and all of its super-types.
-    /// It checks for any overlap between the closure and `ty1` by looking for common elements.
-    /// If a match is found, the function returns `Ok(true)`. If no match is found after iterating
-    /// through all types in `ty2`, it returns `Ok(false)`.
+    /// The function first converts `ty1` into a `HashSet` to optimize lookup performance.
+    /// Then, for each type in `ty2`, it retrieves its ascending type closure (the type and all its supertypes).
+    /// If any element of this closure is found in `ty1`, the function returns `Ok(true)`.
+    /// If no matches are found after processing all types in `ty2`, it returns `Ok(false)`.
     ///
     /// # Example
     /// ```rust
-    /// let ty1 = vec!["TypeA".to_string(), "TypeB".to_string()];
-    /// let ty2 = vec!["TypeC".to_string()];
-    /// let result = type_checker.match_type(&ty1, &ty2);
+    /// let ty1 = vec!["Animal".to_string(), "Vehicle".to_string()];
+    /// let ty2 = vec!["Dog".to_string()];
+    /// let result = type_checker.is_any_subtype_of(&ty1, &ty2);
     /// match result {
-    ///     Ok(true) => { /* types are compatible */ },
-    ///     Ok(false) => { /* types are not compatible */ },
-    ///     Err(e) => { /* handle error */ },
+    ///     Ok(true) => { /* Dog is a subtype of Animal or Vehicle */ },
+    ///     Ok(false) => { /* No subtype relation found */ },
+    ///     Err(e) => { /* Handle error */ },
     /// }
     /// ```
     ///
     /// # Notes
-    /// This function assumes that `ascending_type_closure` works as expected and properly handles
-    /// type hierarchies. It relies on the type closure mechanism to determine compatibility.
-    pub fn match_type(
+    /// This function depends on the correctness of the `ascending_type_closure` method to properly
+    /// reflect the type hierarchy and ensure accurate subtype detection.
+    pub fn is_any_subtype_of(
         &self,
         ty1: &Vec<String>,
         ty2: &Vec<String>,
@@ -132,13 +124,82 @@ impl<'a> TypeChecker<'a> {
         Ok(false)
     }
 
+    /// Checks if any type in `ty1` is a supertype of any type in `ty2` within the given scope.
+    ///
+    /// This function leverages `is_any_subtype_of` by inverting the parameters to determine
+    /// if `ty1` contains any supertype of the types in `ty2`.
+    ///
+    /// # Arguments
+    /// * `ty1` - A reference to a vector of strings representing the candidate supertype set.
+    /// * `ty2` - A reference to a vector of strings representing the candidate subtype set.
+    ///
+    /// # Returns
+    /// * `Ok(true)` if there exists at least one type in `ty1` that is a supertype of any type in `ty2`.
+    /// * `Ok(false)` if no such supertype relationship exists.
+    /// * `Err(ParserInternalError)` if an error occurs during subtype checking.
+    ///
+    /// # Example
+    /// ```rust
+    /// let ty1 = vec!["TypeA".to_string()];
+    /// let ty2 = vec!["TypeB".to_string(), "TypeC".to_string()];
+    /// let result = type_checker.is_any_supertype_of(&ty1, &ty2);
+    /// match result {
+    ///     Ok(true) => { /* ty1 has a supertype of ty2 */ },
+    ///     Ok(false) => { /* no supertype relationship found */ },
+    ///     Err(e) => { /* handle error */ },
+    /// }
+    /// ```
+    pub fn is_any_supertype_of(
+        &self,
+        ty1: &Vec<String>,
+        ty2: &Vec<String>,
+    ) -> Result<bool, ParserInternalError> {
+        // We check if any type in ty2 is a subtype of any type in ty1
+        self.is_any_subtype_of(ty2, ty1)
+    }
+
+    /// Checks if there is any subtype or supertype relationship between two sets of types.
+    ///
+    /// This function returns `Ok(true)` if any type in `ty1` is either a subtype or a supertype
+    /// of any type in `ty2` within the given scope. It leverages the existing functions
+    /// `is_any_subtype_of` and `is_any_supertype_of` to perform these checks.
+    ///
+    /// # Arguments
+    /// * `ty1` - A reference to a vector of strings representing the first set of types.
+    /// * `ty2` - A reference to a vector of strings representing the second set of types.
+    ///
+    /// # Returns
+    /// * `Ok(true)` if any subtype or supertype relationship exists between the two sets.
+    /// * `Ok(false)` if no such relationship exists.
+    /// * `Err(ParserInternalError)` if an error occurs during the subtype or supertype checks.
+    ///
+    /// # Example
+    /// ```rust
+    /// let ty1 = vec!["TypeA".to_string()];
+    /// let ty2 = vec!["TypeB".to_string()];
+    /// let result = type_checker.is_any_sub_or_supertype_of(&ty1, &ty2);
+    /// match result {
+    ///     Ok(true) => { /* there is a subtype or supertype relationship */ },
+    ///     Ok(false) => { /* no subtype or supertype relationship */ },
+    ///     Err(e) => { /* handle error */ },
+    /// }
+    /// ```
+    pub fn is_any_sub_or_supertype_of(
+        &self,
+        ty1: &Vec<String>,
+        ty2: &Vec<String>,
+    ) -> Result<bool, ParserInternalError> {
+        Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
+    }
+
+
     /// Collects the hierarchy of types for a given primitive type, including its super-types.
     ///
     /// This function gathers all types related to the given `primitive_type`, including its
     /// direct super-types and their super-types recursively. It returns a `HashSet` containing
     /// the `primitive_type` itself and all its super-types. The function works by exploring
     /// the type hierarchy in a depth-first manner, ensuring that all types encountered are unique
-    /// by utilizing a `HashSet`.
+    /// by using a `HashSet`.
     ///
     /// # Arguments
     /// * `primitive_type` - A reference to a `String` representing the primitive type for which

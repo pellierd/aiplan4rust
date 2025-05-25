@@ -148,10 +148,10 @@ impl AnnotatedSyntaxNode {
     /// # Returns
     /// - `Result<Option<String>, ParserInternalError>`: The result is either an `Option<String>` containing
     ///   the symbol (if found), or an error indicating why no symbol could be retrieved.
-    pub fn get_symbol(
-        &self,
-        syntax_tree: &AnnotatedSyntaxTree,
-    ) -> Result<Option<String>, ParserInternalError> {
+    pub fn get_symbol<'a>(
+        &'a self,
+        syntax_tree: &'a AnnotatedSyntaxTree,
+    ) -> Result<Option<&'a String>, ParserInternalError> {
         // Direct case: the kind of the node contains a recognizable symbol
         if let Some(sym) = self.kind.get_symbol() {
             return Ok(Some(sym));
