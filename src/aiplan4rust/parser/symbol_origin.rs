@@ -28,13 +28,13 @@ pub const SYMBOL_ORIGIN_UNKNOWN: &str = "Unknown";
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub enum SymbolOrigin {
     /// The symbol originates from the domain file.
-    #[default]
     Domain,
 
     /// The symbol originates from the problem file.
     Problem,
 
-    /// The symbol's origin could not be determined.
+    /// The symbol's origin could not be determined
+    #[default]
     Unknown,
 }
 

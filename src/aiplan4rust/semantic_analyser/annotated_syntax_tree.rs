@@ -2,7 +2,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
+use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, SymbolTableBuilder};
 use crate::aiplan4rust::semantic_analyser::SymbolTable;
 use crate::aiplan4rust::parser::SymbolOrigin;
 
@@ -170,8 +170,12 @@ impl AnnotatedSyntaxTree {
         let requirements = Self::extract_requirements(&nodes);
 
         // Create the symbol table from the syntax tree
-        let mut symbol_table = SymbolTable::new(syntax_tree.source());
-        symbol_table.initialize_from_ast(syntax_tree.root())?;
+        //let mut symbol_table = SymbolTable::new(syntax_tree.source());
+        //symbol_table.initialize_from_ast(syntax_tree.root())?;
+
+        let mut builder = SymbolTableBuilder::new();
+        let symbol_table = builder.build(syntax_tree)?;
+
 
         // Create and return the annotated syntax tree
         Ok(AnnotatedSyntaxTree::new(

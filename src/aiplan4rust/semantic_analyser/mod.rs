@@ -14,3 +14,4 @@ pub use annotated_syntax_tree::LiftedDomain;
 pub use annotated_syntax_tree::LiftedProblem;
 pub use semantic_analyzer::SemanticAnalyzer;
 pub use symbol_table::SymbolTable;
+pub use symbol_table::SymbolTableBuilder;
