@@ -61,7 +61,7 @@ impl Frontend {
         let problem = self.parse_file(problem_path, language)?;
         diagnostic_manager.add_diagnostic_from(problem.diagnostic_manager());
 
-        match (domain.annotated_syntax_tree(), problem.annotated_syntax_tree()) {
+        match (domain.into_annotated_syntax_tree(), problem.into_annotated_syntax_tree()) {
             (Some(domain_tree), Some(problem_tree)) => {
                 let mut linker = Linker::new();
                 let mut linker_result = linker.link(domain_tree, problem_tree)?;
@@ -166,7 +166,7 @@ impl Frontend {
 
         // Tentative de linking entre le domain et le problem
         let mut linker = Linker::new();
-        let mut linker_result = linker.link(&lifted_domain, &lifted_problem)?;
+        let mut linker_result = linker.link(lifted_domain, lifted_problem)?;
 
         // Ajouter toutes les erreurs du gestionnaire d'erreurs dans le résultat du linker
         linker_result

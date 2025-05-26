@@ -38,17 +38,18 @@ impl Linker {
 
     pub fn link(
         &mut self,
-        domain: &LiftedDomain,
-        problem: &LiftedProblem,
+        domain: LiftedDomain,
+        mut problem: LiftedProblem,
     ) -> Result<LinkerResult, ParserInternalError> {
 
         // TO DO: Vérifier la consistence des requirements déclarés dans le problem et dans le domaine
         // et vérifier ici qu''ils ne sont pas contradictoires
-        self.check_domain_name_declaration(domain, problem)?;
 
-        let mut problem = problem.clone();
+        self.check_domain_name_declaration(&domain, &problem)?;
+
+        //let mut problem = problem.clone();
         // Si le nom de domaine est déclaré, vérifier les symboles non déclarés
-        if self.check_undeclared_problem_symbols(domain, &mut problem)? {
+        if self.check_undeclared_problem_symbols(&domain, &mut problem)? {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
             atomic_formula_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
@@ -72,9 +73,9 @@ impl Linker {
             Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager)))
         } else {
             // Sinon, créer un LiftedPlanningTask à partir des domaines et problèmes déplaçés
-            let mut domain = domain.clone();
+            //let mut domain = domain.clone();
             let lifted_planning_task =
-                LiftedPlanningTask::new(take(&mut domain), take(&mut problem));
+                LiftedPlanningTask::new(domain, problem);
 
             // Retourner LinkerResult avec LiftedPlanningTask et l'ErrorManager mis à jour
             Ok(LinkerResult::new(

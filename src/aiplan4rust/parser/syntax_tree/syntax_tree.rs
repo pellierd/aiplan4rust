@@ -100,8 +100,9 @@ impl SyntaxTree {
     ) -> Result<LinkedHashMap<usize, AnnotatedSyntaxNode>, ParserInternalError> {
         match self.root.kind() {
             SyntaxNodeKind::Domain | SyntaxNodeKind::Problem => {
-                let mut nodes = LinkedHashMap::new();
-                Self::flatten_rec(self.root.as_ref(), &mut nodes)?;
+                let root = self.root.as_ref();
+                let mut nodes = LinkedHashMap::with_capacity(root.size());
+                Self::flatten_rec(root, &mut nodes)?;
                 Ok(nodes)
             }
             _ => Err(ParserInternalError::new(

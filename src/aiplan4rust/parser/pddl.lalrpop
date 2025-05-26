@@ -163,14 +163,14 @@ pub Name : Result<String, ()> = {
     <start:@L>  <name:"id"> <end:@R> => {
         if name.starts_with("?") {
             let parse_error = ParseError::UnrecognizedToken {
-                token : (start, Token::ID(name.to_string()), end),
+                token : (start, Token::ID(name), end),
                 expected : vec!["\"id\"".to_string()],
             };
            let error_recovery = ErrorRecovery { error: parse_error, dropped_tokens: Vec::new() };
            errors.push(error_recovery);
            Err(())
         } else {
-            Ok(name)
+            Ok(name.to_string())
         }
     },
     <start:@L> <error:!> <end:@R>  => {
@@ -188,14 +188,14 @@ pub VarName : Result<String, ()> = {
     <start:@L>  <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
             let parse_error = ParseError::UnrecognizedToken {
-                token : (start, Token::ID(name.to_string()), end),
+                token : (start, Token::ID(name), end),
                 expected : vec!["\"?id\"".to_string()],
             };
            let error_recovery = ErrorRecovery { error: parse_error, dropped_tokens: Vec::new() };
            errors.push(error_recovery);
            Err(())
         } else {
-            Ok(name)
+            Ok(name.to_string())
         }
     },
     <start:@L> <error:!> <end:@R>  => {
@@ -207,7 +207,7 @@ pub VarName : Result<String, ()> = {
 pub Constant: Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -216,7 +216,7 @@ pub Constant: Box<SyntaxNode> = {
 pub Variable : Box<SyntaxNode> = {
      <start:@L> <name:VarName> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -226,7 +226,7 @@ pub Variable : Box<SyntaxNode> = {
 pub FunctionSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-             Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::FunctionSymbol(name.to_string()), Vec::new(), start, end)),
+             Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::FunctionSymbol(name), Vec::new(), start, end)),
              Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
          }
     },
@@ -241,7 +241,7 @@ pub Number: Box<SyntaxNode> = {
 pub DomainName : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-             Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::DomainName(name.to_string()), Vec::new(), start, end)),
+             Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::DomainName(name), Vec::new(), start, end)),
              Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
          }
      },
@@ -250,7 +250,7 @@ pub DomainName : Box<SyntaxNode> = {
 pub ProblemName : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::ProblemName(name.to_string()), Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::ProblemName(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -259,7 +259,7 @@ pub ProblemName : Box<SyntaxNode> = {
 pub PrimitiveType : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::PrimitiveType(name.to_string()), Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::PrimitiveType(name), Vec::new(), start, end)),
             Err(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -268,7 +268,7 @@ pub PrimitiveType : Box<SyntaxNode> = {
 pub Predicate : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::Predicate(name.to_string()), Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::Predicate(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -277,7 +277,7 @@ pub Predicate : Box<SyntaxNode> = {
 pub ActionSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::ActionSymbol(name.to_string()), Vec::new(), start, end)),
+            Ok(name) =>  Box::new(SyntaxNode::new(SyntaxNodeKind::ActionSymbol(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -286,7 +286,7 @@ pub ActionSymbol : Box<SyntaxNode> = {
 pub DASymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::DASymbol(name.to_string()), Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::DASymbol(name), Vec::new(), start, end)),
             Err(_) => {
                 Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end))
             }
@@ -297,7 +297,7 @@ pub DASymbol : Box<SyntaxNode> = {
 pub PrefName : Box<SyntaxNode> = {
      <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::PrefName(name.to_string()), Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::PrefName(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -380,10 +380,8 @@ pub RequireDef : Box<SyntaxNode> = {
 }
 
 pub Type : Box<SyntaxNode> = {
-    <start:@L> <t:PrimitiveType> <end:@R> => {
-        let mut children = Vec::new();
-        children.push(t);
-        Box::new(SyntaxNode::new(SyntaxNodeKind::Type, children, start, end))
+    <start:@L> <ty:PrimitiveType> <end:@R> => {
+        Box::new(SyntaxNode::new(SyntaxNodeKind::Type, vec![ty], start, end))
     },
     <start:@L> "(" "either" <types:PrimitiveType+> ")" <end:@R> => {
         Box::new(SyntaxNode::new(SyntaxNodeKind::Type, types, start, end))
@@ -761,9 +759,9 @@ pub CondEffect : Box<SyntaxNode> = {
 pub Term: Box<SyntaxNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name), Vec::new(), start, end))
         } else {
-            Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name), Vec::new(), start, end))
         }
     },
     <duration:DurationVariable> => duration,
@@ -1450,7 +1448,7 @@ pub PDDL : Box<SyntaxNode> = {
 pub TaskSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::TaskSymbol(name.to_string()), Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::TaskSymbol(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -1468,7 +1466,7 @@ pub TaskDef : Box<SyntaxNode> = {
 pub MethodSymbol : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::MethodSymbol(name.to_string()), Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::MethodSymbol(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -1477,7 +1475,7 @@ pub MethodSymbol : Box<SyntaxNode> = {
 pub TaskID : Box<SyntaxNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::TaskID(name.to_string()), Vec::new(), start, end)),
+            Ok(name) => Box::new(SyntaxNode::new(SyntaxNodeKind::TaskID(name), Vec::new(), start, end)),
             Err(_) => Box::new(SyntaxNode::new(SyntaxNodeKind::Error, Vec::new(), start, end)),
         }
     },
@@ -1486,9 +1484,9 @@ pub TaskID : Box<SyntaxNode> = {
 pub TaskTerm: Box<SyntaxNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Constant(name), Vec::new(), start, end))
         } else {
-            Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name.to_string()), Vec::new(), start, end))
+            Box::new(SyntaxNode::new(SyntaxNodeKind::Variable(name), Vec::new(), start, end))
         }
     },
 }

@@ -61,6 +61,19 @@ impl AnalyzerResult {
         self.annotated_syntax_tree.as_ref()
     }
 
+    /// Consumes the current instance and returns the annotated syntax tree if present.
+    ///
+    /// This function takes ownership of `self` and extracts the `AnnotatedSyntaxTree`
+    /// from it, if it exists. This is useful when you need to move the syntax tree
+    /// out of the structure rather than borrowing it.
+    ///
+    /// # Returns
+    ///
+    /// `Some(AnnotatedSyntaxTree)` if the syntax tree exists, or `None` otherwise.
+    pub fn into_annotated_syntax_tree(self) -> Option<AnnotatedSyntaxTree> {
+        self.annotated_syntax_tree
+    }
+
     /// Returns a mutable reference to the annotated syntax tree.
     ///
     /// # Returns

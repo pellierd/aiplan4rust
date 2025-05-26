@@ -75,6 +75,10 @@ impl SyntaxNode {
         }
     }
 
+    pub fn size(&self) -> usize {
+        1 + self.children.iter().map(|child| child.size()).sum::<usize>()
+    }
+
     pub fn id(&self) -> &usize {
         &self.id
     }

@@ -1,3 +1,4 @@
+use std::cell::{Ref, RefCell};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
@@ -5,7 +6,7 @@ use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// PDDL Built-in symbols.
 const PDDL_BUILTIN_TYPES: [&str; 2] = [OBJECT_TYPE, NUMBER_TYPE];
@@ -32,6 +33,7 @@ const PDDL_BUILTIN_TYPES: [&str; 2] = [OBJECT_TYPE, NUMBER_TYPE];
 #[derive(Debug, Clone)]
 pub struct TypeChecker<'a> {
     domain_symbol_table: &'a SymbolTable,
+    type_closure_cache: RefCell<HashMap<String, HashSet<String>>>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -54,6 +56,7 @@ impl<'a> TypeChecker<'a> {
     pub fn new(domain_symbol_table: &'a SymbolTable) -> Self {
         TypeChecker {
             domain_symbol_table,
+            type_closure_cache: RefCell::new(HashMap::new()),
         }
     }
 
@@ -98,31 +101,20 @@ impl<'a> TypeChecker<'a> {
         ty1: &Vec<String>,
         ty2: &Vec<String>,
     ) -> Result<bool, ParserInternalError> {
-        let ty1_set: HashSet<_> = ty1.iter().cloned().collect();
+        let ty1_set: HashSet<_> = ty1.iter().collect(); // références, pas de clone
 
-        // Iterate over each type in ty2
         for ty in ty2.iter() {
-            // Get the ascending type closure for the current type
             let closure = self.ascending_type_closure(ty)?;
 
-            // Check if there is any overlap between the closure and ty1_set
-            let mut is_disjoint = true;
-            for closure_ty in closure.iter() {
-                if ty1_set.contains(closure_ty) {
-                    is_disjoint = false;
-                    break; // Found a match, no need to check further
-                }
-            }
-
-            // If a match is found, return Ok(true)
-            if !is_disjoint {
+            // Check if any element in closure is in ty1_set
+            if closure.iter().any(|closure_ty| ty1_set.contains(closure_ty)) {
                 return Ok(true);
             }
         }
 
-        // If no compatible type is found after checking all types in ty2
         Ok(false)
     }
+
 
     /// Checks if any type in `ty1` is a supertype of any type in `ty2` within the given scope.
     ///
@@ -234,7 +226,7 @@ impl<'a> TypeChecker<'a> {
     /// This function assumes that `domain_symbol_table` is populated with declarations for types
     /// and that `Scope::root()` is a valid starting point for the search. Built-in PDDL types are
     /// ignored during the search.
-    pub fn ascending_type_closure(
+    /*pub fn ascending_type_closure(
         &self,
         primitive_type: &String,
     ) -> Result<HashSet<String>, ParserInternalError> {
@@ -274,7 +266,73 @@ impl<'a> TypeChecker<'a> {
         }
 
         Ok(super_types)
+    }*/
+
+
+    pub fn ascending_type_closure(
+        &self,
+        primitive_type: &str,
+    ) -> Result<Ref<HashSet<String>>, ParserInternalError> {
+        {
+            // Premièrement, essaie de retourner la valeur depuis le cache sans calculer
+            let cache_ref = self.type_closure_cache.borrow();
+            if cache_ref.contains_key(primitive_type) {
+                return Ok(Ref::map(cache_ref, |cache| {
+                    cache.get(primitive_type).unwrap()
+                }));
+            }
+        }
+
+        // Sinon, on doit calculer la fermeture
+        let mut super_types = HashSet::new();
+        let mut to_visit = Vec::with_capacity(8);
+        to_visit.push(primitive_type);
+
+        while let Some(current_type) = to_visit.pop() {
+            if !super_types.insert(current_type.to_string()) {
+                continue;
+            }
+
+            if TypeChecker::is_pddl_builtin_types(current_type) {
+                continue;
+            }
+
+            let declarations = self.domain_symbol_table.get_declarations_by_filter(
+                Some(current_type),
+                Some(&SymbolKind::PrimitiveType),
+                Some(&Scope::root()),
+            );
+
+            match declarations.len() {
+                0 => continue,
+                1 => {
+                    if let Some(s_types) = declarations[0].types() {
+                        to_visit.extend(s_types.iter().map(String::as_str));
+                    }
+                }
+                _ => {
+                    return Err(ParserInternalError::new(format!(
+                        "Expected exactly one declaration for symbol '{}', but found {} declarations.",
+                        current_type,
+                        declarations.len()
+                    )));
+                }
+            }
+        }
+
+        // Insère la valeur calculée dans le cache
+        self.type_closure_cache
+            .borrow_mut()
+            .insert(primitive_type.to_string(), super_types);
+
+        // Retourne la référence vers la valeur insérée dans le cache
+        let cache_ref = self.type_closure_cache.borrow();
+        Ok(Ref::map(cache_ref, |cache| {
+            cache.get(primitive_type).unwrap()
+        }))
     }
+
+
 
     /// Checks if the given type is a PDDL built-in symbol.
     ///
