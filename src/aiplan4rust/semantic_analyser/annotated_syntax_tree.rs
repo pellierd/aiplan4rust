@@ -176,6 +176,7 @@ impl AnnotatedSyntaxTree {
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(syntax_tree)?;
 
+        println!("Symbol table built: {}", symbol_table);
 
         // Create and return the annotated syntax tree
         Ok(AnnotatedSyntaxTree::new(

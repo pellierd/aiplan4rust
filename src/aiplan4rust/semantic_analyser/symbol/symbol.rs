@@ -100,6 +100,11 @@ impl Symbol {
         &self.declarations
     }
 
+    /// Returns a mutable reference to the list of declarations for the symbol.
+    pub fn declarations_mut(&mut self) -> &mut IndexSet<Declaration> {
+        &mut self.declarations
+    }
+
     /// Returns the list of usages for the symbol.
     ///
     /// # Returns

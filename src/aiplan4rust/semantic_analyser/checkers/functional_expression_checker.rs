@@ -139,7 +139,7 @@ fn check_equal_and_assignment_expression(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
-    if !type_checker.is_any_sub_or_supertype_of(ty1, ty2)? {
+    if !type_checker.have_common_supertype(ty1, ty2)? {
         no_error = false;
         let error = Diagnostic::new(
             DiagnosticKind::TypeMismatchInExpression { ty1: ty1.clone(), ty2 : ty2.clone() },
@@ -351,6 +351,7 @@ fn get_number_type() -> Result<Option<Vec<String>>, ParserInternalError> {
 ///
 /// # Returns
 /// A `Result` containing:
+/// - `Ok(Some(types))`: A vector of type names if the variable was successfully resolved.
 /// - `Ok(Some(types))`: A vector of type names if the variable was successfully resolved.
 /// - `Ok(None)`: If the variable is declared but without a type (unusual).
 /// - `Err(ParserInternalError)`: If the variable has conflicting declarations or is undeclared.

@@ -478,7 +478,6 @@ impl SymbolTableBuilder {
 
         let children = ast.children();
 
-        // Case 1: No children, return early
         if children.is_empty() {
             return Ok(());
         }
@@ -578,7 +577,7 @@ impl SymbolTableBuilder {
         Self::assert_ast_kind(elements, &[SyntaxNodeKind::TypedItemElements])?;
 
         for elt in elements.children() {
-            // Ensure the element is one of the expected types before proceeding
+            // Vérifie que l'élément est d'un type AST attendu
             Self::assert_ast_kind(
                 elt,
                 &[
@@ -590,18 +589,18 @@ impl SymbolTableBuilder {
             )?;
 
             match elt.kind() {
-                // Process PrimitiveType, Constant, or Variable
-                SyntaxNodeKind::PrimitiveType(_)
-                | SyntaxNodeKind::Constant(_)
-                | SyntaxNodeKind::Variable(_) => {
+                SyntaxNodeKind::PrimitiveType(_) | SyntaxNodeKind::Constant(_) | SyntaxNodeKind::Variable(_) => {
+                    // Pour les constantes et variables, on ajoute simplement la déclaration
                     self.add_declaration_symbol(elt, scope.clone(), Some(types.clone()), None)?;
                 }
-                // Handle AtomicFunctionSkeleton recursively
+
                 SyntaxNodeKind::AtomicFunctionSkeleton => {
+                    // Appel récursif pour les squelettes de fonction atomique
                     self.init_from_atomic_function_skeleton(elt, scope.clone(), types.clone())?;
                 }
+
                 _ => {
-                    // Handle any unexpected cases, though the assertion should prevent them
+                    // Ne devrait jamais arriver grâce au assert_ast_kind
                     unreachable!("Unexpected AST node type: {:?}", elt.kind());
                 }
             }

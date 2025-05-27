@@ -184,6 +184,60 @@ impl<'a> TypeChecker<'a> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
 
+    /// Checks if two sets of types share at least one common supertype.
+    ///
+    /// For each type in `ty1` and `ty2`, the function retrieves the ascending closure of supertypes
+    /// (i.e., all supertypes inherited directly or indirectly), then determines if there is any
+    /// supertype present in both sets.
+    ///
+    /// # Arguments
+    ///
+    /// * `ty1` - A reference to a vector of strings representing the first set of types.
+    /// * `ty2` - A reference to a vector of strings representing the second set of types.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(true)` if at least one common supertype is found.
+    /// * `Ok(false)` otherwise.
+    /// * `Err(ParserInternalError)` if an error occurs while retrieving the supertypes closure.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let types_a = vec!["TypeA".to_string(), "TypeB".to_string()];
+    /// let types_b = vec!["TypeC".to_string()];
+    /// let result = my_struct.have_common_supertype(&types_a, &types_b);
+    /// match result {
+    ///     Ok(true) => println!("Types share a common supertype"),
+    ///     Ok(false) => println!("No common supertype found"),
+    ///     Err(e) => println!("Error: {:?}", e),
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// This function uses `ascending_type_closure` to get the full set of supertypes for a given type.
+    pub fn have_common_supertype(
+        &self,
+        ty1: &Vec<String>,
+        ty2: &Vec<String>,
+    ) -> Result<bool, ParserInternalError> {
+        let mut supertypes1 = HashSet::new();
+
+        for t1 in ty1 {
+            let closure1 = self.ascending_type_closure(t1)?;
+            supertypes1.extend(closure1.iter().cloned());
+        }
+
+        for t2 in ty2 {
+            let closure2 = self.ascending_type_closure(t2)?;
+            if closure2.iter().any(|s| supertypes1.contains(s)) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
 
     /// Collects the hierarchy of types for a given primitive type, including its super-types.
     ///
