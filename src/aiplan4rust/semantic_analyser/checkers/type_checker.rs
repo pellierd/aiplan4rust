@@ -60,15 +60,18 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    /// Checks if any type in the second set (`ty2`) is a subtype of any type in the first set (`ty1`) within the given scope.
+    /// Checks if any type in the second set (`ty2`) is a subtype of any type in the first set
+    /// (`ty1`) within the given scope.
     ///
-    /// This function determines whether there exists at least one type in `ty2` that is a subtype of any type in `ty1`.
-    /// It uses the ascending type closure to consider all supertypes of each type in `ty2`, and checks if any of these
-    /// supertypes match a type in `ty1`.
+    /// This function determines whether there exists at least one type in `ty2` that is a subtype
+    /// of any type in `ty1`. It uses the ascending type closure to consider all supertypes of each
+    /// type in `ty2`, and checks if any of these supertypes match a type in `ty1`.
     ///
     /// # Arguments
-    /// * `ty1` - A reference to a vector of strings representing the first set of types (supertypes).
-    /// * `ty2` - A reference to a vector of strings representing the second set of types (potential subtypes).
+    /// * `ty1` - A reference to a vector of strings representing the first set of types
+    ///   (supertypes).
+    /// * `ty2` - A reference to a vector of strings representing the second set of types (potential
+    ///   subtypes).
     ///
     /// # Returns
     /// * `Ok(true)` if any type in `ty2` is a subtype of any type in `ty1`.
@@ -77,9 +80,10 @@ impl<'a> TypeChecker<'a> {
     ///
     /// # Algorithm
     /// The function first converts `ty1` into a `HashSet` to optimize lookup performance.
-    /// Then, for each type in `ty2`, it retrieves its ascending type closure (the type and all its supertypes).
-    /// If any element of this closure is found in `ty1`, the function returns `Ok(true)`.
-    /// If no matches are found after processing all types in `ty2`, it returns `Ok(false)`.
+    /// Then, for each type in `ty2`, it retrieves its ascending type closure (the type and all its
+    /// supertypes). If any element of this closure is found in `ty1`, the function returns
+    /// `Ok(true)`. If no matches are found after processing all types in `ty2`, it returns
+    /// `Ok(false)`.
     ///
     /// # Example
     /// ```rust
@@ -126,7 +130,8 @@ impl<'a> TypeChecker<'a> {
     /// * `ty2` - A reference to a vector of strings representing the candidate subtype set.
     ///
     /// # Returns
-    /// * `Ok(true)` if there exists at least one type in `ty1` that is a supertype of any type in `ty2`.
+    /// * `Ok(true)` if there exists at least one type in `ty1` that is a supertype of any type in
+    ///   `ty2`.
     /// * `Ok(false)` if no such supertype relationship exists.
     /// * `Err(ParserInternalError)` if an error occurs during subtype checking.
     ///
@@ -216,7 +221,8 @@ impl<'a> TypeChecker<'a> {
     ///
     /// # Notes
     ///
-    /// This function uses `ascending_type_closure` to get the full set of supertypes for a given type.
+    /// This function uses `ascending_type_closure` to get the full set of supertypes for a given
+    /// type.
     pub fn have_common_supertype(
         &self,
         ty1: &Vec<String>,
