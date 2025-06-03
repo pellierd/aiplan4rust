@@ -93,7 +93,7 @@ impl Linker {
         // Récupérer les symboles de domaine pour le nom de domaine dans les deux arbres
         let domain_name_symbols = domain
             .symbol_table()
-            .get_symbols_with_declaration_by_filter(None, Some(&SymbolKind::DomainName), None);
+            .fetch_symbol_with_declarations(None, Some(&SymbolKind::DomainName), None);
 
         // Vérification du nombre de symboles dans domain_name_symbols
         if domain_name_symbols.len() != 1 {
@@ -105,7 +105,7 @@ impl Linker {
 
         let problem_name_symbols = problem
             .symbol_table()
-            .get_symbols_with_declaration_by_filter(None, Some(&SymbolKind::DomainName), None);
+            .fetch_symbol_with_declarations(None, Some(&SymbolKind::DomainName), None);
 
         // Vérification du nombre de symboles dans problem_name_symbols
         if problem_name_symbols.len() != 1 {
@@ -117,7 +117,7 @@ impl Linker {
 
         // Vérification que les noms des symboles sont identiques
         if domain_name_symbols[0].name() != problem_name_symbols[0].name() {
-            let domain_name_declaration = problem.symbol_table().filter_declarations(
+            let domain_name_declaration = problem.symbol_table().fetch_declarations(
                 Some(problem_name_symbols[0].name().as_str()),
                 Some(&SymbolKind::DomainName),
                 None,
@@ -208,7 +208,7 @@ impl Linker {
         scope: &Scope,
     ) -> Result<Option<&'a Declaration>, ParserInternalError> {
         let fetch_valid = |kind: SymbolKind| {
-            let decls = symbol_table.filter_declarations(
+            let decls = symbol_table.fetch_declarations(
                 Some(symbol_name),
                 Some(&kind),
                 Some(scope),
