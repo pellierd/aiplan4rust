@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::semantic_analyser::checkers::functional_expression_checker;
+use crate::aiplan4rust::semantic_analyser::checkers::{functional_expression_checker, type_hierarchy_checker};
 use crate::aiplan4rust::semantic_analyser::checkers::symbol_declaration_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::undeclared_symbol_checker;
@@ -113,11 +113,11 @@ impl SemanticAnalyzer {
         syntax_tree: &SyntaxTree,
     ) -> Result<AnalyzerResult, ParserInternalError> {
         // Create the `AnnotatedSyntaxTree` using the dedicated `from` function
-        let annotated_syntax_tree = AnnotatedSyntaxTree::from(syntax_tree)?;
+        let mut annotated_syntax_tree = AnnotatedSyntaxTree::from(syntax_tree)?;
 
         // Determine the AST kind and perform the appropriate checks
         match syntax_tree.root().kind() {
-            SyntaxNodeKind::Domain => self.check_domain(&annotated_syntax_tree)?,
+            SyntaxNodeKind::Domain => self.check_domain(&mut annotated_syntax_tree)?,
             SyntaxNodeKind::Problem => self.check_problem(&annotated_syntax_tree)?,
             _ => {
                 return Err(ParserInternalError::new(format!(
@@ -171,13 +171,20 @@ impl SemanticAnalyzer {
     /// ```
     fn check_domain(
         &mut self,
-        annotated_syntax_tree: &AnnotatedSyntaxTree,
+        annotated_syntax_tree: &mut AnnotatedSyntaxTree,
     ) -> Result<bool, ParserInternalError> {
         // Skip unused symbols of kind Constant during the checks
         let skip_symbols_unused = &[SymbolKind::Constant];
 
+        // Check the type hierarchy of the annotated syntax tree
+        let mut checked = type_hierarchy_checker::check(
+            annotated_syntax_tree,
+            &mut self.diagnostic_manager
+        )?;
+
+        println!("{}", annotated_syntax_tree.symbol_table());
         // Perform the first symbol check (declared symbols check)
-        let mut checked = Self::check_symbols(
+        checked &= Self::check_symbols(
             annotated_syntax_tree,
             &[],                 // No symbols to skip for declared symbols check
             skip_symbols_unused, // Skip symbols of type Constant for unused symbol check

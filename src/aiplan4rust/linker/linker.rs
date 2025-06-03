@@ -9,7 +9,7 @@ use crate::aiplan4rust::semantic_analyser::checkers::{
 use crate::aiplan4rust::semantic_analyser::checkers::{
     functional_expression_checker, requirement_checker, TypeChecker,
 };
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
+use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
@@ -147,16 +147,14 @@ impl Linker {
 
         let mut declared = Vec::new();
         let mut undeclared = Vec::new();
-        let mut no_error = true;
 
         // Vérifier les symboles non déclarés
-        self.check_symbols_without_declarations(
+        let no_error = self.check_symbols_without_declarations(
             problem,
             &domain_symbol_table,
             &mut declared,
             &mut undeclared,
-            &mut no_error,
-        );
+        )?;
 
         // Appliquer les mises à jour après l'itération
         self.update_symbol_declaration(problem, declared);
@@ -173,33 +171,156 @@ impl Linker {
         domain_symbol_table: &SymbolTable,
         updates: &mut Vec<(String, Declaration)>,
         undeclared: &mut Vec<(String, Usage)>,
-        no_error: &mut bool,
-    ) {
+    ) -> Result<bool, ParserInternalError> {
         let problem_symbol_table = problem.symbol_table();
+        let mut checked = true;
 
         for symbol in problem_symbol_table.values() {
             if symbol.declarations().is_empty() {
+                if symbol.name() == "move_vehicle_no_traincar" {
+
+                    let a = domain_symbol_table.get_symbol(symbol.name());
+                    println!("++++++++++++++++++{:?}\n{}", a, domain_symbol_table);
+                }
+
                 for usage in symbol.usages() {
-                    if let Some(domain_declaration) = domain_symbol_table
-                        .get_declarations_by_filter(
-                            Some(symbol.name().as_str()),
-                            Some(usage.kind()),
-                            None,
-                        )
-                        .into_iter()
-                        .next()
-                    {
+
+                    let domain_declaration_option = Self::get_declaration_by_filter(
+                        domain_symbol_table,
+                        symbol.name(),
+                        usage.kind(),
+                        &Scope::root(),
+                    )?;  // ici on propage l'erreur éventuelle
+
+                    if let Some(domain_declaration) = domain_declaration_option {
                         let mut domain_declaration = domain_declaration.clone();
                         domain_declaration.set_source(SymbolOrigin::Domain);
                         updates.push((symbol.name().to_string(), domain_declaration));
                     } else {
+
                         println!("{} '{}' not declared", usage.kind(), symbol.name());
                         undeclared.push((symbol.name().to_string(), usage.clone()));
-                        *no_error = false;
+                        checked &= false;
+
+                        println!("*********************************•\n{}", problem_symbol_table);
                     }
                 }
             }
         }
+        Ok(checked)
+    }
+
+    fn get_declaration_by_filter<'a>(
+        symbol_table: &'a SymbolTable,
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        scope: &Scope,
+    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+        let fetch_valid = |kind: SymbolKind| {
+            let decls = symbol_table.get_declarations_by_filter(
+                Some(symbol_name),
+                Some(&kind),
+                Some(scope),
+            );
+            Self::find_valid_declaration(symbol_name, usage_kind, &decls)
+        };
+
+        match usage_kind {
+            SymbolKind::Task => match fetch_valid(SymbolKind::Task)? {
+                Some(decl) => Ok(Some(decl)),
+                None => fetch_valid(SymbolKind::Action),
+            },
+            _ => fetch_valid(*usage_kind),
+        }
+    }
+
+
+    fn find_valid_declaration<'a>(
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        declarations: &[&'a Declaration],
+    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+        match usage_kind {
+            SymbolKind::PrimitiveType | SymbolKind::Predicate => {
+                Self::validate_declarations_for_type_predicate(symbol_name, &usage_kind, declarations)
+            }
+            SymbolKind::Task => {
+                Self::validate_declarations_for_task(symbol_name, declarations)
+            }
+            _ => match declarations.len() {
+                0 => Ok(None),
+                1 => Ok(Some(declarations[0])),
+                _ => Err(Self::multiple_declarations_error(symbol_name, &usage_kind, declarations.len())),
+            },
+        }
+    }
+
+    fn is_kind_allowed_for_usage(usage_kind: &SymbolKind, decl_kind: &SymbolKind) -> bool {
+        match usage_kind {
+            SymbolKind::PrimitiveType => *decl_kind == SymbolKind::PrimitiveType || *decl_kind == SymbolKind::Predicate,
+            SymbolKind::Predicate => *decl_kind == SymbolKind::Predicate || *decl_kind == SymbolKind::PrimitiveType,
+            SymbolKind::Task => *decl_kind == SymbolKind::Task || *decl_kind == SymbolKind::Action,
+            _ => false,
+        }
+    }
+
+
+    fn validate_declarations_for_type_predicate<'a>(
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        declarations: &[&'a Declaration],
+    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+        let matching: Vec<_> = declarations
+            .iter()
+            .filter(|d| d.kind() == usage_kind)
+            .collect();
+
+        match matching.len() {
+            0 => Ok(None),
+            1 => match declarations.len() {
+                1 => Ok(Some(matching[0])),
+                2 => match declarations.iter().find(|d| d.kind() != usage_kind) {
+                    Some(other) if Self::is_kind_allowed_for_usage(&usage_kind, other.kind()) => {
+                        Ok(Some(matching[0]))
+                    }
+                    _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, declarations.len())),
+                },
+                _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, declarations.len())),
+            },
+            _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, matching.len())),
+        }
+    }
+
+    fn validate_declarations_for_task<'a>(
+        symbol_name: &str,
+        declarations: &[&'a Declaration],
+    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+        if declarations.len() > 1 {
+            return Err(Self::multiple_declarations_error(symbol_name, &SymbolKind::Task, declarations.len()));
+        }
+
+        match declarations.first() {
+            Some(decl) => match decl.kind() {
+                SymbolKind::Task | SymbolKind::Action => {
+                    Ok(Some(decl))
+                },
+                _ => {
+                    Ok(None)
+                },
+            },
+            None => Ok(None),
+        }
+    }
+
+    fn multiple_declarations_error(
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        count: usize,
+    ) -> ParserInternalError {
+        ParserInternalError::new(format!(
+            "Symbol '{}' with kind '{:?}' has {} declarations, which is invalid.",
+            symbol_name, usage_kind, count
+        ))
     }
 
     fn update_symbol_declaration(
@@ -234,7 +355,6 @@ impl Linker {
                 problem.filename().clone(),
                 ast_entry.span().clone(),
             );
-
             self.diagnostic_manager.add_diagnostic(error);
         }
     }

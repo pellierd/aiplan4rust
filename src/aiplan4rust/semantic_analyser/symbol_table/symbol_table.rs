@@ -54,6 +54,14 @@ impl SymbolTable {
         self.source = source;
     }
 
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &Symbol)> {
+        self.symbols.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&String, &mut Symbol)> {
+        self.symbols.iter_mut()
+    }
+
     /// Inserts a symbol into the symbol table using a unique key.
     ///
     /// # Arguments

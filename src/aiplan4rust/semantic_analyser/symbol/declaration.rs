@@ -166,6 +166,10 @@ impl Declaration {
         self.types.as_mut()
     }
 
+    pub fn take_types(&mut self) -> Option<Vec<String>> {
+        self.types.take()
+    }
+
     /// Mutable accessor for the list of argument types associated with the symbol.
     ///
     /// Returns a mutable reference to the vector of argument types, allowing modification.

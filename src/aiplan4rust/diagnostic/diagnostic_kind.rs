@@ -5,6 +5,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, SymbolKind};
 
 use std::fmt;
+use crate::aiplan4rust::parser::Span;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
 #[derive(Clone, Debug, PartialEq)]
@@ -88,6 +89,14 @@ pub enum DiagnosticKind {
         type_declared: Vec<String>,
         type_used: Vec<String>,
     },
+    WarningDuplicatedTypeDeclaration {
+        ty: String,
+        declaration1: Declaration,
+        declaration2: Declaration,
+    },
+    CyclicTypeDeclarationError {
+       cycle: Vec<(String, Declaration, Span)>
+    },
     CustomError(String),
 }
 
@@ -113,12 +122,14 @@ impl DiagnosticKind {
             DiagnosticKind::CyclicOrderingConstraint { .. } => "E1008".to_string(),
             DiagnosticKind::UndeclaredSymbol { .. } => "E1009".to_string(),
             DiagnosticKind::ReservedSymbolUsedAs { .. } => "E1010".to_string(),
+            DiagnosticKind::CyclicTypeDeclarationError { .. } => "E1011".to_string(),
             // WARNINGS ANALYSER
             DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => "W1010".to_string(),
             DiagnosticKind::UnusedSymbol { .. } => "W1011".to_string(),
             DiagnosticKind::RequirementViolation { .. } => "W10012".to_string(),
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
+            DiagnosticKind::WarningDuplicatedTypeDeclaration { .. } => "W1015".to_string(),
             // WARNINGS LINKER
             DiagnosticKind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
 
@@ -197,6 +208,12 @@ impl DiagnosticKind {
                 format!("Upcasting detected: argument '{}' has broader type(s) than declared.",
                 argument)
             }
+            DiagnosticKind::WarningDuplicatedTypeDeclaration { ty   , .. } => {
+                format!("Duplicated declaration of type '{}'.", ty)
+            }
+            DiagnosticKind::CyclicTypeDeclarationError { ..} => {
+                "Cycle detected in type declarations, causing an invalid hierarchy.".to_string()
+            }
             DiagnosticKind::CustomError(msg) => msg.to_string(),
         }
     }
@@ -223,12 +240,14 @@ impl DiagnosticKind {
             DiagnosticKind::CyclicOrderingConstraint => DiagnosticSeverity::Error,
             DiagnosticKind::UndeclaredSymbol { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::ReservedSymbolUsedAs { .. } => DiagnosticSeverity::Error,
+            DiagnosticKind::CyclicTypeDeclarationError { .. } => DiagnosticSeverity::Error,
             // ANALYSER WARNINGS
             DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::UnusedSymbol { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::RequirementViolation { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::WarningDuplicatedTypeDeclaration { .. } => DiagnosticSeverity::Warning,
 
             // LINKER WARNINGS
             DiagnosticKind::DomainProblemNameMismatch { .. } => DiagnosticSeverity::Warning,
@@ -398,6 +417,24 @@ impl DiagnosticKind {
                     Self::format_types(type_used)
                 ))
             }
+            DiagnosticKind::WarningDuplicatedTypeDeclaration { ty, declaration1, declaration2, .. } => {
+                Some(format!(
+                    "The type '{}' is declared multiple times: once as '{}' and again as '{}'. \
+                    If multiple inheritance is intended, use an 'either' expression to represent it properly. \
+                     Otherwise, this is likely an error in the domain definition.",
+                    ty,
+                    declaration1.kind(),
+                    declaration2.kind()
+                ))
+            }
+            DiagnosticKind::CyclicTypeDeclarationError { cycle } => {
+                let cycle_symbols: Vec<String> = cycle.iter().map(|(sym, _, _)| sym.clone()).collect();
+                Some(format!(
+                    "Cycle detected in type hierarchy: {}. Remove cyclic inheritance to fix.",
+                    cycle_symbols.join(" -> ")
+                ))
+            }
+
         }
     }
 

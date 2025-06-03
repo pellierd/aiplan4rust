@@ -130,6 +130,14 @@ impl AnnotatedSyntaxTree {
         self.syntax_tree.values()
     }
 
+    pub fn symnole_table(&self) -> &SymbolTable {
+        &self.symbol_table
+    }
+
+    pub fn symnole_table_mut(&mut self) -> &mut SymbolTable {
+        &mut self.symbol_table
+    }
+
     /// Creates a new `AnnotatedSyntaxTree` with the provided components.
     ///
     /// # Arguments
@@ -170,13 +178,8 @@ impl AnnotatedSyntaxTree {
         let requirements = Self::extract_requirements(&nodes);
 
         // Create the symbol table from the syntax tree
-        //let mut symbol_table = SymbolTable::new(syntax_tree.source());
-        //symbol_table.initialize_from_ast(syntax_tree.root())?;
-
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(syntax_tree)?;
-
-        println!("Symbol table built: {}", symbol_table);
 
         // Create and return the annotated syntax tree
         Ok(AnnotatedSyntaxTree::new(

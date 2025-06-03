@@ -8,7 +8,7 @@ use std::fmt;
 /// It is used to distinguish between different symbol types when processing or analyzing a symbol.
 ///
 /// # Variants
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum SymbolKind {
     /// Represents an action in the domain (e.g., a specific task or operation).
     Action,

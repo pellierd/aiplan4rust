@@ -64,11 +64,11 @@ impl SymbolTableBuilder {
     fn table_mut(&mut self) -> &mut SymbolTable {
         &mut self.table
     }
+
+    #[allow(dead_code)]
     fn set_table(&mut self, table: SymbolTable) {
         self.table = table;
     }
-
-
 
     pub fn build(&mut self, syntax_tree: &SyntaxTree ) -> Result<SymbolTable, ParserInternalError> {
         self.table_mut().set_source(syntax_tree.source());
