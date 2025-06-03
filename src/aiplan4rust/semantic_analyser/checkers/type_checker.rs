@@ -351,7 +351,7 @@ impl<'a> TypeChecker<'a> {
                 continue;
             }
 
-            let declarations = self.domain_symbol_table.get_declarations_by_filter(
+            let declarations = self.domain_symbol_table.filter_declarations(
                 Some(current_type),
                 Some(&SymbolKind::PrimitiveType),
                 Some(&Scope::root()),

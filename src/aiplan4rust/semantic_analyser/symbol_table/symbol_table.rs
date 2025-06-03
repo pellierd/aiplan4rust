@@ -13,7 +13,6 @@ use serde::Serialize;
 use std::fmt;
 use indexmap::IndexSet;
 
-
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A table of symbols used by the aiplan4rust.
 ///
@@ -130,7 +129,7 @@ impl SymbolTable {
             let declarations = symbol.declarations();
 
             // Vérifier si le filtre sur les déclarations correspond à quelque chose
-            let filtered_declarations = SymbolTable::get_by_filter(kind, scope, declarations);
+            let filtered_declarations = SymbolTable::filter_symbol(kind, scope, declarations);
 
             // Si des déclarations correspondantes sont trouvées, ajouter le symbole à la réponse
             if !filtered_declarations.is_empty() {
@@ -162,7 +161,7 @@ impl SymbolTable {
             let declarations = symbol.usages();
 
             // Vérifier si le filtre sur les déclarations correspond à quelque chose
-            let filtered_usages = SymbolTable::get_by_filter(kind, scope, declarations);
+            let filtered_usages = SymbolTable::filter_symbol(kind, scope, declarations);
 
             // Si des déclarations correspondantes sont trouvées, ajouter le symbole à la réponse
             if !filtered_usages.is_empty() {
@@ -173,49 +172,128 @@ impl SymbolTable {
         result
     }
 
-    pub fn get_declarations_by_filter(
+    /// Filters and returns declarations from the symbol table based on optional criteria.
+    ///
+    /// This method allows you to retrieve a list of declarations matching a given
+    /// symbol name, kind, and/or scope. If a symbol name is provided, the search
+    /// is limited to that symbol's declarations. Otherwise, all symbols in the
+    /// symbol table are searched.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol_name` - An optional string representing the name of the symbol to filter.
+    /// * `kind` - An optional reference to the kind of declaration to filter (`SymbolKind`).
+    /// * `scope` - An optional reference to the scope in which the declaration must be defined (`Scope`).
+    ///
+    /// # Returns
+    ///
+    /// A vector of references to `Declaration` objects matching the given filters.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let matches = symbol_table.filter_declaration(
+    ///     Some("my_symbol"),
+    ///     Some(&SymbolKind::Predicate),
+    ///     None
+    /// );
+    /// ```
+    pub fn filter_declarations(
         &self,
         symbol_name: Option<&str>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Declaration> {
         if let Some(name) = symbol_name {
-            // Si on connaît le nom, on récupère directement le symbole
+            // If the symbol name is provided, try to get the corresponding symbol.
             if let Some(symbol) = self.symbols.get(name) {
-                // Filtrage sur les déclarations du symbole trouvé
-                return SymbolTable::get_by_filter(kind, scope, symbol.declarations());
+                // Filter that symbol's declarations using the provided kind and scope.
+                return SymbolTable::filter_symbol(kind, scope, symbol.declarations());
             } else {
-                // Pas de symbole avec ce nom, on retourne un vecteur vide
+                // No such symbol found: return an empty list.
                 return Vec::new();
             }
         }
 
-        // Sinon, on parcourt tous les symboles comme avant
-        self.symbols.values()
-            .flat_map(|symbol| SymbolTable::get_by_filter(kind, scope, symbol.declarations()))
+        // If no specific symbol name is provided, iterate over all symbols
+        // and collect declarations matching the kind and scope.
+        self.symbols
+            .values()
+            .flat_map(|symbol| SymbolTable::filter_symbol(kind, scope, symbol.declarations()))
             .collect()
     }
 
-    pub fn get_usages_by_filter(
+
+    /// Filters the usages of symbols based on optional criteria.
+    ///
+    /// If a `symbol_name` is provided, this function attempts to retrieve the corresponding symbol
+    /// and filters its usages according to the specified `kind` and `scope`.
+    /// If no `symbol_name` is provided, it filters usages across all symbols in the symbol table.
+    ///
+    /// # Parameters
+    /// - `symbol_name`: Optional name of the symbol whose usages are to be filtered.
+    /// - `kind`: Optional kind of symbol usage to filter (e.g., predicate, function).
+    /// - `scope`: Optional scope prefix; only usages whose scope starts with this prefix are
+    ///   included.
+    ///
+    /// # Returns
+    /// A vector of references to usages (`&Usage`) that match the given filters.
+    ///
+    /// # Examples
+    /// ```
+    /// // Filter usages of a specific symbol by kind and scope
+    /// let filtered_usages = symbol_table.filter_usages(
+    ///     Some("my_symbol"), Some(&SymbolKind::Predicate),
+    ///     Some(&Scope::new("global"))
+    /// );
+    ///
+    /// // Filter all usages of kind Function regardless of symbol name
+    /// let all_function_usages = symbol_table.filter_usages(None, Some(&SymbolKind::Function), None);
+    /// ```
+    pub fn filter_usages(
         &self,
         symbol_name: Option<&str>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Usage> {
+        // If a symbol name is provided, try to find the symbol in the symbol table.
         if let Some(name) = symbol_name {
             if let Some(symbol) = self.symbols.get(name) {
-                return SymbolTable::get_by_filter(kind, scope, symbol.usages());
+                // Found the symbol: filter its usages based on the optional kind and scope criteria.
+                return SymbolTable::filter_symbol(kind, scope, symbol.usages());
             } else {
+                // No symbol with this name found: return an empty vector.
                 return Vec::new();
             }
         }
 
+        // No symbol name provided:
+        // Iterate over all symbols and collect usages filtered by kind and scope.
         self.symbols.values()
-            .flat_map(|symbol| SymbolTable::get_by_filter(kind, scope, symbol.usages()))
+            .flat_map(|symbol| SymbolTable::filter_symbol(kind, scope, symbol.usages()))
             .collect()
     }
 
-    pub fn get_by_filter<'a, T: FilterableSymbol>(
+
+    /// Filters a set of symbols or symbol-related items by optional kind and scope criteria.
+    ///
+    /// This function iterates over the provided set of items implementing `FilterableSymbol`
+    /// and returns those matching the given optional `SymbolKind` and `Scope`.
+    ///
+    /// # Parameters
+    /// - `kind`: Optional symbol kind to match.
+    /// - `scope`: Optional scope prefix to match. Only items whose scope starts with this prefix
+    ///   will be retained.
+    /// - `items`: A set of symbol-like items to filter.
+    ///
+    /// # Returns
+    /// A `Vec` of references to items that match the provided filters.
+    ///
+    /// # Example
+    /// ```rust
+    /// let filtered = filter_symbol(Some(&SymbolKind::Predicate), Some(&Scope::new("global")), &my_items);
+    /// ```
+    fn filter_symbol<'a, T: FilterableSymbol>(
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
         items: &'a IndexSet<T>,
@@ -236,6 +314,7 @@ impl SymbolTable {
             })
             .collect()
     }
+
 
     pub fn get_declaration_by_index(&self, index: usize) -> Option<&Declaration> {
         for symbol in self.symbols.values() {
@@ -258,79 +337,92 @@ impl SymbolTable {
         None
     }
 
-    /// Retrieves the declarations associated with a specific usage index.
+    /// Retrieves the declaration associated with a usage identified by a specific AST node index.
     ///
-    /// This function searches through the symbols and their usages to find any
-    /// usages that match the given `index`. If a matching usage is found, it then
-    /// checks the associated declarations and returns them if their scopes match.
-    /// The result is wrapped in an `Option` to differentiate between a missing usage
-    /// and the case where matching declarations are found.
+    /// This function searches all symbols and their usages in the symbol table to find a usage
+    /// that matches the given AST node index. It then filters the declarations of the matching
+    /// symbol to find those whose scope contains the usage's scope.
     ///
     /// # Parameters
-    /// - `index`: The index of the usage to search for.
+    /// - `index`: The AST node index representing the usage to look up.
     ///
     /// # Returns
-    /// - `Some(Vec<&Declaration>)`: A vector containing the declarations that match
-    ///   the given usage index and scope.
-    /// - `None`: If no matching usage is found for the provided index, or if no
-    ///   declarations are found that match the usage's scope.
+    /// - `Ok(Some(&Declaration))`: Exactly one matching declaration found.
+    /// - `Ok(None)`: No matching usage or declaration found for the given index.
+    /// - `Err(ParserInternalError)`: Multiple declarations match the usage, indicating ambiguity.
     ///
-    /// # Example
+    /// # Errors
+    /// Returns an error if multiple declarations correspond to the same usage index, signaling
+    /// an invalid state.
+    ///
+    /// # Examples
     /// ```rust
-    /// let result = get_declaration_by_usage(42);
-    /// match result {
-    ///     Some(declarations) => {
-    ///         for declaration in declarations {
-    ///             // Handle each declaration
-    ///         }
-    ///     },
-    ///     None => {
-    ///         // Handle the case where no matching usage was found
-    ///         println!("No usage found for index 42.");
-    ///     }
+    /// let declaration = symbol_table.fetch_declaration_by_usage(42)?;
+    /// match declaration {
+    ///     Some(decl) => println!("Declaration found: {:?}", decl),
+    ///     None => println!("No declaration found for usage 42"),
     /// }
     /// ```
-    pub fn get_declaration_by_usage(
+    pub fn fetch_declaration_by_usage(
         &self,
         index: usize,
-    ) -> Result<Vec<&Declaration>, ParserInternalError> {
-        let mut result = Vec::new();
-
-        // Iterate through each symbol in the symbols map
+    ) -> Result<Option<&Declaration>, ParserInternalError> {
+        // Iterate over every symbol stored in the symbol table
         for symbol in self.symbols.values() {
-            // Iterate through the usages of the current symbol
-            for usage in symbol.usages() {
-                // If a usage matches the provided index
-                if usage.ast() == index {
-                    // Search through the declarations of the current symbol
-                    for declaration in symbol.declarations() {
-                        // Check if the scope of the declaration matches the usage
-                        if usage.scope().starts_with(declaration.scope()) {
-                            result.push(declaration);
-                        }
-                    }
+            // Cache declarations of the current symbol for efficient reuse
+            let declarations = symbol.declarations();
 
-                    // If we found matching declarations, return them immediately
-                    if !result.is_empty() {
-                        return Ok(result);
+            // Iterate through all usages of this symbol
+            for usage in symbol.usages() {
+                // Check if the usage's AST index matches the requested index
+                if usage.ast() == index {
+                    // Filter declarations to those whose scope is compatible with the usage's scope
+                    let filtered: Vec<&Declaration> = declarations
+                        .iter()
+                        .filter(|decl| usage.scope().starts_with(decl.scope()))
+                        .collect();
+
+                    // Handle the filtered results based on how many matches were found
+                    match filtered.len() {
+                        0 => return Ok(None),            // No declaration matches this usage
+                        1 => return Ok(Some(filtered[0])), // Exactly one declaration found, return it
+                        _ => {
+                            // Multiple matching declarations found, which is an error case
+                            return Err(ParserInternalError::new(format!(
+                                "Multiple declarations found for usage at AST index {}.",
+                                index
+                            )));
+                        }
                     }
                 }
             }
         }
 
-        // If the index was never found in usages, return an error
-        Err(ParserInternalError::new(format!(
-            "AST index {} not found in symbol table usages.",
-            index
-        )))
+        // No usage matching the given AST index was found, so return None
+        Ok(None)
     }
 }
 
+/// Implements the `Display` trait for `SymbolTable`.
+///
+/// This allows a `SymbolTable` instance to be formatted as a user-friendly string,
+/// typically for debugging or printing purposes. Each symbol in the table is
+/// displayed on its own line.
+///
+/// # Example
+/// ```
+/// let symbol_table = SymbolTable::new();
+/// println!("{}", symbol_table); // Prints all symbols line by line.
+/// ```
 impl fmt::Display for SymbolTable {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Iterate over all symbols stored in the symbol table.
         for symbol in self.symbols.values() {
+            // Write each symbol followed by a newline into the formatter.
+            // The `?` operator propagates any error that might occur.
             writeln!(f, "{}", symbol)?;
         }
+        // Return Ok to indicate successful formatting.
         Ok(())
     }
 }

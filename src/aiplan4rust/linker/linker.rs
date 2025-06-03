@@ -117,7 +117,7 @@ impl Linker {
 
         // Vérification que les noms des symboles sont identiques
         if domain_name_symbols[0].name() != problem_name_symbols[0].name() {
-            let domain_name_declaration = problem.symbol_table().get_declarations_by_filter(
+            let domain_name_declaration = problem.symbol_table().filter_declarations(
                 Some(problem_name_symbols[0].name().as_str()),
                 Some(&SymbolKind::DomainName),
                 None,
@@ -177,11 +177,6 @@ impl Linker {
 
         for symbol in problem_symbol_table.values() {
             if symbol.declarations().is_empty() {
-                if symbol.name() == "move_vehicle_no_traincar" {
-
-                    let a = domain_symbol_table.get_symbol(symbol.name());
-                    println!("++++++++++++++++++{:?}\n{}", a, domain_symbol_table);
-                }
 
                 for usage in symbol.usages() {
 
@@ -197,12 +192,8 @@ impl Linker {
                         domain_declaration.set_source(SymbolOrigin::Domain);
                         updates.push((symbol.name().to_string(), domain_declaration));
                     } else {
-
-                        println!("{} '{}' not declared", usage.kind(), symbol.name());
                         undeclared.push((symbol.name().to_string(), usage.clone()));
                         checked &= false;
-
-                        println!("*********************************•\n{}", problem_symbol_table);
                     }
                 }
             }
@@ -217,7 +208,7 @@ impl Linker {
         scope: &Scope,
     ) -> Result<Option<&'a Declaration>, ParserInternalError> {
         let fetch_valid = |kind: SymbolKind| {
-            let decls = symbol_table.get_declarations_by_filter(
+            let decls = symbol_table.filter_declarations(
                 Some(symbol_name),
                 Some(&kind),
                 Some(scope),

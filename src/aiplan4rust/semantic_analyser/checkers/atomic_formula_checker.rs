@@ -206,7 +206,7 @@ fn match_argument(
     })?;
 
     let declarations =
-        symbol_table.get_declarations_by_filter(Some(name), Some(&kind), Some(usage.scope()));
+        symbol_table.filter_declarations(Some(name), Some(&kind), Some(usage.scope()));
 
     if declarations.is_empty() {
         return Err(ParserInternalError::new(format!(

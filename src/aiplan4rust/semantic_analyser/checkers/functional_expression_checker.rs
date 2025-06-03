@@ -129,7 +129,6 @@ pub fn check(
 ///     &mut errors,
 /// );
 /// ```
-
 fn check_equal_and_assignment_expression(
     annotated_syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
@@ -372,7 +371,7 @@ fn get_variable_type(
     if symbol == DURATION_VARIABLE && annotated_syntax_tree.has_requirement(&DurativeActions) {
         return get_number_type();
     }
-    get_declaration_type(index, symbol, annotated_syntax_tree.symbol_table())
+    get_declaration_type(index, annotated_syntax_tree.symbol_table())
 }
 
 /// Retrieves the type of a constant symbol from the symbol table.
@@ -399,53 +398,47 @@ fn get_variable_type(
 /// ```
 fn get_constant_type(
     index: usize,
-    symbol: &str,
+    _symbol: &str,
     annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
-    get_declaration_type(index, symbol, annotated_syntax_tree.symbol_table())
+    get_declaration_type(index, annotated_syntax_tree.symbol_table())
 }
 
-/// Helper function to retrieve the type of a symbol from the symbol table.
+/// Helper function to retrieve the types associated with a symbol usage from the symbol table.
 ///
-/// This function looks up a symbol in the symbol table using its index and returns its associated
-/// type. If the symbol has multiple declarations, it raises an error to ensure that the symbol is
-/// declared only once. It accesses the symbol's type through the `declarations` and handles cases
-/// where there are no types declared for the symbol.
+/// This function looks up a declaration corresponding to a usage identified by its AST index in the
+/// symbol table. It returns the types declared for that symbol usage, if any. If multiple
+/// declarations are found for the same usage, it returns an error to enforce uniqueness. If no
+/// declaration is found for the usage, it returns `Ok(None)`.
 ///
 /// # Parameters
-/// - `index`: The index of the symbol in the symbol table. This is used to retrieve the correct
-///   declaration.
-/// - `symbol`: The name of the symbol being looked up.
-/// - `symbol_table`: A reference to the symbol table, which holds all symbol declarations and their
-///   associated types.
+/// - `index`: The AST index representing the usage of the symbol in the syntax tree.
+/// - `symbol_table`: A reference to the symbol table containing symbol declarations and usages.
 ///
 /// # Returns
-/// This function returns a `Result` containing:
-/// - `Ok(Some(types))`: A vector of type names if the symbol has a single declaration with types.
-/// - `Ok(None)`: If the symbol exists but does not have any declared types.
-/// - `Err(ParserInternalError)`: If the symbol has multiple declarations, an error is returned
-///   indicating a conflict.
+/// Returns a `Result` containing:
+/// - `Ok(Some(types))`: A vector of type names if a single declaration with types is found.
+/// - `Ok(None)`: If no declaration is found or the declaration has no types.
+/// - `Err(ParserInternalError)`: If multiple declarations are found for the same usage, indicating
+///   a conflict.
 ///
 /// # Example
 /// ```rust
-/// let ty = get_declaration_type(10, "varX", &symbol_table)?;
+/// let types = get_declaration_type(10, &symbol_table)?;
+/// if let Some(types_vec) = types {
+///     println!("Types found: {:?}", types_vec);
+/// } else {
+///     println!("No types declared for this usage.");
+/// }
 /// ```
 fn get_declaration_type(
     index: usize,
-    symbol: &str,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
-    let declarations = symbol_table.get_declaration_by_usage(index)?;
-    if declarations.len() > 1 {
-        return Err(ParserInternalError::new(format!(
-            "Symbol '{}' has multiple declarations.",
-            symbol
-        )));
+    match symbol_table.fetch_declaration_by_usage(index)? {
+        None => Ok(None),
+        Some(decl) => Ok(decl.types().cloned()),
     }
-    Ok(declarations
-        .get(0)
-        .map(|decl| decl.types().cloned())
-        .unwrap_or(None))
 }
 
 /// Helper to handle `FunctionTerm` and retrieve its type.
@@ -494,7 +487,7 @@ fn get_function_term_type(
         if symbol == TOTAL_TIME && syntax_tree.has_requirement(&NumericFluents) {
             return get_number_type();
         }
-        return get_declaration_type(index, symbol, syntax_tree.symbol_table());
+        return get_declaration_type(index, syntax_tree.symbol_table());
     }
 
     Err(ParserInternalError::new(
