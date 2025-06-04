@@ -435,7 +435,7 @@ fn get_declaration_type(
     index: usize,
     symbol_table: &SymbolTable,
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
-    match symbol_table.fetch_declaration_by_usage(index)? {
+    match symbol_table.resolve_declaration_by_usage(index)? {
         None => Ok(None),
         Some(decl) => Ok(decl.types().cloned()),
     }

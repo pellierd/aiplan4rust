@@ -210,7 +210,7 @@ impl SymbolTable {
     ///     None
     /// );
     /// ```
-    pub fn fetch_symbol_with_declarations(
+    pub fn collect_symbol_with_declaration(
         &self,
         symbol_name: Option<&str>,
         kind: Option<&SymbolKind>,
@@ -222,7 +222,7 @@ impl SymbolTable {
                 // Retrieve all declarations of the found symbol
                 let declarations = symbol.declarations();
                 // Filter declarations by optional kind and scope
-                let filtered_declarations = SymbolTable::fetch(kind, scope, declarations);
+                let filtered_declarations = SymbolTable::collect(kind, scope, declarations);
                 // If any filtered declarations exist, return the symbol wrapped in a vector
                 if !filtered_declarations.is_empty() {
                     return vec![symbol];
@@ -243,7 +243,7 @@ impl SymbolTable {
                 // Retrieve all declarations of the current symbol
                 let declarations = symbol.declarations();
                 // Filter declarations by kind and scope
-                let filtered_declarations = SymbolTable::fetch(kind, scope, declarations);
+                let filtered_declarations = SymbolTable::collect(kind, scope, declarations);
                 // Keep symbol only if filtered declarations are not empty
                 !filtered_declarations.is_empty()
             })
@@ -292,7 +292,7 @@ impl SymbolTable {
     /// // Fetch all symbols with usages of kind Action regardless of scope or name
     /// let symbols = symbol_table.fetch_symbol_with_usage(None, Some(&SymbolKind::Action), None);
     /// ```
-    pub fn fetch_symbol_with_usage(
+    pub fn collect_symbol_with_usages(
         &self,
         symbol_name: Option<&str>,
         kind: Option<&SymbolKind>,
@@ -305,7 +305,7 @@ impl SymbolTable {
                 // Retrieve all usages associated with the symbol
                 let usages = symbol.usages();
                 // Filter the usages based on the given kind and scope
-                let filtered_usages = SymbolTable::fetch(kind, scope, usages);
+                let filtered_usages = SymbolTable::collect(kind, scope, usages);
                 // If there is at least one matching usage, return the symbol in a vector
                 if !filtered_usages.is_empty() {
                     return vec![symbol];
@@ -320,40 +320,46 @@ impl SymbolTable {
             // Keep only those symbols that have at least one usage matching the filters
             .filter(|symbol| {
                 let usages = symbol.usages();
-                !SymbolTable::fetch(kind, scope, usages).is_empty()
+                !SymbolTable::collect(kind, scope, usages).is_empty()
             })
             // Collect the filtered symbols into a vector to return
             .collect()
     }
 
-    /// Filters and returns declarations from the symbol table based on optional criteria.
+    /// Filters and collects declarations from the symbol table based on optional criteria.
     ///
-    /// This method allows you to retrieve a list of declarations matching a given
-    /// symbol name, kind, and/or scope. If a symbol name is provided, the search
-    /// is limited to that symbol's declarations. Otherwise, all symbols in the
-    /// symbol table are searched.
+    /// This method retrieves a list of declarations that match the provided filters:
+    /// - `symbol_name`: if specified, restricts the search to declarations of that symbol only.
+    /// - `kind`: if specified, filters declarations by their kind (e.g., Predicate, Task).
+    /// - `scope`: if specified, filters declarations by the scope in which they are defined.
     ///
-    /// # Arguments
+    /// If no `symbol_name` is given, the search is performed over all symbols in the table.
     ///
-    /// * `symbol_name` - An optional string representing the name of the symbol to filter.
-    /// * `kind` - An optional reference to the kind of declaration to filter (`SymbolKind`).
-    /// * `scope` - An optional reference to the scope in which the declaration must be defined
-    ///   (`Scope`).
+    /// # Parameters
+    /// - `symbol_name`: Optional symbol name to restrict the search to declarations of that symbol.
+    /// - `kind`: Optional kind of declarations to filter by (`SymbolKind`).
+    /// - `scope`: Optional scope to filter declarations by (`Scope`).
     ///
     /// # Returns
+    /// A vector of references to `Declaration` instances matching all the specified criteria.
     ///
-    /// A vector of references to `Declaration` objects matching the given filters.
-    ///
-    /// # Example
-    ///
+    /// # Examples
     /// ```rust
-    /// let matches = symbol_table.filter_declaration(
+    /// // Collect all Predicate declarations for the symbol "my_symbol"
+    /// let predicates = symbol_table.collect_declarations(
     ///     Some("my_symbol"),
     ///     Some(&SymbolKind::Predicate),
-    ///     None
+    ///     None,
+    /// );
+    ///
+    /// // Collect all declarations of kind Task across all symbols within a specific scope
+    /// let scoped_tasks = symbol_table.collect_declarations(
+    ///     None,
+    ///     Some(&SymbolKind::Task),
+    ///     Some(&Scope::new("global")),
     /// );
     /// ```
-    pub fn fetch_declarations(
+    pub fn collect_declarations(
         &self,
         symbol_name: Option<&str>,
         kind: Option<&SymbolKind>,
@@ -363,7 +369,7 @@ impl SymbolTable {
             // If the symbol name is provided, try to get the corresponding symbol.
             if let Some(symbol) = self.symbols.get(name) {
                 // Filter that symbol's declarations using the provided kind and scope.
-                return SymbolTable::fetch(kind, scope, symbol.declarations());
+                return SymbolTable::collect(kind, scope, symbol.declarations());
             } else {
                 // No such symbol found: return an empty list.
                 return Vec::new();
@@ -374,38 +380,41 @@ impl SymbolTable {
         // and collect declarations matching the kind and scope.
         self.symbols
             .values()
-            .flat_map(|symbol| SymbolTable::fetch(kind, scope, symbol.declarations()))
+            .flat_map(|symbol| SymbolTable::collect(kind, scope, symbol.declarations()))
             .collect()
     }
 
-
-    /// Filters the usages of symbols based on optional criteria.
+    /// Filters and collects usages of symbols based on optional criteria.
     ///
-    /// If a `symbol_name` is provided, this function attempts to retrieve the corresponding symbol
-    /// and filters its usages according to the specified `kind` and `scope`.
-    /// If no `symbol_name` is provided, it filters usages across all symbols in the symbol table.
+    /// This function retrieves usages of symbols stored in the symbol table, optionally filtered by:
+    /// - the symbol's name,
+    /// - the kind of usage (e.g., Predicate, Function, Task),
+    /// - and the scope within which the usage occurs.
+    ///
+    /// If a specific `symbol_name` is provided, only usages of that symbol are considered.
+    /// Otherwise, usages of all symbols in the table are filtered.
     ///
     /// # Parameters
-    /// - `symbol_name`: Optional name of the symbol whose usages are to be filtered.
-    /// - `kind`: Optional kind of symbol usage to filter (e.g., predicate, function).
-    /// - `scope`: Optional scope prefix; only usages whose scope starts with this prefix are
-    ///   included.
+    /// - `symbol_name`: An optional symbol name to restrict the search to usages of that symbol.
+    /// - `kind`: An optional `SymbolKind` to filter usages by their kind.
+    /// - `scope`: An optional `Scope` that serves as a prefix filter on the usage scopes.
     ///
     /// # Returns
-    /// A vector of references to usages (`&Usage`) that match the given filters.
+    /// A vector containing references to all `Usage` instances that match the provided filters.
     ///
     /// # Examples
     /// ```
-    /// // Filter usages of a specific symbol by kind and scope
-    /// let filtered_usages = symbol_table.filter_usages(
-    ///     Some("my_symbol"), Some(&SymbolKind::Predicate),
-    ///     Some(&Scope::new("global"))
+    /// // Filter usages of a specific symbol "my_symbol" that are of kind Predicate and within "global" scope.
+    /// let filtered_usages = symbol_table.collect_usages(
+    ///     Some("my_symbol"),
+    ///     Some(&SymbolKind::Predicate),
+    ///     Some(&Scope::new("global")),
     /// );
     ///
-    /// // Filter all usages of kind Function regardless of symbol name
-    /// let all_function_usages = symbol_table.filter_usages(None, Some(&SymbolKind::Function), None);
+    /// // Filter all usages of kind Function across all symbols, ignoring symbol name and scope.
+    /// let all_function_usages = symbol_table.collect_usages(None, Some(&SymbolKind::Function), None);
     /// ```
-    pub fn fetch_usages(
+    pub fn collect_usages(
         &self,
         symbol_name: Option<&str>,
         kind: Option<&SymbolKind>,
@@ -415,7 +424,7 @@ impl SymbolTable {
         if let Some(name) = symbol_name {
             if let Some(symbol) = self.symbols.get(name) {
                 // Found the symbol: filter its usages based on the optional kind and scope criteria.
-                return SymbolTable::fetch(kind, scope, symbol.usages());
+                return SymbolTable::collect(kind, scope, symbol.usages());
             } else {
                 // No symbol with this name found: return an empty vector.
                 return Vec::new();
@@ -425,7 +434,7 @@ impl SymbolTable {
         // No symbol name provided:
         // Iterate over all symbols and collect usages filtered by kind and scope.
         self.symbols.values()
-            .flat_map(|symbol| SymbolTable::fetch(kind, scope, symbol.usages()))
+            .flat_map(|symbol| SymbolTable::collect(kind, scope, symbol.usages()))
             .collect()
     }
 
@@ -453,7 +462,7 @@ impl SymbolTable {
     ///     &my_items,
     /// );
     /// ```
-    fn fetch<'a, T: FilterableSymbol>(
+    fn collect<'a, T: FilterableSymbol>(
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
         items: &'a IndexSet<T>,
@@ -501,7 +510,7 @@ impl SymbolTable {
     ///     None => println!("No declaration found for usage 42"),
     /// }
     /// ```
-    pub fn fetch_declaration_by_usage(
+    pub fn resolve_declaration_by_usage(
         &self,
         index: usize,
     ) -> Result<Option<&Declaration>, ParserInternalError> {
@@ -539,6 +548,331 @@ impl SymbolTable {
         // No usage matching the given AST index was found, so return None
         Ok(None)
     }
+
+    /// Resolves the most appropriate declaration for a given symbol usage.
+    ///
+    /// This function attempts to find a declaration matching the provided symbol name, usage kind,
+    /// and scope. It performs filtering and validation to ensure that the returned declaration
+    /// is unambiguous and valid in the current context.
+    ///
+    /// Specifically, for symbols of kind `Task`, this method includes a fallback mechanism:
+    /// if no declaration of kind `Task` is found, it attempts to resolve a declaration of kind
+    /// `Action`.
+    ///
+    /// # Parameters
+    /// - `symbol_name`: The name of the symbol to resolve. This should correspond to a declared
+    ///   symbol.
+    /// - `usage_kind`: The kind of usage for the symbol (e.g., `Predicate`, `Task`, `Action`). This
+    ///   guides
+    ///   the filtering and validation logic to pick an appropriate declaration.
+    /// - `scope`: The lexical or semantic scope in which the symbol usage occurs. Only declarations
+    ///   within or compatible with this scope are considered.
+    ///
+    /// # Returns
+    /// Returns a `Result` wrapping an `Option`:
+    /// - `Ok(Some(&Declaration))`: If exactly one valid declaration matching the criteria is found.
+    /// - `Ok(None)`: If no matching declaration exists for the given filters.
+    /// - `Err(ParserInternalError)`: If multiple conflicting or ambiguous declarations are found,
+    ///   making it impossible to resolve a unique declaration.
+    ///
+    /// # Errors
+    /// This function returns a [`ParserInternalError`] if multiple declarations match the criteria
+    /// and no clear resolution can be made. This error helps identify semantic issues such as
+    /// duplicated or conflicting declarations.
+    ///
+    /// # Behavior Details
+    /// - The resolution process uses [`fetch_declarations`] internally to collect candidate
+    ///   declarations.
+    /// - Validation and disambiguation of these candidates are done by [`select_valid_declaration`].
+    /// - The special fallback from `Task` to `Action` allows flexible handling of task-like symbols.
+    ///
+    /// # Examples
+    /// ```rust
+    /// let symbol_name = "move";
+    /// let usage_kind = SymbolKind::Task;
+    /// let scope = Scope::new("global");
+    ///
+    /// match symbol_table.resolve_declaration(symbol_name, &usage_kind, &scope) {
+    ///     Ok(Some(decl)) => println!("Resolved declaration: {:?}", decl),
+    ///     Ok(None) => println!("No matching declaration found."),
+    ///     Err(err) => eprintln!("Error resolving declaration: {}", err),
+    /// }
+    /// ```
+    ///
+    /// [`fetch_declarations`]: SymbolTable::collect_declarations
+    /// [`select_valid_declaration`]: SymbolTable::select_valid_declaration
+    /// [`ParserInternalError`]: crate::errors::ParserInternalError
+    pub fn resolve_declaration(
+        &self,
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        scope: &Scope,
+    ) -> Result<Option<&Declaration>, ParserInternalError> {
+        // Define a closure to fetch and validate declarations for a specific SymbolKind
+        let resolve_candidates = |kind: SymbolKind| {
+            // Fetch declarations matching symbol_name, kind, and scope
+            let decls = self.collect_declarations(Some(symbol_name), Some(&kind), Some(scope));
+            // Select the most valid declaration from the fetched list
+            Self::select_valid_declaration(symbol_name, usage_kind, &decls)
+        };
+
+        // Special case handling when usage_kind is Task
+        match usage_kind {
+            SymbolKind::Task => match resolve_candidates(SymbolKind::Task)? {
+                // If a Task declaration is found, return it
+                Some(decl) => Ok(Some(decl)),
+                // Otherwise, fallback to resolving Action declarations
+                None => resolve_candidates(SymbolKind::Action),
+            },
+            // For other usage kinds, resolve declarations directly
+            _ => resolve_candidates(*usage_kind),
+        }
+    }
+
+    /// Selects a valid declaration among candidates for a given symbol usage.
+    ///
+    /// Applies kind-specific rules to determine which declaration is valid and unambiguous.
+    /// Used internally by `resolve_declaration`.
+    ///
+    /// # Parameters
+    /// - `symbol_name`: The name of the symbol.
+    /// - `usage_kind`: The kind of usage that triggered the lookup.
+    /// - `declarations`: All candidate declarations matching the symbol, kind, and scope.
+    ///
+    /// # Returns
+    /// - `Ok(Some(&Declaration))`: If one valid declaration is found.
+    /// - `Ok(None)`: If no declaration is acceptable.
+    /// - `Err`: If multiple valid declarations cause ambiguity.
+    fn select_valid_declaration<'a>(
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        declarations: &[&'a Declaration],
+    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+        // Match on the usage kind to determine the appropriate validation strategy
+        match usage_kind {
+            // For PrimitiveType or Predicate kinds, use specific validation logic
+            SymbolKind::PrimitiveType | SymbolKind::Predicate => {
+                Self::validate_type_or_predicate_declarations(symbol_name, usage_kind, declarations)
+            }
+            // For Task kind, use task-specific validation logic
+            SymbolKind::Task => {
+                Self::validate_task_declarations(symbol_name, declarations)
+            }
+            // For all other kinds, handle based on the number of declarations found
+            _ => match declarations.len() {
+                0 => Ok(None), // No declarations found
+                1 => Ok(Some(declarations[0])), // Exactly one declaration found, return it
+                // Multiple declarations found, return an error indicating ambiguity
+                _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, declarations.len())),
+            },
+        }
+    }
+
+    /// Determines whether a declaration kind is compatible with a usage kind.
+    ///
+    /// Used to allow limited polymorphism (e.g., using a `Predicate` in a type context).
+    ///
+    /// # Returns
+    /// `true` if the declaration kind is allowed for the given usage kind.
+    fn is_declaration_kind_compatible(usage_kind: &SymbolKind, decl_kind: &SymbolKind) -> bool {
+        // Determine compatibility between the usage kind and declaration kind
+        match usage_kind {
+            // For PrimitiveType usage, compatible with PrimitiveType or Predicate declarations
+            SymbolKind::PrimitiveType => {
+                *decl_kind == SymbolKind::PrimitiveType || *decl_kind == SymbolKind::Predicate
+            },
+            // For Predicate usage, compatible with Predicate or PrimitiveType declarations
+            SymbolKind::Predicate => {
+                *decl_kind == SymbolKind::Predicate || *decl_kind == SymbolKind::PrimitiveType
+            },
+            // For Task usage, compatible with Task or Action declarations
+            SymbolKind::Task => {
+                *decl_kind == SymbolKind::Task || *decl_kind == SymbolKind::Action
+            },
+            // For other usage kinds, no compatibility by default
+            _ => false,
+        }
+    }
+
+    /// Validates declarations for types and predicates, allowing limited overlap.
+    ///
+    /// Allows exactly one matching declaration and optionally one compatible declaration (e.g.,
+    /// Predicate + PrimitiveType).
+    ///
+    /// # Rules
+    /// - Only one declaration with the correct kind is allowed.
+    /// - One other compatible kind may exist, but not more.
+    ///
+    /// # Returns
+    /// - `Ok(Some(&Declaration))`: If validation passes.
+    /// - `Ok(None)`: If no matching declaration exists.
+    /// - `Err`: If validation fails due to ambiguity or incompatible kinds.
+    fn validate_type_or_predicate_declarations<'a>(
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        declarations: &[&'a Declaration],
+    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+        // Collect all declarations that exactly match the usage kind
+        let matching: Vec<_> = declarations.iter().filter(|d| d.kind() == usage_kind).collect();
+
+        match matching.len() {
+            // No matching declarations found
+            0 => Ok(None),
+            // Exactly one matching declaration found
+            1 => match declarations.len() {
+                // If there is only one declaration in total, return the matching one
+                1 => Ok(Some(matching[0])),
+                // If there are exactly two declarations in total, check the other one
+                2 => match declarations.iter().find(|d| d.kind() != usage_kind) {
+                    // If the other declaration kind is compatible, still return the matching one
+                    Some(other) if Self::is_declaration_kind_compatible(usage_kind, other.kind()) => Ok(Some(matching[0])),
+                    // Otherwise, multiple conflicting declarations are found — return an error
+                    _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, declarations.len())),
+                },
+                // More than two declarations in total means ambiguity — return an error
+                _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, declarations.len())),
+            },
+            // More than one matching declaration is ambiguous — return an error
+            _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, matching.len())),
+        }
+    }
+
+    /// Validates task declarations by allowing either a `Task` or an `Action`, but only one.
+    ///
+    /// If the declaration kind is incompatible, it is ignored.
+    ///
+    /// # Returns
+    /// - `Ok(Some(&Declaration))`: If one valid declaration is found.
+    /// - `Ok(None)`: If none found or incompatible.
+    /// - `Err`: If multiple declarations cause ambiguity.
+    fn validate_task_declarations<'a>(
+        symbol_name: &str,
+        declarations: &[&'a Declaration],
+    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+        // If there is more than one declaration, return an error indicating ambiguity
+        if declarations.len() > 1 {
+            return Err(Self::multiple_declarations_error(
+                symbol_name,
+                &SymbolKind::Task,
+                declarations.len())
+            );
+        }
+
+        // Check the first (and only) declaration if it exists
+        match declarations.first() {
+            Some(decl) => match decl.kind() {
+                // If the declaration kind is Task or Action, return it as valid
+                SymbolKind::Task | SymbolKind::Action => Ok(Some(decl)),
+                // Otherwise, no valid declaration found; return None
+                _ => Ok(None),
+            },
+            // No declarations found, so return None
+            None => Ok(None),
+        }
+    }
+
+
+    /// Resolves the unique `DomainName` symbol in the symbol table.
+    ///
+    /// This function searches for symbols of kind `DomainName` in the current symbol table.
+    /// If exactly one such symbol is found, it returns a reference to it.
+    /// If no `DomainName` symbol is found, it returns `Ok(None)`.
+    /// If more than one symbol of this kind exists, it returns an error indicating a malformed AST.
+    ///
+    /// # Returns
+    /// - `Ok(Some(&Symbol))` if exactly one `DomainName` symbol is found.
+    /// - `Ok(None)` if no such symbol exists.
+    /// - `Err(ParserInternalError)` if multiple `DomainName` symbols are found.
+    ///
+    /// # Errors
+    /// Returns an error when multiple `DomainName` symbols are found, indicating
+    /// that the annotated syntax tree (AST) is structurally invalid.
+    pub fn resolve_domain_name_declaration(&self) -> Result<Option<&Symbol>, ParserInternalError> {
+        self.resolve_unique_declaration(SymbolKind::DomainName)
+    }
+
+    /// Resolves the unique `ProblemName` symbol in the symbol table.
+    ///
+    /// This function searches for symbols of kind `ProblemName` in the current symbol table.
+    /// If exactly one such symbol is found, it returns a reference to it.
+    /// If no `ProblemName` symbol is found, it returns `Ok(None)`.
+    /// If more than one symbol of this kind exists, it returns an error indicating a malformed AST.
+    ///
+    /// # Returns
+    /// - `Ok(Some(&Symbol))` if exactly one `ProblemName` symbol is found.
+    /// - `Ok(None)` if no such symbol exists.
+    /// - `Err(ParserInternalError)` if multiple `ProblemName` symbols are found.
+    ///
+    /// # Errors
+    /// Returns an error when multiple `ProblemName` symbols are found, indicating
+    /// that the annotated syntax tree (AST) is structurally invalid.
+    pub fn resolve_problem_name_declaration(&self) -> Result<Option<&Symbol>, ParserInternalError> {
+        self.resolve_unique_declaration(SymbolKind::ProblemName)
+    }
+
+    /// Resolves a unique symbol of a specific kind assumed to be singular in the AST.
+    ///
+    /// This internal utility function is designed to resolve symbols that are expected
+    /// to appear only once per annotated syntax tree, such as `DomainName` or `ProblemName`.
+    /// It collects all symbols of the specified kind and returns:
+    /// - The symbol if exactly one is found.
+    /// - `None` if no symbol is found.
+    /// - An error if more than one symbol is found, which indicates an invalid AST.
+    ///
+    /// # Arguments
+    /// - `kind`: The kind of symbol to resolve, typically one that is expected to be unique.
+    ///
+    /// # Returns
+    /// - `Ok(Some(&Symbol))` if a single symbol of the specified kind is found.
+    /// - `Ok(None)` if no symbol of that kind exists.
+    /// - `Err(ParserInternalError)` if multiple symbols of the same kind are found.
+    ///
+    /// # Errors
+    /// Returns an error if multiple declarations of the same `SymbolKind` are found,
+    /// indicating a semantic or structural error in the annotated syntax tree.
+    fn resolve_unique_declaration(
+        &self,
+        kind: SymbolKind,
+    ) -> Result<Option<&Symbol>, ParserInternalError> {
+        let symbols = self.collect_symbol_with_declaration(None, Some(&kind), None);
+
+        match symbols.len() {
+            0 => Ok(None),
+            1 => Ok(Some(symbols[0])),
+            _ => Err(ParserInternalError::new(format!(
+                "Malformed Annotated Syntax Tree: multiple declarations found for symbol kind {:?}: {:?}",
+                kind, symbols,
+            ))),
+        }
+    }
+
+
+    /// Constructs a `ParserInternalError` indicating that multiple declarations exist
+    /// for a symbol where only one was expected.
+    ///
+    /// This is typically used in resolution contexts where ambiguity from multiple
+    /// declarations of the same symbol name and kind is not permitted.
+    ///
+    /// # Parameters
+    /// - `symbol_name`: The name of the symbol that caused the ambiguity.
+    /// - `usage_kind`: The kind the symbol was expected to match (e.g., `Predicate`, `Task`).
+    /// - `count`: The number of declarations found, which exceeded the allowed amount.
+    ///
+    /// # Returns
+    /// A `ParserInternalError` describing the ambiguity in symbol declarations.
+    fn multiple_declarations_error(
+        symbol_name: &str,
+        usage_kind: &SymbolKind,
+        count: usize,
+    ) -> ParserInternalError {
+        ParserInternalError::new(format!(
+            "Symbol '{}' with kind '{:?}' has {} declarations, which is invalid.",
+            symbol_name, usage_kind, count
+        ))
+    }
+
+
+
 }
 
 /// Implements the `Display` trait for `SymbolTable`.

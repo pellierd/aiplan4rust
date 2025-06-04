@@ -245,96 +245,59 @@ impl<'a> TypeChecker<'a> {
         Ok(false)
     }
 
-    /// Collects the hierarchy of types for a given primitive type, including its super-types.
+    /// Computes the ascending type closure for a given primitive type.
     ///
-    /// This function gathers all types related to the given `primitive_type`, including its
-    /// direct super-types and their super-types recursively. It returns a `HashSet` containing
-    /// the `primitive_type` itself and all its super-types. The function works by exploring
-    /// the type hierarchy in a depth-first manner, ensuring that all types encountered are unique
-    /// by using a `HashSet`.
+    /// This function returns the set of all supertypes (including the type itself)
+    /// reachable by traversing the type hierarchy upwards starting from the specified
+    /// primitive type. It uses a cache to avoid recomputing closures for previously
+    /// processed types.
     ///
-    /// # Arguments
-    /// * `primitive_type` - A reference to a `String` representing the primitive type for which
-    ///   the hierarchy of types will be collected.
+    /// The closure includes the type itself, its immediate supertypes, their supertypes,
+    /// and so on, stopping at built-in PDDL types which are not further traversed.
+    ///
+    /// # Parameters
+    /// - `primitive_type`: The name of the primitive type whose ascending closure is computed.
     ///
     /// # Returns
-    /// * `Result<HashSet<String>, ParserInternalError>` - A result containing a set of all the
-    ///   `primitive_type` and its super-types, or an error if no declaration is found for any type
-    ///   in the hierarchy.
+    /// - `Ok(Ref<HashSet<String>>)` containing the cached or newly computed set of supertypes as
+    ///   strings.
+    /// - `Err(ParserInternalError)` if an error occurs while resolving declarations in the symbol
+    ///   table.
     ///
-    /// # Algorithm
-    /// The function begins with a stack initialized with the given `primitive_type`. It then
-    /// iteratively explores the type hierarchy by looking for super-types associated with the
-    /// current type. If a super-type is found, it is added to the stack for further processing.
-    /// All encountered types are stored in a `HashSet` to ensure that duplicates are avoided. The
-    /// search continues recursively until no more super-types are found.
+    /// # Caching
+    /// The computed closure is cached internally in `type_closure_cache` to improve
+    /// performance for repeated queries.
     ///
-    /// If no declaration is found for a symbol during the traversal, the function returns an error.
-    /// Additionally, if multiple declarations are found for a single symbol, an error is raised,
-    /// as only one declaration is expected per symbol.
+    /// # Behavior
+    /// - If the closure for `primitive_type` is already cached, it is returned immediately.
+    /// - Otherwise, the function performs a depth-first search up the type hierarchy,
+    ///   collecting all reachable supertypes.
+    /// - Built-in PDDL types are treated as terminal nodes and not traversed further.
     ///
     /// # Example
     /// ```rust
-    /// let result = type_checker.ascending_type_closure("SomeType".to_string());
-    /// match result {
-    ///     Ok(types) => { /* process types */ },
-    ///     Err(e) => { /* handle error */ },
+    /// let closure = symbol_table.ascending_type_closure("my_type")?;
+    /// for supertype in closure.iter() {
+    ///     println!("Supertype: {}", supertype);
     /// }
     /// ```
     ///
+    /// # Errors
+    /// Returns a `ParserInternalError` if resolving the declaration of any supertype
+    /// fails unexpectedly.
+    ///
     /// # Notes
-    /// This function assumes that `domain_symbol_table` is populated with declarations for types
-    /// and that `Scope::root()` is a valid starting point for the search. Built-in PDDL types are
-    /// ignored during the search.
-    /*pub fn ascending_type_closure(
-        &self,
-        primitive_type: &String,
-    ) -> Result<HashSet<String>, ParserInternalError> {
-        let mut super_types = HashSet::new();
-        let mut to_visit = vec![primitive_type]; // Initialize with the current type
-
-        while let Some(current_type) = to_visit.pop() {
-            // Insert into the set if the type is not already present
-            if super_types.insert(current_type.clone()) {
-                if TypeChecker::is_pddl_builtin_types(&current_type.as_str()) {
-                    continue;
-                }
-                let declarations = self.domain_symbol_table.get_declarations_by_filter(
-                    Some(current_type),
-                    Some(&SymbolKind::PrimitiveType),
-                    Some(&Scope::root()),
-                );
-
-                if !declarations.is_empty() {
-                    if declarations.len() > 1 {
-                        return Err(ParserInternalError::new(format!(
-                            "Expected exactly one declaration for symbol '{}', but found {} declarations.",
-                            current_type,
-                            declarations.len()
-                        )));
-                    }
-
-                    let ty_symbol = declarations[0];
-
-                    // Retrieve the symbols corresponding to the type
-                    if let Some(s_types) = ty_symbol.types() {
-                        // Dereference s_types to get the actual HashSet<String> and extend the stack
-                        to_visit.extend(s_types.iter());
-                    }
-                }
-            }
-        }
-
-        Ok(super_types)
-    }*/
-
+    /// The returned reference is tied to the internal cache and should not outlive
+    /// the `SymbolTable` instance.
+    ///
+    /// ```
 
     pub fn ascending_type_closure(
         &self,
         primitive_type: &str,
     ) -> Result<Ref<HashSet<String>>, ParserInternalError> {
         {
-            // Premièrement, essaie de retourner la valeur depuis le cache sans calculer
+            // First, try to return the cached value without recalculating
             let cache_ref = self.type_closure_cache.borrow();
             if cache_ref.contains_key(primitive_type) {
                 return Ok(Ref::map(cache_ref, |cache| {
@@ -343,56 +306,52 @@ impl<'a> TypeChecker<'a> {
             }
         }
 
-        // Sinon, on doit calculer la fermeture
+        // Otherwise, we need to compute the closure
         let mut super_types = HashSet::new();
         let mut to_visit = Vec::with_capacity(8);
         to_visit.push(primitive_type);
 
+        // Traverse the type hierarchy upwards
         while let Some(current_type) = to_visit.pop() {
+            // Insert the current type; if it was already visited, skip it
             if !super_types.insert(current_type.to_string()) {
                 continue;
             }
 
+            // Skip built-in PDDL types, no need to traverse further
             if TypeChecker::is_pddl_builtin_types(current_type) {
                 continue;
             }
 
-            let declarations = self.domain_symbol_table.fetch_declarations(
-                Some(current_type),
-                Some(&SymbolKind::PrimitiveType),
-                Some(&Scope::root()),
-            );
+            // Resolve the declaration for the current type in the root scope
+            let declaration = self.domain_symbol_table.resolve_declaration(
+                current_type,
+                &SymbolKind::PrimitiveType,
+                &Scope::root(),
+            )?;
 
-            match declarations.len() {
-                0 => continue,
-                1 => {
-                    if let Some(s_types) = declarations[0].types() {
+            match declaration {
+                Some(declaration) => {
+                    // If the declaration has supertypes, add them to the stack for traversal
+                    if let Some(s_types) = declaration.types() {
                         to_visit.extend(s_types.iter().map(String::as_str));
                     }
                 }
-                _ => {
-                    return Err(ParserInternalError::new(format!(
-                        "Expected exactly one declaration for symbol '{}', but found {} declarations.",
-                        current_type,
-                        declarations.len()
-                    )));
-                }
+                None => continue, // No declaration found, skip
             }
         }
 
-        // Insère la valeur calculée dans le cache
+        // Insert the computed closure into the cache
         self.type_closure_cache
             .borrow_mut()
             .insert(primitive_type.to_string(), super_types);
 
-        // Retourne la référence vers la valeur insérée dans le cache
+        // Return a reference to the cached closure
         let cache_ref = self.type_closure_cache.borrow();
         Ok(Ref::map(cache_ref, |cache| {
             cache.get(primitive_type).unwrap()
         }))
     }
-
-
 
     /// Checks if the given type is a PDDL built-in symbol.
     ///

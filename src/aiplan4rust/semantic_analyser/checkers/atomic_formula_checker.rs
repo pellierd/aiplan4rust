@@ -199,77 +199,87 @@ fn match_argument(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-
+    // Retrieve the symbol name associated with the argument from the annotated syntax tree
     let name = argument.get_symbol(syntax_tree)?;
-    let name = name.ok_or_else(|| {
-        ParserInternalError::new(format!("Symbol for argument at index {} not found", index))
-    })?;
+    // Check that the symbol exists; return an error if it is missing
+    let name = match name {
+        Some(n) => n,
+        None => {
+            return Err(ParserInternalError::new(format!(
+                "Symbol for argument at index {} not found",
+                index
+            )))
+        }
+    };
 
-    let declarations =
-        symbol_table.fetch_declarations(Some(name), Some(&kind), Some(usage.scope()));
+    // Look up the corresponding declaration in the symbol table,
+    // given the expected kind and usage scope
+    let symbol_declaration = match symbol_table.resolve_declaration(name, &kind, usage.scope())? {
+        Some(decl) => decl,
+        None => {
+            return Err(ParserInternalError::new(format!(
+                "No declaration found for symbol '{}' in scope {}.",
+                name,
+                usage.scope()
+            )))
+        }
+    };
 
-    if declarations.is_empty() {
-        return Err(ParserInternalError::new(format!(
-            "No declaration found for symbol '{}' in scope {}.",
-            name,
-            usage.scope()
-        )));
-    }
+    // Get the declared arguments of the main declaration (the context declaration)
+    let declared_arguments = match declaration.arguments() {
+        Some(args) => args,
+        None => {
+            return Err(ParserInternalError::new(format!(
+                "Failed to retrieve arguments for declaration in scope {}",
+                declaration.scope()
+            )))
+        }
+    };
 
-    if declarations.len() > 1 {
-        return Err(ParserInternalError::new(format!(
-            "Expected exactly one declaration for symbol '{}' in scope {}. Found {} declarations.",
-            name,
-            usage.scope(),
-            declarations.len()
-        )));
-    }
-    let symbol_declaration = declarations[0];
-
-    let declared_arguments = declaration.arguments().ok_or_else(|| {
-        ParserInternalError::new(format!(
-            "Failed to retrieve arguments for declaration in scope {}",
-            declaration.scope()
-        ))
-    })?;
-
-    let ty1 = declared_arguments
-        .get(index)
-        .ok_or_else(|| {
-            ParserInternalError::new(format!(
+    // Retrieve the type of the i-th declared argument (the one we are matching)
+    let ty1 = match declared_arguments.get(index) {
+        Some(arg) => arg.types(),
+        None => {
+            return Err(ParserInternalError::new(format!(
                 "Argument index {} out of bounds for declaration in scope {}",
                 index,
                 declaration.scope()
-            ))
-        })?
-        .types();
-    let ty2 = symbol_declaration.types().ok_or_else(|| {
-        ParserInternalError::new(format!(
-            "Failed to retrieve types for symbol '{}' in scope {}",
-            name,
-            usage.scope()
-        ))
-    })?;
+            )))
+        }
+    };
 
-    // This condition is a special case: we allow a primitive task `(t ?x)` declared in a method
-    // with `?x` of type A to match an action `a` where `?x` has type B, as long as B is a supertype
-    // of A. This means we tolerate upcasting at usage time.
+    // Retrieve the type of the symbol from the declaration found in the symbol table
+    let ty2 = match symbol_declaration.types() {
+        Some(types) => types,
+        None => {
+            return Err(ParserInternalError::new(format!(
+                "Failed to retrieve types for symbol '{}' in scope {}",
+                name,
+                usage.scope()
+            )))
+        }
+    };
+
+    // Special case: allow a primitive task `(t ?x)` declared in a method
+    // where `?x` has type A to match an action `a` where `?x` has type B,
+    // as long as B is a supertype of A. This permits upcasting at usage time.
     //
-    // In practice, this doesn't make much semantic sense and should be handled explicitly during
-    // grounding. This situation arises, for example, in the `ultralight_cockpit` domain.
-    // (No way to convince Gregor Behnke to write it more cleanly…)
+    // Semantically this is questionable and should be handled explicitly during grounding.
+    // This occurs, for example, in the `ultralight_cockpit` domain.
     //
-    // Outside of this exception, we apply strict subtype checking.
-    // Check if ty1 is a subtype of ty2
+    // Outside this exception, strict subtype checking is applied.
+
+    // Check if ty1 is a subtype of ty2 (ty1 <: ty2)
     let is_subtype = type_checker.is_any_subtype_of(ty1, ty2)?;
 
-    // Special tolerated case: allow primitive task to match an action/method with a supertype
+    // Special tolerated case: accept a primitive task matching an action/method with a supertype
     if !is_subtype
         && (*declaration.kind() == SymbolKind::Action
         || *declaration.kind() == SymbolKind::DASymbol
         || *declaration.kind() == SymbolKind::Method)
         && *usage.kind() == SymbolKind::Task
     {
+        // Add a warning diagnostic for this special case
         let warning = Diagnostic::new(
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration {
                 argument: name.clone(),
@@ -282,10 +292,10 @@ fn match_argument(
         );
         diagnostic_manager.add_diagnostic(warning);
 
-        // Accept the match if ty1 is a supertype of ty2
+        // Accept the match if ty1 is a supertype of ty2 (ty1 :> ty2)
         return type_checker.is_any_supertype_of(ty1, ty2);
     }
 
-    // Normal case: return the subtype match result
+    // Normal case: return the result of the subtype check
     Ok(is_subtype)
 }
