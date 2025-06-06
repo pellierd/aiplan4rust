@@ -1,15 +1,14 @@
+
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSeverity, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
 use crate::aiplan4rust::parser::SymbolOrigin;
-use crate::aiplan4rust::semantic_analyser::checkers::{
-    atomic_formula_checker, task_ordering_checker,
-};
+use crate::aiplan4rust::semantic_analyser::checkers::{atomic_formula_checker, task_ordering_checker, undeclared_symbol_checker};
 use crate::aiplan4rust::semantic_analyser::checkers::{
     functional_expression_checker, requirement_checker, TypeChecker,
 };
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
+use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope, SymbolKind};
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::LiftedDomain;
@@ -18,7 +17,10 @@ use crate::aiplan4rust::semantic_analyser::SymbolTable;
 
 use std::mem;
 use std::mem::take;
+
 use crate::aiplan4rust::linker::checkers::domain_name_checker;
+use crate::aiplan4rust::semantic_checks;
+use crate::aiplan4rust::semantic_checks::symbol_declaration_consistency_checker;
 
 #[derive(Debug)]
 pub struct Linker {
@@ -47,9 +49,20 @@ impl Linker {
 
         domain_name_checker::check(&domain, &problem, &mut self.diagnostic_manager)?;
 
+        Self::update_problem_symbols_table_from_domain(&mut problem, domain.symbol_table())?;
+
+        println!("{}", problem.symbol_table());
+
         //let mut problem = problem.clone();
         // Si le nom de domaine est déclaré, vérifier les symboles non déclarés
-        if self.check_undeclared_problem_symbols(&domain, &mut problem)? {
+        //if self.check_undeclared_symbols(&problem) {
+        /*if SemanticAnalyzer::check_symbols(
+            &problem,
+            &vec![],
+            &vec![],
+            &mut self.diagnostic_manager)? {*/
+        if undeclared_symbol_checker::check(&problem, &[], &mut self.diagnostic_manager)?
+        && semantic_checks::check(&domain, &problem, &mut self.diagnostic_manager)? {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
             atomic_formula_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
@@ -85,102 +98,141 @@ impl Linker {
         }
     }
 
-    fn check_undeclared_problem_symbols(
-        &mut self,
-        domain: &AnnotatedSyntaxTree,
-        problem: &mut AnnotatedSyntaxTree,
-    ) -> Result<bool, ParserInternalError> {
-        let domain_symbol_table = domain.symbol_table();
 
+    /// Updates the problem's symbol table by adding declarations found in the domain's symbol table.
+    ///
+    /// For each symbol in the problem's symbol table that has no declarations,
+    /// this function attempts to find matching declarations from the domain symbol table
+    /// based on the symbol's name and the usage kind. Matching declarations are cloned,
+    /// their origin is marked as coming from the domain, and then added to the problem's symbol.
+    ///
+    /// This function does not directly handle undeclared symbols diagnostics; instead,
+    /// it relies on the helper `collect_declared_and_undeclared_symbols` to gather
+    /// necessary updates and undeclared symbols.
+    ///
+    /// # Arguments
+    ///
+    /// * `problem` - A mutable reference to the `AnnotatedSyntaxTree` representing the problem.
+    /// * `domain_symbol_table` - A reference to the domain's `SymbolTable`.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, or propagates any `ParserInternalError` encountered
+    /// during resolution.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// update_problem_symbols_table_from_domain(&mut problem_ast, &domain_symbol_table)?;
+    /// ```
+    ///
+    fn update_problem_symbols_table_from_domain<'a>(
+        problem: &'a mut AnnotatedSyntaxTree,
+        domain_symbol_table: &'a SymbolTable,
+    ) -> Result<(), ParserInternalError> {
         let mut declared = Vec::new();
         let mut undeclared = Vec::new();
 
-        // Vérifier les symboles non déclarés
-        let no_error = self.check_symbols_without_declarations(
-            problem,
-            &domain_symbol_table,
-            &mut declared,
-            &mut undeclared,
-        )?;
+        // Collect symbol declarations to add and gather undeclared symbols.
+        Self::collect_declared_and_undeclared_symbols(problem, domain_symbol_table, &mut declared, &mut undeclared)?;
 
-        // Appliquer les mises à jour après l'itération
-        self.update_symbol_declaration(problem, declared);
+        // Get mutable access to problem's symbol table.
+        let problem_symbol_table = problem.symbol_table_mut();
 
-        // Traiter les erreurs pour les symboles non déclarés
-        self.process_undeclared_symbols(problem, undeclared);
+        // Apply collected declarations to symbols in the problem's symbol table.
+        for (symbol_name, declaration) in declared {
+            if let Some(symbol) = problem_symbol_table.get_symbol_mut(&symbol_name) {
+                symbol.add_declaration(declaration);
+            }
+        }
 
-        Ok(no_error)
+        Ok(())
     }
 
-    fn check_symbols_without_declarations(
-        &self,
-        problem: &AnnotatedSyntaxTree,
-        domain_symbol_table: &SymbolTable,
-        updates: &mut Vec<(String, Declaration)>,
-        undeclared: &mut Vec<(String, Usage)>,
+
+    /// Collects symbol declarations from the domain symbol table for symbols in the problem
+    /// that currently lack declarations, and gathers undeclared symbols.
+    ///
+    /// This function performs no mutation on the problem or domain symbol tables.
+    /// Instead, it collects:
+    /// - `updates`: a vector of `(symbol_name, declaration)` pairs to be added to the problem.
+    /// - `undeclared`: a vector of references to symbols and their usages that could not be
+    ///   resolved.
+    ///
+    /// The function returns `Ok(true)` if all symbols were resolved, or `Ok(false)` if some
+    /// remain undeclared. It propagates any internal errors encountered during resolution.
+    ///
+    /// # Arguments
+    ///
+    /// * `problem` - A reference to the problem's annotated syntax tree.
+    /// * `domain_symbol_table` - A reference to the domain's symbol table.
+    /// * `updates` - A mutable vector to collect declarations to add.
+    /// * `undeclared` - A mutable vector to collect undeclared symbols.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<bool, ParserInternalError>`. The boolean indicates whether all symbols were
+    /// resolved (`true`) or not (`false`).
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let mut updates = Vec::new();
+    /// let mut undeclared = Vec::new();
+    /// let all_resolved = collect_declared_and_undeclared_symbols(
+    ///     &problem,
+    ///     &domain_symbol_table,
+    ///     &mut updates,
+    ///     &mut undeclared
+    /// )?;
+    /// if !all_resolved {
+    ///     // Handle undeclared symbols diagnostics...
+    /// }
+    /// ```
+    ///
+    fn collect_declared_and_undeclared_symbols<'a>(
+        problem: &'a AnnotatedSyntaxTree,
+        domain_symbol_table: &'a SymbolTable,
+        declared: &mut Vec<(String, Declaration)>,
+        undeclared: &mut Vec<(&'a String, &'a Usage)>,
     ) -> Result<bool, ParserInternalError> {
         let problem_symbol_table = problem.symbol_table();
-        let mut checked = true;
+        let mut all_resolved = true;
 
+        // Iterate over all symbols in the problem symbol table.
         for symbol in problem_symbol_table.values() {
+            // Only process symbols with no declarations.
             if symbol.declarations().is_empty() {
 
+                // For each usage of the symbol, try to resolve a matching declaration in the domain.
                 for usage in symbol.usages() {
 
+                    // Attempt to resolve declaration from domain by symbol name and usage kind.
+                    // Propagate error if resolution fails.
                     let domain_declaration_option = domain_symbol_table.resolve_declaration(
                         symbol.name(),
                         usage.kind(),
                         &Scope::root(),
-                    )?;  // ici on propage l'erreur éventuelle
+                    )?;
 
                     if let Some(domain_declaration) = domain_declaration_option {
+                        // Clone the declaration and mark it as originating from the domain.
                         let mut domain_declaration = domain_declaration.clone();
                         domain_declaration.set_source(SymbolOrigin::Domain);
-                        updates.push((symbol.name().to_string(), domain_declaration));
+
+                        // Queue the declaration to be added to the problem's symbol table.
+                        declared.push((symbol.name().to_string(), domain_declaration));
                     } else {
-                        undeclared.push((symbol.name().to_string(), usage.clone()));
-                        checked &= false;
+                        // No matching declaration found in domain: record the undeclared symbol.
+                        undeclared.push((symbol.name(), usage));
+
+                        // Mark that not all symbols could be resolved.
+                        all_resolved = false;
                     }
                 }
             }
         }
-        Ok(checked)
-    }
 
-
-    fn update_symbol_declaration(
-        &self,
-        problem: &mut AnnotatedSyntaxTree,
-        updates: Vec<(String, Declaration)>,
-    ) {
-        let problem_symbol_table = problem.symbol_table_mut();
-
-        for (symbol_name, domain_declaration) in updates {
-            if let Some(symbol) = problem_symbol_table.get_symbol_mut(&symbol_name) {
-                //let kind = domain_declaration.kind().clone();
-                symbol.add_declaration(domain_declaration);
-                //println!("{} '{}' is declared in domain", kind, symbol_name);
-            }
-        }
-    }
-
-    fn process_undeclared_symbols(
-        &mut self,
-        problem: &mut AnnotatedSyntaxTree,
-        undeclared: Vec<(String, Usage)>,
-    ) {
-        for (symbol_name, usage) in undeclared {
-            let ast_entry = problem.get_entry(usage.ast()).unwrap();
-            let error = Diagnostic::new(
-                DiagnosticKind::UndeclaredSymbol {
-                    symbol: symbol_name.clone(),
-                    kind: usage.kind().clone(),
-                },
-                DiagnosticSource::SemanticAnalyzer,
-                problem.filename().clone(),
-                ast_entry.span().clone(),
-            );
-            self.diagnostic_manager.add_diagnostic(error);
-        }
+        Ok(all_resolved)
     }
 }

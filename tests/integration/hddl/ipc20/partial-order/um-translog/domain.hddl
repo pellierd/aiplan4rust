@@ -164,6 +164,7 @@
 		Location - Thing
 		PhysicalObject - Thing
 	)
+	(:constants Pferd - Regular_Truck)
 	(:predicates
 		(Connects ?arg0 - Route ?arg1 - Location ?arg2 - Location)
 		(In_City ?arg0 - City_Location ?arg1 - City)

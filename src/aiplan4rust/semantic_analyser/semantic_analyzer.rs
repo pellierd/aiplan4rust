@@ -182,7 +182,6 @@ impl SemanticAnalyzer {
             &mut self.diagnostic_manager
         )?;
 
-        println!("{}", annotated_syntax_tree.symbol_table());
         // Perform the first symbol check (declared symbols check)
         checked &= Self::check_symbols(
             annotated_syntax_tree,
@@ -301,7 +300,7 @@ impl SemanticAnalyzer {
     ///     Err(err) => println!("An internal error occurred: {}", err),
     /// }
     /// ```
-    fn check_symbols(
+    pub fn check_symbols(
         annotated_syntax_tree: &AnnotatedSyntaxTree,
         skip_types_undeclared: &[SymbolKind], // Types of symbols to ignore during undeclared symbol checking
         skip_symbols_unused: &[SymbolKind],   // Symbols to ignore during unused symbol checking

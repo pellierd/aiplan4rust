@@ -6,6 +6,7 @@ pub mod linker;
 pub mod parser;
 pub mod pddl_display;
 pub mod semantic_analyser;
+mod semantic_checks;
 
 pub use file_format::FileFormat;
 pub use frontend::Frontend;

@@ -97,6 +97,11 @@ pub enum DiagnosticKind {
     CyclicTypeDeclarationError {
        cycle: Vec<(String, Declaration, Span)>
     },
+    ErrorConflictSymbolDeclaration {
+        symbol: String,
+        problem_kind: SymbolKind,
+        domain_kinds: Vec<SymbolKind>,
+    },
     CustomError(String),
 }
 
@@ -132,6 +137,7 @@ impl DiagnosticKind {
             DiagnosticKind::WarningDuplicatedTypeDeclaration { .. } => "W1015".to_string(),
             // WARNINGS LINKER
             DiagnosticKind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
+            DiagnosticKind::ErrorConflictSymbolDeclaration { .. } => "W2001".to_string(),
 
 
             DiagnosticKind::CustomError(_) => "E000X".to_string(),
@@ -214,6 +220,9 @@ impl DiagnosticKind {
             DiagnosticKind::CyclicTypeDeclarationError { ..} => {
                 "Cycle detected in type declarations, causing an invalid hierarchy.".to_string()
             }
+            DiagnosticKind::ErrorConflictSymbolDeclaration { .. } => {
+                "Symbol declaration in problem conflicts with domain declaration.".to_string()
+            }
             DiagnosticKind::CustomError(msg) => msg.to_string(),
         }
     }
@@ -251,6 +260,9 @@ impl DiagnosticKind {
 
             // LINKER WARNINGS
             DiagnosticKind::DomainProblemNameMismatch { .. } => DiagnosticSeverity::Warning,
+            // LINKER ERROR
+            DiagnosticKind::ErrorConflictSymbolDeclaration {..} => DiagnosticSeverity::Error,
+
 
         }
     }
@@ -434,7 +446,14 @@ impl DiagnosticKind {
                     cycle_symbols.join(" -> ")
                 ))
             }
-
+            DiagnosticKind::ErrorConflictSymbolDeclaration { symbol, problem_kind, domain_kinds } => {
+                Some(format!(
+                    "Symbol `{}` declared as `{}` in the problem, but in the domain it is declared as: {}. Ensure the symbol’s kind matches in both.",
+                    symbol,
+                    problem_kind,
+                    Self::format_symbol_kinds(&domain_kinds),
+                ))
+            }
         }
     }
 
@@ -456,6 +475,16 @@ impl DiagnosticKind {
             .collect::<Vec<_>>()
             .join(", ")
     }
+
+    // Ajoutez cette fonction pour formater les kinds en une chaîne séparée par des virgules.
+    fn format_symbol_kinds(kinds: &[SymbolKind]) -> String {
+        kinds
+            .iter()
+            .map(|k| format!("{:?}", k))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
 
     /// Format a vector of types for display.
     /// - If there is only one type, it returns the type as-is.
