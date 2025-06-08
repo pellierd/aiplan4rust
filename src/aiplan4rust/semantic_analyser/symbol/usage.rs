@@ -1,4 +1,4 @@
-use crate::aiplan4rust::parser::SymbolOrigin;
+use crate::aiplan4rust::parser::{Span, SymbolOrigin};
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 
@@ -21,8 +21,8 @@ use std::fmt;
 /// - `Deserialize`: To allow deserialization from serialized formats.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
-    /// The AST node index where the symbol is used.
-    ast: usize,
+
+    symbol: String,
 
     /// The kind of the symbol used (e.g., variable, function).
     kind: SymbolKind,
@@ -30,30 +30,31 @@ pub struct Usage {
     /// The scope where the symbol is used (e.g., function, block).
     scope: Scope,
 
+    span: Span,
+
     /// The source of the usage (e.g., file or module).
     source: SymbolOrigin,
+
+    /// The AST node index where the symbol is used.
+    ast: usize,
+
 }
 
 impl Usage {
     /// Constructeur pour créer un nouveau `Usage`
-    pub fn new(ast: usize, kind: SymbolKind, scope: Scope, source: SymbolOrigin) -> Self {
+    pub fn new(symbol: String, kind: SymbolKind, scope: Scope, source: SymbolOrigin, span: Span, ast: usize) -> Self {
         Usage {
-            ast,
+            symbol,
             kind,
             scope,
             source,
+            span,
+            ast
         }
     }
 
-    /// Accessor for the AST node of the usage.
-    ///
-    /// Returns the index of the AST node where the symbol is used.
-    ///
-    /// # Returns
-    ///
-    /// * `usize` - The index of the AST node where the symbol is used.
-    pub fn ast(&self) -> usize {
-        self.ast
+    pub fn symbol(&self) -> &String {
+        &self.symbol
     }
 
     /// Accessor for the kind of the symbol used.
@@ -88,6 +89,22 @@ impl Usage {
     pub fn source(&self) -> &SymbolOrigin {
         &self.source
     }
+
+    pub fn span(&self) -> &Span {
+        &self.span
+    }
+
+    /// Accessor for the AST node of the usage.
+    ///
+    /// Returns the index of the AST node where the symbol is used.
+    ///
+    /// # Returns
+    ///
+    /// * `usize` - The index of the AST node where the symbol is used.
+    pub fn ast(&self) -> usize {
+        self.ast
+    }
+
 
     /// Mutable accessor for the scope of the usage.
     ///

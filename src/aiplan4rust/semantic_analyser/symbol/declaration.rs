@@ -61,14 +61,14 @@ pub struct Declaration {
 impl Declaration {
     /// Constructor to create a new `Declaration`
     pub fn new(
-        ast: usize,
+        symbol : String,
         kind: SymbolKind,
         scope: Scope,
         source: SymbolOrigin,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
         span : Span,
-        symbol : String,
+        ast: usize,
     ) -> Self {
         Declaration {
             ast,

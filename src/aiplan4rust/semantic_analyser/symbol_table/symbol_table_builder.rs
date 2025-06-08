@@ -253,13 +253,13 @@ impl SymbolTableBuilder {
         let source = self.table().source().clone();
         if let Some(symbol) = self.table_mut().get_symbol_mut(&name) {
             let declaration =
-                Declaration::new(*ast.id(), kind, scope, source, types, arguments, ast.span().clone(), name.clone());
+                Declaration::new(name.clone(), kind, scope, source, types, arguments, ast.span().clone(), *ast.id());
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
             let mut symbol = Symbol::new(&name);
             let declaration =
-                Declaration::new(*ast.id(), kind, scope, source, types, arguments, ast.span().clone(), name.clone());
+                Declaration::new(name.clone(), kind, scope, source, types, arguments, ast.span().clone(), *ast.id());
             symbol.add_declaration(declaration);
             self.table_mut().insert_symbol(name, symbol); // Insert the new symbol into the table
         }
@@ -316,11 +316,11 @@ impl SymbolTableBuilder {
         // If the symbol exists, add the usage; otherwise, create a new symbol.
         let source = self.table().source().clone();
         if let Some(symbol) = self.table_mut().get_symbol_mut(&name) {
-            let usage = Usage::new(*ast.id(), kind, scope, source);
+            let usage = Usage::new(name.clone(), kind, scope, source, ast.span().clone(), *ast.id());
             symbol.add_usage(usage);
         } else {
             let mut symbol = Symbol::new(&name);
-            let usage = Usage::new(*ast.id(), kind, scope, source);
+            let usage = Usage::new(name.clone(), kind, scope, source,  ast.span().clone(), *ast.id());
             symbol.add_usage(usage);
             self.table_mut().insert_symbol(name, symbol);
         }

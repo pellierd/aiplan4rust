@@ -84,10 +84,8 @@ pub fn check_undeclared_symbols(
                 no_error = false;
                 report_undeclared_symbol_error(
                     diagnostic_manager,
-                    symbol.name(),
-                    usage.kind().clone(),
+                    usage,
                     syntax_tree,
-                    usage.ast(),
                     context,
                 )?;
             }
@@ -280,73 +278,71 @@ fn is_pddl_builtin_symbol(
     }
 }
 
-/// Reports an error diagnostic for an undeclared symbol usage.
+/// Reports an error diagnostic for the use of an undeclared symbol.
 ///
-/// This function creates and adds a diagnostic error indicating that a symbol
-/// was used in the code without a corresponding declaration. It retrieves the
-/// AST entry associated with the usage to obtain source code location information
-/// (span) for accurate error reporting.
+/// This function is called when a symbol is referenced in the source code but has
+/// not been previously declared in the appropriate scope. It builds and registers
+/// a diagnostic of kind [`DiagnosticKind::UndeclaredSymbolError`] using metadata
+/// from the provided `Usage` object.
+///
+/// The function uses the `Usage` to extract the symbol name, kind, and source code
+/// location (via its `span`). It also uses the `AnnotatedSyntaxTree` to provide
+/// the filename in which the error occurred, and uses the `CheckerContext` to
+/// identify the analysis phase (e.g., parser, semantic checker) that detected
+/// the problem.
 ///
 /// # Parameters
 ///
-/// - `diagnostic_manager`: Mutable reference to the diagnostic manager where the error will be
-///   recorded.
-/// - `symbol_name`: The name of the symbol that was used but not declared.
-/// - `kind`: The kind of the symbol (e.g., variable, function) that is undeclared.
-/// - `syntax_tree`: Reference to the annotated syntax tree containing the AST entries.
-/// - `usage_ast_id`: The AST node ID corresponding to the symbol usage.
-/// - `context`: The context of the checker, used to indicate the source of the diagnostic.
+/// - `diagnostic_manager`: The diagnostic system to which the error will be added.
+/// - `usage`: The symbol usage instance that refers to an undeclared symbol.
+/// - `syntax_tree`: The syntax tree in which the usage was found, used for filename metadata.
+/// - `context`: Indicates the phase or component (e.g., Parser, Linker) responsible for the error.
 ///
 /// # Returns
 ///
-/// Returns `Ok(())` if the diagnostic was successfully added.
-/// Returns `Err(ParserInternalError)` if the AST entry for the usage could not be found,
-/// indicating an internal inconsistency.
+/// Returns `Ok(())` if the diagnostic was created and added successfully.
+/// Returns `Err(ParserInternalError)` only if there is an inconsistency in internal AST state.
 ///
 /// # Errors
 ///
-/// This function returns an error if the AST entry corresponding to `usage_ast_id`
-/// is missing from the syntax tree. This typically indicates a serious internal error
-/// in the parsing or symbol resolution process.
+/// This function does not fail under normal conditions, but may return an internal error
+/// if critical AST data is missing. This would usually indicate a bug in parsing
+/// or analysis earlier in the pipeline.
 ///
 /// # Example
 ///
 /// ```rust
 /// report_undeclared_symbol_error(
 ///     &mut diagnostic_manager,
-///     &symbol.name(),
-///     usage.kind().clone(),
+///     &usage,
 ///     &syntax_tree,
-///     usage.ast(),
-///     context,
+///     CheckerContext::SemanticAnalyzer,
 /// )?;
 /// ```
+///
+/// # See Also
+/// - [`Usage`] — Carries symbol name, kind, and span information.
+/// - [`DiagnosticKind::UndeclaredSymbolError`] — The error kind used in this diagnostic.
+/// - [`CheckerContext`] — Identifies which analysis stage emitted the error.
 fn report_undeclared_symbol_error(
     diagnostic_manager: &mut DiagnosticManager,
-    symbol_name: &String,
-    kind: SymbolKind,
+    usage: &Usage,
     syntax_tree: &AnnotatedSyntaxTree,
-    usage_ast_id: usize,
     context: CheckerContext,
 ) -> Result<(), ParserInternalError> {
-    let entry = syntax_tree.get_entry(usage_ast_id).ok_or_else(|| {
-        ParserInternalError::new(format!(
-            "Missing AST entry for usage with id: {}",
-            usage_ast_id
-        ))
-    })?;
-
+    // Build the error diagnostic with metadata from usage and analysis context
     let error = Diagnostic::new(
         DiagnosticKind::UndeclaredSymbolError {
-            symbol: symbol_name.clone(),
-            kind,
+            usage: usage.clone(),
         },
         context.into(),
         syntax_tree.filename().clone(),
-        entry.span().clone(),
+        usage.span().clone(),
     );
 
+    // Submit the diagnostic to the manager
     diagnostic_manager.add_diagnostic(error);
+
     Ok(())
 }
 
