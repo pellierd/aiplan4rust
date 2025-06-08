@@ -20,6 +20,7 @@ use std::mem::take;
 
 use crate::aiplan4rust::linker::checkers::domain_name_checker;
 use crate::aiplan4rust::semantic_checks;
+use crate::aiplan4rust::semantic_checks::atomic_formula_checker;
 use crate::aiplan4rust::semantic_checks::checker_context::CheckerContext;
 
 #[derive(Debug)]
@@ -65,7 +66,7 @@ impl Linker {
             && semantic_checks::check_cross_duplicate_symbol_declarations(&domain, &problem, &mut self.diagnostic_manager, CheckerContext::Linker)? {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
-            semantic_checks::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
+            atomic_formula_checker::check(&problem, &type_checker , &mut self.diagnostic_manager)?;
 
             // Check functional expressions in the domain using the type checker
             functional_expression_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;

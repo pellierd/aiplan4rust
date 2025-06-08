@@ -28,6 +28,5 @@ pub mod requirement_checker;
 pub mod symbol_declaration_checker;
 pub mod task_ordering_checker;
 pub mod type_checker;
-pub mod unused_symbol_checker;
 
 pub use type_checker::TypeChecker;

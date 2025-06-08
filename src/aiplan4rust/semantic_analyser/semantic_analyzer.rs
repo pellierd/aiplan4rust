@@ -5,7 +5,6 @@ use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 use crate::aiplan4rust::semantic_analyser::checkers::{functional_expression_checker};
 use crate::aiplan4rust::semantic_analyser::checkers::symbol_declaration_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
-use crate::aiplan4rust::semantic_analyser::checkers::unused_symbol_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
 use crate::aiplan4rust::semantic_analyser::checkers::{
     requirement_checker,
@@ -17,6 +16,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use std::mem;
 use crate::aiplan4rust::semantic_analyser::normalization::{normalize_type_declarations, normalize_typed_list};
 use crate::aiplan4rust::semantic_checks;
+use crate::aiplan4rust::semantic_checks::atomic_formula_checker;
 use crate::aiplan4rust::semantic_checks::checker_context::CheckerContext;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
@@ -280,7 +280,7 @@ impl SemanticAnalyzer {
             let type_checker = TypeChecker::new(annotated_syntax_tree.symbol_table());
 
             // Check atomic formulas in the domain using the type checker
-            checked &= semantic_checks::check(
+            checked &= atomic_formula_checker::check(
                 annotated_syntax_tree,
                 &type_checker,
                 diagnostic_manager,
@@ -408,7 +408,7 @@ impl SemanticAnalyzer {
 
         // Check for unused symbols, skipping specific symbols
         // This ensures that no declared symbols are unused, except for those in `skip_symbols_unused`
-        checked &= unused_symbol_checker::check(
+        checked &= semantic_checks::check_unused_symbols(
             annotated_syntax_tree,
             skip_symbols_unused, // Skip certain symbols for unused checking
             diagnostic_manager,

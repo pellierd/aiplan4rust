@@ -30,7 +30,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 /// # Note
 /// - The built-in PDDL symbols `"object"` and `"number"` are ignored, as they are always valid.
 /// - Symbols whose kind appears in `skip_symbols` are not checked.
-pub fn check(
+pub fn check_unused_symbols(
     syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
