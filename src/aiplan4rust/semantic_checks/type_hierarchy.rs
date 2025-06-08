@@ -5,7 +5,8 @@ use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope};
+use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
+use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 
 use std::collections::HashMap;
@@ -70,7 +71,7 @@ pub fn check_type_hierarchy(
     let filtered_cycles = filter_cycles(all_cycles);
 
     // Step 7: Emit diagnostics for each meaningful cycle found in the hierarchy
-    emit_cyclic_type_declaration_error(
+    report_cyclic_type_declaration_error(
         &filtered_cycles,
         &type_bimap,
         &types,
@@ -81,7 +82,7 @@ pub fn check_type_hierarchy(
     // Return true if no cycles were found; false if diagnostics were emitted
     Ok(filtered_cycles.is_empty())
 }
-/// Emits diagnostics for cyclic type declarations detected in the type hierarchy.
+/// Reports diagnostics for cyclic type declarations detected in the type hierarchy.
 ///
 /// For each detected cycle (given as a vector of type indices), this function reconstructs
 /// detailed cycle information including the involved symbols and their corresponding declarations.
@@ -97,7 +98,7 @@ pub fn check_type_hierarchy(
 /// # Returns
 /// - `Ok(())` if all diagnostics are emitted successfully.
 /// - `Err(ParserInternalError)` if any required data is missing (e.g., declaration not found).
-fn emit_cyclic_type_declaration_error(
+fn report_cyclic_type_declaration_error(
     cycles: &[Vec<usize>],
     type_bimap: &BiMap<String, usize>,
     types: &Vec<&Declaration>,

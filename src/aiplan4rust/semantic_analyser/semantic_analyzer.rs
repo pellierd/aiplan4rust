@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::semantic_analyser::checkers::{functional_expression_checker, type_hierarchy_checker};
+use crate::aiplan4rust::semantic_analyser::checkers::{functional_expression_checker};
 use crate::aiplan4rust::semantic_analyser::checkers::symbol_declaration_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::unused_symbol_checker;
@@ -267,7 +267,7 @@ impl SemanticAnalyzer {
             diagnostic_manager,
         )?;
 
-        checked &= checked && type_hierarchy_checker::check_type_hierarchy(
+        checked &= checked && semantic_checks::check_type_hierarchy(
             annotated_syntax_tree,
             diagnostic_manager,
         )?;
