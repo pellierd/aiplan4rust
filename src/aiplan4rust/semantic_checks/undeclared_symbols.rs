@@ -16,7 +16,7 @@ use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree, SymbolTable};
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_checks::checker_context::CheckerContext;
+use crate::aiplan4rust::semantic_checks::checker_context::Checker;
 
 /// Checks if there are any undeclared symbols used in the given syntax tree.
 ///
@@ -64,7 +64,7 @@ pub fn check_undeclared_symbols(
     syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
-    context: CheckerContext,
+    context: Checker,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
@@ -323,12 +323,12 @@ fn is_pddl_builtin_symbol(
 /// # See Also
 /// - [`Usage`] — Carries symbol name, kind, and span information.
 /// - [`DiagnosticKind::UndeclaredSymbolError`] — The error kind used in this diagnostic.
-/// - [`CheckerContext`] — Identifies which analysis stage emitted the error.
+/// - [`Checker`] — Identifies which analysis stage emitted the error.
 fn report_undeclared_symbol_error(
     diagnostic_manager: &mut DiagnosticManager,
     usage: &Usage,
     syntax_tree: &AnnotatedSyntaxTree,
-    context: CheckerContext,
+    context: Checker,
 ) -> Result<(), ParserInternalError> {
     // Build the error diagnostic with metadata from usage and analysis context
     let error = Diagnostic::new(

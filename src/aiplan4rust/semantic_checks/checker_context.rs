@@ -19,7 +19,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticSource;
 /// - `SemanticAnalyzer`: Diagnostics emitted during semantic analysis phase.
 /// - `Linker`: Diagnostics emitted during linking phase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CheckerContext {
+pub enum Checker {
     /// Parsing stage, typically when converting source code into an AST.
     Parser,
     /// Semantic analysis stage, where meaning and type checking occur.
@@ -28,7 +28,7 @@ pub enum CheckerContext {
     Linker,
 }
 
-impl From<CheckerContext> for DiagnosticSource {
+impl From<Checker> for DiagnosticSource {
     /// Converts a `CheckerContext` into a corresponding `DiagnosticSource`.
     ///
     /// This allows diagnostics tagged with `CheckerContext` to be easily
@@ -44,11 +44,11 @@ impl From<CheckerContext> for DiagnosticSource {
     /// let source: DiagnosticSource = ctx.into();
     /// assert_eq!(source, DiagnosticSource::Parser);
     /// ```
-    fn from(ctx: CheckerContext) -> Self {
+    fn from(ctx: Checker) -> Self {
         match ctx {
-            CheckerContext::Parser => DiagnosticSource::Parser,
-            CheckerContext::SemanticAnalyzer => DiagnosticSource::SemanticAnalyzer,
-            CheckerContext::Linker => DiagnosticSource::Linker,
+            Checker::Parser => DiagnosticSource::Parser,
+            Checker::SemanticAnalyzer => DiagnosticSource::SemanticAnalyzer,
+            Checker::Linker => DiagnosticSource::Linker,
         }
     }
 }

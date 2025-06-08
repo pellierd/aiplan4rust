@@ -1,6 +1,8 @@
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
-
+use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::diagnostic::DiagnosticKind;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::elements::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::parser::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::parser::elements::Requirement::NumericFluents;
@@ -11,102 +13,158 @@ use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::semantic_checks::Checker;
 
-/// Checks for symbols that are declared but never used in the same or a parent scope.
-/// This function reports warnings for any unused symbols found.
+/// Checks for symbols that are declared but never used within their scope or any parent scope,
+/// emitting warnings for such unused declarations.
+///
+/// This function iterates over all symbol declarations in the annotated syntax tree and verifies
+/// whether each declaration has at least one usage within its scope or any parent scope. It skips
+/// checking for symbols of kinds specified in `skip_symbols` or those determined to be skipped by
+/// domain-specific rules.
+///
+/// Built-in PDDL symbols like `"object"` and `"number"` are always ignored as they are considered
+/// inherently valid.
 ///
 /// # Parameters
-/// - `annotated_syntax_tree`: A reference to the annotated syntax tree, containing the symbol table and syntax tree.
-/// - `skip_symbols`: A list of `SymbolKind` values representing symbols that should be ignored during checking.
-/// - `errors`: A mutable reference to the `ErrorManager` where warnings and errors will be logged.
+/// - `syntax_tree`: A reference to the `AnnotatedSyntaxTree` containing the symbol table,
+///   declarations, and usages.
+/// - `skip_symbols`: A slice of `SymbolKind` indicating symbol kinds to exclude from the
+///   unused-symbol check.
+/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` where warning diagnostics
+///   will be recorded.
+/// - `checker`: The `Checker` context used as the source of diagnostics.
 ///
 /// # Returns
-/// - `Ok(())` if the check completes successfully. Warnings are logged through the error manager.
-/// - `Err(ParserInternalError)` if an error occurs during processing.
+/// - `Ok(true)` if the check completes successfully; warnings for unused symbols are recorded
+///   through `diagnostic_manager`.
+/// - `Err(ParserInternalError)` if any internal error occurs during processing, such as missing
+///   AST entries.
 ///
-/// # Note
-/// - The built-in PDDL symbols `"object"` and `"number"` are ignored, as they are always valid.
-/// - Symbols whose kind appears in `skip_symbols` are not checked.
-pub fn check_unused_symbols(
+/// # Notes
+/// - Symbols declared as built-in PDDL types or those matching skip rules are not checked.
+/// - For each unused symbol declaration found, a warning diagnostic is emitted.
+///
+/// # Example
+/// ```no_run
+/// let result = check_unused_symbols_warning(
+///     &syntax_tree,
+///     &[SymbolKind::Requirement],
+///     &mut diagnostic_manager,
+///     checker
+/// );
+/// if let Err(e) = result {
+///     eprintln!("Error during unused symbol check: {:?}", e);
+/// }
+/// ```
+pub fn check_unused_symbols_warning(
     syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
     diagnostic_manager: &mut DiagnosticManager,
+    checker: Checker,
 ) -> Result<bool, ParserInternalError> {
-    let no_error = true;
-
     let symbol_table = syntax_tree.symbol_table();
 
     for symbol in symbol_table.values() {
         for declaration in symbol.declarations() {
-            let declaration_kind = declaration.kind().clone();
+            let declaration_kind = declaration.kind();
 
-            if skip_unused_symbol_declaration(symbol, declaration, syntax_tree)?
-                || skip_symbols.contains(&declaration_kind)
+            // Skip declarations that should not be analyzed
+            if skip_unused_symbol_declaration(declaration, syntax_tree)?
+                || skip_symbols.iter().any(|kind| kind == declaration_kind)
             {
                 continue;
             }
 
-            check_pddl_builtin_symbol_declaration(symbol, declaration, syntax_tree, diagnostic_manager)?;
+            // Check if declaration refers to a PDDL built-in and report if so
+            check_pddl_builtin_symbol_declaration(
+                declaration,
+                syntax_tree,
+                checker,
+                diagnostic_manager
+            )?;
 
             let declaration_scope = declaration.scope();
 
-            // Vérifie s'il y a au moins un usage valide
-            let has_valid_usage = symbol
-                .usages()
-                .iter()
-                .any(|usage| {
-                    usage.scope().starts_with(&declaration_scope)
-                });
+            // Determine if this declaration has at least one valid usage
+            let has_valid_usage = symbol.usages().iter().any(|usage| {
+                usage.scope().starts_with(&declaration_scope)
+            });
 
+            // If no usage is found, emit a warning
             if !has_valid_usage {
-                let entry = syntax_tree.get_entry(declaration.ast()).unwrap();
-                let warning = Diagnostic::new(
-                    DiagnosticKind::UnusedSymbol {
-                        symbol: symbol.name().clone(),
-                        kind: declaration_kind.clone(),
-                    },
-                    DiagnosticSource::SemanticAnalyzer,
-                    syntax_tree.filename().clone(),
-                    entry.span().clone(),
+                report_unused_symbol_warning(
+                    declaration,
+                    syntax_tree.filename(),
+                    checker,
+                    diagnostic_manager
                 );
-                diagnostic_manager.add_diagnostic(warning);
             }
         }
     }
 
-    Ok(no_error)
+    Ok(true)
 }
 
-
-/// Determines whether a declaration should be skipped during duplicate checking.
+/// Emits a warning diagnostic for an unused symbol declaration.
 ///
-/// This function returns `true` if the declaration's kind indicates that it is not
-/// subject to duplicate checks. Specifically, it skips declarations of symbols of kind
-/// `Requirement`, `Action`, `DASymbol`, or `Method`, as well as variables declared within the scope
-/// of atomic formula or atomic function skeletons. Such symbols are typically declared
-/// in the domain and are not intended to be checked for duplicates in problem files.
+/// This function is triggered when a declaration exists in the code but is
+/// never referenced or used in any valid scope. This may indicate dead or
+/// redundant code that can be removed to improve clarity or efficiency.
 ///
 /// # Parameters
-/// - `symbol`: A reference to the `Symbol` that owns the declaration to check.
-/// - `declaration`: A reference to the `Declaration` to check.
-/// - `annotated_syntax_tree`: A reference to the `AnnotatedSyntaxTree`, which contains the necessary
-///   information for checking the declaration.
+/// - `declaration`: The specific declaration that is unused.
+/// - `filename`: The name of the source file containing the declaration.
+/// - `checker`: The semantic checker that provides context for the analysis.
+/// - `diagnostic_manager`: The manager responsible for collecting diagnostics.
+///
+fn report_unused_symbol_warning(
+    declaration: &Declaration,
+    filename: &str,
+    checker: Checker,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+
+    let warning = Diagnostic::new(
+        DiagnosticKind::UnusedSymbolWarning {
+            declaration: declaration.clone(),
+        },
+        checker.into(),
+        filename.to_string(),
+        declaration.span().clone(),
+    );
+
+    diagnostic_manager.add_diagnostic(warning);
+}
+
+/// Determines whether a declaration should be skipped during unused symbol checking.
+///
+/// This function returns `true` if the declaration represents a symbol kind or context
+/// that should not be considered when checking for unused symbols. This includes:
+/// - Declarations of built-in domain constructs like `Requirement`, `Action`, `DASymbol`, or
+///   `Method`.
+/// - Declarations of symbols like `DomainName`, `ProblemName`, or those associated with
+///   specific PDDL requirements (e.g., `Typing`, `NumericFluents`, `DurativeActions`).
+/// - Variables that appear within the scope of atomic formula skeletons, atomic function skeletons,
+///   or task definitions—these are typically considered local and not subject to unused symbol
+///   diagnostics.
+///
+/// # Parameters
+/// - `declaration`: A reference to the `Declaration` to evaluate.
+/// - `annotated_syntax_tree`: A reference to the `AnnotatedSyntaxTree`, used for contextual
+///   analysis.
 ///
 /// # Returns
-/// - `true` if the declaration should be skipped (i.e., it is of a type that does not require
-///   duplicate checking).
-/// - `false` otherwise, indicating that the declaration should be checked for duplicates.
+/// - `Ok(true)` if the declaration should be skipped during unused symbol checking.
+/// - `Ok(false)` if it should be checked.
+/// - `Err(ParserInternalError)` if the required AST context cannot be retrieved.
 ///
 /// # Note
-/// - Declarations of symbols with kinds `Requirement`, `Action`, `DASymbol`, or `Method` are skipped
-///   because these are typically domain-level constructs that don't require duplicate checking in the problem file.
-/// - Variables declared within atomic formula or function skeletons, or within task definitions, are also skipped
-///   because they are considered local and don't need to be checked for duplicates.
+/// Skipping these declarations avoids false positives when analyzing domain-level constructs or
+/// locally scoped variables that are not meant to be globally referenced.
 fn skip_unused_symbol_declaration(
-    symbol: &Symbol,
     declaration: &Declaration,
     annotated_syntax_tree: &AnnotatedSyntaxTree,
 ) -> Result<bool, ParserInternalError> {
@@ -123,7 +181,7 @@ fn skip_unused_symbol_declaration(
         return Ok(true);
     }
 
-    match symbol.name().as_str() {
+    match declaration.symbol().as_str() {
         OBJECT_TYPE
             if annotated_syntax_tree.has_requirement(&Typing)
                 || annotated_syntax_tree.has_requirement(&Adl) =>
@@ -159,90 +217,199 @@ fn skip_unused_symbol_declaration(
     Ok(false)
 }
 
-/// Checks if a symbol is properly declared as a built-in symbol according to the PDDL
+/// Validates whether a symbol is correctly declared as a built-in symbol according to PDDL
 /// specifications.
 ///
-/// This function verifies whether a given symbol matches the expected type of a built-in symbol
-/// based on the PDDL requirements present in the `ast_table`. For example, it checks if a
-/// symbol like `OBJECT_TYPE`, `NUMBER_TYPE`, or `TOTAL_TIME` is correctly declared with the
-/// appropriate kind (e.g., `PrimitiveType`, `Function`, `Variable`) based on the domain's
-/// requirements.
+/// This function checks if the given declaration corresponds to a reserved built-in symbol
+/// (such as `object`, `number`, `total-time`, or `?duration`) and verifies whether its
+/// kind matches the expected `SymbolKind` based on the domain's declared PDDL requirements.
 ///
-/// # Arguments
-/// * `symbol`: A reference to the `Symbol` that needs to be checked.
-/// * `declaration`: A reference to the `Declaration` of the symbol, which contains type
-///   information.
-/// * `annotated_syntax_tree`: A reference to the `AnnotatedSyntaxTree`, which contains the
-///   domain's requirements and other metadata.
-/// * `errors`: A mutable reference to the `ErrorManager`, which will log any errors encountered.
+/// It emits an error diagnostic if the declaration uses an incorrect kind for a reserved
+/// built-in symbol, and emits a warning diagnostic if the symbol is correctly declared but
+/// its usage may cause ambiguity or confusion due to keyword overlap.
+///
+/// # Parameters
+/// - `declaration`: Reference to the `Declaration` to validate.
+/// - `syntax_tree`: Reference to the `AnnotatedSyntaxTree` providing requirements and
+///   structural context needed for validation.
+/// - `checker`: The `Checker` context associated with this validation, used as diagnostic source.
+/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where diagnostics
+///   (errors or warnings) will be recorded.
 ///
 /// # Returns
-/// * `Ok(true)` if the symbol's declaration matches the expected type and is correct according
-///   to the PDDL requirements.
-/// * `Ok(false)` if the symbol's declaration is incorrect or doesn't match any recognized
-///   built-in symbol declaration.
+/// - `Ok(true)` if the declaration either matches a known built-in symbol with the correct kind,
+///   or if it does not correspond to any recognized built-in symbol (no checks performed).
+/// - `Ok(false)` if the declaration matches a known built-in symbol but is declared with
+///   an incorrect kind. In this case, an error diagnostic is emitted.
 ///
 /// # Errors
-/// If the symbol's declaration is invalid, an error is logged with the line and column number
-/// of the invalid declaration.
+/// Returns `Err(ParserInternalError)` if the AST entry corresponding to the declaration
+/// cannot be found.
+///
+/// # Diagnostics
+/// - Emits an error if a reserved built-in symbol is declared with a wrong kind.
+/// - Emits a warning if the symbol is correctly declared but might cause ambiguity due to
+///   keyword overlap.
+///
+/// # Example
+/// ```no_run
+/// let result = check_pddl_builtin_symbol_declaration(
+///     &declaration,
+///     &syntax_tree,
+///     checker,
+///     &mut diagnostic_manager,
+/// );
+/// if let Err(e) = result {
+///     eprintln!("Internal parser error: {:?}", e);
+/// }
+/// ```
 fn check_pddl_builtin_symbol_declaration(
-    symbol: &Symbol,
     declaration: &Declaration,
     syntax_tree: &AnnotatedSyntaxTree,
+    checker: Checker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Match the symbol name with the expected built-in symbols and requirements
-    let (expected_kind, requirements) = match symbol.name().as_str() {
+    let (expected_kind, requirements) = match declaration.symbol().as_str() {
         OBJECT_TYPE
-            if syntax_tree.has_requirement(&Typing) || syntax_tree.has_requirement(&Adl) =>
-        {
-            (SymbolKind::PrimitiveType, vec![Typing, Adl])
-        }
+        if syntax_tree.has_requirement(&Typing) || syntax_tree.has_requirement(&Adl) =>
+            {
+                (SymbolKind::PrimitiveType, vec![Typing, Adl])
+            }
         NUMBER_TYPE if syntax_tree.has_requirement(&NumericFluents) => (
             SymbolKind::PrimitiveType,
-            vec![NumericFluents, Fluents]
+            vec![NumericFluents, Fluents],
         ),
         TOTAL_TIME if syntax_tree.has_requirement(&NumericFluents) => {
             (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
         DURATION_VARIABLE if syntax_tree.has_requirement(&DurativeActions) => (
             SymbolKind::Variable,
-            vec![DurativeActions]
+            vec![DurativeActions],
         ),
         _ => return Ok(true),
     };
 
-    let entry = syntax_tree.get_entry(declaration.ast())
-        .ok_or(ParserInternalError::new("Entry not found".to_string()))?;
-
-    // Verify if the symbol has the correct type
     if *declaration.kind() != expected_kind {
-       let error = Diagnostic::new(
-           DiagnosticKind::ReservedSymbolUsedAs {
-                    symbol: symbol.name().clone(),
-                    actual_kind: declaration.kind().clone(),
-                    expected_kind: expected_kind.clone(),
-                    requirements
-                },
-                DiagnosticSource::SemanticAnalyzer,
-                syntax_tree.filename().clone(),
-                entry.span().clone(),
-            );
-            diagnostic_manager.add_diagnostic(error);
-            return Ok(false);
-    } else {
-        let warning = Diagnostic::new(
-            DiagnosticKind::AmbiguousSymbolUsageWithKeyword {
-                symbol: symbol.name().clone(),
-                actual_kind: declaration.kind().clone(),
-                requirements
-            },
-            DiagnosticSource::SemanticAnalyzer,
-            syntax_tree.filename().clone(),
-            entry.span().clone(),
+        report_symbol_declared_as_keyword_error(
+            declaration,
+            expected_kind,
+            requirements,
+            syntax_tree.filename(),
+            checker,
+            diagnostic_manager,
         );
-        diagnostic_manager.add_diagnostic(warning);
-
+        return Ok(false);
+    } else {
+        report_symbol_declared_ambiguous_as_keyword_warning(
+            declaration,
+            requirements,
+            syntax_tree.filename(),
+            checker,
+            diagnostic_manager,
+        );
         Ok(true)
     }
+}
+
+/// Reports a warning diagnostic indicating that a symbol has been declared in a way that
+/// may cause ambiguity with reserved keywords.
+///
+/// This function creates and adds a `SymbolDeclaredAmbiguouslyAsKeywordWarning` diagnostic
+/// to the provided `DiagnosticManager`. It is used when a symbol’s declaration might
+/// conflict with reserved keywords, leading to potential ambiguity but not necessarily an error.
+///
+/// # Parameters
+/// - `declaration`: Reference to the `Declaration` of the symbol that is ambiguously declared.
+/// - `requirements`: A vector of `Requirement`s relevant to the ambiguous keyword context.
+/// - `filename`: The name of the source file where the declaration occurs, used for warning
+///   reporting.
+/// - `checker`: The `Checker` context or state from which the diagnostic originates.
+/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where the warning
+///   diagnostic will be recorded.
+///
+/// # Behavior
+/// This function clones the declaration and constructs a `SymbolDeclaredAmbiguouslyAsKeywordWarning`
+/// diagnostic capturing details about the ambiguous declaration. It then registers this diagnostic
+/// with the given `diagnostic_manager`.
+///
+/// # Examples
+/// ```no_run
+/// report_symbol_declared_ambiguous_as_keyword_warning(
+///     &declaration,
+///     vec![Requirement::Typing],
+///     "domain.pddl",
+///     checker,
+///     &mut diagnostic_manager,
+/// );
+/// ```
+fn report_symbol_declared_ambiguous_as_keyword_warning(
+    declaration: &Declaration,
+    requirements: Vec<Requirement>,
+    filename: &str,
+    checker: Checker,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+    diagnostic_manager.add_diagnostic(
+        Diagnostic::new(
+            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeywordWarning {
+                declaration: declaration.clone(),
+                requirements,
+            },
+            checker.into(),
+            filename.to_string(),
+            declaration.span().clone(),
+        )
+    );
+}
+
+/// Reports an error diagnostic indicating that a symbol has been incorrectly declared
+/// as a reserved keyword.
+///
+/// This function creates and adds a `SymbolDeclaredAsKeywordError` diagnostic to the provided
+/// `DiagnosticManager`. It is used when a symbol declaration conflicts with reserved keywords
+/// defined by the language or domain specification, typically due to an incorrect kind or misuse.
+///
+/// # Parameters
+/// - `declaration`: Reference to the `Declaration` of the symbol that was improperly declared.
+/// - `expected_kind`: The expected `SymbolKind` that the symbol should have had to avoid this error.
+/// - `requirements`: A vector of `Requirement`s relevant to the reserved keyword context.
+/// - `filename`: The name of the source file where the declaration occurs, used for error reporting.
+/// - `checker`: The `Checker` context or state from which the diagnostic originates.
+/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where the error diagnostic
+///   will be recorded.
+///
+/// # Behavior
+/// This function clones the declaration and constructs a `SymbolDeclaredAsKeywordError` diagnostic
+/// that captures details about the incorrect declaration. It then registers this diagnostic
+/// with the given `diagnostic_manager`.
+///
+/// # Examples
+/// ```no_run
+/// report_symbol_declared_as_keyword_error(
+///     &declaration,
+///     SymbolKind::PrimitiveType,
+///     vec![Requirement::Typing],
+///     "domain.pddl",
+///     checker,
+///     &mut diagnostic_manager,
+/// );
+/// ```
+fn report_symbol_declared_as_keyword_error(
+    declaration: &Declaration,
+    expected_kind: SymbolKind,
+    requirements: Vec<Requirement>,
+    filename: &str,
+    checker: Checker,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+    diagnostic_manager.add_diagnostic(Diagnostic::new(
+        DiagnosticKind::SymbolDeclaredAsKeywordError {
+            declaration: declaration.clone(),
+            expected_kind,
+            requirements,
+        },
+        checker.into(),
+        filename.to_string(),
+        declaration.span().clone(),
+    ));
 }

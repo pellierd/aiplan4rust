@@ -17,7 +17,7 @@ use std::mem;
 use crate::aiplan4rust::semantic_analyser::normalization::{normalize_type_declarations, normalize_typed_list};
 use crate::aiplan4rust::semantic_checks;
 use crate::aiplan4rust::semantic_checks::atomic_formula_checker;
-use crate::aiplan4rust::semantic_checks::checker_context::CheckerContext;
+use crate::aiplan4rust::semantic_checks::checker_context::Checker;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -403,15 +403,16 @@ impl SemanticAnalyzer {
             annotated_syntax_tree,
             skip_types_undeclared, // Skip certain symbol types for undeclared checking
             diagnostic_manager,
-            CheckerContext::SemanticAnalyzer
+            Checker::SemanticAnalyzer
         )?;
 
         // Check for unused symbols, skipping specific symbols
         // This ensures that no declared symbols are unused, except for those in `skip_symbols_unused`
-        checked &= semantic_checks::check_unused_symbols(
+        checked &= semantic_checks::check_unused_symbols_warning(
             annotated_syntax_tree,
             skip_symbols_unused, // Skip certain symbols for unused checking
             diagnostic_manager,
+            Checker::SemanticAnalyzer
         )?;
 
         // Return the result indicating whether all checks passed

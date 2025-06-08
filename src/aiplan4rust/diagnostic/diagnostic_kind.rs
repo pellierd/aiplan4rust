@@ -60,20 +60,17 @@ pub enum DiagnosticKind {
     UndeclaredSymbolError {
         usage: Usage,
     },
-    ReservedSymbolUsedAs {
-        symbol: String,
-        actual_kind: SymbolKind,
+    SymbolDeclaredAsKeywordError {
+        declaration: Declaration,
         expected_kind: SymbolKind,
         requirements: Vec<Requirement>,
     },
-    AmbiguousSymbolUsageWithKeyword {
-        symbol: String,
-        actual_kind: SymbolKind,
+    SymbolDeclaredAmbiguouslyAsKeywordWarning {
+        declaration: Declaration,
         requirements: Vec<Requirement>,
     },
-    UnusedSymbol {
-        symbol: String,
-        kind: SymbolKind,
+    UnusedSymbolWarning {
+        declaration: Declaration,
     },
     DomainProblemNameMismatch {
         domain_name: String,
@@ -127,11 +124,11 @@ impl DiagnosticKind {
             DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { .. } => "E1007".to_string(),
             DiagnosticKind::CyclicOrderingConstraint { .. } => "E1008".to_string(),
             DiagnosticKind::UndeclaredSymbolError { .. } => "E1009".to_string(),
-            DiagnosticKind::ReservedSymbolUsedAs { .. } => "E1010".to_string(),
+            DiagnosticKind::SymbolDeclaredAsKeywordError { .. } => "E1010".to_string(),
             DiagnosticKind::CyclicTypeDeclarationError { .. } => "E1011".to_string(),
             // WARNINGS ANALYSER
-            DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => "W1010".to_string(),
-            DiagnosticKind::UnusedSymbol { .. } => "W1011".to_string(),
+            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeywordWarning { .. } => "W1010".to_string(),
+            DiagnosticKind::UnusedSymbolWarning { .. } => "W1011".to_string(),
             DiagnosticKind::RequirementViolation { .. } => "W10012".to_string(),
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
@@ -198,14 +195,14 @@ impl DiagnosticKind {
             DiagnosticKind::UndeclaredSymbolError { usage} => {
                 format!("{} symbol '{}' undeclared.", usage.symbol(), usage.kind())
             }
-            DiagnosticKind::ReservedSymbolUsedAs {symbol, ..} => {
-                format!("Symbol '{}' used as a language keyword", symbol)
+            DiagnosticKind::SymbolDeclaredAsKeywordError {declaration, ..} => {
+                format!("Symbol '{}' used as a language keyword", declaration.symbol())
             }
-            DiagnosticKind::AmbiguousSymbolUsageWithKeyword {symbol, ..} => {
-                format!("Symbol '{}' is ambiguous as a language keyword", symbol)
+            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeywordWarning {declaration, ..} => {
+                format!("Symbol '{}' is ambiguous as a language keyword", declaration.symbol())
             }
-            DiagnosticKind::UnusedSymbol {symbol, kind  } => {
-                format!("{} Symbol '{}' is unused", kind, symbol)
+            DiagnosticKind::UnusedSymbolWarning { declaration } => {
+                format!("{} Symbol '{}' is unused", declaration.kind(), declaration.symbol())
             }
             DiagnosticKind::DomainProblemNameMismatch { domain_name, problem_name } => {
                 format!("Domain name '{}' does not match problem name '{}'.", domain_name, problem_name)
@@ -257,11 +254,11 @@ impl DiagnosticKind {
             DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::CyclicOrderingConstraint => DiagnosticSeverity::Error,
             DiagnosticKind::UndeclaredSymbolError { .. } => DiagnosticSeverity::Error,
-            DiagnosticKind::ReservedSymbolUsedAs { .. } => DiagnosticSeverity::Error,
+            DiagnosticKind::SymbolDeclaredAsKeywordError { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::CyclicTypeDeclarationError { .. } => DiagnosticSeverity::Error,
             // ANALYSER WARNINGS
-            DiagnosticKind::AmbiguousSymbolUsageWithKeyword { .. } => DiagnosticSeverity::Warning,
-            DiagnosticKind::UnusedSymbol { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeywordWarning { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::UnusedSymbolWarning { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::RequirementViolation { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => DiagnosticSeverity::Warning,
@@ -393,29 +390,29 @@ impl DiagnosticKind {
                     )),
                 }
             }
-            DiagnosticKind::ReservedSymbolUsedAs { symbol, actual_kind, expected_kind, requirements } => {
+            DiagnosticKind::SymbolDeclaredAsKeywordError { declaration, expected_kind, requirements } => {
                 Some(format!(
                     "Symbol '{}' is reserved as '{}' in the language with requirements: {}. '{}' expected. Consider renaming it or using a different symbol.",
-                    symbol,
-                    actual_kind,
+                    declaration.symbol(),
+                    declaration.kind(),
                     Self::format_requirements_list(requirements),
                     expected_kind,
                 ))
             }
 
-            DiagnosticKind::AmbiguousSymbolUsageWithKeyword { symbol, actual_kind, requirements } => {
+            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeywordWarning { declaration, requirements } => {
                 Some(format!(
                     "{} symbol '{}' is ambiguous as it is used as a keyword in the language with requirements: {}. Consider renaming it or using a different symbol.",
-                    actual_kind,
-                    symbol,
+                    declaration.kind(),
+                    declaration.symbol(),
                     Self::format_requirements_list(requirements),
                 ))
             }
-            DiagnosticKind::UnusedSymbol {symbol, kind} => {
+            DiagnosticKind::UnusedSymbolWarning {declaration} => {
                 Some(format!(
                     "{} symbol '{}' is declared but not used. Consider removing it to clean up your code.",
-                    kind,
-                    symbol
+                    declaration.kind(),
+                    declaration.kind()
                 ))
             }
             DiagnosticKind::DomainProblemNameMismatch { domain_name, .. } => {

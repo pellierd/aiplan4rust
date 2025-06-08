@@ -21,7 +21,7 @@ use std::mem::take;
 use crate::aiplan4rust::linker::checkers::domain_name_checker;
 use crate::aiplan4rust::semantic_checks;
 use crate::aiplan4rust::semantic_checks::atomic_formula_checker;
-use crate::aiplan4rust::semantic_checks::checker_context::CheckerContext;
+use crate::aiplan4rust::semantic_checks::checker_context::Checker;
 
 #[derive(Debug)]
 pub struct Linker {
@@ -62,8 +62,8 @@ impl Linker {
             &vec![],
             &vec![],
             &mut self.diagnostic_manager)? {*/
-        if semantic_checks::check_undeclared_symbols(&problem, &[], &mut self.diagnostic_manager, CheckerContext::Linker)?
-            && semantic_checks::check_cross_duplicate_symbol_declarations(&domain, &problem, &mut self.diagnostic_manager, CheckerContext::Linker)? {
+        if semantic_checks::check_undeclared_symbols(&problem, &[], &mut self.diagnostic_manager, Checker::Linker)?
+            && semantic_checks::check_cross_duplicate_symbol_declarations(&domain, &problem, &mut self.diagnostic_manager, Checker::Linker)? {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
             atomic_formula_checker::check(&problem, &type_checker , &mut self.diagnostic_manager)?;

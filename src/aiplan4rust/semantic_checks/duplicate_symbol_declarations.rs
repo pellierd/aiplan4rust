@@ -9,7 +9,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::SymbolTable;
 
 use crate::aiplan4rust::parser::SymbolOrigin;
-use crate::aiplan4rust::semantic_checks::CheckerContext;
+use crate::aiplan4rust::semantic_checks::Checker;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
 ///
@@ -68,7 +68,7 @@ pub fn check_cross_duplicate_symbol_declarations(
     domain: &AnnotatedSyntaxTree,
     problem: &AnnotatedSyntaxTree,
     diagnostic_manager: &mut DiagnosticManager,
-    context: CheckerContext,
+    context: Checker,
 ) -> Result<bool, ParserInternalError> {
     // Step 1: Initialize a flag to track overall success of the check.
     let mut all_ok = true;
@@ -233,7 +233,7 @@ pub fn report_cross_conflict_symbol_error(
     problem_declaration: &Declaration,
     domain_kinds: Vec<SymbolKind>,
     problem_syntax_tree: &AnnotatedSyntaxTree,
-    context: CheckerContext,
+    context: Checker,
 ) -> Result<(), ParserInternalError> {
     let error = Diagnostic::new(
         DiagnosticKind::CrossConflictSymbolDeclarationError {
