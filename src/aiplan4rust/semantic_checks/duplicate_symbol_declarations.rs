@@ -95,13 +95,11 @@ pub fn check_cross_duplicate_symbol_declarations(
 
                     // Step 9: If no matching kind found, report a conflict error.
                     if !same_kind_exists {
-                        report_conflict_symbol_declaration_error(
+                        report_cross_conflict_symbol_error(
                             diagnostic_manager,
-                            symbol.name(),
-                            declaration.kind().clone(),
+                            declaration,
                             domain_kinds,
                             problem,
-                            declaration.ast(),
                             context
                         )?;
 
@@ -196,75 +194,56 @@ fn get_relevant_domain_kinds(
 /// Reports a conflict error when a symbol declared in the problem syntax tree
 /// conflicts with existing declarations in the domain syntax tree.
 ///
-/// This function attempts to retrieve the AST entry corresponding to the given
-/// declaration AST ID from the problem syntax tree. If the entry is missing,
-/// it returns a `ParserInternalError`.
+/// This function creates and records a diagnostic error indicating that the
+/// symbol from the problem declaration conflicts with one or more declarations
+/// in the domain, specifying the conflicting symbol name, the kind of the
+/// problem declaration, and the kinds of the domain declarations.
 ///
-/// Once the AST entry is found, it creates a diagnostic error of kind
-/// `ErrorConflictSymbolDeclaration` with details about the conflicting symbol,
-/// the kind of the problem declaration, and the kinds of the domain declarations.
+/// The diagnostic includes location and context information extracted from the
+/// problem declaration and syntax tree.
 ///
-/// The diagnostic is then added to the provided `DiagnosticManager` with the
-/// specified context and source information.
-///
-/// # Arguments
-///
-/// * `diagnostic_manager` - Mutable reference to the `DiagnosticManager` where
-///   the diagnostic will be recorded.
-/// * `symbol_name` - The name of the conflicting symbol as a `String` reference.
-/// * `problem_kind` - The `SymbolKind` of the declaration in the problem.
-/// * `domain_kinds` - A vector of `SymbolKind`s representing the kinds of the
-///   conflicting declarations found in the domain.
-/// * `problem_syntax_tree` - Reference to the `AnnotatedSyntaxTree` for the problem,
-///   used to retrieve AST entries and file information.
-/// * `declaration_ast_id` - The AST node ID (`usize`) of the conflicting declaration
-///   in the problem syntax tree.
-/// * `context` - The `CheckerContext` indicating the source context of the diagnostic.
+/// # Parameters
+/// - `diagnostic_manager`: Mutable reference to the diagnostic manager where the
+///   error will be recorded.
+/// - `problem_declaration`: The `Declaration` in the problem syntax tree that
+///   conflicts with existing domain declarations.
+/// - `domain_kinds`: A vector of `SymbolKind` representing the conflicting
+///   declaration kinds found in the domain syntax tree.
+/// - `problem_syntax_tree`: Reference to the problem's annotated syntax tree,
+///   used to retrieve filename and span information.
+/// - `context`: The `CheckerContext` indicating where in the compilation/analysis
+///   pipeline this diagnostic arises.
 ///
 /// # Returns
-///
-/// Returns `Ok(())` if the diagnostic was successfully created and added.
-/// Returns `Err(ParserInternalError)` if the AST entry for the given declaration ID
-/// cannot be found.
+/// - `Ok(())` if the diagnostic was successfully created and added.
+/// - `Err(ParserInternalError)` if an unexpected error occurs (currently none expected).
 ///
 /// # Example
-///
 /// ```rust
-/// report_conflict_symbol_declaration_error(
+/// report_cross_conflict_symbol_error(
 ///     &mut diagnostic_manager,
-///     &symbol_name,
-///     problem_kind,
+///     &problem_declaration,
 ///     domain_kinds,
 ///     &problem_syntax_tree,
-///     declaration_ast_id,
 ///     CheckerContext::Linker,
 /// )?;
 /// ```
-fn report_conflict_symbol_declaration_error(
+pub fn report_cross_conflict_symbol_error(
     diagnostic_manager: &mut DiagnosticManager,
-    symbol_name: &String,
-    problem_kind: SymbolKind,
+    problem_declaration: &Declaration,
     domain_kinds: Vec<SymbolKind>,
     problem_syntax_tree: &AnnotatedSyntaxTree,
-    declaration_ast_id: usize,
     context: CheckerContext,
 ) -> Result<(), ParserInternalError> {
-    let ast = problem_syntax_tree.get_entry(declaration_ast_id).ok_or_else(|| {
-        ParserInternalError::new(format!(
-            "Missing AST entry for declaration with id: {}",
-            declaration_ast_id
-        ))
-    })?;
-
     let error = Diagnostic::new(
-        DiagnosticKind::ErrorConflictSymbolDeclaration {
-            symbol: symbol_name.clone(),
-            problem_kind,
+        DiagnosticKind::CrossConflictSymbolDeclarationError {
+            symbol: problem_declaration.symbol().clone(),
+            problem_kind: problem_declaration.kind().clone(),
             domain_kinds,
         },
         context.into(),
         problem_syntax_tree.filename().clone(),
-        ast.span().clone(),
+        problem_declaration.span().clone(),
     );
 
     diagnostic_manager.add_diagnostic(error);

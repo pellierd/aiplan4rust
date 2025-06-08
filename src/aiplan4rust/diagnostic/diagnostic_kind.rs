@@ -99,7 +99,7 @@ pub enum DiagnosticKind {
     CyclicTypeDeclarationError {
        cycle: Vec<Declaration>
     },
-    ErrorConflictSymbolDeclaration {
+    CrossConflictSymbolDeclarationError {
         symbol: String,
         problem_kind: SymbolKind,
         domain_kinds: Vec<SymbolKind>,
@@ -141,7 +141,7 @@ impl DiagnosticKind {
 
             // WARNINGS LINKER
             DiagnosticKind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
-            DiagnosticKind::ErrorConflictSymbolDeclaration { .. } => "W2001".to_string(),
+            DiagnosticKind::CrossConflictSymbolDeclarationError { .. } => "W2001".to_string(),
 
 
             DiagnosticKind::CustomError(_) => "E000X".to_string(),
@@ -230,7 +230,7 @@ impl DiagnosticKind {
             DiagnosticKind::CyclicTypeDeclarationError { ..} => {
                 "Cycle detected in type declarations, causing an invalid hierarchy.".to_string()
             }
-            DiagnosticKind::ErrorConflictSymbolDeclaration { .. } => {
+            DiagnosticKind::CrossConflictSymbolDeclarationError { .. } => {
                 "Symbol declaration in problem conflicts with domain declaration.".to_string()
             }
             DiagnosticKind::CustomError(msg) => msg.to_string(),
@@ -272,7 +272,7 @@ impl DiagnosticKind {
             // LINKER WARNINGS
             DiagnosticKind::DomainProblemNameMismatch { .. } => DiagnosticSeverity::Warning,
             // LINKER ERROR
-            DiagnosticKind::ErrorConflictSymbolDeclaration {..} => DiagnosticSeverity::Error,
+            DiagnosticKind::CrossConflictSymbolDeclarationError {..} => DiagnosticSeverity::Error,
 
 
         }
@@ -458,7 +458,7 @@ impl DiagnosticKind {
                     cycle_symbols.join(" -> ")
                 ))
             }
-            DiagnosticKind::ErrorConflictSymbolDeclaration { symbol, problem_kind, domain_kinds } => {
+            DiagnosticKind::CrossConflictSymbolDeclarationError { symbol, problem_kind, domain_kinds } => {
                 Some(format!(
                     "Symbol `{}` declared as `{}` in the problem, but in the domain it is declared as: {}. Ensure the symbol’s kind matches in both.",
                     symbol,
