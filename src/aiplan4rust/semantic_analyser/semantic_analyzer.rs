@@ -11,7 +11,7 @@ use crate::aiplan4rust::semantic_analyser::checkers::{
     requirement_checker,
 };
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::{normalization, AnalyzerResult};
+use crate::aiplan4rust::semantic_analyser::AnalyzerResult;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
 use std::mem;
@@ -267,8 +267,15 @@ impl SemanticAnalyzer {
             diagnostic_manager,
         )?;
 
+        checked &= checked && type_hierarchy_checker::check_type_hierarchy(
+            annotated_syntax_tree,
+            diagnostic_manager,
+        )?;
+
         // If the symbol check passes without errors, proceed with further checks
         if checked {
+
+
             // Create a type checker using the symbol table from the annotated syntax tree
             let type_checker = TypeChecker::new(annotated_syntax_tree.symbol_table());
 

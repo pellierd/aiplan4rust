@@ -11,26 +11,6 @@ use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use bimap::BiMap;
-use crate::aiplan4rust::semantic_analyser::normalization::{normalize_type_declarations, normalize_typed_list};
-
-/// Performs a full check on the syntax tree:
-/// merges duplicated type declarations and verifies inheritance cycles.
-///
-/// # Arguments
-/// - `syntax_tree`: Mutable reference to the annotated syntax tree.
-/// - `diagnostic_manager`: Mutable reference to the diagnostic manager.
-///
-/// # Returns
-/// Returns `Ok(true)` if no critical errors were found, or an error otherwise.
-pub fn check(
-    syntax_tree: &mut AnnotatedSyntaxTree,
-    diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
-
-
-    // Step 2: Check the type hierarchy for inheritance cycles, emitting diagnostics if any
-    Ok(check_type_hierarchy(syntax_tree, diagnostic_manager)?)
-}
 
 /// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
@@ -60,7 +40,7 @@ pub fn check(
 /// # Errors
 /// This function only fails if internal data (such as spans or declarations) is missing
 /// or inconsistent.
-fn check_type_hierarchy(
+pub fn check_type_hierarchy(
     syntax_tree: &AnnotatedSyntaxTree,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {

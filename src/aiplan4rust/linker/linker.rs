@@ -1,5 +1,5 @@
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSeverity, DiagnosticSource};
+use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::{
     functional_expression_checker, requirement_checker, TypeChecker,
 };
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope, SymbolKind};
+use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic_analyser::symbol::Usage;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 use crate::aiplan4rust::semantic_analyser::LiftedDomain;

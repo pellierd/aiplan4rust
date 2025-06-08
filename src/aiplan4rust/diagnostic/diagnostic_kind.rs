@@ -5,8 +5,6 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, SymbolKind};
 
 use std::fmt;
-use clap::value_parser;
-use crate::aiplan4rust::parser::Span;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
 #[derive(Clone, Debug, PartialEq)]
