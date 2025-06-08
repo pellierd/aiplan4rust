@@ -5,14 +5,13 @@ use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::SymbolTable;
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
+use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
-use indexmap::IndexSet;
 use bimap::BiMap;
+use crate::aiplan4rust::semantic_analyser::normalization::{normalize_type_declarations, normalize_typed_list};
 
 /// Performs a full check on the syntax tree:
 /// merges duplicated type declarations and verifies inheritance cycles.
@@ -28,11 +27,9 @@ pub fn check(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
 
-    // Step 1: Merge duplicated type declarations and collect the unified type map
-    let types = merge_type_declarations(syntax_tree, diagnostic_manager)?;
 
     // Step 2: Check the type hierarchy for inheritance cycles, emitting diagnostics if any
-    Ok(check_type_hierarchy(&types, syntax_tree, diagnostic_manager)?)
+    Ok(check_type_hierarchy(syntax_tree, diagnostic_manager)?)
 }
 
 /// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
@@ -42,119 +39,122 @@ pub fn check(
 /// provided `DiagnosticManager`.
 ///
 /// # Parameters
-/// - `types`: A reference to a map of type declarations keyed by their symbol names.
-/// - `syntax_tree`: An immutable reference to the annotated syntax tree, used to retrieve source
-///   spans for precise diagnostic reporting.
-/// - `diagnostic_manager`: A mutable reference to the diagnostic manager responsible for
-///   collecting and reporting errors.
+/// - `syntax_tree`: A reference to the annotated syntax tree, which provides access to declared types
+///   and their source spans.
+/// - `diagnostic_manager`: A mutable reference to the diagnostic manager that collects and emits errors.
 ///
 /// # Returns
-/// - `Ok(true)` if no inheritance cycles were detected.
-/// - `Ok(false)` if one or more inheritance cycles were found and diagnostics were emitted.
-/// - `Err(ParserInternalError)` if an unexpected internal error occurs during verification.
+/// - `Ok(true)`: No inheritance cycles were found.
+/// - `Ok(false)`: One or more cycles were detected, and diagnostics were emitted.
+/// - `Err(ParserInternalError)`: An unexpected internal error occurred during analysis.
 ///
-/// # Behavior
-/// The function performs the following steps:
-/// 1. Builds a bidirectional mapping from type names to unique graph indices.
-/// 2. Constructs the direct inheritance adjacency matrix representing the type hierarchy.
-/// 3. Computes the transitive closure to capture indirect inheritance relationships.
-/// 4. Detects all cycles using Johnson’s algorithm for elementary circuits.
-/// 5. Filters out trivial or redundant cycles to avoid duplicate diagnostics.
-/// 6. Emits diagnostics describing each detected cycle via the diagnostic manager.
+/// # Steps
+/// 1. Collect all type declarations from the root scope (only `PrimitiveType`s).
+/// 2. Build a bidirectional map between type symbols and unique indices.
+/// 3. Construct the type inheritance graph as an adjacency matrix.
+/// 4. Compute the transitive closure to detect indirect inheritance.
+/// 5. Detect all cycles in the graph using Johnson’s algorithm.
+/// 6. Filter out trivial or duplicate cycles.
+/// 7. Emit diagnostics for each remaining cycle.
 ///
 /// # Errors
-/// This function returns an error only if an unexpected internal inconsistency or failure
-/// occurs during the verification process, such as missing data in the syntax tree.
+/// This function only fails if internal data (such as spans or declarations) is missing
+/// or inconsistent.
 fn check_type_hierarchy(
-    types: &HashMap<String, Declaration>,
     syntax_tree: &AnnotatedSyntaxTree,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Step 1: Build a mapping from type names to unique indices in the graph
-    let type_bimap = build_type_bimap(types);
 
-    // Step 2: Build an adjacency matrix representing type inheritance
-    let mut hierarchy = build_type_adjacency_matrix(&type_bimap, types)?;
+    // Step 1: Collect all type declarations from the root scope (PrimitiveType only)
+    let types = syntax_tree
+        .symbol_table()
+        .collect_declarations(
+            None,
+            Some(&SymbolKind::PrimitiveType),
+            Some(&Scope::root()),
+        );
 
-    // Step 3: Compute the transitive closure to make indirect inheritance explicit
+    // Step 2: Build a bidirectional mapping between type names and unique numeric indices
+    let type_bimap = build_type_bimap(&types);
+
+    // Step 3: Construct the inheritance adjacency matrix (direct parent-child relationships)
+    let mut hierarchy = build_type_adjacency_matrix(&type_bimap, &types)?;
+
+    // Step 4: Compute the transitive closure to reveal indirect inheritance paths
     compute_transitive_closure(&mut hierarchy);
 
-    // Step 4: Detect all cycles using Johnson’s algorithm
+    // Step 5: Detect cycles in the type graph using Johnson’s algorithm
     let all_cycles = johnson_find_cycles(&hierarchy);
 
-    // Step 5: Remove trivial/self cycles or redundant ones
+    // Step 6: Filter out trivial/self cycles and remove redundant ones
     let filtered_cycles = filter_cycles(all_cycles);
 
-    // Step 6: Emit diagnostics for each detected cycle
+    // Step 7: Emit diagnostics for each meaningful cycle found in the hierarchy
     emit_cyclic_type_declaration_error(
         &filtered_cycles,
         &type_bimap,
-        types,
+        &types,
         syntax_tree,
         diagnostic_manager,
     )?;
 
+    // Return true if no cycles were found; false if diagnostics were emitted
     Ok(filtered_cycles.is_empty())
 }
-
-/// Emits diagnostics for cyclic type declarations found in the type hierarchy.
+/// Emits diagnostics for cyclic type declarations detected in the type hierarchy.
 ///
-/// For each detected cycle (represented as a vector of type indices), this function
-/// reconstructs detailed cycle information by retrieving type symbols, declarations,
-/// and source code spans from the syntax tree. It then creates and adds a diagnostic
-/// message describing the cycle.
+/// For each detected cycle (given as a vector of type indices), this function reconstructs
+/// detailed cycle information including the involved symbols and their corresponding declarations.
+/// It then emits a diagnostic error that describes the cycle and indicates the source location.
 ///
 /// # Parameters
-/// - `cycles`: A slice of cycles, each cycle is a vector of type indices representing a cycle in
-///   the hierarchy.
-/// - `type_bimap`: A bidirectional map between type names and their assigned indices.
-/// - `types`: A map from type names to their `Declaration` objects.
-/// - `syntax_tree`: The annotated syntax tree from which to retrieve source spans.
-/// - `diagnostic_manager`: The manager to which diagnostics will be reported.
+/// - `cycles`: A slice of cycles, where each cycle is a list of type indices forming a loop.
+/// - `type_bimap`: A bidirectional mapping between type names and their unique numeric indices.
+/// - `types`: A list of references to `Declaration` objects representing all declared types.
+/// - `syntax_tree`: The annotated syntax tree used to locate the source spans of declarations.
+/// - `diagnostic_manager`: A diagnostic manager to collect and emit the error diagnostics.
 ///
 /// # Returns
-/// Returns `Ok(())` if diagnostics were emitted successfully for all cycles.
-/// Returns a `ParserInternalError` if required span information is missing or cycle data is empty.
+/// - `Ok(())` if all diagnostics are emitted successfully.
+/// - `Err(ParserInternalError)` if any required data is missing (e.g., declaration not found).
 fn emit_cyclic_type_declaration_error(
     cycles: &[Vec<usize>],
     type_bimap: &BiMap<String, usize>,
-    types: &HashMap<String, Declaration>,
+    types: &Vec<&Declaration>,
     syntax_tree: &AnnotatedSyntaxTree,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), ParserInternalError> {
 
+    // Build a fast lookup map from symbol names to declarations
+    let type_map: HashMap<&str, &Declaration> = types
+        .iter()
+        .map(|decl| (decl.symbol().as_str(), *decl))
+        .collect();
+
+    // Process each cycle to generate detailed diagnostic information
     for cycle in cycles {
-        // Prepare a vector to hold detailed cycle info: (symbol, declaration, span)
         let mut cycle_detail = Vec::with_capacity(cycle.len());
 
+        // Convert type indices to symbols, and then to their declarations
         for &index in cycle {
             if let Some(symbol) = type_bimap.get_by_right(&index) {
-                if let Some(declaration) = types.get(symbol) {
-                    // Retrieve the annotated syntax node for the declaration's AST
-                    let node = syntax_tree
-                        .get_entry(declaration.ast())
-                        .ok_or(ParserInternalError::new(format!(
-                            "Span for declaration '{}' not found in syntax tree",
-                            symbol
-                        )))?;
-
-                    // Extract the span from the syntax node
-                    let span = node.span().clone();
-
-                    cycle_detail.push((symbol.clone(), declaration.clone(), span));
+                if let Some(declaration) = type_map.get(symbol.as_str()) {
+                    cycle_detail.push((*declaration).clone()); // Clone to own the declaration
                 }
             }
         }
 
-        // Ensure the cycle detail is not empty before proceeding
+        // If no valid declarations were found, report an internal error
         if cycle_detail.is_empty() {
-            return Err(ParserInternalError::new("Cycle detail cannot be empty".to_string()));
+            return Err(ParserInternalError::new(
+                "Cycle detail cannot be empty".to_string(),
+            ));
         }
 
-        // Use the span of the first element in the cycle for the diagnostic location
-        let first_span = cycle_detail[0].2.clone();
+        // Use the span of the first declaration in the cycle for the diagnostic location
+        let first_span = cycle_detail[0].span().clone();
 
-        // Create and add the diagnostic about the cyclic type declaration
+        // Emit a diagnostic describing the cyclic type declarations
         let error = Diagnostic::new(
             DiagnosticKind::CyclicTypeDeclarationError { cycle: cycle_detail },
             DiagnosticSource::SemanticAnalyzer,
@@ -167,7 +167,6 @@ fn emit_cyclic_type_declaration_error(
 
     Ok(())
 }
-
 
 /// Finds all elementary cycles in a directed graph using Johnson's algorithm.
 ///
@@ -487,7 +486,7 @@ fn compute_transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 /// ```
 fn build_type_adjacency_matrix(
     type_bimap: &BiMap<String, usize>,
-    declarations: &HashMap<String, Declaration>,
+    declarations: &Vec<&Declaration>,
 ) -> Result<Vec<Vec<bool>>, ParserInternalError> {
     let n = type_bimap.len();
 
@@ -498,9 +497,9 @@ fn build_type_adjacency_matrix(
     let object_index = type_bimap.get_by_left(OBJECT_TYPE).copied();
 
     // Iterate over all declared types and their declarations
-    for (type_name, decl) in declarations {
+    for declaration in declarations {
         // Try to get the index for the current type name from the bimap
-        let Some(&type_idx) = type_bimap.get_by_left(type_name) else {
+        let Some(&type_idx) = type_bimap.get_by_left(declaration.symbol()) else {
             // If the type is not found in the map (should not happen if map is consistent), skip
             continue;
         };
@@ -509,11 +508,11 @@ fn build_type_adjacency_matrix(
         if type_idx >= n {
             return Err(ParserInternalError::new(format!(
                 "Index {} for type '{}' is out of bounds (max {})",
-                type_idx, type_name, n - 1
+                type_idx, declaration.symbol(), n - 1
             )));
         }
 
-        match decl.types() {
+        match declaration.types() {
             Some(parents) => {
                 // For each parent type, set an edge in the adjacency matrix
                 for parent in parents {
@@ -575,21 +574,21 @@ fn build_type_adjacency_matrix(
 /// let name = type_index_map.get_by_right(*index).unwrap();
 /// ```
 fn build_type_bimap(
-    declarations: &HashMap<String, Declaration>,
+    declarations: &Vec<&Declaration>,
 ) -> BiMap<String, usize> {
     // Create an empty BiMap to store type names (String) and their unique indices (usize)
     let mut temp_map: BiMap<String, usize> = BiMap::new();
 
     // Iterate over each type declaration in the input map
-    for (type_name, decl) in declarations {
+    for declaration in declarations {
         // If the type name is not already in the BiMap, insert it with a new unique index
-        if !temp_map.contains_left(type_name) {
+        if !temp_map.contains_left(declaration.symbol()) {
             let len = temp_map.len();        // Current size of the map used as next index
-            temp_map.insert(type_name.clone(), len); // Insert the type name with the index
+            temp_map.insert(declaration.symbol().clone(), len); // Insert the type name with the index
         }
 
         // If the declaration has parent types (e.g., inherited types)
-        if let Some(parents) = decl.types() {
+        if let Some(parents) = declaration.types() {
             // Iterate over each parent type
             for parent in parents {
                 // Insert the parent type into the map if it's not already present
@@ -609,305 +608,4 @@ fn build_type_bimap(
 
     // Return the completed BiMap mapping type names to unique indices
     temp_map
-}
-
-/// Merges duplicated primitive type declarations in the symbol table and emits diagnostics.
-///
-/// This function processes the symbol table of the provided `AnnotatedSyntaxTree`, merges
-/// multiple primitive type declarations per symbol into one, and reports any duplicates
-/// through diagnostics. It avoids borrow checker conflicts by decoupling mutation and
-/// read-only access into two phases.
-///
-/// # Borrowing Strategy
-/// Rust's borrowing rules prevent simultaneous mutable and immutable borrows of the
-/// syntax tree. To work around this safely:
-/// 1. **Merging Phase** (mutable borrow):
-///    Calls [`collect_duplicated_type_declarations`] to mutate the symbol table,
-///    consolidate duplicate primitive declarations, and collect raw diagnostic metadata
-///    (without needing the syntax tree).
-/// 2. **Diagnostic Phase** (immutable borrow):
-///    After the mutable borrow ends, uses [`emit_duplicated_type_declaration_warning`]
-///    to generate and add warnings to the `DiagnosticManager`, using the syntax tree
-///    immutably to locate source spans.
-///
-/// # Parameters
-/// - `syntax_tree`: A mutable reference to the `AnnotatedSyntaxTree` to process.
-///   Its symbol table will be modified in-place.
-/// - `diagnostic_manager`: The manager that will receive emitted warnings for any
-///   duplicated type declarations found.
-///
-/// # Returns
-/// A `Result` containing a `HashMap<String, Declaration>` that maps symbol names to their
-/// merged primitive type declarations, if any were present.
-///
-/// # Errors
-/// Returns a [`ParserInternalError`] if:
-/// - The merging process fails unexpectedly (e.g., due to an internal invariant violation).
-/// - Emitting diagnostics encounters an unrecoverable condition.
-///
-/// # Behavior Summary
-/// - Consolidates all `SymbolKind::PrimitiveType` declarations in the symbol table.
-/// - For any duplicates, merges their types into a single declaration and emits a warning.
-/// - Leaves all other declaration kinds unchanged.
-///
-/// # See Also
-/// - [`collect_duplicated_type_declarations`] — collects duplicates without needing AST spans.
-/// - [`emit_duplicated_type_declaration_warning`] — emits diagnostics using collected metadata.
-
-fn merge_type_declarations(
-    syntax_tree: &mut AnnotatedSyntaxTree,
-    diagnostic_manager: &mut DiagnosticManager
-) -> Result<HashMap<String, Declaration>, ParserInternalError> {
-    // Clone the filename from the syntax tree to use in diagnostics later.
-    let filename = syntax_tree.filename().clone();
-
-    // Mutably borrow the symbol table from the syntax tree to perform merging.
-    let symbol_table = syntax_tree.symbol_table_mut();
-
-    // Call the helper function that merges duplicated declarations and returns:
-    // 1) the merged primitive declarations
-    // 2) a list of raw diagnostic data tuples to be processed later.
-    let (type_declarations, diagnostics) =
-        collect_duplicated_type_declarations(symbol_table)?;
-
-    // After the mutable borrow is released, emit diagnostics by converting raw data into actual
-    // warnings, accessing the syntax tree immutably for span info.
-    emit_duplicated_type_declaration_warning(diagnostics, syntax_tree, &filename, diagnostic_manager)?;
-
-    // Return the map of merged primitive declarations.
-    Ok(type_declarations)
-}
-
-/// Merges primitive type declarations across all symbols in the symbol table and collects
-/// duplicates.
-///
-/// This function processes every symbol's declaration set within the provided symbol table,
-/// consolidating redundant primitive type declarations (e.g., multiple `(:type x - object)`).
-/// It uses [`merge_symbol_type_declarations`] internally to perform the per-symbol merging logic,
-/// and aggregates both the resulting unique primitive declarations and any metadata
-/// required to later emit diagnostics for duplicates.
-///
-/// # Parameters
-/// - `symbol_table`: A mutable reference to the full `SymbolTable`, where each symbol maps to
-///   a set of declarations (`IndexSet<Declaration>`) that may contain duplicates.
-///
-/// # Returns
-/// Returns a `Result` containing a tuple:
-/// - `HashMap<String, Declaration>`: A map where each key is a symbol name, and the value is
-///   the merged primitive declaration for that symbol, if one was found.
-/// - `Vec<(String, Declaration, Declaration, usize)>`: A collection of tuples representing
-///   duplicate primitive type declarations. Each tuple contains:
-///     - the symbol name (`String`)
-///     - the original declaration retained after merging
-///     - the duplicate declaration that was merged
-///     - the AST node ID of the duplicate (used to locate its span for diagnostics)
-///
-/// # Errors
-/// Returns a [`ParserInternalError`] if the merging process fails for any symbol, which is
-/// not expected under normal parsing conditions but may indicate internal logic issues.
-///
-/// # Notes
-/// - This function **does not emit diagnostics directly**. It collects all necessary
-///   metadata and defers diagnostic creation and reporting to the caller.
-/// - Non-primitive declarations in the symbol table are unaffected and preserved.
-///
-/// # See Also
-/// - [`merge_symbol_type_declarations`] — performs the actual merge logic for a single symbol.
-fn collect_duplicated_type_declarations(
-    symbol_table: &mut SymbolTable,
-) -> Result<
-    (
-        HashMap<String, Declaration>,
-        Vec<(String, Declaration, Declaration, usize)>,
-    ),
-    ParserInternalError,
-> {
-    let mut unique_primitive_declarations = HashMap::new();
-    let mut diagnostics_data = Vec::new();
-
-    // Iterate over each symbol and merge their primitive type declarations
-    for (key, symbol) in symbol_table.iter_mut() {
-        let declarations = symbol.declarations_mut();
-
-        // Merge declarations and collect diagnostics related to duplicates
-        let (maybe_primitive_decl, mut local_diagnostics) =
-            merge_symbol_type_declarations(key, declarations)?;
-
-        // Store merged primitive declarations keyed by symbol name
-        if let Some(decl) = maybe_primitive_decl {
-            unique_primitive_declarations.insert(key.clone(), decl);
-        }
-
-        // Append any diagnostic data gathered during merging
-        diagnostics_data.append(&mut local_diagnostics);
-    }
-
-    Ok((unique_primitive_declarations, diagnostics_data))
-}
-
-/// Emits diagnostics for duplicated primitive type declarations.
-///
-/// This function takes diagnostic data collected earlier about duplicated declarations
-/// and creates proper `Diagnostic` entries by accessing the syntax tree for span info.
-///
-/// # Parameters
-/// - `diagnostics_data`: Vector of tuples containing:
-///     - symbol name (String)
-///     - first duplicated declaration (Declaration)
-///     - second duplicated declaration (Declaration)
-///     - AST node ID (usize) associated with the duplicate declaration
-/// - `syntax_tree`: Reference to the `AnnotatedSyntaxTree` to fetch syntax node info.
-/// - `filename`: The source filename, used for diagnostic reporting.
-///
-/// # Returns
-/// Returns `Ok(())` if diagnostics were successfully emitted,
-/// or an error if a required syntax node was missing.
-fn emit_duplicated_type_declaration_warning(
-    diagnostics_data: Vec<(String, Declaration, Declaration, usize)>,
-    syntax_tree: &AnnotatedSyntaxTree,
-    filename: &str,
-    diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), ParserInternalError> {
-    for (symbol, decl1, decl2, ast_id) in diagnostics_data {
-        // Attempt to retrieve the syntax node for the duplicate declaration
-        let declaration_node = syntax_tree.get_entry(ast_id).ok_or_else(|| {
-            ParserInternalError::new("Missing syntax node for declaration".to_string())
-        })?;
-
-        // Construct the diagnostic warning with relevant information
-        let diagnostic = Diagnostic::new(
-            DiagnosticKind::WarningDuplicatedTypeDeclaration {
-                ty: symbol,
-                declaration1: decl1,
-                declaration2: decl2,
-            },
-            DiagnosticSource::SemanticAnalyzer,
-            filename.to_string(),
-            declaration_node.span().clone(),
-        );
-
-        // Add the diagnostic to the manager
-        diagnostic_manager.add_diagnostic(diagnostic);
-    }
-    Ok(())
-}
-
-/// Merges primitive type declarations for a given symbol and collects duplicate diagnostics.
-///
-/// This function processes all declarations associated with a symbol, consolidating multiple
-/// primitive type declarations (e.g., `(:type a b - object)`) into a single merged declaration.
-/// If duplicates are found, it collects diagnostic metadata to be used later for warning emission.
-/// Non-primitive declarations are left untouched.
-///
-/// The function is designed to **avoid borrow checker conflicts** by:
-/// - collecting diagnostic data without accessing the syntax tree,
-/// - deferring diagnostic creation and emission to the caller.
-///
-/// # Parameters
-/// - `symbol`: The name of the symbol whose declarations are being processed.
-/// - `declarations`: A mutable reference to an `IndexSet<Declaration>` that contains all
-///   declarations for the given symbol.
-///
-/// # Returns
-/// Returns a `Result` containing:
-/// - `Option<Declaration>`: The merged primitive type declaration if one was found, otherwise
-///   `None`.
-/// - `Vec<(String, Declaration, Declaration, usize)>`: A list of diagnostic metadata, where each
-///   tuple contains:
-///     - the symbol name (`String`)
-///     - the first (existing) primitive declaration
-///     - the second (duplicate) primitive declaration
-///     - the AST node ID of the duplicate declaration (for span lookup)
-///
-/// # Algorithm
-/// 1. Take ownership of the original `declarations` by replacing them with an empty set.
-/// 2. Iterate over each declaration:
-///    - If it's not a primitive type, reinsert it as-is.
-///    - If it's a primitive type:
-///       - If no primitive declaration has been merged yet, store it.
-///       - Otherwise, treat it as a duplicate:
-///           - Record diagnostic metadata.
-///           - Merge its type content (if any) into the existing declaration.
-/// 3. Reinsert the final merged primitive declaration (if one exists).
-/// 4. Update the original `declarations` with the new set.
-/// 5. Return the merged declaration and diagnostic data.
-///
-/// # Errors
-/// Returns a `ParserInternalError` only if unexpected invariants are violated (not expected under
-/// normal use).
-///
-/// # Notes
-/// - This function does not emit diagnostics directly. It only prepares the data required to do so
-///   later.
-/// - It assumes that `Declaration::types_mut()` and `Declaration::take_types()` are used to access
-///   and move internal type data for merging.
-
-fn merge_symbol_type_declarations(
-    symbol: &str,
-    declarations: &mut IndexSet<Declaration>,
-) -> Result<(Option<Declaration>, Vec<(String, Declaration, Declaration, usize)>), ParserInternalError> {
-    // Holds the merged primitive declaration, initially None
-    let mut merged_primitive_decl: Option<Declaration> = None;
-    // Create a new set to accumulate non-primitive declarations and the final merged one
-    let mut new_declarations = IndexSet::with_capacity(declarations.len());
-    // Vector to store data needed for diagnostics creation later on, without borrowing syntax_tree
-    let mut diagnostics_data = Vec::new();
-
-    // Replace the original declarations with an empty set, taking ownership of the old ones
-    let old_declarations = std::mem::take(declarations);
-
-    // Iterate over all old declarations
-    for mut declaration in old_declarations {
-        // If this declaration is not a primitive type, insert it directly into the new set
-        if declaration.kind() != &SymbolKind::PrimitiveType {
-            new_declarations.insert(declaration);
-            continue; // Move to the next declaration
-        }
-
-        // If it is a primitive type declaration
-        match &mut merged_primitive_decl {
-            // If a merged primitive declaration already exists
-            Some(existing_decl) => {
-                // Store the information necessary for a diagnostic without directly borrowing
-                // syntax_tree
-                diagnostics_data.push((
-                    symbol.to_string(),    // The symbol name
-                    existing_decl.clone(), // The already merged declaration
-                    declaration.clone(),   // The duplicate declaration found
-                    declaration.ast(),     // AST node id for locating the source
-                ));
-
-                // Merge the types from the duplicate declaration into the existing merged
-                // declaration
-                match existing_decl.types_mut() {
-                    Some(existing_types) => {
-                        // If the new declaration has types, extend the existing types
-                        if let Some(new_types) = declaration.take_types() {
-                            existing_types.extend(new_types);
-                        }
-                    }
-                    // Otherwise, replace the existing types with those from the new declaration
-                    None => {
-                        existing_decl.set_types(declaration.take_types());
-                    }
-                }
-            }
-            // If this is the first primitive declaration encountered, set it as the merged one
-            None => {
-                merged_primitive_decl = Some(declaration);
-            }
-        }
-    }
-
-    // If there is a merged primitive declaration, insert it into the new declarations set
-    if let Some(decl) = &merged_primitive_decl {
-        new_declarations.insert(decl.clone());
-    }
-
-    // Replace the original declarations with the updated set containing merged results
-    *declarations = new_declarations;
-
-    // Return the merged primitive declaration (if any) and the list of diagnostic data for later
-    // use
-    Ok((merged_primitive_decl, diagnostics_data))
 }

@@ -253,13 +253,13 @@ impl SymbolTableBuilder {
         let source = self.table().source().clone();
         if let Some(symbol) = self.table_mut().get_symbol_mut(&name) {
             let declaration =
-                Declaration::new(*ast.id(), kind, scope, source, types, arguments);
+                Declaration::new(*ast.id(), kind, scope, source, types, arguments, ast.span().clone(), name.clone());
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
             let mut symbol = Symbol::new(&name);
             let declaration =
-                Declaration::new(*ast.id(), kind, scope, source, types, arguments);
+                Declaration::new(*ast.id(), kind, scope, source, types, arguments, ast.span().clone(), name.clone());
             symbol.add_declaration(declaration);
             self.table_mut().insert_symbol(name, symbol); // Insert the new symbol into the table
         }

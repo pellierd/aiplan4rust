@@ -6,6 +6,7 @@ pub mod annotated_syntax_node;
 pub mod annotated_syntax_tree;
 pub mod checkers;
 pub mod symbol_table;
+mod normalization;
 
 pub use analyser_result::AnalyzerResult;
 pub use annotated_syntax_node::AnnotatedSyntaxNode;

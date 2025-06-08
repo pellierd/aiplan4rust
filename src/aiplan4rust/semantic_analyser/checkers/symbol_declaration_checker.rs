@@ -72,7 +72,7 @@ pub fn check(
                     let scope = syntax_tree.get_entry(*scope_index).unwrap();
 
                     let error = Diagnostic::new(
-                        DiagnosticKind::DuplicatedDeclarationInScope {
+                        DiagnosticKind::DuplicatedSymbolDeclarationInScopeError {
                             symbol: symbol.name().clone(),
                             declaration1: previous_declaration.clone(),
                             declaration2: declaration.clone(),

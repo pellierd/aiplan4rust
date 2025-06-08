@@ -7,7 +7,7 @@
 )
 
 (:types 
-	container dispenser level beverage hand - anything
+	container dispenser level beverage hand - (either anything anything)
 	shot shaker - container
 	ingredient cocktail - beverage
 )

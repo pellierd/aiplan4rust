@@ -4,7 +4,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
 use crate::aiplan4rust::parser::SymbolOrigin;
-use crate::aiplan4rust::semantic_analyser::checkers::{atomic_formula_checker, task_ordering_checker, undeclared_symbol_checker};
+use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::{
     functional_expression_checker, requirement_checker, TypeChecker,
 };
@@ -20,7 +20,7 @@ use std::mem::take;
 
 use crate::aiplan4rust::linker::checkers::domain_name_checker;
 use crate::aiplan4rust::semantic_checks;
-use crate::aiplan4rust::semantic_checks::symbol_declaration_consistency_checker;
+use crate::aiplan4rust::semantic_checks::checker_context::CheckerContext;
 
 #[derive(Debug)]
 pub struct Linker {
@@ -61,11 +61,11 @@ impl Linker {
             &vec![],
             &vec![],
             &mut self.diagnostic_manager)? {*/
-        if undeclared_symbol_checker::check(&problem, &[], &mut self.diagnostic_manager)?
-        && semantic_checks::check(&domain, &problem, &mut self.diagnostic_manager)? {
+        if semantic_checks::check_undeclared_symbols(&problem, &[], &mut self.diagnostic_manager, CheckerContext::Linker)?
+            && semantic_checks::check_cross_duplicate_symbol_declarations(&domain, &problem, &mut self.diagnostic_manager, CheckerContext::Linker)? {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
-            atomic_formula_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
+            semantic_checks::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
 
             // Check functional expressions in the domain using the type checker
             functional_expression_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;

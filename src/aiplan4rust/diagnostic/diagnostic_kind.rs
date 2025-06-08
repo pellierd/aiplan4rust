@@ -5,6 +5,7 @@ use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
 use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, SymbolKind};
 
 use std::fmt;
+use clap::value_parser;
 use crate::aiplan4rust::parser::Span;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
@@ -51,14 +52,14 @@ pub enum DiagnosticKind {
         node_kind: SyntaxNodeKind,
         required: Vec<Requirement>,
     },
-    DuplicatedDeclarationInScope {
+    DuplicatedSymbolDeclarationInScopeError {
         symbol: String,
         declaration1: Declaration,
         declaration2: Declaration,
         scope: AnnotatedSyntaxNode,
     },
     CyclicOrderingConstraint,
-    UndeclaredSymbol {
+    UndeclaredSymbolError {
         symbol: String,
         kind : SymbolKind
     },
@@ -89,13 +90,16 @@ pub enum DiagnosticKind {
         type_declared: Vec<String>,
         type_used: Vec<String>,
     },
-    WarningDuplicatedTypeDeclaration {
+    DuplicateTypesInSymbolDeclarationWarning {
+        symbol: String,
+        duplicate_types: Vec<String>,
+    },
+    ImplicitEitherTypeDeclarationWarning {
         ty: String,
-        declaration1: Declaration,
-        declaration2: Declaration,
+        types: Vec<String>,
     },
     CyclicTypeDeclarationError {
-       cycle: Vec<(String, Declaration, Span)>
+       cycle: Vec<Declaration>
     },
     ErrorConflictSymbolDeclaration {
         symbol: String,
@@ -123,9 +127,9 @@ impl DiagnosticKind {
             DiagnosticKind::UnDefinedPrimitiveTask { .. } => "E1004".to_string(),
             DiagnosticKind::TypeMismatchInExpression { .. } => "E1005".to_string(),
             DiagnosticKind::InvalidTypesInNumericExpression { .. } => "E1006".to_string(),
-            DiagnosticKind::DuplicatedDeclarationInScope { .. } => "E1007".to_string(),
+            DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { .. } => "E1007".to_string(),
             DiagnosticKind::CyclicOrderingConstraint { .. } => "E1008".to_string(),
-            DiagnosticKind::UndeclaredSymbol { .. } => "E1009".to_string(),
+            DiagnosticKind::UndeclaredSymbolError { .. } => "E1009".to_string(),
             DiagnosticKind::ReservedSymbolUsedAs { .. } => "E1010".to_string(),
             DiagnosticKind::CyclicTypeDeclarationError { .. } => "E1011".to_string(),
             // WARNINGS ANALYSER
@@ -134,7 +138,9 @@ impl DiagnosticKind {
             DiagnosticKind::RequirementViolation { .. } => "W10012".to_string(),
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
-            DiagnosticKind::WarningDuplicatedTypeDeclaration { .. } => "W1015".to_string(),
+            DiagnosticKind::DuplicateTypesInSymbolDeclarationWarning { .. } => "W1015".to_string(),
+            DiagnosticKind::ImplicitEitherTypeDeclarationWarning { .. } => "W1016".to_string(),
+
             // WARNINGS LINKER
             DiagnosticKind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
             DiagnosticKind::ErrorConflictSymbolDeclaration { .. } => "W2001".to_string(),
@@ -186,13 +192,13 @@ impl DiagnosticKind {
             DiagnosticKind::RequirementViolation { node_kind, .. } => {
                 format!("'{}' expression is not allowed in the current context.", node_kind)
             }
-            DiagnosticKind::DuplicatedDeclarationInScope { symbol, .. } => {
+            DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { symbol, .. } => {
                 format!("Duplicate declaration of symbol '{}'.", symbol)
             }
             DiagnosticKind::CyclicOrderingConstraint => {
                 "Cyclic task-ordering constraint detected.".to_string()
             }
-            DiagnosticKind::UndeclaredSymbol { symbol , kind} => {
+            DiagnosticKind::UndeclaredSymbolError { symbol , kind} => {
                 format!("{} symbol '{}' undeclared.", symbol, kind)
             }
             DiagnosticKind::ReservedSymbolUsedAs {symbol, ..} => {
@@ -214,8 +220,14 @@ impl DiagnosticKind {
                 format!("Upcasting detected: argument '{}' has broader type(s) than declared.",
                 argument)
             }
-            DiagnosticKind::WarningDuplicatedTypeDeclaration { ty   , .. } => {
-                format!("Duplicated declaration of type '{}'.", ty)
+            DiagnosticKind::DuplicateTypesInSymbolDeclarationWarning { symbol, .. } => {
+                format!("Symbol '{}' has duplicated types in its declaration.", symbol)
+            }
+            DiagnosticKind::ImplicitEitherTypeDeclarationWarning { ty, ..} => {
+                format!(
+                    "Implicit disjunctive type declaration for {}.",
+                    ty,
+                )
             }
             DiagnosticKind::CyclicTypeDeclarationError { ..} => {
                 "Cycle detected in type declarations, causing an invalid hierarchy.".to_string()
@@ -245,9 +257,9 @@ impl DiagnosticKind {
             DiagnosticKind::UnDefinedPrimitiveTask { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::TypeMismatchInExpression { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::InvalidTypesInNumericExpression { .. } => DiagnosticSeverity::Error,
-            DiagnosticKind::DuplicatedDeclarationInScope { .. } => DiagnosticSeverity::Error,
+            DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::CyclicOrderingConstraint => DiagnosticSeverity::Error,
-            DiagnosticKind::UndeclaredSymbol { .. } => DiagnosticSeverity::Error,
+            DiagnosticKind::UndeclaredSymbolError { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::ReservedSymbolUsedAs { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::CyclicTypeDeclarationError { .. } => DiagnosticSeverity::Error,
             // ANALYSER WARNINGS
@@ -256,7 +268,8 @@ impl DiagnosticKind {
             DiagnosticKind::RequirementViolation { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::WarningAmbiguousTypePredicateSymbol { .. } => DiagnosticSeverity::Warning,
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => DiagnosticSeverity::Warning,
-            DiagnosticKind::WarningDuplicatedTypeDeclaration { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::DuplicateTypesInSymbolDeclarationWarning { .. } => DiagnosticSeverity::Warning,
+            DiagnosticKind::ImplicitEitherTypeDeclarationWarning { .. } => DiagnosticSeverity::Warning,
 
             // LINKER WARNINGS
             DiagnosticKind::DomainProblemNameMismatch { .. } => DiagnosticSeverity::Warning,
@@ -317,7 +330,7 @@ impl DiagnosticKind {
                     Self::format_requirements_list(&required)
                 ))
             }
-            DiagnosticKind::DuplicatedDeclarationInScope { symbol, declaration1, declaration2, .. } => {
+            DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { symbol, declaration1, declaration2, .. } => {
                 Some(format!(
                     "The symbol '{}' is declared once as a '{}' and again as a '{}'. \
                         Consider renaming one of the declarations or ensuring consistent usage.",
@@ -327,7 +340,7 @@ impl DiagnosticKind {
                 ))
             }
             DiagnosticKind::CyclicOrderingConstraint => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
-            DiagnosticKind::UndeclaredSymbol { symbol, kind } => {
+            DiagnosticKind::UndeclaredSymbolError { symbol, kind } => {
                 match kind {
                     SymbolKind::Function => Some(format!(
                         "Function '{}' is not declared. Please declare it before use in the ':functions' block.",
@@ -429,18 +442,19 @@ impl DiagnosticKind {
                     Self::format_types(type_used)
                 ))
             }
-            DiagnosticKind::WarningDuplicatedTypeDeclaration { ty, declaration1, declaration2, .. } => {
+            DiagnosticKind::DuplicateTypesInSymbolDeclarationWarning { symbol, duplicate_types } => {
+                let listed_types = if duplicate_types.len() == 1 {
+                    format!("type '{}'", duplicate_types[0])
+                } else {
+                    format!("types '{}'", duplicate_types.join("', '"))
+                };
                 Some(format!(
-                    "The type '{}' is declared multiple times: once as '{}' and again as '{}'. \
-                    If multiple inheritance is intended, use an 'either' expression to represent it properly. \
-                     Otherwise, this is likely an error in the domain definition.",
-                    ty,
-                    declaration1.kind(),
-                    declaration2.kind()
+                    "Duplicate {} found in the type declarations of symbol '{}'; these duplicates have been removed.",
+                    listed_types, symbol
                 ))
             }
             DiagnosticKind::CyclicTypeDeclarationError { cycle } => {
-                let cycle_symbols: Vec<String> = cycle.iter().map(|(sym, _, _)| sym.clone()).collect();
+                let cycle_symbols: Vec<&str> = cycle.iter().map(|decl| decl.symbol().as_str()).collect();
                 Some(format!(
                     "Cycle detected in type hierarchy: {}. Remove cyclic inheritance to fix.",
                     cycle_symbols.join(" -> ")
@@ -454,6 +468,17 @@ impl DiagnosticKind {
                     Self::format_symbol_kinds(&domain_kinds),
                 ))
             }
+            DiagnosticKind::ImplicitEitherTypeDeclarationWarning { ty, types } => {
+                Some(format!(
+                    "Multiple type declarations for '{}': interpreted as {}. \
+                    To make this explicit and avoid ambiguity, declare the type as '{} - {}'.",
+                    ty,
+                    Self::format_types(types),
+                    ty,
+                    Self::format_types(types),
+                ))
+            }
+
         }
     }
 

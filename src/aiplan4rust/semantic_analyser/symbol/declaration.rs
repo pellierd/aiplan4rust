@@ -1,4 +1,4 @@
-use crate::aiplan4rust::parser::SymbolOrigin;
+use crate::aiplan4rust::parser::{Span, SymbolOrigin};
 use crate::aiplan4rust::semantic_analyser::symbol::Scope;
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
 use crate::aiplan4rust::semantic_analyser::symbol::TypedSymbol;
@@ -53,6 +53,9 @@ pub struct Declaration {
 
     /// Optional list of argument types, grouped in parameter lists.
     arguments: Option<Vec<TypedSymbol<String>>>,
+
+    span: Span,
+    symbol : String,
 }
 
 impl Declaration {
@@ -64,6 +67,8 @@ impl Declaration {
         source: SymbolOrigin,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
+        span : Span,
+        symbol : String,
     ) -> Self {
         Declaration {
             ast,
@@ -72,6 +77,8 @@ impl Declaration {
             source,
             types,
             arguments,
+            span,
+            symbol,
         }
     }
 
@@ -131,6 +138,10 @@ impl Declaration {
         self.types.as_ref()
     }
 
+    pub fn into_types(self) -> Option<Vec<String>> {
+        self.types
+    }
+
     /// Accessor for the list of argument types associated with the symbol.
     ///
     /// Returns an optional reference to a vector of argument types, if available.
@@ -140,6 +151,10 @@ impl Declaration {
     /// * `Option<&Vec<TypedSymbol<String>>>` - An optional reference to the list of argument types.
     pub fn arguments(&self) -> Option<&Vec<TypedSymbol<String>>> {
         self.arguments.as_ref()
+    }
+
+    pub fn into_arguments(self) -> Option<Vec<TypedSymbol<String>>> {
+        self.arguments
     }
 
     // Mutable accessors
@@ -179,6 +194,14 @@ impl Declaration {
     /// * `Option<&mut Vec<TypedSymbol<String>>>` - A mutable reference to the list of argument types.
     pub fn arguments_mut(&mut self) -> Option<&mut Vec<TypedSymbol<String>>> {
         self.arguments.as_mut()
+    }
+
+    pub fn span(&self) -> &Span {
+        &self.span
+    }
+
+    pub fn symbol(&self) -> &String {
+        &self.symbol
     }
 
     // Setters

@@ -5,17 +5,19 @@ use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
 use crate::aiplan4rust::semantic_analyser::checkers::{functional_expression_checker, type_hierarchy_checker};
 use crate::aiplan4rust::semantic_analyser::checkers::symbol_declaration_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
-use crate::aiplan4rust::semantic_analyser::checkers::undeclared_symbol_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::unused_symbol_checker;
 use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
 use crate::aiplan4rust::semantic_analyser::checkers::{
-    atomic_formula_checker, requirement_checker,
+    requirement_checker,
 };
 use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::AnalyzerResult;
+use crate::aiplan4rust::semantic_analyser::{normalization, AnalyzerResult};
 use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
 
 use std::mem;
+use crate::aiplan4rust::semantic_analyser::normalization::{normalize_type_declarations, normalize_typed_list};
+use crate::aiplan4rust::semantic_checks;
+use crate::aiplan4rust::semantic_checks::checker_context::CheckerContext;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -117,8 +119,14 @@ impl SemanticAnalyzer {
 
         // Determine the AST kind and perform the appropriate checks
         match syntax_tree.root().kind() {
-            SyntaxNodeKind::Domain => self.check_domain(&mut annotated_syntax_tree)?,
-            SyntaxNodeKind::Problem => self.check_problem(&annotated_syntax_tree)?,
+            SyntaxNodeKind::Domain => {
+                Self::normalize_domain(&mut annotated_syntax_tree, &mut self.diagnostic_manager)?;
+                Self::check_domain(&annotated_syntax_tree, &mut self.diagnostic_manager)?
+            },
+            SyntaxNodeKind::Problem => {
+                Self::normalize_problem(&mut annotated_syntax_tree, &mut self.diagnostic_manager)?;
+                Self::check_problem(&annotated_syntax_tree, &mut self.diagnostic_manager)?
+            },
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST node kind found: {}",
@@ -140,6 +148,81 @@ impl SemanticAnalyzer {
                 mem::take(&mut self.diagnostic_manager),
             ))
         }
+    }
+
+    /// Normalizes the domain by applying various normalization passes on the syntax tree.
+    ///
+    /// This function orchestrates domain normalization by sequentially invoking specific normalization
+    /// routines such as merging duplicated type declarations and normalizing typed lists. It ensures
+    /// that the syntax tree is updated accordingly and emits any relevant diagnostics via the
+    /// provided `DiagnosticManager`.
+    ///
+    /// # Parameters
+    /// - `syntax_tree`: A mutable reference to the `AnnotatedSyntaxTree` representing the domain
+    ///   to be normalized. This tree may be mutated during normalization.
+    /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` used to collect
+    ///   and report any diagnostics generated during normalization.
+    ///
+    /// # Returns
+    /// Returns `Ok(true)` if any normalization step modified the syntax tree (i.e., the domain
+    /// was changed). Returns `Ok(false)` if no changes were made. Returns an error if any
+    /// internal error occurs during normalization.
+    ///
+    /// # Errors
+    /// Propagates errors from underlying normalization functions, typically
+    /// [`ParserInternalError`] if unexpected conditions arise.
+    ///
+    /// # Behavior
+    /// 1. Normalizes type declarations by merging duplicates and emitting warnings.
+    /// 2. Normalizes typed lists and emits related diagnostics.
+    /// 3. Combines the results of both steps to indicate if any changes were made.
+    ///
+    /// # See Also
+    /// - [`normalize_type_declarations`]
+    /// - [`normalize_typed_list`]
+    fn normalize_domain(
+        syntax_tree: &mut AnnotatedSyntaxTree,
+        diagnostic_manager: &mut DiagnosticManager,
+    ) -> Result<bool, ParserInternalError> {
+        // Normalize primitive type declarations and merge duplicates; track if changed
+        let mut changed = normalize_type_declarations(syntax_tree, diagnostic_manager)?;
+
+        // Normalize typed lists and combine with previous changed flag
+        changed &= normalize_typed_list(syntax_tree, diagnostic_manager)?;
+
+        // Return true if any normalization was performed, false otherwise
+        Ok(changed)
+    }
+
+    /// Normalizes the problem domain by applying normalization passes excluding type hierarchy normalization.
+    ///
+    /// This function performs normalization on components of the domain such as typed lists, while
+    /// explicitly skipping normalization of primitive type declarations and their hierarchy. This is useful
+    /// when you want to normalize certain parts of the domain without merging or modifying the type inheritance.
+    ///
+    /// # Parameters
+    /// - `syntax_tree`: A mutable reference to the `AnnotatedSyntaxTree` representing the problem domain.
+    /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` to collect and report diagnostics.
+    ///
+    /// # Returns
+    /// Returns:
+    /// - `Ok(true)` if the normalization resulted in any changes to the syntax tree (typed lists modified).
+    /// - `Ok(false)` if no changes were needed.
+    /// - `Err(ParserInternalError)` if an internal error occurs during normalization.
+    ///
+    /// # Behavior
+    /// - Only normalizes typed lists and emits diagnostics if needed.
+    /// - Does NOT modify or merge primitive type declarations or the type hierarchy.
+    ///
+    /// # See Also
+    /// - [`normalize_typed_list`]: for normalization of typed lists.
+    /// - [`normalize_type_declarations`]: for full normalization including type hierarchy.
+    pub fn normalize_problem(
+        syntax_tree: &mut AnnotatedSyntaxTree,
+        diagnostic_manager: &mut DiagnosticManager,
+    ) -> Result<bool, ParserInternalError> {
+        // Apply normalization on typed lists only, returning whether any change occurred.
+        normalize_typed_list(syntax_tree, diagnostic_manager)
     }
 
     /// Checks the domain-related syntax tree and performs the relevant checks.
@@ -170,24 +253,18 @@ impl SemanticAnalyzer {
     /// }
     /// ```
     fn check_domain(
-        &mut self,
-        annotated_syntax_tree: &mut AnnotatedSyntaxTree,
+        annotated_syntax_tree: &AnnotatedSyntaxTree,
+        diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, ParserInternalError> {
         // Skip unused symbols of kind Constant during the checks
         let skip_symbols_unused = &[SymbolKind::Constant];
 
-        // Check the type hierarchy of the annotated syntax tree
-        let mut checked = type_hierarchy_checker::check(
-            annotated_syntax_tree,
-            &mut self.diagnostic_manager
-        )?;
-
         // Perform the first symbol check (declared symbols check)
-        checked &= Self::check_symbols(
+        let mut checked= Self::check_symbols(
             annotated_syntax_tree,
             &[],                 // No symbols to skip for declared symbols check
             skip_symbols_unused, // Skip symbols of type Constant for unused symbol check
-            &mut self.diagnostic_manager,
+            diagnostic_manager,
         )?;
 
         // If the symbol check passes without errors, proceed with further checks
@@ -196,26 +273,26 @@ impl SemanticAnalyzer {
             let type_checker = TypeChecker::new(annotated_syntax_tree.symbol_table());
 
             // Check atomic formulas in the domain using the type checker
-            checked &= atomic_formula_checker::check(
+            checked &= semantic_checks::check(
                 annotated_syntax_tree,
                 &type_checker,
-                &mut self.diagnostic_manager,
+                diagnostic_manager,
             )?;
 
             // Check functional expressions in the domain using the type checker
             checked &= functional_expression_checker::check(
                 annotated_syntax_tree,
                 &type_checker,
-                &mut self.diagnostic_manager,
+                diagnostic_manager,
             )?;
 
             checked &=
-                task_ordering_checker::check(annotated_syntax_tree, &mut self.diagnostic_manager)?;
+                task_ordering_checker::check(annotated_syntax_tree, diagnostic_manager)?;
 
             requirement_checker::check(
                 annotated_syntax_tree,
                 annotated_syntax_tree.requirements(),
-                &mut self.diagnostic_manager,
+                diagnostic_manager,
             )?;
         }
 
@@ -240,8 +317,8 @@ impl SemanticAnalyzer {
     /// * `Ok(false)` indicates that errors were found.
     /// * `Err(ParserInternalError)` indicates an internal error occurred.
     fn check_problem(
-        &mut self,
         annotated_syntax_tree: &AnnotatedSyntaxTree,
+        diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, ParserInternalError> {
         let skip_types_undeclared = &[
             SymbolKind::PrimitiveType,
@@ -255,10 +332,10 @@ impl SemanticAnalyzer {
             annotated_syntax_tree,
             skip_types_undeclared,
             &[],
-            &mut self.diagnostic_manager,
+            diagnostic_manager,
         )?;
 
-        checked &= task_ordering_checker::check(annotated_syntax_tree, &mut self.diagnostic_manager)?;
+        checked &= task_ordering_checker::check(annotated_syntax_tree, diagnostic_manager)?;
 
         Ok(checked)
     }
@@ -315,10 +392,11 @@ impl SemanticAnalyzer {
         // Check for undeclared symbols, skipping specific types of symbols
         // This ensures that all symbols used in the tree are declared, except for those types in
         // `skip_types_undeclared`
-        checked &= undeclared_symbol_checker::check(
+        checked &= semantic_checks::check_undeclared_symbols(
             annotated_syntax_tree,
             skip_types_undeclared, // Skip certain symbol types for undeclared checking
             diagnostic_manager,
+            CheckerContext::SemanticAnalyzer
         )?;
 
         // Check for unused symbols, skipping specific symbols
