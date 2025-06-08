@@ -35,7 +35,7 @@ type ImplicitDeclarationGroup = HashMap<String, (LinkedHashSet<String>, usize)>;
 ///    consolidate duplicate primitive declarations, and collect raw diagnostic metadata
 ///    (without needing the syntax tree).
 /// 2. **Diagnostic Phase** (immutable borrow):
-///    After the mutable borrow ends, uses [`emit_implicit_either_type_declaration_warning`]
+///    After the mutable borrow ends, uses [`report_implicit_either_type_declaration_warning`]
 ///    to generate and add warnings to the `DiagnosticManager`, using the syntax tree
 ///    immutably to locate source spans.
 ///
@@ -65,7 +65,7 @@ type ImplicitDeclarationGroup = HashMap<String, (LinkedHashSet<String>, usize)>;
 ///
 /// # See Also
 /// - [`collect_duplicated_type_declarations`] — collects duplicates without needing AST spans.
-/// - [`emit_implicit_either_type_declaration_warning`] — emits diagnostics using collected metadata.
+/// - [`report_implicit_either_type_declaration_warning`] — emits diagnostics using collected metadata.
 /// - [`normalize_typed_list`] — recommended to call after to remove any duplicate types within typed lists.
 pub fn normalize_type_declarations(
     syntax_tree: &mut AnnotatedSyntaxTree,
@@ -84,7 +84,7 @@ pub fn normalize_type_declarations(
 
     // After the mutable borrow is released, emit diagnostics by converting raw data into actual
     // warnings, accessing the syntax tree immutably for span info.
-    emit_implicit_either_type_declaration_warning(diagnostics, syntax_tree, &filename, diagnostic_manager)?;
+    report_implicit_either_type_declaration_warning(diagnostics, syntax_tree, &filename, diagnostic_manager)?;
 
     // Return true if the type hierarchy was changed (normalized), false otherwise.
     Ok(!type_declarations.is_empty())
@@ -158,7 +158,7 @@ fn collect_duplicated_type_declarations(
     Ok((unique_primitive_declarations, diagnostics_data))
 }
 
-/// Emits a diagnostic warning when a symbol has multiple type declarations that can
+/// Reports a diagnostic warning when a symbol has multiple type declarations that can
 /// be normalized into an `either` type. For example:
 ///   `x y - (either A B)`
 /// This is useful to guide the user toward more idiomatic PDDL.
@@ -171,7 +171,7 @@ fn collect_duplicated_type_declarations(
 ///
 /// # Returns
 /// - `Ok(())` on success, or `ParserInternalError` if AST information is missing.
-fn emit_implicit_either_type_declaration_warning(
+fn report_implicit_either_type_declaration_warning(
     diagnostics_data: ImplicitEitherDiagnosticsData,
     syntax_tree: &AnnotatedSyntaxTree,
     filename: &str,

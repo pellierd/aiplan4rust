@@ -41,60 +41,84 @@ pub fn normalize_typed_list(
     syntax_tree: &mut AnnotatedSyntaxTree,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Flag to track if any normalization (duplicate removals) occurred
+    // Tracks whether any duplicates were removed during normalization
     let mut normalized = false;
 
-    // Clone filename once to reuse in diagnostics
+    // Clone filename once for reuse in diagnostic reports
     let filename = syntax_tree.filename().clone();
 
-    // Get a mutable reference to the symbol table to update declarations
+    // Get mutable access to the symbol table
     let symbol_table = syntax_tree.symbol_table_mut();
 
     // Iterate over each symbol in the symbol table
     for symbol in symbol_table.values_mut() {
-        // Extract all declarations for this symbol, draining to avoid borrowing conflicts
+        // Drain all declarations for this symbol to avoid borrow checker issues
         let declarations: Vec<Declaration> = symbol.declarations_mut().drain(..).collect();
 
-        // Prepare a new set of declarations after normalization
+        // Collect updated declarations in a new IndexSet
         let mut new_declarations = IndexSet::new();
 
-        // Process each declaration independently
+        // Process each declaration individually
         for mut declaration in declarations {
-            // If the declaration has a typed list, attempt to remove duplicate types
+            // Only process declarations that have typed lists
             if let Some(types) = declaration.types_mut() {
-                // Remove duplicate types and collect the duplicates that were removed
+                // Remove and collect duplicates from the type list
                 let duplicates = remove_duplicates_by_moving(types);
 
-                // If duplicates were found and removed, emit a diagnostic warning
+                // If duplicates were found and removed, emit a warning
                 if !duplicates.is_empty() {
-                    let diagnostic = Diagnostic::new(
-                        DiagnosticKind::DuplicateTypesInSymbolDeclarationWarning {
-                            symbol: symbol.name().clone(),
-                            duplicate_types: duplicates,
-                        },
-                        DiagnosticSource::SemanticAnalyzer,
-                        filename.clone(),
-                        declaration.span().clone(),
+                    report_duplicate_types_in_symbol_declaration_warning(
+                        &declaration,
+                        duplicates,
+                        &filename,
+                        diagnostic_manager,
                     );
-
-                    // Add the diagnostic to the diagnostic manager
-                    diagnostic_manager.add_diagnostic(diagnostic);
-
-                    // Mark that a normalization has occurred
                     normalized = true;
                 }
             }
-            // Insert the (possibly modified) declaration back into the new set
+
+            // Reinsert the (possibly updated) declaration into the new set
             new_declarations.insert(declaration);
         }
 
-        // Replace the symbol's declarations with the normalized set
+        // Replace old declarations with the new (normalized) ones
         *symbol.declarations_mut() = new_declarations;
     }
 
-    // Return whether any normalization was performed
+    // Indicate whether normalization changed anything
     Ok(normalized)
 }
+/// Reports a diagnostic warning when duplicate types are found in a typed list declaration.
+///
+/// Called by normalization logic to inform the user that a declaration had repeated
+/// types (e.g., `x y - (either t1 t1)`) which were removed automatically.
+///
+/// # Parameters
+/// - `declaration`: The declaration from which duplicate types were removed.
+/// - `duplicates`: The list of duplicate type names that were removed.
+/// - `filename`: The filename where the declaration was found.
+/// - `diagnostic_manager`: The system that tracks all emitted diagnostics.
+fn report_duplicate_types_in_symbol_declaration_warning(
+    declaration: &Declaration,
+    duplicates: Vec<String>,
+    filename: &str,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+    // Construct the diagnostic warning with detailed metadata
+    let diagnostic = Diagnostic::new(
+        DiagnosticKind::DuplicateTypesInSymbolDeclarationWarning {
+            symbol: declaration.symbol().clone(),
+            duplicate_types: duplicates,
+        },
+        DiagnosticSource::SemanticAnalyzer,
+        filename.to_string(),
+        declaration.span().clone(),
+    );
+
+    // Submit the warning to the diagnostic manager
+    diagnostic_manager.add_diagnostic(diagnostic);
+}
+
 
 /// Removes duplicates from the given vector by moving elements.
 ///
