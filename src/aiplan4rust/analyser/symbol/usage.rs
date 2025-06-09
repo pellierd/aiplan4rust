@@ -1,6 +1,6 @@
 use crate::aiplan4rust::parser::{Span, SymbolOrigin};
-use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::symbol::Scope;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
 
 use serde::Deserialize;
 use serde::Serialize;

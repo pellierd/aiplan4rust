@@ -1,16 +1,24 @@
-pub mod duplicate_symbol_declarations;
+
+pub mod cross_declared_symbols;
+pub mod declared_symbols;
+pub mod domain_name;
 pub mod undeclared_symbols;
-pub mod checker_context;
-pub mod atomic_formula_checker;
-
+pub mod declared_symbol_signatures;
 pub mod type_hierarchy;
-
+pub mod typed_expressions;
+pub mod requirement_violations;
 pub mod unused_symbols;
+pub mod task_ordering;
 
-pub use checker_context::Checker;
+pub use declared_symbols::check_declared_symbols;
+pub use declared_symbols::check_declared_symbols_of_kinds;
+pub use domain_name::check_domain_name;
 pub use undeclared_symbols::check_undeclared_symbols;
-pub use duplicate_symbol_declarations::check_cross_duplicate_symbol_declarations;
+pub use cross_declared_symbols::check_cross_declared_symbols;
+pub use requirement_violations::check_requirement_violations;
+pub use typed_expressions::check_typed_expressions;
 pub use type_hierarchy::check_type_hierarchy;
-pub use unused_symbols::check_unused_symbols_warning;
+pub use unused_symbols::check_unused_symbols;
+pub use task_ordering::check_task_ordering;
 
-pub use atomic_formula_checker::check;
+pub use declared_symbol_signatures::check_declared_symbol_signatures;

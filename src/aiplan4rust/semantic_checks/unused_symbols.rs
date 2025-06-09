@@ -1,4 +1,5 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
@@ -12,10 +13,9 @@ use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_checks::Checker;
+use crate::aiplan4rust::analyser::symbol::Declaration;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.
@@ -33,9 +33,9 @@ use crate::aiplan4rust::semantic_checks::Checker;
 ///   declarations, and usages.
 /// - `skip_symbols`: A slice of `SymbolKind` indicating symbol kinds to exclude from the
 ///   unused-symbol check.
+/// - `source`: The `DiagnosticSource` from which the diagnostic originates.
 /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` where warning diagnostics
 ///   will be recorded.
-/// - `checker`: The `Checker` context used as the source of diagnostics.
 ///
 /// # Returns
 /// - `Ok(true)` if the check completes successfully; warnings for unused symbols are recorded
@@ -52,18 +52,18 @@ use crate::aiplan4rust::semantic_checks::Checker;
 /// let result = check_unused_symbols_warning(
 ///     &syntax_tree,
 ///     &[SymbolKind::Requirement],
+///     source,
 ///     &mut diagnostic_manager,
-///     checker
 /// );
 /// if let Err(e) = result {
 ///     eprintln!("Error during unused symbol check: {:?}", e);
 /// }
 /// ```
-pub fn check_unused_symbols_warning(
+pub fn check_unused_symbols(
     syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
-    checker: Checker,
 ) -> Result<bool, ParserInternalError> {
     let symbol_table = syntax_tree.symbol_table();
 
@@ -82,9 +82,9 @@ pub fn check_unused_symbols_warning(
             check_pddl_builtin_symbol_declaration(
                 declaration,
                 syntax_tree,
-                checker,
+                source,
                 diagnostic_manager
-            )?;
+            );
 
             let declaration_scope = declaration.scope();
 
@@ -98,7 +98,7 @@ pub fn check_unused_symbols_warning(
                 report_unused_symbol_warning(
                     declaration,
                     syntax_tree.filename(),
-                    checker,
+                    source,
                     diagnostic_manager
                 );
             }
@@ -117,13 +117,13 @@ pub fn check_unused_symbols_warning(
 /// # Parameters
 /// - `declaration`: The specific declaration that is unused.
 /// - `filename`: The name of the source file containing the declaration.
-/// - `checker`: The semantic checker that provides context for the analysis.
+/// - `source`: The `DiagnosticSource` from which the diagnostic originates.
 /// - `diagnostic_manager`: The manager responsible for collecting diagnostics.
 ///
 fn report_unused_symbol_warning(
     declaration: &Declaration,
     filename: &str,
-    checker: Checker,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
 
@@ -131,7 +131,7 @@ fn report_unused_symbol_warning(
         DiagnosticKind::UnusedSymbolWarning {
             declaration: declaration.clone(),
         },
-        checker.into(),
+        source,
         filename.to_string(),
         declaration.span().clone(),
     );
@@ -237,14 +237,10 @@ fn skip_unused_symbol_declaration(
 ///   (errors or warnings) will be recorded.
 ///
 /// # Returns
-/// - `Ok(true)` if the declaration either matches a known built-in symbol with the correct kind,
-///   or if it does not correspond to any recognized built-in symbol (no checks performed).
-/// - `Ok(false)` if the declaration matches a known built-in symbol but is declared with
-///   an incorrect kind. In this case, an error diagnostic is emitted.
-///
-/// # Errors
-/// Returns `Err(ParserInternalError)` if the AST entry corresponding to the declaration
-/// cannot be found.
+/// - `true` if the declaration either matches a known built-in symbol with the correct kind,
+///   or if it does not correspond to any recognized built-in symbol (no validation needed).
+/// - `false` if the declaration matches a known built-in symbol but is declared with
+///   an incorrect kind, in which case an error diagnostic is emitted.
 ///
 /// # Diagnostics
 /// - Emits an error if a reserved built-in symbol is declared with a wrong kind.
@@ -259,16 +255,16 @@ fn skip_unused_symbol_declaration(
 ///     checker,
 ///     &mut diagnostic_manager,
 /// );
-/// if let Err(e) = result {
-///     eprintln!("Internal parser error: {:?}", e);
+/// if !result {
+///     eprintln!("Symbol declared with incorrect kind.");
 /// }
 /// ```
 fn check_pddl_builtin_symbol_declaration(
     declaration: &Declaration,
     syntax_tree: &AnnotatedSyntaxTree,
-    checker: Checker,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> bool {
     let (expected_kind, requirements) = match declaration.symbol().as_str() {
         OBJECT_TYPE
         if syntax_tree.has_requirement(&Typing) || syntax_tree.has_requirement(&Adl) =>
@@ -286,7 +282,7 @@ fn check_pddl_builtin_symbol_declaration(
             SymbolKind::Variable,
             vec![DurativeActions],
         ),
-        _ => return Ok(true),
+        _ => return true,
     };
 
     if *declaration.kind() != expected_kind {
@@ -295,19 +291,19 @@ fn check_pddl_builtin_symbol_declaration(
             expected_kind,
             requirements,
             syntax_tree.filename(),
-            checker,
+            source,
             diagnostic_manager,
         );
-        return Ok(false);
+        false
     } else {
         report_symbol_declared_ambiguous_as_keyword_warning(
             declaration,
             requirements,
             syntax_tree.filename(),
-            checker,
+            source,
             diagnostic_manager,
         );
-        Ok(true)
+        true
     }
 }
 
@@ -323,7 +319,7 @@ fn check_pddl_builtin_symbol_declaration(
 /// - `requirements`: A vector of `Requirement`s relevant to the ambiguous keyword context.
 /// - `filename`: The name of the source file where the declaration occurs, used for warning
 ///   reporting.
-/// - `checker`: The `Checker` context or state from which the diagnostic originates.
+/// - `source`: The `DiagnosticSource` from which the diagnostic originates.
 /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where the warning
 ///   diagnostic will be recorded.
 ///
@@ -338,7 +334,7 @@ fn check_pddl_builtin_symbol_declaration(
 ///     &declaration,
 ///     vec![Requirement::Typing],
 ///     "domain.pddl",
-///     checker,
+///     source,
 ///     &mut diagnostic_manager,
 /// );
 /// ```
@@ -346,7 +342,7 @@ fn report_symbol_declared_ambiguous_as_keyword_warning(
     declaration: &Declaration,
     requirements: Vec<Requirement>,
     filename: &str,
-    checker: Checker,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
     diagnostic_manager.add_diagnostic(
@@ -355,7 +351,7 @@ fn report_symbol_declared_ambiguous_as_keyword_warning(
                 declaration: declaration.clone(),
                 requirements,
             },
-            checker.into(),
+            source,
             filename.to_string(),
             declaration.span().clone(),
         )
@@ -374,7 +370,7 @@ fn report_symbol_declared_ambiguous_as_keyword_warning(
 /// - `expected_kind`: The expected `SymbolKind` that the symbol should have had to avoid this error.
 /// - `requirements`: A vector of `Requirement`s relevant to the reserved keyword context.
 /// - `filename`: The name of the source file where the declaration occurs, used for error reporting.
-/// - `checker`: The `Checker` context or state from which the diagnostic originates.
+/// - `source`: The `DiagnosticSource` from which the diagnostic originates.
 /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where the error diagnostic
 ///   will be recorded.
 ///
@@ -390,7 +386,7 @@ fn report_symbol_declared_ambiguous_as_keyword_warning(
 ///     SymbolKind::PrimitiveType,
 ///     vec![Requirement::Typing],
 ///     "domain.pddl",
-///     checker,
+///     source,
 ///     &mut diagnostic_manager,
 /// );
 /// ```
@@ -399,7 +395,7 @@ fn report_symbol_declared_as_keyword_error(
     expected_kind: SymbolKind,
     requirements: Vec<Requirement>,
     filename: &str,
-    checker: Checker,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
     diagnostic_manager.add_diagnostic(Diagnostic::new(
@@ -408,7 +404,7 @@ fn report_symbol_declared_as_keyword_error(
             expected_kind,
             requirements,
         },
-        checker.into(),
+        source,
         filename.to_string(),
         declaration.span().clone(),
     ));

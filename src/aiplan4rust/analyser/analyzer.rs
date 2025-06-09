@@ -1,35 +1,28 @@
-use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity};
+use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::semantic_analyser::checkers::{functional_expression_checker};
-use crate::aiplan4rust::semantic_analyser::checkers::symbol_declaration_checker;
-use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
-use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_analyser::checkers::{
-    requirement_checker,
-};
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::AnalyzerResult;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::TypeChecker;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::AnalyzerResult;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
 
 use std::mem;
-use crate::aiplan4rust::semantic_analyser::normalization::{normalize_type_declarations, normalize_typed_list};
+use crate::aiplan4rust::analyser::normalization::{normalize_type_declarations, normalize_typed_list};
 use crate::aiplan4rust::semantic_checks;
-use crate::aiplan4rust::semantic_checks::atomic_formula_checker;
-use crate::aiplan4rust::semantic_checks::checker_context::Checker;
+use crate::aiplan4rust::semantic_checks::declared_symbol_signatures;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
 /// It manages the detection and collection of errors encountered during the analysis process.
 /// The `error_manager` field stores any errors found while analyzing the syntax tree.
 #[derive(Debug)]
-pub struct SemanticAnalyzer {
+pub struct Analyzer {
     /// Manages and tracks parsing and semantic errors encountered during analysis.
     diagnostic_manager: DiagnosticManager
 }
 
-impl SemanticAnalyzer {
+impl Analyzer {
     /// Creates a new instance of `Analyzer`.
     ///
     /// # Returns
@@ -269,6 +262,7 @@ impl SemanticAnalyzer {
 
         checked &= checked && semantic_checks::check_type_hierarchy(
             annotated_syntax_tree,
+            DiagnosticSource::SemanticAnalyzer,
             diagnostic_manager,
         )?;
 
@@ -280,25 +274,30 @@ impl SemanticAnalyzer {
             let type_checker = TypeChecker::new(annotated_syntax_tree.symbol_table());
 
             // Check atomic formulas in the domain using the type checker
-            checked &= atomic_formula_checker::check(
+            checked &= declared_symbol_signatures::check_declared_symbol_signatures(
                 annotated_syntax_tree,
                 &type_checker,
                 diagnostic_manager,
             )?;
 
             // Check functional expressions in the domain using the type checker
-            checked &= functional_expression_checker::check(
+            checked &= semantic_checks::check_typed_expressions(
                 annotated_syntax_tree,
                 &type_checker,
+                DiagnosticSource::SemanticAnalyzer,
                 diagnostic_manager,
             )?;
 
-            checked &=
-                task_ordering_checker::check(annotated_syntax_tree, diagnostic_manager)?;
+            checked &= semantic_checks::check_task_ordering(
+                annotated_syntax_tree,
+                DiagnosticSource::SemanticAnalyzer,
+                diagnostic_manager
+            )?;
 
-            requirement_checker::check(
+            semantic_checks::check_requirement_violations(
                 annotated_syntax_tree,
                 annotated_syntax_tree.requirements(),
+                DiagnosticSource::SemanticAnalyzer,
                 diagnostic_manager,
             )?;
         }
@@ -342,7 +341,18 @@ impl SemanticAnalyzer {
             diagnostic_manager,
         )?;
 
-        checked &= task_ordering_checker::check(annotated_syntax_tree, diagnostic_manager)?;
+        checked &= semantic_checks::check_task_ordering(
+            annotated_syntax_tree,
+            DiagnosticSource::SemanticAnalyzer,
+            diagnostic_manager
+        )?;
+
+        semantic_checks::check_requirement_violations(
+            annotated_syntax_tree,
+            annotated_syntax_tree.requirements(),
+            DiagnosticSource::SemanticAnalyzer,
+            diagnostic_manager,
+        )?;
 
         Ok(checked)
     }
@@ -394,7 +404,9 @@ impl SemanticAnalyzer {
 
         // Check declared symbols in the annotated syntax tree
         // This check ensures that declared symbols follow the correct syntax and declarations
-        checked &= symbol_declaration_checker::check(&annotated_syntax_tree, diagnostic_manager)?;
+
+
+        checked &= semantic_checks::check_declared_symbols(&annotated_syntax_tree, diagnostic_manager)?;
 
         // Check for undeclared symbols, skipping specific types of symbols
         // This ensures that all symbols used in the tree are declared, except for those types in
@@ -402,17 +414,18 @@ impl SemanticAnalyzer {
         checked &= semantic_checks::check_undeclared_symbols(
             annotated_syntax_tree,
             skip_types_undeclared, // Skip certain symbol types for undeclared checking
+            DiagnosticSource::SemanticAnalyzer,
             diagnostic_manager,
-            Checker::SemanticAnalyzer
         )?;
 
         // Check for unused symbols, skipping specific symbols
         // This ensures that no declared symbols are unused, except for those in `skip_symbols_unused`
-        checked &= semantic_checks::check_unused_symbols_warning(
+        checked &= semantic_checks::check_unused_symbols(
             annotated_syntax_tree,
             skip_symbols_unused, // Skip certain symbols for unused checking
+            DiagnosticSource::SemanticAnalyzer,
             diagnostic_manager,
-            Checker::SemanticAnalyzer
+
         )?;
 
         // Return the result indicating whether all checks passed

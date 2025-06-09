@@ -1,12 +1,11 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::symbol::Usage;
-use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree};
+use crate::aiplan4rust::analyser::symbol::Declaration;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::symbol::Usage;
+use crate::aiplan4rust::analyser::symbol_table::SymbolTable;
+use crate::aiplan4rust::analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree, TypeChecker};
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
 ///
@@ -41,7 +40,7 @@ use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, AnnotatedSyntax
 /// }
 /// ```
 
-pub fn check(
+pub fn check_declared_symbol_signatures(
     syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,

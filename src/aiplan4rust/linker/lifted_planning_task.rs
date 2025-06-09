@@ -1,5 +1,5 @@
-use crate::aiplan4rust::semantic_analyser::LiftedDomain;
-use crate::aiplan4rust::semantic_analyser::LiftedProblem;
+use crate::aiplan4rust::analyser::LiftedDomain;
+use crate::aiplan4rust::analyser::LiftedProblem;
 
 use serde::Deserialize;
 use serde::Serialize;

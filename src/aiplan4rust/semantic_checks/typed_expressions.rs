@@ -7,49 +7,47 @@ use crate::aiplan4rust::parser::elements::Requirement::NumericFluents;
 use crate::aiplan4rust::parser::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
+use crate::aiplan4rust::parser::Span;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::TypeChecker;
+use crate::aiplan4rust::analyser::symbol_table::SymbolTable;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxNode;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
 
-/// Verifies the type correctness of expressions in function calls and assignment operations.
+/// Checks the type correctness of typed expressions in the syntax tree, including comparisons,
+/// assignments, and arithmetic operations.
 ///
-/// This function traverses the abstract syntax tree (AST) to check that expression types are
-/// valid for specific operations, including equality comparisons, assignments, and numerical
-/// operations. It performs type checking for the following cases:
+/// This function traverses the annotated syntax tree to verify that expressions have compatible
+/// types according to their operation kind. It supports:
+/// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type compatibility.
+/// - Other comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, `*=`, `/=`),
+///   ensuring operands are numeric or compatible.
 ///
-/// - **Equality checks** (`=`) and **simple assignments** (`assign`): Ensures that the operand
-///   types are compatible.
-/// - **Other comparisons** (`>`, `<`, `>=`, `<=`) and **arithmetic assignments** (`+=`, `-=`, `*=`,
-///   `/=`):
-///   Ensures that the operands are numeric or otherwise compatible with the operation.
-///
-/// The function delegates type compatibility checks to `AtomicExpressionChecker` and reports
-/// any mismatches via the provided `ErrorManager`.
+/// Type compatibility checks are delegated to helper functions (e.g., `check_equal_and_assignment_expression`,
+/// `check_numeric_expression`) and detailed errors are reported through the diagnostic manager.
 ///
 /// # Parameters
-/// - `annotated_syntax_tree`: The annotated syntax tree containing both the AST and symbol table.
-/// - `type_checker`: The `TypeChecker` instance used to perform type resolution and compatibility
-///   checks.
-/// - `errors`: A mutable reference to the `ErrorManager` for collecting any detected errors.
+/// - `syntax_tree`: The annotated syntax tree containing AST nodes and symbol information.
+/// - `type_checker`: A `TypeChecker` instance used for type resolution and compatibility validation.
+/// - `source`: The diagnostic source context, indicating where diagnostics originate.
+/// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
 ///
 /// # Returns
-/// - `Ok(true)` if no type mismatches are found.
-/// - `Ok(false)` if one or more type mismatches are found (errors are logged).
-/// - `Err(ParserInternalError)` if an internal error occurs during AST processing.
+/// - `Ok(true)` if all typed expressions are correct.
+/// - `Ok(false)` if one or more type mismatches were found and reported.
+/// - `Err(ParserInternalError)` if an internal error occurred during processing.
 ///
 /// # Example
 /// ```rust
-/// let result = check(&annotated_syntax_tree, &type_checker, &mut error_manager)?;
+/// let result = check_typed_expressions(&syntax_tree, &type_checker, source, &mut diagnostic_manager)?;
 /// if result {
-///     println!("All expressions are type correct.");
+///     println!("All typed expressions are valid.");
 /// }
 /// ```
-
-pub fn check(
+pub fn check_typed_expressions(
     syntax_tree: &AnnotatedSyntaxTree,
     type_checker: &TypeChecker,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
@@ -67,6 +65,7 @@ pub fn check(
                     node,
                     &ty1,
                     &ty2,
+                    source,
                     diagnostic_manager,
                 )?;
             }
@@ -83,7 +82,7 @@ pub fn check(
                 let (ty1, ty2) = get_binary_operation_types(node, syntax_tree)?;
 
                 // Call check_other_cases function to handle these cases
-                no_error &= check_numeric_expression(syntax_tree, node, &ty1, &ty2, diagnostic_manager)?;
+                no_error &= check_numeric_expression(syntax_tree, node, &ty1, &ty2, source, diagnostic_manager)?;
             }
 
             _ => {}
@@ -101,7 +100,7 @@ pub fn check(
 /// such as assigning numeric values or specific user-defined types.
 ///
 /// Type compatibility is checked using the provided `TypeChecker`. If a mismatch is found,
-/// an error is reported through the `ErrorManager`.
+/// an error is reported through the `DiagnosticManager`.
 ///
 /// # Parameters
 /// - `annotated_syntax_tree`: The annotated syntax tree containing the AST and symbol information.
@@ -109,7 +108,8 @@ pub fn check(
 /// - `node`: The syntax node representing the equality or assignment operation.
 /// - `ty1`: The type(s) of the left-hand side operand.
 /// - `ty2`: The type(s) of the right-hand side operand.
-/// - `errors`: The error manager used to log any type mismatches.
+/// - `source`: The diagnostic source context indicating where diagnostics originate.
+/// - `diagnostic_manager`: The diagnostic manager used to log any type mismatches.
 ///
 /// # Returns
 /// - `Ok(true)` if the operand types are compatible.
@@ -126,7 +126,8 @@ pub fn check(
 ///     &node,
 ///     &ty1,
 ///     &ty2,
-///     &mut errors,
+///     source,
+///     &mut diagnostic_manager,
 /// );
 /// ```
 fn check_equal_and_assignment_expression(
@@ -135,21 +136,55 @@ fn check_equal_and_assignment_expression(
     node: &AnnotatedSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
     if !type_checker.have_common_supertype(ty1, ty2)? {
         no_error = false;
-        let error = Diagnostic::new(
-            DiagnosticKind::TypeMismatchInExpression { ty1: ty1.clone(), ty2 : ty2.clone() },
-            DiagnosticSource::SemanticAnalyzer,
-            annotated_syntax_tree.filename().clone(),
+        report_type_mismatch_in_expression(
+            ty1,
+            ty2,
+            source.clone(),
+            annotated_syntax_tree.filename(),
             node.span().clone(),
+            diagnostic_manager,
         );
-        diagnostic_manager.add_diagnostic(error);
     }
 
     Ok(no_error)
+}
+
+/// Reports a type mismatch error for an expression involving two type lists.
+///
+/// This function creates and adds a diagnostic error indicating that the two sets
+/// of types involved in an expression are incompatible.
+///
+/// # Parameters
+/// - `ty1`: The first type list involved in the expression.
+/// - `ty2`: The second type list involved in the expression.
+/// - `source`: The diagnostic source context indicating where diagnostics originate.
+/// - `filename`: The filename where the error occurred.
+/// - `span`: The span of the syntax node causing the error.
+/// - `diagnostic_manager`: The diagnostic manager to which the error will be added.
+fn report_type_mismatch_in_expression(
+    ty1: &[String],
+    ty2: &[String],
+    source: DiagnosticSource,
+    filename: &str,
+    span: Span,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+    let error = Diagnostic::new(
+        DiagnosticKind::TypeMismatchInExpression {
+            ty1: ty1.to_vec(),
+            ty2: ty2.to_vec(),
+        },
+        source,
+        filename.to_string(),
+        span,
+    );
+    diagnostic_manager.add_diagnostic(error);
 }
 
 /// Checks whether the operand types in a numeric comparison or assignment expression
@@ -168,7 +203,8 @@ fn check_equal_and_assignment_expression(
 /// - `node`: The syntax node representing the numeric expression.
 /// - `ty1`: A reference to a vector of strings representing the type of the left operand.
 /// - `ty2`: A reference to a vector of strings representing the type of the right operand.
-/// - `errors`: The error manager used to report type errors.
+/// - `source`: The diagnostic source indicating where this check is performed.
+/// - `diagnostic_manager`: The error manager used to report type errors.
 ///
 /// # Returns
 /// - `Ok(true)` if both operands have the `number` type.
@@ -179,14 +215,21 @@ fn check_equal_and_assignment_expression(
 /// ```rust
 /// let ty1 = vec!["number".to_string()];
 /// let ty2 = vec!["number".to_string()];
-/// let result = check_numeric_expression(&annotated_syntax_tree, &node, &ty1, &ty2, &mut errors);
+/// let result = check_numeric_expression(
+///     &annotated_syntax_tree,
+///     &node,
+///     &ty1,
+///     &ty2,
+///     source,
+///     &mut diagnostic_manager,
+/// );
 /// ```
-
 fn check_numeric_expression(
     annotated_syntax_tree: &AnnotatedSyntaxTree,
     node: &AnnotatedSyntaxNode,
     ty1: &Vec<String>,
     ty2: &Vec<String>,
+    source: DiagnosticSource,
     diagnostic_manager:&mut DiagnosticManager
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
@@ -195,16 +238,46 @@ fn check_numeric_expression(
     let number = vec![NUMBER_TYPE.to_string()];
     if ty1 != &number || ty2 != &number {
         no_error = false;
-        let error = Diagnostic::new(
-            DiagnosticKind::InvalidTypesInNumericExpression { ty1: ty1.clone(), ty2 : ty2.clone() },
-            DiagnosticSource::SemanticAnalyzer,
-            annotated_syntax_tree.filename().clone(),
+        report_invalid_types_in_numeric_expression(
+            source,
+            annotated_syntax_tree.filename(),
             node.span().clone(),
+            ty1.clone(),
+            ty2.clone(),
+            diagnostic_manager,
         );
-        diagnostic_manager.add_diagnostic(error);
     }
 
     Ok(no_error)
+}
+
+/// Reports a diagnostic error when numeric expressions have invalid operand types.
+///
+/// This helper function creates and adds a diagnostic indicating that the operand types
+/// in a numeric expression are invalid (i.e., not of type `number`).
+///
+/// # Parameters
+/// - `source`: The diagnostic source indicating where the error arises.
+/// - `filename`: The filename where the error occurs.
+/// - `span`: The span (location) in the source code for the error.
+/// - `ty1`: The types of the left operand.
+/// - `ty2`: The types of the right operand.
+/// - `diagnostic_manager`: The diagnostic manager to which the error is added.
+fn report_invalid_types_in_numeric_expression(
+    source: DiagnosticSource,
+    filename: &str,
+    span: Span,
+    ty1: Vec<String>,
+    ty2: Vec<String>,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+    let error = Diagnostic::new(
+        DiagnosticKind::InvalidTypesInNumericExpression { ty1, ty2 },
+        source,
+        filename.to_string(),
+        span,
+    );
+    diagnostic_manager.add_diagnostic(error);
 }
 
 /// Retrieves and returns the types of both operands in a binary expression.

@@ -1,48 +1,67 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::symbol::Declaration;
+use crate::aiplan4rust::analyser::symbol::Scope;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use bimap::BiMap;
 
+
 /// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
 /// This function analyzes the type inheritance graph to detect circular dependencies among
-/// types. If cycles are found, it emits detailed diagnostics for each involved type using the
-/// provided `DiagnosticManager`.
+/// declared PDDL types. If any cycles are found, it emits detailed diagnostics for each involved
+/// type using the provided `DiagnosticManager`.
 ///
 /// # Parameters
-/// - `syntax_tree`: A reference to the annotated syntax tree, which provides access to declared types
-///   and their source spans.
-/// - `diagnostic_manager`: A mutable reference to the diagnostic manager that collects and emits errors.
+/// - `syntax_tree`: A reference to the `AnnotatedSyntaxTree`, which provides access to all
+///   declared types and their source context.
+/// - `source`: The `DiagnosticSource` identifying the current analysis phase (e.g., semantic check).
+/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` that will collect and emit
+///   error diagnostics.
 ///
 /// # Returns
-/// - `Ok(true)`: No inheritance cycles were found.
-/// - `Ok(false)`: One or more cycles were detected, and diagnostics were emitted.
-/// - `Err(ParserInternalError)`: An unexpected internal error occurred during analysis.
+/// - `Ok(true)`: No type inheritance cycles were found; the type hierarchy is valid.
+/// - `Ok(false)`: One or more cycles were detected and reported via diagnostics.
+/// - `Err(ParserInternalError)`: An internal error occurred, such as a missing declaration
+///   or unresolved reference, preventing the analysis from completing.
 ///
-/// # Steps
-/// 1. Collect all type declarations from the root scope (only `PrimitiveType`s).
-/// 2. Build a bidirectional map between type symbols and unique indices.
-/// 3. Construct the type inheritance graph as an adjacency matrix.
-/// 4. Compute the transitive closure to detect indirect inheritance.
-/// 5. Detect all cycles in the graph using Johnson’s algorithm.
-/// 6. Filter out trivial or duplicate cycles.
-/// 7. Emit diagnostics for each remaining cycle.
+/// # Algorithm Steps
+/// 1. Collect all `PrimitiveType` declarations from the root scope.
+/// 2. Assign each type a unique numeric index via a bidirectional map.
+/// 3. Construct a directed adjacency matrix representing direct inheritance relationships.
+/// 4. Compute the transitive closure of the graph to expose indirect inheritance.
+/// 5. Detect cycles in the graph using Johnson’s algorithm.
+/// 6. Filter trivial or duplicate cycles.
+/// 7. Emit detailed diagnostics for each remaining cycle.
 ///
 /// # Errors
-/// This function only fails if internal data (such as spans or declarations) is missing
-/// or inconsistent.
+/// This function may return a `ParserInternalError` if critical internal data is missing
+/// (such as symbol declarations or span information), or if structural assumptions about
+/// the type graph are violated.
+///
+/// # Example
+/// ```rust
+/// let result = check_type_hierarchy(
+///     &syntax_tree,
+///     DiagnosticSource::SemanticAnalyzer,
+///     &mut diagnostic_manager,
+/// );
+/// match result {
+///     Ok(true) => println!("No type cycles detected."),
+///     Ok(false) => println!("Cycles detected in type hierarchy."),
+///     Err(err) => eprintln!("Internal error: {:?}", err),
+/// }
 pub fn check_type_hierarchy(
     syntax_tree: &AnnotatedSyntaxTree,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
 
@@ -75,34 +94,59 @@ pub fn check_type_hierarchy(
         &filtered_cycles,
         &type_bimap,
         &types,
-        syntax_tree,
+        syntax_tree.filename(),
+        source,
         diagnostic_manager,
     )?;
 
     // Return true if no cycles were found; false if diagnostics were emitted
     Ok(filtered_cycles.is_empty())
 }
+
 /// Reports diagnostics for cyclic type declarations detected in the type hierarchy.
 ///
-/// For each detected cycle (given as a vector of type indices), this function reconstructs
-/// detailed cycle information including the involved symbols and their corresponding declarations.
-/// It then emits a diagnostic error that describes the cycle and indicates the source location.
+/// For each detected cycle (represented as a vector of type indices), this function reconstructs
+/// detailed cycle information by mapping indices to their corresponding type declarations.
+/// It then emits a diagnostic error describing the cycle and indicating its source location.
 ///
 /// # Parameters
 /// - `cycles`: A slice of cycles, where each cycle is a list of type indices forming a loop.
-/// - `type_bimap`: A bidirectional mapping between type names and their unique numeric indices.
-/// - `types`: A list of references to `Declaration` objects representing all declared types.
-/// - `syntax_tree`: The annotated syntax tree used to locate the source spans of declarations.
-/// - `diagnostic_manager`: A diagnostic manager to collect and emit the error diagnostics.
+/// - `type_bimap`: A bidirectional map between type names and their unique numeric indices.
+/// - `types`: A slice of references to `Declaration` objects representing all declared types.
+/// - `filename`: The name of the source file where the declarations appear.
+/// - `source`: The `DiagnosticSource` identifying the analysis phase that detected the cycle.
+/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` to which diagnostics are added.
 ///
 /// # Returns
-/// - `Ok(())` if all diagnostics are emitted successfully.
-/// - `Err(ParserInternalError)` if any required data is missing (e.g., declaration not found).
+/// - `Ok(())` if all diagnostics were successfully emitted.
+/// - `Err(ParserInternalError)` if a required declaration or mapping is missing,
+///   preventing accurate diagnostic reporting.
+///
+/// # Errors
+/// Returns an error if any cycle cannot be resolved to valid declarations,
+/// indicating a potential internal inconsistency.
+///
+/// # Example
+/// ```rust
+/// let result = report_cyclic_type_declaration_error(
+///     &cycles,
+///     &type_bimap,
+///     &type_declarations,
+///     filename,
+///     DiagnosticSource::SemanticAnalyzer,
+///     &mut diagnostic_manager,
+/// );
+///
+/// if let Err(e) = result {
+///     eprintln!("Error reporting type cycles: {:?}", e);
+/// }
+/// ```
 fn report_cyclic_type_declaration_error(
     cycles: &[Vec<usize>],
     type_bimap: &BiMap<String, usize>,
     types: &Vec<&Declaration>,
-    syntax_tree: &AnnotatedSyntaxTree,
+    filename: &str,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), ParserInternalError> {
 
@@ -138,8 +182,8 @@ fn report_cyclic_type_declaration_error(
         // Emit a diagnostic describing the cyclic type declarations
         let error = Diagnostic::new(
             DiagnosticKind::CyclicTypeDeclarationError { cycle: cycle_detail },
-            DiagnosticSource::SemanticAnalyzer,
-            syntax_tree.filename().clone(),
+            source,
+            filename.to_string(),
             first_span,
         );
 

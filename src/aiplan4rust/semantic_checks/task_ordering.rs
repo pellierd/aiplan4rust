@@ -2,62 +2,67 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManag
 
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxNode;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
 
 use std::collections::HashMap;
+use crate::aiplan4rust::parser::Span;
 
 /// Checks the task ordering constraints in the provided annotated syntax tree and detects any
 /// cyclic dependencies.
 ///
-/// This function analyzes the annotated syntax tree and checks for task ordering constraints
-/// defined within it. If any cyclic dependencies are detected in the task ordering constraints, an
-/// error is reported to the `ErrorManager`. It uses the transitive closure to compute all possible
-/// orderings and verifies if there are any cycles in the matrix of task orderings.
+/// This function analyzes the annotated syntax tree to find task ordering constraints defined
+/// within it. It constructs a matrix representing direct task orderings, computes the transitive
+/// closure to reveal indirect orderings, and detects cycles in these constraints. If any cyclic
+/// dependencies are found, diagnostics are emitted to the `DiagnosticManager`.
 ///
-/// # Arguments
+/// # Parameters
 ///
-/// * `tree` - A reference to the `AnnotatedSyntaxTree` which contains the symbol table and the
-///   abstract syntax tree (AST). The function will traverse this tree to find task ordering
-///   constraints and check for cycles.
-/// * `errors` - A mutable reference to the `ErrorManager` where errors are collected and reported.
-///   If a cyclic dependency is found, it will be added as an error.
+/// - `syntax_tree`: A reference to the `AnnotatedSyntaxTree` containing the AST and symbol table.
+///   The function traverses this tree to locate task ordering constraints
+///   (`TaskOrderingConstraintDef`).
+/// - `source`: The `DiagnosticSource` identifying the context or phase where this check is
+///   performed.
+/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` where errors will be
+///   reported.
 ///
 /// # Returns
 ///
-/// Returns a `Result<bool, ParserInternalError>`:
-/// - `Ok(true)` if no cyclic task ordering constraints are found.
-/// - `Ok(false)` if at least one cyclic dependency is detected.
-/// - `Err(ParserInternalError)` if an internal error occurs while extracting task IDs, building the
-///   matrix, or checking for cycles.
+/// Returns a `Result<bool, ParserInternalError>` indicating the success of the check:
+/// - `Ok(true)`: No cyclic task ordering constraints were found.
+/// - `Ok(false)`: One or more cyclic dependencies were detected and reported.
+/// - `Err(ParserInternalError)`: An internal error occurred during extraction, matrix building, or
+///   cycle detection.
+///
+/// # Behavior
+///
+/// The function performs the following steps:
+/// 1. Traverse all nodes in the syntax tree looking for `TaskOrderingConstraintDef`.
+/// 2. Extract involved task IDs from each constraint node.
+/// 3. Build a matrix representing direct ordering relations among tasks.
+/// 4. Compute the transitive closure of this matrix to reveal indirect orderings.
+/// 5. Check for cycles in the transitive closure matrix.
+/// 6. If a cycle is found, emit a diagnostic error with location and context.
 ///
 /// # Example
 ///
 /// ```rust
-/// let tree = ...; // An AnnotatedSyntaxTree containing the task ordering constraints
-/// let mut errors = ErrorManager::new();
-/// match check(&tree, &mut errors) {
+/// let result = check_task_ordering(&syntax_tree, DiagnosticSource::SemanticAnalyzer, &mut diagnostic_manager);
+/// match result {
 ///     Ok(true) => println!("No cyclic dependencies detected."),
 ///     Ok(false) => println!("Cyclic dependencies detected."),
-///     Err(e) => eprintln!("An error occurred: {}", e),
+///     Err(e) => eprintln!("Internal error: {:?}", e),
 /// }
 /// ```
 ///
-/// # Notes
-///
-/// - The function traverses the AST looking for nodes of type `TaskOrderingConstraintDef`, which
-///   define task ordering constraints.
-/// - The matrix of task orderings is built from the task IDs, and a transitive closure is
-///   calculated to determine all direct and indirect ordering relationships.
-/// - If a cycle is detected in the transitive closure, it is reported as an error with the relevant
-///   line and column information.
-///
 /// # Errors
-/// If the function encounters any internal errors during the process of extracting task IDs or
-/// building the matrix, it will return a `ParserInternalError`.
 ///
-pub fn check(
+/// If any internal error occurs during task ID extraction, matrix construction, or cycle detection,
+/// the function returns a `ParserInternalError`.
+///
+pub fn check_task_ordering(
     syntax_tree: &AnnotatedSyntaxTree,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
@@ -70,13 +75,12 @@ pub fn check(
                 transitive_closure(&mut matrix);
                 if is_cyclic(&matrix)? {
                     checked = false;
-                    let error = Diagnostic::new(
-                        DiagnosticKind::CyclicOrderingConstraint,
-                        DiagnosticSource::SemanticAnalyzer,
-                        syntax_tree.filename().clone(),
-                        node.span().clone(),
+                    report_cyclic_task_ordering_error(
+                        source,
+                        syntax_tree.filename(),
+                        node.span(),
+                        diagnostic_manager,
                     );
-                    diagnostic_manager.add_diagnostic(error);
                 }
             }
             _ => {}
@@ -84,6 +88,48 @@ pub fn check(
     }
 
     Ok(checked)
+}
+
+/// Reports a diagnostic error indicating the presence of a cyclic dependency
+/// in task ordering constraints.
+///
+/// This function creates and adds a diagnostic of kind `CyclicOrderingConstraint`
+/// to the provided `DiagnosticManager`, specifying the source location and context
+/// of the cycle detection.
+///
+/// # Parameters
+/// - `source`: The `DiagnosticSource` indicating the phase or component reporting the error.
+/// - `filename`: The name of the source file where the cyclic constraint was detected.
+/// - `span`: The span in the source code corresponding to the problematic task ordering constraint.
+/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` where the diagnostic will
+///   be recorded.
+///
+/// # Behavior
+/// The diagnostic generated provides information to help identify the cycle in task ordering
+/// constraints within the source code.
+///
+/// # Example
+/// ```rust
+/// report_cyclic_task_ordering_error(
+///     DiagnosticSource::SemanticAnalyzer,
+///     "example.pddl",
+///     span,
+///     &mut diagnostic_manager,
+/// );
+/// ```
+fn report_cyclic_task_ordering_error(
+    source: DiagnosticSource,
+    filename: &str,
+    span: &Span,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+    let error = Diagnostic::new(
+        DiagnosticKind::CyclicTaskOrderingError,
+        source,
+        filename.to_string(),
+        span.clone(),
+    );
+    diagnostic_manager.add_diagnostic(error);
 }
 
 /// Extracts all TaskID values from the given syntax tree node and its children.

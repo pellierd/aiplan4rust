@@ -8,8 +8,8 @@ use crate::aiplan4rust::parser::elements::{BinaryComp, Requirement};
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::SymbolOrigin;
 use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind, SyntaxTree};
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
-use crate::aiplan4rust::semantic_analyser::SymbolTable;
+use crate::aiplan4rust::analyser::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
+use crate::aiplan4rust::analyser::SymbolTable;
 
 /// `Comparator` is an enum that represents the different types of comparisons
 /// that can be made between values, specifically for validating the number of children

@@ -2,8 +2,8 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxTree;
-use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, SymbolTableBuilder};
-use crate::aiplan4rust::semantic_analyser::SymbolTable;
+use crate::aiplan4rust::analyser::{AnnotatedSyntaxNode, SymbolTableBuilder};
+use crate::aiplan4rust::analyser::SymbolTable;
 use crate::aiplan4rust::parser::SymbolOrigin;
 
 use linked_hash_map::LinkedHashMap;

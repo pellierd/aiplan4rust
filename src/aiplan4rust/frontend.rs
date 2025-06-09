@@ -4,11 +4,11 @@ use crate::aiplan4rust::linker::Linker;
 use crate::aiplan4rust::linker::LinkerResult;
 use crate::aiplan4rust::parser::Language;
 use crate::aiplan4rust::parser::Parser;
-use crate::aiplan4rust::semantic_analyser::SemanticAnalyzer;
-use crate::aiplan4rust::semantic_analyser::AnalyzerResult;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::LiftedDomain;
-use crate::aiplan4rust::semantic_analyser::LiftedProblem;
+use crate::aiplan4rust::analyser::Analyzer;
+use crate::aiplan4rust::analyser::AnalyzerResult;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::LiftedDomain;
+use crate::aiplan4rust::analyser::LiftedProblem;
 use crate::aiplan4rust::FileFormat;
 
 use serde::Deserialize;
@@ -131,7 +131,7 @@ impl Frontend {
             // If the syntax tree is present, perform semantic analysis.
             Some(syntax_tree) => {
                 // Create a new analyzer and perform semantic analysis on the syntax tree.
-                let mut analyzer = SemanticAnalyzer::new();
+                let mut analyzer = Analyzer::new();
                 let mut analysis_result = analyzer.analyze(syntax_tree)?;
 
                 // Add errors from the parser's error manager to the analysis result.

@@ -1,27 +1,21 @@
 
-use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity};
+use crate::aiplan4rust::diagnostic::{DiagnosticManager, DiagnosticSeverity, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linker::LiftedPlanningTask;
 use crate::aiplan4rust::linker::LinkerResult;
 use crate::aiplan4rust::parser::SymbolOrigin;
-use crate::aiplan4rust::semantic_analyser::checkers::task_ordering_checker;
-use crate::aiplan4rust::semantic_analyser::checkers::{
-    functional_expression_checker, requirement_checker, TypeChecker,
-};
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, Scope};
-use crate::aiplan4rust::semantic_analyser::symbol::Usage;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::LiftedDomain;
-use crate::aiplan4rust::semantic_analyser::LiftedProblem;
-use crate::aiplan4rust::semantic_analyser::SymbolTable;
+use crate::aiplan4rust::analyser::TypeChecker;
+use crate::aiplan4rust::analyser::symbol::{Declaration, Scope};
+use crate::aiplan4rust::analyser::symbol::Usage;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::LiftedDomain;
+use crate::aiplan4rust::analyser::LiftedProblem;
+use crate::aiplan4rust::analyser::SymbolTable;
 
 use std::mem;
 use std::mem::take;
 
-use crate::aiplan4rust::linker::checkers::domain_name_checker;
 use crate::aiplan4rust::semantic_checks;
-use crate::aiplan4rust::semantic_checks::atomic_formula_checker;
-use crate::aiplan4rust::semantic_checks::checker_context::Checker;
 
 #[derive(Debug)]
 pub struct Linker {
@@ -48,7 +42,7 @@ impl Linker {
         // TO DO: Vérifier la consistence des requirements déclarés dans le problem et dans le domaine
         // et vérifier ici qu''ils ne sont pas contradictoires
 
-        domain_name_checker::check(&domain, &problem, &mut self.diagnostic_manager)?;
+        semantic_checks::check_domain_name(&domain, &problem, DiagnosticSource::Linker, &mut self.diagnostic_manager)?;
 
         Self::update_problem_symbols_table_from_domain(&mut problem, domain.symbol_table())?;
 
@@ -62,20 +56,25 @@ impl Linker {
             &vec![],
             &vec![],
             &mut self.diagnostic_manager)? {*/
-        if semantic_checks::check_undeclared_symbols(&problem, &[], &mut self.diagnostic_manager, Checker::Linker)?
-            && semantic_checks::check_cross_duplicate_symbol_declarations(&domain, &problem, &mut self.diagnostic_manager, Checker::Linker)? {
+        if semantic_checks::check_undeclared_symbols(&problem, &[], DiagnosticSource::Linker, &mut self.diagnostic_manager)?
+            && semantic_checks::check_cross_declared_symbols(&domain, &problem, DiagnosticSource::Linker, &mut self.diagnostic_manager,)? {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
-            atomic_formula_checker::check(&problem, &type_checker , &mut self.diagnostic_manager)?;
+            semantic_checks::check_declared_symbol_signatures(&problem, &type_checker, &mut self.diagnostic_manager)?;
 
             // Check functional expressions in the domain using the type checker
-            functional_expression_checker::check(&problem, &type_checker, &mut self.diagnostic_manager)?;
+            semantic_checks::check_typed_expressions(&problem, &type_checker, DiagnosticSource::Linker, &mut self.diagnostic_manager)?;
 
-            task_ordering_checker::check(&problem, &mut self.diagnostic_manager)?;
+            semantic_checks::check_task_ordering(&problem, DiagnosticSource::Linker, &mut self.diagnostic_manager)?;
 
             let mut requirements = domain.requirements().clone();
             requirements.extend(problem.requirements().clone());
-            requirement_checker::check(&problem, &requirements, &mut self.diagnostic_manager)?;
+            semantic_checks::check_requirement_violations(
+                &problem,
+                &requirements,
+                DiagnosticSource::Linker,
+                &mut self.diagnostic_manager
+            )?;
         }
 
         // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs

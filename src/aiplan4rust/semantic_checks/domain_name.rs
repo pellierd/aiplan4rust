@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::symbol::{Scope, SymbolKind};
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::symbol::{Scope, SymbolKind};
 
 /// Checks for consistency between the domain name declared in the domain AST
 /// and the domain name referenced in the problem AST.
@@ -24,9 +24,10 @@ use crate::aiplan4rust::semantic_analyser::symbol::{Scope, SymbolKind};
 ///
 /// # Diagnostics
 /// Emits a `DomainProblemNameMismatch` warning if the domain names differ.
-pub fn check(
+pub fn check_domain_name(
     domain: &AnnotatedSyntaxTree,
     problem: &AnnotatedSyntaxTree,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
 
@@ -79,7 +80,7 @@ pub fn check(
                                 domain_name: declared_domain_name.name().clone(),
                                 problem_name: referenced_domain_name.name().clone(),
                             },
-                            DiagnosticSource::Linker,
+                            source,
                             problem.filename().clone(),
                             ast.span().clone(),
                         );

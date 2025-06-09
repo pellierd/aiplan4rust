@@ -1,11 +1,11 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::SymbolOrigin;
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::FilterableSymbol;
-use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::symbol::Usage;
+use crate::aiplan4rust::analyser::symbol::Declaration;
+use crate::aiplan4rust::analyser::symbol::FilterableSymbol;
+use crate::aiplan4rust::analyser::symbol::Scope;
+use crate::aiplan4rust::analyser::symbol::Symbol;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::symbol::Usage;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;

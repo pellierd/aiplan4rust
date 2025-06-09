@@ -2,7 +2,7 @@ use crate::aiplan4rust::parser::syntax_tree::{SyntaxNode, SyntaxNodeKind};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::SymbolOrigin;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxNode;
 use linked_hash_map::LinkedHashMap;
 use std::fmt;
 
@@ -58,12 +58,12 @@ impl SyntaxTree {
     ///
     /// A new `SyntaxTree` instance with the provided values.
     pub fn new(
-        ast: Box<SyntaxNode>,
+        root: Box<SyntaxNode>,
         filename: Option<String>,
         generated_at: std::time::SystemTime,
     ) -> Self {
         SyntaxTree {
-            root: ast,
+            root,
             filename,
             generated_at,
         }

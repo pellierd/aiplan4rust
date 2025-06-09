@@ -1,4 +1,7 @@
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, DiagnosticSource};
+use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::diagnostic::DiagnosticKind;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::elements::Requirement::Adl;
 use crate::aiplan4rust::parser::elements::Requirement::DurativeActions;
@@ -9,62 +12,57 @@ use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::parser::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::Symbol;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::symbol::Usage;
-use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree, SymbolTable};
-use crate::aiplan4rust::semantic_analyser::checkers::TypeChecker;
-use crate::aiplan4rust::semantic_checks::checker_context::Checker;
+use crate::aiplan4rust::analyser::symbol::Declaration;
+use crate::aiplan4rust::analyser::symbol::Scope;
+use crate::aiplan4rust::analyser::symbol::Symbol;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::symbol::Usage;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxNode;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::SymbolTable;
+use crate::aiplan4rust::analyser::TypeChecker;
 
 /// Checks if there are any undeclared symbols used in the given syntax tree.
 ///
 /// This function scans all symbol usages in the provided `AnnotatedSyntaxTree`
-/// and verifies that each symbol has a corresponding declaration. If a symbol
-/// usage is found without any valid declaration, an `UndeclaredSymbol` diagnostic
+/// and verifies that each usage has at least one valid declaration. If any usage
+/// lacks a corresponding declaration, an `UndeclaredSymbolError` diagnostic
 /// is generated and recorded in the `DiagnosticManager`.
 ///
-/// The check skips any symbol kinds listed in the `skip_symbols` array (e.g.,
-/// symbols that are intentionally undeclared, like domain/problem names).
+/// Symbol kinds listed in the `skip_symbols` slice (e.g., intentionally undeclared
+/// symbols like domain or problem names) are ignored.
 ///
-/// # Arguments
-///
-/// * `syntax_tree` - The `AnnotatedSyntaxTree` containing the symbol table and AST.
-/// * `skip_symbols` - A list of `SymbolKind`s to ignore during the undeclared check.
-/// * `diagnostic_manager` - A mutable reference to the `DiagnosticManager` that will store any
-///   diagnostics produced.
-/// * `context` - A `CheckerContext` indicating which phase of analysis is performing the check
-///   (e.g., `SemanticAnalyzer`, `Linker`).
+/// # Parameters
+/// - `syntax_tree`: Reference to the `AnnotatedSyntaxTree` containing symbols and AST.
+/// - `skip_symbols`: Slice of `SymbolKind` to be ignored during undeclared symbol checking.
+/// - `source`: The `DiagnosticSource` indicating the analysis phase performing the check.
+/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where diagnostics are stored.
 ///
 /// # Returns
-///
 /// - `Ok(true)` if no undeclared symbols were found.
-/// - `Ok(false)` if some undeclared symbols were detected, but no internal error occurred.
-/// - `Err(ParserInternalError)` if an internal error occurred during the process (e.g., missing
-///   AST entry).
+/// - `Ok(false)` if undeclared symbols were detected (no internal errors occurred).
+/// - `Err(ParserInternalError)` if an internal error occurs during checking.
 ///
 /// # Example
-///
 /// ```rust
 /// let result = check_undeclared_symbols(
 ///     &annotated_syntax_tree,
 ///     &[SymbolKind::ProblemName, SymbolKind::DomainName],
+///     DiagnosticSource::SemanticAnalyzer,
 ///     &mut diagnostic_manager,
-///     CheckerContext::SemanticAnalyzer,
 /// );
 ///
-/// match result {
-///     Ok(true) => println!("No undeclared symbols."),
-///     Ok(false) => println!("Undeclared symbols found."),
-///     Err(e) => eprintln!("Internal error: {}", e),
+/// if let Ok(true) = result {
+///     println!("No undeclared symbols found.");
+/// } else {
+///     println!("Undeclared symbols detected.");
 /// }
 /// ```
 pub fn check_undeclared_symbols(
     syntax_tree: &AnnotatedSyntaxTree,
     skip_symbols: &[SymbolKind],
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
-    context: Checker,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
@@ -75,7 +73,7 @@ pub fn check_undeclared_symbols(
         // Iterate over all usages of the symbol.
         for usage in symbol.usages() {
             // Skip the symbol if it meets the criteria (e.g., already declared or needs to be skipped).
-            if should_skip_symbol(symbol, syntax_tree, usage.kind(), skip_symbols)? {
+            if should_skip_symbol(symbol, syntax_tree, usage.kind(), skip_symbols) {
                 continue;
             }
 
@@ -83,11 +81,11 @@ pub fn check_undeclared_symbols(
             if !is_declaration_found(symbol, usage) {
                 no_error = false;
                 report_undeclared_symbol_error(
-                    diagnostic_manager,
                     usage,
-                    syntax_tree,
-                    context,
-                )?;
+                    syntax_tree.filename(),
+                    source,
+                    diagnostic_manager,
+                );
             }
         }
     }
@@ -96,6 +94,7 @@ pub fn check_undeclared_symbols(
 }
 
 /// Determines if a symbol should be skipped during the undeclared symbol check.
+///
 /// This decision is based on whether the symbol is predefined in PDDL (according to the
 /// requirements) or if the symbol's kind matches any entry in the `skip_symbols` list.
 ///
@@ -118,10 +117,8 @@ pub fn check_undeclared_symbols(
 ///
 /// # Returns
 ///
-/// * `Result<bool, ParserInternalError>` - Returns `Ok(true)` if the symbol should be skipped
-///   (either because it is a predefined PDDL symbol or its kind is in the `skip_symbols` list),
-///   otherwise `Ok(false)`. If there is an error while checking if the symbol is a predefined
-///   PDDL symbol, an `Err` is returned.
+/// * `true` if the symbol should be skipped (either because it is a predefined PDDL symbol
+///   or its kind is in the `skip_symbols` list), otherwise `false`.
 ///
 /// # Example
 ///
@@ -129,20 +126,19 @@ pub fn check_undeclared_symbols(
 /// let should_skip = should_skip_symbol(
 ///     &symbol,
 ///     &annotated_syntax_tree,
-///     SymbolKind::Action,
-///     &[SymbolKind::Action]
+///     &SymbolKind::Action,
+///     &[SymbolKind::Action],
 /// );
-/// assert_eq!(should_skip, Ok(true));  // Assuming the symbol kind matches and is in the skip list.
+/// assert_eq!(should_skip, true);  // Assuming the symbol kind matches and is in the skip list.
 /// ```
-
 fn should_skip_symbol(
     symbol: &Symbol,
     annotated_syntax_tree: &AnnotatedSyntaxTree,
     usage_kind: &SymbolKind,
     skip_symbols: &[SymbolKind],
-) -> Result<bool, ParserInternalError> {
+) -> bool {
     // Skip if the symbol is predefined in PDDL or if it matches a symbol kind in the skip list.
-    Ok(is_pddl_builtin_symbol(symbol, annotated_syntax_tree)? || skip_symbols.contains(usage_kind))
+    is_pddl_builtin_symbol(symbol, annotated_syntax_tree) || skip_symbols.contains(usage_kind)
 }
 
 /// Checks if a declaration for the given symbol usage exists in the symbol's declarations.
@@ -236,115 +232,100 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
 ///   is predefined based on the current problem's requirements.
 ///
 /// # Returns
-/// - `Ok(true)` if the symbol is predefined and matches the enabled requirements.
-/// - `Ok(false)` if the symbol is not predefined based on the requirements.
-/// - `Err(ParserInternalError)` if there is an internal error while checking the symbol.
+/// - `true` if the symbol is predefined and matches the enabled requirements.
+/// - `false` if the symbol is not predefined based on the requirements.
 ///
 /// # Examples
 /// ```
 /// let symbol = Symbol::new("object_type");
 /// let result = is_pddl_builtin_symbol(&symbol, &ast_table);
-/// assert_eq!(result, Ok(true));  // Assuming 'Typing' or 'Adl' requirements are enabled.
+/// assert_eq!(result, true);  // Assuming 'Typing' or 'Adl' requirements are enabled.
 /// ```
 ///
 /// # Predefined Symbols Based on Requirements
 /// - `object_type`: Predefined when the `Typing` or `Adl` requirements are enabled.
 /// - `number_type` and `total_time`: Predefined when the `NumericFluents` requirement is enabled.
 /// - `duration_variable`: Predefined when the `DurativeActions` requirement is enabled.
+
 fn is_pddl_builtin_symbol(
     symbol: &Symbol,
     annotated_syntax_tree: &AnnotatedSyntaxTree,
-) -> Result<bool, ParserInternalError> {
+) -> bool {
     match symbol.name().as_str() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
         OBJECT_TYPE
             if annotated_syntax_tree.has_requirement(&Typing)
                 || annotated_syntax_tree.has_requirement(&Adl) =>
         {
-            Ok(true)
+            true
         }
 
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
         NUMBER_TYPE | TOTAL_TIME if annotated_syntax_tree.has_requirement(&NumericFluents) => {
-            Ok(true)
+            true
         }
 
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        DURATION_VARIABLE if annotated_syntax_tree.has_requirement(&DurativeActions) => Ok(true),
+        DURATION_VARIABLE if annotated_syntax_tree.has_requirement(&DurativeActions) => true,
 
         // Default case for any other symbols.
-        _ => Ok(false),
+        _ => false,
     }
 }
 
 /// Reports an error diagnostic for the use of an undeclared symbol.
 ///
-/// This function is called when a symbol is referenced in the source code but has
-/// not been previously declared in the appropriate scope. It builds and registers
-/// a diagnostic of kind [`DiagnosticKind::UndeclaredSymbolError`] using metadata
-/// from the provided `Usage` object.
+/// This function is invoked when a symbol is referenced in the source code but has
+/// not been previously declared within the appropriate scope. It constructs and
+/// registers a diagnostic of kind [`DiagnosticKind::UndeclaredSymbolError`], using
+/// metadata extracted from the provided `Usage` object.
 ///
-/// The function uses the `Usage` to extract the symbol name, kind, and source code
-/// location (via its `span`). It also uses the `AnnotatedSyntaxTree` to provide
-/// the filename in which the error occurred, and uses the `CheckerContext` to
-/// identify the analysis phase (e.g., parser, semantic checker) that detected
-/// the problem.
+/// The diagnostic includes the symbol name, kind, and source location (via the usage’s `span`).
+/// It uses the provided `filename` to indicate the source file where the error occurred.
+/// The `source` parameter identifies the analysis phase (e.g., parser, semantic analyzer)
+/// responsible for detecting the undeclared symbol.
 ///
 /// # Parameters
-///
+/// - `usage`: The symbol usage instance referring to the undeclared symbol.
+/// - `filename`: The name of the source file where the usage occurs.
+/// - `source`: The analysis phase responsible for the error (e.g., parser, semantic analyzer).
 /// - `diagnostic_manager`: The diagnostic system to which the error will be added.
-/// - `usage`: The symbol usage instance that refers to an undeclared symbol.
-/// - `syntax_tree`: The syntax tree in which the usage was found, used for filename metadata.
-/// - `context`: Indicates the phase or component (e.g., Parser, Linker) responsible for the error.
 ///
 /// # Returns
-///
-/// Returns `Ok(())` if the diagnostic was created and added successfully.
-/// Returns `Err(ParserInternalError)` only if there is an inconsistency in internal AST state.
-///
-/// # Errors
-///
-/// This function does not fail under normal conditions, but may return an internal error
-/// if critical AST data is missing. This would usually indicate a bug in parsing
-/// or analysis earlier in the pipeline.
+/// This function does not return a `Result` because it does not fail under normal conditions.
 ///
 /// # Example
-///
 /// ```rust
 /// report_undeclared_symbol_error(
-///     &mut diagnostic_manager,
 ///     &usage,
-///     &syntax_tree,
-///     CheckerContext::SemanticAnalyzer,
-/// )?;
+///     "source_file.pddl",
+///     DiagnosticSource::SemanticAnalyzer,
+///     &mut diagnostic_manager,
+/// );
 /// ```
 ///
 /// # See Also
-/// - [`Usage`] — Carries symbol name, kind, and span information.
-/// - [`DiagnosticKind::UndeclaredSymbolError`] — The error kind used in this diagnostic.
-/// - [`Checker`] — Identifies which analysis stage emitted the error.
+/// - [`Usage`]: Holds symbol name, kind, and span information.
+/// - [`DiagnosticKind::UndeclaredSymbolError`]: The diagnostic kind generated.
+/// - [`DiagnosticSource`]: Identifies the analysis phase that produced the error.
 fn report_undeclared_symbol_error(
-    diagnostic_manager: &mut DiagnosticManager,
     usage: &Usage,
-    syntax_tree: &AnnotatedSyntaxTree,
-    context: Checker,
-) -> Result<(), ParserInternalError> {
-    // Build the error diagnostic with metadata from usage and analysis context
+    filename: &str,
+    source: DiagnosticSource,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
     let error = Diagnostic::new(
         DiagnosticKind::UndeclaredSymbolError {
             usage: usage.clone(),
         },
-        context.into(),
-        syntax_tree.filename().clone(),
+        source,
+        filename.to_string(),
         usage.span().clone(),
     );
-
-    // Submit the diagnostic to the manager
     diagnostic_manager.add_diagnostic(error);
-
-    Ok(())
 }
+
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 

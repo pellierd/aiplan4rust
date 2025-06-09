@@ -1,5 +1,5 @@
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::Usage;
+use crate::aiplan4rust::analyser::symbol::Declaration;
+use crate::aiplan4rust::analyser::symbol::Usage;
 
 use serde::Deserialize;
 use serde::Serialize;

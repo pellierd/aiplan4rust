@@ -8,12 +8,13 @@ use crate::aiplan4rust::parser::elements::Requirement::{
 use crate::aiplan4rust::parser::elements::BinaryComp;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree};
+use crate::aiplan4rust::analyser::{AnnotatedSyntaxNode, AnnotatedSyntaxTree};
 use std::collections::HashSet;
 
-pub fn check(
+pub fn check_requirement_violations(
     syntax_tree: &AnnotatedSyntaxTree,
     requirements: &HashSet<Requirement>,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
@@ -21,50 +22,55 @@ pub fn check(
     for (index, node) in syntax_tree.iter() {
         match node.kind() {
             SyntaxNodeKind::PrimitiveType(_) | SyntaxNodeKind::TypesDef => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![Typing],
                 );
             }
 
             SyntaxNodeKind::FunctionsDef | SyntaxNodeKind::FunctionTerm => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![Fluents, NumericFluents, ObjectFluents],
                 );
             }
 
             SyntaxNodeKind::Number(_) => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![NumericFluents],
                 );
             }
 
             SyntaxNodeKind::DurativeActionDef => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![DurativeActions],
                 );
             }
 
             SyntaxNodeKind::DerivedDef => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![DerivedPredicates],
                 );
@@ -76,10 +82,11 @@ pub fn check(
                     && *parent.kind() != SyntaxNodeKind::PreconditionDef
                     && *parent.kind() != SyntaxNodeKind::EffectDef
                 {
-                    checked &= check_requirements(
+                    checked &= report_requirement_violation(
                         node,
-                        syntax_tree,
                         requirements,
+                        syntax_tree.filename(),
+                        source,
                         diagnostic_manager,
                         vec![DisjunctivePreconditions],
                     );
@@ -87,60 +94,66 @@ pub fn check(
             }
 
             SyntaxNodeKind::Not => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![NegativePreconditions],
                 );
             }
 
             SyntaxNodeKind::Imply => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![DisjunctivePreconditions],
                 );
             }
 
             SyntaxNodeKind::Forall => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![UniversalPreconditions],
                 );
             }
 
             SyntaxNodeKind::Exists => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![ExistentialPreconditions],
                 );
             }
 
             SyntaxNodeKind::Preference => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![Preferences],
                 );
             }
 
             SyntaxNodeKind::When => {
-                checked &= check_requirements(
+                checked &= report_requirement_violation(
                     node,
-                    syntax_tree,
                     requirements,
+                    syntax_tree.filename(),
+                    source,
                     diagnostic_manager,
                     vec![ConditionalEffects],
                 );
@@ -149,19 +162,21 @@ pub fn check(
             SyntaxNodeKind::FComp(op) => {
                 match op {
                     BinaryComp::Equal => {
-                        checked &= check_requirements(
+                        checked &= report_requirement_violation(
                             node,
-                            syntax_tree,
                             requirements,
+                            syntax_tree.filename(),
+                            source,
                             diagnostic_manager,
                             vec![Equality, Fluents, NumericFluents,ObjectFluents],
                         );
                     }
                     _ => {
-                        checked &= check_requirements(
+                        checked &= report_requirement_violation(
                             node,
-                            syntax_tree,
                             requirements,
+                            syntax_tree.filename(),
+                            source,
                             diagnostic_manager,
                             vec![Fluents, NumericFluents,ObjectFluents],
                         );
@@ -173,18 +188,19 @@ pub fn check(
     }
     Ok(checked)
 }
-fn check_requirements(
+fn report_requirement_violation(
     node: &AnnotatedSyntaxNode,
-    syntax_tree: &AnnotatedSyntaxTree,
     requirements: &HashSet<Requirement>,
+    filename: &str,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
     required: Vec<Requirement>,
 ) -> bool {
     if required.iter().any(|r| !requirements.contains(r)) {
         let error = Diagnostic::new(
             DiagnosticKind::RequirementViolation { node_kind: node.kind().clone(), required},
-            DiagnosticSource::SemanticAnalyzer,
-            syntax_tree.filename().clone(),
+            source,
+            filename.to_string(),
             node.span().clone(),
         );
         diagnostic_manager.add_diagnostic(error);

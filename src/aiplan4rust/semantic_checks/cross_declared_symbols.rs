@@ -1,74 +1,77 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
+use crate::aiplan4rust::diagnostic::DiagnosticSource;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic_analyser::symbol::Declaration;
-use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::semantic_analyser::SymbolTable;
+use crate::aiplan4rust::analyser::symbol::Declaration;
+use crate::aiplan4rust::analyser::symbol::Scope;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::SymbolTable;
 
 use crate::aiplan4rust::parser::SymbolOrigin;
-use crate::aiplan4rust::semantic_checks::Checker;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
 ///
 /// This function verifies that no symbol declared in the problem conflicts with
-/// existing declarations in the domain. Specifically, it checks for symbols
-/// declared in the problem that have the same name as symbols declared in the domain,
-/// but differ in kind. If such conflicts are found, diagnostic errors are reported.
+/// existing declarations in the domain. Specifically, it detects symbols that share
+/// the same name but differ in kind between the problem and domain declarations.
+/// When such conflicts are found, diagnostic errors are emitted.
 ///
 /// # Parameters
 ///
 /// - `domain`: Reference to the domain's annotated syntax tree, containing its symbol table.
 /// - `problem`: Reference to the problem's annotated syntax tree, containing its symbol table.
-/// - `diagnostic_manager`: Mutable reference to the diagnostic manager where conflicts will be
-///   recorded.
-/// - `context`: The checker context indicating the source of diagnostics.
+/// - `source`: The `DiagnosticSource` identifying the analysis phase producing diagnostics.
+/// - `diagnostic_manager`: Mutable reference to the diagnostic manager where conflict diagnostics
+///   are recorded.
 ///
 /// # Returns
 ///
-/// Returns `Ok(true)` if no conflicts were found between the problem and domain declarations.
-/// Returns `Ok(false)` if conflicts were detected and reported.
-/// Returns `Err(ParserInternalError)` if an internal error occurs during the check process (e.g.,
-///   missing AST entry).
+/// - `Ok(true)` if no conflicting declarations were detected.
+/// - `Ok(false)` if conflicts were found and reported.
+/// - `Err(ParserInternalError)` if an internal error occurs during checking.
 ///
 /// # Behavior
 ///
-/// The function iterates over all symbols declared in the problem's symbol table.
-/// For each declaration originating from the problem (and not exempt from checks),
-/// it verifies whether the domain declares symbols with the same name.
-/// If the domain declares symbols of a different kind than the problem's declaration,
-/// a conflict diagnostic is generated and added to the diagnostic manager.
+/// The function iterates over all symbols declared in the problem's symbol table. For each
+/// declaration originating from the problem (and not exempt from conflict checks), it
+/// checks whether the domain declares symbols with the same name. If the domain declares
+/// symbols of a different kind, a conflict diagnostic is generated and recorded.
 ///
 /// # Steps
 ///
 /// 1. Initialize a success flag.
-/// 2. Retrieve symbol tables from both domain and problem.
-/// 3. Iterate over all problem symbols and their declarations.
+/// 2. Retrieve symbol tables from domain and problem.
+/// 3. Iterate over problem symbols and their declarations.
 /// 4. Skip declarations exempt from conflict checks or not from the problem source.
-/// 5. Check if relevant domain declarations exist for the symbol.
-/// 6. Collect the kinds of relevant domain declarations.
-/// 7. Determine if the problem declaration kind matches any domain kind.
-/// 8. If no match, report a conflict error.
-/// 9. Update the success flag accordingly.
-/// 10. Return the overall success result.
+/// 5. Check if the domain declares the same symbol name.
+/// 6. Gather kinds of the domain's relevant declarations.
+/// 7. Check if any domain kind matches the problem declaration kind.
+/// 8. If no match, report a conflict error and update the success flag.
+/// 9. Return the overall success status.
 ///
 /// # Example
 ///
 /// ```rust
-/// let result = check_cross_duplicate_symbol_declarations(&domain_ast, &problem_ast, &mut diag_manager, context);
+/// let result = check_cross_declared_symbols(
+///     &domain_ast,
+///     &problem_ast,
+///     DiagnosticSource::SemanticAnalyzer,
+///     &mut diagnostic_manager,
+/// );
+///
 /// match result {
 ///     Ok(true) => println!("No conflicts found."),
 ///     Ok(false) => println!("Conflicting declarations detected."),
 ///     Err(e) => eprintln!("Internal error: {}", e),
 /// }
 /// ```
-pub fn check_cross_duplicate_symbol_declarations(
+pub fn check_cross_declared_symbols(
     domain: &AnnotatedSyntaxTree,
     problem: &AnnotatedSyntaxTree,
+    source: DiagnosticSource,
     diagnostic_manager: &mut DiagnosticManager,
-    context: Checker,
 ) -> Result<bool, ParserInternalError> {
     // Step 1: Initialize a flag to track overall success of the check.
     let mut all_ok = true;
@@ -96,12 +99,13 @@ pub fn check_cross_duplicate_symbol_declarations(
                     // Step 9: If no matching kind found, report a conflict error.
                     if !same_kind_exists {
                         report_cross_conflict_symbol_error(
-                            diagnostic_manager,
                             declaration,
                             domain_kinds,
-                            problem,
-                            context
-                        )?;
+                            problem.filename(),
+                            source,
+                            diagnostic_manager,
+
+                        );
 
                         // Step 10: Mark the overall check as failed.
                         all_ok = false;
@@ -200,56 +204,51 @@ fn get_relevant_domain_kinds(
 /// problem declaration, and the kinds of the domain declarations.
 ///
 /// The diagnostic includes location and context information extracted from the
-/// problem declaration and syntax tree.
+/// problem declaration and provided filename.
 ///
 /// # Parameters
-/// - `diagnostic_manager`: Mutable reference to the diagnostic manager where the
-///   error will be recorded.
 /// - `problem_declaration`: The `Declaration` in the problem syntax tree that
 ///   conflicts with existing domain declarations.
 /// - `domain_kinds`: A vector of `SymbolKind` representing the conflicting
 ///   declaration kinds found in the domain syntax tree.
-/// - `problem_syntax_tree`: Reference to the problem's annotated syntax tree,
-///   used to retrieve filename and span information.
-/// - `context`: The `CheckerContext` indicating where in the compilation/analysis
-///   pipeline this diagnostic arises.
+/// - `filename`: The name of the source file containing the problem declaration.
+/// - `source`: The `DiagnosticSource` identifying the analysis phase producing this diagnostic.
+/// - `diagnostic_manager`: Mutable reference to the diagnostic manager where the
+///   error will be recorded.
 ///
 /// # Returns
-/// - `Ok(())` if the diagnostic was successfully created and added.
-/// - `Err(ParserInternalError)` if an unexpected error occurs (currently none expected).
+/// This function does not return a `Result` because it does not fail under normal conditions.
 ///
 /// # Example
 /// ```rust
 /// report_cross_conflict_symbol_error(
-///     &mut diagnostic_manager,
 ///     &problem_declaration,
 ///     domain_kinds,
-///     &problem_syntax_tree,
-///     CheckerContext::Linker,
-/// )?;
+///     "problem_file.pddl",
+///     DiagnosticSource::SemanticAnalyzer,
+///     &mut diagnostic_manager,
+/// );
 /// ```
-pub fn report_cross_conflict_symbol_error(
-    diagnostic_manager: &mut DiagnosticManager,
+fn report_cross_conflict_symbol_error(
     problem_declaration: &Declaration,
     domain_kinds: Vec<SymbolKind>,
-    problem_syntax_tree: &AnnotatedSyntaxTree,
-    context: Checker,
-) -> Result<(), ParserInternalError> {
+    filename: &str,
+    source: DiagnosticSource,
+    diagnostic_manager: &mut DiagnosticManager,
+)  {
     let error = Diagnostic::new(
         DiagnosticKind::CrossConflictSymbolDeclarationError {
             symbol: problem_declaration.symbol().clone(),
             problem_kind: problem_declaration.kind().clone(),
             domain_kinds,
         },
-        context.into(),
-        problem_syntax_tree.filename().clone(),
+        source,
+        filename.to_string(),
         problem_declaration.span().clone(),
     );
 
     diagnostic_manager.add_diagnostic(error);
-    Ok(())
 }
-
 
 /// Checks whether a given symbol declaration should be exempt from conflict checks.
 ///

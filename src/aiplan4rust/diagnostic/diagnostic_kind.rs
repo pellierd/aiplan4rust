@@ -1,8 +1,8 @@
 use crate::aiplan4rust::diagnostic::DiagnosticSeverity;
 use crate::aiplan4rust::parser::elements::Requirement;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxNode;
-use crate::aiplan4rust::semantic_analyser::symbol::{Declaration, SymbolKind, Usage};
+use crate::aiplan4rust::analyser::AnnotatedSyntaxNode;
+use crate::aiplan4rust::analyser::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;
 
@@ -56,7 +56,7 @@ pub enum DiagnosticKind {
         declaration2: Declaration,
         scope: AnnotatedSyntaxNode,
     },
-    CyclicOrderingConstraint,
+    CyclicTaskOrderingError,
     UndeclaredSymbolError {
         usage: Usage,
     },
@@ -122,7 +122,7 @@ impl DiagnosticKind {
             DiagnosticKind::TypeMismatchInExpression { .. } => "E1005".to_string(),
             DiagnosticKind::InvalidTypesInNumericExpression { .. } => "E1006".to_string(),
             DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { .. } => "E1007".to_string(),
-            DiagnosticKind::CyclicOrderingConstraint { .. } => "E1008".to_string(),
+            DiagnosticKind::CyclicTaskOrderingError { .. } => "E1008".to_string(),
             DiagnosticKind::UndeclaredSymbolError { .. } => "E1009".to_string(),
             DiagnosticKind::SymbolDeclaredAsKeywordError { .. } => "E1010".to_string(),
             DiagnosticKind::CyclicTypeDeclarationError { .. } => "E1011".to_string(),
@@ -189,7 +189,7 @@ impl DiagnosticKind {
             DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { symbol, .. } => {
                 format!("Duplicate declaration of symbol '{}'.", symbol)
             }
-            DiagnosticKind::CyclicOrderingConstraint => {
+            DiagnosticKind::CyclicTaskOrderingError => {
                 "Cyclic task-ordering constraint detected.".to_string()
             }
             DiagnosticKind::UndeclaredSymbolError { usage} => {
@@ -252,7 +252,7 @@ impl DiagnosticKind {
             DiagnosticKind::TypeMismatchInExpression { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::InvalidTypesInNumericExpression { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::DuplicatedSymbolDeclarationInScopeError { .. } => DiagnosticSeverity::Error,
-            DiagnosticKind::CyclicOrderingConstraint => DiagnosticSeverity::Error,
+            DiagnosticKind::CyclicTaskOrderingError => DiagnosticSeverity::Error,
             DiagnosticKind::UndeclaredSymbolError { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::SymbolDeclaredAsKeywordError { .. } => DiagnosticSeverity::Error,
             DiagnosticKind::CyclicTypeDeclarationError { .. } => DiagnosticSeverity::Error,
@@ -333,7 +333,7 @@ impl DiagnosticKind {
                     declaration2.kind()
                 ))
             }
-            DiagnosticKind::CyclicOrderingConstraint => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
+            DiagnosticKind::CyclicTaskOrderingError => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
             DiagnosticKind::UndeclaredSymbolError { usage} => {
                 match usage.kind() {
                     SymbolKind::Function => Some(format!(

@@ -2,9 +2,9 @@ use std::cell::{Ref, RefCell};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::parser::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::parser::lexer::token::OBJECT_TYPE;
-use crate::aiplan4rust::semantic_analyser::symbol::Scope;
-use crate::aiplan4rust::semantic_analyser::symbol::SymbolKind;
-use crate::aiplan4rust::semantic_analyser::symbol_table::SymbolTable;
+use crate::aiplan4rust::analyser::symbol::Scope;
+use crate::aiplan4rust::analyser::symbol::SymbolKind;
+use crate::aiplan4rust::analyser::symbol_table::SymbolTable;
 
 use std::collections::{HashMap, HashSet};
 

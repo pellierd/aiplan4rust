@@ -3,7 +3,7 @@ use crate::aiplan4rust::parser::syntax_tree::SyntaxNode;
 use crate::aiplan4rust::parser::syntax_tree::SyntaxNodeKind;
 use crate::aiplan4rust::parser::Span;
 
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;

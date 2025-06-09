@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::semantic_analyser::AnnotatedSyntaxTree;
+use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
 
 use std::fmt;
 
