@@ -77,37 +77,52 @@ aiplan4rust/
 ├── pddl_display.rs      # PDDL pretty‑printing utilities
 ├── mod.rs
 └── bin/                 # Example binaries (e.g. `aiplan.rs`)
+```
 
-# Quickstart Commands
+## Quickstart Commands
 
 Below is a consolidated list of all the commands you’ll need to install dependencies, build, test, run, and profile **AiPlan4Rust** on macOS.
 
-```bash
-# 1. Update Rust toolchain
-rustup update stable
 
-# 2. Clone the repository and build in release mode
+### 1. Update Rust toolchain
+```bash
+rustup update stable
+```
+
+### 2. Clone the repository and build in release mode
+```bash
 git clone https://github.com/yourorg/aiplan4rust.git
 cd aiplan4rust
 cargo build --release
+```
 
-# 3. Install optional tools
+### 3. Install optional tools
+```bash
 cargo install lalrpop           # for regenerating grammar if needed
 cargo install flamegraph         # for profiling with cargo-flamegraph
+```
 
-# 4. Run the CLI on a PDDL domain/problem
+### 4. Run the CLI on a PDDL domain/problem
+```bash
 cargo run --release -- \
   --domain path/to/domain.pddl \
   --problem path/to/problem.pddl \
   --output task.json
+```
 
-# 5. Run all tests (unit + integration)
+### 5. Run all tests (unit + integration)
+```bash
 cargo test
+```
 
-# 6. Profile integration tests on macOS (requires sudo)
+### 6. Profile integration tests on macOS (requires sudo)
+```bash
 sudo RUST_BACKTRACE=1 RUSTFLAGS="-g" \
   cargo flamegraph --dtrace --root / -- \
     test --test integration_tests --release
+```
 
-# 7. View the generated flamegraph
+### 7. View the generated flamegraph
+```bash
 open flamegraph.svg   # or open with your browser of choice
+```
