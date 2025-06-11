@@ -73,7 +73,7 @@ pub fn check_cross_declared_symbols(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Step 1: Initialize a flag to track overall success of the check.
-    let mut all_ok = true;
+    let mut checked = true;
 
     // Step 2: Retrieve symbol tables from domain and problem.
     let domain_symbol_table = domain.symbol_table();
@@ -107,7 +107,7 @@ pub fn check_cross_declared_symbols(
                         );
 
                         // Step 10: Mark the overall check as failed.
-                        all_ok = false;
+                        checked = false;
                     }
                 }
             }
@@ -115,7 +115,7 @@ pub fn check_cross_declared_symbols(
     }
 
     // Step 11: Return whether all checks passed (true) or conflicts were found (false).
-    Ok(all_ok)
+    Ok(checked)
 }
 
 

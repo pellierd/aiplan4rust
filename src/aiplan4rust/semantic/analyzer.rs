@@ -346,13 +346,6 @@ impl Analyzer {
             diagnostic_manager
         )?;
 
-        semantic::checks::check_requirement_violations(
-            annotated_syntax_tree,
-            annotated_syntax_tree.requirements(),
-            Provider::Analyzer,
-            diagnostic_manager,
-        )?;
-
         Ok(checked)
     }
 
@@ -403,8 +396,6 @@ impl Analyzer {
 
         // Check declared symbols in the annotated syntax tree
         // This check ensures that declared symbols follow the correct syntax and declarations
-
-
         checked &= semantic::checks::check_declared_symbols(&annotated_syntax_tree, diagnostic_manager)?;
 
         // Check for undeclared symbols, skipping specific types of symbols

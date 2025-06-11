@@ -60,7 +60,7 @@ pub fn check_undeclared_symbols(
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let mut no_error = true;
+    let mut checked = true;
 
     let symbol_table = syntax_tree.symbol_table();
 
@@ -75,7 +75,7 @@ pub fn check_undeclared_symbols(
 
             // Check if the declaration for the symbol was found.
             if !is_declaration_found(symbol, usage) {
-                no_error = false;
+                checked = false;
                 report_undeclared_symbol_error(
                     usage,
                     syntax_tree.filename(),
@@ -86,7 +86,7 @@ pub fn check_undeclared_symbols(
         }
     }
 
-    Ok(no_error)
+    Ok(checked)
 }
 
 /// Determines if a symbol should be skipped during the undeclared symbol check.
@@ -304,7 +304,7 @@ fn is_pddl_builtin_symbol(
 /// # See Also
 /// - [`Usage`]: Holds symbol name, kind, and span information.
 /// - [`Kind::UndeclaredSymbolError`]: The diagnostic kind generated.
-/// - [`Provider`]: Identifies the analysis phase that produced the error.
+/// - [`Provider`]: Identifies the analysis phase that produced the /// - [`Kind::UndeclaredSymbolError`]: The diagnostic kind generated..
 fn report_undeclared_symbol_error(
     usage: &Usage,
     filename: &str,

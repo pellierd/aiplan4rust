@@ -120,25 +120,60 @@ fn link(domain_file: &str, problem_file: &str, format: &FileFormat, output: &str
     }
 }
 
-fn parse(
+pub fn parse(
     domain_file: &str,
     problem_file: &str,
     language: &Language,
     format: &FileFormat,
     output: &str,
 ) {
+    let start_time = Instant::now();
+
+    println!(
+        "{:>10} aiplan4rust v0.1.0 (domain: {}, problem: {})",
+        "Parsing".green().bold(),
+        domain_file,
+        problem_file
+    );
+
     let frontend = Frontend::new();
     match frontend.parse(domain_file, problem_file, language) {
         Ok(result) => {
             let mut renderer = Renderer::new(result.diagnostic_manager());
             renderer.display();
-            if let Some(planning_task) = result.planning_task() {
+
+            // Count errors and warnings
+            let dm = result.diagnostic_manager();
+            let error_count = dm.count_diagnostics_of_severity(Severity::Error);
+            let warning_count = dm.count_diagnostics_of_severity(Severity::Warning);
+
+            // Elapsed time
+            let elapsed = start_time.elapsed().as_secs_f32();
+
+            println!(
+                "{} {} error(s), {} warning(s) in {:.2}s",
+                "Finished".green().bold(),
+                error_count,
+                warning_count,
+                elapsed
+            );
+
+            if error_count > 0 {
+                println!(
+                    "{} No output file produced due to errors.",
+                    "===>".blue().bold()
+                );
+            } else if let Some(planning_task) = result.planning_task() {
                 if let Err(e) =
                     frontend.serialize_planning_task_to_file(&planning_task, format, output)
                 {
                     eprintln!("Error saving file: {}", e);
                 } else {
-                    println!("Output saved to {}", output);
+                    println!(
+                        "{} Output saved to {}",
+                        "===>".blue().bold(),
+                        output
+                    );
                 }
             }
         }
@@ -147,6 +182,7 @@ fn parse(
         }
     }
 }
+
 pub fn parse_file(input_file: &str, language: &Language, format: &FileFormat, output: &str) {
     let start_time = Instant::now(); // Démarre le chronomètre
 

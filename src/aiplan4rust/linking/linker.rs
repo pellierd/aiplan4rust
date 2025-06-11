@@ -39,25 +39,15 @@ impl Linker {
         mut problem: LiftedProblem,
     ) -> Result<LinkerResult, ParserInternalError> {
 
-        // TO DO: Vérifier la consistence des requirements déclarés dans le problem et dans le domaine
-        // et vérifier ici qu''ils ne sont pas contradictoires
-
         linking::checks::check_domain_name(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
 
         Self::update_problem_symbols_table_from_domain(&mut problem, domain.symbol_table())?;
 
-        println!("{}", problem.symbol_table());
+        let mut check  = linking::checks::check_cross_declared_symbols(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
+        check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
 
-        //let mut problem = problem.clone();
-        // Si le nom de domaine est déclaré, vérifier les symboles non déclarés
-        //if self.check_undeclared_symbols(&problem) {
-        /*if SemanticAnalyzer::check_symbols(
-            &problem,
-            &vec![],
-            &vec![],
-            &mut self.diagnostic_manager)? {*/
-        if semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?
-            && linking::checks::check_cross_declared_symbols(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager,)? {
+        if check {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
             semantic::checks::check_declared_symbol_signatures(&problem, &type_checker, &mut self.diagnostic_manager)?;
@@ -97,7 +87,6 @@ impl Linker {
             ))
         }
     }
-
 
     /// Updates the problem's symbol table by adding declarations found in the domain's symbol table.
     ///
