@@ -1,10 +1,10 @@
 use aiplan4rust::aiplan4rust::cli::aiplan_cli::{
     build_cli, FILES_ARG, FORMAT_ARG, LANGUAGE_ARG, LINK_SUBCOMMAND, OUTPUT_ARG, PARSE_SUBCOMMAND,
 };
-use aiplan4rust::aiplan4rust::parser::Language;
+use aiplan4rust::aiplan4rust::syntax::Language;
 use aiplan4rust::aiplan4rust::FileFormat;
 use aiplan4rust::aiplan4rust::Frontend;
-use aiplan4rust::aiplan4rust::diagnostic::{DiagnosticRenderer, DiagnosticSeverity};
+use aiplan4rust::aiplan4rust::diagnostic::{Renderer, Severity};
 
 use clap::ArgMatches;
 use std::path::Path;
@@ -110,7 +110,7 @@ fn link(domain_file: &str, problem_file: &str, format: &FileFormat, output: &str
                     println!("Output saved to {}", output);
                 }
             } else {
-                let mut renderer = DiagnosticRenderer::new(linker_result.diagnostic_manager());
+                let mut renderer = Renderer::new(linker_result.diagnostic_manager());
                 renderer.display();
             }
         }
@@ -130,7 +130,7 @@ fn parse(
     let frontend = Frontend::new();
     match frontend.parse(domain_file, problem_file, language) {
         Ok(result) => {
-            let mut renderer = DiagnosticRenderer::new(result.diagnostic_manager());
+            let mut renderer = Renderer::new(result.diagnostic_manager());
             renderer.display();
             if let Some(planning_task) = result.planning_task() {
                 if let Err(e) =
@@ -164,12 +164,12 @@ pub fn parse_file(input_file: &str, language: &Language, format: &FileFormat, ou
     let frontend = Frontend::new();
     match frontend.parse_file(input_file, language) {
         Ok(result) => {
-            let mut renderer = DiagnosticRenderer::new(result.diagnostic_manager());
+            let mut renderer = Renderer::new(result.diagnostic_manager());
             renderer.display();
 
             // Compte les erreurs et les warnings
-            let error_count = result.diagnostic_manager().count_diagnostics_of_severity(DiagnosticSeverity::Error);
-            let warning_count = result.diagnostic_manager().count_diagnostics_of_severity(DiagnosticSeverity::Warning);
+            let error_count = result.diagnostic_manager().count_diagnostics_of_severity(Severity::Error);
+            let warning_count = result.diagnostic_manager().count_diagnostics_of_severity(Severity::Warning);
 
             // Chronomètre
             let elapsed_time = start_time.elapsed().as_secs_f32();

@@ -51,7 +51,7 @@ pub fn read_file(path: &Path) -> io::Result<String> {
     Ok(source)
 }
 
-/// Parses all PDDL or HDDL files in a directory using the given language parser.
+/// Parses all PDDL or HDDL files in a directory using the given language syntax.
 ///
 /// # Arguments
 ///
@@ -107,7 +107,7 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
     success
 }
 
-/// Test the parser on a set of HDDL domains.
+/// Test the syntax on a set of HDDL domains.
 ///
 /// The function verifies that all files in the domain are successfully parsed.
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]

@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 use test_case::test_case;
 
-use aiplan4rust::{DiagnosticRenderer, Frontend, Language};
+use aiplan4rust::{Renderer, Frontend, Language};
 
 fn test_domain(domain_dir: &Path, language: &Language) -> bool {
     let files = fs::read_dir(domain_dir)
@@ -69,7 +69,7 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
         match result {
             Ok(linker_result) => {
                 let mut buffer = Vec::new();
-                DiagnosticRenderer::write_to(linker_result.diagnostic_manager(), &mut buffer, false)
+                Renderer::write_to(linker_result.diagnostic_manager(), &mut buffer, false)
                     .expect("Failed to write diagnostics");
                 diag_file.write_all(&buffer).expect("Failed to write to diag file");
 

@@ -1,13 +1,13 @@
-pub mod diagnostic_severity;
-pub mod diagnostic_kind;
+pub mod severity;
+pub mod kind;
 pub mod diagnostic;
-pub mod diagnostic_source;
+pub mod provider;
 pub mod diagnostic_manager;
-pub mod diagnostic_renderer;
+pub mod renderer;
 
 pub use diagnostic::Diagnostic;
-pub use diagnostic_renderer::DiagnosticRenderer;
+pub use renderer::Renderer;
 pub use diagnostic_manager::DiagnosticManager;
-pub use diagnostic_kind::DiagnosticKind;
-pub use diagnostic_source::DiagnosticSource;
-pub use diagnostic_severity::DiagnosticSeverity;
+pub use kind::Kind as DiagnosticKind;
+pub use provider::Provider;
+pub use severity::Severity;

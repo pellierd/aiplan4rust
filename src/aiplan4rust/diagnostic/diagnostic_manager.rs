@@ -6,7 +6,7 @@
 //! It also handles associated source files so diagnostics
 //! can be contextualized with original source code.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticSeverity};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
 
 use std::collections::HashMap;
 use itertools::Itertools;
@@ -103,11 +103,11 @@ impl DiagnosticManager {
     /// # Returns
     ///
     /// `true` if at least one diagnostic of the given severity exists.
-    pub fn has_diagnotics_of_severity(&self, severity: DiagnosticSeverity) -> bool {
+    pub fn has_diagnotics_of_severity(&self, severity: Severity) -> bool {
         self.diagnostics.iter().any(|e| e.kind().severity() == severity)
     }
 
-    pub fn count_diagnostics_of_severity(&self, severity: DiagnosticSeverity) -> usize {
+    pub fn count_diagnostics_of_severity(&self, severity: Severity) -> usize {
         self.diagnostics.iter()
             .filter(|e| e.kind().severity() == severity)
             .count()

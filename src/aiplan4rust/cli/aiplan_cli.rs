@@ -1,5 +1,5 @@
 use crate::aiplan4rust::file_format::FileFormat;
-use crate::aiplan4rust::parser::Language;
+use crate::aiplan4rust::syntax::Language;
 
 use clap::Arg;
 use clap::Command;

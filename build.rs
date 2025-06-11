@@ -1,8 +1,8 @@
 use lalrpop::Configuration;
 
 fn main() {
-    let input_dir = "src/aiplan4rust/parser/";
-    let output_dir = "src/aiplan4rust/parser/";
+    let input_dir = "src/aiplan4rust/syntax/";
+    let output_dir = "src/aiplan4rust/syntax/";
 
     std::fs::create_dir_all(output_dir).expect("Failed to create output directory");
 

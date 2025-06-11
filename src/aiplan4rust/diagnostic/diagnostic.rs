@@ -1,7 +1,7 @@
 use std::fmt;
-use crate::aiplan4rust::diagnostic::diagnostic_kind::DiagnosticKind;
-use crate::aiplan4rust::diagnostic::DiagnosticSource;
-use crate::aiplan4rust::parser::Span;
+use crate::aiplan4rust::diagnostic::kind::Kind;
+use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::syntax::Span;
 
 /// Represents a diagnostic generated during parsing, validation, or compilation.
 ///
@@ -11,10 +11,10 @@ use crate::aiplan4rust::parser::Span;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Diagnostic {
     /// The kind of diagnostic (e.g., Error, Warning, Info).
-    pub kind: DiagnosticKind,
+    pub kind: Kind,
 
     /// The source of the diagnostic (Domain, Problem, or Unknown).
-    pub source: DiagnosticSource,
+    pub source: Provider,
 
     /// The name of the file where the diagnostic occurred.
     pub filename: String,
@@ -33,8 +33,8 @@ impl Diagnostic {
     /// * `filename` - The path of the file in which the diagnostic was found.
     /// * `span` - The position in the file where the issue occurred.
     pub fn new(
-        kind: DiagnosticKind,
-        source: DiagnosticSource,
+        kind: Kind,
+        source: Provider,
         filename: String,
         span: Span,
     ) -> Self {
@@ -47,12 +47,12 @@ impl Diagnostic {
     }
 
     /// Returns a reference to the kind of this diagnostic.
-    pub fn kind(&self) -> &DiagnosticKind {
+    pub fn kind(&self) -> &Kind {
         &self.kind
     }
 
     /// Returns a reference to the source of this diagnostic.
-    pub fn source(&self) -> &DiagnosticSource {
+    pub fn source(&self) -> &Provider {
         &self.source
     }
 
@@ -67,12 +67,12 @@ impl Diagnostic {
     }
 
     /// Sets the kind of this diagnostic.
-    pub fn set_kind(&mut self, kind: DiagnosticKind) {
+    pub fn set_kind(&mut self, kind: Kind) {
         self.kind = kind;
     }
 
     /// Sets the source of this diagnostic.
-    pub fn set_source(&mut self, source: DiagnosticSource) {
+    pub fn set_source(&mut self, source: Provider) {
         self.source = source;
     }
 

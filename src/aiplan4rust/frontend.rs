@@ -1,14 +1,14 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::linker::LiftedPlanningTask;
-use crate::aiplan4rust::linker::Linker;
-use crate::aiplan4rust::linker::LinkerResult;
-use crate::aiplan4rust::parser::Language;
-use crate::aiplan4rust::parser::Parser;
-use crate::aiplan4rust::analyser::Analyzer;
-use crate::aiplan4rust::analyser::AnalyzerResult;
-use crate::aiplan4rust::analyser::AnnotatedSyntaxTree;
-use crate::aiplan4rust::analyser::LiftedDomain;
-use crate::aiplan4rust::analyser::LiftedProblem;
+use crate::aiplan4rust::linking::LiftedPlanningTask;
+use crate::aiplan4rust::linking::Linker;
+use crate::aiplan4rust::linking::LinkerResult;
+use crate::aiplan4rust::syntax::Language;
+use crate::aiplan4rust::syntax::Parser;
+use crate::aiplan4rust::semantic::Analyzer;
+use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::semantic::hir::HirTree;
+use crate::aiplan4rust::semantic::hir::LiftedDomain;
+use crate::aiplan4rust::semantic::hir::LiftedProblem;
 use crate::aiplan4rust::FileFormat;
 
 use serde::Deserialize;
@@ -84,12 +84,12 @@ impl Frontend {
     /// 2. Uses the `Parser` to parse the content into a `SyntaxTree`.
     /// 3. If the `SyntaxTree` is successfully parsed, it performs semantic analysis using the
     ///    `Analyzer`.
-    /// 4. Adds any errors from the parser's `ErrorManager` to the semantic analysis result's
+    /// 4. Adds any errors from the syntax's `ErrorManager` to the semantic analysis result's
     ///    `ErrorManager`.
     /// 5. Displays all errors encountered during parsing and analysis.
     ///
     /// If no `SyntaxTree` is produced, it returns an `AnalyzerResult` with no syntax tree and the
-    /// errors from the parser.
+    /// errors from the syntax.
     ///
     /// # Arguments
     /// - `source_path`: A string slice representing the path to the source file to be parsed.
@@ -106,7 +106,7 @@ impl Frontend {
     ///
     /// # Example
     /// ```rust
-    /// let result = parser.parse_file("path/to/source/file.pddl", Language::PDDL);
+    /// let result = syntax.parse_file("path/to/source/file.pddl", Language::PDDL);
     /// match result {
     ///     Ok(analysis_result) => { /* Process analysis result */ },
     ///     Err(error) => { /* Handle error */ },
@@ -120,13 +120,13 @@ impl Frontend {
         // Attempt to read the content of the source file.
         let content = self.read_file(source_path)?;
 
-        // Create a new parser instance.
+        // Create a new syntax instance.
         let mut parser = Parser::new();
 
         // Attempt to parse the content, returning the result in parser_result.
         let mut parser_result = parser.parse(source_path, &content, language)?;
 
-        // Match on the syntax tree from the parser result.
+        // Match on the syntax tree from the syntax result.
         match parser_result.syntax_tree() {
             // If the syntax tree is present, perform semantic analysis.
             Some(syntax_tree) => {
@@ -134,7 +134,7 @@ impl Frontend {
                 let mut analyzer = Analyzer::new();
                 let mut analysis_result = analyzer.analyze(syntax_tree)?;
 
-                // Add errors from the parser's error manager to the analysis result.
+                // Add errors from the syntax's error manager to the analysis result.
                 analysis_result
                     .diagnostic_manager_mut()
                     .add_diagnostic_from(&parser_result.diagnostic_manager());
@@ -168,7 +168,7 @@ impl Frontend {
         let mut linker = Linker::new();
         let mut linker_result = linker.link(lifted_domain, lifted_problem)?;
 
-        // Ajouter toutes les erreurs du gestionnaire d'erreurs dans le résultat du linker
+        // Ajouter toutes les erreurs du gestionnaire d'erreurs dans le résultat du linking
         linker_result
             .diagnostic_manager_mut()
             .add_diagnostic_from(&diagnostic_manager);
@@ -177,7 +177,7 @@ impl Frontend {
         Ok(linker_result)
     }
 
-    // Fonction générique pour essayer de parser en JSON ou YAML
+    // Fonction générique pour essayer de syntax en JSON ou YAML
     fn try_parse_pddl_file<T: for<'de> Deserialize<'de>>(
         content: &str,
         format: FileFormat,
@@ -279,7 +279,7 @@ impl Frontend {
     /// Serialize the AnnotatedSyntaxTree to a string in the specified format
     pub fn serialize_to_string(
         &self,
-        data: &AnnotatedSyntaxTree,
+        data: &HirTree,
         format: &FileFormat,
     ) -> Result<String, ParserInternalError> {
         match format {
@@ -293,7 +293,7 @@ impl Frontend {
     // Serialize the AnnotatedSyntaxTree to a file (JSON or YAML)
     pub fn serialize_to_file(
         &self,
-        data: &AnnotatedSyntaxTree,
+        data: &HirTree,
         format: &FileFormat,
         output_file: &str,
     ) -> Result<(), ParserInternalError> {
