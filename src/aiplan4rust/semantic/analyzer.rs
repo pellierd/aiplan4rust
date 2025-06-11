@@ -7,7 +7,6 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::hir::HirTree;
 
-use std::mem;
 use crate::aiplan4rust::semantic::normalization::{normalize_type_declarations, normalize_typed_list};
 use crate::aiplan4rust::semantic;
 
@@ -55,89 +54,54 @@ impl Analyzer {
         &self.diagnostic_manager
     }
 
-    /// Analyzes the given `SyntaxTree` and performs semantic checks.
-    ///
-    /// This function takes a `SyntaxTree` as input and processes it to produce an
-    /// `AnnotatedSyntaxTree`, which contains additional semantic information.
-    /// It also performs error detection and collects any encountered issues.
-    ///
-    /// # Arguments
-    ///
-    /// * `ast` - A reference to the `SyntaxTree` to be analyzed.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `Result<AnalyzerResult, ParserInternalError>`, where:
-    /// - `Ok(AnalyzerResult)` contains the annotated syntax tree if no critical errors were found.
-    /// - `Err(ParserInternalError)` is returned if an internal error occurs during analysis.
-    ///
-    /// # Errors
-    ///
-    /// This function can return a `ParserInternalError` in the following cases:
-    /// - If the `ast` cannot be converted into an `AnnotatedSyntaxTree`.
-    /// - If the AST type is not recognized (`AstKind::Domain` or `AstKind::Problem` expected).
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let ast = SyntaxTree::new();
-    /// let mut analyzer = Analyzer::new();
-    ///
-    /// match analyzer.analyze(&ast) {
-    ///     Ok(result) => {
-    ///         if let Some(annotated_tree) = result.annotated_tree() {
-    ///             println!("Analysis successful: {:?}", annotated_tree);
-    ///         } else {
-    ///             println!("Analysis completed with warnings.");
-    ///         }
-    ///     }
-    ///     Err(error) => eprintln!("Error during analysis: {}", error),
-    /// }
-    /// ```
-    ///
-    /// # Notes
-    ///
-    /// - If semantic errors are found but they do not prevent further processing,
-    ///   the function will return an `AnalyzerResult` with `None` for the annotated tree,
-    ///   but still provide the collected errors.
-    /// - The function assumes that the `ast` has already been parsed
-    ///   and that it contains a valid AST representation.
-    pub fn analyze(
-        &mut self,
-        syntax_tree: &Ast,
-    ) -> Result<AnalyzerResult, ParserInternalError> {
-        // Create the `AnnotatedSyntaxTree` using the dedicated `from` function
-        let mut annotated_syntax_tree = HirTree::from(syntax_tree)?;
+    pub fn analyze(&mut self, ast: &Ast) -> Result<AnalyzerResult, ParserInternalError> {
+        self.perform_analysis(ast)
+    }
 
-        // Determine the AST kind and perform the appropriate checks
-        match syntax_tree.root().kind() {
+    pub fn analyze_with_diagnostic_manager(
+        &mut self,
+        ast: &Ast,
+        diagnostic_manager: DiagnosticManager,
+    ) -> Result<AnalyzerResult, ParserInternalError> {
+        self.diagnostic_manager = diagnostic_manager;
+        self.perform_analysis(ast)
+    }
+
+    fn perform_analysis(
+        &mut self,
+        ast: &Ast,
+    ) -> Result<AnalyzerResult, ParserInternalError> {
+        // Step 1: Convert to annotated HIR
+        let mut annotated_syntax_tree = HirTree::from(ast)?;
+
+        // Step 2: Determine kind and apply semantic checks
+        match ast.root().kind() {
             AstKind::Domain => {
                 Self::normalize_domain(&mut annotated_syntax_tree, &mut self.diagnostic_manager)?;
-                Self::check_domain(&annotated_syntax_tree, &mut self.diagnostic_manager)?
-            },
+                Self::check_domain(&annotated_syntax_tree, &mut self.diagnostic_manager)?;
+            }
             AstKind::Problem => {
                 Self::normalize_problem(&mut annotated_syntax_tree, &mut self.diagnostic_manager)?;
-                Self::check_problem(&annotated_syntax_tree, &mut self.diagnostic_manager)?
-            },
+                Self::check_problem(&annotated_syntax_tree, &mut self.diagnostic_manager)?;
+            }
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST node kind found: {}",
-                    syntax_tree.root().kind()
+                    ast.root().kind()
                 )));
             }
-        };
+        }
 
-        // If no parsing errors occurred, return the annotated syntax tree
+        // Step 3: Build the result depending on errors
         if !self.diagnostic_manager.has_diagnotics_of_severity(Severity::Error) {
             Ok(AnalyzerResult::new(
                 Some(annotated_syntax_tree),
-                mem::take(&mut self.diagnostic_manager),
+                std::mem::take(&mut self.diagnostic_manager),
             ))
         } else {
-            // Otherwise, return an empty result with collected errors
             Ok(AnalyzerResult::new(
                 None,
-                mem::take(&mut self.diagnostic_manager),
+                std::mem::take(&mut self.diagnostic_manager),
             ))
         }
     }

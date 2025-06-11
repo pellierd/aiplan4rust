@@ -55,6 +55,7 @@ impl ParserResult {
         self.syntax_tree.as_mut()
     }
 
+
     /// Returns an immutable reference to the diagnostic manager.
     ///
     /// The diagnostic manager contains all diagnostics produced during the parsing process.
@@ -67,6 +68,16 @@ impl ParserResult {
     /// Allows appending new diagnostics or modifying the internal state.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
+    }
+
+    // Prend la possession de l'AST
+    pub fn take_ast(&mut self) -> Option<Ast> {
+        self.syntax_tree.take()
+    }
+
+    // Prend la possession des diagnostics
+    pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
+        std::mem::take(&mut self.diagnostic_manager)
     }
 
     /// Returns `true` if parsing succeeded and a syntax tree is available.

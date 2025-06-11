@@ -5,6 +5,7 @@ use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::syntax::Language;
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::Analyzer;
+use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::hir::HirTree;
 use crate::aiplan4rust::semantic::hir::LiftedDomain;
@@ -120,35 +121,47 @@ impl Frontend {
         // Attempt to read the content of the source file.
         let content = self.read_file(source_path)?;
 
-        // Create a new syntax instance.
+        // Create a new parser instance.
         let mut parser = Parser::new();
 
-        // Attempt to parse the content, returning the result in parser_result.
+        // Parse the content.
         let mut parser_result = parser.parse(source_path, &content, language)?;
 
-        // Match on the syntax tree from the syntax result.
-        match parser_result.syntax_tree() {
-            // If the syntax tree is present, perform semantic analysis.
-            Some(syntax_tree) => {
-                // Create a new analyzer and perform semantic analysis on the syntax tree.
-                let mut analyzer = Analyzer::new();
-                let mut analysis_result = analyzer.analyze(syntax_tree)?;
+        // Match on the AST extracted from parsing.
+        match parser_result.take_ast() {
+            Some(raw_ast) => {
+                // Take diagnostics from parser result.
+                let mut diagnostic_manager = parser_result.take_diagnostic_manager();
 
-                // Add errors from the syntax's error manager to the analysis result.
-                analysis_result
-                    .diagnostic_manager_mut()
-                    .add_diagnostic_from(&parser_result.diagnostic_manager());
+                // Normalize the AST while merging diagnostics.
+                let mut normalizer = Normalizer::new();
+                let mut normalizer_result =
+                    normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
 
+                match normalizer_result.take_ast() {
+                    Some(normalized_ast) => {
+                        // Retrieve diagnostics accumulated during normalization.
+                        let diagnostic_manager = normalizer_result.take_diagnostic_manager();
 
-                // Return the semantic analysis result.
-                Ok(analysis_result)
+                        // Analyze the normalized AST with the diagnostics.
+                        let mut analyzer = Analyzer::new();
+                        let analysis_result =
+                            analyzer.analyze_with_diagnostic_manager(&normalized_ast, diagnostic_manager)?;
+
+                        // Return the analysis result.
+                        Ok(analysis_result)
+                    }
+                    None => Self::create_error_result(normalizer_result.diagnostic_manager_mut()),
+                }
             }
-            // If no syntax tree is available, return an analysis result with errors.
-            None => Ok(AnalyzerResult::new(
-                None,
-                mem::take(&mut parser_result.diagnostic_manager_mut()),
-            )),
+            None => Self::create_error_result(parser_result.diagnostic_manager_mut()),
         }
+    }
+
+    fn create_error_result(
+        diagnostic_manager: &mut DiagnosticManager,
+    ) -> Result<AnalyzerResult, ParserInternalError> {
+        Ok(AnalyzerResult::new(None, std::mem::take(diagnostic_manager)))
     }
 
     pub fn link(

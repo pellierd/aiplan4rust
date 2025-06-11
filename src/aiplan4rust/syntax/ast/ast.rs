@@ -78,6 +78,15 @@ impl Ast {
         &self.root
     }
 
+    /// Accessor for the AST.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the boxed `Ast` object.
+    pub fn root_mut(&mut self) -> &mut Box<AstNode> {
+        &mut self.root
+    }
+
     /// Accessor for the filename.
     ///
     /// # Returns

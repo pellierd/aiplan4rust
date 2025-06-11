@@ -4,6 +4,7 @@ use std::fmt;
 pub enum Provider {
     Lexer,
     Parser,
+    Normalizer,
     Analyzer,
     Linker,
 }
@@ -13,6 +14,7 @@ impl fmt::Display for Provider {
         let source_str = match self {
             Provider::Lexer => "Lexer",
             Provider::Parser => "Parser",
+            Provider::Normalizer => "Normalizer",
             Provider::Analyzer => "Analyzer",
             Provider::Linker => "Linker",
         };

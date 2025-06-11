@@ -100,6 +100,9 @@ pub enum Kind {
         problem_kind: SymbolKind,
         domain_kinds: Vec<SymbolKind>,
     },
+    DuplicateRequirementDeclarationWarning {
+        requirement: Requirement,
+    },
     CustomError(String),
 }
 
@@ -114,6 +117,8 @@ impl Kind {
             // WARNING PARSER
             Kind::DuplicatedRequirementDeclaration { .. } => "W0001".to_string(),
             Kind::DuplicatedTypeDeclaration { .. } => "W0002".to_string(),
+            // WARNING NORMALIZER
+            Kind::DuplicateRequirementDeclarationWarning { ..  } => "W2001".to_string(),
             // ERROR ANALYSER
             Kind::UnDefinedFunction { .. } => "E1001".to_string(),
             Kind::UnDefinedPredicate { .. } => "E1002".to_string(),
@@ -229,6 +234,9 @@ impl Kind {
             Kind::CrossConflictSymbolDeclarationError { .. } => {
                 "Symbol declaration in problem conflicts with domain declaration.".to_string()
             }
+            Kind::DuplicateRequirementDeclarationWarning { .. } => {
+                "Redundant requirement declaration detected.".to_string()
+            }
             Kind::CustomError(msg) => msg.to_string(),
         }
     }
@@ -244,6 +252,10 @@ impl Kind {
             // PARSER WARNINGS
             Kind::DuplicatedRequirementDeclaration { .. } => Severity::Warning,
             Kind::DuplicatedTypeDeclaration { .. } => Severity::Warning,
+
+            // NORMALIZER WARNINGS
+            Kind::DuplicateRequirementDeclarationWarning { .. } => Severity::Warning,
+
             // ANALYSER ERRORS
             Kind::UnDefinedFunction { .. } => Severity::Error,
             Kind::UnDefinedPredicate { .. } => Severity::Error,
@@ -472,7 +484,9 @@ impl Kind {
                     Self::format_types(types),
                 ))
             }
-
+            Kind::DuplicateRequirementDeclarationWarning { requirement } => {
+                Some(format!("The requirement `{}` was duplicated and has been ignored.", requirement))
+            }
         }
     }
 

@@ -6,7 +6,9 @@ pub mod linking;
 pub mod syntax;
 pub mod pddl_display;
 pub mod semantic;
+pub mod normalization;
 
 pub use file_format::FileFormat;
 pub use frontend::Frontend;
 pub use pddl_display::PDDLDisplay;
+pub use normalization::Normalizer;
