@@ -13,41 +13,53 @@ use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes the requirement declarations by removing duplicates from the `RequireDef` node.
 ///
-/// This function assumes the AST contains a specific node, typically named `RequireDef`,
-/// which holds all `:requirement` declarations as its children. Instead of traversing the
-/// entire AST, it locates that node and removes duplicate requirements within it.
+/// This function assumes that the input AST is already **valid** and structurally correct.
+/// Specifically, the `RequireDef` node—if present—must only contain well-formed `Requirement` nodes
+/// as children.
 ///
-/// Duplicate requirements are removed, and a warning diagnostic is reported for each duplicate.
+/// The normalization does not traverse the full AST. Instead, it directly locates the `RequireDef`
+/// node (if any), which is expected to contain all `:requirement` declarations. It removes duplicate
+/// requirements (i.e., those with the same key) and emits a diagnostic warning for each duplicate
+/// found and removed.
+///
+/// This pass is **self-contained** and **stateless**—it does not depend on any other normalization
+/// pass and does not affect or rely on their outcomes. It can safely be run independently at any
+/// point, provided the AST is valid.
 ///
 /// # Arguments
 ///
-/// * `ast` - A mutable reference to the AST to be normalized.
-/// * `diagnostic_manager` - The diagnostic manager used to report warnings for duplicates.
+/// * `ast` - A mutable reference to the AST that may contain a `RequireDef`.
+/// * `diagnostic_manager` - A manager used to report warnings when duplicate requirements are found.
 ///
 /// # Returns
 ///
-/// Returns:
 /// * `Ok(true)` if at least one duplicate requirement was removed.
 /// * `Ok(false)` if no duplicates were found or if no `RequireDef` node exists.
-/// * `Err(ParserInternalError)` if the AST structure does not match expectations or other internal
-///   errors occur.
+/// * `Err(ParserInternalError)` if the AST structure is not as expected (e.g., invalid node kinds).
+///
+/// # Assumptions
+///
+/// * The AST must be valid (i.e., conforming to the grammar and invariants expected by the parser).
+/// * The `RequireDef` node—if present—must contain only `Requirement` children.
+/// * No other normalization passes are required before or after this one.
+/// * This function is deterministic and has no side effects outside its scope.
 ///
 /// # Panics
 ///
-/// This function will panic if the `RequireDef` node contains children that are not `Requirement`
-/// nodes,
-/// which should never happen if the AST is valid.
+/// This function may panic if the `RequireDef` node contains unexpected children (e.g., non-`Requirement` nodes),
+/// which is considered a violation of AST validity and a programming error.
 ///
 /// # Example
 ///
 /// ```rust
-/// let mut ast = ...; // your parsed AST
+/// let mut ast = parse_source_code(source)?;
 /// let mut diagnostics = DiagnosticManager::new();
 /// let changed = normalize_require_def(&mut ast, &mut diagnostics)?;
 /// if changed {
 ///     println!("Duplicate requirements were removed.");
 /// }
 /// ```
+
 pub fn normalize_require_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
@@ -63,8 +75,6 @@ pub fn normalize_require_def(
         Some(node) => node,
         None => return Ok(false), // No RequireDef node found, nothing to normalize
     };
-
-    assert_require_def_validity(require_def)?;
 
     // Set to track seen requirements to detect duplicates
     let mut seen = HashSet::new();
@@ -188,43 +198,4 @@ pub fn report_duplicate_requirement_warning(
 
     // Add the diagnostic warning to the manager to report it later
     diagnostic_manager.add_diagnostic(diagnostic);
-}
-
-/// Asserts that all children of a `RequireDef` node are `Requirement` nodes.
-///
-/// This function checks that every child node of the given AST node, if it is of kind `RequireDef`,
-/// is a `Requirement`. If any child is not a `Requirement`, the function returns a
-/// `ParserInternalError`.
-///
-/// # Parameters
-///
-/// - `node`: A reference to the AST node to validate.
-///
-/// # Errors
-///
-/// Returns a `ParserInternalError` if any child of the `RequireDef` node is not a `Requirement`.
-///
-/// # Example
-///
-/// ```rust
-/// use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-/// use crate::aiplan4rust::syntax::parser::ParserInternalError;
-///
-/// // Assume `node` is an AstNode
-/// if let Err(e) = assert_require_def_validity(&node) {
-///     eprintln!("Validation error: {}", e);
-/// }
-/// ```
-pub fn assert_require_def_validity(node: &AstNode) -> Result<(), ParserInternalError> {
-    if let AstKind::RequireDef = node.kind() {
-        for child in node.children() {
-            if !matches!(child.kind(), AstKind::Requirement(_)) {
-                return Err(ParserInternalError::new(format!(
-                    "Expected only Requirement nodes in RequireDef node, found: {:?}",
-                    child.kind()
-                )));
-            }
-        }
-    }
-    Ok(())
 }

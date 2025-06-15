@@ -176,8 +176,6 @@ fn report_duplicate_either_type_warning(
     diagnostic_manager.add_diagnostic(diagnostic);
 }
 
-
-
 /// Asserts that all children of a `Type` node are `PrimitiveType` nodes.
 ///
 /// This function checks that every child node of the given AST node, if it is of kind `Type`,
