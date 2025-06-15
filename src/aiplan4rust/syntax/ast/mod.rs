@@ -36,6 +36,7 @@ pub mod ast;
 
 pub mod kind;
 mod iterators;
+pub mod serialize;
 
 pub use kind::Kind as AstKind;
 pub use node::Node as AstNode;

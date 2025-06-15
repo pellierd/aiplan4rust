@@ -1,11 +1,14 @@
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::{AstNode, Span};
 use crate::aiplan4rust::syntax::ast::iterators::{PostorderIterator, PreorderIterator};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::ast::serialize::SerializableNode;
 
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Write;
+
+use serde::{Serialize, Serializer, Deserialize, Deserializer};
 
 
 /// Represents a node in the Abstract Syntax Tree (AST).
@@ -28,7 +31,7 @@ use std::fmt::Write;
 /// let node = Node::new(AstKind::Domain, vec![], 0, 10);
 /// println!("Created node: {:?}", node);
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Node {
     id: usize,
     kind: AstKind,
@@ -81,6 +84,7 @@ impl Node {
         }
     }
 
+
     // === Accessors & Mutators ===
 
     /// Returns the total size of the subtree (number of nodes).
@@ -113,6 +117,10 @@ impl Node {
         &self.kind
     }
 
+    pub fn kind_mut(&mut self) -> &mut AstKind {
+        &mut self.kind
+    }
+
     /// Changes the node type.
     ///
     /// # Example
@@ -141,6 +149,10 @@ impl Node {
     /// Returns a reference to the node's span.
     pub fn span(&self) -> &Span {
         &self.span
+    }
+
+    pub fn span_mut(&mut self) -> &mut Span {
+        &mut self.span
     }
 
     /// Returns the start offset in the character stream.
@@ -303,6 +315,30 @@ impl Node {
             }
         }
         Ok(())
+    }
+}
+
+
+impl Serialize for AstNode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Convertit AstNode en SerializableNode puis sérialise
+        let serializable: SerializableNode = self.into(); // clone car tu as que &self
+        serializable.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for AstNode {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Désérialise d'abord en SerializableNode
+        let serializable = SerializableNode::deserialize(deserializer)?;
+        // Convertit en AstNode
+        Ok(serializable.into_ast_node())
     }
 }
 

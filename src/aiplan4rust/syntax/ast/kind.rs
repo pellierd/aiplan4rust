@@ -43,8 +43,10 @@ use std::fmt;
 /// distinct component or structure in the domain or problem specification. It allows the
 /// representation and manipulation of different parts of a planning problem or domain in a
 /// structured and organized way.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Kind {
+    #[default]
+    Default,
     /// Represents a constant value in the planning problem, typically a literal or a fixed value.
     Constant(String),
     /// Represents a variable used in actions or predicates, typically a placeholder for values.
@@ -297,6 +299,7 @@ impl fmt::Display for Kind {
     /// - Returns a `fmt::Result`, which indicates whether the formatting operation was successful.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Kind::Default => write!(f, "Default"),
             Kind::Constant(symbol) => write!(f, "Constant(\"{}\")", symbol),
             Kind::Variable(symbol) => write!(f, "Variable(\"{}\")", symbol),
             Kind::FunctionSymbol(symbol) => write!(f, "FunctionSymbol(\"{}\")", symbol),

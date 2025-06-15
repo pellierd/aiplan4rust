@@ -147,9 +147,8 @@ impl<'a> Parser<'a> {
             Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
         } else {
             match parse_result {
-                Ok(mut ast) => {
-                    self.process_ast(&mut ast, source)?;
-
+                Ok(mut root) => {
+                    self.process_ast(&mut root, source)?;
                     //println!("AST: {}", ast);
                     if self
                         .diagnostic_manager()
@@ -157,10 +156,10 @@ impl<'a> Parser<'a> {
                     {
                         Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                     } else {
-                        let syntax_tree =
-                            Ast::new(ast, source_name.to_string(), SystemTime::now());
+                        let ast =
+                            Ast::new(root, source_name.to_string(), SystemTime::now());
                         Ok(ParserResult::new(
-                            Some(syntax_tree),
+                            Some(ast),
                             mem::take(&mut self.diagnostic_manager),
                         ))
                     }

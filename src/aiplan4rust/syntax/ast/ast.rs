@@ -3,7 +3,11 @@ use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::frontend::ParserInternalError;
 
 use linked_hash_map::LinkedHashMap;
+use std::io::Write;
 use std::fmt;
+use std::fs::File;
+use std::path::Path;
+use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::semantic::hir::HirNode;
 
 /// A structure representing an abstract syntax tree (AST) and its metadata.
@@ -33,7 +37,7 @@ use crate::aiplan4rust::semantic::hir::HirNode;
 /// let source = ast.source_name();
 /// let timestamp = ast.generated_at();
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Ast {
     /// The Abstract Syntax Tree (AST) representing the structure of the program.
     root: Box<AstNode>,
@@ -78,6 +82,7 @@ impl Ast {
             generated_at,
         }
     }
+
     /// Accessor for the AST.
     ///
     /// # Returns
@@ -96,7 +101,6 @@ impl Ast {
         &mut self.root
     }
 
-
     /// Returns a reference to the source name.
     ///
     /// # Returns
@@ -111,6 +115,30 @@ impl Ast {
     /// ```
     pub fn source_name(&self) -> &String {
         &self.source_name
+    }
+
+    /// Returns the timestamp at which the AST was generated.
+    ///
+    /// This method provides access to the creation time of the AST,
+    /// which can be useful for tracking, debugging, or caching purposes.
+    ///
+    /// # Returns
+    /// A [`SystemTime`] value indicating when the AST was built.
+    ///
+    /// # Example
+    /// ```rust
+    /// let ast = ...; // An instance of `Ast`
+    /// let timestamp = ast.generated_at();
+    /// println!("AST generated at: {:?}", timestamp);
+    /// ```
+    ///
+    /// # Note
+    /// This timestamp is typically set during AST construction and
+    /// represents the system time at that moment.
+    ///
+    /// [`SystemTime`]: std::time::SystemTime
+    pub fn generated_at(&self) -> std::time::SystemTime {
+        self.generated_at
     }
 
     /// Assign unique consecutive IDs to all nodes in the AST starting from `start_id`.
