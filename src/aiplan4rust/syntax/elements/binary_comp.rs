@@ -3,7 +3,7 @@ use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
 use crate::aiplan4rust::syntax::lexer::token::LESS;
 use crate::aiplan4rust::syntax::lexer::token::LESS_EQ;
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -56,4 +56,4 @@ impl fmt::Display for BinaryComp {
     }
 }
 
-impl PDDLDisplay for BinaryComp {}
+impl SyntaxDisplay for BinaryComp {}

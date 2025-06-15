@@ -20,7 +20,7 @@ use crate::aiplan4rust::syntax::lexer::token::STRIPS;
 use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
 use crate::aiplan4rust::syntax::lexer::token::TYPING;
 use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -158,7 +158,7 @@ impl fmt::Display for Requirement {
     }
 }
 
-impl PDDLDisplay for Requirement {
+impl SyntaxDisplay for Requirement {
     /// Converts the `Requirement` into its PDDL-compliant string representation.
     ///
     /// This function leverages the `Display` trait implementation to generate
@@ -166,7 +166,7 @@ impl PDDLDisplay for Requirement {
     ///
     /// # Returns
     /// - A `String`
-    fn to_pddl_string(&self) -> String {
+    fn to_syntax_string(&self) -> String {
         format!("{}", self)
     }
 }

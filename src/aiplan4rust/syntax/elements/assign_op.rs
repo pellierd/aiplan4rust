@@ -3,7 +3,7 @@ use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_DOWN;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_UP;
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -46,4 +46,4 @@ impl fmt::Display for AssignOp {
     }
 }
 
-impl PDDLDisplay for AssignOp {}
+impl SyntaxDisplay for AssignOp {}

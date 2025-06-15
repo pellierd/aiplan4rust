@@ -5,11 +5,11 @@ use std::fmt;
 /// Represents the outcome of a parsing operation in the PDDL syntax.
 ///
 /// This structure encapsulates two core elements:
-/// - An optional [`AstNode`], which is produced only if parsing succeeds without unrecoverable errors.
-/// - A [`DiagnosticManager`] that stores all diagnostics (errors, warnings, etc.) generated during parsing.
+/// - An optional [`Ast`] containing the parsed abstract syntax tree if parsing succeeded.
+/// - A [`DiagnosticManager`] storing all diagnostics (errors, warnings, etc.) generated during parsing.
 ///
-/// The `ParserResult` acts as a unified return type for the parsing phase,
-/// making it easier to inspect whether parsing succeeded, and to access detailed error reports.
+/// `ParserResult` serves as a unified return type for the parsing phase,
+/// enabling straightforward inspection of success and detailed diagnostics access.
 ///
 /// # Example
 /// ```
@@ -22,96 +22,95 @@ use std::fmt;
 /// ```
 #[derive(Debug, Clone)]
 pub struct ParserResult {
-    syntax_tree: Option<Ast>,
+    ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
 }
 
 impl ParserResult {
-    /// Constructs a new `ParserResult` with a given syntax tree and diagnostic manager.
+    /// Creates a new `ParserResult` from an optional AST and diagnostic manager.
     ///
     /// # Arguments
-    /// * `ast` - The resulting syntax tree, or `None` if parsing failed completely.
-    /// * `diagnostic_manager` - A manager that tracks diagnostics emitted during parsing.
-    pub fn new(syntax_tree: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
+    ///
+    /// * `ast` - The resulting AST from parsing, or `None` if parsing failed completely.
+    /// * `diagnostic_manager` - Container for all diagnostics produced during parsing.
+    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
         ParserResult {
-            syntax_tree,
+            ast,
             diagnostic_manager,
         }
     }
 
-    /// Returns an immutable reference to the parsed syntax tree, if available.
+    /// Returns an immutable reference to the parsed AST if available.
     ///
     /// # Returns
-    /// * `Some(&SyntaxTree)` if parsing succeeded.
-    /// * `None` if parsing failed.
-    pub fn syntax_tree(&self) -> Option<&Ast> {
-        self.syntax_tree.as_ref()
-    }
-
-    /// Returns a mutable reference to the parsed syntax tree, if available.
     ///
-    /// This allows further modifications to the tree after parsing.
-    pub fn syntax_tree_mut(&mut self) -> Option<&mut Ast> {
-        self.syntax_tree.as_mut()
+    /// * `Some(&Ast)` if parsing succeeded.
+    /// * `None` if parsing failed.
+    pub fn ast(&self) -> Option<&Ast> {
+        self.ast.as_ref()
     }
 
+    /// Returns a mutable reference to the parsed AST if available.
+    ///
+    /// Allows modifying the AST after parsing.
+    pub fn ast_mut(&mut self) -> Option<&mut Ast> {
+        self.ast.as_mut()
+    }
 
     /// Returns an immutable reference to the diagnostic manager.
     ///
-    /// The diagnostic manager contains all diagnostics produced during the parsing process.
+    /// This contains all errors, warnings, and notes produced during parsing.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
     /// Returns a mutable reference to the diagnostic manager.
     ///
-    /// Allows appending new diagnostics or modifying the internal state.
+    /// Enables adding or modifying diagnostics post-parsing.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
 
-    // Prend la possession de l'AST
+    /// Takes ownership of the AST, leaving `None` in its place.
     pub fn take_ast(&mut self) -> Option<Ast> {
-        self.syntax_tree.take()
+        self.ast.take()
     }
 
-    // Prend la possession des diagnostics
+    /// Takes ownership of the diagnostic manager, replacing it with a default empty one.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         std::mem::take(&mut self.diagnostic_manager)
     }
 
-    /// Returns `true` if parsing succeeded and a syntax tree is available.
+    /// Returns `true` if the parsing produced a valid AST.
     pub fn is_some(&self) -> bool {
-        self.syntax_tree.is_some()
+        self.ast.is_some()
     }
 
-    /// Returns `true` if parsing failed and no syntax tree was produced.
+    /// Returns `true` if parsing failed and no AST was produced.
     pub fn is_none(&self) -> bool {
-        self.syntax_tree.is_none()
+        self.ast.is_none()
     }
 }
 
 impl fmt::Display for ParserResult {
-    /// Formats the syntax result into a human-readable string.
+    /// Formats the parser result as a human-readable string.
     ///
-    /// Displays whether the parsing was successful, the root of the syntax tree (if any),
-    /// and all associated diagnostics.
+    /// Displays the AST root if parsing succeeded, and lists all diagnostics.
+    /// If parsing failed, displays all diagnostics related to the failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.syntax_tree {
+        match &self.ast {
             Some(tree) => {
-                // If the syntax tree exists, display the tree and any errors.
                 write!(f, "Parsing successful:\n{}", tree.root())?;
                 if !self.diagnostic_manager().is_empty() {
-                    write!(f, "\nErrors encountered during parsing:\n")?;
+                    write!(f, "\nDiagnostics encountered during parsing:\n")?;
                     for diagnostic in self.diagnostic_manager().diagnostics() {
                         write!(f, "{}\n", diagnostic)?;
                     }
                 } else {
-                    write!(f, "\nNo errors detected.")?;
+                    write!(f, "\nNo diagnostics detected.")?;
                 }
             }
             None => {
-                // If no syntax tree is available, display parsing failure and errors.
                 write!(f, "Parsing failed:\n")?;
                 for diagnostic in self.diagnostic_manager().diagnostics() {
                     write!(f, "{}\n", diagnostic)?;

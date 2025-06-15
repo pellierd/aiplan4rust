@@ -21,7 +21,7 @@ use crate::aiplan4rust::syntax::lexer::token::REQUIREMENTS;
 use crate::aiplan4rust::syntax::lexer::token::TYPES;
 use crate::aiplan4rust::syntax::lexer::token::WHEN;
 
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 use ordered_float::OrderedFloat;
 
@@ -395,7 +395,7 @@ impl fmt::Display for Kind {
     }
 }
 
-impl PDDLDisplay for Kind {
+impl SyntaxDisplay for Kind {
     /// Converts the `AstKind` variant to its corresponding PDDL string representation.
     ///
     /// This method implements the `PDDLDisplay` trait for the `AstKind` enum and provides
@@ -406,7 +406,7 @@ impl PDDLDisplay for Kind {
     /// # Returns
     ///
     /// Returns a `String` containing the PDDL representation of the current `AstKind` variant.
-    fn to_pddl_string(&self) -> String {
+    fn to_syntax_string(&self) -> String {
         match self {
             Kind::Constant(symbol)
             | Kind::Variable(symbol)
@@ -444,11 +444,11 @@ impl PDDLDisplay for Kind {
             | Kind::AtomicFormula
             | Kind::FunctionTerm => "".to_string(),
 
-            Kind::Requirement(req) => req.to_pddl_string(),
+            Kind::Requirement(req) => req.to_syntax_string(),
 
-            Kind::FComp(op) => op.to_pddl_string(),
-            Kind::Assign(op) => op.to_pddl_string(),
-            Kind::Operation(op) => op.to_pddl_string(),
+            Kind::FComp(op) => op.to_syntax_string(),
+            Kind::Assign(op) => op.to_syntax_string(),
+            Kind::Operation(op) => op.to_syntax_string(),
 
             _ => format!("{}", self), // Default fallback
         }

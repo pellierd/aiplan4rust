@@ -51,13 +51,22 @@
 /// If parsing errors occur, detailed error messages with line and column information
 /// will be displayed to help locate and fix issues.
 ///
+/// # Syntax Display Trait
+/// The `SyntaxDisplay` trait provides a standardized interface for converting
+/// AST nodes into their syntax string representations. This abstraction supports
+/// multiple planning domain languages such as PDDL and HDDL, enabling consistent
+/// and customizable pretty-printing and serialization of AST structures.
+///
+/// Implementors of `SyntaxDisplay` must provide methods to produce a string
+/// representation optionally respecting indentation or depth for formatting.
+///
 /// # Modules
 /// This crate exposes submodules for language definitions, lexical analysis,
-/// parsing, grammar rules, AST structures, spans, and parser results.
+/// parsing, grammar rules, AST structures, spans, parser results, and syntax display.
 ///
 /// # Exports
-/// Key components like `Language`, `Parser`, `ParserResult`, `Span`, `AstKind`, and `AstNode`
-/// are re-exported for convenient external use.
+/// Key components like `Language`, `Parser`, `ParserResult`, `Span`, `AstKind`, `AstNode`,
+/// and `SyntaxDisplay` are re-exported for convenient external use.
 pub mod elements;
 pub mod language;
 pub mod lexer;
@@ -66,6 +75,7 @@ pub mod parser_result;
 pub mod grammar;
 pub mod span;
 pub mod ast;
+pub mod display;
 
 pub use language::Language;
 pub use parser::Parser;
@@ -73,3 +83,4 @@ pub use parser_result::ParserResult;
 pub use span::Span;
 pub use ast::AstKind;
 pub use ast::AstNode;
+pub use display::Display as SyntaxDisplay;

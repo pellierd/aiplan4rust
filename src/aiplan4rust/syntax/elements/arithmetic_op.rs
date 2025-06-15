@@ -2,7 +2,7 @@ use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;
 use crate::aiplan4rust::syntax::lexer::token::SUB;
-use crate::aiplan4rust::pddl_display::PDDLDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -50,4 +50,4 @@ impl fmt::Display for ArithmeticOp {
     }
 }
 
-impl PDDLDisplay for ArithmeticOp {}
+impl SyntaxDisplay for ArithmeticOp {}

@@ -1,33 +1,32 @@
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::PDDLDisplay;
-use crate::aiplan4rust::syntax::ast::iterators::PostorderIterator;
-use crate::aiplan4rust::syntax::ast::iterators::PreorderIterator;
+use crate::aiplan4rust::syntax::ast::iterators::{PostorderIterator, PreorderIterator};
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::Write;
-use std::hash::Hash;
 
-/// Represents an Abstract Syntax Tree (AST) used to model elements of a program or PDDL
-/// specification.
+
+/// Represents a node in the Abstract Syntax Tree (AST).
 ///
-/// This structure derives the `Clone`, `Debug`, and `Deserialize` traits, allowing instances of
-/// `Ast` to be cloned, displayed for debugging, serialiszed or deserialized from data formats such
-/// as JSON or YAML.
+/// This struct models a syntactic element of a program or a PDDL specification.
+/// Each node contains:
+/// - a type (`AstKind`) indicating its syntactic category,
+/// - a list of child nodes,
+/// - a span (`Span`) representing its position in the source file,
+/// - and a unique identifier that can be assigned.
 ///
-/// # Fields (Private)
-/// - `kind`: The type of the element represented by this AST node. It is an `AstKind`.
-/// - `children`: A list of child `Ast` elements, represented as a `Vec<Box<Ast>>`.
-/// - `start`, `end`, `begin_line`, `begin_column`, `end_line`, `end_column`: Positioning data in
-/// the original input.
+/// # Derived Traits
+/// - `Clone`, `Debug`, `PartialEq`, `Eq`, `Hash`
 ///
 /// # Example
 /// ```rust
-/// use parser::Ast;
+/// use parser::Node;
 /// use parser::AstKind;
 ///
-/// let ast = Ast::new(AstKind::Domain, 0, 10, 1, 1, 1, 10);
+/// let node = Node::new(AstKind::Domain, vec![], 0, 10);
+/// println!("Created node: {:?}", node);
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Node {
@@ -36,38 +35,26 @@ pub struct Node {
     children: Vec<Box<Node>>,
     span: Span,
 }
+
 impl Node {
-    /// Creates a new AST node with the specified kind, children, start, and end positions.
-    ///
-    /// This function creates a new AST node with the provided kind, list of children nodes, start
-    /// position, and end position.
+    // === Constructors ===
+
+    /// Creates a new AST node with the specified type, children, and source positions.
     ///
     /// # Arguments
-    ///
-    /// * `kind` - The kind of the AST node.
-    /// * `children` - The list of children nodes of the AST node.
-    /// * `start` - The start position of the AST node.
-    /// * `end` - The end position of the AST node.
+    /// - `kind`: The node type (`AstKind`).
+    /// - `children`: Vector of child nodes (`Box<Node>`).
+    /// - `start`: Start position in the character stream (offset).
+    /// - `end`: End position in the character stream (offset).
     ///
     /// # Returns
+    /// A new `Node` instance.
     ///
-    /// A new AST node initialized with the given parameters.
-    ///
-    /// # Examples
-    ///
+    /// # Example
+    /// ```rust
+    /// let node = Node::new(AstKind::PrimitiveType, vec![], 0, 10);
     /// ```
-    /// let kind = AstKind::PrimitiveType;
-    /// let children = vec![]; // Initialize children nodes if any
-    /// let start = 0;
-    /// let end = 10;
-    /// let ast_node = Ast::new(kind, children, start, end);
-    /// ```
-    pub fn new(
-        kind: AstKind,
-        children: Vec<Box<Node>>,
-        start: usize,
-        end: usize,
-    ) -> Node {
+    pub fn new(kind: AstKind, children: Vec<Box<Node>>, start: usize, end: usize) -> Node {
         Node {
             id: usize::MAX,
             kind,
@@ -76,11 +63,16 @@ impl Node {
         }
     }
 
-    pub fn new_with_span(
-        kind: AstKind,
-        children: Vec<Box<Node>>,
-        span: Span,
-    ) -> Node {
+    /// Creates a new AST node with an explicit `Span`.
+    ///
+    /// # Arguments
+    /// - `kind`: The node type.
+    /// - `children`: Child nodes.
+    /// - `span`: Source interval (`Span`).
+    ///
+    /// # Returns
+    /// A new `Node` instance.
+    pub fn new_with_span(kind: AstKind, children: Vec<Box<Node>>, span: Span) -> Node {
         Node {
             id: usize::MAX,
             kind,
@@ -89,29 +81,122 @@ impl Node {
         }
     }
 
+    // === Accessors & Mutators ===
+
+    /// Returns the total size of the subtree (number of nodes).
+    ///
+    /// # Example
+    /// ```rust
+    /// let size = node.size();
+    /// ```
     pub fn size(&self) -> usize {
-        1 + self.children.iter().map(|child| child.size()).sum::<usize>()
+        1 + self.children.iter().map(|c| c.size()).sum::<usize>()
     }
 
+    /// Returns a reference to the node's identifier.
     pub fn id(&self) -> &usize {
         &self.id
     }
 
+    /// Sets the unique identifier for this node.
+    ///
+    /// # Example
+    /// ```rust
+    /// node.set_id(42);
+    /// ```
     pub fn set_id(&mut self, new_id: usize) {
         self.id = new_id;
     }
 
-    /// Recursively assigns unique, consecutive IDs to each node in the AST,
-    /// starting from zero or a specified starting ID.
+    /// Returns a reference to the node's type (`AstKind`).
+    pub fn kind(&self) -> &AstKind {
+        &self.kind
+    }
+
+    /// Changes the node type.
     ///
-    /// This method traverses the tree in pre-order and updates the `id` field
-    /// of each node with a unique value.
-    ///
-    /// # Examples
-    ///
+    /// # Example
+    /// ```rust
+    /// node.set_kind(AstKind::Statement);
     /// ```
-    /// let mut root = AstNode::new(...);
-    /// // Build the tree...
+    pub fn set_kind(&mut self, new_kind: AstKind) {
+        self.kind = new_kind;
+    }
+
+    /// Returns an immutable reference to the child nodes.
+    pub fn children(&self) -> &Vec<Box<Node>> {
+        &self.children
+    }
+
+    /// Returns a mutable reference to the child nodes.
+    pub fn children_mut(&mut self) -> &mut Vec<Box<Node>> {
+        &mut self.children
+    }
+
+    /// Replaces the child nodes with a new vector.
+    pub fn set_children(&mut self, new_children: Vec<Box<Node>>) {
+        self.children = new_children;
+    }
+
+    /// Returns a reference to the node's span.
+    pub fn span(&self) -> &Span {
+        &self.span
+    }
+
+    /// Returns the start offset in the character stream.
+    pub fn start_offset(&self) -> usize {
+        self.span.start()
+    }
+
+    /// Returns the end offset in the character stream.
+    pub fn end_offset(&self) -> usize {
+        self.span.end()
+    }
+
+    /// Returns the start position as (line, column).
+    ///
+    /// Returns `(usize::MAX, usize::MAX)` if not initialized.
+    pub fn start_position(&self) -> (usize, usize) {
+        self.span.start_position()
+    }
+
+    /// Returns the end position as (line, column).
+    ///
+    /// Returns `(usize::MAX, usize::MAX)` if not initialized.
+    pub fn end_position(&self) -> (usize, usize) {
+        self.span.end_position()
+    }
+
+    /// Sets the start position (line, column).
+    ///
+    /// # Arguments
+    /// - `line`: line number.
+    /// - `column`: column number.
+    pub fn set_start_position(&mut self, line: usize, column: usize) {
+        self.span.set_begin_line(line);
+        self.span.set_begin_column(column);
+    }
+
+    /// Sets the end position (line, column).
+    ///
+    /// # Arguments
+    /// - `line`: line number.
+    /// - `column`: column number.
+    pub fn set_end_position(&mut self, line: usize, column: usize) {
+        self.span.set_end_line(line);
+        self.span.set_end_column(column);
+    }
+
+    // === ID Management ===
+
+    /// Recursively assigns unique and consecutive identifiers to all nodes
+    /// in the tree, traversing in preorder.
+    ///
+    /// # Arguments
+    /// - `start_id`: starting identifier (usually 0).
+    ///
+    /// # Example
+    /// ```rust
     /// root.assign_unique_ids(0);
     /// ```
     pub fn assign_unique_ids(&mut self, start_id: usize) {
@@ -127,185 +212,33 @@ impl Node {
         helper(self, &mut counter);
     }
 
-    /// Checks if all node IDs in the AST are unique.
+    /// Checks whether all IDs in the tree are unique.
     ///
-    /// Traverses the tree and collects IDs in a HashSet.
-    /// Returns `true` if all IDs are unique, `false` otherwise.
+    /// # Returns
+    /// `true` if all IDs are unique, otherwise `false`.
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// let mut root = AstNode::new(...);
-    /// // build your tree...
+    /// # Example
+    /// ```rust
     /// assert!(root.check_ids_unique());
     /// ```
     pub fn check_ids_unique(&self) -> bool {
-        fn helper(node: &Node, seen_ids: &mut HashSet<usize>) -> bool {
-            if !seen_ids.insert(node.id) {
-                // ID already exists in the set -> duplicate found
-                return false;
+        fn helper(node: &Node, seen: &mut HashSet<usize>) -> bool {
+            if !seen.insert(node.id) {
+                return false; // Duplicate ID found
             }
-            for child in &node.children {
-                if !helper(child, seen_ids) {
-                    return false;
-                }
-            }
-            true
+            node.children.iter().all(|child| helper(child, seen))
         }
 
-        let mut seen_ids = HashSet::new();
-        helper(self, &mut seen_ids)
+        let mut seen = HashSet::new();
+        helper(self, &mut seen)
     }
 
-    /// Returns the kind of AST node.
-    pub fn kind(&self) -> &AstKind {
-        &self.kind
-    }
+    // === Iterators ===
 
-    /// Modifies the kind of the AST node.
-    ///
-    /// This method updates the `kind` field of the `Ast` object to the provided
-    /// `new_kind`. It allows changing the type of the AST node after its
-    /// creation, enabling dynamic modification of the node's classification
-    /// during the AST construction or traversal.
-    ///
-    /// # Parameters
-    /// - `new_kind`: The new `AstKind` to set for the node.
+    /// Returns an iterator over the tree in preorder (depth-first).
     ///
     /// # Example
-    /// ```
-    /// let mut node = Ast::new(AstKind::Expression, vec![], 0, 10);
-    /// node.set_kind(AstKind::Statement);
-    /// ```
-    pub fn set_kind(&mut self, new_kind: AstKind) {
-        self.kind = new_kind;
-    }
-
-    /// Returns a reference to the vector of children of the AST node.
-    ///
-    /// This method provides access to the vector of children of an AST node.
-    /// It returns an immutable reference to the vector, allowing you to read the children
-    /// but not modify them directly.
-    ///
-    /// # Example
-    /// ```
-    /// let ast = Ast {
-    ///     kind: AstKind::SomeKind,
-    ///     children: vec![],
-    ///     start: 0,
-    ///     end: 10,
-    /// };
-    ///
-    /// // Access the children of the AST (read-only)
-    /// let children = ast.children();
-    /// ```
-    ///
-    /// # Panics
-    /// This method does not panic.
-    ///
-    /// # Returns
-    /// Returns an immutable reference to `self.children` (the vector of `Box<Ast>`).
-    pub fn children(&self) -> &Vec<Box<Node>> {
-        &self.children
-    }
-
-    /// Returns a reference to the `Span` of this `AstEntry`.
-    ///
-    /// # Returns
-    /// * `&Span` - A reference to the span associated with this `AstEntry`.
-    pub fn span(&self) -> &Span {
-        &self.span
-    }
-
-    /// Sets the children nodes of the current `Ast` node.
-    ///
-    /// This method replaces the current list of child nodes with a new list provided as an
-    /// argument. The new children are specified as a `Vec<Box<Ast>>`, where each element represents
-    /// a child node in the Abstract Syntax Tree (AST).
-    ///
-    /// # Arguments
-    ///
-    /// * `new_children` - A vector of `Box<Ast>` representing the new set of children for the
-    /// current node.
-    pub fn set_children(&mut self, new_children: Vec<Box<Node>>) {
-        self.children = new_children;
-    }
-
-    /// Returns a mutable reference to the vector of children of the AST node.
-    ///
-    /// This method allows direct modification of the vector of children of an AST node.
-    /// It returns a mutable reference to the vector, enabling addition, removal, or modification
-    /// of the elements in the vector.
-    ///
-    /// # Panics
-    /// This method does not panic, but a mutable reference to `self` is required to access it.
-    ///
-    /// # Returns
-    /// Returns a mutable reference to `self.children` (the vector of `Box<Ast>`).
-    pub fn children_mut(&mut self) -> &mut Vec<Box<Node>> {
-        &mut self.children
-    }
-
-    /// Returns the starting offset of the AST node in the character stream.
-    ///
-    /// The offset represents the position (in number of characters)
-    /// from the beginning of the input file or stream.
-    pub fn start_offset(&self) -> usize {
-        self.span.start()
-    }
-
-    /// Returns the ending offset of the AST node in the character stream.
-    ///
-    /// The offset represents the position (in number of characters)
-    /// from the beginning of the input file or stream.
-    pub fn end_offset(&self) -> usize {
-        self.span.end()
-    }
-
-    /// Returns the starting location (line, column) of the AST node.
-    ///
-    /// If the location has not been initialized, both `line` and `column` will be set to `usize::MAX`.
-    pub fn start_position(&self) -> (usize, usize) {
-        self.span.start_position()
-    }
-
-    /// Returns the ending location (line, column) of the AST node.
-    ///
-    /// If the location has not been initialized, both `line` and `column` will be set to `usize::MAX`.
-    pub fn end_location(&self) -> (usize, usize) {
-        self.span.end_position()
-    }
-
-    /// Sets the starting location (line, column) of the AST node.
-    ///
-    /// # Parameters
-    /// - `line`: The line number where the node starts (should be >= 0).
-    /// - `column`: The column number where the node starts (should be >= 0).
-    ///
-    /// Both values are expected to be valid; no specific checks are performed.
-    pub fn set_start_position(&mut self, line: usize, column: usize) {
-        self.span.set_begin_line(line);
-        self.span.set_begin_column(column);
-    }
-
-    /// Sets the ending location (line, column) of the AST node.
-    ///
-    /// # Parameters
-    /// - `line`: The line number where the node ends (should be >= 0).
-    /// - `column`: The column number where the node ends (should be >= 0).
-    ///
-    /// Both values are expected to be valid; no specific checks are performed.
-    pub fn set_end_position(&mut self, line: usize, column: usize) {
-        self.span.set_end_line(line);
-        self.span.set_end_column(column);
-    }
-
-    /// Returns an iterator that traverses the AST in pre-order (depth-first).
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let root = AstNode::new(...);
+    /// ```rust
     /// for node in root.preorder() {
     ///     println!("{:?}", node);
     /// }
@@ -314,12 +247,10 @@ impl Node {
         PreorderIterator::new(self)
     }
 
-    /// Returns an iterator that traverses the AST in post-order (depth-first).
+    /// Returns an iterator over the tree in postorder (depth-first).
     ///
     /// # Example
-    ///
-    /// ```
-    /// let root = AstNode::new(...);
+    /// ```rust
     /// for node in root.postorder() {
     ///     println!("{:?}", node);
     /// }
@@ -328,71 +259,44 @@ impl Node {
         PostorderIterator::new(self)
     }
 
-    /// Formats the AST node with indentation corresponding to its depth.
+    // === Formatting ===
+
+    /// Formats the AST node with indentation proportional to depth.
     ///
-    /// This function formats the AST node with a given depth of indentation. Each level of depth
-    /// increases the indentation by two spaces.
+    /// Each depth level adds two spaces of indentation.
     ///
     /// # Arguments
+    /// - `f`: formatter to write to.
+    /// - `depth`: current depth in the tree.
     ///
-    /// * `f` - The formatter to write the formatted output to.
-    /// * `depth` - The depth of the AST node in the tree hierarchy.
-    ///
-    /// # Examples
-    ///
-    /// ```
+    /// # Example
+    /// ```rust
     /// use std::fmt;
-    ///
-    /// let ast = Ast::new(/* Initialize AST node */);
-    /// let mut formatter = fmt::Formatter::new();
-    /// ast.fmt_with_depth(&mut formatter, 0).unwrap();
-    /// println!("{}", formatter);
+    /// node.fmt_with_depth(&mut formatter, 0)?;
     /// ```
-    ///
-    fn fmt_with_depth(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
-        let indentation = "  ".repeat(depth); // Indentation par niveau de profondeur
-
-        // Affichage avec l'indentation et le résultat formaté
+    fn fmt_with_depth(&self, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt::Result {
+        let indentation = "  ".repeat(depth);
         write!(f, "{}{} {} {}", indentation, self.kind, self.span, self.id)?;
 
-        // Traitement des enfants s'il y en a
         if !self.children.is_empty() {
             write!(f, "\n")?;
             self.write_children_with_depth(f, depth + 1)?;
         }
-
         Ok(())
     }
 
-    /// Writes the children of the AST node with indentation corresponding to their depth.
-    ///
-    /// This function writes the children of the AST node with a given depth of indentation. Each child
-    /// is formatted with indentation two spaces greater than the depth of its parent node.
+    /// Recursively formats children with indentation.
     ///
     /// # Arguments
-    ///
-    /// * `f` - The formatter to write the formatted output to.
-    /// * `depth` - The depth of the AST node in the tree hierarchy.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::fmt;
-    ///
-    /// let ast = Ast::new(/* Initialize AST node */);
-    /// let mut formatter = fmt::Formatter::new();
-    /// ast.write_children_with_depth(&mut formatter, 1).unwrap();
-    /// println!("{}", formatter);
-    /// ```
-    fn write_children_with_depth(&self, f: &mut fmt::Formatter, depth: usize) -> fmt::Result {
+    /// - `f`: formatter.
+    /// - `depth`: current depth.
+    fn write_children_with_depth(&self, f: &mut fmt::Formatter<'_>, depth: usize) -> fmt::Result {
         let len = self.children.len();
         for (i, child) in self.children.iter().enumerate() {
-            // Add newline only between children (not before the first child)
             if i > 0 {
                 write!(f, "\n")?;
             }
             child.fmt_with_depth(f, depth)?;
-            // Only add "End" if it's the last child
             if i == len - 1 {
                 let indentation = "  ".repeat(depth - 1);
                 write!(f, "\n{}End {}", indentation, self.kind)?;
@@ -400,336 +304,293 @@ impl Node {
         }
         Ok(())
     }
-
-    /// Converts the AST structure into a `HashMap` that maps references to AST nodes to their indices.
-    ///
-    /// This function generates a hash map where each entry associates a reference to an `Ast` node
-    /// with its corresponding index. The indices are assigned recursively to all nodes in the AST
-    /// structure, ensuring a unique mapping for each node. This map can be used for efficient
-    /// lookups or referencing child nodes.
-    ///
-    /// # Returns
-    /// A `HashMap<&Ast, usize>`, where:
-    /// - The keys are references (`&Ast`) to the `Ast` nodes.
-    /// - The values are the indices (`usize`) of those nodes in the AST structure.
-    ///
-    /// # Example
-    /// ```rust
-    /// let ast = Ast::new(...); // Create or load an Ast structure
-    /// let map = ast.to_hash_map();
-    /// // Now `map` contains a mapping of AST node references to their indices
-    /// ```
-    pub fn to_hash_map(&self) -> HashMap<&Node, usize> {
-        let mut map = HashMap::with_capacity(4096);
-        let mut id_counter = 0;
-        let mut stack = vec![self];
-
-        while let Some(node) = stack.pop() {
-
-            map.insert(node, id_counter);
-            id_counter += 1;
-
-            // Push children in reverse order to preserve left-to-right traversal
-            for child in node.children.iter().rev() {
-                stack.push(child);
-            }
-        }
-
-        map
-    }
 }
 
 impl fmt::Display for Node {
-    /// Formats the `Ast` with indentation based on its depth.
+    /// Formats the entire tree starting from the root node (depth 0).
     ///
-    /// This method implements the `Display` trait for the `Ast` struct, allowing it to be
-    /// formatted as a string for user-friendly printing. The formatting is done with an
-    /// indentation that reflects the depth of the node in the AST (Abstract Syntax Tree).
-    ///
-    /// # Parameters
-    /// - `f`: A mutable reference to the `fmt::Formatter` used to format the output.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    /// Allows printing a `Node` via `println!` or `{}`.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.fmt_with_depth(f, 0)
     }
 }
 
-impl PDDLDisplay for Node {
-    /// Converts the current AST node into a PDDL string representation, starting from depth 0.
+impl SyntaxDisplay for Node {
+    /// Converts the current AST node into its syntax string representation, starting from depth 0.
     ///
     /// This function is a convenience method that delegates the actual conversion to the
-    /// `to_pddl_string_with_depth` function with an initial depth of 0. It is intended to be used
-    /// when the user doesn't need to control the depth of the string representation.
+    /// `to_syntax_string_with_depth` function with an initial depth of 0. It is intended to be used
+    /// when the user doesn't need to control the depth or formatting of the string representation.
     ///
     /// # Returns
-    /// A `String` that represents the AST node in PDDL format starting at depth 0.
-    fn to_pddl_string(&self) -> String {
-        self.to_pddl_string_with_depth(0)
+    /// A `String` representing the AST node in the target syntax format, starting at depth 0.
+    fn to_syntax_string(&self) -> String {
+        self.to_syntax_string_with_depth(0)
     }
 
-    /// Converts the current AST node into a PDDL string representation with the specified depth.
+    /// Converts the current AST node into its syntax string representation with the specified depth.
     ///
-    /// This function recursively generates the PDDL string representation of the AST node and its
-    /// children, considering the depth of the node in the tree. The `depth` parameter helps control
-    /// the indentation or the level of nesting for the PDDL string representation. It is intended
-    /// for more advanced use cases where control over the depth is required (e.g., formatting the
-    /// output).
+    /// This function recursively generates the string representation of the AST node and its
+    /// children according to the target syntax, considering the depth of the node in the tree.
+    /// The `depth` parameter can be used to control indentation or the level of nesting in the output.
+    /// It is intended for advanced use cases where control over formatting is required.
     ///
     /// # Parameters
-    /// - `depth`: A `usize` that represents the depth of the current node in the AST tree. This can
-    /// be used to adjust the indentation or nesting of the resulting PDDL string.
+    /// - `depth`: A `usize` representing the depth of the current node in the AST tree. This can
+    /// be used to adjust indentation or nesting in the resulting syntax string.
     ///
     /// # Returns
-    /// A `String` that represents the AST node and its children in PDDL format, taking into account
-    /// the depth.
-    fn to_pddl_string_with_depth(&self, depth: usize) -> String {
+    /// A `String` representing the AST node and its children in the target syntax format, respecting
+    /// the specified depth.
+    fn to_syntax_string_with_depth(&self, depth: usize) -> String {
         let offset = " ".repeat(depth * 2);
-        let mut pddl = String::new();
+        let mut str = String::new();
 
         match &self.kind() {
             AstKind::Domain => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
                     write!(
-                        pddl,
+                        str,
                         "\n{}{}",
                         offset,
-                        child.to_pddl_string_with_depth(depth + 1)
+                        child.to_syntax_string_with_depth(depth + 1)
                     )
                     .unwrap();
                 }
-                write!(pddl, "\n{})", offset).unwrap();
+                write!(str, "\n{})", offset).unwrap();
             }
             AstKind::DomainName(_) => {
-                write!(pddl, "{}({})", offset, self.kind.to_pddl_string(),).unwrap();
+                write!(str, "{}({})", offset, self.kind.to_syntax_string(),).unwrap();
             }
             AstKind::RequireDef => {
-                write!(pddl, "{}{}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}{}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                    write!(str, " {}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::Requirement(requirement) => {
-                write!(pddl, "{}", requirement.to_pddl_string()).unwrap();
+                write!(str, "{}", requirement.to_syntax_string()).unwrap();
             }
             AstKind::TypesDef => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, "\n{}", child.to_pddl_string_with_depth(depth + 1)).unwrap();
+                    write!(str, "\n{}", child.to_syntax_string_with_depth(depth + 1)).unwrap();
                 }
-                write!(pddl, "\n{})", offset).unwrap();
+                write!(str, "\n{})", offset).unwrap();
             }
             AstKind::TypedList => {
-                write!(pddl, "{}", offset).unwrap();
+                write!(str, "{}", offset).unwrap();
                 for (i, child) in self.children().iter().enumerate() {
                     if i > 0
                         && !(child.kind == AstKind::TypedList && child.children().is_empty())
                     {
-                        write!(pddl, " ").unwrap();
+                        write!(str, " ").unwrap();
                     }
                     if matches!(child.kind(), AstKind::Type) {
-                        write!(pddl, "- ").unwrap();
+                        write!(str, "- ").unwrap();
                     }
-                    write!(pddl, "{}", child.to_pddl_string()).unwrap();
+                    write!(str, "{}", child.to_syntax_string()).unwrap();
                 }
             }
             AstKind::PrimitiveType(symbol) => {
-                write!(pddl, "{}{}", offset, symbol).unwrap();
+                write!(str, "{}{}", offset, symbol).unwrap();
             }
             AstKind::Type => {
-                write!(pddl, "{}", offset).unwrap();
+                write!(str, "{}", offset).unwrap();
                 match self.children().as_slice() {
                     [single_child] => {
-                        write!(pddl, "{}", single_child.to_pddl_string()).unwrap();
+                        write!(str, "{}", single_child.to_syntax_string()).unwrap();
                     }
                     multiple_children if multiple_children.len() > 1 => {
-                        write!(pddl, "(either").unwrap();
+                        write!(str, "(either").unwrap();
                         for child in multiple_children {
-                            write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                            write!(str, " {}", child.to_syntax_string()).unwrap();
                         }
-                        write!(pddl, ")").unwrap();
+                        write!(str, ")").unwrap();
                     }
                     _ => unreachable!("AstKind::Type with with no child encountered"),
                 }
             }
             AstKind::ConstantsDef => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, "\n{}", child.to_pddl_string_with_depth(depth + 1)).unwrap();
+                    write!(str, "\n{}", child.to_syntax_string_with_depth(depth + 1)).unwrap();
                 }
-                write!(pddl, "\n{})", offset).unwrap();
+                write!(str, "\n{})", offset).unwrap();
             }
             AstKind::Constant(symbol) => {
-                write!(pddl, "{}{}", offset, symbol).unwrap();
+                write!(str, "{}{}", offset, symbol).unwrap();
             }
             AstKind::PredicatesDef => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, "\n{}", child.to_pddl_string_with_depth(depth + 1)).unwrap();
+                    write!(str, "\n{}", child.to_syntax_string_with_depth(depth + 1)).unwrap();
                 }
-                write!(pddl, "\n{})", offset).unwrap();
+                write!(str, "\n{})", offset).unwrap();
             }
             AstKind::AtomicFormulaSkeleton
             | AstKind::AtomicFunctionSkeleton
             | AstKind::AtomicFormula
             | AstKind::FunctionTerm => {
-                write!(pddl, "{}(", offset).unwrap();
+                write!(str, "{}(", offset).unwrap();
                 for (i, child) in self.children().iter().enumerate() {
                     if i > 0 {
-                        write!(pddl, " ").unwrap();
+                        write!(str, " ").unwrap();
                     }
-                    write!(pddl, "{}", child.to_pddl_string()).unwrap();
+                    write!(str, "{}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::Predicate(symbol) => {
-                write!(pddl, "{}{}", offset, symbol).unwrap();
+                write!(str, "{}{}", offset, symbol).unwrap();
             }
             AstKind::FunctionsDef => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, "\n{}", child.to_pddl_string_with_depth(depth + 1)).unwrap();
+                    write!(str, "\n{}", child.to_syntax_string_with_depth(depth + 1)).unwrap();
                 }
-                write!(pddl, "\n{})", offset).unwrap();
+                write!(str, "\n{})", offset).unwrap();
             }
             AstKind::FunctionSymbol(symbol) => {
-                write!(pddl, "{}{}", offset, symbol).unwrap();
+                write!(str, "{}{}", offset, symbol).unwrap();
             }
             AstKind::ActionDef => {
                 let children = self.children();
                 write!(
-                    pddl,
+                    str,
                     "{}({} {} ",
                     offset,
-                    self.kind.to_pddl_string(),
-                    children[0].to_pddl_string()
+                    self.kind.to_syntax_string(),
+                    children[0].to_syntax_string()
                 )
                 .unwrap();
                 write!(
-                    pddl,
+                    str,
                     "\n{}",
-                    children[1].to_pddl_string_with_depth(depth + 1)
+                    children[1].to_syntax_string_with_depth(depth + 1)
                 )
                 .unwrap();
-                write!(pddl, "{}", children[2].to_pddl_string_with_depth(depth + 1)).unwrap();
-                write!(pddl, "\n{})", offset).unwrap();
+                write!(str, "{}", children[2].to_syntax_string_with_depth(depth + 1)).unwrap();
+                write!(str, "\n{})", offset).unwrap();
             }
             AstKind::ActionSymbol(symbol) => {
-                write!(pddl, "{}", symbol).unwrap();
+                write!(str, "{}", symbol).unwrap();
             }
             AstKind::ActionDefBody => {
                 for child in self.children() {
-                    write!(pddl, "\n{}", child.to_pddl_string_with_depth(depth)).unwrap();
+                    write!(str, "\n{}", child.to_syntax_string_with_depth(depth)).unwrap();
                 }
             }
             AstKind::PreconditionDef => {
                 write!(
-                    pddl,
+                    str,
                     "{}{}\n{}",
                     offset,
-                    self.kind.to_pddl_string(),
-                    self.children()[0].to_pddl_string_with_depth(depth + 1)
+                    self.kind.to_syntax_string(),
+                    self.children()[0].to_syntax_string_with_depth(depth + 1)
                 )
                 .unwrap();
             }
             AstKind::EffectDef => {
                 write!(
-                    pddl,
+                    str,
                     "{}{}\n{}",
                     offset,
-                    self.kind.to_pddl_string(),
-                    self.children()[0].to_pddl_string_with_depth(depth + 1)
+                    self.kind.to_syntax_string(),
+                    self.children()[0].to_syntax_string_with_depth(depth + 1)
                 )
                 .unwrap();
             }
             AstKind::Or => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                    write!(str, " {}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::And => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                    write!(str, " {}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::Not => {
-                write!(pddl, "{}({}", offset, self.kind.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, self.kind.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                    write!(str, " {}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::FComp(op) => {
-                write!(pddl, "{}({}", offset, op.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, op.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                    write!(str, " {}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::Assign(op) => {
-                write!(pddl, "{}({}", offset, op.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, op.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                    write!(str, " {}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::Operation(op) => {
-                write!(pddl, "{}({}", offset, op.to_pddl_string()).unwrap();
+                write!(str, "{}({}", offset, op.to_syntax_string()).unwrap();
                 for child in self.children() {
-                    write!(pddl, " {}", child.to_pddl_string()).unwrap();
+                    write!(str, " {}", child.to_syntax_string()).unwrap();
                 }
-                write!(pddl, ")").unwrap();
+                write!(str, ")").unwrap();
             }
             AstKind::Forall => {
                 write!(
-                    pddl,
+                    str,
                     "{}({} ({}) {})",
                     offset,
-                    self.kind.to_pddl_string(),
-                    self.children[0].to_pddl_string(),
-                    self.children[1].to_pddl_string()
+                    self.kind.to_syntax_string(),
+                    self.children[0].to_syntax_string(),
+                    self.children[1].to_syntax_string()
                 )
                 .unwrap();
             }
             AstKind::Exists => {
                 write!(
-                    pddl,
+                    str,
                     "{}({} ({}) {})",
                     offset,
-                    self.kind.to_pddl_string(),
-                    self.children[0].to_pddl_string(),
-                    self.children[1].to_pddl_string()
+                    self.kind.to_syntax_string(),
+                    self.children[0].to_syntax_string(),
+                    self.children[1].to_syntax_string()
                 )
                 .unwrap();
             }
             AstKind::Imply => {
                 write!(
-                    pddl,
+                    str,
                     "{}({} {} {})",
                     offset,
-                    self.kind.to_pddl_string(),
-                    self.children[0].to_pddl_string(),
-                    self.children[1].to_pddl_string()
+                    self.kind.to_syntax_string(),
+                    self.children[0].to_syntax_string(),
+                    self.children[1].to_syntax_string()
                 )
                 .unwrap();
             }
             AstKind::When => {
                 write!(
-                    pddl,
+                    str,
                     "{}({} {} {})",
                     offset,
-                    self.kind.to_pddl_string(),
-                    self.children[0].to_pddl_string(),
-                    self.children[1].to_pddl_string()
+                    self.kind.to_syntax_string(),
+                    self.children[0].to_syntax_string(),
+                    self.children[1].to_syntax_string()
                 )
                 .unwrap();
             }
-            _ => pddl = self.kind.to_pddl_string(),
+            _ => str = self.kind.to_syntax_string(),
         }
-        pddl
+        str
     }
 }

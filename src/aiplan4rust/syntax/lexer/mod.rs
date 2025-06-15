@@ -1,26 +1,42 @@
-/// This module exposes the core components for lexical analysis, including the lexer,
-/// the token definitions, and lexical error handling.
+//! Lexical analysis module for the `aiplan4rust` crate.
+//!
+//! This module provides the core components for lexical analysis of PDDL/HDDL source files,
+//! including tokenization, token definitions, and lexical error handling.
+//!
+//! # Submodules
+//!
+//! - `lexer`: Contains the `Lexer` struct responsible for converting raw input strings into tokens.
+//! - `lexical_error`: Defines errors that can occur during tokenization, such as invalid tokens or
+//!   malformed numbers.
+//! - `token`: Defines the various token types recognized by the lexer, including keywords, symbols,
+//!   and literals.
+//!
+//! # Re-exports
+//!
+//! For ease of use, the following types are re-exported:
+//! - [`Lexer`]
+//! - [`Token`]
+//! - [`LexicalError`]
+//!
+//! # Example
+//!
+//! ```rust
+//! use aiplan4rust::syntax:lexer::{Lexer, Token, LexicalError};
+//!
+//! let source = "(define (domain test-domain))";
+//! let mut lexer = Lexer::new(source);
+//! while let Some(token_result) = lexer.next() {
+//!     match token_result {
+//!         Ok(token) => println!("Token: {:?}", token),
+//!         Err(e) => eprintln!("Lexical error: {:?}", e),
+//!     }
+//! }
+//! ```
 
-/// The `lexer` module is responsible for tokenizing an input string.
-/// It provides the `Lexer` struct for performing lexical analysis.
 pub mod lexer;
-
-/// The `lexical_error` module defines errors that can occur during the lexical analysis,
-/// such as invalid tokens or number parsing errors.
 pub mod lexical_error;
-
-/// The `token` module defines the various token types that can be recognized in the input string,
-/// such as numbers, operators, and keywords.
 pub mod token;
 
-/// Re-exporting the `Lexer` struct from the `lexer` module to make it accessible to other parts of
-/// the code.
 pub use lexer::Lexer;
-
-/// Re-exporting the `Token` enum from the `token` module to make it accessible to other parts of
-/// the code.
 pub use token::Token;
-
-/// Re-exporting the `LexicalError` enum from the `lexical_error` module to make it accessible to
-/// other parts of the code.
 pub use lexical_error::LexicalError;
