@@ -5,6 +5,7 @@ use crate::aiplan4rust::semantic::hir::HirNode;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;
+use crate::aiplan4rust::syntax::Span;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
 #[derive(Clone, Debug, PartialEq)]
@@ -84,13 +85,13 @@ pub enum Kind {
         type_declared: Vec<String>,
         type_used: Vec<String>,
     },
-    DuplicateTypesInSymbolDeclarationWarning {
-        symbol: String,
+    DuplicateEitherTypeWarning {
         duplicate_types: Vec<String>,
     },
     ImplicitEitherTypeDeclarationWarning {
         ty: String,
         types: Vec<String>,
+        spans: Vec<Span>
     },
     CyclicTypeDeclarationError {
        cycle: Vec<Declaration>
@@ -100,8 +101,8 @@ pub enum Kind {
         problem_kind: SymbolKind,
         domain_kinds: Vec<SymbolKind>,
     },
-    DuplicateRequirementDeclarationWarning {
-        requirement: Requirement,
+    DuplicateRequirementWarning {
+        duplicate_requirements: Vec<Requirement>,
     },
     CustomError(String),
 }
@@ -118,7 +119,7 @@ impl Kind {
             Kind::DuplicatedRequirementDeclaration { .. } => "W0001".to_string(),
             Kind::DuplicatedTypeDeclaration { .. } => "W0002".to_string(),
             // WARNING NORMALIZER
-            Kind::DuplicateRequirementDeclarationWarning { ..  } => "W2001".to_string(),
+            Kind::DuplicateRequirementWarning { ..  } => "W2001".to_string(),
             // ERROR ANALYSER
             Kind::UnDefinedFunction { .. } => "E1001".to_string(),
             Kind::UnDefinedPredicate { .. } => "E1002".to_string(),
@@ -137,7 +138,7 @@ impl Kind {
             Kind::RequirementViolation { .. } => "W10012".to_string(),
             Kind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
-            Kind::DuplicateTypesInSymbolDeclarationWarning { .. } => "W1015".to_string(),
+            Kind::DuplicateEitherTypeWarning { .. } => "W1015".to_string(),
             Kind::ImplicitEitherTypeDeclarationWarning { .. } => "W1016".to_string(),
 
             // WARNINGS LINKER
@@ -219,12 +220,12 @@ impl Kind {
                 format!("Upcasting detected: argument '{}' has broader type(s) than declared.",
                 argument)
             }
-            Kind::DuplicateTypesInSymbolDeclarationWarning { symbol, .. } => {
-                format!("Symbol '{}' has duplicated types in its declaration.", symbol)
+            Kind::DuplicateEitherTypeWarning { .. } => {
+                "Duplicate primitive types found in an 'either' type declaration.".to_string()
             }
             Kind::ImplicitEitherTypeDeclarationWarning { ty, ..} => {
                 format!(
-                    "Implicit disjunctive type declaration for {}.",
+                    "Implicit 'either' type declaration for {}.",
                     ty,
                 )
             }
@@ -234,7 +235,7 @@ impl Kind {
             Kind::CrossConflictSymbolDeclarationError { .. } => {
                 "Symbol declaration in problem conflicts with domain declaration.".to_string()
             }
-            Kind::DuplicateRequirementDeclarationWarning { .. } => {
+            Kind::DuplicateRequirementWarning { .. } => {
                 "Redundant requirement declaration detected.".to_string()
             }
             Kind::CustomError(msg) => msg.to_string(),
@@ -254,7 +255,7 @@ impl Kind {
             Kind::DuplicatedTypeDeclaration { .. } => Severity::Warning,
 
             // NORMALIZER WARNINGS
-            Kind::DuplicateRequirementDeclarationWarning { .. } => Severity::Warning,
+            Kind::DuplicateRequirementWarning { .. } => Severity::Warning,
 
             // ANALYSER ERRORS
             Kind::UnDefinedFunction { .. } => Severity::Error,
@@ -274,7 +275,7 @@ impl Kind {
             Kind::RequirementViolation { .. } => Severity::Warning,
             Kind::WarningAmbiguousTypePredicateSymbol { .. } => Severity::Warning,
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => Severity::Warning,
-            Kind::DuplicateTypesInSymbolDeclarationWarning { .. } => Severity::Warning,
+            Kind::DuplicateEitherTypeWarning { .. } => Severity::Warning,
             Kind::ImplicitEitherTypeDeclarationWarning { .. } => Severity::Warning,
 
             // LINKER WARNINGS
@@ -448,15 +449,15 @@ impl Kind {
                     Self::format_types(type_used)
                 ))
             }
-            Kind::DuplicateTypesInSymbolDeclarationWarning { symbol, duplicate_types } => {
+            Kind::DuplicateEitherTypeWarning { duplicate_types } => {
                 let listed_types = if duplicate_types.len() == 1 {
                     format!("type '{}'", duplicate_types[0])
                 } else {
                     format!("types '{}'", duplicate_types.join("', '"))
                 };
                 Some(format!(
-                    "Duplicate {} found in the type declarations of symbol '{}'; these duplicates have been removed.",
-                    listed_types, symbol
+                    "Duplicate {} found in an 'either' type declaration; these duplicates have been removed.",
+                    listed_types,
                 ))
             }
             Kind::CyclicTypeDeclarationError { cycle } => {
@@ -474,18 +475,19 @@ impl Kind {
                     Self::format_symbol_kinds(&domain_kinds),
                 ))
             }
-            Kind::ImplicitEitherTypeDeclarationWarning { ty, types } => {
+            Kind::ImplicitEitherTypeDeclarationWarning { ty, types, .. } => {
                 Some(format!(
-                    "Multiple type declarations for '{}': interpreted as {}. \
-                    To make this explicit and avoid ambiguity, declare the type as '{} - {}'.",
-                    ty,
-                    Self::format_types(types),
+                    "The type `{}` was declared multiple times with different types: {}. \
+                     These were merged into an implicit either-type declaration.",
                     ty,
                     Self::format_types(types),
                 ))
             }
-            Kind::DuplicateRequirementDeclarationWarning { requirement } => {
-                Some(format!("The requirement `{}` was duplicated and has been ignored.", requirement))
+            Kind::DuplicateRequirementWarning { duplicate_requirements} => {
+                Some(format!(
+                    "The following requirement(s) are declared multiple times in the domain and have been ignored: {}.",
+                    duplicate_requirements.iter().map(|r| r.to_string()).collect::<Vec<_>>().join(", ")
+                ))
             }
         }
     }

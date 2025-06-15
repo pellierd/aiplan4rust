@@ -17,7 +17,6 @@ use std::backtrace::Backtrace;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
-use std::mem;
 use std::string::String;
 
 #[derive(Debug)]
@@ -131,7 +130,7 @@ impl Frontend {
         match parser_result.take_ast() {
             Some(raw_ast) => {
                 // Take diagnostics from parser result.
-                let mut diagnostic_manager = parser_result.take_diagnostic_manager();
+                let diagnostic_manager = parser_result.take_diagnostic_manager();
 
                 // Normalize the AST while merging diagnostics.
                 let mut normalizer = Normalizer::new();

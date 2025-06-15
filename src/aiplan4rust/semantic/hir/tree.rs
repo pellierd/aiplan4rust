@@ -187,7 +187,7 @@ impl Tree {
             nodes,
             symbol_table,
             requirements,
-            syntax_tree.filename().unwrap().clone(),
+            syntax_tree.source_name().to_string(),
         ))
     }
 

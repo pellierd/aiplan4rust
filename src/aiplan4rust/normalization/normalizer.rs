@@ -1,8 +1,9 @@
+use std::collections::HashSet;
 use crate::aiplan4rust::diagnostic::{DiagnosticManager};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::normalization;
 use crate::aiplan4rust::normalization::NormalizerResult;
-use crate::aiplan4rust::syntax::ast::{Ast};
+use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
 
 
 /// Structure de normalisation qui transforme un AST en une forme standardisée.
@@ -46,7 +47,11 @@ impl Normalizer {
         &mut self,
         mut ast: Ast,
     ) -> Result<NormalizerResult, ParserInternalError> {
-        normalization::normalize_requirement_declarations(&mut ast, &mut self.diagnostic_manager)?;
+        normalization::normalize_typed_list(&mut ast)?;
+        normalization::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
+        normalization::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
+        normalization::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;
+        ast.assign_unique_ids(0);
         Ok(NormalizerResult::new(Some(ast), std::mem::take(&mut self.diagnostic_manager)))
     }
     /// Accès aux diagnostics produits lors de la normalisation.

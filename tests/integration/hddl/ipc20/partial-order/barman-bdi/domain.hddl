@@ -7,12 +7,13 @@
 )
 
 (:types 
-	container dispenser level beverage hand - (either anything anything)
+	container dispenser level beverage hand - anything
 	shot shaker - container
 	ingredient cocktail - beverage
 )
 
-(:predicates 
+(:predicates
+	(text ?x - d)
 	(clean ?p0 - container)
 	(cocktailPart1 ?p0 - cocktail ?p1 - ingredient)
 	(cocktailPart2 ?p0 - cocktail ?p1 - ingredient)

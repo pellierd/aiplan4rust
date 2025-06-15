@@ -89,6 +89,7 @@ impl SymbolTableBuilder {
         // Initialize symbols from the AST root node
         self.initialize_from_ast(syntax_tree.root())?;
 
+        println!("{}", self.table);
         // Return the built symbol table, transferring ownership
         Ok(mem::take(&mut self.table))
     }
@@ -586,13 +587,14 @@ impl SymbolTableBuilder {
     /// - `types`: The types associated with the element.
     fn init_from_typed_item_elements(
         &mut self,
-        elements: &AstNode,
+        elt: &AstNode,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
-        Self::assert_ast_kind(elements, &[AstKind::TypedItemElements])?;
+        //Self::assert_ast_kind(elements, &[AstKind::TypedItemElements])?;
 
-        for elt in elements.children() {
+
+        //for elt in elements.children() {
             // Vérifie que l'élément est d'un type AST attendu
             Self::assert_ast_kind(
                 elt,
@@ -620,7 +622,7 @@ impl SymbolTableBuilder {
                     unreachable!("Unexpected AST node type: {:?}", elt.kind());
                 }
             }
-        }
+        //}
 
         Ok(())
     }
@@ -896,7 +898,7 @@ impl SymbolTableBuilder {
 
         // Second child: parameters, recursively initialize the symbol table
         let parameters = children[1].as_ref();
-        self.extract_arguments_from_typed_list(parameters)?;
+        //self.extract_arguments_from_typed_list(parameters)?;
         self.init_from_typed_list(
             parameters,
             Scope::new(*ast.id(), Some(&scope)),
@@ -904,6 +906,7 @@ impl SymbolTableBuilder {
 
         let parameters =
             self.extract_arguments_from_typed_list(parameters)?;
+
         self.add_declaration_symbol(
             name,
             scope.clone(),
@@ -1186,8 +1189,24 @@ impl SymbolTableBuilder {
         };
 
         let mut typed_arguments = Vec::new();
-        let symbol_nodes = children[0].children();
+        let elt = &children[0];
 
+        match elt.kind() {
+            AstKind::Constant(ref name) | AstKind::Variable(ref name) => {
+                typed_arguments.push(TypedSymbol::new(name.clone(), types.clone()));
+            }
+            _ => {
+                return Err(ParserInternalError::new(format!(
+                    "Expected Constant or Variable in TypedItem, found {:?}",
+                    elt.kind()
+                )));
+            }
+        }
+
+
+
+        /*
+        let symbol_nodes = children[0].children();
         for elt in symbol_nodes {
             match elt.kind() {
                 AstKind::Constant(ref name) | AstKind::Variable(ref name) => {
@@ -1200,7 +1219,7 @@ impl SymbolTableBuilder {
                     )));
                 }
             }
-        }
+        }*/
 
         Ok(typed_arguments)
     }

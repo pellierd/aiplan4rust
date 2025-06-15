@@ -6,8 +6,6 @@ use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::hir::HirTree;
-
-use crate::aiplan4rust::semantic::normalization::{normalize_type_declarations, normalize_typed_list};
 use crate::aiplan4rust::semantic;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
@@ -72,16 +70,14 @@ impl Analyzer {
         ast: &Ast,
     ) -> Result<AnalyzerResult, ParserInternalError> {
         // Step 1: Convert to annotated HIR
-        let mut annotated_syntax_tree = HirTree::from(ast)?;
+        let annotated_syntax_tree = HirTree::from(ast)?;
 
         // Step 2: Determine kind and apply semantic checks
         match ast.root().kind() {
             AstKind::Domain => {
-                Self::normalize_domain(&mut annotated_syntax_tree, &mut self.diagnostic_manager)?;
                 Self::check_domain(&annotated_syntax_tree, &mut self.diagnostic_manager)?;
             }
             AstKind::Problem => {
-                Self::normalize_problem(&mut annotated_syntax_tree, &mut self.diagnostic_manager)?;
                 Self::check_problem(&annotated_syntax_tree, &mut self.diagnostic_manager)?;
             }
             _ => {
@@ -104,81 +100,6 @@ impl Analyzer {
                 std::mem::take(&mut self.diagnostic_manager),
             ))
         }
-    }
-
-    /// Normalizes the domain by applying various normalization passes on the syntax tree.
-    ///
-    /// This function orchestrates domain normalization by sequentially invoking specific normalization
-    /// routines such as merging duplicated type declarations and normalizing typed lists. It ensures
-    /// that the syntax tree is updated accordingly and emits any relevant diagnostics via the
-    /// provided `DiagnosticManager`.
-    ///
-    /// # Parameters
-    /// - `ast`: A mutable reference to the `AnnotatedSyntaxTree` representing the domain
-    ///   to be normalized. This tree may be mutated during normalization.
-    /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` used to collect
-    ///   and report any diagnostics generated during normalization.
-    ///
-    /// # Returns
-    /// Returns `Ok(true)` if any normalization step modified the syntax tree (i.e., the domain
-    /// was changed). Returns `Ok(false)` if no changes were made. Returns an error if any
-    /// internal error occurs during normalization.
-    ///
-    /// # Errors
-    /// Propagates errors from underlying normalization functions, typically
-    /// [`ParserInternalError`] if unexpected conditions arise.
-    ///
-    /// # Behavior
-    /// 1. Normalizes type declarations by merging duplicates and emitting warnings.
-    /// 2. Normalizes typed lists and emits related diagnostics.
-    /// 3. Combines the results of both steps to indicate if any changes were made.
-    ///
-    /// # See Also
-    /// - [`normalize_type_declarations`]
-    /// - [`normalize_typed_list`]
-    fn normalize_domain(
-        syntax_tree: &mut HirTree,
-        diagnostic_manager: &mut DiagnosticManager,
-    ) -> Result<bool, ParserInternalError> {
-        // Normalize primitive type declarations and merge duplicates; track if changed
-        let mut changed = normalize_type_declarations(syntax_tree, diagnostic_manager)?;
-
-        // Normalize typed lists and combine with previous changed flag
-        changed &= normalize_typed_list(syntax_tree, diagnostic_manager)?;
-
-        // Return true if any normalization was performed, false otherwise
-        Ok(changed)
-    }
-
-    /// Normalizes the problem domain by applying normalization passes excluding type hierarchy normalization.
-    ///
-    /// This function performs normalization on components of the domain such as typed lists, while
-    /// explicitly skipping normalization of primitive type declarations and their hierarchy. This is useful
-    /// when you want to normalize certain parts of the domain without merging or modifying the type inheritance.
-    ///
-    /// # Parameters
-    /// - `ast`: A mutable reference to the `AnnotatedSyntaxTree` representing the problem domain.
-    /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` to collect and report diagnostics.
-    ///
-    /// # Returns
-    /// Returns:
-    /// - `Ok(true)` if the normalization resulted in any changes to the syntax tree (typed lists modified).
-    /// - `Ok(false)` if no changes were needed.
-    /// - `Err(ParserInternalError)` if an internal error occurs during normalization.
-    ///
-    /// # Behavior
-    /// - Only normalizes typed lists and emits diagnostics if needed.
-    /// - Does NOT modify or merge primitive type declarations or the type hierarchy.
-    ///
-    /// # See Also
-    /// - [`normalize_typed_list`]: for normalization of typed lists.
-    /// - [`normalize_type_declarations`]: for full normalization including type hierarchy.
-    pub fn normalize_problem(
-        syntax_tree: &mut HirTree,
-        diagnostic_manager: &mut DiagnosticManager,
-    ) -> Result<bool, ParserInternalError> {
-        // Apply normalization on typed lists only, returning whether any change occurred.
-        normalize_typed_list(syntax_tree, diagnostic_manager)
     }
 
     /// Checks the domain-related syntax tree and performs the relevant checks.

@@ -11,12 +11,14 @@ use crate::aiplan4rust::syntax::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::semantic::symbol::Declaration;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Filterable};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::hir::HirTree;
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::lexer::Token::ScaleDown;
 
 /// Checks if there are any undeclared symbols used in the given syntax tree.
 ///

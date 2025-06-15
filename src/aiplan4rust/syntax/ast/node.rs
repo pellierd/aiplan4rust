@@ -1,8 +1,10 @@
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::PDDLDisplay;
+use crate::aiplan4rust::syntax::ast::iterators::PostorderIterator;
+use crate::aiplan4rust::syntax::ast::iterators::PreorderIterator;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Write;
 use std::hash::Hash;
@@ -74,6 +76,19 @@ impl Node {
         }
     }
 
+    pub fn new_with_span(
+        kind: AstKind,
+        children: Vec<Box<Node>>,
+        span: Span,
+    ) -> Node {
+        Node {
+            id: usize::MAX,
+            kind,
+            children,
+            span,
+        }
+    }
+
     pub fn size(&self) -> usize {
         1 + self.children.iter().map(|child| child.size()).sum::<usize>()
     }
@@ -84,6 +99,62 @@ impl Node {
 
     pub fn set_id(&mut self, new_id: usize) {
         self.id = new_id;
+    }
+
+    /// Recursively assigns unique, consecutive IDs to each node in the AST,
+    /// starting from zero or a specified starting ID.
+    ///
+    /// This method traverses the tree in pre-order and updates the `id` field
+    /// of each node with a unique value.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut root = AstNode::new(...);
+    /// // Build the tree...
+    /// root.assign_unique_ids(0);
+    /// ```
+    pub fn assign_unique_ids(&mut self, start_id: usize) {
+        fn helper(node: &mut Node, counter: &mut usize) {
+            node.id = *counter;
+            *counter += 1;
+            for child in &mut node.children {
+                helper(child, counter);
+            }
+        }
+
+        let mut counter = start_id;
+        helper(self, &mut counter);
+    }
+
+    /// Checks if all node IDs in the AST are unique.
+    ///
+    /// Traverses the tree and collects IDs in a HashSet.
+    /// Returns `true` if all IDs are unique, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut root = AstNode::new(...);
+    /// // build your tree...
+    /// assert!(root.check_ids_unique());
+    /// ```
+    pub fn check_ids_unique(&self) -> bool {
+        fn helper(node: &Node, seen_ids: &mut HashSet<usize>) -> bool {
+            if !seen_ids.insert(node.id) {
+                // ID already exists in the set -> duplicate found
+                return false;
+            }
+            for child in &node.children {
+                if !helper(child, seen_ids) {
+                    return false;
+                }
+            }
+            true
+        }
+
+        let mut seen_ids = HashSet::new();
+        helper(self, &mut seen_ids)
     }
 
     /// Returns the kind of AST node.
@@ -229,6 +300,34 @@ impl Node {
         self.span.set_end_column(column);
     }
 
+    /// Returns an iterator that traverses the AST in pre-order (depth-first).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let root = AstNode::new(...);
+    /// for node in root.preorder() {
+    ///     println!("{:?}", node);
+    /// }
+    /// ```
+    pub fn preorder(&self) -> PreorderIterator<'_> {
+        PreorderIterator::new(self)
+    }
+
+    /// Returns an iterator that traverses the AST in post-order (depth-first).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let root = AstNode::new(...);
+    /// for node in root.postorder() {
+    ///     println!("{:?}", node);
+    /// }
+    /// ```
+    pub fn postorder(&self) -> PostorderIterator<'_> {
+        PostorderIterator::new(self)
+    }
+
     /// Formats the AST node with indentation corresponding to its depth.
     ///
     /// This function formats the AST node with a given depth of indentation. Each level of depth
@@ -254,7 +353,7 @@ impl Node {
         let indentation = "  ".repeat(depth); // Indentation par niveau de profondeur
 
         // Affichage avec l'indentation et le résultat formaté
-        write!(f, "{}{} {}", indentation, self.kind, self.span)?;
+        write!(f, "{}{} {} {}", indentation, self.kind, self.span, self.id)?;
 
         // Traitement des enfants s'il y en a
         if !self.children.is_empty() {

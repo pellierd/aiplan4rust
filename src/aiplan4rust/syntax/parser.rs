@@ -10,8 +10,10 @@ use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::parser_result::ParserResult;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
-use crate::aiplan4rust::syntax::ast::{AstNode, Ast};
-use crate::aiplan4rust::syntax::{Language, Span};
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::Language;
+use crate::aiplan4rust::syntax::Span;
 
 use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
@@ -46,7 +48,7 @@ use std::time::SystemTime;
 /// };
 /// ```
 pub struct Parser<'a> {
-    filename: Option<&'a str>,
+    source_name: Option<&'a str>,
     source: Option<&'a str>,
     diagnostic_manager: DiagnosticManager,
 }
@@ -58,7 +60,7 @@ impl<'a> Parser<'a> {
     /// Returns a new instance of `Parser`.
     pub fn new() -> Self {
         Self {
-            filename: None,
+            source_name: None,
             source: None,
             diagnostic_manager: DiagnosticManager::new(),
         }
@@ -113,12 +115,12 @@ impl<'a> Parser<'a> {
     /// ```
     pub fn parse(
         &mut self,
-        filename: &'a str,
+        source_name: &'a str,
         source: &'a str,
         language: &Language,
     ) -> Result<ParserResult, ParserInternalError> {
         // Store temporary references to the filename and source for later use
-        self.filename = Some(filename);
+        self.source_name = Some(source_name);
         self.source = Some(source);
 
         // Initialize a vector to store LALRPOP errors that may occur during parsing
@@ -127,7 +129,7 @@ impl<'a> Parser<'a> {
         // Create a lexer from the provided source code
         let lexer = Lexer::new(source);
 
-        self.diagnostic_manager.add_source(filename.to_string(), source.to_string());
+        self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
 
         // Attempt to parse the source code according to the language specified
         let parse_result = match language {
@@ -156,7 +158,7 @@ impl<'a> Parser<'a> {
                         Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                     } else {
                         let syntax_tree =
-                            Ast::new(ast, Some(filename.to_string()), SystemTime::now());
+                            Ast::new(ast, source_name.to_string(), SystemTime::now());
                         Ok(ParserResult::new(
                             Some(syntax_tree),
                             mem::take(&mut self.diagnostic_manager),
@@ -167,7 +169,7 @@ impl<'a> Parser<'a> {
                     let error = self.to_parser_error(
                         &e,
                         source,
-                        Some(filename),
+                        Some(source_name),
                     );
                     self.diagnostic_manager.add_diagnostic(error);
                     Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
@@ -189,7 +191,7 @@ impl<'a> Parser<'a> {
     ) {
         for larlpop_error in larlpop_errors {
             // Convert each LALRPOP error into a ParserError and add it to the error manager
-            let parser_error = self.to_parser_error(&larlpop_error.error, source, self.filename);
+            let parser_error = self.to_parser_error(&larlpop_error.error, source, self.source_name);
             self.diagnostic_manager.add_diagnostic(parser_error);
         }
     }
@@ -228,7 +230,7 @@ impl<'a> Parser<'a> {
         let table = FastLineTable::new(source, 100);
 
         // Recursively set positions for all AST nodes
-        self.init_ast_position_rec(ast, &table, &mut 0);
+        self.init_ast_position_rec(ast, &table);
     }
 
     /// Recursively sets the start and end positions (line, column) for each AST node.
@@ -236,10 +238,7 @@ impl<'a> Parser<'a> {
     /// # Arguments
     /// - `ast`: A mutable reference to an AST node.
     /// - `table`: A reference to the `FastLineTable` used to compute positions.
-    fn init_ast_position_rec(&self, ast: &mut AstNode, table: &FastLineTable, id: &mut usize,) {
-        // Assign an unique id to each node
-        ast.set_id(*id);
-        *id += 1;
+    fn init_ast_position_rec(&self, ast: &mut AstNode, table: &FastLineTable) {
 
         // Compute and set the start position of the current AST node
         let (line, column) = table.get_position(ast.start_offset());
@@ -251,7 +250,7 @@ impl<'a> Parser<'a> {
 
         // Recursively process all child nodes of the current AST node
         for child in ast.children_mut() {
-            self.init_ast_position_rec(child, table, id);
+            self.init_ast_position_rec(child, table);
         }
     }
 
@@ -311,43 +310,75 @@ impl<'a> Parser<'a> {
         (line, column)
     }
 
+    /// Calculates the span (start and end positions) of a substring within the source text,
+    /// including line and column information for both start and end positions.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - The byte index in the source string where the span starts.
+    /// * `end` - The byte index in the source string where the span ends.
+    /// * `source` - The entire source string from which the span is derived.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Span` struct containing the start and end byte indices along with
+    /// corresponding line and column numbers within the source.
+    ///
+    /// # Notes
+    ///
+    /// This function iterates over the source string character by character,
+    /// updating line and column counts, and stops once the end index is reached.
+    /// It also handles the edge case where `end` equals the length of the source.
     fn get_span(&self, start: &usize, end: &usize, source: &str) -> Span {
+        // Initialize line and column counters starting at line 1, column 1
         let mut line = 1;
         let mut column = 1;
+
+        // Variables to store the start line (sl), start column (sc),
+        // end line (el), and end column (ec) positions
         let mut sl = 1;
         let mut sc = 1;
         let mut el = 1;
         let mut ec = 1;
 
+        // Iterate over the source string with char indices (byte offset + char)
         for (i, ch) in source.char_indices() {
+            // When the current index matches the start index, record line and column
             if i == *start {
                 sl = line;
                 sc = column;
             }
+            // When the current index matches the end index, record line and column and exit loop
             if i == *end {
                 el = line;
                 ec = column;
                 break;
             }
+            // If current character is newline, increment line count and reset column
             if ch == '\n' {
                 line += 1;
                 column = 1;
             } else {
+                // Otherwise increment column count
                 column += 1;
             }
         }
 
-        // Si end est égal à la longueur de la source, on doit capturer la dernière position manuellement
+        // If end is exactly the length of the source, manually capture the last position
         if *end == source.len() {
             el = line;
             ec = column;
         }
 
+        // Create a new Span with start and end byte indices
         let mut span = Span::new(*start, *end);
+
+        // Set the detailed line and column info on the Span
         span.set_begin_line(sl);
         span.set_begin_column(sc);
         span.set_end_line(el);
         span.set_end_column(ec);
+
         span
     }
 

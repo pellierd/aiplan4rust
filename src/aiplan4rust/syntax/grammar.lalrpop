@@ -1793,8 +1793,8 @@ pub HDDLDomain : Box<AstNode> = {
 
 pub HDDLProblem : Box<AstNode> = {
     <start:@L>
-        "(" "define" "(" "problem" <problem:ProblemName> ")"
-        "(" ":domain" <domain:DomainName> ")"
+        "(" "define" "(" "problem" <problem_name:ProblemName> ")"
+        "(" ":domain" <domain_name:DomainName> ")"
         <require_def:HDDLRequireDef?>
         <objects_def:ObjectsDef?>
         <task_network:InitialTaskNetwork>
@@ -1803,8 +1803,8 @@ pub HDDLProblem : Box<AstNode> = {
         ")"
     <end:@R> => {
         let mut children = Vec::new();
-        children.push(problem);
-        children.push(domain);
+        children.push(problem_name);
+        children.push(domain_name);
         if let Some(require_def) = require_def {
            children.push(require_def);
         }

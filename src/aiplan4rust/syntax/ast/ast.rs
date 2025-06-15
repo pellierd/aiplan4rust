@@ -6,32 +6,32 @@ use linked_hash_map::LinkedHashMap;
 use std::fmt;
 use crate::aiplan4rust::semantic::hir::HirNode;
 
-/// A structure representing a syntax tree.
+/// A structure representing an abstract syntax tree (AST) and its metadata.
 ///
-/// The `SyntaxTree` struct encapsulates an Abstract Syntax Tree (AST) and additional metadata,
-/// such as the source filename and the timestamp of when the tree was generated. This structure
-/// can be used to hold the parsed representation of a program, along with its associated
-/// information.
+/// The `Ast` struct encapsulates the root of an abstract syntax tree,
+/// along with metadata such as the associated source name and the time
+/// the tree was generated. It is typically used to store the result of
+/// parsing a source file or input string.
 ///
 /// # Fields
 ///
-/// - `ast`: The Abstract Syntax Tree (AST) of the program, represented by an `Ast` type.
-/// - `filename`: An optional filename from which the syntax tree was generated.
-/// - `generated_at`: The time when the syntax tree was created.
+/// - `root`: The root node of the abstract syntax tree, represented by an `AstNode`.
+/// - `source_name`: A `String` identifying the source of the AST (e.g., a filename or label).
+/// - `generated_at`: A `SystemTime` indicating when the AST was generated.
 ///
 /// # Example
 ///
 /// ```rust
 /// use std::time::SystemTime;
-/// use crate::aiplan4rust::syntax::ast::Ast;
+/// use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
 ///
-/// let ast = Box::new(Ast::new(...)); // Construct the AST
-/// let syntax_tree = SyntaxTree::new(ast, Some("domain.pddl".to_string()), SystemTime::now());
+/// let root = Box::new(AstNode::new(...)); // Construct the root AST node
+/// let ast = Ast::new(root, "domain.pddl".to_string(), SystemTime::now());
 ///
-/// // Access the AST and other metadata:
-/// let ast_ref = syntax_tree.ast();
-/// let file_name = syntax_tree.filename();
-/// let generated_at = syntax_tree.generated_at();
+/// // Access the AST and metadata:
+/// let root_ref = ast.root();
+/// let source = ast.source_name();
+/// let timestamp = ast.generated_at();
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Ast {
@@ -39,36 +39,45 @@ pub struct Ast {
     root: Box<AstNode>,
 
     /// The optional filename from which the syntax tree was generated.
-    filename: Option<String>,
+    source_name: String,
 
     /// The time when the syntax tree was generated.
     generated_at: std::time::SystemTime,
 }
 
 impl Ast {
-    /// Creates a new `SyntaxTree` instance.
+    /// Creates a new `Ast` instance.
     ///
     /// # Parameters
     ///
-    /// - `ast`: A boxed `Ast` object representing the program's abstract syntax tree.
-    /// - `filename`: An optional `String` holding the filename from which the AST was generated.
-    /// - `generated_at`: A `SystemTime` representing the timestamp when the AST was generated.
+    /// - `root`: A boxed `AstNode` representing the root of the abstract syntax tree.
+    /// - `source_name`: A `String` representing the source name associated with the AST (e.g., a
+    ///   filename or other identifier).
+    /// - `generated_at`: A `SystemTime` indicating when the AST was generated.
     ///
     /// # Returns
     ///
-    /// A new `SyntaxTree` instance with the provided values.
+    /// A new `Ast` instance initialized with the provided values.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let root = Box::new(AstNode::new());
+    /// let source_name = String::from("example_source");
+    /// let generated_at = std::time::SystemTime::now();
+    /// let ast = Ast::new(root, source_name, generated_at);
+    /// ```
     pub fn new(
         root: Box<AstNode>,
-        filename: Option<String>,
+        source_name: String,
         generated_at: std::time::SystemTime,
     ) -> Self {
         Ast {
             root,
-            filename,
+            source_name,
             generated_at,
         }
     }
-
     /// Accessor for the AST.
     ///
     /// # Returns
@@ -87,13 +96,43 @@ impl Ast {
         &mut self.root
     }
 
-    /// Accessor for the filename.
+
+    /// Returns a reference to the source name.
     ///
     /// # Returns
     ///
-    /// An `Option<&String>` that is `Some(filename)` if a filename is available, or `None` if not.
-    pub fn filename(&self) -> Option<&String> {
-        self.filename.as_ref()
+    /// A reference to the source name as a `&String`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let obj = MyStruct { source_name: String::from("example_source") };
+    /// assert_eq!(obj.source_name(), "example_source");
+    /// ```
+    pub fn source_name(&self) -> &String {
+        &self.source_name
+    }
+
+    /// Assign unique consecutive IDs to all nodes in the AST starting from `start_id`.
+    ///
+    /// This method delegates to the root node's `assign_unique_ids` method.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_id` - The initial ID to assign to the root node.
+    pub fn assign_unique_ids(&mut self, start_id: usize) {
+        self.root.assign_unique_ids(start_id);
+    }
+
+    /// Checks whether all node IDs in the AST are unique.
+    ///
+    /// This method delegates to the root node's `check_ids_unique` method.
+    ///
+    /// # Returns
+    ///
+    /// `true` if all node IDs are unique, `false` otherwise.
+    pub fn check_ids_unique(&self) -> bool {
+        self.root.check_ids_unique()
     }
 
     pub fn flatten(
@@ -132,25 +171,20 @@ impl Ast {
 
 }
 
-/// Implement the `fmt::Display` trait for `SyntaxTree`.
+/// Implements the `fmt::Display` trait for `Ast`.
 ///
-/// This implementation formats the `SyntaxTree` struct in a human-readable way, including
-/// the `ast`, `filename`, and `generated_at` fields. The `Display` trait is used to
-/// provide a custom string representation of the `SyntaxTree` when printed, for example,
-/// using `println!`.
+/// This implementation provides a human-readable string representation of the `Ast`
+/// structure. It includes details such as the source name, generation timestamp,
+/// and the root node of the abstract syntax tree.
+///
+/// This is useful for debugging or logging, as it allows instances of `Ast`
+/// to be printed using macros like `println!`.
 impl fmt::Display for Ast {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Display the AST (assuming `Ast` implements `Display`).
-        writeln!(f, "SyntaxTree:")?;
-        writeln!(f, " - AST: {}", self.root())?;
-
-        // Display the filename if available.
-        match &self.filename {
-            Some(file) => writeln!(f, " - Filename: {}", file)?,
-            None => writeln!(f, " - Filename: (not provided)")?,
-        }
-
-        // Display the generation time.
-        writeln!(f, " - Generated at: {:?}", self.generated_at)
+        writeln!(f, "Abstract Syntax Tree:")?;
+        writeln!(f, " - Source: {}", self.source_name())?;
+        writeln!(f, " - Generated at: {:?}", self.generated_at)?;
+        writeln!(f, " - Nodes:\n{}", self.root())?;
+        Ok(())
     }
 }

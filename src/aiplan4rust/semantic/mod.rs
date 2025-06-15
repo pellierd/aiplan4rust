@@ -3,7 +3,6 @@ pub mod symbol;
 pub mod analyzer_result;
 pub mod type_checker;
 pub mod symbol_table;
-mod normalization;
 pub mod checks;
 pub mod hir;
 

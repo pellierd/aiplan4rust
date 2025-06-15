@@ -1,17 +1,22 @@
-/// The `aiplan4rust` module provides the necessary components for parsing PDDL and HDDL files.
-/// It includes tools for parsing, error management, and diagnostic display.
+/// The `aiplan4rust` module provides core components for parsing PDDL and HDDL files,
+/// including parsing logic, error handling, and diagnostics rendering.
+///
+/// # Overview
+/// This module enables reading, parsing, and error reporting for planning domain
+/// description languages (PDDL and HDDL). It manages syntax analysis and presents
+/// clear diagnostics to users.
 ///
 /// # Example
-/// This example demonstrates how to read a file, parse its content using the `Parser`,
-/// and display any parsing errors encountered.
+/// The following example demonstrates how to read a file, parse its content with the `Parser`,
+/// and render any parsing errors encountered.
 ///
 /// ```rust
 /// use aiplan4rust::{Parser, Renderer};
 /// use std::fs::File;
 /// use std::io::Read;
 ///
-/// // This function reads the content of a file located at the specified path and returns
-/// // it as a `String`. If an error occurs during the file reading process, an error is returned.
+/// /// Reads the entire content of the file at `path` into a String.
+/// /// Returns an I/O error if the file cannot be read.
 /// fn read_file(path: &str) -> Result<String, std::io::Error> {
 ///     let mut file = File::open(path)?;
 ///     let mut content = String::new();
@@ -19,35 +24,40 @@
 ///     Ok(content)
 /// }
 ///
-/// // Path to the source file.
-/// let source_path = "domain.pddl";  // Ensure correct file path string format.
+/// let source_path = "domain.pddl";  // Specify your domain file path here.
 ///
-/// // Attempt to read the content of the source file.
 /// let content = read_file(source_path)?;
 ///
-/// // Create a new syntax instance.
 /// let mut parser = Parser::new();
 ///
-/// // Attempt to parse the content, returning the result in `parser_result`.
-/// let mut parser_result = parser.parse(source_path, &content, language)?;
+/// // Replace `language` with the appropriate Language enum variant.
+/// let parser_result = parser.parse(source_path, &content, language)?;
 ///
-/// // Display the errors from the syntax if any exist.
 /// let mut renderer = Renderer::new(parser_result.diagnostic_manager());
-///renderer.display();
+/// renderer.display();
 /// ```
 ///
 /// # Explanation
-/// This module provides an interface to read a PDDL or HDDL file, parse it, and display
-/// any parsing errors. Errors are managed by the `DiagnosticRenderer`, which makes the
-/// diagnostics easy to understand and visually accessible.
+/// This module encapsulates the workflow of reading PDDL/HDDL source files,
+/// parsing them, and rendering diagnostics for any errors encountered.
+/// Errors are managed via the `DiagnosticRenderer` to provide clear and
+/// user-friendly error messages.
 ///
 /// # Notes
-/// - This example focuses on the workflow of reading a file, parsing it, and displaying errors.
-/// - The `DiagnosticRenderer` is used to print the errors found during the parsing process.
+/// - Focus is on syntax parsing and error reporting.
+/// - You must specify the `language` parameter to indicate the parsing language (PDDL/HDDL).
 ///
 /// # Example Output
-/// In case of errors, the output will display a detailed message for each error found
-/// during the parsing process.
+/// If parsing errors occur, detailed error messages with line and column information
+/// will be displayed to help locate and fix issues.
+///
+/// # Modules
+/// This crate exposes submodules for language definitions, lexical analysis,
+/// parsing, grammar rules, AST structures, spans, and parser results.
+///
+/// # Exports
+/// Key components like `Language`, `Parser`, `ParserResult`, `Span`, `AstKind`, and `AstNode`
+/// are re-exported for convenient external use.
 pub mod elements;
 pub mod language;
 pub mod lexer;
@@ -57,10 +67,9 @@ pub mod grammar;
 pub mod span;
 pub mod ast;
 
-/// Export key components for external usage of the module.
-/// This allows access to types like `Language`, `Parser`, `ParserResult`,
-/// `SymbolOrigin`, and `Span` directly.
 pub use language::Language;
 pub use parser::Parser;
 pub use parser_result::ParserResult;
 pub use span::Span;
+pub use ast::AstKind;
+pub use ast::AstNode;
