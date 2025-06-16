@@ -9,6 +9,7 @@ use std::fs::File;
 use std::path::Path;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::semantic::hir::HirNode;
+use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
 
 /// A structure representing an abstract syntax tree (AST) and its metadata.
 ///
@@ -139,6 +140,30 @@ impl Ast {
     /// [`SystemTime`]: std::time::SystemTime
     pub fn generated_at(&self) -> std::time::SystemTime {
         self.generated_at
+    }
+
+    /// Returns an iterator over the tree in preorder (depth-first).
+    ///
+    /// # Example
+    /// ```rust
+    /// for node in root.preorder() {
+    ///     println!("{:?}", node);
+    /// }
+    /// ```
+    pub fn preorder(&self) -> PreorderIter<'_> {
+        PreorderIter::new(self.root())
+    }
+
+    /// Returns an iterator over the tree in postorder (depth-first).
+    ///
+    /// # Example
+    /// ```rust
+    /// for node in root.postorder() {
+    ///     println!("{:?}", node);
+    /// }
+    /// ```
+    pub fn postorder(&self) -> PostorderIter<'_> {
+        PostorderIter::new(self.root())
     }
 
     /// Assign unique consecutive IDs to all nodes in the AST starting from `start_id`.

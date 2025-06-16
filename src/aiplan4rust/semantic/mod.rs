@@ -6,10 +6,11 @@ pub mod symbol_table;
 pub mod checks;
 pub mod hir;
 pub mod annotated_ast;
+mod arena;
 
 pub use analyzer_result::AnalyzerResult;
 pub use analyzer::Analyzer;
 pub use symbol_table::SymbolTable;
 pub use type_checker::TypeChecker;
 pub use symbol_table::SymbolTableBuilder;
-pub use annotated_ast::AnnotatedAst;
+pub use annotated_ast::SemanticContext;

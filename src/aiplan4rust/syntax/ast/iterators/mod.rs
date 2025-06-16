@@ -3,8 +3,8 @@
 //! This module provides two iterator implementations for walking over nodes in an
 //! abstract syntax tree (AST) or similar hierarchical data structures:
 //!
-//! - [`PreorderIterator`]: Visits the current node before its children (pre-order traversal).
-//! - [`PostorderIterator`]: Visits the children before the current node (post-order traversal).
+//! - [`PreorderIter`]: Visits the current node before its children (pre-order traversal).
+//! - [`PostorderIter`]: Visits the children before the current node (post-order traversal).
 //!
 //! # Examples
 //!
@@ -37,5 +37,5 @@
 mod preorder;
 mod postorder;
 
-pub use preorder::PreorderIterator;
-pub use postorder::PostorderIterator;
+pub use preorder::PreorderIter;
+pub use postorder::PostorderIter;

@@ -10,17 +10,17 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 ///
 /// ```rust
 /// let root = AstNode::new(...);
-/// let iter = PostorderIterator::new(&root);
+/// let iter = PostorderIter::new(&root);
 ///
 /// for node in iter {
 ///     println!("{:?}", node);
 /// }
 /// ```
-pub struct PostorderIterator<'a> {
+pub struct PostorderIter<'a> {
     stack: Vec<(&'a AstNode, bool)>,
 }
 
-impl<'a> PostorderIterator<'a> {
+impl<'a> PostorderIter<'a> {
     /// Creates a new `PostorderIterator` starting from the given root node.
     pub fn new(root: &'a AstNode) -> Self {
         Self {
@@ -29,7 +29,7 @@ impl<'a> PostorderIterator<'a> {
     }
 }
 
-impl<'a> Iterator for PostorderIterator<'a> {
+impl<'a> Iterator for PostorderIter<'a> {
     type Item = &'a AstNode;
 
     fn next(&mut self) -> Option<Self::Item> {

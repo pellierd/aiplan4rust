@@ -10,17 +10,17 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 ///
 /// ```rust
 /// let root = AstNode::new(...);
-/// let iter = PreorderIterator::new(&root);
+/// let iter = PreorderIter::new(&root);
 ///
 /// for node in iter {
 ///     println!("{:?}", node);
 /// }
 /// ```
-pub struct PreorderIterator<'a> {
+pub struct PreorderIter<'a> {
     stack: Vec<&'a AstNode>,
 }
 
-impl<'a> PreorderIterator<'a> {
+impl<'a> PreorderIter<'a> {
     /// Creates a new `PreorderIterator` starting from the given root node.
     ///
     /// # Parameters
@@ -35,7 +35,7 @@ impl<'a> PreorderIterator<'a> {
     }
 }
 
-impl<'a> Iterator for PreorderIterator<'a> {
+impl<'a> Iterator for PreorderIter<'a> {
     type Item = &'a AstNode;
 
     /// Advances the iterator and returns the next node in pre-order.

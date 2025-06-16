@@ -1,6 +1,6 @@
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::{AstNode, Span};
-use crate::aiplan4rust::syntax::ast::iterators::{PostorderIterator, PreorderIterator};
+use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::ast::serialize::SerializableNode;
 
@@ -255,8 +255,8 @@ impl Node {
     ///     println!("{:?}", node);
     /// }
     /// ```
-    pub fn preorder(&self) -> PreorderIterator<'_> {
-        PreorderIterator::new(self)
+    pub fn preorder(&self) -> PreorderIter<'_> {
+        PreorderIter::new(self)
     }
 
     /// Returns an iterator over the tree in postorder (depth-first).
@@ -267,8 +267,8 @@ impl Node {
     ///     println!("{:?}", node);
     /// }
     /// ```
-    pub fn postorder(&self) -> PostorderIterator<'_> {
-        PostorderIterator::new(self)
+    pub fn postorder(&self) -> PostorderIter<'_> {
+        PostorderIter::new(self)
     }
 
     // === Formatting ===
