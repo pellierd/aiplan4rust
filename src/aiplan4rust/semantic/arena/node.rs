@@ -1,4 +1,5 @@
 use std::fmt;
+use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::syntax::{AstKind, Span};
 
 /// Represents a node in an Abstract Syntax Tree (AST) arena.
@@ -35,7 +36,7 @@ use crate::aiplan4rust::syntax::{AstKind, Span};
 /// node.set_kind(AstKind::Stmt);
 /// node.set_span(Span::new(10, 20));
 /// ```
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Node {
     kind: AstKind,
     children: Vec<usize>,

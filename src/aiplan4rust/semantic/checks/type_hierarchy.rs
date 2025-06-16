@@ -4,7 +4,6 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::lexer::token::OBJECT_TYPE;
-use crate::aiplan4rust::semantic::hir::HirTree;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -12,7 +11,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use bimap::BiMap;
-
+use crate::aiplan4rust::semantic::SemanticContext;
 
 /// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
@@ -60,13 +59,13 @@ use bimap::BiMap;
 ///     Err(err) => eprintln!("Internal error: {:?}", err),
 /// }
 pub fn check_type_hierarchy(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
 
     // Step 1: Collect all type declarations from the root scope (PrimitiveType only)
-    let types = syntax_tree
+    let types = context
         .symbol_table()
         .collect_declarations(
             None,
@@ -94,7 +93,7 @@ pub fn check_type_hierarchy(
         &filtered_cycles,
         &type_bimap,
         &types,
-        syntax_tree.filename(),
+        context.source_name(),
         source,
         diagnostic_manager,
     )?;

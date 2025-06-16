@@ -8,24 +8,25 @@ use crate::aiplan4rust::syntax::elements::Requirement::{
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::semantic::hir::{HirNode, HirTree};
 use std::collections::HashSet;
+use crate::aiplan4rust::semantic::arena::ArenaAstNode;
+use crate::aiplan4rust::semantic::SemanticContext;
 
 pub fn check_requirement_violations(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     requirements: &HashSet<Requirement>,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
 
-    for (index, node) in syntax_tree.iter() {
+    for (index, node) in context.ast().preorder_with_index() {
         match node.kind() {
             AstKind::PrimitiveType(_) | AstKind::TypesDef => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![Typing],
@@ -36,7 +37,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![Fluents, NumericFluents, ObjectFluents],
@@ -47,7 +48,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![NumericFluents],
@@ -58,7 +59,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![DurativeActions],
@@ -69,7 +70,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![DerivedPredicates],
@@ -77,7 +78,7 @@ pub fn check_requirement_violations(
             }
 
             AstKind::Or => {
-                let parent = syntax_tree.get_parent(*index).unwrap();
+                let parent = context.ast().get_parent(index).unwrap();
                 if *parent.kind() != AstKind::MethodPreconditionDef
                     && *parent.kind() != AstKind::PreconditionDef
                     && *parent.kind() != AstKind::EffectDef
@@ -85,7 +86,7 @@ pub fn check_requirement_violations(
                     checked &= report_requirement_violation(
                         node,
                         requirements,
-                        syntax_tree.filename(),
+                        context.source_name(),
                         source,
                         diagnostic_manager,
                         vec![DisjunctivePreconditions],
@@ -97,7 +98,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![NegativePreconditions],
@@ -108,7 +109,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![DisjunctivePreconditions],
@@ -119,7 +120,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![UniversalPreconditions],
@@ -130,7 +131,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![ExistentialPreconditions],
@@ -141,7 +142,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![Preferences],
@@ -152,7 +153,7 @@ pub fn check_requirement_violations(
                 checked &= report_requirement_violation(
                     node,
                     requirements,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                     vec![ConditionalEffects],
@@ -165,7 +166,7 @@ pub fn check_requirement_violations(
                         checked &= report_requirement_violation(
                             node,
                             requirements,
-                            syntax_tree.filename(),
+                            context.source_name(),
                             source,
                             diagnostic_manager,
                             vec![Equality, Fluents, NumericFluents,ObjectFluents],
@@ -175,7 +176,7 @@ pub fn check_requirement_violations(
                         checked &= report_requirement_violation(
                             node,
                             requirements,
-                            syntax_tree.filename(),
+                            context.source_name(),
                             source,
                             diagnostic_manager,
                             vec![Fluents, NumericFluents,ObjectFluents],
@@ -189,7 +190,7 @@ pub fn check_requirement_violations(
     Ok(checked)
 }
 fn report_requirement_violation(
-    node: &HirNode,
+    node: &ArenaAstNode,
     requirements: &HashSet<Requirement>,
     filename: &str,
     source: Provider,

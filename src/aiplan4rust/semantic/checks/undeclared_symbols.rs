@@ -11,14 +11,12 @@ use crate::aiplan4rust::syntax::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Filterable};
+use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::hir::HirTree;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::lexer::Token::ScaleDown;
+use crate::aiplan4rust::semantic::SemanticContext;
 
 /// Checks if there are any undeclared symbols used in the given syntax tree.
 ///
@@ -57,21 +55,21 @@ use crate::aiplan4rust::syntax::lexer::Token::ScaleDown;
 /// }
 /// ```
 pub fn check_undeclared_symbols(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     skip_symbols: &[SymbolKind],
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
 
-    let symbol_table = syntax_tree.symbol_table();
+    let symbol_table = context.symbol_table();
 
     // Iterate over each symbol in the symbol table.
     for symbol in symbol_table.values() {
         // Iterate over all usages of the symbol.
         for usage in symbol.usages() {
             // Skip the symbol if it meets the criteria (e.g., already declared or needs to be skipped).
-            if should_skip_symbol(symbol, syntax_tree, usage.kind(), skip_symbols) {
+            if should_skip_symbol(symbol, context, usage.kind(), skip_symbols) {
                 continue;
             }
 
@@ -80,7 +78,7 @@ pub fn check_undeclared_symbols(
                 checked = false;
                 report_undeclared_symbol_error(
                     usage,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager,
                 );
@@ -131,12 +129,12 @@ pub fn check_undeclared_symbols(
 /// ```
 fn should_skip_symbol(
     symbol: &Symbol,
-    annotated_syntax_tree: &HirTree,
+    context: &SemanticContext,
     usage_kind: &SymbolKind,
     skip_symbols: &[SymbolKind],
 ) -> bool {
     // Skip if the symbol is predefined in PDDL or if it matches a symbol kind in the skip list.
-    is_pddl_builtin_symbol(symbol, annotated_syntax_tree) || skip_symbols.contains(usage_kind)
+    is_pddl_builtin_symbol(symbol, context) || skip_symbols.contains(usage_kind)
 }
 
 /// Checks if a declaration for the given symbol usage exists in the symbol's declarations.
@@ -247,25 +245,25 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
 
 fn is_pddl_builtin_symbol(
     symbol: &Symbol,
-    annotated_syntax_tree: &HirTree,
+    context: &SemanticContext,
 ) -> bool {
     match symbol.name().as_str() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
         OBJECT_TYPE
-            if annotated_syntax_tree.has_requirement(&Typing)
-                || annotated_syntax_tree.has_requirement(&Adl) =>
+            if context.has_requirement(&Typing)
+                || context.has_requirement(&Adl) =>
         {
             true
         }
 
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
-        NUMBER_TYPE | TOTAL_TIME if annotated_syntax_tree.has_requirement(&NumericFluents) => {
+        NUMBER_TYPE | TOTAL_TIME if context.has_requirement(&NumericFluents) => {
             true
         }
 
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        DURATION_VARIABLE if annotated_syntax_tree.has_requirement(&DurativeActions) => true,
+        DURATION_VARIABLE if context.has_requirement(&DurativeActions) => true,
 
         // Default case for any other symbols.
         _ => false,

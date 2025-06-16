@@ -3,25 +3,25 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::hir::HirTree;
+use crate::aiplan4rust::semantic::SemanticContext;
 
 use std::collections::{HashMap, HashSet};
 
 
 pub fn check_declared_symbols(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    check_symbol_declarations(syntax_tree, diagnostic_manager, None)
+    check_symbol_declarations(context, diagnostic_manager, None)
 }
 
 pub fn check_declared_symbols_of_kinds(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     diagnostic_manager: &mut DiagnosticManager,
     kinds_to_check: Vec<SymbolKind>,
 ) -> Result<bool, ParserInternalError> {
     let kinds_set: HashSet<SymbolKind> = kinds_to_check.into_iter().collect();
-    check_symbol_declarations(syntax_tree, diagnostic_manager, Some(&kinds_set))
+    check_symbol_declarations(context, diagnostic_manager, Some(&kinds_set))
 }
 
 /// Checks for duplicate symbol declarations in the symbol table and logs errors
@@ -38,12 +38,12 @@ pub fn check_declared_symbols_of_kinds(
 /// - `Ok(())` if the check completes (errors are logged via the error manager).
 /// - `Err(ParserInternalError)` if an error occurs during processing.
 fn check_symbol_declarations(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     diagnostic_manager: &mut DiagnosticManager,
     kinds_to_check: Option<&HashSet<SymbolKind>>,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
-    let symbol_table = syntax_tree.symbol_table();
+    let symbol_table = context.symbol_table();
 
     for symbol in symbol_table.values() {
 
@@ -60,7 +60,7 @@ fn check_symbol_declarations(
                 continue;
             }
 
-            let ast_entry = syntax_tree.get_entry(declaration.ast()).unwrap();
+            let ast_entry = context.get(declaration.ast()).unwrap();
             let current_scope = declaration.scope();
 
             let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));
@@ -76,7 +76,7 @@ fn check_symbol_declarations(
                             symbol: symbol.name().clone(),
                         },
                         Provider::Analyzer,
-                        syntax_tree.filename().clone(),
+                        context.source_name().clone(),
                         ast_entry.span().clone(),
                     );
                     diagnostic_manager.add_diagnostic(warning);
@@ -84,7 +84,7 @@ fn check_symbol_declarations(
                     checked = false;
 
                     let scope_index = conflicting_scope.iter().last().unwrap();
-                    let scope = syntax_tree.get_entry(*scope_index).unwrap();
+                    let scope = context.get(*scope_index).unwrap();
 
                     let error = Diagnostic::new(
                         DiagnosticKind::DuplicatedSymbolDeclarationInScopeError {
@@ -94,7 +94,7 @@ fn check_symbol_declarations(
                             scope: scope.clone(),
                         },
                         Provider::Analyzer,
-                        syntax_tree.filename().clone(),
+                        context.source_name().to_string(),
                         ast_entry.span().clone(),
                     );
                     diagnostic_manager.add_diagnostic(error);

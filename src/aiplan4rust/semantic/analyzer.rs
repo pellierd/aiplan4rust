@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::hir::HirTree;
@@ -72,13 +72,15 @@ impl Analyzer {
         // Step 1: Convert to annotated HIR
         let annotated_syntax_tree = HirTree::from(ast)?;
 
+        let context = SemanticContext::from(ast)?;
+
         // Step 2: Determine kind and apply semantic checks
         match ast.root().kind() {
             AstKind::Domain => {
-                Self::check_domain(&annotated_syntax_tree, &mut self.diagnostic_manager)?;
+                Self::check_domain(&context, &mut self.diagnostic_manager)?;
             }
             AstKind::Problem => {
-                Self::check_problem(&annotated_syntax_tree, &mut self.diagnostic_manager)?;
+                Self::check_problem(&context, &mut self.diagnostic_manager)?;
             }
             _ => {
                 return Err(ParserInternalError::new(format!(
@@ -130,7 +132,7 @@ impl Analyzer {
     /// }
     /// ```
     fn check_domain(
-        annotated_syntax_tree: &HirTree,
+        context: &SemanticContext,
         diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, ParserInternalError> {
         // Skip unused symbols of kind Constant during the checks
@@ -138,14 +140,14 @@ impl Analyzer {
 
         // Perform the first symbol check (declared symbols check)
         let mut checked= Self::check_symbols(
-            annotated_syntax_tree,
+            context,
             &[],                 // No symbols to skip for declared symbols check
             skip_symbols_unused, // Skip symbols of type Constant for unused symbol check
             diagnostic_manager,
         )?;
 
         checked &= checked && semantic::checks::check_type_hierarchy(
-            annotated_syntax_tree,
+            context,
             Provider::Analyzer,
             diagnostic_manager,
         )?;
@@ -155,32 +157,32 @@ impl Analyzer {
 
 
             // Create a type checker using the symbol table from the annotated syntax tree
-            let type_checker = TypeChecker::new(annotated_syntax_tree.symbol_table());
+            let type_checker = TypeChecker::new(context.symbol_table());
 
             // Check atomic formulas in the domain using the type checker
             checked &= semantic::checks::check_declared_symbol_signatures(
-                annotated_syntax_tree,
+                context,
                 &type_checker,
                 diagnostic_manager,
             )?;
 
             // Check functional expressions in the domain using the type checker
             checked &= semantic::checks::check_typed_expressions(
-                annotated_syntax_tree,
+                context,
                 &type_checker,
                 Provider::Analyzer,
                 diagnostic_manager,
             )?;
 
             checked &= semantic::checks::check_task_ordering(
-                annotated_syntax_tree,
+                context,
                 Provider::Analyzer,
                 diagnostic_manager
             )?;
 
             semantic::checks::check_requirement_violations(
-                annotated_syntax_tree,
-                annotated_syntax_tree.requirements(),
+                context,
+                context.requirements(),
                 Provider::Analyzer,
                 diagnostic_manager,
             )?;
@@ -207,7 +209,7 @@ impl Analyzer {
     /// * `Ok(false)` indicates that errors were found.
     /// * `Err(ParserInternalError)` indicates an internal error occurred.
     fn check_problem(
-        annotated_syntax_tree: &HirTree,
+        context: &SemanticContext,
         diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, ParserInternalError> {
         let skip_types_undeclared = &[
@@ -219,14 +221,14 @@ impl Analyzer {
         ];
 
         let mut checked = Self::check_symbols(
-            annotated_syntax_tree,
+            context,
             skip_types_undeclared,
             &[],
             diagnostic_manager,
         )?;
 
         checked &= semantic::checks::check_task_ordering(
-            annotated_syntax_tree,
+            context,
             Provider::Analyzer,
             diagnostic_manager
         )?;
@@ -272,22 +274,24 @@ impl Analyzer {
     /// }
     /// ```
     pub fn check_symbols(
-        annotated_syntax_tree: &HirTree,
+        context: &SemanticContext,
         skip_types_undeclared: &[SymbolKind], // Types of symbols to ignore during undeclared symbol checking
         skip_symbols_unused: &[SymbolKind],   // Symbols to ignore during unused symbol checking
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, ParserInternalError> {
         let mut checked = true;
 
+
+
         // Check declared symbols in the annotated syntax tree
         // This check ensures that declared symbols follow the correct syntax and declarations
-        checked &= semantic::checks::check_declared_symbols(&annotated_syntax_tree, diagnostic_manager)?;
+        checked &= semantic::checks::check_declared_symbols(&context, diagnostic_manager)?;
 
         // Check for undeclared symbols, skipping specific types of symbols
         // This ensures that all symbols used in the tree are declared, except for those types in
         // `skip_types_undeclared`
         checked &= semantic::checks::check_undeclared_symbols(
-            annotated_syntax_tree,
+            context,
             skip_types_undeclared, // Skip certain symbol types for undeclared checking
             Provider::Analyzer,
             diagnostic_manager,
@@ -296,7 +300,7 @@ impl Analyzer {
         // Check for unused symbols, skipping specific symbols
         // This ensures that no declared symbols are unused, except for those in `skip_symbols_unused`
         checked &= semantic::checks::check_unused_symbols(
-            annotated_syntax_tree,
+            context,
             skip_symbols_unused, // Skip certain symbols for unused checking
             Provider::Analyzer,
             diagnostic_manager,

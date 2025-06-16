@@ -1,9 +1,13 @@
 use std::collections::HashSet;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
-
+use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
-use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::semantic::{SymbolTable, SymbolTableBuilder};
+use crate::aiplan4rust::semantic::arena::arena::Arena;
+use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::AstKind;
 use crate::aiplan4rust::syntax::elements::Requirement;
 
 /// Represents the semantic context resulting from the semantic analysis phase.
@@ -14,7 +18,8 @@ use crate::aiplan4rust::syntax::elements::Requirement;
 ///
 /// It is the main output of the semantic analysis stage and acts as the interface
 /// between parsing and later phases such as type checking, optimization, or code generation.
-pub struct SemanticContext {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Context {
     /// The AST stored in an arena for efficient indexing and traversal.
     ast: ArenaAst,
 
@@ -31,7 +36,7 @@ pub struct SemanticContext {
     generated_at: SystemTime,
 }
 
-impl SemanticContext {
+impl Context {
     /// Constructs a new `SemanticContext` from its components.
     ///
     /// # Arguments
@@ -54,6 +59,106 @@ impl SemanticContext {
             symbol_table,
             generated_at,
         }
+    }
+
+
+    /// Creates a new `AnnotatedSyntaxTree` from a `SyntaxTree`.
+    ///
+    /// # Arguments
+    /// * `ast` - The original syntax tree to be annotated.
+    ///
+    /// # Returns
+    /// * A new `AnnotatedSyntaxTree` created from the provided `ast`.
+    pub fn from(ast: &Ast) -> Result<Self, ParserInternalError> {
+        let arena = Arena::from_ast(ast);
+
+        // Extract the requirements from the syntax tree
+        let requirements = Self::extract_requirements(&arena);
+
+        // Create the symbol table from the syntax tree
+        let mut builder = SymbolTableBuilder::new();
+        let symbol_table = builder.build(ast)?;
+
+        // Create and return the annotated syntax tree
+        Ok(Context::new(
+            arena,
+            ast.source_name().to_string(),
+            requirements,
+            symbol_table,
+            SystemTime::now(),
+        ))
+    }
+
+    /// Extracts all implied `Requirement` instances from an arena-based syntax tree,
+    /// assuming all requirements are declared under a single parent node.
+    ///
+    /// Traverses the arena to find the first node of kind `Requirement`,
+    /// collects it and all its children, then stops.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - A reference to the arena-based syntax tree.
+    ///
+    /// # Returns
+    ///
+    /// A `HashSet` of all declared and implied `Requirement` instances.
+    fn extract_requirements(arena: &ArenaAst) -> HashSet<Requirement> {
+        let mut requirements = HashSet::new();
+        let mut processing_requirement_children = false;
+
+        for node in arena.preorder() {
+            match &node.kind() {
+                AstKind::Requirement(req) => {
+                    requirements.extend(req.imply());
+
+                    // If we were not already processing a requirement,
+                    // start processing its children
+                    if !processing_requirement_children {
+                        processing_requirement_children = true;
+                    } else {
+                        // If we encounter another requirement while processing children,
+                        // we can stop as we've processed the first requirement and its subtree
+                        break;
+                    }
+                }
+                _ => {
+                    // While processing the first requirement's children,
+                    // also include implied requirements from those children
+                    if processing_requirement_children {
+                        if let AstKind::Requirement(child_req) = &node.kind() {
+                            requirements.extend(child_req.imply());
+                        }
+                    }
+                }
+            }
+        }
+
+        requirements
+    }
+
+    /// Checks whether a specific `Requirement` is declared in the syntax tree.
+    ///
+    /// This method returns `true` if the given `requirement` is present in the
+    /// set of declared requirements, meaning the corresponding feature is enabled
+    /// and may be used in the domain or problem description.
+    ///
+    /// # Arguments
+    ///
+    /// * `requirement` - A reference to the `Requirement` to check for.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the requirement is declared; `false` otherwise.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if annotated_syntax_tree.has_requirement(&Requirement::Fluent) {
+    ///     println!("Fluent support is enabled.");
+    /// }
+    /// ```
+    pub fn has_requirement(&self, requirement: &Requirement) -> bool {
+        self.requirements.contains(requirement)
     }
 
     /// Returns a reference to a node by its index, if it exists.
@@ -97,7 +202,7 @@ impl SemanticContext {
     }
 }
 
-impl fmt::Display for SemanticContext {
+impl fmt::Display for Context {
     /// Formats the semantic context for display.
     ///
     /// The output includes metadata (timestamp and source), semantic requirements,

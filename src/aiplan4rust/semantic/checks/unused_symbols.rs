@@ -15,7 +15,7 @@ use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::hir::HirTree;
+use crate::aiplan4rust::semantic::SemanticContext;
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.
@@ -60,19 +60,19 @@ use crate::aiplan4rust::semantic::hir::HirTree;
 /// }
 /// ```
 pub fn check_unused_symbols(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     skip_symbols: &[SymbolKind],
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let symbol_table = syntax_tree.symbol_table();
+    let symbol_table = context.symbol_table();
 
     for symbol in symbol_table.values() {
         for declaration in symbol.declarations() {
             let declaration_kind = declaration.kind();
 
             // Skip declarations that should not be analyzed
-            if skip_unused_symbol_declaration(declaration, syntax_tree)?
+            if skip_unused_symbol_declaration(declaration, context)?
                 || skip_symbols.iter().any(|kind| kind == declaration_kind)
             {
                 continue;
@@ -81,7 +81,7 @@ pub fn check_unused_symbols(
             // Check if declaration refers to a PDDL built-in and report if so
             check_pddl_builtin_symbol_declaration(
                 declaration,
-                syntax_tree,
+                context,
                 source,
                 diagnostic_manager
             );
@@ -97,7 +97,7 @@ pub fn check_unused_symbols(
             if !has_valid_usage {
                 report_unused_symbol_warning(
                     declaration,
-                    syntax_tree.filename(),
+                    context.source_name(),
                     source,
                     diagnostic_manager
                 );
@@ -166,7 +166,7 @@ fn report_unused_symbol_warning(
 /// locally scoped variables that are not meant to be globally referenced.
 fn skip_unused_symbol_declaration(
     declaration: &Declaration,
-    annotated_syntax_tree: &HirTree,
+    context: &SemanticContext,
 ) -> Result<bool, ParserInternalError> {
     // Skip if the declaration is of a built-in kind: Requirement, Action, DASymbol, or Method
     if matches!(
@@ -183,15 +183,15 @@ fn skip_unused_symbol_declaration(
 
     match declaration.symbol().as_str() {
         OBJECT_TYPE
-            if annotated_syntax_tree.has_requirement(&Typing)
-                || annotated_syntax_tree.has_requirement(&Adl) =>
+            if context.has_requirement(&Typing)
+                || context.has_requirement(&Adl) =>
         {
             return Ok(true)
         }
-        NUMBER_TYPE | TOTAL_TIME if annotated_syntax_tree.has_requirement(&NumericFluents) => {
+        NUMBER_TYPE | TOTAL_TIME if context.has_requirement(&NumericFluents) => {
             return Ok(true)
         }
-        DURATION_VARIABLE if annotated_syntax_tree.has_requirement(&DurativeActions) => {
+        DURATION_VARIABLE if context.has_requirement(&DurativeActions) => {
             return Ok(true)
         }
         _ => {}
@@ -202,14 +202,14 @@ fn skip_unused_symbol_declaration(
     if matches!(declaration.kind(), SymbolKind::Variable)
         && (declaration
             .scope()
-            .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, annotated_syntax_tree)?
+            .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, context)?
             || declaration.scope().contains_ast_of_kind(
         AstKind::AtomicFunctionSkeleton,
-        annotated_syntax_tree,
+        context,
             )?
             || declaration // Add for HDDL
                 .scope()
-                .contains_ast_of_kind(AstKind::TaskDef, annotated_syntax_tree)?)
+                .contains_ast_of_kind(AstKind::TaskDef, context)?)
     {
         return Ok(true);
     }
@@ -261,24 +261,24 @@ fn skip_unused_symbol_declaration(
 /// ```
 fn check_pddl_builtin_symbol_declaration(
     declaration: &Declaration,
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
     let (expected_kind, requirements) = match declaration.symbol().as_str() {
         OBJECT_TYPE
-        if syntax_tree.has_requirement(&Typing) || syntax_tree.has_requirement(&Adl) =>
+        if context.has_requirement(&Typing) || context.has_requirement(&Adl) =>
             {
                 (SymbolKind::PrimitiveType, vec![Typing, Adl])
             }
-        NUMBER_TYPE if syntax_tree.has_requirement(&NumericFluents) => (
+        NUMBER_TYPE if context.has_requirement(&NumericFluents) => (
             SymbolKind::PrimitiveType,
             vec![NumericFluents, Fluents],
         ),
-        TOTAL_TIME if syntax_tree.has_requirement(&NumericFluents) => {
+        TOTAL_TIME if context.has_requirement(&NumericFluents) => {
             (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
-        DURATION_VARIABLE if syntax_tree.has_requirement(&DurativeActions) => (
+        DURATION_VARIABLE if context.has_requirement(&DurativeActions) => (
             SymbolKind::Variable,
             vec![DurativeActions],
         ),
@@ -290,7 +290,7 @@ fn check_pddl_builtin_symbol_declaration(
             declaration,
             expected_kind,
             requirements,
-            syntax_tree.filename(),
+            context.source_name(),
             source,
             diagnostic_manager,
         );
@@ -299,7 +299,7 @@ fn check_pddl_builtin_symbol_declaration(
         report_symbol_declared_ambiguous_as_keyword_warning(
             declaration,
             requirements,
-            syntax_tree.filename(),
+            context.source_name(),
             source,
             diagnostic_manager,
         );

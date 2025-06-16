@@ -1,15 +1,12 @@
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-
+use crate::aiplan4rust::semantic::hir::HirNode;
+use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::frontend::ParserInternalError;
 
 use linked_hash_map::LinkedHashMap;
 use std::io::Write;
 use std::fmt;
-use std::fs::File;
-use std::path::Path;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::semantic::hir::HirNode;
-use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
 
 /// A structure representing an abstract syntax tree (AST) and its metadata.
 ///

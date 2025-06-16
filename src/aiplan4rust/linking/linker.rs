@@ -44,27 +44,27 @@ impl Linker {
         Self::update_problem_symbols_table_from_domain(&mut problem, domain.symbol_table())?;
 
         let mut check  = linking::checks::check_cross_declared_symbols(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
-        check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
-        check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        //check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        //check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
 
         if check {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
-            semantic::checks::check_declared_symbol_signatures(&problem, &type_checker, &mut self.diagnostic_manager)?;
+            //semantic::checks::check_declared_symbol_signatures(&problem, &type_checker, &mut self.diagnostic_manager)?;
 
             // Check functional expressions in the domain using the type checker
-            semantic::checks::check_typed_expressions(&problem, &type_checker, Provider::Linker, &mut self.diagnostic_manager)?;
+            //semantic::checks::check_typed_expressions(&problem, &type_checker, Provider::Linker, &mut self.diagnostic_manager)?;
 
-            semantic::checks::check_task_ordering(&problem, Provider::Linker, &mut self.diagnostic_manager)?;
+            //semantic::checks::check_task_ordering(&problem, Provider::Linker, &mut self.diagnostic_manager)?;
 
             let mut requirements = domain.requirements().clone();
             requirements.extend(problem.requirements().clone());
-            semantic::checks::check_requirement_violations(
-                &problem,
-                &requirements,
-                Provider::Linker,
-                &mut self.diagnostic_manager
-            )?;
+            //semantic::checks::check_requirement_violations(
+            //    &problem,
+            //    &requirements,
+            //    Provider::Linker,
+            //    &mut self.diagnostic_manager
+            //)?;
         }
 
         // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs

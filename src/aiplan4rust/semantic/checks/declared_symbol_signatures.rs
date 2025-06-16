@@ -5,8 +5,8 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic::hir::{HirNode, HirTree};
-use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
+use crate::aiplan4rust::semantic::arena::ArenaAstNode;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
 ///
@@ -42,11 +42,11 @@ use crate::aiplan4rust::semantic::TypeChecker;
 /// ```
 
 pub fn check_declared_symbol_signatures(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let symbol_table = syntax_tree.symbol_table();
+    let symbol_table = context.symbol_table();
     let mut no_error = true;
 
     // Loop over all symbols in the symbol table.
@@ -69,12 +69,12 @@ pub fn check_declared_symbol_signatures(
                     declaration,
                     usage,
                     symbol_table,
-                    syntax_tree,
+                    context,
                     type_checker,
                     diagnostic_manager,
                 )? {
                     no_error &= false;
-                    let entry = syntax_tree.get_entry(usage.ast()).unwrap();
+                    let entry = context.ast().get(usage.ast()).unwrap();
                     let diagnostic_kind = match declaration.kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
                             symbol: symbol.name().clone()
@@ -94,7 +94,7 @@ pub fn check_declared_symbol_signatures(
                     let error = Diagnostic::new(
                         diagnostic_kind,
                         Provider::Analyzer,
-                        syntax_tree.filename().clone(),
+                        context.source_name().to_string(),
                         entry.span().clone(),
                     );
 
@@ -128,16 +128,16 @@ fn match_declaration_with_usage(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let ast_usage = syntax_tree.get_entry(usage.ast()).ok_or_else(|| {
+    let ast_usage = context.ast().get(usage.ast()).ok_or_else(|| {
         ParserInternalError::new(format!("AST entry not found for usage '{}'", usage.ast()))
     })?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
-        let argument = syntax_tree.get_entry(*argument_index).unwrap();
+        let argument = context.ast().get(*argument_index).unwrap();
 
         let kind = match argument.kind() {
             AstKind::Variable(_) => SymbolKind::Variable,
@@ -155,8 +155,9 @@ fn match_declaration_with_usage(
             declaration,
             usage,
             symbol_table,
-            syntax_tree,
+            context,
             argument,
+            *argument_index,
             kind,
             index,
             type_checker,
@@ -192,15 +193,16 @@ fn match_argument(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    syntax_tree: &HirTree,
-    argument: &HirNode,
+    context: &SemanticContext,
+    argument: &ArenaAstNode,
+    argument_index: usize,
     kind: SymbolKind,
     index: usize,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax tree
-    let name = argument.get_symbol(syntax_tree)?;
+    let name = context.ast().get_symbol(argument_index)?;
     // Check that the symbol exists; return an error if it is missing
     let name = match name {
         Some(n) => n,
@@ -282,12 +284,12 @@ fn match_argument(
         // Add a warning diagnostic for this special case
         let warning = Diagnostic::new(
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration {
-                argument: name.clone(),
+                argument: name.to_string(),
                 type_declared: ty1.clone(),
                 type_used: ty2.clone(),
             },
             Provider::Analyzer,
-            syntax_tree.filename().clone(),
+            context.source_name().to_string(),
             argument.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

@@ -2,10 +2,10 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManag
 
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::semantic::hir::HirNode;
-use crate::aiplan4rust::semantic::hir::HirTree;
 
 use std::collections::HashMap;
+use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
+use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::Span;
 
 /// Checks the task ordering constraints in the provided annotated syntax tree and detects any
@@ -61,23 +61,23 @@ use crate::aiplan4rust::syntax::Span;
 /// the function returns a `ParserInternalError`.
 ///
 pub fn check_task_ordering(
-    syntax_tree: &HirTree,
+    context: &SemanticContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut checked = true;
 
-    for node in syntax_tree.values() {
+    for node in context.ast().preorder() {
         match node.kind() {
             AstKind::TaskOrderingConstraintDef => {
-                let task_ids = extract_task_ids(node, syntax_tree)?;
+                let task_ids = extract_task_ids(node, context.ast())?;
                 let mut matrix = build_task_order_matrix(&task_ids)?;
                 transitive_closure(&mut matrix);
                 if is_cyclic(&matrix)? {
                     checked = false;
                     report_cyclic_task_ordering_error(
                         source,
-                        syntax_tree.filename(),
+                        context.source_name(),
                         node.span(),
                         diagnostic_manager,
                     );
@@ -180,12 +180,12 @@ fn report_cyclic_task_ordering_error(
 /// - If a node does not directly contain a `TaskID`, the function will recursively search through
 ///   its child nodes.
 fn extract_task_ids<'a>(
-    node: &'a HirNode,
-    tree: &'a HirTree,
+    node: &'a ArenaAstNode,
+    tree: &'a ArenaAst,
 ) -> Result<Vec<&'a String>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {
-        let child_node = match tree.get_entry(*child_index) {
+        let child_node = match tree.get(*child_index) {
             Some(child) => child,
             None => {
                 return Err(ParserInternalError::new(format!(

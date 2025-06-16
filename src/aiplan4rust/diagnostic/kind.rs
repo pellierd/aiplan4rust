@@ -1,10 +1,10 @@
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::semantic::hir::HirNode;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;
+use crate::aiplan4rust::semantic::arena::ArenaAstNode;
 use crate::aiplan4rust::syntax::Span;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
@@ -55,7 +55,7 @@ pub enum Kind {
         symbol: String,
         declaration1: Declaration,
         declaration2: Declaration,
-        scope: HirNode,
+        scope: ArenaAstNode,
     },
     CyclicTaskOrderingError,
     UndeclaredSymbolError {

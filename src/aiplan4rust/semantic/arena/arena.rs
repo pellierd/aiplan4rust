@@ -1,4 +1,6 @@
 use std::fmt;
+use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::node::Node;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIterWithIndex;
@@ -14,6 +16,7 @@ use crate::aiplan4rust::syntax::ast::Ast;
 /// without the need for heap allocations per node.
 ///
 /// Nodes are identified by their index in the `nodes` vector.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Arena {
     nodes: Vec<Node>,
 }
@@ -78,6 +81,61 @@ impl Arena {
     pub fn get(&self, id: usize) -> Option<&Node> {
         self.nodes.get(id)
     }
+
+    /// Returns an immutable reference to the parent node of the node at the given index, if it exists.
+    ///
+    /// # Parameters
+    ///
+    /// - `id`: The index of the node whose parent is to be retrieved.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&Node)` if the parent node exists, or `None` if the node has no parent or the id is invalid.
+    pub fn get_parent(&self, id: usize) -> Option<&Node> {
+        self.nodes.get(id)
+            .and_then(|node| node.parent())   // Assuming `parent` is an Option<usize>
+            .and_then(|parent_id| self.nodes.get(parent_id))
+    }
+
+    /// Attempts to retrieve the symbol associated with the node at the given index.
+    ///
+    /// This method returns:
+    /// - `Ok(Some(&String))` if a symbol is found associated with the node.
+    /// - `Ok(None)` if the node does not have an associated symbol (this is not considered an error).
+    /// - `Err(ParserInternalError)` if the node does not exist or is malformed (e.g., a `FunctionTerm` or `AtomicFormula` node
+    ///   without children, or a missing child node).
+    ///
+    /// The method first tries to get the symbol directly from the node's kind. If none is found,
+    /// and the node is a compound type like `FunctionTerm` or `AtomicFormula`, it attempts to derive
+    /// the symbol from the first child node recursively.
+    ///
+    /// # Parameters
+    /// - `id`: The index of the node in the arena.
+    ///
+    /// # Returns
+    /// - `Result<Option<&String>, ParserInternalError>`:
+    ///    - `Ok(Some(symbol))` if a symbol was found.
+    ///    - `Ok(None)` if no symbol is associated with the node.
+    ///    - `Err(ParserInternalError)` if the node or its first child is missing or malformed.
+    pub fn get_symbol(&self, id: usize) -> Result<Option<&String>, ParserInternalError> {
+        let node = self.get(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
+        if let Some(sym) = node.kind().get_symbol() {
+            return Ok(Some(sym));
+        }
+        match &node.kind() {
+            AstKind::FunctionTerm | AstKind::AtomicFormula => {
+                let child_idx = node.children().first().ok_or_else(|| {
+                    ParserInternalError::new("No children found for FunctionTerm or AtomicFormula".to_string())
+                })?;
+                let child = self.get(*child_idx).ok_or_else(|| {
+                    ParserInternalError::new(format!("Child node {} not found", child_idx))
+                })?;
+                Ok(child.kind().get_symbol())
+            }
+            _ => Ok(None),
+        }
+    }
+
 
     /// Returns a mutable reference to the node at the given index, if it exists.
     ///

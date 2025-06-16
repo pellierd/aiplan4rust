@@ -1,11 +1,11 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::semantic::hir::HirTree;
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
+use crate::aiplan4rust::semantic::SemanticContext;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Scope {
@@ -70,10 +70,10 @@ impl Scope {
     pub fn contains_ast_of_kind(
         &self,
         kind: AstKind,
-        syntax_tree: &HirTree,
+        context: &SemanticContext,
     ) -> Result<bool, ParserInternalError> {
         for id in &self.stack {
-            match syntax_tree.get_entry(*id) {
+            match context.get(*id) {
                 Some(ast) => {
                     if *ast.kind() == kind {
                         return Ok(true);
