@@ -4,7 +4,6 @@ pub mod analyzer_result;
 pub mod type_checker;
 pub mod symbol_table;
 pub mod checks;
-pub mod hir;
 pub mod context;
 pub mod arena;
 

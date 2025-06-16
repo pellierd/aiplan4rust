@@ -1,9 +1,6 @@
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::semantic::hir::HirNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::frontend::ParserInternalError;
 
-use linked_hash_map::LinkedHashMap;
 use std::io::Write;
 use std::fmt;
 use serde::{Deserialize, Serialize};
@@ -183,40 +180,6 @@ impl Ast {
     /// `true` if all node IDs are unique, `false` otherwise.
     pub fn check_ids_unique(&self) -> bool {
         self.root.check_ids_unique()
-    }
-
-    pub fn flatten(
-        &self,
-    ) -> Result<LinkedHashMap<usize, HirNode>, ParserInternalError> {
-        match self.root.kind() {
-            AstKind::Domain | AstKind::Problem => {
-                let root = self.root.as_ref();
-                let mut nodes = LinkedHashMap::with_capacity(root.size());
-                Self::flatten_rec(root, &mut nodes)?;
-                Ok(nodes)
-            }
-            _ => Err(ParserInternalError::new(
-                "AST must be of type Domain or Problem".to_string(),
-            )),
-        }
-    }
-
-    fn flatten_rec(
-        root: &AstNode,
-        nodes: &mut LinkedHashMap<usize, HirNode>,
-    ) -> Result<(), ParserInternalError> {
-        let mut stack = Vec::with_capacity(64);
-        stack.push(root);
-
-        while let Some(node) = stack.pop() {
-            nodes.insert(*node.id(), HirNode::from(node)?);
-
-            for child in node.children().iter().rev() {
-                stack.push(child.as_ref());
-            }
-        }
-
-        Ok(())
     }
 
 }
