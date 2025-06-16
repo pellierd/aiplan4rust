@@ -185,7 +185,7 @@ fn extract_task_ids<'a>(
 ) -> Result<Vec<&'a String>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {
-        let child_node = match tree.get(*child_index) {
+        let child_node = match tree.get_node(*child_index) {
             Some(child) => child,
             None => {
                 return Err(ParserInternalError::new(format!(

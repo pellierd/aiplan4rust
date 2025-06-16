@@ -1,15 +1,12 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::linking::LiftedPlanningTask;
+use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::syntax::Language;
 use crate::aiplan4rust::syntax::Parser;
-use crate::aiplan4rust::semantic::Analyzer;
+use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::semantic::hir::HirTree;
-use crate::aiplan4rust::semantic::hir::LiftedDomain;
-use crate::aiplan4rust::semantic::hir::LiftedProblem;
 use crate::aiplan4rust::FileFormat;
 
 use serde::Deserialize;
@@ -62,7 +59,7 @@ impl Frontend {
         let problem = self.parse_file(problem_path, language)?;
         diagnostic_manager.add_diagnostic_from(problem.diagnostic_manager());
 
-        match (domain.into_annotated_syntax_tree(), problem.into_annotated_syntax_tree()) {
+        match (domain.into_semantic_context(), problem.into_semantic_context()) {
             (Some(domain_tree), Some(problem_tree)) => {
                 let mut linker = Linker::new();
                 let mut linker_result = linker.link(domain_tree, problem_tree)?;
@@ -217,7 +214,7 @@ impl Frontend {
     pub fn deserialize_planning_task_from_file(
         &self,
         file: &str,
-    ) -> Result<LiftedPlanningTask, ParserInternalError> {
+    ) -> Result<LinkedSemanticContext, ParserInternalError> {
         let content = self.read_file(file)?;
         Self::try_parse_lifted_task(&content)
     }
@@ -226,13 +223,13 @@ impl Frontend {
     pub fn deserialize_domain_from_file(
         &self,
         file: &str,
-    ) -> Result<LiftedDomain, ParserInternalError> {
+    ) -> Result<SemanticContext, ParserInternalError> {
         let content = self.read_file(file)?;
 
         // Try parsing as JSON first
-        match Self::try_parse_pddl_file::<LiftedDomain>(&content, FileFormat::Json) {
+        match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Json) {
             Ok(domain) => Ok(domain),
-            Err(_) => match Self::try_parse_pddl_file::<LiftedDomain>(&content, FileFormat::Yaml) {
+            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Yaml) {
                 Ok(domain) => Ok(domain),
                 Err(_) => Err(ParserInternalError::new(
                     "Failed to parse the domain file! The content is neither valid JSON nor YAML."
@@ -245,7 +242,7 @@ impl Frontend {
     // Sérialise un LiftedPlanningTask en chaîne JSON ou YAML
     pub fn serialize_planning_task_to_string(
         &self,
-        task: &LiftedPlanningTask,
+        task: &LinkedSemanticContext,
         format: &FileFormat,
     ) -> Result<String, ParserInternalError> {
         match format {
@@ -259,7 +256,7 @@ impl Frontend {
     // Sérialise un LiftedPlanningTask dans un fichier JSON ou YAML
     pub fn serialize_planning_task_to_file(
         &self,
-        task: &LiftedPlanningTask,
+        task: &LinkedSemanticContext,
         format: &FileFormat,
         output_file: &str,
     ) -> Result<(), ParserInternalError> {
@@ -273,13 +270,13 @@ impl Frontend {
     pub fn deserialize_problem_from_file(
         &self,
         file: &str,
-    ) -> Result<LiftedProblem, ParserInternalError> {
+    ) -> Result<SemanticContext, ParserInternalError> {
         let content = self.read_file(file)?;
 
         // Try parsing as JSON first
-        match Self::try_parse_pddl_file::<LiftedProblem>(&content, FileFormat::Json) {
+        match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Json) {
             Ok(problem) => Ok(problem),
-            Err(_) => match Self::try_parse_pddl_file::<LiftedProblem>(&content, FileFormat::Yaml) {
+            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Yaml) {
                 Ok(problem) => Ok(problem),
                 Err(_) => Err(ParserInternalError::new(
                     "Failed to parse the problem file! The content is neither valid JSON nor YAML."
@@ -292,7 +289,7 @@ impl Frontend {
     /// Serialize the AnnotatedSyntaxTree to a string in the specified format
     pub fn serialize_to_string(
         &self,
-        data: &HirTree,
+        data: &SemanticContext,
         format: &FileFormat,
     ) -> Result<String, ParserInternalError> {
         match format {
@@ -306,7 +303,7 @@ impl Frontend {
     // Serialize the AnnotatedSyntaxTree to a file (JSON or YAML)
     pub fn serialize_to_file(
         &self,
-        data: &HirTree,
+        data: &SemanticContext,
         format: &FileFormat,
         output_file: &str,
     ) -> Result<(), ParserInternalError> {

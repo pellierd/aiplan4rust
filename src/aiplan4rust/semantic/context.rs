@@ -163,7 +163,7 @@ impl Context {
 
     /// Returns a reference to a node by its index, if it exists.
     pub fn get(&self, id: usize) -> Option<&ArenaAstNode> {
-        self.ast.get(id)
+        self.ast.get_node(id)
     }
 
     /// Returns a reference to the internal AST arena.

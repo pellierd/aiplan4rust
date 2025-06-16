@@ -67,7 +67,7 @@ impl<'a> Iterator for PostorderIter<'a> {
     /// Returns `None` when all nodes have been visited.
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((node_idx, child_idx)) = self.stack.pop() {
-            let node = self.arena.get(node_idx)?;
+            let node = self.arena.get_node(node_idx)?;
 
             if child_idx < node.children().len() {
                 // Push current node back with incremented child index to visit next child later

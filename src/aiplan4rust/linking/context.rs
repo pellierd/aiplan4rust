@@ -1,10 +1,9 @@
-use crate::aiplan4rust::semantic::hir::LiftedDomain;
-use crate::aiplan4rust::semantic::hir::LiftedProblem;
+use crate::aiplan4rust::semantic::SemanticContext;
 
 use serde::Deserialize;
 use serde::Serialize;
-
 use std::fmt;
+
 
 /// Represents a lifted planning task consisting of a domain and a problem.
 ///
@@ -29,12 +28,12 @@ use std::fmt;
 /// `LiftedPlanningTask`. It includes general information about the domain and problem, along with
 /// their details.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LiftedPlanningTask {
-    domain: LiftedDomain,
-    problem: LiftedProblem,
+pub struct LinkedSemanticContext {
+    domain: SemanticContext,
+    problem: SemanticContext,
 }
 
-impl LiftedPlanningTask {
+impl LinkedSemanticContext {
     /// Creates a new `LiftedPlanningTask` from the provided domain and problem.
     ///
     /// # Arguments
@@ -43,15 +42,15 @@ impl LiftedPlanningTask {
     ///
     /// # Returns
     /// A new instance of `LiftedPlanningTask`.
-    pub fn new(domain: LiftedDomain, problem: LiftedProblem) -> Self {
-        LiftedPlanningTask { domain, problem }
+    pub fn new(domain: SemanticContext, problem: SemanticContext) -> Self {
+        LinkedSemanticContext { domain, problem }
     }
 
     /// Returns an immutable reference to the `LiftedDomain` of the planning task.
     ///
     /// # Returns
     /// An immutable reference to the `LiftedDomain` struct.
-    pub fn domain(&self) -> &LiftedDomain {
+    pub fn domain(&self) -> &SemanticContext {
         &self.domain
     }
 
@@ -59,7 +58,7 @@ impl LiftedPlanningTask {
     ///
     /// # Returns
     /// An immutable reference to the `LiftedProblem` struct.
-    pub fn problem(&self) -> &LiftedProblem {
+    pub fn problem(&self) -> &SemanticContext {
         &self.problem
     }
 
@@ -67,7 +66,7 @@ impl LiftedPlanningTask {
     ///
     /// # Returns
     /// A mutable reference to the `LiftedDomain` struct, allowing modifications to the domain.
-    pub fn domain_mut(&mut self) -> &mut LiftedDomain {
+    pub fn domain_mut(&mut self) -> &mut SemanticContext {
         &mut self.domain
     }
 
@@ -75,12 +74,12 @@ impl LiftedPlanningTask {
     ///
     /// # Returns
     /// A mutable reference to the `LiftedProblem` struct, allowing modifications to the problem.
-    pub fn problem_mut(&mut self) -> &mut LiftedProblem {
+    pub fn problem_mut(&mut self) -> &mut SemanticContext {
         &mut self.problem
     }
 }
 
-impl fmt::Display for LiftedPlanningTask {
+impl fmt::Display for LinkedSemanticContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the general information about the LiftedPlanningTask
         write!(f, "Lifted Planning Task Information:\n")?;

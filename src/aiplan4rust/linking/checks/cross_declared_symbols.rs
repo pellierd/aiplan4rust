@@ -6,8 +6,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::hir::HirTree;
-use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
@@ -67,8 +66,8 @@ use crate::aiplan4rust::semantic::symbol::SymbolSource;
 /// }
 /// ```
 pub fn check_cross_declared_symbols(
-    domain: &HirTree,
-    problem: &HirTree,
+    domain: &SemanticContext,
+    problem: &SemanticContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
@@ -100,7 +99,7 @@ pub fn check_cross_declared_symbols(
                         report_cross_conflict_symbol_error(
                             declaration,
                             domain_kinds,
-                            problem.filename(),
+                            problem.source_name(),
                             source,
                             diagnostic_manager,
 

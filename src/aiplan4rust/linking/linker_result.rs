@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::linking::LiftedPlanningTask;
+use crate::aiplan4rust::linking::LinkedSemanticContext;
 
 use std::fmt;
 
@@ -29,7 +29,7 @@ use std::fmt;
 /// - `is_none`: Checks whether a lifted planning task is absent.
 #[derive(Debug, Clone)]
 pub struct LinkerResult {
-    planning_task: Option<LiftedPlanningTask>,
+    planning_task: Option<LinkedSemanticContext>,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -42,7 +42,7 @@ impl LinkerResult {
     ///
     /// # Returns
     /// A `LinkerResult` containing the provided values.
-    pub fn new(planning_task: Option<LiftedPlanningTask>, diagnostic_manager: DiagnosticManager) -> Self {
+    pub fn new(planning_task: Option<LinkedSemanticContext>, diagnostic_manager: DiagnosticManager) -> Self {
         LinkerResult {
             planning_task,
             diagnostic_manager,
@@ -53,7 +53,7 @@ impl LinkerResult {
     ///
     /// # Returns
     /// `Some(&LiftedPlanningTask)` if the task exists, otherwise `None`.
-    pub fn planning_task(&self) -> Option<&LiftedPlanningTask> {
+    pub fn planning_task(&self) -> Option<&LinkedSemanticContext> {
         self.planning_task.as_ref()
     }
 
@@ -61,7 +61,7 @@ impl LinkerResult {
     ///
     /// # Returns
     /// `Some(&mut LiftedPlanningTask)` if the task exists, otherwise `None`.
-    pub fn planning_task_mut(&mut self) -> Option<&mut LiftedPlanningTask> {
+    pub fn planning_task_mut(&mut self) -> Option<&mut LinkedSemanticContext> {
         self.planning_task.as_mut()
     }
 

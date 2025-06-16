@@ -60,7 +60,7 @@ impl<'a> Iterator for PreorderIterWithIndex<'a> {
     /// Returns `None` when all nodes have been visited.
     fn next(&mut self) -> Option<Self::Item> {
         let node_idx = self.stack.pop()?;
-        let node = self.arena.get(node_idx)?;
+        let node = self.arena.get_node(node_idx)?;
 
         // Push children in reverse order so that leftmost child is processed first
         for &child_idx in node.children().iter().rev() {

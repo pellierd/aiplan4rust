@@ -1,15 +1,12 @@
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::linking::LiftedPlanningTask;
+use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
-use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::hir::HirTree;
-use crate::aiplan4rust::semantic::hir::LiftedDomain;
-use crate::aiplan4rust::semantic::hir::LiftedProblem;
 use crate::aiplan4rust::semantic::SymbolTable;
 
 use std::mem;
@@ -35,8 +32,8 @@ impl Linker {
 
     pub fn link(
         &mut self,
-        domain: LiftedDomain,
-        mut problem: LiftedProblem,
+        domain: SemanticContext,
+        mut problem: SemanticContext,
     ) -> Result<LinkerResult, ParserInternalError> {
 
         linking::checks::check_domain_name(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
@@ -44,27 +41,27 @@ impl Linker {
         Self::update_problem_symbols_table_from_domain(&mut problem, domain.symbol_table())?;
 
         let mut check  = linking::checks::check_cross_declared_symbols(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
-        //check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
-        //check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
 
         if check {
 
             let type_checker = TypeChecker::new(&domain.symbol_table());
-            //semantic::checks::check_declared_symbol_signatures(&problem, &type_checker, &mut self.diagnostic_manager)?;
+            semantic::checks::check_declared_symbol_signatures(&problem, &type_checker, &mut self.diagnostic_manager)?;
 
             // Check functional expressions in the domain using the type checker
-            //semantic::checks::check_typed_expressions(&problem, &type_checker, Provider::Linker, &mut self.diagnostic_manager)?;
+            semantic::checks::check_typed_expressions(&problem, &type_checker, Provider::Linker, &mut self.diagnostic_manager)?;
 
-            //semantic::checks::check_task_ordering(&problem, Provider::Linker, &mut self.diagnostic_manager)?;
+            semantic::checks::check_task_ordering(&problem, Provider::Linker, &mut self.diagnostic_manager)?;
 
             let mut requirements = domain.requirements().clone();
             requirements.extend(problem.requirements().clone());
-            //semantic::checks::check_requirement_violations(
-            //    &problem,
-            //    &requirements,
-            //    Provider::Linker,
-            //    &mut self.diagnostic_manager
-            //)?;
+            semantic::checks::check_requirement_violations(
+                &problem,
+                &requirements,
+                Provider::Linker,
+                &mut self.diagnostic_manager
+            )?;
         }
 
         // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs
@@ -78,7 +75,7 @@ impl Linker {
             // Sinon, créer un LiftedPlanningTask à partir des domaines et problèmes déplaçés
             //let mut domain = domain.clone();
             let lifted_planning_task =
-                LiftedPlanningTask::new(domain, problem);
+                LinkedSemanticContext::new(domain, problem);
 
             // Retourner LinkerResult avec LiftedPlanningTask et l'ErrorManager mis à jour
             Ok(LinkerResult::new(
@@ -116,7 +113,7 @@ impl Linker {
     /// ```
     ///
     fn update_problem_symbols_table_from_domain<'a>(
-        problem: &'a mut HirTree,
+        problem: &'a mut SemanticContext,
         domain_symbol_table: &'a SymbolTable,
     ) -> Result<(), ParserInternalError> {
         let mut declared = Vec::new();
@@ -180,7 +177,7 @@ impl Linker {
     /// ```
     ///
     fn collect_declared_and_undeclared_symbols<'a>(
-        problem: &'a HirTree,
+        problem: &'a SemanticContext,
         domain_symbol_table: &'a SymbolTable,
         declared: &mut Vec<(String, Declaration)>,
         undeclared: &mut Vec<(&'a String, &'a Usage)>,

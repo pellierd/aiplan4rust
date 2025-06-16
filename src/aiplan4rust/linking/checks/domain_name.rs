@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::hir::HirTree;
+use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::{Scope, SymbolKind};
 
 /// Checks for consistency between the domain name declared in the domain AST
@@ -25,8 +25,8 @@ use crate::aiplan4rust::semantic::symbol::{Scope, SymbolKind};
 /// # Diagnostics
 /// Emits a `DomainProblemNameMismatch` warning if the domain names differ.
 pub fn check_domain_name(
-    domain: &HirTree,
-    problem: &HirTree,
+    domain: &SemanticContext,
+    problem: &SemanticContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
@@ -70,7 +70,7 @@ pub fn check_domain_name(
 
                 // --- 5. Retrieve the corresponding AST entry ---
                 // Needed to determine the span (location) for the warning.
-                match problem.get_entry(domain_name_declaration.ast()) {
+                match problem.ast().get_node(domain_name_declaration.ast()) {
                     Some(ast) => {
 
                         // --- 6. Emit a warning about the mismatch ---
@@ -81,7 +81,7 @@ pub fn check_domain_name(
                                 problem_name: referenced_domain_name.name().clone(),
                             },
                             source,
-                            problem.filename().clone(),
+                            problem.source_name().to_string(),
                             ast.span().clone(),
                         );
                         diagnostic_manager.add_diagnostic(warning);

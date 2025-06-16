@@ -78,7 +78,7 @@ impl Arena {
     /// # Returns
     ///
     /// `Some(&Node)` if the node exists, or `None` otherwise.
-    pub fn get(&self, id: usize) -> Option<&Node> {
+    pub fn get_node(&self, id: usize) -> Option<&Node> {
         self.nodes.get(id)
     }
 
@@ -118,7 +118,7 @@ impl Arena {
     ///    - `Ok(None)` if no symbol is associated with the node.
     ///    - `Err(ParserInternalError)` if the node or its first child is missing or malformed.
     pub fn get_symbol(&self, id: usize) -> Result<Option<&String>, ParserInternalError> {
-        let node = self.get(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
+        let node = self.get_node(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
         if let Some(sym) = node.kind().get_symbol() {
             return Ok(Some(sym));
         }
@@ -127,7 +127,7 @@ impl Arena {
                 let child_idx = node.children().first().ok_or_else(|| {
                     ParserInternalError::new("No children found for FunctionTerm or AtomicFormula".to_string())
                 })?;
-                let child = self.get(*child_idx).ok_or_else(|| {
+                let child = self.get_node(*child_idx).ok_or_else(|| {
                     ParserInternalError::new(format!("Child node {} not found", child_idx))
                 })?;
                 Ok(child.kind().get_symbol())
@@ -354,7 +354,7 @@ impl fmt::Display for Arena {
             let mut current = node.parent();
             while let Some(p) = current {
                 depth += 1;
-                current = self.get(p).and_then(|n| n.parent());
+                current = self.get_node(p).and_then(|n| n.parent());
             }
 
             let indent = "  ".repeat(depth);

@@ -74,7 +74,7 @@ pub fn check_declared_symbol_signatures(
                     diagnostic_manager,
                 )? {
                     no_error &= false;
-                    let entry = context.ast().get(usage.ast()).unwrap();
+                    let entry = context.ast().get_node(usage.ast()).unwrap();
                     let diagnostic_kind = match declaration.kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
                             symbol: symbol.name().clone()
@@ -132,12 +132,12 @@ fn match_declaration_with_usage(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let ast_usage = context.ast().get(usage.ast()).ok_or_else(|| {
+    let ast_usage = context.ast().get_node(usage.ast()).ok_or_else(|| {
         ParserInternalError::new(format!("AST entry not found for usage '{}'", usage.ast()))
     })?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
-        let argument = context.ast().get(*argument_index).unwrap();
+        let argument = context.ast().get_node(*argument_index).unwrap();
 
         let kind = match argument.kind() {
             AstKind::Variable(_) => SymbolKind::Variable,

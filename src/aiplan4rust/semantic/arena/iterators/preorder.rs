@@ -61,7 +61,7 @@ impl<'a> Iterator for PreorderIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.stack.pop()?;
-        let node = self.arena.get(index)?;
+        let node = self.arena.get_node(index)?;
 
         // Push children in reverse order so the leftmost child is visited first
         for &child in node.children().iter().rev() {

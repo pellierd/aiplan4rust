@@ -68,7 +68,7 @@ impl<'a> Iterator for PostorderIterWithIndex<'a> {
                 }
 
                 // Push children in reverse order to visit left to right
-                if let Some(node) = self.arena.get(node_idx) {
+                if let Some(node) = self.arena.get_node(node_idx) {
                     for &child_idx in node.children().iter().rev() {
                         self.stack.push((child_idx, false));
                     }
@@ -76,7 +76,7 @@ impl<'a> Iterator for PostorderIterWithIndex<'a> {
             } else {
                 // Children visited, now yield this node
                 self.stack.pop();
-                if let Some(node) = self.arena.get(node_idx) {
+                if let Some(node) = self.arena.get_node(node_idx) {
                     return Some((node_idx, node));
                 }
             }

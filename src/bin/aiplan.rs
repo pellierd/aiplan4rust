@@ -226,7 +226,7 @@ pub fn parse_file(input_file: &str, language: &Language, format: &FileFormat, ou
                     "===> ".blue().bold());
             } else {
                 // Si aucun problème, afficher que le fichier a été produit
-                if let Some(ast) = result.annotated_syntax_tree() {
+                if let Some(ast) = result.semantic_context() {
                     if let Err(e) = frontend.serialize_to_file(&ast, format, output) {
                         eprintln!("Error saving file: {}", e);
                     } else {

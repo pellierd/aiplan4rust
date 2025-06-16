@@ -5,7 +5,6 @@ use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::semantic::hir::HirTree;
 use crate::aiplan4rust::semantic;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
@@ -69,8 +68,6 @@ impl Analyzer {
         &mut self,
         ast: &Ast,
     ) -> Result<AnalyzerResult, ParserInternalError> {
-        // Step 1: Convert to annotated HIR
-        let annotated_syntax_tree = HirTree::from(ast)?;
 
         let context = SemanticContext::from(ast)?;
 
@@ -93,7 +90,7 @@ impl Analyzer {
         // Step 3: Build the result depending on errors
         if !self.diagnostic_manager.has_diagnotics_of_severity(Severity::Error) {
             Ok(AnalyzerResult::new(
-                Some(annotated_syntax_tree),
+                Some(context),
                 std::mem::take(&mut self.diagnostic_manager),
             ))
         } else {
