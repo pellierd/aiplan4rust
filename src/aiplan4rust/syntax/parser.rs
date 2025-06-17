@@ -10,9 +10,7 @@ use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::parser_result::ParserResult;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::Language;
+use crate::aiplan4rust::syntax::{Language, ParserContext};
 use crate::aiplan4rust::syntax::Span;
 
 use lalrpop_util::ErrorRecovery;
@@ -20,6 +18,7 @@ use lalrpop_util::ParseError;
 
 use std::mem;
 use std::time::SystemTime;
+use crate::aiplan4rust::syntax::int_ast::{IntAst, IntAstNode};
 
 #[derive(Debug)]
 /// A structure for analyzing the syntax of PDDL expressions.
@@ -131,10 +130,12 @@ impl<'a> Parser<'a> {
 
         self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
 
+        let mut context = ParserContext::new();
+
         // Attempt to parse the source code according to the language specified
         let parse_result = match language {
-            Language::PDDL => PDDLParser::new().parse(&mut larlpop_errors, lexer),
-            Language::HDDL => HDDLParser::new().parse(&mut larlpop_errors, lexer),
+            Language::PDDL => PDDLParser::new().parse(&mut context, &mut larlpop_errors, lexer),
+            Language::HDDL => HDDLParser::new().parse(&mut context, &mut larlpop_errors, lexer),
         };
 
         // Handle any syntax errors that were collected during parsing
@@ -157,7 +158,7 @@ impl<'a> Parser<'a> {
                         Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                     } else {
                         let ast =
-                            Ast::new(root, source_name.to_string(), SystemTime::now());
+                            IntAst::new(root, source_name.to_string(), SystemTime::now());
                         Ok(ParserResult::new(
                             Some(ast),
                             mem::take(&mut self.diagnostic_manager),
@@ -205,7 +206,7 @@ impl<'a> Parser<'a> {
     /// * `source`: The source code to initialize AST positions.
     fn process_ast(
         &mut self,
-        ast: &mut Box<AstNode>,
+        ast: &mut Box<IntAstNode>,
         source: &'a str,
     ) -> Result<(), ParserInternalError> {
 
@@ -223,7 +224,7 @@ impl<'a> Parser<'a> {
     /// # Arguments
     /// - `ast`: A mutable reference to the root node of the AST.
     /// - `source`: The source code string from which the AST was parsed.
-    fn init_ast_position(&self, ast: &mut AstNode, source: &str) {
+    fn init_ast_position(&self, ast: &mut IntAstNode, source: &str) {
         // Create a `FastLineTable` with an interval of 100 lines for coarse indexing.
         // The interval value (100) can be adjusted depending on the size of the source text.
         let table = FastLineTable::new(source, 100);
@@ -237,7 +238,7 @@ impl<'a> Parser<'a> {
     /// # Arguments
     /// - `ast`: A mutable reference to an AST node.
     /// - `table`: A reference to the `FastLineTable` used to compute positions.
-    fn init_ast_position_rec(&self, ast: &mut AstNode, table: &FastLineTable) {
+    fn init_ast_position_rec(&self, ast: &mut IntAstNode, table: &FastLineTable) {
 
         // Compute and set the start position of the current AST node
         let (line, column) = table.get_position(ast.start_offset());

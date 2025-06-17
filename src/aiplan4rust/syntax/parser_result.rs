@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::syntax::ast::Ast;
 use std::fmt;
+use crate::aiplan4rust::syntax::int_ast::IntAst;
 
 /// Represents the outcome of a parsing operation in the PDDL syntax.
 ///
@@ -22,7 +22,7 @@ use std::fmt;
 /// ```
 #[derive(Debug, Clone)]
 pub struct ParserResult {
-    ast: Option<Ast>,
+    ast: Option<IntAst>,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -33,7 +33,7 @@ impl ParserResult {
     ///
     /// * `ast` - The resulting AST from parsing, or `None` if parsing failed completely.
     /// * `diagnostic_manager` - Container for all diagnostics produced during parsing.
-    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
+    pub fn new(ast: Option<IntAst>, diagnostic_manager: DiagnosticManager) -> Self {
         ParserResult {
             ast,
             diagnostic_manager,
@@ -46,14 +46,14 @@ impl ParserResult {
     ///
     /// * `Some(&Ast)` if parsing succeeded.
     /// * `None` if parsing failed.
-    pub fn ast(&self) -> Option<&Ast> {
+    pub fn ast(&self) -> Option<&IntAst> {
         self.ast.as_ref()
     }
 
     /// Returns a mutable reference to the parsed AST if available.
     ///
     /// Allows modifying the AST after parsing.
-    pub fn ast_mut(&mut self) -> Option<&mut Ast> {
+    pub fn ast_mut(&mut self) -> Option<&mut IntAst> {
         self.ast.as_mut()
     }
 
@@ -72,7 +72,7 @@ impl ParserResult {
     }
 
     /// Takes ownership of the AST, leaving `None` in its place.
-    pub fn take_ast(&mut self) -> Option<Ast> {
+    pub fn take_ast(&mut self) -> Option<IntAst> {
         self.ast.take()
     }
 
@@ -100,7 +100,7 @@ impl fmt::Display for ParserResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ast {
             Some(tree) => {
-                write!(f, "Parsing successful:\n{}", tree.root())?;
+                write!(f, "Parsing successful:\n{}", tree)?;
                 if !self.diagnostic_manager().is_empty() {
                     write!(f, "\nDiagnostics encountered during parsing:\n")?;
                     for diagnostic in self.diagnostic_manager().diagnostics() {

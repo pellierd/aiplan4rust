@@ -125,12 +125,12 @@ impl Frontend {
         let mut parser_result = parser.parse(source_path, &content, language)?;
 
         // Match on the AST extracted from parsing.
-        match parser_result.take_ast() {
+        /*match parser_result.take_ast() {
             Some(raw_ast) => {
                 // Take diagnostics from parser result.
                 let diagnostic_manager = parser_result.take_diagnostic_manager();
 
-                // Normalize the AST while merging diagnostics.
+                /$// Normalize the AST while merging diagnostics.
                 let mut normalizer = Normalizer::new();
                 let mut normalizer_result =
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
@@ -152,7 +152,8 @@ impl Frontend {
                 }
             }
             None => Self::create_error_result(parser_result.diagnostic_manager_mut()),
-        }
+        }*/
+        Self::create_error_result(parser_result.diagnostic_manager_mut())
     }
 
     fn create_error_result(
