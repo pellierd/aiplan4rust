@@ -56,13 +56,13 @@ pub struct Declaration {
     arguments: Option<Vec<TypedSymbol<String>>>,
 
     span: Span,
-    symbol : String,
+    name: String,
 }
 
 impl Declaration {
     /// Constructor to create a new `Declaration`
     pub fn new(
-        symbol : String,
+        name : String,
         kind: SymbolKind,
         scope: Scope,
         source: SymbolSource,
@@ -79,7 +79,7 @@ impl Declaration {
             types,
             arguments,
             span,
-            symbol,
+            name,
         }
     }
 
@@ -202,7 +202,7 @@ impl Declaration {
     }
 
     pub fn symbol(&self) -> &String {
-        &self.symbol
+        &self.name
     }
 
     // Setters

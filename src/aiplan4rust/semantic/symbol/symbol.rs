@@ -74,9 +74,9 @@ impl Symbol {
     ///
     /// Returns a new `Symbol` instance with the specified name, and empty declarations and usages
     /// lists.
-    pub fn new(name: &str) -> Self {
+    pub fn new<S: Into<String>>(name: S) -> Self {
         Symbol {
-            name: name.to_string(),
+            name: name.into(),
             declarations: IndexSet::new(),
             usages: IndexSet::new(),
         }

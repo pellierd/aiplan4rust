@@ -264,7 +264,7 @@ impl Kind {
     /// let kind = SyntaxNodeKind::And; // assuming it's a logical operator
     /// assert_eq!(kind.get_symbol(), None);
     /// ```
-    pub fn get_symbol(&self) -> Option<&String> {
+    pub fn get_symbol(&self) -> Option<&str> {
         match self {
             // Symbolic node kinds: return their name
             Kind::Constant(name)
@@ -276,7 +276,7 @@ impl Kind {
             | Kind::DASymbol(name)
             | Kind::PrefName(name)
             | Kind::FunctionSymbol(name)
-            | Kind::Predicate(name) => Some(name),
+            | Kind::Predicate(name) => Some(name.as_str()),
 
             // Other kinds of nodes don't have a symbolic name
             _ => None,

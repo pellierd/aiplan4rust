@@ -1,13 +1,18 @@
 use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::semantic::arena::ArenaAstNode;
 use crate::aiplan4rust::semantic::arena::node::Node;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIterWithIndex;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
+use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::{AstKind, AstNode, Span};
 use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 
 /// Arena is a data structure that stores AST nodes in a contiguous vector.
 /// Each node keeps track of its children and its parent by index.
@@ -117,7 +122,9 @@ impl Arena {
     ///    - `Ok(Some(symbol))` if a symbol was found.
     ///    - `Ok(None)` if no symbol is associated with the node.
     ///    - `Err(ParserInternalError)` if the node or its first child is missing or malformed.
-    pub fn get_symbol(&self, id: usize) -> Result<Option<&String>, ParserInternalError> {
+
+
+    /*pub fn get_symbol(&self, id: usize) -> Result<Option<&str>, ParserInternalError> {
         let node = self.get_node(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
         if let Some(sym) = node.kind().get_symbol() {
             return Ok(Some(sym));
@@ -134,8 +141,67 @@ impl Arena {
             }
             _ => Ok(None),
         }
+    }*/
+
+
+    pub fn get_symbol(&self, id: usize) -> Option<&str> {
+        let node = self.get_node(id)?;
+        self.extract_symbol(node).ok().map(|(name, _)| name)
     }
 
+    pub fn get_symbol_ref(&self, id: usize) -> Option<SymbolRef> {
+        let node = self.get_node(id)?;
+        self.extract_symbol(node)
+            .ok()
+            .map(|(name, kind)| SymbolRef::new(name, kind))
+    }
+    fn extract_symbol<'a>(
+        &'a self,
+        ast: &'a ArenaAstNode,
+    ) -> Result<(&'a str, SymbolKind), ParserInternalError> {
+        match ast.kind() {
+            AstKind::DomainName(name) => Ok((name, SymbolKind::DomainName)),
+            AstKind::PrimitiveType(name) => Ok((name, SymbolKind::PrimitiveType)),
+            AstKind::ProblemName(name) => Ok((name, SymbolKind::ProblemName)),
+            AstKind::Requirement(requirement) => Ok((requirement.as_str(), SymbolKind::Requirement)),
+            AstKind::Constant(name) => Ok((name, SymbolKind::Constant)),
+            AstKind::Variable(name) => Ok((name, SymbolKind::Variable)),
+            AstKind::FunctionSymbol(name) => Ok((name, SymbolKind::Function)),
+            AstKind::Predicate(name) => Ok((name, SymbolKind::Predicate)),
+            AstKind::ActionSymbol(name) => Ok((name, SymbolKind::Action)),
+            AstKind::DASymbol(name) => Ok((name, SymbolKind::DASymbol)),
+            AstKind::MethodSymbol(name) => Ok((name, SymbolKind::Method)),
+            AstKind::TaskSymbol(name) => Ok((name, SymbolKind::Task)),
+            AstKind::TaskID(name) => Ok((name, SymbolKind::TaskID)),
+
+            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task => {
+                let children = ast.children();
+                if children.is_empty() {
+                    return Err(ParserInternalError::new(format!(
+                        "{} must have children, but none found.",
+                        ast.kind()
+                    )));
+                }
+                let first_child = self.get_node(children[0]).unwrap();
+                match first_child.kind() {
+                    AstKind::Predicate(s) => Ok((s, SymbolKind::Predicate)),
+                    AstKind::FunctionSymbol(s) => Ok((s, SymbolKind::Function)),
+                    AstKind::TaskSymbol(s) => Ok((s, SymbolKind::Task)),
+                    AstKind::TotalTime => Ok((TOTAL_TIME, SymbolKind::Function)),
+                    _ => Err(ParserInternalError::new(format!(
+                        "First child of {} must be a Predicate or FunctionSymbol, found: {:?}",
+                        ast.kind(),
+                        first_child.kind()
+                    ))),
+                }
+            }
+
+            _ => Err(ParserInternalError::new(format!(
+                "Unexpected symbol kind encountered: {:?}",
+                ast.kind()
+            ))),
+        }
+    }
 
     /// Returns a mutable reference to the node at the given index, if it exists.
     ///

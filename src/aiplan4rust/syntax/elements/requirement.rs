@@ -116,6 +116,38 @@ impl Requirement {
             _ => vec![self.clone()],
         }
     }
+
+    /// Returns the string representation of the requirement.
+    ///
+    /// Unlike `Display`, this method returns a static string slice (`&'static str`),
+    /// which is useful when the string is needed without allocation.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Requirement::Strips => STRIPS,
+            Requirement::Typing => TYPING,
+            Requirement::NegativePreconditions => NEGATIVE_PRECONDITION,
+            Requirement::DisjunctivePreconditions => DISJUNCTIVE_PRECONDITION,
+            Requirement::Equality => EQUALITY,
+            Requirement::ExistentialPreconditions => EXISTENTIAL_PRECONDITIONS,
+            Requirement::UniversalPreconditions => UNIVERSAL_PRECONDITIONS,
+            Requirement::QuantifiedPreconditions => QUANTIFIED_PRECONDITIONS,
+            Requirement::ConditionalEffects => CONDITIONAL_EFFECTS,
+            Requirement::Fluents => FLUENTS,
+            Requirement::NumericFluents => NUMERIC_FLUENTS,
+            Requirement::ObjectFluents => OBJECT_FLUENTS,
+            Requirement::Adl => ADL,
+            Requirement::DurativeActions => DURATIVE_ACTIONS,
+            Requirement::DurationInequalities => DURATIVE_INEQUALITIES,
+            Requirement::ContinuousEffects => CONDITIONAL_EFFECTS,
+            Requirement::DerivedPredicates => DERIVED_PREDICATES,
+            Requirement::TimedInitialLiterals => TIME_INITIAL_LITERALS,
+            Requirement::Preferences => PREFERENCES,
+            Requirement::Constraints => CONSTRAINTS,
+            Requirement::ActionCosts => ACTION_COSTS,
+            Requirement::Hierarchy => HIERARCHY,
+            Requirement::MethodPreconditions => METHOD_PRECONDITIONS,
+        }
+    }
 }
 
 impl fmt::Display for Requirement {
@@ -129,35 +161,10 @@ impl fmt::Display for Requirement {
     ///
     /// # Returns
     /// - `fmt::Result`: The result of writing the formatted output.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Requirement::Strips => write!(f, "{}", STRIPS),
-            Requirement::Typing => write!(f, "{}", TYPING),
-            Requirement::NegativePreconditions => write!(f, "{}", NEGATIVE_PRECONDITION),
-            Requirement::DisjunctivePreconditions => write!(f, "{}", DISJUNCTIVE_PRECONDITION),
-            Requirement::Equality => write!(f, "{}", EQUALITY),
-            Requirement::ExistentialPreconditions => write!(f, "{}", EXISTENTIAL_PRECONDITIONS),
-            Requirement::UniversalPreconditions => write!(f, "{}", UNIVERSAL_PRECONDITIONS),
-            Requirement::QuantifiedPreconditions => write!(f, "{}", QUANTIFIED_PRECONDITIONS),
-            Requirement::ConditionalEffects => write!(f, "{}", CONDITIONAL_EFFECTS),
-            Requirement::Fluents => write!(f, "{}", FLUENTS),
-            Requirement::NumericFluents => write!(f, "{}", NUMERIC_FLUENTS),
-            Requirement::ObjectFluents => write!(f, "{}", OBJECT_FLUENTS),
-            Requirement::Adl => write!(f, "{}", ADL),
-            Requirement::DurativeActions => write!(f, "{}", DURATIVE_ACTIONS),
-            Requirement::DurationInequalities => write!(f, "{}", DURATIVE_INEQUALITIES),
-            Requirement::ContinuousEffects => write!(f, "{}", CONDITIONAL_EFFECTS),
-            Requirement::DerivedPredicates => write!(f, "{}", DERIVED_PREDICATES),
-            Requirement::TimedInitialLiterals => write!(f, "{}", TIME_INITIAL_LITERALS),
-            Requirement::Preferences => write!(f, "{}", PREFERENCES),
-            Requirement::Constraints => write!(f, "{}", CONSTRAINTS),
-            Requirement::ActionCosts => write!(f, "{}", ACTION_COSTS),
-            Requirement::Hierarchy => write!(f, "{}", HIERARCHY),
-            Requirement::MethodPreconditions => write!(f, "{}", METHOD_PRECONDITIONS),
-        }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
-
 impl SyntaxDisplay for Requirement {
     /// Converts the `Requirement` into its PDDL-compliant string representation.
     ///

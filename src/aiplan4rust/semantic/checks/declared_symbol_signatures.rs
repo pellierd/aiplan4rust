@@ -202,9 +202,9 @@ fn match_argument(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax tree
-    let name = context.ast().get_symbol(argument_index)?;
+    let symbol = context.ast().get_symbol(argument_index);
     // Check that the symbol exists; return an error if it is missing
-    let name = match name {
+    let name = match symbol {
         Some(n) => n,
         None => {
             return Err(ParserInternalError::new(format!(
