@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use serde::de::SeqAccess;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
 /// by assigning each string a unique numeric index.
@@ -71,28 +72,13 @@ impl StringInterner {
         }
     }
 
-    /// Interns the given string.
+    /// Interns the given string and returns an `Ident` representing it.
     ///
-    /// If the string is already interned, returns its existing index.
-    /// Otherwise, adds the string to the pool and returns the new index.
-    ///
-    /// This method takes ownership of the input string, avoiding unnecessary
-    /// cloning. The string is boxed and leaked to ensure `'static` lifetime.
-    ///
-    /// # Arguments
-    /// * `s` - The `String` to intern.
-    ///
-    /// # Returns
-    /// The unique index associated with the interned string.
-    ///
-    /// # Example
-    /// ```rust
-    /// let mut interner = StringInterner::new();
-    /// let idx = interner.intern("example".to_string());
-    /// ```
-    pub fn intern(&mut self, s: String) -> usize {
+    /// If the string is already interned, returns its existing `Ident`.
+    /// Otherwise, adds the string to the pool and returns a new `Ident`.
+    pub fn intern(&mut self, s: String) -> Ident {
         if let Some(&idx) = self.string_index.get(s.as_str()) {
-            return idx;
+            return Ident::new(idx);
         }
 
         let boxed: Box<str> = s.into_boxed_str();
@@ -102,27 +88,27 @@ impl StringInterner {
         self.string_pool.push(static_str.into());
         self.string_index.insert(static_str, idx);
 
-        idx
+        Ident::new(idx)
     }
 
-    /// Retrieves the interned string by its index.
+    /// Retrieves the interned string by its `Ident`.
     ///
     /// # Arguments
-    /// * `idx` - The index of the interned string.
+    /// * `ident` - The `Ident` representing the index of the interned string.
     ///
     /// # Returns
-    /// * `Some(&str)` if the index is valid.
-    /// * `None` if the index is out of bounds.
+    /// * `Some(&str)` if the `Ident` is valid and corresponds to an interned string.
+    /// * `None` if the `Ident` is out of bounds or invalid.
     ///
     /// # Example
     /// ```rust
     /// let mut interner = StringInterner::new();
-    /// let idx = interner.intern("hello".to_string());
-    /// assert_eq!(interner.get_str(idx), Some("hello"));
-    /// assert_eq!(interner.get_str(9999), None);
+    /// let ident = interner.intern("hello".to_string());
+    /// assert_eq!(interner.get_str(ident), Some("hello"));
+    /// assert_eq!(interner.get_str(Ident::new(9999)), None);
     /// ```
-    pub fn get_str(&self, idx: usize) -> Option<&str> {
-        self.string_pool.get(idx).map(|s| s.as_ref())
+    pub fn get_str(&self, ident: Ident) -> Option<&str> {
+        self.string_pool.get(ident.as_usize()).map(|s| s.as_ref())
     }
 }
 

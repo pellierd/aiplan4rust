@@ -50,7 +50,7 @@ pub enum Content {
     None,
 
     /// Interned identifier (references a string in the [`StringInterner`]).
-    Ident(Ident(usize)),
+    Ident(Ident),
 
     /// Floating-point literal (wrapped in [`OrderedFloat`] for total ordering).
     #[serde(

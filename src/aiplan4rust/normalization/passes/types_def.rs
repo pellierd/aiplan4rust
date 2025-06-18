@@ -6,6 +6,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes type declarations in the AST by merging all `TypedItem` nodes
@@ -100,9 +101,9 @@ pub fn normalize_type_def(
 
 fn collect_type_info(
     typed_items: Vec<Box<AstNode>>,
-) -> Result<(HashMap<usize, Box<AstNode>>, HashMap<usize, (HashSet<usize>, Vec<Span>)>, bool), ParserInternalError> {
-    let mut merged_items: HashMap<usize, Box<AstNode>> = HashMap::new();
-    let mut type_sources: HashMap<usize, (HashSet<usize>, Vec<Span>)> = HashMap::new();
+) -> Result<(HashMap<Ident, Box<AstNode>>, HashMap<Ident, (HashSet<Ident>, Vec<Span>)>, bool), ParserInternalError> {
+    let mut merged_items: HashMap<Ident, Box<AstNode>> = HashMap::new();
+    let mut type_sources: HashMap<Ident, (HashSet<Ident>, Vec<Span>)> = HashMap::new();
     let mut changed = false;
 
     for typed_item in typed_items.into_iter() {
@@ -119,7 +120,7 @@ fn collect_type_info(
 }
 
 fn report_warnings(
-    type_sources: &HashMap<usize, (HashSet<usize>, Vec<Span>)>,
+    type_sources: &HashMap<Ident, (HashSet<Ident>, Vec<Span>)>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), ParserInternalError> {
@@ -199,7 +200,7 @@ pub fn find_types_def_typed_list(
 /// Returns an error if the first child is not a `PrimitiveType` node, or if extracting type names fails.
 fn extract_id_and_info(
     typed_item: &Box<AstNode>
-) -> Result<(usize, Option<Box<AstNode>>, HashSet<usize>, Span), ParserInternalError> {
+) -> Result<(Ident, Option<Box<AstNode>>, HashSet<Ident>, Span), ParserInternalError> {
     // Get the children of the typed_item node
     let children = typed_item.children();
     // The first child should be a PrimitiveType node
@@ -258,7 +259,7 @@ fn extract_id_and_info(
 /// * `Ok(HashSet<String>)` containing the names of all primitive types found.
 /// * `Err(ParserInternalError)` if the node is not of kind `Type`
 ///   or if any child is not a `PrimitiveType`.
-fn extract_type_ids(type_node: &AstNode) -> Result<HashSet<usize>, ParserInternalError> {
+fn extract_type_ids(type_node: &AstNode) -> Result<HashSet<Ident>, ParserInternalError> {
     // Verify the node is of kind Type
     if let AstKind::Type = type_node.kind() {
         let mut ids = HashSet::new();
@@ -310,9 +311,9 @@ fn extract_type_ids(type_node: &AstNode) -> Result<HashSet<usize>, ParserInterna
 /// * `type_names` - A set of type names to add to the existing set for this key.
 /// * `span` - The span to append to the list of spans associated with the key.
 fn update_type_sources(
-    type_sources: &mut HashMap<usize, (HashSet<usize>, Vec<Span>)>,
-    key: usize,
-    type_names: &HashSet<usize>,
+    type_sources: &mut HashMap<Ident, (HashSet<Ident>, Vec<Span>)>,
+    key: Ident,
+    type_names: &HashSet<Ident>,
     span: &Span,
 ) {
     // Insert or get the entry for `key` in the map, initializing with empty sets if absent
@@ -342,8 +343,8 @@ fn update_type_sources(
 ///
 /// Returns `true` to indicate that a merge or insert operation was performed (indicating a change).
 fn merge_typed_item(
-    merged_items: &mut HashMap<usize, Box<AstNode>>,
-    key: usize,
+    merged_items: &mut HashMap<Ident, Box<AstNode>>,
+    key: Ident,
     typed_item: Box<AstNode>,
     ty_opt: Option<Box<AstNode>>,
 ) -> bool {
@@ -373,7 +374,7 @@ fn merge_typed_item(
 /// A diagnostic is emitted for each type that has more than one variant
 /// declaration location (span), indicating a potential ambiguity.
 fn report_implicit_either_type_warnings(
-    type_sources: &HashMap<usize, (HashSet<usize>, Vec<Span>)>, // Maps each type ID to a set of variant type IDs and their source spans
+    type_sources: &HashMap<Ident, (HashSet<Ident>, Vec<Span>)>, // Maps each type ID to a set of variant type IDs and their source spans
     ast: &Ast,                                                  // The current AST, used to resolve interned type names
     diagnostic_manager: &mut DiagnosticManager,                 // Where to send diagnostics
 ) -> Result<(), ParserInternalError> {

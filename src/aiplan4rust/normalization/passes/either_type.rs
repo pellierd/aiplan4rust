@@ -8,6 +8,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes all `Type` nodes in the given AST by removing duplicate `PrimitiveType` children.
@@ -59,7 +60,7 @@ pub fn normalize_either_type(
 
 fn collect_either_type_info(
     root: &mut AstNode,
-) -> Result<(bool, Vec<(Vec<usize>, Span)>), ParserInternalError> {
+) -> Result<(bool, Vec<(Vec<Ident>, Span)>), ParserInternalError> {
     let mut modified = false;
     let mut warnings = Vec::new();
     let mut stack = vec![root];
@@ -104,7 +105,7 @@ fn collect_either_type_info(
 
 /// 2ᵉ passe : pour chaque entrée `(dups, span)` on appelle ton reporter.
 fn report_either_type_duplicates(
-    warnings: Vec<(Vec<usize>, Span)>,
+    warnings: Vec<(Vec<Ident>, Span)>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
