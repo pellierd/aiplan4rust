@@ -174,8 +174,7 @@ AstContent, ()> = {
            errors.push(error_recovery);
            Err(())
         } else {
-            //let _idx = context.intern(name.clone());
-            Ok(AstContent::Ident(context.intern(name.to_string())))
+            Ok(AstContent::Ident(Ident::new(context.intern(name.to_string()))))
         }
     },
     <start:@L> <error:!> <end:@R>  => {
@@ -184,9 +183,9 @@ AstContent, ()> = {
     },
     // Addition to allow the use of special symbols as ordinary symbols. The verification will be performed during
     // semantics analysis
-    <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
-    <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
-    <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+    <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(Ident::new(context.intern(name.to_string()))-),
+    <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(Ident::new(context.intern(name.to_string())))),
+    <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(Ident::new(context.intern(name.to_string())))),
 }
 
 pub VarName : Result<
@@ -201,7 +200,7 @@ AstContent, ()> = {
            errors.push(error_recovery);
            Err(())
         } else {
-            Ok(AstContent::Ident(context.intern(name.to_string())))
+            Ok(AstContent::Ident(Ident::new(context.intern(name.to_string()))))
         }
     },
     <start:@L> <error:!> <end:@R>  => {
@@ -1096,7 +1095,7 @@ pub SimpleDurationConstraint : Box<AstNode> = {
 
 pub DurationVariable : Box<AstNode> = {
     <start:@L> <var:"?duration"> <end:@R> => {
-        Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(Ident::new(context.intern(var.to_string()))), Vec::new(), start, end))
     }
 }
 
@@ -1237,7 +1236,7 @@ pub FExpT : Box<AstNode> = {
 
 pub ContinusVariable : Box<AstNode> = {
     <start:@L> <var:"#t"> <end:@R> => {
-        Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(Ident::new(context.intern(var.to_string()))), Vec::new(), start, end))
     }
 }
 
@@ -1490,9 +1489,9 @@ pub TaskID : Box<AstNode> = {
 pub TaskTerm: Box<AstNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(AstNode::new(AstKind::Constant, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::Constant, AstContent::Ident(Ident::new(context.intern(name.to_string()))), Vec::new(), start, end))
         } else {
-            Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(Ident::new(context.intern(name.to_string()))), Vec::new(), start, end))
         }
     },
 }

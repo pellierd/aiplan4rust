@@ -39,9 +39,7 @@ use ordered_float::OrderedFloat;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
 
-use crate::aiplan4rust::syntax::elements::{
-    ArithmeticOp, AssignOp, BinaryComp, Optimization, Requirement,
-};
+use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 use crate::aiplan4rust::syntax::StringInterner;
 
 /// Represents semantic content associated with an AST node.
@@ -52,7 +50,7 @@ pub enum Content {
     None,
 
     /// Interned identifier (references a string in the [`StringInterner`]).
-    Ident(usize),
+    Ident(Ident(usize)),
 
     /// Floating-point literal (wrapped in [`OrderedFloat`] for total ordering).
     #[serde(
