@@ -384,8 +384,7 @@ fn report_implicit_either_type_warnings(
         if spans.len() > 1 {
             // Get the interned string name for the base type ID (`ty`)
             let ty_name: String = ast
-                .context()
-                .get_str(*ty)
+                .expect_str(*ty)
                 .ok_or_else(|| ParserInternalError::new(format!(
                     "Missing interned name for type id {ty}"
                 )))?
@@ -395,12 +394,8 @@ fn report_implicit_either_type_warnings(
             let type_names: Vec<String> = types_set
                 .iter()
                 .map(|id| {
-                    ast.context()
-                        .get_str(*id)
-                        .map(|s| s.to_string()) // Convert &str to String
-                        .ok_or_else(|| ParserInternalError::new(format!(
-                            "Missing interned name for type id {id}"
-                        )))
+                    ast.expect_str(*id)
+                        .map(|s| s.to_string())
                 })
                 .collect::<Result<Vec<String>, ParserInternalError>>()?;
 

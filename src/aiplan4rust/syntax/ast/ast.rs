@@ -56,11 +56,12 @@
 
 use std::fmt::{self, Write as _};
 use std::time::SystemTime;
-
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{
     AstNode,
     iterators::{PreorderIter, PostorderIter},
 };
+use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::StringInterner;
 
 /// A complete abstract syntax tree and its associated context.
@@ -138,6 +139,14 @@ impl Ast {
     /// Returns an iterator over the AST in postorder (children before node).
     pub fn postorder(&self) -> PostorderIter<'_> {
         PostorderIter::new(self.root())
+    }
+
+    pub fn get_str(&self, ident: Ident) -> Option<&str> {
+        self.context.get_str(ident)
+    }
+
+    pub fn expect_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
+        self.context.expect_str(ident)
     }
 }
 
