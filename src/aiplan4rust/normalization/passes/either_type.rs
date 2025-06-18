@@ -8,7 +8,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::{Span, StringInterner};
 
 /// Normalizes all `Type` nodes in the given AST by removing duplicate `PrimitiveType` children.
 ///
@@ -45,107 +45,86 @@ use crate::aiplan4rust::syntax::Span;
 /// ```
 pub fn normalize_either_type(
     ast: &mut Ast,
-    diagnostic_manager: &mut  DiagnosticManager
+    diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    normalize_either_type_node(ast.root_mut(), ast, diagnostic_manager)
+    let root = ast.root_mut();        // emprunt mutable ici
+     // emprunt immuable sur context seulement
+
+    let (modified, warnings) = collect_either_type_info(root)?;
+
+    report_either_type_duplicates(warnings, ast, diagnostic_manager);
+
+    Ok(modified)
 }
 
-/// Normalizes `Type` nodes by removing duplicate `PrimitiveType` children.
-///
-/// This function performs two main tasks:
-///
-/// 1. It validates that all children of a `Type` node are `PrimitiveType` nodes by calling
-///    `assert_type_validity`. If validation fails, it returns an error.
-/// 2. It removes duplicate `PrimitiveType` children within each `Type` node.
-///
-/// The function applies recursively to all descendants of the given node.
-///
-/// # Parameters
-///
-/// - `node`: A mutable reference to the AST node to normalize.
-///
-/// # Returns
-///
-/// - `Ok(true)` if the tree was modified (duplicates were removed).
-/// - `Ok(false)` if no changes were made.
-/// - `Err(_)` if a validation error occurred (invalid children in a `Type` node).
-///
-/// # Example
-///
-/// ```rust
-/// use crate::aiplan4rust::syntax::ast::AstNode;
-/// use crate::aiplan4rust::parser::ParserInternalError;
-///
-/// let mut ast_node: AstNode = /* construct your AST node */;
-///
-/// match normalize_either_type_node(&mut ast_node) {
-///     Ok(modified) => {
-///         if modified {
-///             println!("The AST was modified.");
-///         } else {
-///             println!("No changes were necessary.");
-///         }
-///     }
-///     Err(e) => eprintln!("Validation error: {}", e),
-/// }
-/// ```
-fn normalize_either_type_node(
-        node: &mut AstNode,
-        ast: &Ast,
-        diagnostic_manager: &mut DiagnosticManager
-) -> Result<bool, ParserInternalError> {
-    // First, validate the current node to ensure all children are PrimitiveType
-    assert_either_type_validity(node)?;
-
-    // Track whether any modifications have been made to this subtree
+fn collect_either_type_info(
+    root: &mut AstNode,
+) -> Result<(bool, Vec<(Vec<usize>, Span)>), ParserInternalError> {
     let mut modified = false;
+    let mut warnings = Vec::new();
+    let mut stack = vec![root];
 
-    // If the current node is of kind Type, proceed to remove duplicates
-    if let AstKind::Type = node.kind() {
-        // Create a set to track seen PrimitiveType names
-        let mut seen = HashSet::new();
-        let mut duplicates = Vec::new();
+    while let Some(node) = stack.pop() {
+        assert_either_type_validity(node)?;
 
-        // Retain only unique PrimitiveType children, removing duplicates
-        node.children_mut().retain(|child| {
-            if let AstKind::PrimitiveType = child.kind() {
-                if let AstContent::Ident(id) = child.content() {
-                    if seen.insert(id) {
-                        true // Keep this unique PrimitiveType child
+        if let AstKind::Type = node.kind() {
+            let mut seen = HashSet::new();
+            let mut dups = Vec::new();
+
+            node.children_mut().retain(|child| {
+                if let AstKind::PrimitiveType = child.kind() {
+                    if let AstContent::Ident(id) = child.content() {
+                        if seen.insert(*id) {
+                            true
+                        } else {
+                            dups.push(*id);
+                            modified = true;
+                            false
+                        }
                     } else {
-                        let name = ast.context().get_str(*id).unwrap();
-                        duplicates.push(name.to_string());
-                        modified = true; // Duplicate found and removed
-                        false // Remove this duplicate child
+                        true
                     }
                 } else {
                     true
                 }
-            } else {
-                true // Keep non-PrimitiveType children (should be none after validation)
+            });
+
+            if !dups.is_empty() {
+                warnings.push((dups, node.span().clone()));
             }
-        });
-        if !duplicates.is_empty() {
-            // Report a diagnostic warning for the removed duplicates
-            report_duplicate_either_type_warning(
-                duplicates,
-                ast.source_name(),
-                node.span(),
-                diagnostic_manager,
-            );
+        }
+
+        for child in node.children_mut() {
+            stack.push(child);
         }
     }
 
-    // Recursively normalize all child nodes
-    for child in node.children_mut() {
-        if normalize_either_type_node(child, ast, diagnostic_manager)? {
-            modified = true; // If any child was modified, mark this node as modified
-        }
-    }
-
-    // Return whether the AST subtree was modified
-    Ok(modified)
+    Ok((modified, warnings))
 }
+
+/// 2ᵉ passe : pour chaque entrée `(dups, span)` on appelle ton reporter.
+fn report_either_type_duplicates(
+    warnings: Vec<(Vec<usize>, Span)>,
+    ast: &Ast,
+    diagnostic_manager: &mut DiagnosticManager,
+) {
+    for (duplicates_ids, span) in warnings {
+        // Conversion des ids en String, on filtre les ids qui n'ont pas de correspondance
+        let duplicates: Vec<String> = duplicates_ids
+            .into_iter()
+            .filter_map(|id| ast.context().get_str(id).map(|s| s.to_string()))
+            .collect();
+
+        report_duplicate_either_type_warning(
+            duplicates,
+            ast.source_name(),
+            &span,
+            diagnostic_manager,
+        );
+    }
+}
+
+
 
 /// Reports a diagnostic warning when duplicate types are found in a typed list declaration.
 ///
@@ -207,7 +186,7 @@ fn report_duplicate_either_type_warning(
 pub fn assert_either_type_validity(node: &AstNode) -> Result<(), ParserInternalError> {
     if let AstKind::Type = node.kind() {
         for child in node.children() {
-            if !matches!(child.kind(), AstKind::PrimitiveType(_)) {
+            if !matches!(child.kind(), AstKind::PrimitiveType) {
                 return Err(ParserInternalError::new(format!(
                     "Expected only PrimitiveType in Type node, found: {:?}",
                     child.kind()

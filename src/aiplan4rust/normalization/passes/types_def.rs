@@ -66,56 +66,67 @@ use crate::aiplan4rust::syntax::Span;
 ///     println!("Merged type declarations.");
 /// }
 /// ```
-
 pub fn normalize_type_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Obtain the source name from the AST, used in diagnostic reporting
     let source = ast.source_name().to_string();
 
-    // Locate the TypedList node contained in the TypesDef node of the AST
+    // Accès immuable au TypedList pour lecture
     let typed_list = match find_types_def_typed_list(ast)? {
         Some(node) => node,
-        None => return Ok(false), // No TypesDef present, so nothing to normalize
+        None => return Ok(false),
     };
 
-    // HashMap to accumulate merged TypedItems keyed by their PrimitiveType string
-    let mut merged_items: HashMap<usize, Box<AstNode>> = HashMap::new();
+    // Clone des enfants pour la passe lecture seule
+    let old_typed_items = typed_list.children().to_vec();
 
-    // Tracks for each PrimitiveType:
-    // - the set of all associated type names found (to detect conflicts)
-    // - the spans where declarations occur (for diagnostics)
-    let mut type_sources: HashMap<usize, (HashSet<usize>, Vec<Span>)> = HashMap::new();
+    // Première passe : collecte des infos et fusion des TypedItems
+    let (merged_items, type_sources, changed) = collect_type_info(old_typed_items)?;
 
-    // Tracks whether any modifications occurred during normalization
-    let mut changed = false;
+    // Reporting : emprunt immuable d’ast, pas de conflit
+    report_warnings(&type_sources, ast, diagnostic_manager)?;
 
-    // Take ownership of the current TypedList children (TypedItems)
-    let old_typed_items = std::mem::take(typed_list.children_mut());
+    // Deuxième passe : modification mutable de typed_list
+    let typed_list = find_types_def_typed_list(ast)?.ok_or_else(|| {
+        ParserInternalError::new("TypedList node disappeared between calls".to_string())
+    })?;
 
-    // Process each TypedItem one by one
-    for typed_item in old_typed_items.into_iter() {
-        // Extract the key, optional type annotation, type names, and span from the TypedItem
-        let (key, ty_opt, type_names, span) = extract_id_and_info(&typed_item)?;
-
-        // Update the tracking of type declarations and source locations
-        update_type_sources(&mut type_sources, key, &type_names, &span);
-
-        // Merge the current TypedItem into the merged_items map, flag if changes occurred
-        changed |= merge_typed_item(&mut merged_items, key, typed_item, ty_opt);
-    }
-
-    // After processing all TypedItems, emit warnings if any key has multiple declarations
-    report_implicit_either_type_warnings(&type_sources, &ast, diagnostic_manager)?;
-
-    // Replace the children of TypedList with the merged TypedItems
     let new_typed_items: Vec<Box<AstNode>> = merged_items.into_values().collect();
     typed_list.set_children(new_typed_items);
 
-    // Return whether the AST was changed
     Ok(changed)
 }
+
+fn collect_type_info(
+    typed_items: Vec<Box<AstNode>>,
+) -> Result<(HashMap<usize, Box<AstNode>>, HashMap<usize, (HashSet<usize>, Vec<Span>)>, bool), ParserInternalError> {
+    let mut merged_items: HashMap<usize, Box<AstNode>> = HashMap::new();
+    let mut type_sources: HashMap<usize, (HashSet<usize>, Vec<Span>)> = HashMap::new();
+    let mut changed = false;
+
+    for typed_item in typed_items.into_iter() {
+        let (key, ty_opt, type_names, span) = extract_id_and_info(&typed_item)?;
+
+        let entry = type_sources.entry(key).or_insert_with(|| (HashSet::new(), Vec::new()));
+        entry.0.extend(type_names.iter().cloned());
+        entry.1.push(span.clone());
+
+        changed |= merge_typed_item(&mut merged_items, key, typed_item, ty_opt);
+    }
+
+    Ok((merged_items, type_sources, changed))
+}
+
+fn report_warnings(
+    type_sources: &HashMap<usize, (HashSet<usize>, Vec<Span>)>,
+    ast: &Ast,
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<(), ParserInternalError> {
+    report_implicit_either_type_warnings(type_sources, ast, diagnostic_manager)
+}
+
+
 
 /// Finds the `TypedList` node inside the `TypesDef` node of the given AST.
 ///
@@ -255,7 +266,7 @@ fn extract_type_ids(type_node: &AstNode) -> Result<HashSet<usize>, ParserInterna
         for child in type_node.children() {
             match child.kind() {
                 AstKind::PrimitiveType => {
-                    if let Some(AstContent::Ident(id)) = child.content() {
+                    if let AstContent::Ident(id) = child.content() {
                         // Insert the primitive type id (usize) into the set
                         ids.insert(*id);  // Deref to get usize value
                     } else {
