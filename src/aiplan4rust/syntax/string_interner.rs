@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use serde::de::SeqAccess;
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::elements::Ident;
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
@@ -109,6 +110,43 @@ impl StringInterner {
     /// ```
     pub fn get_str(&self, ident: Ident) -> Option<&str> {
         self.string_pool.get(ident.as_usize()).map(|s| s.as_ref())
+    }
+    /// Returns the interned string associated with the given `Ident`.
+    ///
+    /// If the `Ident` is valid and corresponds to a stored string, returns
+    /// `Ok(&str)` referencing the interned string slice.
+    ///
+    /// If the `Ident` is invalid (e.g., out of bounds), returns a
+    /// `ParserInternalError` with a descriptive error message.
+    ///
+    /// # Arguments
+    ///
+    /// * `ident` - The `Ident` representing the index of the interned string.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err(ParserInternalError)` if the `Ident` is not valid for this interner.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use your_crate::{StringInterner, Ident, ParserInternalError};
+    /// let mut interner = StringInterner::new();
+    /// let id = interner.intern("example".to_string());
+    /// assert_eq!(interner.expect_str(id).unwrap(), "example");
+    ///
+    /// let invalid_id = Ident::new(9999);
+    /// assert!(interner.expect_str(invalid_id).is_err());
+    /// ```
+    ///
+    pub fn expect_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
+        self.get_str(ident).ok_or_else(|| {
+            ParserInternalError::new(format!(
+                "Invalid Ident {}: out of bounds for interner size {}",
+                ident.as_usize(),
+                self.string_pool.len()
+            ))
+        })
     }
 }
 
