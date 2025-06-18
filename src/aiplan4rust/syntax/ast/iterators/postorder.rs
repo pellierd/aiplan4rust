@@ -1,40 +1,38 @@
 use crate::aiplan4rust::syntax::ast::AstNode;
 
-/// An iterator that traverses an `IntAstNode` tree in post-order (depth-first) and yields each node along with its depth.
+/// Iterator for traversing an [`AstNode`] tree in **post-order** (depth-first),
+/// yielding each node along with its depth.
 ///
-/// In a post-order traversal, all children of a node are visited before the node itself.
-/// This is particularly useful in scenarios such as evaluating expressions or performing
-/// cleanup tasks where dependencies must be processed before their parent node.
-///
-/// # Fields
-/// - `stack`: A manual stack used to simulate recursion. Each element contains a tuple:
-///   (`&IntAstNode`, depth: `usize`, visited: `bool`). The `visited` flag indicates
-///   whether the node has already been processed after its children.
+/// In post-order traversal, all children of a node are visited before the node itself.
+/// This is useful for tasks like expression evaluation or resource cleanup.
 ///
 /// # Example
-/// ```rust
-/// use aiplan4rust::syntax::int_ast::{IntAstNode, PostorderIter};
 ///
-/// let root: &IntAstNode = ...; // assume you have a root node
+/// ```rust
+/// use aiplan4rust::syntax::ast::{AstNode, PostorderIter};
+///
+/// let root: &AstNode = get_ast_root(); // assume this returns your AST root node
 /// let iter = PostorderIter::new(root);
 ///
 /// for (node, depth) in iter {
 ///     println!("{}- {:?}", "  ".repeat(depth), node.kind());
 /// }
 /// ```
+///
+/// # Internals
+///
+/// The iterator uses a manual stack to simulate recursion. Each entry is a tuple:
+/// - `&AstNode`: the node reference,
+/// - `usize`: the depth in the tree,
+/// - `bool`: whether the node has already been visited after processing children.
+///
+/// Children are pushed in reverse order to preserve left-to-right traversal.
 pub struct PostorderIter<'a> {
-    /// The traversal stack, containing tuples of the node, its depth, and whether it has been visited.
     stack: Vec<(&'a AstNode, usize, bool)>,
 }
 
 impl<'a> PostorderIter<'a> {
-    /// Constructs a new `PostorderIter` starting from the given root node.
-    ///
-    /// # Arguments
-    /// * `root` - A reference to the root of the AST subtree to traverse.
-    ///
-    /// # Returns
-    /// A `PostorderIter` ready to iterate over the subtree in post-order.
+    /// Creates a new `PostorderIter` starting at the given root node.
     pub fn new(root: &'a AstNode) -> Self {
         Self {
             stack: vec![(root, 0, false)],
@@ -45,19 +43,12 @@ impl<'a> PostorderIter<'a> {
 impl<'a> Iterator for PostorderIter<'a> {
     type Item = (&'a AstNode, usize);
 
-    /// Returns the next node and its depth in post-order traversal.
-    ///
-    /// If the traversal is complete, `None` is returned.
     fn next(&mut self) -> Option<Self::Item> {
         while let Some((node, depth, visited)) = self.stack.pop() {
             if visited {
-                // The node has already had its children visited, yield it now.
                 return Some((node, depth));
             } else {
-                // Mark the node to be revisited after its children.
                 self.stack.push((node, depth, true));
-
-                // Push children in reverse order so they are visited in left-to-right order.
                 for child in node.children().iter().rev() {
                     self.stack.push((child, depth + 1, false));
                 }

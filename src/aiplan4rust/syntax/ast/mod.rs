@@ -1,44 +1,60 @@
-//! Syntax module for the `aiplan4rust` crate.
+//! Syntax support for the `aiplan4rust` crate.
 //!
-//! This module provides the core Abstract Syntax Tree (AST) components and utilities
-//! for representing and manipulating PDDL and HDDL syntax trees.
+//! This module defines the core components of the Abstract Syntax Tree (AST)
+//! used to represent PDDL and HDDL domain and problem structures.
 //!
-//! # Overview
+//! # Structure
 //!
-//! - [`AstNode`]: Represents a node in the syntax tree.
-//! - [`AstKind`]: Enumerates the kinds of syntax nodes.
-//! - [`Ast`]: The full AST structure encapsulating the parsed tree.
+//! This module is organized into several submodules:
 //!
-//! # Modules
-//!
-//! - `node`: Defines the AST node structure and its methods.
-//! - `ast_old`: Provides the main AST type and related functionality.
-//! - `kind`: Contains the enumeration of AST node kinds.
-//! - `iterators`: Internal module for AST traversal iterators (not publicly exposed).
+//! - [`node`]: Defines the internal structure of AST nodes.
+//! - [`ast`]: The complete AST structure and root logic.
+//! - [`kind`]: Enumerates the kinds of AST nodes (e.g., keyword, identifier).
+//! - [`content`]: Defines the data payload associated with AST nodes.
+//! - [`iterators`]: Contains pre-order and post-order traversal iterators.
 //!
 //! # Re-exports
 //!
-//! For convenience, the following are re-exported publicly:
-//! - `AstNode` (`node::Node`)
-//! - `AstKind` (`kind::Kind`)
-//! - `Ast` (`ast_old::Ast`)
+//! To simplify access to key types, several items are re-exported:
+//!
+//! - [`AstNode`] — alias of `node::Node`
+//! - [`AstKind`] — alias of `kind::Kind`
+//! - [`AstContent`] — alias of `content::Content`
+//! - [`Ast`] — the full parsed AST structure
 //!
 //! # Example
 //!
 //! ```rust
-//! use aiplan4rust::syntax::{AstNode, AstKind, Ast};
+//! use aiplan4rust::syntax::{Ast, AstNode, AstKind};
 //!
-//! // Example usage with AST nodes and kinds here...
+//! let ast: Ast = /* parse something */;
+//! let root: &AstNode = ast.root();
+//!
+//! println!("Root kind: {:?}", root.kind());
+//! ```
+//!
+//! # Traversal
+//!
+//! Use the iterators in [`iterators`] to walk through the AST:
+//!
+//! ```rust
+//! use aiplan4rust::syntax::iterators::PreorderIter;
+//!
+//! let iter = PreorderIter::new(ast.root());
+//! for (node, depth) in iter {
+//!     println!("{}- {:?}", "  ".repeat(depth), node.kind());
+//! }
 //! ```
 
+// Submodules
 pub mod node;
 pub mod ast;
-
 pub mod content;
 pub mod kind;
 pub mod iterators;
 
-pub use kind::Kind as AstKind;
+// Public re-exports
 pub use node::Node as AstNode;
+pub use kind::Kind as AstKind;
 pub use content::Content as AstContent;
 pub use ast::Ast;

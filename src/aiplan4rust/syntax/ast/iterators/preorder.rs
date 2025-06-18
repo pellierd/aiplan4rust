@@ -1,56 +1,49 @@
 use crate::aiplan4rust::syntax::ast::AstNode;
 
-/// An iterator that traverses an `IntAstNode` tree in preorder.
+/// Iterator for traversing an [`AstNode`] tree in **pre-order** (depth-first),
+/// yielding each node along with its depth.
 ///
-/// Preorder traversal visits the current node before its children.
-/// This iterator yields each node along with its depth in the tree,
-/// where the root node has depth 0.
+/// In pre-order traversal, the current node is visited *before* its children.
+/// This is useful for printing, structural validation, or transforming trees top-down.
 ///
 /// # Example
 ///
-/// ```
-/// let root: &IntAstNode = ...;
+/// ```rust
+/// use aiplan4rust::syntax::ast::{AstNode, PreorderIter};
+///
+/// let root: &AstNode = get_ast_root(); // assume this returns your AST root
 /// let iter = PreorderIter::new(root);
+///
 /// for (node, depth) in iter {
-///     println!("{}Node: {:?}", "  ".repeat(depth), node);
+///     println!("{}- {:?}", "  ".repeat(depth), node.kind());
 /// }
 /// ```
+///
+/// # Internals
+///
+/// The iterator maintains a manual stack where each entry is:
+/// - `&AstNode`: the node reference,
+/// - `usize`: the depth of the node.
+///
+/// Children are pushed in reverse order to ensure left-to-right traversal.
 pub struct PreorderIter<'a> {
-    /// Stack to manage traversal state.
-    /// Each element is a tuple of a node reference and its depth.
     stack: Vec<(&'a AstNode, usize)>,
 }
 
 impl<'a> PreorderIter<'a> {
-    /// Creates a new `PreorderIter` starting at the given root node.
-    ///
-    /// # Arguments
-    ///
-    /// * `root` - A reference to the root node of the AST to traverse.
-    ///
-    /// # Returns
-    ///
-    /// A new instance of `PreorderIter`.
+    /// Creates a new `PreorderIter` starting from the given root node.
     pub fn new(root: &'a AstNode) -> Self {
-        Self { stack: vec![(root, 0)] }
+        Self {
+            stack: vec![(root, 0)],
+        }
     }
 }
 
 impl<'a> Iterator for PreorderIter<'a> {
     type Item = (&'a AstNode, usize);
 
-    /// Advances the iterator and returns the next node and its depth.
-    ///
-    /// The traversal order is preorder: the node itself is returned before its children.
-    ///
-    /// # Returns
-    ///
-    /// * `Some((&IntAstNode, usize))` - the next node and its depth in the tree.
-    /// * `None` - when all nodes have been visited.
     fn next(&mut self) -> Option<Self::Item> {
         self.stack.pop().map(|(node, depth)| {
-            // Push children to the stack in reverse order so that
-            // they are processed in original left-to-right order.
             for child in node.children().iter().rev() {
                 self.stack.push((child, depth + 1));
             }

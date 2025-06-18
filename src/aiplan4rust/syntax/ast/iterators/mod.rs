@@ -1,28 +1,26 @@
-//! Iterators for traversing tree-like structures using different depth-first strategies.
+//! Tree traversal iterators for abstract syntax trees (ASTs) and similar structures.
 //!
-//! This module provides two iterator implementations for walking over nodes in an
-//! abstract syntax tree (AST) or similar hierarchical data structures:
+//! This module provides two depth-first traversal iterators for hierarchical data:
 //!
-//! - [`PreorderIter`]: Visits the current node before its children (pre-order traversal).
-//! - [`PostorderIter`]: Visits the children before the current node (post-order traversal).
+//! - [`PreorderIter`]: Visits each node **before** its children (pre-order).
+//! - [`PostorderIter`]: Visits each node **after** its children (post-order).
 //!
 //! # Examples
 //!
 //! ```rust
-//! use aiplan4rust::syntax::ast::PreorderIterator;
+//! use aiplan4rust::syntax::iterators::PreorderIter;
 //!
 //! // Assuming `root` is the root node of your tree:
-//! let preorder_iter = PreorderIterator::new(&root);
+//! let preorder_iter = PreorderIter::new(&root);
 //! for node in preorder_iter {
 //!     println!("{:?}", node);
 //! }
 //! ```
 //!
 //! ```rust
-//! use aiplan4rust::syntax::ast::PostorderIterator;
+//! use aiplan4rust::syntax::iterators::PostorderIter;
 //!
-//! // Assuming `root` is the root node of your tree:
-//! let postorder_iter = PostorderIterator::new(&root);
+//! let postorder_iter = PostorderIter::new(&root);
 //! for node in postorder_iter {
 //!     println!("{:?}", node);
 //! }
@@ -30,9 +28,9 @@
 //!
 //! # Notes
 //!
-//! These iterators are designed to be used with tree structures where each node
-//! can have zero or more child nodes. They abstract away the traversal logic,
-//! providing a simple interface to visit nodes in a specific order.
+//! These iterators are generic over tree-like structures where each node has zero
+//! or more children. They encapsulate traversal logic, making it easy to explore
+//! nodes in a consistent and controlled manner.
 
 pub mod preorder;
 pub mod postorder;

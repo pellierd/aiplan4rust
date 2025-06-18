@@ -1,79 +1,103 @@
-use std::io::Write;
-use std::fmt;
+//! High-Level Abstract Syntax Tree (AST) Representation for `aiplan4rust`
+//!
+//! This module defines the [`Ast`] type, a container that encapsulates the core components
+//! of an abstract syntax tree (AST) generated during the parsing phase of PDDL or HDDL documents.
+//! It centralizes both syntactic structure and parsing metadata for downstream tasks
+//! such as analysis, transformation, code generation, or pretty-printing.
+//!
+//! # Structure
+//!
+//! The [`Ast`] holds the following components:
+//!
+//! - A [`Box<AstNode>`] representing the root of the syntax tree.
+//! - A [`StringInterner`] used during parsing for deduplicating string content such as symbols.
+//! - A human-readable [`source_name`] (e.g., a filename or label).
+//! - A [`SystemTime`] timestamp recording when the AST was created.
+//!
+//! # Traversal
+//!
+//! The tree can be traversed using built-in iterators:
+//!
+//! - [`Ast::preorder()`] — depth-first traversal where the parent is visited before its children.
+//! - [`Ast::postorder()`] — depth-first traversal where the children are visited before the parent.
+//!
+//! These provide the basis for semantic analysis, validation, evaluation, and more.
+//!
+//! # Example
+//!
+//! ```rust
+//! use std::time::SystemTime;
+//! use aiplan4rust::syntax::{Ast, AstNode, AstKind, AstContent, StringInterner};
+//!
+//! let mut interner = StringInterner::default();
+//! let root = Box::new(AstNode::new(AstKind::Symbol, AstContent::interned("move", &mut interner)));
+//!
+//! let ast = Ast::new(root, interner, "domain.pddl".into(), SystemTime::now());
+//!
+//! for (node, depth) in ast.preorder() {
+//!     println!("{:indent$}- {:?}", "", node.kind(), indent = depth * 2);
+//! }
+//! ```
+//!
+//! # Use Cases
+//!
+//! - Parser output for PDDL/HDDL domains and problems.
+//! - Static analysis tools.
+//! - Code generation pipelines.
+//! - Visual AST inspection or pretty-printers.
+//! - Intermediary format for serialization/deserialization.
+//!
+//! # See Also
+//!
+//! - [`AstNode`] for details about individual tree nodes.
+//! - [`AstKind`] for node classification.
+//! - [`StringInterner`] for efficient symbol management.
+//! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
+use std::fmt::{self, Write as _};
+use std::time::SystemTime;
+
+use crate::aiplan4rust::syntax::ast::{
+    AstNode,
+    iterators::{PreorderIter, PostorderIter},
+};
 use crate::aiplan4rust::syntax::StringInterner;
 
-/// A structure representing an abstract syntax tree (AST) and its metadata.
+/// A complete abstract syntax tree and its associated context.
 ///
-/// The `Ast` struct encapsulates the root of an abstract syntax tree,
-/// along with metadata such as the associated source name and the time
-/// the tree was generated. It is typically used to store the result of
-/// parsing a source file or input string.
-///
-/// # Fields
-///
-/// - `root`: The root node of the abstract syntax tree, represented by an `AstNode`.
-/// - `source_name`: A `String` identifying the source of the AST (e.g., a filename or label).
-/// - `generated_at`: A `SystemTime` indicating when the AST was generated.
-///
-/// # Example
-///
-/// ```rust
-/// use std::time::SystemTime;
-/// use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
-///
-/// let root = Box::new(AstNode::new(...)); // Construct the root AST node
-/// let ast = Ast::new(root, "domain.pddl".to_string(), SystemTime::now());
-///
-/// // Access the AST and metadata:
-/// let root_ref = ast.root();
-/// let source = ast.source_name();
-/// let timestamp = ast.generated_at();
-/// ```
+/// This struct owns the entire syntax tree, the string interner used to deduplicate
+/// symbolic strings, and metadata such as source origin and generation timestamp.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ast {
-    /// The Abstract Syntax Tree (AST) representing the structure of the program.
+    /// Root node of the AST.
     root: Box<AstNode>,
 
+    /// String interner used during parsing.
     context: StringInterner,
-    /// The optional filename from which the syntax tree was generated.
+
+    /// Name or identifier for the source of the parsed AST.
     source_name: String,
 
-    /// The time when the syntax tree was generated.
-    generated_at: std::time::SystemTime,
+    /// Timestamp of when the AST was created.
+    generated_at: SystemTime,
 }
 
 impl Ast {
-    /// Creates a new `Ast` instance.
+    /// Creates a new [`Ast`] instance.
     ///
-    /// # Parameters
+    /// # Arguments
     ///
-    /// - `root`: A boxed `AstNode` representing the root of the abstract syntax tree.
-    /// - `source_name`: A `String` representing the source name associated with the AST (e.g., a
-    ///   filename or other identifier).
-    /// - `generated_at`: A `SystemTime` indicating when the AST was generated.
-    ///
-    /// # Returns
-    ///
-    /// A new `Ast` instance initialized with the provided values.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let root = Box::new(AstNode::new());
-    /// let source_name = String::from("example_source");
-    /// let generated_at = std::time::SystemTime::now();
-    /// let ast = Ast::new(root, source_name, generated_at);
-    /// ```
+    /// - `root`: The root node of the AST.
+    /// - `context`: A [`StringInterner`] used to resolve interned content within the AST.
+    /// - `source_name`: A human-readable label for the origin of the AST.
+    /// - `generated_at`: A [`SystemTime`] indicating when the AST was built.
     pub fn new(
         root: Box<AstNode>,
         context: StringInterner,
         source_name: String,
-        generated_at: std::time::SystemTime,
+        generated_at: SystemTime,
     ) -> Self {
-        Ast {
+        Self {
             root,
             context,
             source_name,
@@ -81,88 +105,40 @@ impl Ast {
         }
     }
 
-    /// Accessor for the AST.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the boxed `Ast` object.
+    /// Returns a reference to the AST root node.
     pub fn root(&self) -> &Box<AstNode> {
         &self.root
     }
 
-    /// Accessor for the AST.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the boxed `Ast` object.
+    /// Returns a mutable reference to the AST root node.
     pub fn root_mut(&mut self) -> &mut Box<AstNode> {
         &mut self.root
     }
 
-    /// Returns a reference to the source name.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the source name as a `&String`.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let obj = MyStruct { source_name: String::from("example_source") };
-    /// assert_eq!(obj.source_name(), "example_source");
-    /// ```
+    /// Returns a reference to the string interner used during parsing.
+    pub fn context(&self) -> &StringInterner {
+        &self.context
+    }
+
+    /// Returns the name or label of the source that generated this AST.
     pub fn source_name(&self) -> &String {
         &self.source_name
     }
 
-    /// Returns the timestamp at which the AST was generated.
-    ///
-    /// This method provides access to the creation time of the AST,
-    /// which can be useful for tracking, debugging, or caching purposes.
-    ///
-    /// # Returns
-    /// A [`SystemTime`] value indicating when the AST was built.
-    ///
-    /// # Example
-    /// ```rust
-    /// let ast = ...; // An instance of `Ast`
-    /// let timestamp = ast.generated_at();
-    /// println!("AST generated at: {:?}", timestamp);
-    /// ```
-    ///
-    /// # Note
-    /// This timestamp is typically set during AST construction and
-    /// represents the system time at that moment.
-    ///
-    /// [`SystemTime`]: std::time::SystemTime
-    pub fn generated_at(&self) -> std::time::SystemTime {
+    /// Returns the timestamp indicating when the AST was generated.
+    pub fn generated_at(&self) -> SystemTime {
         self.generated_at
     }
 
-    /// Returns an iterator over the tree in preorder (depth-first).
-    ///
-    /// # Example
-    /// ```rust
-    /// for node in root.preorder() {
-    ///     println!("{:?}", node);
-    /// }
-    /// ```
+    /// Returns an iterator over the AST in preorder (node before children).
     pub fn preorder(&self) -> PreorderIter<'_> {
         PreorderIter::new(self.root())
     }
 
-    /// Returns an iterator over the tree in postorder (depth-first).
-    ///
-    /// # Example
-    /// ```rust
-    /// for node in root.postorder() {
-    ///     println!("{:?}", node);
-    /// }
-    /// ```
+    /// Returns an iterator over the AST in postorder (children before node).
     pub fn postorder(&self) -> PostorderIter<'_> {
         PostorderIter::new(self.root())
     }
-
 }
 
 impl fmt::Display for Ast {
@@ -174,8 +150,8 @@ impl fmt::Display for Ast {
 
         for (node, depth) in self.preorder() {
             let indent = "  ".repeat(depth);
-            let content_str = node.content().display_with_context(&self.context);
-            writeln!(f, "{}- Kind: {:?}, Content: {}", indent, node.kind(), content_str)?;
+            let content = node.content().display_with_context(&self.context);
+            writeln!(f, "{}- Kind: {:?}, Content: {}", indent, node.kind(), content)?;
         }
 
         Ok(())

@@ -1,312 +1,386 @@
-use serde::de::Visitor;
-use serde::Deserialize;
-use serde::Deserializer;
-use serde::Serialize;
-use serde::Serializer;
-
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Represents the different types of Abstract Syntax Tree (AST) nodes.
-/// This enum is used to represent various components of a domain or problem specification in a
-/// planning problem, typically for a domain-specific language used in planning problems (e.g.,
-/// PDDL).
+/// Represents the different kinds of nodes in an Abstract Syntax Tree (AST).
 ///
-/// This enum is used as part of a larger planning framework, where each variant represents a
-/// distinct component or structure in the domain or problem specification. It allows the
-/// representation and manipulation of different parts of a planning problem or domain in a
-/// structured and organized way.
+/// This enum models various components found in domain or problem specifications
+/// of planning problems, typically for domain-specific languages such as PDDL.
+///
+/// Each variant corresponds to a specific syntactic or semantic element of a planning
+/// problem description. This structured representation facilitates parsing, manipulation,
+/// and analysis within planning frameworks.
+///
+/// # Usage Examples
+///
+/// - Representing constants, variables, types, predicates, actions.
+/// - Logical constructs like `And`, `Or`, `Not`.
+/// - Supporting extensions like the HDDL dialect with tasks, methods, and constraints.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Kind {
+    /// Represents an absence of kind or uninitialized value.
     #[default]
     None,
-    /// Represents a constant value in the planning problem, typically a literal or a fixed value.
+
+    /// A constant value in the planning problem (literal or fixed value).
     Constant,
-    /// Represents a variable used in actions or predicates, typically a placeholder for values.
+
+    /// A variable placeholder used in actions or predicates.
     Variable,
-    /// Represents a function symbol, typically used in mathematical functions or expressions.
+
+    /// A function symbol, typically for mathematical or logical functions.
     FunctionSymbol,
-    /// Represents a basic data type, such as integers or booleans, used in the planning problem.
+
+    /// A primitive data type (e.g., integer, boolean).
     PrimitiveType,
-    /// Represents the name of the domain in a PDDL file.
+
+    /// The name of the domain in a planning description.
     DomainName,
-    /// Represents the name of the problem in a PDDL file.
+
+    /// The name of the problem in a planning description.
     ProblemName,
-    /// Represents a predicate symbol used in logical expressions or actions.
+
+    /// A predicate symbol used in logical expressions or conditions.
     Predicate,
-    /// Represents an action symbol used in the problem specification.
+
+    /// An action symbol within the problem domain.
     ActionSymbol,
-    /// Represents a symbol used for defining Durative Actions.
+
+    /// Symbol representing durative actions.
     DASymbol,
-    /// Represents a task symbol used in the domain specification.
-    /// Add to deal with HDDL dialect
+
+    /// Symbol representing tasks (e.g., in HDDL dialect).
     TaskSymbol,
-    /// Represents a preference name used in the planning problem.
+
+    /// A preference name used for soft constraints or preferences.
     PrefName,
-    /// Represents a requirement definition (e.g., `(:require ...)` in PDDL).
+
+    /// Definition of requirements (e.g., `(:require ...)` in PDDL).
     RequireDef,
-    /// Represents a requirement, such as specific features or constraints of a problem.
+
+    /// A specific requirement or constraint for the domain/problem.
     Requirement,
-    /// Represents a type definition, which may be used to define object types.
+
+    /// A type declaration used to define object types.
     Type,
-    /// A list of typed elements containing multiple `TypedItem`s.
+
+    /// A list of typed elements (multiple `TypedItem`s).
     TypedList,
-    /// A single typed item pairing elements with a type.
+
+    /// A single typed element, pairing names with a type.
     TypedItem,
-    /// The untyped elements part of a `TypedItem`.
+
+    /// The untyped element part within a typed item.
     TypedItemElements,
-    /// Represents the definition of types, often seen in the domain description.
+
+    /// Definition of types in the domain.
     TypesDef,
-    /// Represents the definition of constants in the problem.
+
+    /// Definition of constants in the domain/problem.
     ConstantsDef,
-    /// Represents the definition of objects used in the domain or problem.
+
+    /// Definition of objects available in the domain/problem.
     ObjectsDef,
-    /// Represents the domain in the problem specification.
+
+    /// Represents the entire domain specification.
     Domain,
-    /// Represents the problem in the planning task, usually containing a set of goals and initial
-    /// states.
+
+    /// Represents the entire problem specification.
     Problem,
-    /// Represents the definition of predicates used in the domain and problem.
+
+    /// Definition of predicates available.
     PredicatesDef,
-    /// Represents the structure of an atomic formula in the logic system.
+
+    /// Structure of an atomic formula.
     AtomicFormulaSkeleton,
-    /// Represents the definition of functions in the domain or problem.
+
+    /// Definition of functions.
     FunctionsDef,
-    /// Represents a term used in a function.
+
+    /// Represents a term in a function expression.
     FunctionTerm,
-    /// Represents the skeleton structure of an atomic function.
+
+    /// Skeleton structure of atomic functions.
     AtomicFunctionSkeleton,
-    /// Represents a number, using `OrderedFloat` for precise float comparison and serialization.
+
+    /// Numeric value representation.
     Number,
-    /// Represents the definition of an action in the domain.
+
+    /// Definition of an action.
     ActionDef,
-    /// Represents the definition of a durative action, where actions have durations.
+
+    /// Definition of a durative action (actions with duration).
     DurativeActionDef,
-    /// Represents the body of an action definition, including preconditions and effects.
+
+    /// The body of an action, including preconditions and effects.
     ActionDefBody,
-    /// Represents the preconditions of an action.
+
+    /// Definition of preconditions for an action.
     PreconditionDef,
-    /// Represents the effects of an action.
+
+    /// Definition of effects for an action.
     EffectDef,
-    /// Represents the body of a durative action definition.
+
+    /// The body of a durative action.
     DADefBody,
-    /// Represents a derived predicate or function in the domain.
+
+    /// Definition of derived predicates or functions.
     DerivedDef,
-    /// Represents a simple formula in the logical system, typically involving predicates and
-    /// constants.
+
+    /// Represents a simple atomic logical formula.
     AtomicFormula,
-    /// Represents the logical "and" operator, used in formulas to combine conditions.
+
+    /// Logical AND operator to combine formulas.
     And,
-    /// Represents the logical "or" operator, used to combine alternative conditions.
+
+    /// Logical OR operator.
     Or,
-    /// Represents the logical "not" operator, negating a condition.
+
+    /// Logical NOT operator.
     Not,
-    /// Represents the logical implication operator, expressing "if... then..." conditions.
+
+    /// Logical implication (if ... then ...).
     Imply,
-    /// Represents the universal quantifier in logic, indicating that a condition holds for all
-    /// instances of a variable.
+
+    /// Universal quantifier (for all).
     Forall,
-    /// Represents the existential quantifier in logic, indicating that a condition holds for some
-    /// instance of a variable.
+
+    /// Existential quantifier (there exists).
     Exists,
-    /// Represents a preference condition, indicating that a particular solution or path is
-    /// preferred.
+
+    /// Preference condition indicating a preferred solution.
     Preference,
-    /// Represents the conditional timing of an event or action in a planning problem.
+
+    /// Conditional timing (when) in temporal planning.
     When,
-    /// Represents a binary comparison, used for mathematical or logical comparisons.
+
+    /// Binary function comparison (e.g., `<`, `<=`, `=`, `!=`).
     FComp,
-    /// Represents an assignment operation in the planning problem.
+
+    /// Assignment operation.
     Assign,
-    /// Represents an arithmetic operation, such as addition or subtraction.
+
+    /// Arithmetic or logical operation.
     Operation,
-    /// Represents constraints imposed on the problem or domain.
+
+    /// Constraints defined on the problem/domain.
     Constraints,
-    /// Represents a condition that must hold at the start of the action.
+
+    /// Condition holding at the start of an action.
     AtStart,
-    /// Represents a condition that must hold at the end of the action.
+
+    /// Condition holding at the end of an action.
     AtEnd,
-    /// Represents a condition that must hold throughout the duration of the action.
+
+    /// Condition holding throughout the action duration.
     Overall,
-    /// Represents a condition that must always hold.
+
+    /// Condition that must always hold.
     Always,
-    /// Represents a condition that holds at some point during the execution.
+
+    /// Condition that must hold sometime during execution.
     Sometime,
-    /// Represents a condition that holds within a certain time frame or duration.
+
+    /// Condition holding within a specific time frame.
     Within,
-    /// Represents a condition that can hold at most once during the execution.
+
+    /// Condition that holds at most once during execution.
     AtMostOnce,
-    /// Represents a condition that holds after some event or time.
+
+    /// Condition holding sometime after an event.
     SometimeAfter,
-    /// Represents a condition that holds before some event or time.
+
+    /// Condition holding sometime before an event.
     SometimeBefore,
-    /// Represents a condition that must always hold within a specific time frame.
+
+    /// Condition that must always hold within a certain timeframe.
     AlwaysWithin,
-    /// Represents a condition that must hold during a specific period of time.
+
+    /// Condition holding during a specified interval.
     HoldDuring,
-    /// Represents a condition that must hold after a specific event or time.
+
+    /// Condition holding after a specific event/time.
     HoldAfter,
-    /// Represents the initial conditions or state of the problem.
+
+    /// Initial conditions or state of the problem.
     Init,
-    /// Represents an initial literal with a specific timing condition.
+
+    /// Timed initial literal (initial condition with timing).
     TimedInitialLiteral,
-    /// Represents the goal conditions that the planner must achieve.
+
+    /// Goal conditions the planner must achieve.
     Goal,
-    /// Represents a metric used to optimize a solution, where the optimization is either to
-    /// minimize or maximize a value.
+
+    /// Metric to optimize (minimize or maximize).
     Metric,
-    /// Represents the total time in the problem.
+
+    /// Total time of the problem.
     TotalTime,
-    /// Represents a condition that indicates whether something is violated in the problem.
+
+    /// Indicates whether a constraint or condition is violated.
     IsViolated,
-    /// Represents the length or duration of something in the planning problem.
+
+    /// Length or duration measure.
     Length,
-    /// Represents a serial timing or duration, serialized as an `OrderedFloat` for precision.
+
+    /// Serial timing/duration (ordered execution).
     Serial,
-    /// Represents parallel timing or duration, serialized as an `OrderedFloat` for precision.
+
+    /// Parallel timing/duration.
     Parallel,
-    /// Represents an error, often used to signal a failure or problem in the domain or problem
-    /// definition.
+
+    /// Represents an error or problem in domain/problem definition.
     Error,
 
-    //////////////////////////////////////////////////////////////////////////////////
-    // HDDL Dialect
-    /// Represents a task in HDDL, which is a basic unit of work that can be executed.
+    //
+    // HDDL Dialect Extensions
+    //
+
+    /// Represents a task in HDDL.
     Task,
-    /// Represents the definition of a task in HDDL.
+
+    /// Definition of a task in HDDL.
     TaskDef,
-    /// Represents a tagged task in HDDL, i.e., a task with its id.
+
+    /// Tagged task with an ID in HDDL.
     TaggedTask,
-    /// Represents the definition of a method in HDDL, specifying how a compound task can be
-    /// decomposed.
+
+    /// Definition of a method (task decomposition) in HDDL.
     MethodDef,
-    /// Represents a symbolic reference to a method in HDDL.
+
+    /// Symbolic reference to a method in HDDL.
     MethodSymbol,
-    /// Represents the definition of the method precondition in HDDL.
+
+    /// Definition of method precondition in HDDL.
     MethodPreconditionDef,
-    /// Represents the body of a method definition in HDDL.
+
+    /// Body of a method definition in HDDL.
     MethodDefBody,
-    /// Represents a list of ordered subtasks in a method in HDDL, where the order of execution
-    /// matters.
+
+    /// List of ordered subtasks (execution order matters).
     OrderedSubtaskDef,
-    /// Represents a list of partially ordered subtasks in a method in HDDL, where some order
-    /// constraints exist but not all.
+
+    /// List of partially ordered subtasks (some order constraints).
     PartiallyOrderedSubtaskDef,
-    /// Represents a task ID to reference subtask in HDDL.
+
+    /// Task ID used to reference subtasks.
     TaskID,
-    /// Represents a collection of task ordering constraints.
+
+    /// Collection of task ordering constraints.
     TaskOrderingConstraintDef,
-    /// Represents a task ordering constraint in HDDL
+
+    /// A single task ordering constraint.
     TaskOrderingConstraint,
-    /// Represents a collection of logical constraints in HDDL.
+
+    /// Collection of logical constraints on tasks.
     TaskLogicalConstraintDef,
+
     /// Represents a task network in HDDL.
     TaskNetworkDef,
-    /// Represents the initial task network of the HDDL problem.
+
+    /// Initial task network of the HDDL problem.
     InitialTaskNetwork,
 }
 
 impl fmt::Display for Kind {
-    /// Implements the `fmt::Display` trait for `AstKind` to allow for human-readable string
-    /// representations of various `AstKind` variants.
+    /// Formats the `Kind` variant as a human-readable string.
     ///
-    /// This function is called when using the `{}` format specifier in macros like `println!`,
-    /// `format!`, or `write!`. It matches on the `AstKind` enum and writes an appropriate
-    /// string representation for each variant to the provided `fmt::Formatter`.
+    /// Called when formatting with `{}` (e.g., in `println!` or `format!`).
     ///
-    /// # Parameters
-    /// - `f`: A mutable reference to a `fmt::Formatter` used to output the formatted result.
+    /// # Example
     ///
-    /// # Returns
-    /// - Returns a `fmt::Result`, which indicates whether the formatting operation was successful.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Kind::None => write!(f, "None"),
-            Kind::Constant => write!(f, "Constant"),
-            Kind::Variable => write!(f, "Variable"),
-            Kind::FunctionSymbol => write!(f, "FunctionSymbol"),
-            Kind::FunctionTerm => write!(f, "FunctionTerm"),
-            Kind::PrimitiveType => write!(f, "PrimitiveType"),
-            Kind::DomainName => write!(f, "DomainName"),
-            Kind::ProblemName => write!(f, "ProblemName"),
-            Kind::Predicate => write!(f, "Predicate"),
-            Kind::ActionSymbol => write!(f, "ActionSymbol"),
-            Kind::DASymbol => write!(f, "DASymbol"),
-            Kind::PrefName => write!(f, "PrefName"),
-            Kind::Number => write!(f, "Number"),
-            Kind::RequireDef => write!(f, "RequireDef"),
-            Kind::Requirement => write!(f, "Requirement"),
-            Kind::Type => write!(f, "Type"),
-            Kind::TypedList => write!(f, "TypedList"),
-            Kind::TypedItem => write!(f, "TypedItem"),
-            Kind::TypedItemElements => write!(f, "TypedItemElements"),
-            Kind::TypesDef => write!(f, "TypesDef"),
-            Kind::ConstantsDef => write!(f, "ConstantsDef"),
-            Kind::ObjectsDef => write!(f, "ObjectsDef"),
-            Kind::PredicatesDef => write!(f, "PredicatesDef"),
-            Kind::AtomicFormulaSkeleton => write!(f, "AtomicFormulaSkeleton"),
-            Kind::FunctionsDef => write!(f, "FunctionsDef"),
-            Kind::AtomicFunctionSkeleton => write!(f, "AtomicFunctionSkeleton"),
-            Kind::ActionDef => write!(f, "ActionDef"),
-            Kind::PreconditionDef => write!(f, "PreconditionDef"),
-            Kind::EffectDef => write!(f, "EffectDef"),
-            Kind::DurativeActionDef => write!(f, "DurativeActionDef"),
-            Kind::ActionDefBody => write!(f, "ActionDefBody"),
-            Kind::DADefBody => write!(f, "DADefBody"),
-            Kind::DerivedDef => write!(f, "DerivedDef"),
-            Kind::Preference => write!(f, "Preference"),
-            Kind::AtomicFormula => write!(f, "AtomicFormula"),
-            Kind::Not => write!(f, "Not"),
-            Kind::Domain => write!(f, "Domain"),
-            Kind::Problem => write!(f, "Problem"),
-            Kind::Forall => write!(f, "Forall"),
-            Kind::Exists => write!(f, "Exists"),
-            Kind::When => write!(f, "When"),
-            Kind::FComp => write!(f, "FComp"),
-            Kind::Assign => write!(f, "Assign"),
-            Kind::Operation => write!(f, "Op"),
-            Kind::And => write!(f, "And"),
-            Kind::Or => write!(f, "Or"),
-            Kind::Imply => write!(f, "Imply"),
-            Kind::AtStart => write!(f, "AtStart"),
-            Kind::AtEnd => write!(f, "AtEnd"),
-            Kind::Overall => write!(f, "Overall"),
-            Kind::Constraints => write!(f, "Constraints"),
-            Kind::Always => write!(f, "Always"),
-            Kind::Sometime => write!(f, "Sometime"),
-            Kind::Within => write!(f, "Within"),
-            Kind::AtMostOnce => write!(f, "AtMostOnce"),
-            Kind::SometimeAfter => write!(f, "SometimeAfter"),
-            Kind::SometimeBefore => write!(f, "SometimeBefore"),
-            Kind::AlwaysWithin => write!(f, "AlwaysWithin"),
-            Kind::HoldDuring => write!(f, "HoldDuring"),
-            Kind::HoldAfter => write!(f, "HoldAfter"),
-            Kind::Init => write!(f, "Init"),
-            Kind::TimedInitialLiteral => write!(f, "TimedInitialLiteral"),
-            Kind::Goal => write!(f, "Goal"),
-            Kind::Metric => write!(f, "Metric"),
-            Kind::TotalTime => write!(f, "TotalTime"),
-            Kind::IsViolated => write!(f, "IsViolated"),
-            Kind::Length => write!(f, "Length"),
-            Kind::Serial => write!(f, "Serial"),
-            Kind::Parallel => write!(f, "Parallel"),
-            Kind::Error => write!(f, "Error"),
-            // Add for HDDL
-            Kind::Task => write!(f, "Task"),
-            Kind::TaggedTask => write!(f, "TaggedTask"),
-            Kind::TaskDef => write!(f, "TaskDef"),
-            Kind::TaskSymbol => write!(f, "TaskSymbol"),
-            Kind::MethodDef => write!(f, "MethodDef"),
-            Kind::MethodDefBody => write!(f, "MethodDefBody"),
-            Kind::MethodSymbol => write!(f, "MethodSymbol"),
-            Kind::MethodPreconditionDef => write!(f, "MethodPreconditionDef"),
-            Kind::OrderedSubtaskDef => write!(f, "OrderedSubtaskDef"),
-            Kind::PartiallyOrderedSubtaskDef => write!(f, "PartiallyOrderedSubtaskDef"),
-            Kind::TaskID => write!(f, "TaskID"),
-            Kind::TaskOrderingConstraintDef => write!(f, "TaskOrderingConstraintDef"),
-            Kind::TaskOrderingConstraint => write!(f, "TaskOrderingConstraint"),
-            Kind::TaskLogicalConstraintDef => write!(f, "TaskLogicalConstraintDef"),
-            Kind::TaskNetworkDef => write!(f, "TaskNetworkDef"),
-            Kind::InitialTaskNetwork => write!(f, "InitialTaskNetwork"),
-        }
+    /// ```
+    /// let kind = Kind::Constant;
+    /// println!("Kind: {}", kind); // prints "Kind: Constant"
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Kind::None => "None",
+            Kind::Constant => "Constant",
+            Kind::Variable => "Variable",
+            Kind::FunctionSymbol => "FunctionSymbol",
+            Kind::PrimitiveType => "PrimitiveType",
+            Kind::DomainName => "DomainName",
+            Kind::ProblemName => "ProblemName",
+            Kind::Predicate => "Predicate",
+            Kind::ActionSymbol => "ActionSymbol",
+            Kind::DASymbol => "DASymbol",
+            Kind::TaskSymbol => "TaskSymbol",
+            Kind::PrefName => "PrefName",
+            Kind::RequireDef => "RequireDef",
+            Kind::Requirement => "Requirement",
+            Kind::Type => "Type",
+            Kind::TypedList => "TypedList",
+            Kind::TypedItem => "TypedItem",
+            Kind::TypedItemElements => "TypedItemElements",
+            Kind::TypesDef => "TypesDef",
+            Kind::ConstantsDef => "ConstantsDef",
+            Kind::ObjectsDef => "ObjectsDef",
+            Kind::Domain => "Domain",
+            Kind::Problem => "Problem",
+            Kind::PredicatesDef => "PredicatesDef",
+            Kind::AtomicFormulaSkeleton => "AtomicFormulaSkeleton",
+            Kind::FunctionsDef => "FunctionsDef",
+            Kind::FunctionTerm => "FunctionTerm",
+            Kind::AtomicFunctionSkeleton => "AtomicFunctionSkeleton",
+            Kind::Number => "Number",
+            Kind::ActionDef => "ActionDef",
+            Kind::DurativeActionDef => "DurativeActionDef",
+            Kind::ActionDefBody => "ActionDefBody",
+            Kind::PreconditionDef => "PreconditionDef",
+            Kind::EffectDef => "EffectDef",
+            Kind::DADefBody => "DADefBody",
+            Kind::DerivedDef => "DerivedDef",
+            Kind::AtomicFormula => "AtomicFormula",
+            Kind::And => "And",
+            Kind::Or => "Or",
+            Kind::Not => "Not",
+            Kind::Imply => "Imply",
+            Kind::Forall => "Forall",
+            Kind::Exists => "Exists",
+            Kind::Preference => "Preference",
+            Kind::When => "When",
+            Kind::FComp => "FComp",
+            Kind::Assign => "Assign",
+            Kind::Operation => "Operation",
+            Kind::Constraints => "Constraints",
+            Kind::AtStart => "AtStart",
+            Kind::AtEnd => "AtEnd",
+            Kind::Overall => "Overall",
+            Kind::Always => "Always",
+            Kind::Sometime => "Sometime",
+            Kind::Within => "Within",
+            Kind::AtMostOnce => "AtMostOnce",
+            Kind::SometimeAfter => "SometimeAfter",
+            Kind::SometimeBefore => "SometimeBefore",
+            Kind::AlwaysWithin => "AlwaysWithin",
+            Kind::HoldDuring => "HoldDuring",
+            Kind::HoldAfter => "HoldAfter",
+            Kind::Init => "Init",
+            Kind::TimedInitialLiteral => "TimedInitialLiteral",
+            Kind::Goal => "Goal",
+            Kind::Metric => "Metric",
+            Kind::TotalTime => "TotalTime",
+            Kind::IsViolated => "IsViolated",
+            Kind::Length => "Length",
+            Kind::Serial => "Serial",
+            Kind::Parallel => "Parallel",
+            Kind::Error => "Error",
+            Kind::Task => "Task",
+            Kind::TaskDef => "TaskDef",
+            Kind::TaggedTask => "TaggedTask",
+            Kind::MethodDef => "MethodDef",
+            Kind::MethodDefBody => "MethodDefBody",
+            Kind::MethodSymbol => "MethodSymbol",
+            Kind::MethodPreconditionDef => "MethodPreconditionDef",
+            Kind::OrderedSubtaskDef => "OrderedSubtaskDef",
+            Kind::PartiallyOrderedSubtaskDef => "PartiallyOrderedSubtaskDef",
+            Kind::TaskID => "TaskID",
+            Kind::TaskOrderingConstraintDef => "TaskOrderingConstraintDef",
+            Kind::TaskOrderingConstraint => "TaskOrderingConstraint",
+            Kind::TaskLogicalConstraintDef => "TaskLogicalConstraintDef",
+            Kind::TaskNetworkDef => "TaskNetworkDef",
+            Kind::InitialTaskNetwork => "InitialTaskNetwork",
+        };
+        write!(f, "{}", s)
     }
 }
