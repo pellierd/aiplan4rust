@@ -12,7 +12,7 @@ use crate::aiplan4rust::syntax::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticContext;
@@ -29,7 +29,7 @@ use crate::aiplan4rust::semantic::SemanticContext;
 /// inherently valid.
 ///
 /// # Parameters
-/// - `ast`: A reference to the `AnnotatedSyntaxTree` containing the symbol table,
+/// - `ast_old`: A reference to the `AnnotatedSyntaxTree` containing the symbol table,
 ///   declarations, and usages.
 /// - `skip_symbols`: A slice of `SymbolKind` indicating symbol kinds to exclude from the
 ///   unused-symbol check.
@@ -50,7 +50,7 @@ use crate::aiplan4rust::semantic::SemanticContext;
 /// # Example
 /// ```no_run
 /// let result = check_unused_symbols_warning(
-///     &ast,
+///     &ast_old,
 ///     &[SymbolKind::Requirement],
 ///     source,
 ///     &mut diagnostic_manager,
@@ -202,14 +202,14 @@ fn skip_unused_symbol_declaration(
     if matches!(declaration.kind(), SymbolKind::Variable)
         && (declaration
             .scope()
-            .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, context)?
+            .contains_ast_of_kind(AstKindOld::AtomicFormulaSkeleton, context)?
             || declaration.scope().contains_ast_of_kind(
-        AstKind::AtomicFunctionSkeleton,
+        AstKindOld::AtomicFunctionSkeleton,
         context,
             )?
             || declaration // Add for HDDL
                 .scope()
-                .contains_ast_of_kind(AstKind::TaskDef, context)?)
+                .contains_ast_of_kind(AstKindOld::TaskDef, context)?)
     {
         return Ok(true);
     }
@@ -230,7 +230,7 @@ fn skip_unused_symbol_declaration(
 ///
 /// # Parameters
 /// - `declaration`: Reference to the `Declaration` to validate.
-/// - `ast`: Reference to the `AnnotatedSyntaxTree` providing requirements and
+/// - `ast_old`: Reference to the `AnnotatedSyntaxTree` providing requirements and
 ///   structural context needed for validation.
 /// - `checker`: The `Checker` context associated with this validation, used as diagnostic source.
 /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where diagnostics
@@ -251,7 +251,7 @@ fn skip_unused_symbol_declaration(
 /// ```no_run
 /// let result = check_pddl_builtin_symbol_declaration(
 ///     &declaration,
-///     &ast,
+///     &ast_old,
 ///     checker,
 ///     &mut diagnostic_manager,
 /// );

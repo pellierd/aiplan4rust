@@ -1,17 +1,17 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ast_old::AstOld;
 use std::fmt;
 
 /// Represents the result of the AST normalization phase.
 ///
 /// Contains:
-/// - The normalized [`Ast`] (optional, present if normalization succeeds),
+/// - The normalized [`AstOld`] (optional, present if normalization succeeds),
 /// - The [`DiagnosticManager`] that collects warnings or issues encountered during normalization.
 ///
 /// This struct is used after parsing but before semantic analysis.
 #[derive(Debug)]
 pub struct NormalizerResult {
-    ast: Option<Ast>,
+    ast: Option<AstOld>,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -19,9 +19,9 @@ impl NormalizerResult {
     /// Creates a new `NormalizerResult`.
     ///
     /// # Arguments
-    /// - `ast`: An `Option` containing the normalized AST. `Some(ast)` if normalization was successful, `None` otherwise.
+    /// - `ast_old`: An `Option` containing the normalized AST. `Some(ast_old)` if normalization was successful, `None` otherwise.
     /// - `diagnostic_manager`: The diagnostic manager collecting normalization diagnostics.
-    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
+    pub fn new(ast: Option<AstOld>, diagnostic_manager: DiagnosticManager) -> Self {
         Self { ast, diagnostic_manager }
     }
 
@@ -29,7 +29,7 @@ impl NormalizerResult {
     ///
     /// # Returns
     /// - `&Option<Ast>`: A reference to the normalized AST, or `None` if none is available.
-    pub fn ast(&self) -> &Option<Ast> {
+    pub fn ast(&self) -> &Option<AstOld> {
         &self.ast
     }
 
@@ -37,7 +37,7 @@ impl NormalizerResult {
     ///
     /// # Returns
     /// - `&mut Option<Ast>`: A mutable reference allowing modification or replacement of the AST.
-    pub fn ast_mut(&mut self) -> &mut Option<Ast> {
+    pub fn ast_mut(&mut self) -> &mut Option<AstOld> {
         &mut self.ast
     }
 
@@ -45,7 +45,7 @@ impl NormalizerResult {
     ///
     /// # Returns
     /// - `Option<Ast>`: The normalized AST if present, or `None`.
-    pub fn take_ast(&mut self) -> Option<Ast> {
+    pub fn take_ast(&mut self) -> Option<AstOld> {
         self.ast.take()
     }
 

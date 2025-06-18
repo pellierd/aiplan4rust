@@ -3,7 +3,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::elements::{BinaryComp, Requirement};
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode, Ast};
+use crate::aiplan4rust::syntax::ast_old::{AstKindOld, AstNodeOld, AstOld};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
 use crate::aiplan4rust::semantic::SymbolTable;
 
@@ -66,14 +66,14 @@ impl SymbolTableBuilder {
         self.table = table;
     }
 
-    pub fn build(&mut self, syntax_tree: &Ast) -> Result<SymbolTable, ParserInternalError> {
+    pub fn build(&mut self, syntax_tree: &AstOld) -> Result<SymbolTable, ParserInternalError> {
         // Determine the root kind (Domain or Problem) and set the source in the symbol table
         match syntax_tree.root().kind() {
-            AstKind::Domain => {
+            AstKindOld::Domain => {
                 // Mark the table as coming from a domain
                 self.table_mut().set_source(SymbolSource::Domain);
             }
-            AstKind::Problem => {
+            AstKindOld::Problem => {
                 // Mark the table as coming from a problem
                 self.table_mut().set_source(SymbolSource::Problem);
             }
@@ -99,13 +99,13 @@ impl SymbolTableBuilder {
     /// handles specific cases like actions and atomic formulas.
     ///
     /// # Arguments
-    /// * `ast` - A reference to the AST node to be processed. It can be a variety of types
+    /// * `ast_old` - A reference to the AST node to be processed. It can be a variety of types
     ///   depending on the node.
     /// * `scope` - The scope in which the symbol is being declared or used. It helps manage
     ///   variable or function visibility.
     fn initialize_from_ast(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
     ) -> Result<(), ParserInternalError> {
         self.init_from(ast, Scope::new(*ast.id(), None))?;
 
@@ -117,7 +117,7 @@ impl SymbolTableBuilder {
     /// handles specific cases like actions and atomic formulas.
     ///
     /// # Arguments
-    /// * `ast` - A reference to the AST node to be processed. It can be a variety of types
+    /// * `ast_old` - A reference to the AST node to be processed. It can be a variety of types
     ///   depending on the node.
     /// * `index` - The index of the AST entry, used to uniquely identify the node in the symbol table.
     /// * `index_table` - A reference to the table that maps AST entries to their respective indices.
@@ -130,78 +130,78 @@ impl SymbolTableBuilder {
     ///   is encountered during symbol table initialization.
     fn init_from(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Determine the type of the AST node and apply appropriate processing
         match ast.kind() {
             // Handle declarations: These simply register symbols without additional processing
-            AstKind::DomainName(_)
-            | AstKind::ProblemName(_)
-            | AstKind::Requirement(_) => {
+            AstKindOld::DomainName(_)
+            | AstKindOld::ProblemName(_)
+            | AstKindOld::Requirement(_) => {
                 self.add_declaration_symbol(ast, scope.clone(), None, None)?;
             }
 
             // Handle typed lists: Requires specialized initialization logic
-            AstKind::TypedList => {
+            AstKindOld::TypedList => {
                 self.init_from_typed_list(ast, scope.clone())?;
             }
 
             // Handle primitive types, constants, and variables: Register them as symbol usages
-            AstKind::PrimitiveType(_)
-            | AstKind::Constant(_)
-            | AstKind::Variable(_) => {
+            AstKindOld::PrimitiveType(_)
+            | AstKindOld::Constant(_)
+            | AstKindOld::Variable(_) => {
                 self.add_symbol_usage(ast, scope.clone())?;
             }
 
             // Handle action definitions
-            AstKind::ActionDef => {
+            AstKindOld::ActionDef => {
                 self.init_from_action_def(ast, scope.clone())?;
             }
 
             // Handle durative actions, which include timing constraints
-            AstKind::DurativeActionDef => {
+            AstKindOld::DurativeActionDef => {
                 self.init_from_durative_action_def(ast, scope.clone())?;
             }
 
             // Handle atomic formula skeletons: Requires custom symbol table handling
-            AstKind::AtomicFormulaSkeleton => {
+            AstKindOld::AtomicFormulaSkeleton => {
                 self.init_from_atomic_formula_skeleton(ast, scope.clone())?;
             }
 
             // Handle atomic formulas and function terms: These require recursive processing
-            AstKind::AtomicFormula | AstKind::FunctionTerm => {
+            AstKindOld::AtomicFormula | AstKindOld::FunctionTerm => {
                 self.init_from_atomic_formula(ast, scope.clone())?;
             }
 
             // Handle quantified expressions (`Forall` and `Exists`): Need special treatment for
             // logical scopes
-            AstKind::Forall | AstKind::Exists => {
+            AstKindOld::Forall | AstKindOld::Exists => {
                 self.init_from_quantified_expression(ast, scope.clone())?;
             }
 
             // Handle hierarchical task network (HTN) method definitions
-            AstKind::MethodDef => {
+            AstKindOld::MethodDef => {
                 self.init_from_method_def(ast, scope.clone())?;
             }
 
             // Handle task definitions in HTN planning
-            AstKind::TaskDef => {
+            AstKindOld::TaskDef => {
                 self.init_from_task_def(ast, scope.clone())?;
             }
 
             // Handle individual task references in HTN planning
-            AstKind::Task => {
+            AstKindOld::Task => {
                 self.init_from_atomic_formula(ast, scope.clone())?;
             }
 
             // Handle tagged tasks, which include additional metadata in HTN planning
-            AstKind::TaggedTask => {
+            AstKindOld::TaggedTask => {
                 self.init_from_tagged_task(ast, scope.clone())?;
             }
 
             // Handle task ordering constraints in HTN planning
-            AstKind::TaskOrderingConstraint(_) => {
+            AstKindOld::TaskOrderingConstraint(_) => {
                 self.init_from_task_ordering_constraint(ast, scope.clone())?;
             }
 
@@ -226,7 +226,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to a boxed `Ast` object representing the AST node.
+    /// * `ast_old` - A reference to a boxed `Ast` object representing the AST node.
     /// * `scope` - The current scope in which the symbol is declared.
     /// * `types` - Optional vector of types associated with the declaration.
     /// * `arguments` - Optional vector of typed symbols representing the arguments of the symbol.
@@ -237,7 +237,7 @@ impl SymbolTableBuilder {
     /// * `Err(ParserInternalError)` - If any error occurs during the symbol extraction or insertion process.
     fn add_declaration_symbol(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
         types: Option<Vec<String>>,
         arguments: Option<Vec<TypedSymbol<String>>>,
@@ -246,20 +246,20 @@ impl SymbolTableBuilder {
         Self::assert_ast_kind(
             ast,
             &[
-                AstKind::DomainName(String::new()),
-                AstKind::PrimitiveType(String::new()),
-                AstKind::ProblemName(String::new()),
-                AstKind::Requirement(Requirement::Strips),
-                AstKind::Constant(String::new()),
-                AstKind::Variable(String::new()),
-                AstKind::Predicate(String::new()),
-                AstKind::FunctionSymbol(String::new()),
-                AstKind::ActionSymbol(String::new()),
-                AstKind::DASymbol(String::new()),
+                AstKindOld::DomainName(String::new()),
+                AstKindOld::PrimitiveType(String::new()),
+                AstKindOld::ProblemName(String::new()),
+                AstKindOld::Requirement(Requirement::Strips),
+                AstKindOld::Constant(String::new()),
+                AstKindOld::Variable(String::new()),
+                AstKindOld::Predicate(String::new()),
+                AstKindOld::FunctionSymbol(String::new()),
+                AstKindOld::ActionSymbol(String::new()),
+                AstKindOld::DASymbol(String::new()),
                 // Add for HDDL
-                AstKind::MethodSymbol(String::new()),
-                AstKind::TaskSymbol(String::new()),
-                AstKind::TaskID(String::new()),
+                AstKindOld::MethodSymbol(String::new()),
+                AstKindOld::TaskSymbol(String::new()),
+                AstKindOld::TaskID(String::new()),
             ],
         )?;
 
@@ -293,7 +293,7 @@ impl SymbolTableBuilder {
     /// information to it, or creates a new symbol entry if it doesn't exist.
     ///
     /// # Parameters
-    /// - `ast`: The AST node representing the symbol to be added or updated.
+    /// - `ast_old`: The AST node representing the symbol to be added or updated.
     /// - `scope`: The scope in which the symbol is being used.
     ///
     /// # Returns
@@ -302,27 +302,27 @@ impl SymbolTableBuilder {
     ///   invalid child node structure.
     fn add_symbol_usage(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST node is of a valid kind for symbol usage.
         Self::assert_ast_kind(
             ast,
             &[
-                AstKind::DomainName(String::new()),
-                AstKind::ProblemName(String::new()),
-                AstKind::Constant(String::new()),
-                AstKind::Variable(String::new()),
-                AstKind::AtomicFormula,
-                AstKind::FunctionTerm,
-                AstKind::Task,
+                AstKindOld::DomainName(String::new()),
+                AstKindOld::ProblemName(String::new()),
+                AstKindOld::Constant(String::new()),
+                AstKindOld::Variable(String::new()),
+                AstKindOld::AtomicFormula,
+                AstKindOld::FunctionTerm,
+                AstKindOld::Task,
             ],
         )?;
 
         // Handle specific cases for AtomicFormula and FunctionTerm, which need to have a child.
         if matches!(
                 ast.kind(),
-                AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+                AstKindOld::AtomicFormula | AstKindOld::FunctionTerm | AstKindOld::Task
             ) {
             Self::assert_ast_children_number(ast, 1, Comparator::GreaterEq)?;
         }
@@ -356,7 +356,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to an `AstEntry` representing the AST node.
+    /// * `ast_old` - A reference to an `AstEntry` representing the AST node.
     /// * `index_table` - A reference to an `AstTable` used for resolving child nodes.
     ///
     /// # Returns
@@ -407,32 +407,32 @@ impl SymbolTableBuilder {
     /// `FunctionSymbol`, or `TaskSymbol`.
 
     fn extract_symbol(
-        ast: &AstNode,
+        ast: &AstNodeOld,
     ) -> Result<(String, SymbolKind), ParserInternalError> {
         match ast.kind() {
             // Handling different AST node kinds and returning appropriate symbol information
-            AstKind::DomainName(name) => Ok((name.to_string(), SymbolKind::DomainName)),
-            AstKind::PrimitiveType(name) => {
+            AstKindOld::DomainName(name) => Ok((name.to_string(), SymbolKind::DomainName)),
+            AstKindOld::PrimitiveType(name) => {
                 Ok((name.to_string(), SymbolKind::PrimitiveType))
             }
-            AstKind::ProblemName(name) => Ok((name.to_string(), SymbolKind::ProblemName)),
-            AstKind::Requirement(requirement) => {
+            AstKindOld::ProblemName(name) => Ok((name.to_string(), SymbolKind::ProblemName)),
+            AstKindOld::Requirement(requirement) => {
                 Ok((requirement.to_string(), SymbolKind::Requirement))
             }
-            AstKind::Constant(name) => Ok((name.to_string(), SymbolKind::Constant)),
-            AstKind::Variable(name) => Ok((name.to_string(), SymbolKind::Variable)),
-            AstKind::FunctionSymbol(name) => Ok((name.to_string(), SymbolKind::Function)),
-            AstKind::Predicate(name) => Ok((name.to_string(), SymbolKind::Predicate)),
-            AstKind::ActionSymbol(name) => Ok((name.to_string(), SymbolKind::Action)),
-            AstKind::DASymbol(name) => Ok((name.to_string(), SymbolKind::DASymbol)),
+            AstKindOld::Constant(name) => Ok((name.to_string(), SymbolKind::Constant)),
+            AstKindOld::Variable(name) => Ok((name.to_string(), SymbolKind::Variable)),
+            AstKindOld::FunctionSymbol(name) => Ok((name.to_string(), SymbolKind::Function)),
+            AstKindOld::Predicate(name) => Ok((name.to_string(), SymbolKind::Predicate)),
+            AstKindOld::ActionSymbol(name) => Ok((name.to_string(), SymbolKind::Action)),
+            AstKindOld::DASymbol(name) => Ok((name.to_string(), SymbolKind::DASymbol)),
 
             // Add on for HDDL support
-            AstKind::MethodSymbol(name) => Ok((name.to_string(), SymbolKind::Method)),
-            AstKind::TaskSymbol(name) => Ok((name.to_string(), SymbolKind::Task)),
-            AstKind::TaskID(name) => Ok((name.to_string(), SymbolKind::TaskID)),
+            AstKindOld::MethodSymbol(name) => Ok((name.to_string(), SymbolKind::Method)),
+            AstKindOld::TaskSymbol(name) => Ok((name.to_string(), SymbolKind::Task)),
+            AstKindOld::TaskID(name) => Ok((name.to_string(), SymbolKind::TaskID)),
 
             // Special case for AtomicFormula and FunctionTerm: handle their children
-            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task => {
+            AstKindOld::AtomicFormula | AstKindOld::FunctionTerm | AstKindOld::Task => {
                 let children = ast.children();
                 if children.is_empty() {
                     return Err(ParserInternalError::new(format!(
@@ -442,11 +442,11 @@ impl SymbolTableBuilder {
                 }
                 let first_child = children[0].as_ref();
                 match first_child.kind() {
-                    AstKind::Predicate(s) => Ok((s.to_string(), SymbolKind::Predicate)),
-                    AstKind::FunctionSymbol(s) => Ok((s.to_string(), SymbolKind::Function)),
-                    AstKind::TaskSymbol(s) => Ok((s.to_string(), SymbolKind::Task)),
+                    AstKindOld::Predicate(s) => Ok((s.to_string(), SymbolKind::Predicate)),
+                    AstKindOld::FunctionSymbol(s) => Ok((s.to_string(), SymbolKind::Function)),
+                    AstKindOld::TaskSymbol(s) => Ok((s.to_string(), SymbolKind::Task)),
                     // Deal special TotalTime symbol as a classical function symbol
-                    AstKind::TotalTime => Ok((TOTAL_TIME.to_string(), SymbolKind::Function)),
+                    AstKindOld::TotalTime => Ok((TOTAL_TIME.to_string(), SymbolKind::Function)),
                     // Error if the first child is not a Predicate or FunctionSymbol
                     _ => Err(ParserInternalError::new(format!(
                         "First child of {} must be a Predicate or FunctionSymbol, found: {:?}",
@@ -473,7 +473,7 @@ impl SymbolTableBuilder {
     /// 3. More than two children: It recursively processes additional `TypedList` nodes.
     ///
     /// # Parameters
-    /// - `ast`: A reference to a boxed `Ast` node of type `TypedList`.
+    /// - `ast_old`: A reference to a boxed `Ast` node of type `TypedList`.
     /// - `scope`: The scope in which the symbol table is being initialized.
     ///
     /// # Returns
@@ -487,11 +487,11 @@ impl SymbolTableBuilder {
     /// the problem.
     fn init_from_typed_list(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the expected type 'TypedList'
-        Self::assert_ast_kind(ast, &[AstKind::TypedList])?;
+        Self::assert_ast_kind(ast, &[AstKindOld::TypedList])?;
 
         let children = ast.children();
 
@@ -543,11 +543,11 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_typed_item(
         &mut self,
-        typed_item: &AstNode,
+        typed_item: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the node is of the expected kind
-        Self::assert_ast_kind(typed_item, &[AstKind::TypedItem])?;
+        Self::assert_ast_kind(typed_item, &[AstKindOld::TypedItem])?;
 
         // Get its children
         let children = typed_item.children();
@@ -587,11 +587,11 @@ impl SymbolTableBuilder {
     /// - `types`: The types associated with the element.
     fn init_from_typed_item_elements(
         &mut self,
-        elt: &AstNode,
+        elt: &AstNodeOld,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
-        //Self::assert_ast_kind(elements, &[AstKind::TypedItemElements])?;
+        //Self::assert_ast_kind(elements, &[AstKindOld::TypedItemElements])?;
 
 
         //for elt in elements.children() {
@@ -599,20 +599,20 @@ impl SymbolTableBuilder {
             Self::assert_ast_kind(
                 elt,
                 &[
-                    AstKind::PrimitiveType(String::new()),
-                    AstKind::Constant(String::new()),
-                    AstKind::Variable(String::new()),
-                    AstKind::AtomicFunctionSkeleton,
+                    AstKindOld::PrimitiveType(String::new()),
+                    AstKindOld::Constant(String::new()),
+                    AstKindOld::Variable(String::new()),
+                    AstKindOld::AtomicFunctionSkeleton,
                 ],
             )?;
 
             match elt.kind() {
-                AstKind::PrimitiveType(_) | AstKind::Constant(_) | AstKind::Variable(_) => {
+                AstKindOld::PrimitiveType(_) | AstKindOld::Constant(_) | AstKindOld::Variable(_) => {
                     // Pour les constantes et variables, on ajoute simplement la déclaration
                     self.add_declaration_symbol(elt, scope.clone(), Some(types.clone()), None)?;
                 }
 
-                AstKind::AtomicFunctionSkeleton => {
+                AstKindOld::AtomicFunctionSkeleton => {
                     // Appel récursif pour les squelettes de fonction atomique
                     self.init_from_atomic_function_skeleton(elt, scope.clone(), types.clone())?;
                 }
@@ -640,7 +640,7 @@ impl SymbolTableBuilder {
     /// - Adds the function declaration to the symbol table with the provided types and arguments.
     ///
     /// # Parameters
-    /// - `ast`: A reference to a boxed `Ast` node of type `AtomicFunctionSkeleton`.
+    /// - `ast_old`: A reference to a boxed `Ast` node of type `AtomicFunctionSkeleton`.
     /// - `scope`: The current scope in which the function is defined. This scope is used for symbol
     ///   resolution and declarations.
     /// - `types`: A vector of strings representing the types associated with the function.
@@ -652,10 +652,10 @@ impl SymbolTableBuilder {
     ///
     /// # Example
     /// ```rust
-    /// let ast = // ... get the AST node for AtomicFunctionSkeleton
+    /// let ast_old = // ... get the AST node for AtomicFunctionSkeleton
     /// let scope = // ... obtain the scope
     /// let types = vec!["int".to_string(), "bool".to_string()];
-    /// let result = symbol_table.init_symbol_table_from_atomic_function_skeleton(&ast, scope, types);
+    /// let result = symbol_table.init_symbol_table_from_atomic_function_skeleton(&ast_old, scope, types);
     /// match result {
     ///     Ok(_) => println!("Function initialized successfully"),
     ///     Err(e) => eprintln!("Error: {:?}", e),
@@ -677,12 +677,12 @@ impl SymbolTableBuilder {
     ///   and their scope resolution.
     fn init_from_atomic_function_skeleton(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
         types: Vec<String>,
     ) -> Result<(), ParserInternalError> {
         // Check that the AST node is of the expected type 'Function'
-        Self::assert_ast_kind(ast, &[AstKind::AtomicFunctionSkeleton])?;
+        Self::assert_ast_kind(ast, &[AstKindOld::AtomicFunctionSkeleton])?;
 
         // Ensure the node has at least two children (function symbol and arguments)
         Self::assert_ast_children_number(ast, 2, Comparator::GreaterEq)?;
@@ -692,7 +692,7 @@ impl SymbolTableBuilder {
         // Retrieve the first child and validate it as a 'FunctionSymbol'
         let functor = children[0].as_ref();
         match functor.kind() {
-            AstKind::FunctionSymbol(s) => s,
+            AstKindOld::FunctionSymbol(s) => s,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "First child of 'Function' must match the expected kind. Encountered: '{:?}'",
@@ -729,7 +729,7 @@ impl SymbolTableBuilder {
     /// It extracts the action name, parameters, and body, adding relevant symbols to the table.
     ///
     /// # Parameters
-    /// - `ast`: The AST node representing the action definition.
+    /// - `ast_old`: The AST node representing the action definition.
     /// - `index`: The index of the node in the AST table.
     /// - `index_table`: The table containing all AST nodes.
     /// - `scope`: The current scope in which the action is being defined.
@@ -746,23 +746,23 @@ impl SymbolTableBuilder {
     ///
     /// # Example
     /// ```rust
-    /// // Assuming `ast`, `index`, `index_table`, and `scope` are correctly initialized:
-    /// parser.init_from_action_def(&ast, index, &index_table, scope)?;
+    /// // Assuming `ast_old`, `index`, `index_table`, and `scope` are correctly initialized:
+    /// parser.init_from_action_def(&ast_old, index, &index_table, scope)?;
     /// ```
     ///
     /// This function delegates to `init_from_definition` for common logic.
     fn init_from_action_def(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
             scope,
             &[
-                AstKind::ActionDef,
-                AstKind::DurativeActionDef,
-                AstKind::MethodDef,
+                AstKindOld::ActionDef,
+                AstKindOld::DurativeActionDef,
+                AstKindOld::MethodDef,
             ],
             3,    // ActionDef has 3 children (name, parameters, body)
             true, // It has a body
@@ -777,7 +777,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to the AST entry representing the method definition.
+    /// * `ast_old` - A reference to the AST entry representing the method definition.
     /// * `index` - The index of the AST entry.
     /// * `index_table` - A reference to the AST table containing all nodes.
     /// * `scope` - The current scope in which the method definition resides.
@@ -788,13 +788,13 @@ impl SymbolTableBuilder {
     /// if an issue occurs.
     fn init_from_method_def(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
             scope,
-            &[AstKind::MethodDef],
+            &[AstKindOld::MethodDef],
             3,    // MethodDef has 3 children (name, parameters, body)
             true, // It has a body
         )
@@ -808,7 +808,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to the AST entry representing the durative action.
+    /// * `ast_old` - A reference to the AST entry representing the durative action.
     /// * `index` - The index of the AST entry.
     /// * `index_table` - A reference to the AST table containing all nodes.
     /// * `scope` - The current scope in which the durative action definition resides.
@@ -819,13 +819,13 @@ impl SymbolTableBuilder {
     /// if an issue occurs.
     fn init_from_durative_action_def(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
             scope,
-            &[AstKind::DurativeActionDef],
+            &[AstKindOld::DurativeActionDef],
             3,    // DurativeActionDef has 3 children (name, parameters, body)
             true, // It has a body
         )
@@ -840,7 +840,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to the AST entry representing the task definition.
+    /// * `ast_old` - A reference to the AST entry representing the task definition.
     /// * `index` - The index of the AST entry.
     /// * `index_table` - A reference to the AST table containing all nodes.
     /// * `scope` - The current scope in which the task definition resides.
@@ -851,13 +851,13 @@ impl SymbolTableBuilder {
     /// if an issue occurs.
     fn init_from_task_def(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             ast,
             scope,
-            &[AstKind::TaskDef],
+            &[AstKindOld::TaskDef],
             2,     // TaskDef has only 2 children (name, parameters)
             false, // No body for tasks
         )
@@ -867,11 +867,11 @@ impl SymbolTableBuilder {
     /// by extracting its name and parameters, and optionally its body.
     ///
     /// # Arguments
-    /// - `ast`: The AST entry to process.
+    /// - `ast_old`: The AST entry to process.
     /// - `index`: The index of the node in the AST table.
     /// - `index_table`: Reference to the AST table.
     /// - `scope`: The current scope for symbol resolution.
-    /// - `valid_kinds`: A slice of valid `AstKind` values.
+    /// - `valid_kinds`: A slice of valid `AstKindOld` values.
     /// - `expected_children`: The number of children expected (2 for `TaskDef`, 3 for actions).
     /// - `has_body`: Whether the definition has a body (true for actions, false for tasks).
     ///
@@ -879,9 +879,9 @@ impl SymbolTableBuilder {
     /// Returns `Ok(())` on success or a `ParserInternalError` if validation fails.
     fn init_from_def(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
-        valid_kinds: &[AstKind],
+        valid_kinds: &[AstKindOld],
         expected_children: usize,
         has_body: bool,
     ) -> Result<(), ParserInternalError> {
@@ -933,7 +933,7 @@ impl SymbolTableBuilder {
     /// symbol usage, then recursively processes the remaining children, which represent the arguments.
     ///
     /// # Arguments
-    /// * `ast` - A reference to the `AstEntry` to process.
+    /// * `ast_old` - A reference to the `AstEntry` to process.
     /// * `_index` - The index of the AST node in the table (not used in this function).
     /// * `index_table` - A reference to the `AstTable`, which contains the AST nodes.
     /// * `scope` - The current scope used for symbol resolution.
@@ -943,21 +943,21 @@ impl SymbolTableBuilder {
     ///
     /// # Errors
     /// This function returns an error if:
-    /// * The `ast` is not of type `AtomicFormula` or `FunctionTerm`.
-    /// * The `ast` has no children (it must have at least one, representing the symbol).
+    /// * The `ast_old` is not of type `AtomicFormula` or `FunctionTerm`.
+    /// * The `ast_old` has no children (it must have at least one, representing the symbol).
     /// * Any recursive call to `init_from` fails.
     fn init_from_atomic_formula(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
         Self::assert_ast_kind(
             ast,
             &[
-                AstKind::AtomicFormula,
-                AstKind::FunctionTerm,
-                AstKind::Task,
+                AstKindOld::AtomicFormula,
+                AstKindOld::FunctionTerm,
+                AstKindOld::Task,
             ],
         )?;
 
@@ -984,7 +984,7 @@ impl SymbolTableBuilder {
     /// the inner expression.
     ///
     /// # Parameters
-    /// - `ast`: A reference to a boxed `Ast` node representing the quantified expression. The node
+    /// - `ast_old`: A reference to a boxed `Ast` node representing the quantified expression. The node
     ///   should be of kind `Exists` or `Forall`.
     /// - `scope`: The current scope to be passed to the symbol table initialization.
     ///
@@ -1000,9 +1000,9 @@ impl SymbolTableBuilder {
     ///
     /// # Example
     /// ```rust
-    /// let ast = ...; // An Ast node representing a quantified expression
+    /// let ast_old = ...; // An Ast node representing a quantified expression
     /// let scope = ...; // The current scope
-    /// let result = symbol_table.init_symbol_table_from_quantified_expression(ast, scope);
+    /// let result = symbol_table.init_symbol_table_from_quantified_expression(ast_old, scope);
     /// match result {
     ///     Ok(_) => println!("Symbol table initialized successfully"),
     ///     Err(e) => eprintln!("Error: {}", e),
@@ -1010,11 +1010,11 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_quantified_expression(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Check if the AST node is of kind 'Exists' or 'Forall'
-        Self::assert_ast_kind(ast, &[AstKind::Exists, AstKind::Forall])?;
+        Self::assert_ast_kind(ast, &[AstKindOld::Exists, AstKindOld::Forall])?;
 
         // Ensure the AST has exactly 2 children (variables and inner expression)
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
@@ -1048,7 +1048,7 @@ impl SymbolTableBuilder {
     /// The function then recursively initializes the symbol table for the arguments of the predicate.
     ///
     /// # Parameters
-    /// - `ast`: A reference to a boxed `Ast` node representing the atomic formula skeleton. It should
+    /// - `ast_old`: A reference to a boxed `Ast` node representing the atomic formula skeleton. It should
     ///   have at least two children: a predicate and its arguments.
     /// - `scope`: The current scope to be passed to the symbol table initialization.
     ///
@@ -1059,9 +1059,9 @@ impl SymbolTableBuilder {
     ///
     /// # Example
     /// ```rust
-    /// let ast = ...; // An Ast node representing an atomic formula skeleton
+    /// let ast_old = ...; // An Ast node representing an atomic formula skeleton
     /// let scope = ...; // The current scope
-    /// let result = symbol_table.init_symbol_table_from_atomic_formula_skeleton(ast, scope);
+    /// let result = symbol_table.init_symbol_table_from_atomic_formula_skeleton(ast_old, scope);
     /// match result {
     ///     Ok(_) => println!("Symbol table initialized successfully"),
     ///     Err(e) => eprintln!("Error: {}", e),
@@ -1069,7 +1069,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_atomic_formula_skeleton(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         let children = ast.children();
@@ -1079,7 +1079,7 @@ impl SymbolTableBuilder {
 
         // Ensure the first child is of kind 'Predicate'
         let predicate = children[0].as_ref();
-        Self::assert_ast_kind(predicate, &[AstKind::Predicate(String::new())])?;
+        Self::assert_ast_kind(predicate, &[AstKindOld::Predicate(String::new())])?;
 
         // Retrieve and process arguments
         let arguments = children[1].as_ref();
@@ -1113,7 +1113,7 @@ impl SymbolTableBuilder {
     ///   the third child.
     ///
     /// # Parameters
-    /// - `ast`: The AST node representing a TypedList, containing a sequence of children to be
+    /// - `ast_old`: The AST node representing a TypedList, containing a sequence of children to be
     ///   processed.
     ///
     /// # Returns
@@ -1132,8 +1132,8 @@ impl SymbolTableBuilder {
     ///
     /// # Example
     /// ```
-    /// let ast = // Some AST node of kind TypedList
-    /// let result = self.extract_arguments_from_typed_list(&ast);
+    /// let ast_old = // Some AST node of kind TypedList
+    /// let result = self.extract_arguments_from_typed_list(&ast_old);
     /// match result {
     ///     Ok(arguments) => {
     ///         // Use extracted arguments
@@ -1145,10 +1145,10 @@ impl SymbolTableBuilder {
     /// ```
     fn extract_arguments_from_typed_list(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
-        Self::assert_ast_kind(ast, &[AstKind::TypedList])?;
+        Self::assert_ast_kind(ast, &[AstKindOld::TypedList])?;
 
         let mut typed_arguments = Vec::new();
         for typed_item in ast.children() {
@@ -1169,10 +1169,10 @@ impl SymbolTableBuilder {
     /// children are not valid constants or variables.
     fn extract_arguments_from_typed_item(
         &mut self,
-        typed_item: &AstNode,
+        typed_item: &AstNodeOld,
     ) -> Result<Vec<TypedSymbol<String>>, ParserInternalError> {
         // Ensure the node is of the correct kind
-        Self::assert_ast_kind(typed_item, &[AstKind::TypedItem])?;
+        Self::assert_ast_kind(typed_item, &[AstKindOld::TypedItem])?;
 
         let children = typed_item.children();
 
@@ -1192,7 +1192,7 @@ impl SymbolTableBuilder {
         let elt = &children[0];
 
         match elt.kind() {
-            AstKind::Constant(ref name) | AstKind::Variable(ref name) => {
+            AstKindOld::Constant(ref name) | AstKindOld::Variable(ref name) => {
                 typed_arguments.push(TypedSymbol::new(name.clone(), types.clone()));
             }
             _ => {
@@ -1209,7 +1209,7 @@ impl SymbolTableBuilder {
         let symbol_nodes = children[0].children();
         for elt in symbol_nodes {
             match elt.kind() {
-                AstKind::Constant(ref name) | AstKind::Variable(ref name) => {
+                AstKindOld::Constant(ref name) | AstKindOld::Variable(ref name) => {
                     typed_arguments.push(TypedSymbol::new(name.clone(), types.clone()));
                 }
                 _ => {
@@ -1237,14 +1237,14 @@ impl SymbolTableBuilder {
     ///   node is invalid.
     fn extract_type(
         &mut self,
-        types: &AstNode,
+        types: &AstNodeOld,
     ) -> Result<Vec<String>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
-        Self::assert_ast_kind(types, &[AstKind::Type])?;
+        Self::assert_ast_kind(types, &[AstKindOld::Type])?;
 
         let mut super_types = Vec::new();
         for ty in types.children() {
-            if let AstKind::PrimitiveType(name) = ty.kind() {
+            if let AstKindOld::PrimitiveType(name) = ty.kind() {
                 super_types.push(name.clone());
             } else {
                 return Err(ParserInternalError::new(
@@ -1272,15 +1272,15 @@ impl SymbolTableBuilder {
     /// node is invalid.
     fn init_from_type(
         &mut self,
-        types: &AstNode,
+        types: &AstNodeOld,
         scope: Scope,
     ) -> Result<Vec<String>, ParserInternalError> {
-        Self::assert_ast_kind(types, &[AstKind::Type])?;
+        Self::assert_ast_kind(types, &[AstKindOld::Type])?;
         let super_types = self.extract_type(types)?; // Reuse `extract_type` to get type names
 
         // Register each type as a symbol usage in the given scope
         for ty in types.children() {
-            Self::assert_ast_kind(ty, &[AstKind::PrimitiveType(String::new())])?;
+            Self::assert_ast_kind(ty, &[AstKindOld::PrimitiveType(String::new())])?;
             self.add_symbol_usage(ty, scope.clone())?;
         }
 
@@ -1293,7 +1293,7 @@ impl SymbolTableBuilder {
     /// adding the identifier as a declaration, and then initializing the task itself.
     ///
     /// # Arguments
-    /// * `ast` - A reference to the AST entry representing the tagged task.
+    /// * `ast_old` - A reference to the AST entry representing the tagged task.
     /// * `_index` - The index of the AST entry (not used in this function).
     /// * `index_table` - A reference to the AST table containing all parsed nodes.
     /// * `scope` - The scope in which the task symbols should be declared or used.
@@ -1303,23 +1303,23 @@ impl SymbolTableBuilder {
     ///   structure is unexpected.
     fn init_from_tagged_task(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
-        Self::assert_ast_kind(ast, &[AstKind::TaggedTask])?;
+        Self::assert_ast_kind(ast, &[AstKindOld::TaggedTask])?;
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
 
         let children = ast.children();
         let task_id = children[0].as_ref();
-        Self::assert_ast_kind(task_id, &[AstKind::TaskID(String::new())])?;
+        Self::assert_ast_kind(task_id, &[AstKindOld::TaskID(String::new())])?;
 
         // Add the task identifier as a declaration symbol
         self.add_declaration_symbol(task_id, scope.clone(), None, None)?;
 
         // Process the actual task
         let task = children[1].as_ref();
-        Self::assert_ast_kind(task, &[AstKind::Task])?;
+        Self::assert_ast_kind(task, &[AstKindOld::Task])?;
 
         self.init_from_atomic_formula(task, scope.clone())?;
 
@@ -1335,7 +1335,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to an `AstEntry` representing the task ordering constraint.
+    /// * `ast_old` - A reference to an `AstEntry` representing the task ordering constraint.
     /// * `_index` - An unused index parameter.
     /// * `index_table` - A reference to an `AstTable` used for resolving AST entries.
     /// * `scope` - The current `Scope` used for symbol tracking.
@@ -1366,23 +1366,23 @@ impl SymbolTableBuilder {
     /// - Either child is not of kind `TaskID(String)`.
     fn init_from_task_ordering_constraint(
         &mut self,
-        ast: &AstNode,
+        ast: &AstNodeOld,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
         Self::assert_ast_kind(
             ast,
-            &[AstKind::TaskOrderingConstraint(BinaryComp::Less)],
+            &[AstKindOld::TaskOrderingConstraint(BinaryComp::Less)],
         )?;
         Self::assert_ast_children_number(ast, 2, Comparator::Equal)?;
 
         let children = ast.children();
         let t1 = children[0].as_ref();
-        Self::assert_ast_kind(t1, &[AstKind::TaskID(String::new())])?;
+        Self::assert_ast_kind(t1, &[AstKindOld::TaskID(String::new())])?;
         self.add_symbol_usage(t1, scope.clone())?;
 
         let t2 = children[1].as_ref();
-        Self::assert_ast_kind(t2, &[AstKind::TaskID(String::new())])?;
+        Self::assert_ast_kind(t2, &[AstKindOld::TaskID(String::new())])?;
         self.add_symbol_usage(t2, scope.clone())?;
 
         Ok(())
@@ -1391,7 +1391,7 @@ impl SymbolTableBuilder {
     /// Asserts that the AST node's kind is contained within the provided set of valid kinds.
     ///
     /// # Parameters
-    /// - `ast`: The AST node to check.
+    /// - `ast_old`: The AST node to check.
     /// - `valid_kinds`: A slice of valid AST kinds that the node should match.
     ///
     /// # Returns
@@ -1405,10 +1405,10 @@ impl SymbolTableBuilder {
     /// node's kind and the list of expected valid kinds.
     ///
     /// # Parameters
-    /// - `ast`: The AST node to check. This node should have a specific kind that needs to be
+    /// - `ast_old`: The AST node to check. This node should have a specific kind that needs to be
     ///   validated.
     /// - `valid_kinds`: A slice of valid AST kinds that the node should match. The slice can contain
-    ///   any combination of the `AstKind` enum variants, such as `Predicate`, `DomainName`,
+    ///   any combination of the `AstKindOld` enum variants, such as `Predicate`, `DomainName`,
     ///   `ProblemName`, etc.
     ///
     /// # Returns
@@ -1418,40 +1418,40 @@ impl SymbolTableBuilder {
     ///
     /// # Example
     /// ```rust
-    /// let result = Self::assert_ast_kind(ast, &[AstKind::Predicate(_), AstKind::DomainName(_)]);
+    /// let result = Self::assert_ast_kind(ast_old, &[AstKindOld::Predicate(_), AstKindOld::DomainName(_)]);
     /// match result {
     ///     Ok(()) => println!("Valid AST node!"),
     ///     Err(e) => println!("Error: {}", e),
     /// }
     /// ```
     fn assert_ast_kind(
-        ast: &AstNode,
-        valid_kinds: &[AstKind],
+        ast: &AstNodeOld,
+        valid_kinds: &[AstKindOld],
     ) -> Result<(), ParserInternalError> {
         match ast.kind() {
             // Case where the AST node's kind is one of the defined types (Predicate, DomainName, etc.)
-            AstKind::DomainName(_)
-            | AstKind::ProblemName(_)
-            | AstKind::Requirement(_)
-            | AstKind::PrimitiveType(_)
-            | AstKind::Constant(_)
-            | AstKind::Variable(_)
-            | AstKind::Predicate(_)
-            | AstKind::FunctionSymbol(_)
-            | AstKind::ActionSymbol(_)
-            | AstKind::DASymbol(_)
-            | AstKind::PrefName(_)
-            | AstKind::Number(_)
-            | AstKind::Assign(_)
-            | AstKind::FComp(_)
-            | AstKind::Metric(_)
-            | AstKind::Operation(_)
-            | AstKind::Parallel(_)
-            | AstKind::Serial(_)
+            AstKindOld::DomainName(_)
+            | AstKindOld::ProblemName(_)
+            | AstKindOld::Requirement(_)
+            | AstKindOld::PrimitiveType(_)
+            | AstKindOld::Constant(_)
+            | AstKindOld::Variable(_)
+            | AstKindOld::Predicate(_)
+            | AstKindOld::FunctionSymbol(_)
+            | AstKindOld::ActionSymbol(_)
+            | AstKindOld::DASymbol(_)
+            | AstKindOld::PrefName(_)
+            | AstKindOld::Number(_)
+            | AstKindOld::Assign(_)
+            | AstKindOld::FComp(_)
+            | AstKindOld::Metric(_)
+            | AstKindOld::Operation(_)
+            | AstKindOld::Parallel(_)
+            | AstKindOld::Serial(_)
             // Add for HDDL
-            | AstKind::MethodSymbol(_)
-            | AstKind::TaskSymbol(_)
-            | AstKind::TaskID(_) => {
+            | AstKindOld::MethodSymbol(_)
+            | AstKindOld::TaskSymbol(_)
+            | AstKindOld::TaskID(_) => {
                 // Check if the AST node's kind matches one of the valid kinds
                 if valid_kinds.iter().any(|_k| matches!(ast.kind(), _k)) {
                     Ok(())
@@ -1481,7 +1481,7 @@ impl SymbolTableBuilder {
     /// If the comparison fails, it returns an error indicating the mismatch.
     ///
     /// # Parameters
-    /// - `ast`: The AST node whose children are being checked.
+    /// - `ast_old`: The AST node whose children are being checked.
     /// - `expected_len`: The expected number of children for the given AST node.
     /// - `comparator`: The comparison type used to validate the number of children relative to
     ///   `expected_len`. It can be one of the following:
@@ -1506,9 +1506,9 @@ impl SymbolTableBuilder {
     /// # Example
     /// ```rust
     ///
-    /// let ast = get_some_ast_node();
-    /// Self::assert_ast_children_number(&ast, 3, Comparator::GreaterEq).unwrap(); // Passes if node has 3 or more children
-    /// Self::assert_ast_children_number(&ast, 2, Comparator::Equal).unwrap_err(); // Fails if node doesn't have exactly 2 children
+    /// let ast_old = get_some_ast_node();
+    /// Self::assert_ast_children_number(&ast_old, 3, Comparator::GreaterEq).unwrap(); // Passes if node has 3 or more children
+    /// Self::assert_ast_children_number(&ast_old, 2, Comparator::Equal).unwrap_err(); // Fails if node doesn't have exactly 2 children
     /// ```
     ///
     /// # Notes
@@ -1516,7 +1516,7 @@ impl SymbolTableBuilder {
     /// parsing, ensuring that the number of children aligns with the expectations set by the aiplan4rust
     /// logic.
     fn assert_ast_children_number(
-        ast: &AstNode,
+        ast: &AstNodeOld,
         expected_len: usize,
         comparator: Comparator,
     ) -> Result<(), ParserInternalError> {

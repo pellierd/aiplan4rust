@@ -20,7 +20,7 @@ use crate::aiplan4rust::semantic::SemanticContext;
 /// type using the provided `DiagnosticManager`.
 ///
 /// # Parameters
-/// - `ast`: A reference to the `AnnotatedSyntaxTree`, which provides access to all
+/// - `ast_old`: A reference to the `AnnotatedSyntaxTree`, which provides access to all
 ///   declared types and their source context.
 /// - `source`: The `DiagnosticSource` identifying the current analysis phase (e.g., semantic check).
 /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` that will collect and emit
@@ -49,7 +49,7 @@ use crate::aiplan4rust::semantic::SemanticContext;
 /// # Example
 /// ```rust
 /// let result = check_type_hierarchy(
-///     &ast,
+///     &ast_old,
 ///     DiagnosticSource::SemanticAnalyzer,
 ///     &mut diagnostic_manager,
 /// );

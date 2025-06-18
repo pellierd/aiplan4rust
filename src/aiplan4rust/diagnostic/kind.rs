@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;
@@ -48,7 +48,7 @@ pub enum Kind {
         ty2: Vec<String>,
     },
     RequirementViolation {
-        node_kind: AstKind,
+        node_kind: AstKindOld,
         required: Vec<Requirement>,
     },
     DuplicatedSymbolDeclarationInScopeError {

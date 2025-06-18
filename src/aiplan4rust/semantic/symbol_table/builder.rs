@@ -5,7 +5,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
 use crate::aiplan4rust::semantic::arena::arena::Arena;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode, Ast};
+use crate::aiplan4rust::syntax::ast_old::{AstKindOld, AstNodeOld, AstOld};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
 use crate::aiplan4rust::semantic::symbol::kind::Kind;
 use crate::aiplan4rust::semantic::SymbolTable;
@@ -43,10 +43,10 @@ impl<'a> SymbolTableBuilderFromArena<'a> {
         let root = ast.get_node(0).unwrap();
 
         match root.kind() {
-            AstKind::Domain => {
+            AstKindOld::Domain => {
                 self.table_mut().set_source(SymbolSource::Domain);
             }
-            AstKind::Problem => {
+            AstKindOld::Problem => {
                 self.table_mut().set_source(SymbolSource::Problem);
             }
             _ => {

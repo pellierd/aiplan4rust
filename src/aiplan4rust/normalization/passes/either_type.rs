@@ -5,9 +5,9 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ast_old::AstNodeOld;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
+use crate::aiplan4rust::syntax::ast_old::AstOld;
 use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes all `Type` nodes in the given AST by removing duplicate `PrimitiveType` children.
@@ -17,7 +17,7 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// # Parameters
 ///
-/// - `ast`: A mutable reference to the `Ast` to normalize.
+/// - `ast_old`: A mutable reference to the `Ast` to normalize.
 ///
 /// # Returns
 ///
@@ -28,11 +28,11 @@ use crate::aiplan4rust::syntax::Span;
 /// # Example
 ///
 /// ```rust
-/// use crate::aiplan4rust::syntax::ast::Ast;
+/// use crate::aiplan4rust::syntax::ast_old::Ast;
 /// use crate::aiplan4rust::parser::ParserInternalError;
 ///
-/// let mut ast = Ast::new(...);
-/// match normalize_typed_list(&mut ast) {
+/// let mut ast_old = Ast::new(...);
+/// match normalize_typed_list(&mut ast_old) {
 ///     Ok(modified) => {
 ///         if modified {
 ///             println!("AST was normalized and modified.");
@@ -44,7 +44,7 @@ use crate::aiplan4rust::syntax::Span;
 /// }
 /// ```
 pub fn normalize_either_type(
-    ast: &mut Ast,
+    ast: &mut AstOld,
     diagnostic_manager: &mut  DiagnosticManager
 ) -> Result<bool, ParserInternalError> {
     let source = ast.source_name().to_string();
@@ -92,7 +92,7 @@ pub fn normalize_either_type(
 /// }
 /// ```
 fn normalize_either_type_node(
-        node: &mut AstNode,
+        node: &mut AstNodeOld,
         source: &String,
         diagnostic_manager: &mut DiagnosticManager
 ) -> Result<bool, ParserInternalError> {
@@ -103,14 +103,14 @@ fn normalize_either_type_node(
     let mut modified = false;
 
     // If the current node is of kind Type, proceed to remove duplicates
-    if let AstKind::Type = node.kind() {
+    if let AstKindOld::Type = node.kind() {
         // Create a set to track seen PrimitiveType names
         let mut seen = HashSet::new();
         let mut duplicates = Vec::new();
 
         // Retain only unique PrimitiveType children, removing duplicates
         node.children_mut().retain(|child| {
-            if let AstKind::PrimitiveType(name) = child.kind() {
+            if let AstKindOld::PrimitiveType(name) = child.kind() {
                 if seen.insert(name.clone()) {
                     true // Keep this unique PrimitiveType child
                 } else {
@@ -201,10 +201,10 @@ fn report_duplicate_either_type_warning(
 ///     eprintln!("Validation error: {}", e);
 /// }
 /// ```
-pub fn assert_either_type_validity(node: &AstNode) -> Result<(), ParserInternalError> {
-    if let AstKind::Type = node.kind() {
+pub fn assert_either_type_validity(node: &AstNodeOld) -> Result<(), ParserInternalError> {
+    if let AstKindOld::Type = node.kind() {
         for child in node.children() {
-            if !matches!(child.kind(), AstKind::PrimitiveType(_)) {
+            if !matches!(child.kind(), AstKindOld::PrimitiveType(_)) {
                 return Err(ParserInternalError::new(format!(
                     "Expected only PrimitiveType in Type node, found: {:?}",
                     child.kind()

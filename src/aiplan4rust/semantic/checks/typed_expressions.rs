@@ -8,7 +8,7 @@ use crate::aiplan4rust::syntax::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::arena::ArenaAstNode;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
@@ -26,7 +26,7 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 /// `check_numeric_expression`) and detailed errors are reported through the diagnostic manager.
 ///
 /// # Parameters
-/// - `ast`: The annotated syntax tree containing AST nodes and symbol information.
+/// - `ast_old`: The annotated syntax tree containing AST nodes and symbol information.
 /// - `type_checker`: A `TypeChecker` instance used for type resolution and compatibility validation.
 /// - `source`: The diagnostic source context, indicating where diagnostics originate.
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
@@ -38,7 +38,7 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 ///
 /// # Example
 /// ```rust
-/// let result = check_typed_expressions(&ast, &type_checker, source, &mut diagnostic_manager)?;
+/// let result = check_typed_expressions(&ast_old, &type_checker, source, &mut diagnostic_manager)?;
 /// if result {
 ///     println!("All typed expressions are valid.");
 /// }
@@ -54,7 +54,7 @@ pub fn check_typed_expressions(
     for node in context.ast().preorder() {
         match node.kind() {
             // Case for equality check (AssignOp::Assign and BinaryComp::Equal)
-            AstKind::FComp(BinaryComp::Equal) | AstKind::Assign(AssignOp::Assign) => {
+            AstKindOld::FComp(BinaryComp::Equal) | AstKindOld::Assign(AssignOp::Assign) => {
                 let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
                 // Call check_equal_and_assign function to handle this case
@@ -70,14 +70,14 @@ pub fn check_typed_expressions(
             }
 
             // Case for other comparison and assignment operations (Greater, Less, ScaleUp, etc.)
-            AstKind::FComp(BinaryComp::Greater)
-            | AstKind::FComp(BinaryComp::GreaterEq)
-            | AstKind::FComp(BinaryComp::Less)
-            | AstKind::FComp(BinaryComp::LessEq)
-            | AstKind::Assign(AssignOp::ScaleUp)
-            | AstKind::Assign(AssignOp::ScaleDown)
-            | AstKind::Assign(AssignOp::Increase)
-            | AstKind::Assign(AssignOp::Decrease) => {
+            AstKindOld::FComp(BinaryComp::Greater)
+            | AstKindOld::FComp(BinaryComp::GreaterEq)
+            | AstKindOld::FComp(BinaryComp::Less)
+            | AstKindOld::FComp(BinaryComp::LessEq)
+            | AstKindOld::Assign(AssignOp::ScaleUp)
+            | AstKindOld::Assign(AssignOp::ScaleDown)
+            | AstKindOld::Assign(AssignOp::Increase)
+            | AstKindOld::Assign(AssignOp::Decrease) => {
                 let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
                 // Call check_other_cases function to handle these cases
@@ -367,16 +367,16 @@ pub fn get_type(
 ) -> Result<Option<Vec<String>>, ParserInternalError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
-        AstKind::Number(_) => get_number_type(),
+        AstKindOld::Number(_) => get_number_type(),
 
         // Case 2: Variable
-        AstKind::Variable(symbol) => get_variable_type(index, symbol, context),
+        AstKindOld::Variable(symbol) => get_variable_type(index, symbol, context),
 
         // Case 3: Constant
-        AstKind::Constant(symbol) => get_constant_type(index, symbol, context),
+        AstKindOld::Constant(symbol) => get_constant_type(index, symbol, context),
 
         // Case 4: Function Term
-        AstKind::FunctionTerm => get_function_term_type(index, node, context),
+        AstKindOld::FunctionTerm => get_function_term_type(index, node, context),
 
         // Default case: Unexpected AST node
         _ => Err(ParserInternalError::new(format!(
@@ -555,7 +555,7 @@ fn get_function_term_type(
         ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 
-    if let AstKind::FunctionSymbol(symbol) = functor_entry.kind() {
+    if let AstKindOld::FunctionSymbol(symbol) = functor_entry.kind() {
         if symbol == TOTAL_TIME && context.has_requirement(&NumericFluents) {
             return get_number_type();
         }

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast_old::AstOld;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
+use crate::aiplan4rust::syntax::ast_old::AstNodeOld;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::Span;
@@ -32,7 +32,7 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// # Arguments
 ///
-/// - `ast`: A mutable reference to the AST to normalize.
+/// - `ast_old`: A mutable reference to the AST to normalize.
 /// - `diagnostic_manager`: A manager to collect and report diagnostic warnings.
 ///
 /// # Returns
@@ -58,17 +58,17 @@ use crate::aiplan4rust::syntax::Span;
 /// # Example
 ///
 /// ```rust,ignore
-/// let mut ast = parse_source_code(source)?;
-/// normalize_typed_list(&mut ast)?; // Required before this step
+/// let mut ast_old = parse_source_code(source)?;
+/// normalize_typed_list(&mut ast_old)?; // Required before this step
 /// let mut diagnostics = DiagnosticManager::new();
-/// let changed = normalize_type_def(&mut ast, &mut diagnostics)?;
+/// let changed = normalize_type_def(&mut ast_old, &mut diagnostics)?;
 /// if changed {
 ///     println!("Merged type declarations.");
 /// }
 /// ```
 
 pub fn normalize_type_def(
-    ast: &mut Ast,
+    ast: &mut AstOld,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Obtain the source name from the AST, used in diagnostic reporting
@@ -81,7 +81,7 @@ pub fn normalize_type_def(
     };
 
     // HashMap to accumulate merged TypedItems keyed by their PrimitiveType string
-    let mut merged_items: HashMap<String, Box<AstNode>> = HashMap::new();
+    let mut merged_items: HashMap<String, Box<AstNodeOld>> = HashMap::new();
 
     // Tracks for each PrimitiveType:
     // - the set of all associated type names found (to detect conflicts)
@@ -110,7 +110,7 @@ pub fn normalize_type_def(
     report_implicit_either_type_warnings(&type_sources, diagnostic_manager, &source);
 
     // Replace the children of TypedList with the merged TypedItems
-    let new_typed_items: Vec<Box<AstNode>> = merged_items.into_values().collect();
+    let new_typed_items: Vec<Box<AstNodeOld>> = merged_items.into_values().collect();
     typed_list.set_children(new_typed_items);
 
     // Return whether the AST was changed
@@ -125,7 +125,7 @@ pub fn normalize_type_def(
 ///
 /// # Arguments
 ///
-/// * `ast` - A mutable reference to the AST to search.
+/// * `ast_old` - A mutable reference to the AST to search.
 ///
 /// # Returns
 ///
@@ -138,14 +138,14 @@ pub fn normalize_type_def(
 /// Returns an error if the `TypesDef` node exists but does not have a child node,
 /// which should be a `TypedList`.
 pub fn find_types_def_typed_list(
-    ast: &mut Ast,
-) -> Result<Option<&mut AstNode>, ParserInternalError> {
+    ast: &mut AstOld,
+) -> Result<Option<&mut AstNodeOld>, ParserInternalError> {
     // Search root children of the AST for a node of kind `TypesDef`
     let types_def_node = match ast
         .root_mut()
         .children_mut()
         .iter_mut()
-        .find(|node| matches!(node.kind(), AstKind::TypesDef))
+        .find(|node| matches!(node.kind(), AstKindOld::TypesDef))
     {
         Some(node) => node,
         None => return Ok(None), // Return None if no TypesDef node is found
@@ -187,8 +187,8 @@ pub fn find_types_def_typed_list(
 ///
 /// Returns an error if the first child is not a `PrimitiveType` node, or if extracting type names fails.
 fn extract_key_and_info(
-    typed_item: &Box<AstNode>
-) -> Result<(String, Option<Box<AstNode>>, HashSet<String>, Span), ParserInternalError> {
+    typed_item: &Box<AstNodeOld>
+) -> Result<(String, Option<Box<AstNodeOld>>, HashSet<String>, Span), ParserInternalError> {
     // Get the children of the typed_item node
     let children = typed_item.children();
     // The first child should be a PrimitiveType node
@@ -196,7 +196,7 @@ fn extract_key_and_info(
 
     // Extract the key string by matching on the node kind
     let key = match primitive_type_node.kind() {
-        AstKind::PrimitiveType(name) => name.clone(),
+        AstKindOld::PrimitiveType(name) => name.clone(),
         other => {
             // Return error if the first child is not PrimitiveType
             return Err(ParserInternalError::new(format!(
@@ -235,14 +235,14 @@ fn extract_key_and_info(
 /// * `Ok(HashSet<String>)` containing the names of all primitive types found.
 /// * `Err(ParserInternalError)` if the node is not of kind `Type`
 ///   or if any child is not a `PrimitiveType`.
-fn extract_type_names(type_node: &AstNode) -> Result<HashSet<String>, ParserInternalError> {
+fn extract_type_names(type_node: &AstNodeOld) -> Result<HashSet<String>, ParserInternalError> {
     // Verify the node is of kind Type
-    if let AstKind::Type = type_node.kind() {
+    if let AstKindOld::Type = type_node.kind() {
         let mut names = HashSet::new();
         // Iterate over children nodes expecting each to be a PrimitiveType
         for child in type_node.children() {
             match child.kind() {
-                AstKind::PrimitiveType(name) => {
+                AstKindOld::PrimitiveType(name) => {
                     // Insert the primitive type name into the set
                     names.insert(name.clone());
                 }
@@ -311,10 +311,10 @@ fn update_type_sources(
 ///
 /// Returns `true` to indicate that a merge or insert operation was performed (indicating a change).
 fn merge_typed_item(
-    merged_items: &mut HashMap<String, Box<AstNode>>,
+    merged_items: &mut HashMap<String, Box<AstNodeOld>>,
     key: &str,
-    typed_item: Box<AstNode>,
-    ty_opt: Option<Box<AstNode>>,
+    typed_item: Box<AstNodeOld>,
+    ty_opt: Option<Box<AstNodeOld>>,
 ) -> bool {
     if let Some(existing_item) = merged_items.get_mut(key) {
         // If the key already exists, try to merge the new type into the existing one

@@ -1,31 +1,3 @@
-use crate::aiplan4rust::syntax::elements::ArithmeticOp;
-use crate::aiplan4rust::syntax::elements::AssignOp;
-use crate::aiplan4rust::syntax::elements::BinaryComp;
-use crate::aiplan4rust::syntax::elements::Optimization;
-use crate::aiplan4rust::syntax::elements::Requirement;
-
-use crate::aiplan4rust::syntax::lexer::token::ACTION;
-use crate::aiplan4rust::syntax::lexer::token::AND;
-use crate::aiplan4rust::syntax::lexer::token::CONSTANTS;
-use crate::aiplan4rust::syntax::lexer::token::DOMAIN;
-use crate::aiplan4rust::syntax::lexer::token::EFFECT;
-use crate::aiplan4rust::syntax::lexer::token::EXISTS;
-use crate::aiplan4rust::syntax::lexer::token::FORALL;
-use crate::aiplan4rust::syntax::lexer::token::FUNCTIONS;
-use crate::aiplan4rust::syntax::lexer::token::IMPLY;
-use crate::aiplan4rust::syntax::lexer::token::NOT;
-use crate::aiplan4rust::syntax::lexer::token::OR;
-use crate::aiplan4rust::syntax::lexer::token::PRECONDITION;
-use crate::aiplan4rust::syntax::lexer::token::PREDICATES;
-use crate::aiplan4rust::syntax::lexer::token::REQUIREMENTS;
-use crate::aiplan4rust::syntax::lexer::token::TYPES;
-use crate::aiplan4rust::syntax::lexer::token::WHEN;
-
-use crate::aiplan4rust::syntax::SyntaxDisplay;
-
-use ordered_float::OrderedFloat;
-
-use serde::de;
 use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Deserializer;
@@ -46,34 +18,34 @@ use std::fmt;
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Kind {
     #[default]
-    Default,
+    None,
     /// Represents a constant value in the planning problem, typically a literal or a fixed value.
-    Constant(String),
+    Constant,
     /// Represents a variable used in actions or predicates, typically a placeholder for values.
-    Variable(String),
+    Variable,
     /// Represents a function symbol, typically used in mathematical functions or expressions.
-    FunctionSymbol(String),
+    FunctionSymbol,
     /// Represents a basic data type, such as integers or booleans, used in the planning problem.
-    PrimitiveType(String),
+    PrimitiveType,
     /// Represents the name of the domain in a PDDL file.
-    DomainName(String),
+    DomainName,
     /// Represents the name of the problem in a PDDL file.
-    ProblemName(String),
+    ProblemName,
     /// Represents a predicate symbol used in logical expressions or actions.
-    Predicate(String),
+    Predicate,
     /// Represents an action symbol used in the problem specification.
-    ActionSymbol(String),
+    ActionSymbol,
     /// Represents a symbol used for defining Durative Actions.
-    DASymbol(String),
+    DASymbol,
     /// Represents a task symbol used in the domain specification.
     /// Add to deal with HDDL dialect
-    TaskSymbol(String),
+    TaskSymbol,
     /// Represents a preference name used in the planning problem.
-    PrefName(String),
+    PrefName,
     /// Represents a requirement definition (e.g., `(:require ...)` in PDDL).
     RequireDef,
     /// Represents a requirement, such as specific features or constraints of a problem.
-    Requirement(Requirement),
+    Requirement,
     /// Represents a type definition, which may be used to define object types.
     Type,
     /// A list of typed elements containing multiple `TypedItem`s.
@@ -104,11 +76,7 @@ pub enum Kind {
     /// Represents the skeleton structure of an atomic function.
     AtomicFunctionSkeleton,
     /// Represents a number, using `OrderedFloat` for precise float comparison and serialization.
-    #[serde(
-        serialize_with = "serialize_ordered_float",
-        deserialize_with = "deserialize_ordered_float"
-    )]
-    Number(OrderedFloat<f64>),
+    Number,
     /// Represents the definition of an action in the domain.
     ActionDef,
     /// Represents the definition of a durative action, where actions have durations.
@@ -146,11 +114,11 @@ pub enum Kind {
     /// Represents the conditional timing of an event or action in a planning problem.
     When,
     /// Represents a binary comparison, used for mathematical or logical comparisons.
-    FComp(BinaryComp),
+    FComp,
     /// Represents an assignment operation in the planning problem.
-    Assign(AssignOp),
+    Assign,
     /// Represents an arithmetic operation, such as addition or subtraction.
-    Operation(ArithmeticOp),
+    Operation,
     /// Represents constraints imposed on the problem or domain.
     Constraints,
     /// Represents a condition that must hold at the start of the action.
@@ -185,7 +153,7 @@ pub enum Kind {
     Goal,
     /// Represents a metric used to optimize a solution, where the optimization is either to
     /// minimize or maximize a value.
-    Metric(Optimization),
+    Metric,
     /// Represents the total time in the problem.
     TotalTime,
     /// Represents a condition that indicates whether something is violated in the problem.
@@ -193,17 +161,9 @@ pub enum Kind {
     /// Represents the length or duration of something in the planning problem.
     Length,
     /// Represents a serial timing or duration, serialized as an `OrderedFloat` for precision.
-    #[serde(
-        serialize_with = "serialize_ordered_float",
-        deserialize_with = "deserialize_ordered_float"
-    )]
-    Serial(OrderedFloat<f64>),
+    Serial,
     /// Represents parallel timing or duration, serialized as an `OrderedFloat` for precision.
-    #[serde(
-        serialize_with = "serialize_ordered_float",
-        deserialize_with = "deserialize_ordered_float"
-    )]
-    Parallel(OrderedFloat<f64>),
+    Parallel,
     /// Represents an error, often used to signal a failure or problem in the domain or problem
     /// definition.
     Error,
@@ -220,7 +180,7 @@ pub enum Kind {
     /// decomposed.
     MethodDef,
     /// Represents a symbolic reference to a method in HDDL.
-    MethodSymbol(String),
+    MethodSymbol,
     /// Represents the definition of the method precondition in HDDL.
     MethodPreconditionDef,
     /// Represents the body of a method definition in HDDL.
@@ -232,56 +192,17 @@ pub enum Kind {
     /// constraints exist but not all.
     PartiallyOrderedSubtaskDef,
     /// Represents a task ID to reference subtask in HDDL.
-    TaskID(String),
+    TaskID,
     /// Represents a collection of task ordering constraints.
     TaskOrderingConstraintDef,
     /// Represents a task ordering constraint in HDDL
-    TaskOrderingConstraint(BinaryComp),
+    TaskOrderingConstraint,
     /// Represents a collection of logical constraints in HDDL.
     TaskLogicalConstraintDef,
     /// Represents a task network in HDDL.
     TaskNetworkDef,
     /// Represents the initial task network of the HDDL problem.
     InitialTaskNetwork,
-}
-
-impl Kind {
-    /// Returns the name associated with this `SyntaxNodeKind` if it represents a symbolic node.
-    ///
-    /// Symbolic nodes are those that carry a meaningful identifier such as constants, variables,
-    /// action symbols, function symbols, etc. This method extracts and returns that identifier
-    /// as a `String`.
-    ///
-    /// # Returns
-    /// - `Some(String)` containing the symbol's name, if the node kind represents a symbol.
-    /// - `None` if the node kind does not carry a name.
-    ///
-    /// # Examples
-    /// ```
-    /// let kind = SyntaxNodeKind::Constant("speed".to_string());
-    /// assert_eq!(kind.get_symbol(), Some("speed".to_string()));
-    ///
-    /// let kind = SyntaxNodeKind::And; // assuming it's a logical operator
-    /// assert_eq!(kind.get_symbol(), None);
-    /// ```
-    pub fn get_symbol(&self) -> Option<&str> {
-        match self {
-            // Symbolic node kinds: return their name
-            Kind::Constant(name)
-            | Kind::Variable(name)
-            | Kind::PrimitiveType(name)
-            | Kind::DomainName(name)
-            | Kind::ProblemName(name)
-            | Kind::ActionSymbol(name)
-            | Kind::DASymbol(name)
-            | Kind::PrefName(name)
-            | Kind::FunctionSymbol(name)
-            | Kind::Predicate(name) => Some(name.as_str()),
-
-            // Other kinds of nodes don't have a symbolic name
-            _ => None,
-        }
-    }
 }
 
 impl fmt::Display for Kind {
@@ -299,23 +220,21 @@ impl fmt::Display for Kind {
     /// - Returns a `fmt::Result`, which indicates whether the formatting operation was successful.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Kind::Default => write!(f, "Default"),
-            Kind::Constant(symbol) => write!(f, "Constant(\"{}\")", symbol),
-            Kind::Variable(symbol) => write!(f, "Variable(\"{}\")", symbol),
-            Kind::FunctionSymbol(symbol) => write!(f, "FunctionSymbol(\"{}\")", symbol),
+            Kind::None => write!(f, "None"),
+            Kind::Constant => write!(f, "Constant"),
+            Kind::Variable => write!(f, "Variable"),
+            Kind::FunctionSymbol => write!(f, "FunctionSymbol"),
             Kind::FunctionTerm => write!(f, "FunctionTerm"),
-            Kind::PrimitiveType(symbol) => write!(f, "PrimitiveType(\"{}\")", symbol),
-            Kind::DomainName(symbol) => write!(f, "DomainName(\"{}\")", symbol),
-            Kind::ProblemName(symbol) => write!(f, "ProblemName(\"{}\")", symbol),
-            Kind::Predicate(symbol) => write!(f, "Predicate(\"{}\")", symbol),
-            Kind::ActionSymbol(symbol) => write!(f, "ActionSymbol(\"{}\")", symbol),
-            Kind::DASymbol(symbol) => write!(f, "DASymbol(\"{}\")", symbol),
-            Kind::PrefName(symbol) => write!(f, "PrefName(\"{}\")", symbol),
-            Kind::Number(value) => write!(f, "Number(\"{}\")", value),
+            Kind::PrimitiveType => write!(f, "PrimitiveType"),
+            Kind::DomainName => write!(f, "DomainName"),
+            Kind::ProblemName => write!(f, "ProblemName"),
+            Kind::Predicate => write!(f, "Predicate"),
+            Kind::ActionSymbol => write!(f, "ActionSymbol"),
+            Kind::DASymbol => write!(f, "DASymbol"),
+            Kind::PrefName => write!(f, "PrefName"),
+            Kind::Number => write!(f, "Number"),
             Kind::RequireDef => write!(f, "RequireDef"),
-            Kind::Requirement(requirement) => {
-                write!(f, "Requirement(\"{}\")", requirement)
-            }
+            Kind::Requirement => write!(f, "Requirement"),
             Kind::Type => write!(f, "Type"),
             Kind::TypedList => write!(f, "TypedList"),
             Kind::TypedItem => write!(f, "TypedItem"),
@@ -342,9 +261,9 @@ impl fmt::Display for Kind {
             Kind::Forall => write!(f, "Forall"),
             Kind::Exists => write!(f, "Exists"),
             Kind::When => write!(f, "When"),
-            Kind::FComp(comparator) => write!(f, "FComp(\"{}\")", comparator),
-            Kind::Assign(operator) => write!(f, "Assign(\"{}\")", operator),
-            Kind::Operation(operator) => write!(f, "Op(\"{}\")", operator),
+            Kind::FComp => write!(f, "FComp"),
+            Kind::Assign => write!(f, "Assign"),
+            Kind::Operation => write!(f, "Op"),
             Kind::And => write!(f, "And"),
             Kind::Or => write!(f, "Or"),
             Kind::Imply => write!(f, "Imply"),
@@ -364,161 +283,30 @@ impl fmt::Display for Kind {
             Kind::Init => write!(f, "Init"),
             Kind::TimedInitialLiteral => write!(f, "TimedInitialLiteral"),
             Kind::Goal => write!(f, "Goal"),
-            Kind::Metric(operator) => write!(f, "Metric(\"{}\")", operator),
+            Kind::Metric => write!(f, "Metric"),
             Kind::TotalTime => write!(f, "TotalTime"),
             Kind::IsViolated => write!(f, "IsViolated"),
             Kind::Length => write!(f, "Length"),
-            Kind::Serial(value) => write!(f, "Serial(\"{}\")", value),
-            Kind::Parallel(value) => write!(f, "Parallel(\"{}\")", value),
+            Kind::Serial => write!(f, "Serial"),
+            Kind::Parallel => write!(f, "Parallel"),
             Kind::Error => write!(f, "Error"),
             // Add for HDDL
             Kind::Task => write!(f, "Task"),
             Kind::TaggedTask => write!(f, "TaggedTask"),
             Kind::TaskDef => write!(f, "TaskDef"),
-            Kind::TaskSymbol(symbol) => write!(f, "TaskSymbol(\"{}\")", symbol),
+            Kind::TaskSymbol => write!(f, "TaskSymbol"),
             Kind::MethodDef => write!(f, "MethodDef"),
             Kind::MethodDefBody => write!(f, "MethodDefBody"),
-            Kind::MethodSymbol(symbol) => write!(f, "MethodSymbol(\"{}\")", symbol),
+            Kind::MethodSymbol => write!(f, "MethodSymbol"),
             Kind::MethodPreconditionDef => write!(f, "MethodPreconditionDef"),
             Kind::OrderedSubtaskDef => write!(f, "OrderedSubtaskDef"),
             Kind::PartiallyOrderedSubtaskDef => write!(f, "PartiallyOrderedSubtaskDef"),
-            Kind::TaskID(id) => write!(f, "TaskID(\"{}\")", id),
-            Kind::TaskOrderingConstraintDef => {
-                write!(f, "TaskOrderingConstraintDef")
-            }
-            Kind::TaskOrderingConstraint(comparator) => {
-                write!(f, "TaskOrderingConstraint(\"{}\")", comparator)
-            }
-            Kind::TaskLogicalConstraintDef => {
-                write!(f, "TaskLogicalConstraintDef")
-            }
+            Kind::TaskID => write!(f, "TaskID"),
+            Kind::TaskOrderingConstraintDef => write!(f, "TaskOrderingConstraintDef"),
+            Kind::TaskOrderingConstraint => write!(f, "TaskOrderingConstraint"),
+            Kind::TaskLogicalConstraintDef => write!(f, "TaskLogicalConstraintDef"),
             Kind::TaskNetworkDef => write!(f, "TaskNetworkDef"),
             Kind::InitialTaskNetwork => write!(f, "InitialTaskNetwork"),
         }
     }
-}
-
-impl SyntaxDisplay for Kind {
-    /// Converts the `AstKind` variant to its corresponding PDDL string representation.
-    ///
-    /// This method implements the `PDDLDisplay` trait for the `AstKind` enum and provides
-    /// a way to convert different variants of the enum into valid PDDL syntax. Depending
-    /// on the variant, the method returns a string that matches the expected format in a PDDL
-    /// domain or problem file.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `String` containing the PDDL representation of the current `AstKind` variant.
-    fn to_syntax_string(&self) -> String {
-        match self {
-            Kind::Constant(symbol)
-            | Kind::Variable(symbol)
-            | Kind::FunctionSymbol(symbol)
-            | Kind::PrimitiveType(symbol)
-            | Kind::DomainName(symbol)
-            | Kind::ProblemName(symbol)
-            | Kind::Predicate(symbol)
-            | Kind::ActionSymbol(symbol)
-            | Kind::DASymbol(symbol)
-            | Kind::PrefName(symbol) => symbol.to_string(),
-
-            Kind::Domain => DOMAIN.to_string(),
-            Kind::RequireDef => REQUIREMENTS.to_string(),
-            Kind::TypesDef => TYPES.to_string(),
-            Kind::ConstantsDef => CONSTANTS.to_string(),
-            Kind::PredicatesDef => PREDICATES.to_string(),
-            Kind::FunctionsDef => FUNCTIONS.to_string(),
-            Kind::ActionDef => ACTION.to_string(),
-            Kind::PreconditionDef => PRECONDITION.to_string(),
-            Kind::EffectDef => EFFECT.to_string(),
-            Kind::Or => OR.to_string(),
-            Kind::And => AND.to_string(),
-            Kind::Not => NOT.to_string(),
-            Kind::Forall => FORALL.to_string(),
-            Kind::Exists => EXISTS.to_string(),
-            Kind::Imply => IMPLY.to_string(),
-            Kind::When => WHEN.to_string(),
-
-            Kind::TypedList
-            | Kind::TypedItem
-            | Kind::TypedItemElements
-            | Kind::AtomicFormulaSkeleton
-            | Kind::AtomicFunctionSkeleton
-            | Kind::AtomicFormula
-            | Kind::FunctionTerm => "".to_string(),
-
-            Kind::Requirement(req) => req.to_syntax_string(),
-
-            Kind::FComp(op) => op.to_syntax_string(),
-            Kind::Assign(op) => op.to_syntax_string(),
-            Kind::Operation(op) => op.to_syntax_string(),
-
-            _ => format!("{}", self), // Default fallback
-        }
-    }
-}
-
-/// Serialization implementation for `OrderedFloat<f64>`.
-///
-/// This function implements custom serialization for the `OrderedFloat<f64>` type, which
-/// wraps a `f64` value while preserving the order of floating-point numbers, handling edge cases
-/// like NaN values.
-///
-/// # Parameters
-/// - `x`: A reference to the `OrderedFloat<f64>` value that needs to be serialized.
-/// - `serializer`: The serializer that will be used to convert the `OrderedFloat<f64>` to a
-///   suitable format (e.g., JSON).
-///
-/// # Type Parameters
-/// - `S`: The type of the serializer that implements the `Serializer` trait.
-///
-/// # Return Value
-/// - This function returns the result of calling the `serialize_f64` method on the serializer,
-///   which will serialize the inner `f64` value of the `OrderedFloat`.
-fn serialize_ordered_float<S>(x: &OrderedFloat<f64>, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    serializer.serialize_f64(x.into_inner())
-}
-
-/// Deserialization implementation for `OrderedFloat<f64>`.
-///
-/// This function implements custom deserialization for the `OrderedFloat<f64>` type, which wraps a
-/// `f64` value. It allows deserializing a floating-point number and wrapping it into an
-/// `OrderedFloat<f64>`.
-///
-/// # Parameters
-/// - `deserializer`: The deserializer that will be used to convert the serialized data back into an
-///   `OrderedFloat<f64>`.
-///
-/// # Type Parameters
-/// - `'de`: The lifetime of the deserialization data.
-/// - `D`: The type of the deserializer, which implements the `Deserializer` trait.
-///
-/// # Return Value
-/// - This function returns the result of deserializing the floating-point number into an
-///   `OrderedFloat<f64>` wrapped value.
-fn deserialize_ordered_float<'de, D>(deserializer: D) -> Result<OrderedFloat<f64>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    struct OrderedFloatVisitor;
-
-    impl<'de> Visitor<'de> for OrderedFloatVisitor {
-        type Value = OrderedFloat<f64>;
-
-        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str("a floating point number")
-        }
-
-        fn visit_f64<E>(self, value: f64) -> Result<Self::Value, E>
-        where
-            E: de::Error,
-        {
-            Ok(OrderedFloat(value))
-        }
-    }
-
-    deserializer.deserialize_f64(OrderedFloatVisitor)
 }

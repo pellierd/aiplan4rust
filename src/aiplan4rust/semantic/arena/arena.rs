@@ -10,8 +10,8 @@ use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::{AstKind, AstNode, Span};
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::{AstKindOld, AstNodeOld, Span};
+use crate::aiplan4rust::syntax::ast_old::AstOld;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 
 /// Arena is a data structure that stores AST nodes in a contiguous vector.
@@ -64,7 +64,7 @@ impl Arena {
     /// let root_id = arena.add(root_kind, root_span, None);
     /// let child_id = arena.add(child_kind, child_span, Some(root_id));
     /// ```
-    pub fn add(&mut self, kind: AstKind, span: Span, parent_id: Option<usize>) -> usize {
+    pub fn add(&mut self, kind: AstKindOld, span: Span, parent_id: Option<usize>) -> usize {
         let id = self.nodes.len();
         let node = Node::new(kind, span, parent_id);
         self.nodes.push(node);
@@ -160,21 +160,21 @@ impl Arena {
         ast: &'a ArenaAstNode,
     ) -> Result<(&'a str, SymbolKind), ParserInternalError> {
         match ast.kind() {
-            AstKind::DomainName(name) => Ok((name, SymbolKind::DomainName)),
-            AstKind::PrimitiveType(name) => Ok((name, SymbolKind::PrimitiveType)),
-            AstKind::ProblemName(name) => Ok((name, SymbolKind::ProblemName)),
-            AstKind::Requirement(requirement) => Ok((requirement.as_str(), SymbolKind::Requirement)),
-            AstKind::Constant(name) => Ok((name, SymbolKind::Constant)),
-            AstKind::Variable(name) => Ok((name, SymbolKind::Variable)),
-            AstKind::FunctionSymbol(name) => Ok((name, SymbolKind::Function)),
-            AstKind::Predicate(name) => Ok((name, SymbolKind::Predicate)),
-            AstKind::ActionSymbol(name) => Ok((name, SymbolKind::Action)),
-            AstKind::DASymbol(name) => Ok((name, SymbolKind::DASymbol)),
-            AstKind::MethodSymbol(name) => Ok((name, SymbolKind::Method)),
-            AstKind::TaskSymbol(name) => Ok((name, SymbolKind::Task)),
-            AstKind::TaskID(name) => Ok((name, SymbolKind::TaskID)),
+            AstKindOld::DomainName(name) => Ok((name, SymbolKind::DomainName)),
+            AstKindOld::PrimitiveType(name) => Ok((name, SymbolKind::PrimitiveType)),
+            AstKindOld::ProblemName(name) => Ok((name, SymbolKind::ProblemName)),
+            AstKindOld::Requirement(requirement) => Ok((requirement.as_str(), SymbolKind::Requirement)),
+            AstKindOld::Constant(name) => Ok((name, SymbolKind::Constant)),
+            AstKindOld::Variable(name) => Ok((name, SymbolKind::Variable)),
+            AstKindOld::FunctionSymbol(name) => Ok((name, SymbolKind::Function)),
+            AstKindOld::Predicate(name) => Ok((name, SymbolKind::Predicate)),
+            AstKindOld::ActionSymbol(name) => Ok((name, SymbolKind::Action)),
+            AstKindOld::DASymbol(name) => Ok((name, SymbolKind::DASymbol)),
+            AstKindOld::MethodSymbol(name) => Ok((name, SymbolKind::Method)),
+            AstKindOld::TaskSymbol(name) => Ok((name, SymbolKind::Task)),
+            AstKindOld::TaskID(name) => Ok((name, SymbolKind::TaskID)),
 
-            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task => {
+            AstKindOld::AtomicFormula | AstKindOld::FunctionTerm | AstKindOld::Task => {
                 let children = ast.children();
                 if children.is_empty() {
                     return Err(ParserInternalError::new(format!(
@@ -184,10 +184,10 @@ impl Arena {
                 }
                 let first_child = self.get_node(children[0]).unwrap();
                 match first_child.kind() {
-                    AstKind::Predicate(s) => Ok((s, SymbolKind::Predicate)),
-                    AstKind::FunctionSymbol(s) => Ok((s, SymbolKind::Function)),
-                    AstKind::TaskSymbol(s) => Ok((s, SymbolKind::Task)),
-                    AstKind::TotalTime => Ok((TOTAL_TIME, SymbolKind::Function)),
+                    AstKindOld::Predicate(s) => Ok((s, SymbolKind::Predicate)),
+                    AstKindOld::FunctionSymbol(s) => Ok((s, SymbolKind::Function)),
+                    AstKindOld::TaskSymbol(s) => Ok((s, SymbolKind::Task)),
+                    AstKindOld::TotalTime => Ok((TOTAL_TIME, SymbolKind::Function)),
                     _ => Err(ParserInternalError::new(format!(
                         "First child of {} must be a Predicate or FunctionSymbol, found: {:?}",
                         ast.kind(),
@@ -236,7 +236,7 @@ impl Arena {
     ///
     /// # Parameters
     ///
-    /// - `ast`: The AST from which to build the arena.
+    /// - `ast_old`: The AST from which to build the arena.
     ///
     /// # Returns
     ///
@@ -245,9 +245,9 @@ impl Arena {
     /// # Examples
     ///
     /// ```
-    /// let arena = Arena::from_ast(&ast);
+    /// let arena = Arena::from_ast(&ast_old);
     /// ```
-    pub fn from_ast(ast: &Ast) -> Self {
+    pub fn from_ast(ast: &AstOld) -> Self {
         let mut arena = Arena::new();
         let root = ast.root();
         Self::add_iterative(&mut arena, root, None);
@@ -268,11 +268,11 @@ impl Arena {
     /// # Returns
     ///
     /// Returns the index of the root node added to the arena.
-    fn add_iterative(arena: &mut Arena, root: &AstNode, parent_id: Option<usize>) -> usize {
+    fn add_iterative(arena: &mut Arena, root: &AstNodeOld, parent_id: Option<usize>) -> usize {
         use std::collections::HashMap;
 
         let mut stack = vec![(root, parent_id)];
-        let mut node_ids = HashMap::<*const AstNode, usize>::new();
+        let mut node_ids = HashMap::<*const AstNodeOld, usize>::new();
 
         while let Some((node, parent)) = stack.pop() {
             let node_id = arena.add(node.kind().clone(), node.span().clone(), parent);

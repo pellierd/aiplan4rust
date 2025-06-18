@@ -7,12 +7,12 @@
 //!
 //! - [`AstNode`]: Represents a node in the syntax tree.
 //! - [`AstKind`]: Enumerates the kinds of syntax nodes.
-//! - [`Ast`]: The full AST structure encapsulating the parsed tree.
+//! - [`AstOld`]: The full AST structure encapsulating the parsed tree.
 //!
 //! # Modules
 //!
 //! - `node`: Defines the AST node structure and its methods.
-//! - `ast`: Provides the main AST type and related functionality.
+//! - `ast_old`: Provides the main AST type and related functionality.
 //! - `kind`: Contains the enumeration of AST node kinds.
 //! - `iterators`: Internal module for AST traversal iterators (not publicly exposed).
 //!
@@ -21,7 +21,7 @@
 //! For convenience, the following are re-exported publicly:
 //! - `AstNode` (`node::Node`)
 //! - `AstKind` (`kind::Kind`)
-//! - `Ast` (`ast::Ast`)
+//! - `Ast` (`ast_old::Ast`)
 //!
 //! # Example
 //!
@@ -34,11 +34,10 @@
 pub mod node;
 pub mod ast;
 
-pub mod content;
 pub mod kind;
 mod iterators;
+pub mod serialize;
 
-pub use kind::Kind as IntAstKind;
-pub use node::Node as IntAstNode;
-pub use content::Content as AstContent;
-pub use ast::Ast as IntAst;
+pub use kind::AstKindOld;
+pub use node::AstNodeOld;
+pub use ast::AstOld;

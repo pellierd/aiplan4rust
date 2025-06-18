@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 
 use std::collections::HashMap;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
@@ -18,7 +18,7 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// # Parameters
 ///
-/// - `ast`: A reference to the `AnnotatedSyntaxTree` containing the AST and symbol table.
+/// - `ast_old`: A reference to the `AnnotatedSyntaxTree` containing the AST and symbol table.
 ///   The function traverses this tree to locate task ordering constraints
 ///   (`TaskOrderingConstraintDef`).
 /// - `source`: The `DiagnosticSource` identifying the context or phase where this check is
@@ -47,7 +47,7 @@ use crate::aiplan4rust::syntax::Span;
 /// # Example
 ///
 /// ```rust
-/// let result = check_task_ordering(&ast, DiagnosticSource::SemanticAnalyzer, &mut diagnostic_manager);
+/// let result = check_task_ordering(&ast_old, DiagnosticSource::SemanticAnalyzer, &mut diagnostic_manager);
 /// match result {
 ///     Ok(true) => println!("No cyclic dependencies detected."),
 ///     Ok(false) => println!("Cyclic dependencies detected."),
@@ -69,7 +69,7 @@ pub fn check_task_ordering(
 
     for node in context.ast().preorder() {
         match node.kind() {
-            AstKind::TaskOrderingConstraintDef => {
+            AstKindOld::TaskOrderingConstraintDef => {
                 let task_ids = extract_task_ids(node, context.ast())?;
                 let mut matrix = build_task_order_matrix(&task_ids)?;
                 transitive_closure(&mut matrix);
@@ -195,7 +195,7 @@ fn extract_task_ids<'a>(
             }
         };
         match child_node.kind() {
-            AstKind::TaskID(id) => {
+            AstKindOld::TaskID(id) => {
                 vec_task_id.push(id);
             }
             _ => {

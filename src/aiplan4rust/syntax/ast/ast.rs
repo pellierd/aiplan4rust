@@ -1,9 +1,9 @@
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
-
 use std::io::Write;
 use std::fmt;
-use serde::{Deserialize, Serialize};
+
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast::iterators::{PostorderIter, PreorderIter};
+use crate::aiplan4rust::syntax::StringInterner;
 
 /// A structure representing an abstract syntax tree (AST) and its metadata.
 ///
@@ -32,11 +32,12 @@ use serde::{Deserialize, Serialize};
 /// let source = ast.source_name();
 /// let timestamp = ast.generated_at();
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ast {
     /// The Abstract Syntax Tree (AST) representing the structure of the program.
     root: Box<AstNode>,
 
+    context: StringInterner,
     /// The optional filename from which the syntax tree was generated.
     source_name: String,
 
@@ -68,11 +69,13 @@ impl Ast {
     /// ```
     pub fn new(
         root: Box<AstNode>,
+        context: StringInterner,
         source_name: String,
         generated_at: std::time::SystemTime,
     ) -> Self {
         Ast {
             root,
+            context,
             source_name,
             generated_at,
         }
@@ -160,44 +163,21 @@ impl Ast {
         PostorderIter::new(self.root())
     }
 
-    /// Assign unique consecutive IDs to all nodes in the AST starting from `start_id`.
-    ///
-    /// This method delegates to the root node's `assign_unique_ids` method.
-    ///
-    /// # Arguments
-    ///
-    /// * `start_id` - The initial ID to assign to the root node.
-    pub fn assign_unique_ids(&mut self, start_id: usize) {
-        self.root.assign_unique_ids(start_id);
-    }
-
-    /// Checks whether all node IDs in the AST are unique.
-    ///
-    /// This method delegates to the root node's `check_ids_unique` method.
-    ///
-    /// # Returns
-    ///
-    /// `true` if all node IDs are unique, `false` otherwise.
-    pub fn check_ids_unique(&self) -> bool {
-        self.root.check_ids_unique()
-    }
-
 }
 
-/// Implements the `fmt::Display` trait for `Ast`.
-///
-/// This implementation provides a human-readable string representation of the `Ast`
-/// structure. It includes details such as the source name, generation timestamp,
-/// and the root node of the abstract syntax tree.
-///
-/// This is useful for debugging or logging, as it allows instances of `Ast`
-/// to be printed using macros like `println!`.
 impl fmt::Display for Ast {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Abstract Syntax Tree:")?;
-        writeln!(f, " - Source: {}", self.source_name())?;
+        writeln!(f, " - Source: {}", self.source_name)?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
-        writeln!(f, " - Nodes:\n{}", self.root())?;
+        writeln!(f, " - Nodes:")?;
+
+        for (node, depth) in self.preorder() {
+            let indent = "  ".repeat(depth);
+            let content_str = node.content().display_with_context(&self.context);
+            writeln!(f, "{}- Kind: {:?}, Content: {}", indent, node.kind(), content_str)?;
+        }
+
         Ok(())
     }
 }

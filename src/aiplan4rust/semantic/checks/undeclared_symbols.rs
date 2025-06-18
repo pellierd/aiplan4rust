@@ -29,7 +29,7 @@ use crate::aiplan4rust::semantic::SemanticContext;
 /// symbols like domain or problem names) are ignored.
 ///
 /// # Parameters
-/// - `ast`: Reference to the `AnnotatedSyntaxTree` containing symbols and AST.
+/// - `ast_old`: Reference to the `AnnotatedSyntaxTree` containing symbols and AST.
 /// - `skip_symbols`: Slice of `SymbolKind` to be ignored during undeclared symbol checking.
 /// - `source`: The `DiagnosticSource` indicating the analysis phase performing the check.
 /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where diagnostics are stored.

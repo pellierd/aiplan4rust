@@ -12,13 +12,14 @@ use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
 use crate::aiplan4rust::syntax::{Language, StringInterner};
 use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
 
 use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
 
 use std::mem;
 use std::time::SystemTime;
-use crate::aiplan4rust::syntax::int_ast::{IntAst, IntAstNode};
+
 
 const AVG_LINE_LENGTH: usize = 80;
 
@@ -164,7 +165,7 @@ impl<'a> Parser<'a> {
                     } else {
                         self.init_ast_span(&mut root);
                         let ast =
-                            IntAst::new(root, context, source_name.to_string(), SystemTime::now());
+                            Ast::new(root, context, source_name.to_string(), SystemTime::now());
                         Ok(ParserResult::new(
                             Some(ast),
                             mem::take(&mut self.diagnostic_manager),
@@ -205,8 +206,8 @@ impl<'a> Parser<'a> {
     /// Recursively sets the start and end positions (line, column) for each AST node.
     ///
     /// # Arguments
-    /// - `ast`: A mutable reference to an AST node.
-    fn init_ast_span(&self, ast: &mut IntAstNode) {
+    /// - `ast_old`: A mutable reference to an AST node.
+    fn init_ast_span(&self, ast: &mut AstNode) {
         // Compute and set the start position of the current AST node
         let (line, column) = self.fast_line_table.get_position(ast.start_offset());
         ast.set_start_position(line, column);

@@ -1,7 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ast_old::AstNodeOld;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
+use crate::aiplan4rust::syntax::ast_old::AstOld;
 
 /// Recursively normalizes all `TypedList` nodes in the given AST subtree.
 ///
@@ -34,7 +34,7 @@ use crate::aiplan4rust::syntax::ast::Ast;
 ///
 /// # Parameters
 ///
-/// - `ast`: Mutable reference to the full AST to normalize.
+/// - `ast_old`: Mutable reference to the full AST to normalize.
 ///
 /// # Returns
 ///
@@ -44,8 +44,8 @@ use crate::aiplan4rust::syntax::ast::Ast;
 /// # Examples
 ///
 /// ```rust,no_run
-/// let mut ast = parse_source_code(source_code)?;
-/// normalize_typed_list(&mut ast)?;
+/// let mut ast_old = parse_source_code(source_code)?;
+/// normalize_typed_list(&mut ast_old)?;
 /// ```
 ///
 /// # Notes
@@ -53,7 +53,7 @@ use crate::aiplan4rust::syntax::ast::Ast;
 /// This function uses an explicit stack to avoid deep recursion and potential stack overflow
 /// with very large ASTs. It is typically the first normalization step before deeper
 /// semantic transformations or type inference.
-pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), ParserInternalError> {
+pub fn normalize_typed_list(ast: &mut AstOld) -> Result<(), ParserInternalError> {
     normalize_typed_list_node(ast.root_mut())
 }
 
@@ -82,17 +82,17 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), ParserInternalError> {
 /// # Example
 ///
 /// ```ignore
-/// let mut ast = parse(...);
-/// normalize_typed_list_node(&mut ast)?;
+/// let mut ast_old = parse(...);
+/// normalize_typed_list_node(&mut ast_old)?;
 /// ```
-fn normalize_typed_list_node(root: &mut AstNode) -> Result<(), ParserInternalError> {
+fn normalize_typed_list_node(root: &mut AstNodeOld) -> Result<(), ParserInternalError> {
     // Use an explicit stack for non-recursive DFS traversal
     let mut stack = vec![root];
 
     // Continue until all nodes have been processed
     while let Some(node) = stack.pop() {
         // Check if the current node is a TypedList node to normalize
-        if node.kind() == &AstKind::TypedList {
+        if node.kind() == &AstKindOld::TypedList {
             // Take ownership of current children (TypedItem nodes)
             let old_typed_items = std::mem::take(node.children_mut());
             // Prepare a vector to hold the normalized TypedItem nodes
@@ -118,8 +118,8 @@ fn normalize_typed_list_node(root: &mut AstNode) -> Result<(), ParserInternalErr
                     }
 
                     // Create a new TypedItem node with the original span
-                    let new_typed_item = Box::new(AstNode::new_with_span(
-                        AstKind::TypedItem,
+                    let new_typed_item = Box::new(AstNodeOld::new_with_span(
+                        AstKindOld::TypedItem,
                         new_children,
                         typed_item.span().clone(),
                     ));

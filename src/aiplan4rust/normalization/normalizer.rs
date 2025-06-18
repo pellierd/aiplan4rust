@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ast_old::AstOld;
 
 /// The `Normalizer` is responsible for transforming an AST into a standardized form.
 ///
@@ -29,21 +29,21 @@ impl Normalizer {
     /// Normalizes the given AST by applying standard normalization passes.
     ///
     /// # Arguments
-    /// - `ast`: The [`Ast`] to be normalized. Ownership is taken and the AST may be mutated.
+    /// - `ast_old`: The [`AstOld`] to be normalized. Ownership is taken and the AST may be mutated.
     ///
     /// # Returns
     /// - `Ok(NormalizerResult)`: Contains the normalized AST and collected diagnostics if successful.
     /// - `Err(ParserInternalError)`: If any internal error occurs during normalization passes.
     ///
     /// This method accumulates diagnostics internally within the normalizer.
-    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, ParserInternalError> {
+    pub fn normalize(&mut self, ast: AstOld) -> Result<NormalizerResult, ParserInternalError> {
         self.perform_normalization(ast)
     }
 
     /// Normalizes the given AST with an externally provided diagnostic manager.
     ///
     /// # Arguments
-    /// - `ast`: The [`Ast`] to normalize. Ownership is taken and the AST may be mutated.
+    /// - `ast_old`: The [`AstOld`] to normalize. Ownership is taken and the AST may be mutated.
     /// - `diagnostic_manager`: An externally created [`DiagnosticManager`] used to collect
     ///   diagnostics during normalization.
     ///
@@ -56,7 +56,7 @@ impl Normalizer {
     /// allowing diagnostics to be accumulated externally.
     pub fn normalize_with_diagnostic_manager(
         &mut self,
-        ast: Ast,
+        ast: AstOld,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<NormalizerResult, ParserInternalError> {
         self.diagnostic_manager = diagnostic_manager;
@@ -66,7 +66,7 @@ impl Normalizer {
     /// Internal helper method performing the actual normalization passes.
     ///
     /// # Arguments
-    /// - `ast`: The AST to normalize. This method takes ownership and mutates it.
+    /// - `ast_old`: The AST to normalize. This method takes ownership and mutates it.
     ///
     /// # Returns
     /// - `Ok(NormalizerResult)`: Contains the normalized AST and collected diagnostics.
@@ -75,7 +75,7 @@ impl Normalizer {
     /// This method applies several normalization passes and assigns unique IDs to AST nodes.
     fn perform_normalization(
         &mut self,
-        mut ast: Ast,
+        mut ast: AstOld,
     ) -> Result<NormalizerResult, ParserInternalError> {
         passes::normalize_typed_list(&mut ast)?;
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;

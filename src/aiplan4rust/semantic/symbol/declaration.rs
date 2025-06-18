@@ -15,7 +15,7 @@ use std::fmt;
 ///
 /// # Fields
 ///
-/// * `ast` - The AST node index of the declaration.
+/// * `ast_old` - The AST node index of the declaration.
 /// * `kind` - The type or kind of the symbol declared (e.g., variable, function).
 /// * `scope` - The scope in which the declaration is valid.
 /// * `source` - The source from which the declaration originates (e.g., file or module).
@@ -27,7 +27,7 @@ use std::fmt;
 ///
 /// ```rust
 /// let declaration = Declaration {
-///     ast: 1,
+///     ast_old: 1,
 ///     kind: SymbolKind::Variable,
 ///     scope: Scope::Global,
 ///     source: Source::File("main.rs".into()),
@@ -334,7 +334,7 @@ impl Declaration {
 
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Display the main elements: ast, kind, scope, and source
+        // Display the main elements: ast_old, kind, scope, and source
         write!(f, "[index: {}, kind: {}", self.ast(), self.kind())?;
 
         // Add scope and source at the end

@@ -1,6 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::syntax::{AstKind, Span};
+use crate::aiplan4rust::syntax::{AstKindOld, Span};
 
 /// Represents a node in an Abstract Syntax Tree (AST) arena.
 ///
@@ -38,7 +38,7 @@ use crate::aiplan4rust::syntax::{AstKind, Span};
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Node {
-    kind: AstKind,
+    kind: AstKindOld,
     children: Vec<usize>,
     span: Span,
     parent: Option<usize>,
@@ -58,7 +58,7 @@ impl Node {
     /// # Returns
     ///
     /// A newly created `Node`.
-    pub fn new(kind: AstKind, span: Span, parent: Option<usize>) -> Self {
+    pub fn new(kind: AstKindOld, span: Span, parent: Option<usize>) -> Self {
         Node {
             kind,
             children: Vec::new(),
@@ -68,7 +68,7 @@ impl Node {
     }
 
     /// Returns a reference to the kind of this node.
-    pub fn kind(&self) -> &AstKind {
+    pub fn kind(&self) -> &AstKindOld {
         &self.kind
     }
 
@@ -99,7 +99,7 @@ impl Node {
     /// # Arguments
     ///
     /// * `kind` - The new kind to assign to the node.
-    pub fn set_kind(&mut self, kind: AstKind) {
+    pub fn set_kind(&mut self, kind: AstKindOld) {
         self.kind = kind;
     }
 

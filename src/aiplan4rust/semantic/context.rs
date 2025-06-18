@@ -6,8 +6,8 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
 use crate::aiplan4rust::semantic::{SymbolTable, SymbolTableBuilder};
 use crate::aiplan4rust::semantic::arena::arena::Arena;
-use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::AstKind;
+use crate::aiplan4rust::syntax::ast_old::AstOld;
+use crate::aiplan4rust::syntax::AstKindOld;
 use crate::aiplan4rust::syntax::elements::Requirement;
 
 /// Represents the semantic context resulting from the semantic analysis phase.
@@ -40,7 +40,7 @@ impl Context {
     /// Constructs a new `SemanticContext` from its components.
     ///
     /// # Arguments
-    /// * `ast` - The arena-based abstract syntax tree.
+    /// * `ast_old` - The arena-based abstract syntax tree.
     /// * `source_name` - The name of the input source file.
     /// * `requirements` - A set of extracted semantic requirements.
     /// * `symbol_table` - The resulting symbol table from analysis.
@@ -65,11 +65,11 @@ impl Context {
     /// Creates a new `AnnotatedSyntaxTree` from a `SyntaxTree`.
     ///
     /// # Arguments
-    /// * `ast` - The original syntax tree to be annotated.
+    /// * `ast_old` - The original syntax tree to be annotated.
     ///
     /// # Returns
-    /// * A new `AnnotatedSyntaxTree` created from the provided `ast`.
-    pub fn from(ast: &Ast) -> Result<Self, ParserInternalError> {
+    /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
+    pub fn from(ast: &AstOld) -> Result<Self, ParserInternalError> {
         let arena = Arena::from_ast(ast);
 
         // Extract the requirements from the syntax tree
@@ -108,7 +108,7 @@ impl Context {
 
         for node in arena.preorder() {
             match &node.kind() {
-                AstKind::Requirement(req) => {
+                AstKindOld::Requirement(req) => {
                     requirements.extend(req.imply());
 
                     // If we were not already processing a requirement,
@@ -125,7 +125,7 @@ impl Context {
                     // While processing the first requirement's children,
                     // also include implied requirements from those children
                     if processing_requirement_children {
-                        if let AstKind::Requirement(child_req) = &node.kind() {
+                        if let AstKindOld::Requirement(child_req) = &node.kind() {
                             requirements.extend(child_req.imply());
                         }
                     }

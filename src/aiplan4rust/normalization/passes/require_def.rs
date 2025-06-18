@@ -5,9 +5,9 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast_old::AstOld;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
+use crate::aiplan4rust::syntax::ast_old::AstNodeOld;
 use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::Span;
 
@@ -28,7 +28,7 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// # Arguments
 ///
-/// * `ast` - A mutable reference to the AST that may contain a `RequireDef`.
+/// * `ast_old` - A mutable reference to the AST that may contain a `RequireDef`.
 /// * `diagnostic_manager` - A manager used to report warnings when duplicate requirements are found.
 ///
 /// # Returns
@@ -52,16 +52,16 @@ use crate::aiplan4rust::syntax::Span;
 /// # Example
 ///
 /// ```rust
-/// let mut ast = parse_source_code(source)?;
+/// let mut ast_old = parse_source_code(source)?;
 /// let mut diagnostics = DiagnosticManager::new();
-/// let changed = normalize_require_def(&mut ast, &mut diagnostics)?;
+/// let changed = normalize_require_def(&mut ast_old, &mut diagnostics)?;
 /// if changed {
 ///     println!("Duplicate requirements were removed.");
 /// }
 /// ```
 
 pub fn normalize_require_def(
-    ast: &mut Ast,
+    ast: &mut AstOld,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Get the filename or default to "unknown"
@@ -83,7 +83,7 @@ pub fn normalize_require_def(
 
     // Retain only unique Requirement nodes, remove duplicates and report warnings
     require_def.children_mut().retain(|child| {
-        if let AstKind::Requirement(requirement) = child.kind() {
+        if let AstKindOld::Requirement(requirement) = child.kind() {
             // Check if this requirement is a duplicate
             if seen.insert(requirement.clone()) {
                 true // Keep this unique PrimitiveType child
@@ -116,7 +116,7 @@ pub fn normalize_require_def(
 ///
 /// # Arguments
 ///
-/// * `ast` - A mutable reference to the AST to search.
+/// * `ast_old` - A mutable reference to the AST to search.
 ///
 /// # Returns
 ///
@@ -128,20 +128,20 @@ pub fn normalize_require_def(
 ///
 /// Returns a `ParserInternalError` if an invalid child node is found within the `RequireDef`.
 fn find_require_def(
-    ast: &mut Ast,
-) -> Result<Option<&mut AstNode>, ParserInternalError> {
+    ast: &mut AstOld,
+) -> Result<Option<&mut AstNodeOld>, ParserInternalError> {
     // Search for the first RequireDef node among the root's children
     let require_def_node = ast
         .root_mut()
         .children_mut()
         .iter_mut()
-        .find(|node| matches!(node.kind(), AstKind::RequireDef));
+        .find(|node| matches!(node.kind(), AstKindOld::RequireDef));
 
     // If a RequireDef node is found, validate its children
     if let Some(require_def_node) = require_def_node {
         // Validate that all children are Requirement nodes
         for child in require_def_node.children() {
-            if !matches!(child.kind(), AstKind::Requirement(_)) {
+            if !matches!(child.kind(), AstKindOld::Requirement(_)) {
                 return Err(ParserInternalError::new(format!(
                     "Invalid child node in RequireDef: expected Requirement, found {:?}",
                     child.kind()

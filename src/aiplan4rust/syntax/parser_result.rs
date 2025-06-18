@@ -1,6 +1,7 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::syntax::ast::Ast;
+
 use std::fmt;
-use crate::aiplan4rust::syntax::int_ast::IntAst;
 
 /// Represents the outcome of a parsing operation in the PDDL syntax.
 ///
@@ -22,7 +23,7 @@ use crate::aiplan4rust::syntax::int_ast::IntAst;
 /// ```
 #[derive(Debug, Clone)]
 pub struct ParserResult {
-    ast: Option<IntAst>,
+    ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -31,9 +32,9 @@ impl ParserResult {
     ///
     /// # Arguments
     ///
-    /// * `ast` - The resulting AST from parsing, or `None` if parsing failed completely.
+    /// * `ast_old` - The resulting AST from parsing, or `None` if parsing failed completely.
     /// * `diagnostic_manager` - Container for all diagnostics produced during parsing.
-    pub fn new(ast: Option<IntAst>, diagnostic_manager: DiagnosticManager) -> Self {
+    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
         ParserResult {
             ast,
             diagnostic_manager,
@@ -46,14 +47,14 @@ impl ParserResult {
     ///
     /// * `Some(&Ast)` if parsing succeeded.
     /// * `None` if parsing failed.
-    pub fn ast(&self) -> Option<&IntAst> {
+    pub fn ast(&self) -> Option<&Ast> {
         self.ast.as_ref()
     }
 
     /// Returns a mutable reference to the parsed AST if available.
     ///
     /// Allows modifying the AST after parsing.
-    pub fn ast_mut(&mut self) -> Option<&mut IntAst> {
+    pub fn ast_mut(&mut self) -> Option<&mut Ast> {
         self.ast.as_mut()
     }
 
@@ -72,7 +73,7 @@ impl ParserResult {
     }
 
     /// Takes ownership of the AST, leaving `None` in its place.
-    pub fn take_ast(&mut self) -> Option<IntAst> {
+    pub fn take_ast(&mut self) -> Option<Ast> {
         self.ast.take()
     }
 

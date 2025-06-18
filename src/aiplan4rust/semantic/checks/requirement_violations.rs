@@ -7,7 +7,7 @@ use crate::aiplan4rust::syntax::elements::Requirement::{
 };
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use std::collections::HashSet;
 use crate::aiplan4rust::semantic::arena::ArenaAstNode;
 use crate::aiplan4rust::semantic::SemanticContext;
@@ -22,7 +22,7 @@ pub fn check_requirement_violations(
 
     for (index, node) in context.ast().preorder_with_index() {
         match node.kind() {
-            AstKind::PrimitiveType(_) | AstKind::TypesDef => {
+            AstKindOld::PrimitiveType(_) | AstKindOld::TypesDef => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -33,7 +33,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::FunctionsDef | AstKind::FunctionTerm => {
+            AstKindOld::FunctionsDef | AstKindOld::FunctionTerm => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -44,7 +44,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::Number(_) => {
+            AstKindOld::Number(_) => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -55,7 +55,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::DurativeActionDef => {
+            AstKindOld::DurativeActionDef => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -66,7 +66,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::DerivedDef => {
+            AstKindOld::DerivedDef => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -77,11 +77,11 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::Or => {
+            AstKindOld::Or => {
                 let parent = context.ast().get_parent(index).unwrap();
-                if *parent.kind() != AstKind::MethodPreconditionDef
-                    && *parent.kind() != AstKind::PreconditionDef
-                    && *parent.kind() != AstKind::EffectDef
+                if *parent.kind() != AstKindOld::MethodPreconditionDef
+                    && *parent.kind() != AstKindOld::PreconditionDef
+                    && *parent.kind() != AstKindOld::EffectDef
                 {
                     checked &= report_requirement_violation(
                         node,
@@ -94,7 +94,7 @@ pub fn check_requirement_violations(
                 }
             }
 
-            AstKind::Not => {
+            AstKindOld::Not => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -105,7 +105,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::Imply => {
+            AstKindOld::Imply => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -116,7 +116,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::Forall => {
+            AstKindOld::Forall => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -127,7 +127,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::Exists => {
+            AstKindOld::Exists => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -138,7 +138,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::Preference => {
+            AstKindOld::Preference => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -149,7 +149,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::When => {
+            AstKindOld::When => {
                 checked &= report_requirement_violation(
                     node,
                     requirements,
@@ -160,7 +160,7 @@ pub fn check_requirement_violations(
                 );
             }
 
-            AstKind::FComp(op) => {
+            AstKindOld::FComp(op) => {
                 match op {
                     BinaryComp::Equal => {
                         checked &= report_requirement_violation(

@@ -34,9 +34,9 @@
 //! ```rust,ignore
 //! use normalizer::{Normalizer, NormalizerResult};
 //!
-//! let mut ast = ...
+//! let mut ast_old = ...
 //! let mut normalizer = Normalizer::new();
-//! let result: NormalizerResult = normalizer.normalize(ast)?;
+//! let result: NormalizerResult = normalizer.normalize(ast_old)?;
 //!
 //! if result.changed() {
 //!     println!("✅ AST was normalized and updated.");

@@ -21,7 +21,7 @@
 //! This design makes serialization ergonomic and deserialization efficient.
 
 use serde::{Serialize, Deserialize};
-use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
+use crate::aiplan4rust::syntax::ast_old::{AstOld, AstNodeOld, AstKindOld};
 use crate::aiplan4rust::syntax::Span;
 
 /// A flat, serializable representation of a single AST node (`AstNode`).
@@ -36,7 +36,7 @@ pub struct SerializableNode {
     pub id: usize,
 
     /// The kind of AST node (e.g., identifier, literal, expression, etc.).
-    pub kind: AstKind,
+    pub kind: AstKindOld,
 
     /// Span information (e.g., source position) for the node.
     pub span: Span,
@@ -67,8 +67,8 @@ pub struct SerializableAst {
 ///
 /// This implementation clones all AST contents. This allows you to serialize
 /// an AST without consuming it.
-impl From<&Ast> for SerializableAst {
-    fn from(ast: &Ast) -> Self {
+impl From<&AstOld> for SerializableAst {
+    fn from(ast: &AstOld) -> Self {
         SerializableAst {
             root: SerializableNode::from(ast.root().as_ref()),
             source_name: ast.source_name().clone(),
@@ -84,8 +84,8 @@ impl From<&Ast> for SerializableAst {
 /// Creates a `SerializableNode` from an `&AstNode`.
 ///
 /// This clones the node's contents recursively (kind, span, children).
-impl From<&AstNode> for SerializableNode {
-    fn from(node: &AstNode) -> Self {
+impl From<&AstNodeOld> for SerializableNode {
+    fn from(node: &AstNodeOld) -> Self {
         SerializableNode {
             id: *node.id(),
             kind: node.kind().clone(),
@@ -106,8 +106,8 @@ impl SerializableAst {
     ///
     /// This is the inverse of the `From<&Ast>` conversion. It does not clone
     /// or share memory with any other structure.
-    pub fn into_ast(self) -> Ast {
-        Ast::new(
+    pub fn into_ast(self) -> AstOld {
+        AstOld::new(
             Box::new(self.root.into_ast_node()),
             self.source_name,
             std::time::UNIX_EPOCH + std::time::Duration::from_secs(self.generated_at),
@@ -120,13 +120,13 @@ impl SerializableNode {
     ///
     /// This is the inverse of the `From<&AstNode>` conversion.
     /// It recursively reconstructs the AST hierarchy.
-    pub fn into_ast_node(self) -> AstNode {
+    pub fn into_ast_node(self) -> AstNodeOld {
         let children = self.children
             .into_iter()
             .map(|child| Box::new(child.into_ast_node()))
             .collect();
 
-        let mut node = AstNode::new_with_span(self.kind, children, self.span);
+        let mut node = AstNodeOld::new_with_span(self.kind, children, self.span);
         node.set_id(self.id);
         node
     }

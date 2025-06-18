@@ -1,9 +1,9 @@
+use crate::aiplan4rust::syntax::ast_old::AstNodeOld;
+use crate::aiplan4rust::syntax::ast_old::iterators::{PostorderIter, PreorderIter};
+
 use std::io::Write;
 use std::fmt;
-
-use crate::aiplan4rust::syntax::int_ast::IntAstNode;
-use crate::aiplan4rust::syntax::int_ast::iterators::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::syntax::StringInterner;
+use serde::{Deserialize, Serialize};
 
 /// A structure representing an abstract syntax tree (AST) and its metadata.
 ///
@@ -32,12 +32,11 @@ use crate::aiplan4rust::syntax::StringInterner;
 /// let source = ast.source_name();
 /// let timestamp = ast.generated_at();
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ast {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct AstOld {
     /// The Abstract Syntax Tree (AST) representing the structure of the program.
-    root: Box<IntAstNode>,
+    root: Box<AstNodeOld>,
 
-    context: StringInterner,
     /// The optional filename from which the syntax tree was generated.
     source_name: String,
 
@@ -45,7 +44,7 @@ pub struct Ast {
     generated_at: std::time::SystemTime,
 }
 
-impl Ast {
+impl AstOld {
     /// Creates a new `Ast` instance.
     ///
     /// # Parameters
@@ -68,14 +67,12 @@ impl Ast {
     /// let ast = Ast::new(root, source_name, generated_at);
     /// ```
     pub fn new(
-        root: Box<IntAstNode>,
-        context: StringInterner,
+        root: Box<AstNodeOld>,
         source_name: String,
         generated_at: std::time::SystemTime,
     ) -> Self {
-        Ast {
+        AstOld {
             root,
-            context,
             source_name,
             generated_at,
         }
@@ -86,7 +83,7 @@ impl Ast {
     /// # Returns
     ///
     /// A reference to the boxed `Ast` object.
-    pub fn root(&self) -> &Box<IntAstNode> {
+    pub fn root(&self) -> &Box<AstNodeOld> {
         &self.root
     }
 
@@ -95,7 +92,7 @@ impl Ast {
     /// # Returns
     ///
     /// A reference to the boxed `Ast` object.
-    pub fn root_mut(&mut self) -> &mut Box<IntAstNode> {
+    pub fn root_mut(&mut self) -> &mut Box<AstNodeOld> {
         &mut self.root
     }
 
@@ -163,21 +160,44 @@ impl Ast {
         PostorderIter::new(self.root())
     }
 
+    /// Assign unique consecutive IDs to all nodes in the AST starting from `start_id`.
+    ///
+    /// This method delegates to the root node's `assign_unique_ids` method.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_id` - The initial ID to assign to the root node.
+    pub fn assign_unique_ids(&mut self, start_id: usize) {
+        self.root.assign_unique_ids(start_id);
+    }
+
+    /// Checks whether all node IDs in the AST are unique.
+    ///
+    /// This method delegates to the root node's `check_ids_unique` method.
+    ///
+    /// # Returns
+    ///
+    /// `true` if all node IDs are unique, `false` otherwise.
+    pub fn check_ids_unique(&self) -> bool {
+        self.root.check_ids_unique()
+    }
+
 }
 
-impl fmt::Display for Ast {
+/// Implements the `fmt::Display` trait for `Ast`.
+///
+/// This implementation provides a human-readable string representation of the `Ast`
+/// structure. It includes details such as the source name, generation timestamp,
+/// and the root node of the abstract syntax tree.
+///
+/// This is useful for debugging or logging, as it allows instances of `Ast`
+/// to be printed using macros like `println!`.
+impl fmt::Display for AstOld {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Abstract Syntax Tree:")?;
-        writeln!(f, " - Source: {}", self.source_name)?;
+        writeln!(f, " - Source: {}", self.source_name())?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
-        writeln!(f, " - Nodes:")?;
-
-        for (node, depth) in self.preorder() {
-            let indent = "  ".repeat(depth);
-            let content_str = node.content().display_with_context(&self.context);
-            writeln!(f, "{}- Kind: {:?}, Content: {}", indent, node.kind(), content_str)?;
-        }
-
+        writeln!(f, " - Nodes:\n{}", self.root())?;
         Ok(())
     }
 }

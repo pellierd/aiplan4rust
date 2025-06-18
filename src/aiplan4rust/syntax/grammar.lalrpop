@@ -10,10 +10,9 @@ use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::AssignOp;
 use crate::aiplan4rust::syntax::elements::Optimization;
 use crate::aiplan4rust::syntax::StringInterner;
-
-use crate::aiplan4rust::syntax::int_ast::IntAstNode;
-use crate::aiplan4rust::syntax::int_ast::IntAstKind;
-use crate::aiplan4rust::syntax::int_ast::AstContent;
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::AstContent;
 
 
 grammar<'ctx, 'err>(context: &'ctx mut StringInterner, errors: &'err mut Vec<ErrorRecovery<usize, Token, LexicalError>>);
@@ -211,221 +210,221 @@ AstContent, ()> = {
     },
 }
 
-pub Constant: Box<IntAstNode> = {
+pub Constant: Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(IntAstNode::new(IntAstKind::Constant, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(AstNode::new(AstKind::Constant, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub Variable : Box<IntAstNode> = {
+pub Variable : Box<AstNode> = {
      <start:@L> <name:VarName> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(IntAstNode::new(IntAstKind::Variable, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(AstNode::new(AstKind::Variable, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
     <var:DurationVariable> => var,
 }
 
-pub FunctionSymbol : Box<IntAstNode> = {
+pub FunctionSymbol : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-             Ok(name) =>  Box::new(IntAstNode::new(IntAstKind::FunctionSymbol, name, Vec::new(), start, end)),
-             Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+             Ok(name) =>  Box::new(AstNode::new(AstKind::FunctionSymbol, name, Vec::new(), start, end)),
+             Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
          }
     },
 }
 
-pub Number: Box<IntAstNode> = {
+pub Number: Box<AstNode> = {
     <start:@L> <value:"number"> <end:@R> => { 
-        Box::new(IntAstNode::new(IntAstKind::Number, AstContent::Float(OrderedFloat(value)), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Number, AstContent::Float(OrderedFloat(value)), Vec::new(), start, end))
     },
 }
 
-pub DomainName : Box<IntAstNode> = {
+pub DomainName : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-             Ok(name) =>  Box::new(IntAstNode::new(IntAstKind::DomainName, name, Vec::new(), start, end)),
-             Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+             Ok(name) =>  Box::new(AstNode::new(AstKind::DomainName, name, Vec::new(), start, end)),
+             Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
          }
      },
 }
 
-pub ProblemName : Box<IntAstNode> = {
+pub ProblemName : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) =>  Box::new(IntAstNode::new(IntAstKind::ProblemName, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(AstNode::new(AstKind::ProblemName, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub PrimitiveType : Box<IntAstNode> = {
+pub PrimitiveType : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) =>  Box::new(IntAstNode::new(IntAstKind::PrimitiveType, name, Vec::new(), start, end)),
-            Err(name) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(AstNode::new(AstKind::PrimitiveType, name, Vec::new(), start, end)),
+            Err(name) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub Predicate : Box<IntAstNode> = {
+pub Predicate : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) => Box::new(IntAstNode::new(IntAstKind::Predicate, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) => Box::new(AstNode::new(AstKind::Predicate, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub ActionSymbol : Box<IntAstNode> = {
+pub ActionSymbol : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) =>  Box::new(IntAstNode::new(IntAstKind::ActionSymbol, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) =>  Box::new(AstNode::new(AstKind::ActionSymbol, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub DASymbol : Box<IntAstNode> = {
+pub DASymbol : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => { 
         match name {
-            Ok(name) => Box::new(IntAstNode::new(IntAstKind::DASymbol, name, Vec::new(), start, end)),
+            Ok(name) => Box::new(AstNode::new(AstKind::DASymbol, name, Vec::new(), start, end)),
             Err(_) => {
-                Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end))
+                Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end))
             }
         }
     },
 }
 
-pub PrefName : Box<IntAstNode> = {
+pub PrefName : Box<AstNode> = {
      <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(IntAstNode::new(IntAstKind::PrefName, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) => Box::new(AstNode::new(AstKind::PrefName, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub Requirement : Box<IntAstNode> = {
+pub Requirement : Box<AstNode> = {
     <start:@L> ":strips" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Strips), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Strips), Vec::new(), start, end))
     },
     <start:@L> ":typing" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Typing), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Typing), Vec::new(), start, end))
     },
     <start:@L> ":equality" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Equality), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Equality), Vec::new(), start, end))
     },
     <start:@L> ":negative-preconditions" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::NegativePreconditions), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::NegativePreconditions), Vec::new(), start, end))
     },
     <start:@L> ":disjunctive-preconditions" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::DisjunctivePreconditions), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::DisjunctivePreconditions), Vec::new(), start, end))
     },
     <start:@L> ":existential-preconditions" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::ExistentialPreconditions), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::ExistentialPreconditions), Vec::new(), start, end))
     },
     <start:@L> ":universal-preconditions" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::UniversalPreconditions), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::UniversalPreconditions), Vec::new(), start, end))
     },
     <start:@L> ":quantified-preconditions" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::QuantifiedPreconditions), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::QuantifiedPreconditions), Vec::new(), start, end))
     },
     <start:@L> ":conditional-effects" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::ConditionalEffects), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::ConditionalEffects), Vec::new(), start, end))
     },
     <start:@L> ":fluents" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Fluents), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Fluents), Vec::new(), start, end))
     },
     <start:@L> ":numeric-fluents" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::NumericFluents), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::NumericFluents), Vec::new(), start, end))
     },
     <start:@L> ":object-fluents" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::ObjectFluents), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::ObjectFluents), Vec::new(), start, end))
     },
     <start:@L> ":adl" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Adl), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Adl), Vec::new(), start, end))
     },
     <start:@L> ":durative-actions" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::DurativeActions), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::DurativeActions), Vec::new(), start, end))
     },
     <start:@L> ":duration-inequalities" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::DurationInequalities), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::DurationInequalities), Vec::new(), start, end))
     },
     <start:@L> ":continuous-effects" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::ContinuousEffects), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::ContinuousEffects), Vec::new(), start, end))
     },
     <start:@L> ":derived-predicates" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::DerivedPredicates), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::DerivedPredicates), Vec::new(), start, end))
     },
     <start:@L> ":timed-initial-literals" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::TimedInitialLiterals), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::TimedInitialLiterals), Vec::new(), start, end))
     },
     <start:@L> ":preferences" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Preferences), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Preferences), Vec::new(), start, end))
     },
     <start:@L> ":constraints" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Constraints), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Constraints), Vec::new(), start, end))
     },
     <start:@L> ":action-costs" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::ActionCosts), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::ActionCosts), Vec::new(), start, end))
     },
     <start:@L> <error:!> <end:@R>  => {
         errors.push(error);
-        Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end))
     },
 }
 
-pub RequireDef : Box<IntAstNode> = {
+pub RequireDef : Box<AstNode> = {
      <start:@L> "(" ":requirements" <requirements:Requirement*> ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::RequireDef, AstContent::None, requirements, start, end))
+        Box::new(AstNode::new(AstKind::RequireDef, AstContent::None, requirements, start, end))
      },
 }
 
-pub Type : Box<IntAstNode> = {
+pub Type : Box<AstNode> = {
     <start:@L> <ty:PrimitiveType> <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Type, AstContent::None, vec![ty], start, end))
+        Box::new(AstNode::new(AstKind::Type, AstContent::None, vec![ty], start, end))
     },
     <start:@L> "(" "either" <types:PrimitiveType+> ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Type, AstContent::None, types, start, end))
+        Box::new(AstNode::new(AstKind::Type, AstContent::None, types, start, end))
     },
 }
 
-/*TypedList<T>: Box<IntAstNode> = {
+/*TypedList<T>: Box<AstNode> = {
    <start:@L>  <list:T*> <end:@R> => {
         let mut children = Vec::new();
         children.extend(list);
-        Box::new(IntAstNode::new(IntAstKind::TypedList, children, start, end))
+        Box::new(AstNode::new(AstKind::TypedList, children, start, end))
     },
     <start:@L> <list:T+>  "-" <ty:Type> <end:@R> <next:TypedList<T>> => {
         let mut children = Vec::new();
         children.extend(list);
         children.push(ty);
         children.push(next);
-        Box::new(IntAstNode::new(IntAstKind::TypedList, children, start, end))
+        Box::new(AstNode::new(AstKind::TypedList, children, start, end))
     },
 }*/
 
-/*TypedList<T>: Vec<Box<IntAstNode>> = {
+/*TypedList<T>: Vec<Box<AstNode>> = {
    <start:@L>  <list:T*> <end:@R> => {
         let mut typed_list = Vec::new();
         for element in list {
             let mut children = Vec::new();
-            let mut ty = Box::new(IntAstNode::new(IntAstKind::Type, Vec::new(), start, end));
-            let primitive_type = if IntAstKind::AtomicFunctionSkeleton == *element.kind() {
-                IntAstKind::PrimitiveType("number".to_string())
+            let mut ty = Box::new(AstNode::new(AstKind::Type, Vec::new(), start, end));
+            let primitive_type = if AstKind::AtomicFunctionSkeleton == *element.kind() {
+                AstKind::PrimitiveType("number".to_string())
             } else {
-                IntAstKind::PrimitiveType("object".to_string())
+                AstKind::PrimitiveType("object".to_string())
             };
-            let primitive_node = Box::new(IntAstNode::new(primitive_type, Vec::new(), start, end));
+            let primitive_node = Box::new(AstNode::new(primitive_type, Vec::new(), start, end));
             ty.children_mut().push(primitive_node);
             children.push(element);
             children.push(ty);
-            typed_list.push(Box::new(IntAstNode::new(IntAstKind::TypedList, children, start, end)));
+            typed_list.push(Box::new(AstNode::new(AstKind::TypedList, children, start, end)));
         }
         typed_list
 
@@ -436,7 +435,7 @@ pub Type : Box<IntAstNode> = {
             let mut children = Vec::new();
             children.push(element);
             children.push(ty.clone());
-            typed_list.push(Box::new(IntAstNode::new(IntAstKind::TypedList, children, start, end)));
+            typed_list.push(Box::new(AstNode::new(AstKind::TypedList, children, start, end)));
         }
         if next.len() > 1 || (next.len() == 1 && next[0].children().len() > 0) {
             typed_list.extend(next);
@@ -445,17 +444,17 @@ pub Type : Box<IntAstNode> = {
     },
 }*/
 
-/*TypedList<T>: Vec<Box<IntAstNode>> = {
+/*TypedList<T>: Vec<Box<AstNode>> = {
    <start:@L>  <list:T*> <end:@R> => {
         let mut children = Vec::new();
         children.extend(list);
-        vec![Box::new(IntAstNode::new(IntAstKind::TypedList, children, start, end))]
+        vec![Box::new(AstNode::new(AstKind::TypedList, children, start, end))]
    },
    <start:@L> <list:T+>  "-" <ty:Type> <end:@R> <next:TypedList<T>> => {
         let mut children = Vec::new();
         children.extend(list);
         children.push(ty);
-        let mut typed_list = vec![Box::new(IntAstNode::new(IntAstKind::TypedList, children, start, end))];
+        let mut typed_list = vec![Box::new(AstNode::new(AstKind::TypedList, children, start, end))];
          if next.len() > 1 || (next.len() == 1 && next[0].children().len() > 0) {
                     typed_list.extend(next);
                 }
@@ -464,16 +463,16 @@ pub Type : Box<IntAstNode> = {
 }*/
 
 
-TypedList<T>: Box<IntAstNode> = {
+TypedList<T>: Box<AstNode> = {
    <start:@L>  <elements:T*> <end:@R> => {
-        let typed_item_elt = Box::new(IntAstNode::new(IntAstKind::TypedItemElements, AstContent::None, elements, start, end));
-        let typed_item = Box::new(IntAstNode::new(IntAstKind::TypedItem, AstContent::None, vec![typed_item_elt], start, end));
-        Box::new(IntAstNode::new(IntAstKind::TypedList, AstContent::None, vec![typed_item], start, end))
+        let typed_item_elt = Box::new(AstNode::new(AstKind::TypedItemElements, AstContent::None, elements, start, end));
+        let typed_item = Box::new(AstNode::new(AstKind::TypedItem, AstContent::None, vec![typed_item_elt], start, end));
+        Box::new(AstNode::new(AstKind::TypedList, AstContent::None, vec![typed_item], start, end))
    },
    <start:@L> <elements:T+> <end_elements:@R> "-" <ty:Type> <end_typed_item:@R> <mut next:TypedList<T>> <end:@R> => {
-        let typed_item_elt = Box::new(IntAstNode::new(IntAstKind::TypedItemElements, AstContent::None, elements, start, end_elements));
-        let typed_item = Box::new(IntAstNode::new(IntAstKind::TypedItem, AstContent::None, vec![typed_item_elt, ty], start, end_typed_item));
-        let mut typed_list = Box::new(IntAstNode::new(IntAstKind::TypedList, AstContent::None, vec![typed_item], start, end));
+        let typed_item_elt = Box::new(AstNode::new(AstKind::TypedItemElements, AstContent::None, elements, start, end_elements));
+        let typed_item = Box::new(AstNode::new(AstKind::TypedItem, AstContent::None, vec![typed_item_elt, ty], start, end_typed_item));
+        let mut typed_list = Box::new(AstNode::new(AstKind::TypedList, AstContent::None, vec![typed_item], start, end));
         if let Some(first_child) = next.children().get(0) {
            if !first_child.children().is_empty() {
                typed_list.children_mut().extend(next.children_mut().drain(..));
@@ -483,60 +482,60 @@ TypedList<T>: Box<IntAstNode> = {
     },
 }
 
-pub TypesDef : Box<IntAstNode> = {
+pub TypesDef : Box<AstNode> = {
     <start:@L> "(" ":types" <types:TypedList<PrimitiveType>> ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::TypesDef, AstContent::None, vec![types] , start, end))
+        Box::new(AstNode::new(AstKind::TypesDef, AstContent::None, vec![types] , start, end))
      },
 }
 
-pub ConstantsDef : Box<IntAstNode> = {
+pub ConstantsDef : Box<AstNode> = {
     <start:@L> "(" ":constants" <constants:TypedList<Constant>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(constants);
-        Box::new(IntAstNode::new(IntAstKind::ConstantsDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::ConstantsDef, AstContent::None, children , start, end))
      },
 }
 
-pub PredicatesDef : Box<IntAstNode> = {
+pub PredicatesDef : Box<AstNode> = {
      <start:@L> "(" ":predicates" <predicates:AtomicFormulaSkeleton+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(predicates);
-        Box::new(IntAstNode::new(IntAstKind::PredicatesDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::PredicatesDef, AstContent::None, children , start, end))
     },
 }
-pub AtomicFormulaSkeleton : Box<IntAstNode> = {
+pub AtomicFormulaSkeleton : Box<AstNode> = {
     <start:@L> "(" <predicate:Predicate> <arguments:TypedList<Variable>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(predicate);
         children.push(arguments);
-        Box::new(IntAstNode::new(IntAstKind::AtomicFormulaSkeleton, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::AtomicFormulaSkeleton, AstContent::None, children , start, end))
     }
 }
 
-pub FunctionsDef :  Box<IntAstNode> = {
+pub FunctionsDef :  Box<AstNode> = {
     <start:@L> "(" ":functions" <functions:TypedList<AtomicFunctionSkeleton>>  ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(functions);
-        Box::new(IntAstNode::new(IntAstKind::FunctionsDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::FunctionsDef, AstContent::None, children , start, end))
     }
 }
 
-pub AtomicFunctionSkeleton : Box<IntAstNode> = {
+pub AtomicFunctionSkeleton : Box<AstNode> = {
     <start:@L> "(" <functor:FunctionSymbol> <arguments:TypedList<Variable>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(functor);
         children.push(arguments);
-        Box::new(IntAstNode::new(IntAstKind::AtomicFunctionSkeleton, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::AtomicFunctionSkeleton, AstContent::None, children , start, end))
     }
 }
 
-pub StructureDef : Box<IntAstNode> = {
+pub StructureDef : Box<AstNode> = {
     <action:ActionDef> =>  action,
     <derived:DerivedDef> => derived,
     <durative_action:DurativeActionDef> => durative_action,
 }
 
-pub ActionDef : Box<IntAstNode> = {
+pub ActionDef : Box<AstNode> = {
     <start:@L>
         "(" ":action"
             <name:ActionSymbol>
@@ -548,17 +547,17 @@ pub ActionDef : Box<IntAstNode> = {
         children.push(name);
         children.push(parameters);
         children.push(body);
-        Box::new(IntAstNode::new(IntAstKind::ActionDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::ActionDef, AstContent::None, children , start, end))
     }
 }
 
-pub ParameterDef : Box<IntAstNode> = {
+pub ParameterDef : Box<AstNode> = {
     <start:@L>
        ":parameters" "(" <parameters:TypedList<Variable>> ")"
     <end:@R>  => parameters,
 }
 
-pub ActionDefBody : Box<IntAstNode> = {
+pub ActionDefBody : Box<AstNode> = {
     <start:@L>
         <precondition:PreconditionDef?>
         <effect:EffectDef?>
@@ -570,65 +569,65 @@ pub ActionDefBody : Box<IntAstNode> = {
         if let Some(effect) = effect {
             children.push(effect);
         }
-        Box::new(IntAstNode::new(IntAstKind::ActionDefBody, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::ActionDefBody, AstContent::None, children , start, end))
     }
 }
 
-pub PreconditionDef : Box<IntAstNode> = {
+pub PreconditionDef : Box<AstNode> = {
     <start:@L>
         ":precondition" <precondition:EmptyOr<PreGD>>
     <end:@R>  => {
         let mut children = Vec::new();
         children.push(precondition);
-        Box::new(IntAstNode::new(IntAstKind::PreconditionDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::PreconditionDef, AstContent::None, children , start, end))
     }
 }
 
-pub EffectDef : Box<IntAstNode> = {
+pub EffectDef : Box<AstNode> = {
     <start:@L>
         ":effect" <effect:EmptyOr<Effect>>
     <end:@R>  => {
         let mut children = Vec::new();
         children.push(effect);
-        Box::new(IntAstNode::new(IntAstKind::EffectDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::EffectDef, AstContent::None, children , start, end))
     }
 }
 
-EmptyOr<T> : Box<IntAstNode> = {
+EmptyOr<T> : Box<AstNode> = {
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Or, AstContent::None, Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Or, AstContent::None, Vec::new(), start, end))
     },
     <start:@L> <element:T> <end:@R> => {
         let mut children = Vec::new();
         children.push(element);
-        Box::new(IntAstNode::new(IntAstKind::Or, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Or, AstContent::None, children, start, end))
     },
 }
 
-pub PreGD : Box<IntAstNode> = {
+pub PreGD : Box<AstNode> = {
     <start:@L> <pref_gd:PrefGD> <end:@R> => pref_gd,
     //<start:@L> <gd:GD> <end:@R> => gd,
     <atom:AtomicFormula<Term>> => atom,
     <start:@L> "(" "and" <pre_gd:PreGD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(pre_gd);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L> "(" "or" <gd:GD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(gd);
-        Box::new(IntAstNode::new(IntAstKind::Or, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Or, AstContent::None, children, start, end))
     },
     <start:@L> "(" "not" <gd:GD> ")" <end:@R> => {
          let mut children = Vec::new();
          children.push(gd);
-         Box::new(IntAstNode::new(IntAstKind::Not, AstContent::None, children, start, end))
+         Box::new(AstNode::new(AstKind::Not, AstContent::None, children, start, end))
     },
     <start:@L> "(" "imply" <antecedent:GD> <consequence:GD>")" <end:@R>  => {
         let mut children = Vec::new();
         children.push(antecedent);
         children.push(consequence);
-        Box::new(IntAstNode::new(IntAstKind::Imply, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Imply, AstContent::None, children, start, end))
     },
     <start:@L>
         "(" "exists"
@@ -639,7 +638,7 @@ pub PreGD : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Exists, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Exists, AstContent::None, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -650,44 +649,44 @@ pub PreGD : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(pre_gd);
-        Box::new(IntAstNode::new(IntAstKind::Forall, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Forall, AstContent::None, children, start, end))
     },
     <fcomp:FComp> => fcomp,
 }
 
-pub PrefGD : Box<IntAstNode> = {
+pub PrefGD : Box<AstNode> = {
     <start:@L> "(" "preference" <pref_name:PrefName?> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         if let Some(pref_name) = pref_name {
             children.push(pref_name);
         }
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Preference, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::Preference, AstContent::None, children , start, end))
     },
 }
 
-pub GD : Box<IntAstNode> = {
+pub GD : Box<AstNode> = {
     <atom:AtomicFormula<Term>> => atom,
     <start:@L> "(" "and" <gd:GD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(gd);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L> "(" "or" <gd:GD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(gd);
-        Box::new(IntAstNode::new(IntAstKind::Or, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Or, AstContent::None, children, start, end))
     },
     <start:@L> "(" "not" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Not, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Not, AstContent::None, children, start, end))
     },
     <start:@L> "(" "imply" <antecedent:GD> <consequence:GD>")" <end:@R>  => {
         let mut children = Vec::new();
         children.push(antecedent);
         children.push(consequence);
-        Box::new(IntAstNode::new(IntAstKind::Imply, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Imply, AstContent::None, children, start, end))
     },
      <start:@L>
         "(" "exists"
@@ -698,7 +697,7 @@ pub GD : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Exists, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Exists, AstContent::None, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -709,21 +708,21 @@ pub GD : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Forall, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Forall, AstContent::None, children, start, end))
     },
     <fcomp:FComp> => fcomp,
 }
 
-pub Effect : Box<IntAstNode> = {
+pub Effect : Box<AstNode> = {
     <start:@L> "(" "and" <effects:CEffect*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(effects);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <effect:CEffect> => effect,
 }
 
-pub CEffect : Box<IntAstNode> = {
+pub CEffect : Box<AstNode> = {
     <start:@L>
         "(" "forall"
             <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
@@ -733,67 +732,67 @@ pub CEffect : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(effect);
-        Box::new(IntAstNode::new(IntAstKind::Forall, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Forall, AstContent::None, children, start, end))
     },
     <start:@L> "(" "when" <gd:GD> <effect:CondEffect> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
         children.push(effect);
-        Box::new(IntAstNode::new(IntAstKind::When, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::When, AstContent::None, children, start, end))
     },
     <effect:PEffect> => effect,
 }
 
-pub PEffect : Box<IntAstNode> = {
+pub PEffect : Box<AstNode> = {
     <literal:Literal<Term>> => literal,
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexp:_FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fhead);
         children.push(fexp);
-        Box::new(IntAstNode::new(IntAstKind::Assign, op, children, start, end))
+        Box::new(AstNode::new(AstKind::Assign, op, children, start, end))
     },
 }
 
-pub CondEffect : Box<IntAstNode> = {
+pub CondEffect : Box<AstNode> = {
     <start:@L> "(" "and" <effects:PEffect*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(effects);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <effect:PEffect> => effect,
 }
 
-pub Term: Box<IntAstNode> = {
+pub Term: Box<AstNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(IntAstNode::new(IntAstKind::Constant, AstContent::Ident(context.intern(name)), Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::Constant, AstContent::Ident(context.intern(name)), Vec::new(), start, end))
         } else {
-            Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(name)), Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(context.intern(name)), Vec::new(), start, end))
         }
     },
     <duration:DurationVariable> => duration,
     <function:FunctionTerm> => function,
 }
 
-pub FunctionTerm: Box<IntAstNode> = {
+pub FunctionTerm: Box<AstNode> = {
     <function_term:_FunctionTerm<Term>> => function_term
 }
 
-_FunctionTerm<T>: Box<IntAstNode> = {
+_FunctionTerm<T>: Box<AstNode> = {
    <start:@L> "(" <function_symbol:FunctionSymbol> <arguments:T*> ")" <end:@R> => {
             let mut children = Vec::new();
             children.push(function_symbol);
             children.extend(arguments);
-            Box::new(IntAstNode::new(IntAstKind::FunctionTerm, AstContent::None, children, start, end))
+            Box::new(AstNode::new(AstKind::FunctionTerm, AstContent::None, children, start, end))
        },
 }
 
-pub FComp : Box<IntAstNode> = {
+pub FComp : Box<AstNode> = {
     <start:@L> "(" <comparator:BinaryComp> <arg1:_FExp> <arg2:_FExp> ")"  <end:@R> => {
         let mut children = Vec::new();
          children.push(arg1);
          children.push(arg2);
-         Box::new(IntAstNode::new(IntAstKind::FComp, comparator, children, start, end))
+         Box::new(AstNode::new(AstKind::FComp, comparator, children, start, end))
     },
 }
 
@@ -820,25 +819,25 @@ pub ArithmeticOp :AstContent = {
     "*" =>AstContent::Operation(ArithmeticOp::Mul),
 }
 
-Literal<T> : Box<IntAstNode> = {
+Literal<T> : Box<AstNode> = {
     <atom:AtomicFormula<T>> => atom,
     <start:@L> "(" "not" <atom:AtomicFormula<T>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(atom);
-        Box::new(IntAstNode::new(IntAstKind::Not, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Not, AstContent::None, children, start, end))
     },
 }
 
-AtomicFormula<T> : Box<IntAstNode> = {
+AtomicFormula<T> : Box<AstNode> = {
     <start:@L> "(" <predicate:Predicate> <terms:T*> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(predicate);
         children.extend(terms);
-        Box::new(IntAstNode::new(IntAstKind::AtomicFormula, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtomicFormula, AstContent::None, children, start, end))
     },
 }
 
-_FExp : Box<IntAstNode> = {
+_FExp : Box<AstNode> = {
     <term:Term> => term,
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:_FExp> <arg2:_FExp?> ")" <end:@R> => {
@@ -847,29 +846,29 @@ _FExp : Box<IntAstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
     },
 }
 
-pub FExp : Box<IntAstNode> = {
+pub FExp : Box<AstNode> = {
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:FExp> <arg2:FExp?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -877,30 +876,30 @@ pub FExp : Box<IntAstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:FExp> <arg2:FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <fhead:FHead> => fhead,
 }
 
-pub FExpDA : Box<IntAstNode> = {
+pub FExpDA : Box<AstNode> = {
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:FExpDA> <arg2:FExpDA?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -908,53 +907,53 @@ pub FExpDA : Box<IntAstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:FExpDA> <arg2:FExpDA> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <fhead:FHead> => fhead, // Add to accept the good syntax
     //<fexp:FExp> => fexp, // Remove for conflict
     <duration:DurationVariable> => duration,
 }
 
-pub FHead: Box<IntAstNode> = {
+pub FHead: Box<AstNode> = {
     <function:FunctionTerm> => function,
      <start:@L> <symbol:FunctionSymbol> <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
-        Box::new(IntAstNode::new(IntAstKind::FunctionTerm, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::FunctionTerm, AstContent::None, children, start, end))
     }
 }
 
-pub Constraints : Box<IntAstNode> = {
+pub Constraints : Box<AstNode> = {
     <start:@L> "(" ":constraints" <con_gd:ConGD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(con_gd);
-        Box::new(IntAstNode::new(IntAstKind::Constraints, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Constraints, AstContent::None, children, start, end))
     },
 }
 
-pub ConGD : Box<IntAstNode> = {
+pub ConGD : Box<AstNode> = {
     <start:@L> "(" "and" <con_gd:ConGD*> ")" <end:@R> => {
          let mut children = Vec::new();
         children.extend(con_gd);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -965,78 +964,78 @@ pub ConGD : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(con_gd);
-        Box::new(IntAstNode::new(IntAstKind::Forall, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Forall, AstContent::None, children, start, end))
     },
     <start:@L> "(" "at end" <gd:GD> ")"<end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::AtEnd, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtEnd, AstContent::None, children, start, end))
     },
     <start:@L> "(" "always" <gd:GD> ")"<end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Always, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Always, AstContent::None, children, start, end))
     },
     <start:@L> "(" "sometime" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Sometime, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Sometime, AstContent::None, children, start, end))
     },
     <start:@L> "(" "within" <number:Number> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Within, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Within, AstContent::None, children, start, end))
     },
     <start:@L> "(" "at-most-once" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::AtMostOnce, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtMostOnce, AstContent::None, children, start, end))
     },
     <start:@L> "(" "sometime-after" <gd1:GD> <gd2:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd1);
         children.push(gd2);
-        Box::new(IntAstNode::new(IntAstKind::SometimeAfter, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::SometimeAfter, AstContent::None, children, start, end))
     },
     <start:@L> "(" "sometime-before" <gd1:GD> <gd2:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd1);
         children.push(gd2);
-        Box::new(IntAstNode::new(IntAstKind::SometimeBefore, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::SometimeBefore, AstContent::None, children, start, end))
     },
     <start:@L> "(" "always-within" <number:Number> <gd1:GD> <gd2:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(gd1);
         children.push(gd2);
-        Box::new(IntAstNode::new(IntAstKind::AlwaysWithin, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AlwaysWithin, AstContent::None, children, start, end))
     },
     <start:@L> "(" "hold-during" <lower:Number> <upper:Number> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(lower);
         children.push(upper);
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::HoldDuring, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::HoldDuring, AstContent::None, children, start, end))
     },
     <start:@L> "(" "hold-after" <number:Number> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::HoldAfter, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::HoldAfter, AstContent::None, children, start, end))
     },
 }
 
-pub DerivedDef : Box<IntAstNode> = {
+pub DerivedDef : Box<AstNode> = {
     <start:@L> "(" ":derived" <atom:AtomicFormulaSkeleton> <gd:GD> ")"<end:@R>  => {
         let mut children = Vec::new();
         children.push(atom);
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::DerivedDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::DerivedDef, AstContent::None, children, start, end))
     },
 }
 
-pub DurativeActionDef : Box<IntAstNode> = {
+pub DurativeActionDef : Box<AstNode> = {
     <start:@L>
         "(" ":durative-action" <name:DASymbol>
         <parameters:ParameterDef>
@@ -1046,11 +1045,11 @@ pub DurativeActionDef : Box<IntAstNode> = {
         children.push(name);
         children.push(parameters);
         children.push(body);
-        Box::new(IntAstNode::new(IntAstKind::DurativeActionDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::DurativeActionDef, AstContent::None, children , start, end))
     },
 }
 
-pub DADefBody : Box<IntAstNode> = {
+pub DADefBody : Box<AstNode> = {
     <start:@L>
         ":duration" <constraint:DurationConstraint>
         ":condition" <condition:EmptyOr<DAGD>>
@@ -1060,44 +1059,44 @@ pub DADefBody : Box<IntAstNode> = {
         children.push(constraint);
         children.push(condition);
         children.push(effect);
-        Box::new(IntAstNode::new(IntAstKind::DADefBody, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::DADefBody, AstContent::None, children , start, end))
     },
 }
 
-pub DurationConstraint : Box<IntAstNode> = {
+pub DurationConstraint : Box<AstNode> = {
     <start:@L> "(" "and" <constraints:SimpleDurationConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, Vec::new(), start, end))
     },
     <constraint:SimpleDurationConstraint> => constraint,
 }
 
-pub SimpleDurationConstraint : Box<IntAstNode> = {
+pub SimpleDurationConstraint : Box<AstNode> = {
     <start:@L> "(" <op:DOp> <var:DurationVariable> <value:DValue> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(var);
         children.push(value);
-        Box::new(IntAstNode::new(IntAstKind::FComp, op, children, start, end))
+        Box::new(AstNode::new(AstKind::FComp, op, children, start, end))
     },
     <start:@L> "at start" <constraints:SimpleDurationConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(IntAstNode::new(IntAstKind::AtStart, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtStart, AstContent::None, children, start, end))
     },
     <start:@L> "at end" <constraints:SimpleDurationConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(IntAstNode::new(IntAstKind::AtEnd, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtEnd, AstContent::None, children, start, end))
     },
 }
 
-pub DurationVariable : Box<IntAstNode> = {
+pub DurationVariable : Box<AstNode> = {
     <start:@L> <var:"?duration"> <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
     }
 }
 
@@ -1107,16 +1106,16 @@ pub DOp :AstContent = {
     "=" =>AstContent::Comparison(BinaryComp::Equal),
 }
 
-pub DValue : Box<IntAstNode> = {
+pub DValue : Box<AstNode> = {
     <fexp:FExp> => fexp,
 }
 
-pub DAGD : Box<IntAstNode> = {
+pub DAGD : Box<AstNode> = {
     <pref_timed_gd:PrefTimedGD> => pref_timed_gd,
     <start:@L> "(" "and" <da_gd:DAGD*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(da_gd);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L>
         "(" "forall"
@@ -1127,11 +1126,11 @@ pub DAGD : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(da_gd);
-        Box::new(IntAstNode::new(IntAstKind::Forall, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Forall, AstContent::None, children, start, end))
     },
 }
 
-pub PrefTimedGD : Box<IntAstNode> = {
+pub PrefTimedGD : Box<AstNode> = {
     <timed_gd:TimedGD> => timed_gd,
     <start:@L> "(" "preference" <pref_name:PrefName?> <timed_gd:TimedGD> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -1139,33 +1138,33 @@ pub PrefTimedGD : Box<IntAstNode> = {
             children.push(pref_name);
         }
         children.push(timed_gd);
-        Box::new(IntAstNode::new(IntAstKind::Preference, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::Preference, AstContent::None, children , start, end))
     },
 }
 
-pub TimedGD : Box<IntAstNode> = {
+pub TimedGD : Box<AstNode> = {
     <start:@L> "(" "at start" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::AtStart, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtStart, AstContent::None, children, start, end))
     },
     <start:@L> "(" "at end" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::AtEnd, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtEnd, AstContent::None, children, start, end))
     },
     <start:@L> "(" "over all" <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::Overall, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Overall, AstContent::None, children, start, end))
     },
 }
 
-pub DAEffect : Box<IntAstNode> = {
+pub DAEffect : Box<AstNode> = {
     <start:@L>  "(" "and" <da_effect:DAEffect*> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.extend(da_effect);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <timed_effect:TimedEffect>  => timed_effect,
     <start:@L>
@@ -1177,41 +1176,41 @@ pub DAEffect : Box<IntAstNode> = {
         let mut children = Vec::new();
         children.push(variables);
         children.push(da_effect);
-        Box::new(IntAstNode::new(IntAstKind::Forall, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Forall, AstContent::None, children, start, end))
     },
     <start:@L> "(" "when" <da_gd:DAGD> <time_effect:TimedEffect> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(da_gd);
         children.push(time_effect);
-        Box::new(IntAstNode::new(IntAstKind::When, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::When, AstContent::None, children, start, end))
     },
 }
 
-pub TimedEffect : Box<IntAstNode> = {
+pub TimedEffect : Box<AstNode> = {
     <start:@L> "(" "at start" <con_effect:CondEffect> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(con_effect);
-        Box::new(IntAstNode::new(IntAstKind::AtStart, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::AtStart, AstContent::None, children, start, end))
     },
     <start:@L> "(" "at end" <con_effect:CondEffect> ")" <end:@R> => {
          let mut children = Vec::new();
          children.push(con_effect);
-         Box::new(IntAstNode::new(IntAstKind::AtEnd, AstContent::None, children, start, end))
+         Box::new(AstNode::new(AstKind::AtEnd, AstContent::None, children, start, end))
     },
     <start:@L> "(" <op:AssignOpT> <fhead:FHead> <fexpt:FExpT> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fhead);
         children.push(fexpt);
-        Box::new(IntAstNode::new(IntAstKind::Assign, op, children, start, end))
+        Box::new(AstNode::new(AstKind::Assign, op, children, start, end))
     },
 }
 
-pub FAssignDA : Box<IntAstNode> = {
+pub FAssignDA : Box<AstNode> = {
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexpda:FExpDA> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fhead);
         children.push(fexpda);
-        Box::new(IntAstNode::new(IntAstKind::Assign, op, children, start, end))
+        Box::new(AstNode::new(AstKind::Assign, op, children, start, end))
     },
 }
 
@@ -1220,29 +1219,29 @@ pub AssignOpT :AstContent = {
     "decrease" =>AstContent::Assign(AssignOp::Decrease),
 }
 
-pub FExpT : Box<IntAstNode> = {
+pub FExpT : Box<AstNode> = {
     <start:@L> "(" "*" <fexp:FExp> <var:ContinusVariable> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fexp);
         children.push(var);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <start:@L> "(" "*" <var:ContinusVariable> <fexp:FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(var);
         children.push(fexp);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
     },
     <var:ContinusVariable> => var,
 }
 
-pub ContinusVariable : Box<IntAstNode> = {
+pub ContinusVariable : Box<AstNode> = {
     <start:@L> <var:"#t"> <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
     }
 }
 
-pub Domain : Box<IntAstNode> = {
+pub Domain : Box<AstNode> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
             <require_def:RequireDef?>
@@ -1276,58 +1275,58 @@ pub Domain : Box<IntAstNode> = {
         }
 
         children.extend(structure_def);
-        Box::new(IntAstNode::new(IntAstKind::Domain, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Domain, AstContent::None, children, start, end))
     },
  }
 
-pub ObjectsDef : Box<IntAstNode> = {
+pub ObjectsDef : Box<AstNode> = {
     <start:@L> "(" ":objects" <objects:TypedList<Constant>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(objects);
-        Box::new(IntAstNode::new(IntAstKind::ObjectsDef, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::ObjectsDef, AstContent::None, children , start, end))
     },
 }
 
-pub BasicFunctionTerm : Box<IntAstNode> = {
+pub BasicFunctionTerm : Box<AstNode> = {
     <function:FunctionTerm> => function,
     <symbol:FunctionSymbol> => symbol,
 }
 
-pub InitEl : Box<IntAstNode> = {
+pub InitEl : Box<AstNode> = {
     <literal:Literal<Constant>> => literal,
     <start:@L> "(" <number:Number> <literal:Literal<Constant>> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(number);
         children.push(literal);
-        Box::new(IntAstNode::new(IntAstKind::TimedInitialLiteral, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::TimedInitialLiteral, AstContent::None, children , start, end))
     },
     <start:@L> "(" "=" <function:BasicFunctionTerm> <number:Number> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(function);
         children.push(number);
-        Box::new(IntAstNode::new(IntAstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children , start, end))
+        Box::new(AstNode::new(AstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children , start, end))
     },
     <start:@L> "(" "=" <function:BasicFunctionTerm> <constant:Constant> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(function);
         children.push(constant);
-        Box::new(IntAstNode::new(IntAstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children , start, end))
+        Box::new(AstNode::new(AstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children , start, end))
     },
 }
 
-pub Init : Box<IntAstNode> = {
+pub Init : Box<AstNode> = {
     <start:@L> "(" ":init" <init_els:InitEl*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(init_els);
-        Box::new(IntAstNode::new(IntAstKind::Init, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::Init, AstContent::None, children , start, end))
     },
 }
 
-pub Goal : Box<IntAstNode> = {
+pub Goal : Box<AstNode> = {
      <start:@L> "(" ":goal" <pre_gd:PreGD> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(pre_gd);
-        Box::new(IntAstNode::new(IntAstKind::Goal, AstContent::None, children , start, end))
+        Box::new(AstNode::new(AstKind::Goal, AstContent::None, children , start, end))
      },
 }
 
@@ -1336,13 +1335,13 @@ pub Optimization :AstContent = {
     "maximize" => AstContent::Optimization(Optimization::Maximize),
 }
 
-pub MetricFExp : Box<IntAstNode> = {
+pub MetricFExp : Box<AstNode> = {
     <number:Number> => number,
     <function:_FunctionTerm<Constant>> => function,
     <start:@L> <symbol:FunctionSymbol> <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
-        Box::new(IntAstNode::new(IntAstKind::FunctionTerm, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::FunctionTerm, AstContent::None, children, start, end))
     },
     <start:@L> "(" "-" <arg1:MetricFExp> <arg2:MetricFExp?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -1350,45 +1349,45 @@ pub MetricFExp : Box<IntAstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:MetricFExp> <arg2:MetricFExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(IntAstNode::new(IntAstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
     },
     //<start:@L> "total-time" <end:@R> => {
-    //    Box::new(IntAstNode::new(IntAstKind::TotalTime, Vec::new(), start, end))
+    //    Box::new(AstNode::new(AstKind::TotalTime, Vec::new(), start, end))
     //},
     <start:@L> "(" "is-violated" <pref:PrefName> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(pref);
-        Box::new(IntAstNode::new(IntAstKind::IsViolated, AstContent::None, Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::IsViolated, AstContent::None, Vec::new(), start, end))
     },
 }
 
-pub MetricSpec : Box<IntAstNode> = {
+pub MetricSpec : Box<AstNode> = {
     <start:@L> "(" ":metric" <op:Optimization> <fexp:MetricFExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(fexp);
-        Box::new(IntAstNode::new(IntAstKind::Metric, op, children, start, end))
+        Box::new(AstNode::new(AstKind::Metric, op, children, start, end))
     },
 }
 
-pub Length : Box<IntAstNode> = {
+pub Length : Box<AstNode> = {
     <start:@L>
         "(" ":length"
             <start_serial:@L> "(" ":serial" <serial_value:"number"?> ")" <end_serial:@R>
@@ -1397,16 +1396,16 @@ pub Length : Box<IntAstNode> = {
     <end:@R> => {
         let mut children = Vec::new();
         if let Some(serial_value) = serial_value {
-            children.push(Box::new(IntAstNode::new(IntAstKind::Serial, AstContent::Float(OrderedFloat(serial_value)), Vec::new(), start_serial, end_serial)));
+            children.push(Box::new(AstNode::new(AstKind::Serial, AstContent::Float(OrderedFloat(serial_value)), Vec::new(), start_serial, end_serial)));
         }
         if let Some(parallel_value) = parallel_value {
-            children.push(Box::new(IntAstNode::new(IntAstKind::Parallel, AstContent::Float(OrderedFloat(parallel_value)), Vec::new(), start_parallel, end_parallel)));
+            children.push(Box::new(AstNode::new(AstKind::Parallel, AstContent::Float(OrderedFloat(parallel_value)), Vec::new(), start_parallel, end_parallel)));
         }
-        Box::new(IntAstNode::new(IntAstKind::Length, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Length, AstContent::None, children, start, end))
     },
 }
 
-pub Problem : Box<IntAstNode> = {
+pub Problem : Box<AstNode> = {
     <start:@L>
         "(" "define" "(" "problem" <problem:ProblemName> ")"
         "(" ":domain" <domain:DomainName> ")"
@@ -1439,11 +1438,11 @@ pub Problem : Box<IntAstNode> = {
         if let Some(length_spec) = length_spec {
             children.push(length_spec);
         }
-        Box::new(IntAstNode::new(IntAstKind::Problem, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Problem, AstContent::None, children, start, end))
     },
 }
 
-pub PDDL : Box<IntAstNode> = {
+pub PDDL : Box<AstNode> = {
     <domain:Domain> => domain,
     <problem:Problem> => problem,
 }
@@ -1452,94 +1451,94 @@ pub PDDL : Box<IntAstNode> = {
 // HDDL Dialect
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub TaskSymbol : Box<IntAstNode> = {
+pub TaskSymbol : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(IntAstNode::new(IntAstKind::TaskSymbol, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) => Box::new(AstNode::new(AstKind::TaskSymbol, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub TaskDef : Box<IntAstNode> = {
+pub TaskDef : Box<AstNode> = {
     <start:@L> "(" ":task" <symbol:TaskSymbol> <parameters:ParameterDef> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
         children.push(parameters);
-        Box::new(IntAstNode::new(IntAstKind::TaskDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::TaskDef, AstContent::None, children, start, end))
     },
 }
 
-pub MethodSymbol : Box<IntAstNode> = {
+pub MethodSymbol : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(IntAstNode::new(IntAstKind::MethodSymbol, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) => Box::new(AstNode::new(AstKind::MethodSymbol, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub TaskID : Box<IntAstNode> = {
+pub TaskID : Box<AstNode> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
-            Ok(name) => Box::new(IntAstNode::new(IntAstKind::TaskID, name, Vec::new(), start, end)),
-            Err(_) => Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start, end)),
+            Ok(name) => Box::new(AstNode::new(AstKind::TaskID, name, Vec::new(), start, end)),
+            Err(_) => Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end)),
         }
     },
 }
 
-pub TaskTerm: Box<IntAstNode> = {
+pub TaskTerm: Box<AstNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(IntAstNode::new(IntAstKind::Constant, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::Constant, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
         } else {
-            Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::Variable, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
         }
     },
 }
 
-pub Task : Box<IntAstNode> = {
+pub Task : Box<AstNode> = {
     <start:@L> "(" <symbol:TaskSymbol> <terms:TaskTerm*> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(symbol);
         children.extend(terms);
-        Box::new(IntAstNode::new(IntAstKind::Task, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Task, AstContent::None, children, start, end))
     },
 }
 
-pub Subtask: Box<IntAstNode> = {
+pub Subtask: Box<AstNode> = {
      "(" <start_name:@L> <name:Name> <end_name:@R> <rest:SubtaskRest>  <end_rest:@R> => {
         match name {
             Ok(name_value) => {
                 match rest.first().map(|node| node.kind()) {
-                    Some(IntAstKind::TaskSymbol) => {
+                    Some(AstKind::TaskSymbol) => {
                         let mut children = Vec::new();
-                        let task_id = Box::new(IntAstNode::new(IntAstKind::TaskID, name_value, Vec::new(), start_name, end_name));
+                        let task_id = Box::new(AstNode::new(AstKind::TaskID, name_value, Vec::new(), start_name, end_name));
                         children.push(task_id);
-                        let task = Box::new(IntAstNode::new(IntAstKind::Task, AstContent::None, rest, end_name, end_rest));
+                        let task = Box::new(AstNode::new(AstKind::Task, AstContent::None, rest, end_name, end_rest));
                         children.push(task);
-                        Box::new(IntAstNode::new(IntAstKind::TaggedTask, AstContent::None, children, start_name, end_rest))
+                        Box::new(AstNode::new(AstKind::TaggedTask, AstContent::None, children, start_name, end_rest))
                     },
-                    Some(IntAstKind::Constant) | Some(IntAstKind::Variable) => {
+                    Some(AstKind::Constant) | Some(AstKind::Variable) => {
                         let mut children = Vec::new();
-                        let task_symbol = Box::new(IntAstNode::new(IntAstKind::TaskSymbol, name_value, Vec::new(), start_name, end_name));
+                        let task_symbol = Box::new(AstNode::new(AstKind::TaskSymbol, name_value, Vec::new(), start_name, end_name));
                         children.push(task_symbol);
                         children.extend(rest);
-                        Box::new(IntAstNode::new(IntAstKind::Task, AstContent::None, children, start_name, end_rest))
+                        Box::new(AstNode::new(AstKind::Task, AstContent::None, children, start_name, end_rest))
                     },
                     _ => {
-                        Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start_name, end_name))
+                        Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start_name, end_name))
                     }
                 }
             },
             Err(_) => {
-                Box::new(IntAstNode::new(IntAstKind::Error, AstContent::None, Vec::new(), start_name, end_rest))
+                Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start_name, end_rest))
             }
         }
     },
 }
 
-SubtaskRest : Vec<Box<IntAstNode>> = {
+SubtaskRest : Vec<Box<AstNode>> = {
     <start:@L> "(" <task_symbol:TaskSymbol> <terms:TaskTerm*> ")" ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(task_symbol);
@@ -1549,124 +1548,124 @@ SubtaskRest : Vec<Box<IntAstNode>> = {
     <start:@L> <terms:TaskTerm*> ")" <end:@R> => terms,
 }
 
-pub SubtaskDef : Box<IntAstNode> = {
+pub SubtaskDef : Box<AstNode> = {
     <start:@L> <subtask:Subtask> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtask);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, Vec::new(), start, end))
     },
     <start:@L> "(" "and" <subtasks:Subtask*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(subtasks);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
 }
 
-pub TaskNetworkdSubtaskDef: Box<IntAstNode> = {
+pub TaskNetworkdSubtaskDef: Box<AstNode> = {
     <start:@L> ":ordered-tasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(IntAstNode::new(IntAstKind::OrderedSubtaskDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::OrderedSubtaskDef, AstContent::None, children, start, end))
     },
     <start:@L> ":ordered-subtasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(IntAstNode::new(IntAstKind::OrderedSubtaskDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::OrderedSubtaskDef, AstContent::None, children, start, end))
     },
     <start:@L> ":tasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(IntAstNode::new(IntAstKind::PartiallyOrderedSubtaskDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::PartiallyOrderedSubtaskDef, AstContent::None, children, start, end))
     },
     <start:@L> ":subtasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
-        Box::new(IntAstNode::new(IntAstKind::PartiallyOrderedSubtaskDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::PartiallyOrderedSubtaskDef, AstContent::None, children, start, end))
     },
 }
 
-pub SimpleTaskOrderingConstraint : Box<IntAstNode> = {
+pub SimpleTaskOrderingConstraint : Box<AstNode> = {
     <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
-        Box::new(IntAstNode::new(IntAstKind::TaskOrderingConstraint, AstContent::Comparison(BinaryComp::Less), children, start, end))
+        Box::new(AstNode::new(AstKind::TaskOrderingConstraint, AstContent::Comparison(BinaryComp::Less), children, start, end))
     },
 }
 
-pub TaskOrderingConstraint : Box<IntAstNode> = {
+pub TaskOrderingConstraint : Box<AstNode> = {
     <start:@L> <constraint:SimpleTaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L> "(" ")" <end:@R> => {
-            Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::And, AstContent::None, Vec::new(), start, end))
     },
     <start:@L> "(" "and" <constraints:SimpleTaskOrderingConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
 }
 
-pub TaskNetworkOrderingConstraintDef : Box<IntAstNode> = {
+pub TaskNetworkOrderingConstraintDef : Box<AstNode> = {
     <start:@L> ":ordering" <constraints:TaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(IntAstNode::new(IntAstKind::TaskOrderingConstraintDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::TaskOrderingConstraintDef, AstContent::None, children, start, end))
     },
      <start:@L> ":order" <constraints:TaskOrderingConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraints);
-        Box::new(IntAstNode::new(IntAstKind::TaskOrderingConstraintDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::TaskOrderingConstraintDef, AstContent::None, children, start, end))
     },
 }
 
-pub SimpleTaskLogicalConstraint : Box<IntAstNode> = {
+pub SimpleTaskLogicalConstraint : Box<AstNode> = {
     <start:@L>
         "(" "=" <t1:Term> <t2:Term> ")"
     <end:@R> => {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
-        Box::new(IntAstNode::new(IntAstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children, start, end))
+        Box::new(AstNode::new(AstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children, start, end))
     },
     <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(IntAstNode::new(IntAstKind::Not, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Not, AstContent::None, children, start, end))
     },
 }
 
-pub TaskLogicalConstraint : Box<IntAstNode> = {
+pub TaskLogicalConstraint : Box<AstNode> = {
     <start:@L> "(" ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, Vec::new(), start, end))
     },
     <start:@L> <constraint:SimpleTaskLogicalConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
     <start:@L> "(" "and" <constraints:SimpleTaskLogicalConstraint*> ")" <end:@R> => {
         let mut children = Vec::new();
         children.extend(constraints);
-        Box::new(IntAstNode::new(IntAstKind::And, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::And, AstContent::None, children, start, end))
     },
 }
 
-pub TaskNetworkLogicalConstraintDef : Box<IntAstNode> = {
+pub TaskNetworkLogicalConstraintDef : Box<AstNode> = {
     <start:@L> ":constraints" <constraint:TaskLogicalConstraint> <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);
-        Box::new(IntAstNode::new(IntAstKind::TaskLogicalConstraintDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::TaskLogicalConstraintDef, AstContent::None, children, start, end))
     },
 }
 
-pub TaskNetworkDef : Box<IntAstNode> = {
+pub TaskNetworkDef : Box<AstNode> = {
     <start:@L>
         <subtasks:TaskNetworkdSubtaskDef?>
         <ordering_constraints:TaskNetworkOrderingConstraintDef?>
@@ -1682,19 +1681,19 @@ pub TaskNetworkDef : Box<IntAstNode> = {
         if let Some(logical_constraints) = logical_constraints {
             children.push(logical_constraints);
         }
-        Box::new(IntAstNode::new(IntAstKind::TaskNetworkDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::TaskNetworkDef, AstContent::None, children, start, end))
     },
 }
 
-pub MethodPreconditionDef: Box<IntAstNode> = {
+pub MethodPreconditionDef: Box<AstNode> = {
     <start:@L> ":precondition" <gd:EmptyOr<GD>> <end:@R> => {
         let mut children = Vec::new();
         children.push(gd);
-        Box::new(IntAstNode::new(IntAstKind::MethodPreconditionDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::MethodPreconditionDef, AstContent::None, children, start, end))
     },
 }
 
-pub MethodDef : Box<IntAstNode> = {
+pub MethodDef : Box<AstNode> = {
     <start:@L>
         "("":method"
             <name:MethodSymbol>
@@ -1706,11 +1705,11 @@ pub MethodDef : Box<IntAstNode> = {
         children.push(name);
         children.push(parameters);
         children.push(body);
-        Box::new(IntAstNode::new(IntAstKind::MethodDef, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::MethodDef, AstContent::None, children, start, end))
     },
 }
 
-pub MethodDefBody: Box<IntAstNode> = {
+pub MethodDefBody: Box<AstNode> = {
     <start:@L>
         ":task" <task:Task>
         <precondition:MethodPreconditionDef?>
@@ -1722,11 +1721,11 @@ pub MethodDefBody: Box<IntAstNode> = {
             children.push(precondition);
         }
         children.push(task_network);
-        Box::new(IntAstNode::new(IntAstKind::MethodDefBody, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::MethodDefBody, AstContent::None, children, start, end))
     },
 }
 
-pub InitialTaskNetwork : Box<IntAstNode> = {
+pub InitialTaskNetwork : Box<AstNode> = {
      <start:@L>
         "(" ":htn"
         <parameters:ParameterDef?>
@@ -1737,27 +1736,27 @@ pub InitialTaskNetwork : Box<IntAstNode> = {
             children.push(parameters);
         }
         children.push(task_network);
-        Box::new(IntAstNode::new(IntAstKind::InitialTaskNetwork, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::InitialTaskNetwork, AstContent::None, children, start, end))
      },
 }
 
-pub HDDLRequirement : Box<IntAstNode> = {
+pub HDDLRequirement : Box<AstNode> = {
     <requirement:Requirement> => requirement,
     <start:@L> ":hierarchy" <end:@R> => {
-            Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::Hierarchy), Vec::new(), start, end))
+            Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::Hierarchy), Vec::new(), start, end))
     },
     <start:@L> ":method-preconditions" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Requirement, AstContent::Requirement(Requirement::MethodPreconditions), Vec::new(), start, end))
+        Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::MethodPreconditions), Vec::new(), start, end))
     },
 }
 
-pub HDDLRequireDef : Box<IntAstNode> = {
+pub HDDLRequireDef : Box<AstNode> = {
      <start:@L> "(" ":requirements" <requirements:HDDLRequirement*> ")" <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::RequireDef, AstContent::None, requirements, start, end))
+        Box::new(AstNode::new(AstKind::RequireDef, AstContent::None, requirements, start, end))
      },
 }
 
-pub HDDLStructureDef : Box<IntAstNode> = {
+pub HDDLStructureDef : Box<AstNode> = {
     <action:ActionDef> =>  action,
     <derived:DerivedDef> => derived,
     <durative_action:DurativeActionDef> => durative_action,
@@ -1765,7 +1764,7 @@ pub HDDLStructureDef : Box<IntAstNode> = {
     <method:MethodDef> => method,
 }
 
-pub HDDLDomain : Box<IntAstNode> = {
+pub HDDLDomain : Box<AstNode> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
             <require_def:HDDLRequireDef?>
@@ -1794,11 +1793,11 @@ pub HDDLDomain : Box<IntAstNode> = {
             children.push(functions_def);
         }
         children.extend(structure_def);
-        Box::new(IntAstNode::new(IntAstKind::Domain, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Domain, AstContent::None, children, start, end))
     },
  }
 
-pub HDDLProblem : Box<IntAstNode> = {
+pub HDDLProblem : Box<AstNode> = {
     <start:@L>
         "(" "define" "(" "problem" <problem_name:ProblemName> ")"
         "(" ":domain" <domain_name:DomainName> ")"
@@ -1823,11 +1822,11 @@ pub HDDLProblem : Box<IntAstNode> = {
         if let Some(goal) = goal {
             children.push(goal);
         }
-        Box::new(IntAstNode::new(IntAstKind::Problem, AstContent::None, children, start, end))
+        Box::new(AstNode::new(AstKind::Problem, AstContent::None, children, start, end))
     },
 }
 
-pub HDDL : Box<IntAstNode> = {
+pub HDDL : Box<AstNode> = {
     <domain:HDDLDomain> => domain,
     <problem:HDDLProblem> => problem,
 }

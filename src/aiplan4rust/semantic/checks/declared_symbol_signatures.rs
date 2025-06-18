@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
@@ -117,7 +117,7 @@ pub fn check_declared_symbol_signatures(
 /// * `declaration` - The declaration of the symbol being used.
 /// * `usage` - The usage of the symbol in the AST.
 /// * `symbol_table` - The table containing the symbols for reference.
-/// * `ast` - The AST table for resolving entries and their types.
+/// * `ast_old` - The AST table for resolving entries and their types.
 /// * `type_checker` - A type checker used to validate the matching types.
 ///
 /// # Returns
@@ -140,9 +140,9 @@ fn match_declaration_with_usage(
         let argument = context.ast().get_node(*argument_index).unwrap();
 
         let kind = match argument.kind() {
-            AstKind::Variable(_) => SymbolKind::Variable,
-            AstKind::Constant(_) => SymbolKind::Constant,
-            AstKind::FunctionTerm => SymbolKind::Function,
+            AstKindOld::Variable(_) => SymbolKind::Variable,
+            AstKindOld::Constant(_) => SymbolKind::Constant,
+            AstKindOld::FunctionTerm => SymbolKind::Function,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST kind encountered: {}",
