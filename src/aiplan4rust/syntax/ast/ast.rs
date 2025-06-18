@@ -57,10 +57,8 @@
 use std::fmt::{self, Write as _};
 use std::time::SystemTime;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{
-    AstNode,
-    iterators::{PreorderIter, PostorderIter},
-};
+use crate::aiplan4rust::syntax::ast::{AstNode, iterators::{PreorderIter, PostorderIter}, AstKind};
+use crate::aiplan4rust::syntax::ast::node::Node;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::StringInterner;
 
@@ -147,6 +145,30 @@ impl Ast {
 
     pub fn expect_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
         self.context.expect_str(ident)
+    }
+
+    /// Finds the first node of the specified kind anywhere in the AST (immutable).
+    ///
+    /// # Arguments
+    /// * `kind` - The `AstKind` to search for.
+    ///
+    /// # Returns
+    /// * `Some(&Node)` if found.
+    /// * `None` otherwise.
+    pub fn find_node_of_kind(&self, kind: AstKind) -> Option<&Node> {
+        self.root.find_node_of_kind(kind)
+    }
+
+    /// Finds the first node of the specified kind anywhere in the AST (mutable).
+    ///
+    /// # Arguments
+    /// * `kind` - The `AstKind` to search for.
+    ///
+    /// # Returns
+    /// * `Some(&mut Node)` if found.
+    /// * `None` otherwise.
+    pub fn find_node_of_kind_mut(&mut self, kind: AstKind) -> Option<&mut Node> {
+        self.root.find_node_of_kind_mut(kind)
     }
 }
 

@@ -398,6 +398,49 @@ impl Node {
         self.fmt_internal(f, None, indent, &mut idx)
     }
 
+    /// Iteratively finds the first node of the specified kind (immutable).
+    ///
+    /// # Arguments
+    /// * `kind` - The `AstKind` to search for.
+    ///
+    /// # Returns
+    /// * `Some(&Node)` if a node of the given kind is found.
+    /// * `None` otherwise.
+    pub fn find_node_of_kind(&self, kind: AstKind) -> Option<&Node> {
+        let mut stack = vec![self];
+
+        while let Some(node) = stack.pop() {
+            if *node.kind() == kind {
+                return Some(node);
+            }
+            // Push children references as &Node (dereferencing the Box)
+            stack.extend(node.children().iter().map(|child| &**child));
+        }
+        None
+    }
+
+    /// Iteratively finds the first node of the specified kind (mutable).
+    ///
+    /// # Arguments
+    /// * `kind` - The `AstKind` to search for.
+    ///
+    /// # Returns
+    /// * `Some(&mut Node)` if a node of the given kind is found.
+    /// * `None` otherwise.
+    pub fn find_node_of_kind_mut(&mut self, kind: AstKind) -> Option<&mut Node> {
+        let mut stack = vec![self];
+
+        while let Some(node) = stack.pop() {
+            if *node.kind() == kind {
+                return Some(node);
+            }
+            // Collect mutable children references and extend stack
+            let children: Vec<_> = node.children_mut().iter_mut().map(|child| &mut **child).collect();
+            stack.extend(children);
+        }
+        None
+    }
+
     /// Formats the node using an external `StringInterner` context to resolve identifiers.
     ///
     /// # Arguments

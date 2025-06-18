@@ -71,34 +71,55 @@ pub fn normalize_type_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let source = ast.source_name().to_string();
+    // Étape 1 : traitement mutable (fusion des types)
+    let (type_sources, changed) = process_types_def(ast)?;
 
-    // Accès immuable au TypedList pour lecture
-    let typed_list = match find_types_def_typed_list(ast)? {
-        Some(node) => node,
-        None => return Ok(false),
-    };
-
-    // Clone des enfants pour la passe lecture seule
-    let old_typed_items = typed_list.children().to_vec();
-
-    // Première passe : collecte des infos et fusion des TypedItems
-    let (merged_items, type_sources, changed) = collect_type_info(old_typed_items)?;
-
-    // Reporting : emprunt immuable d’ast, pas de conflit
-    report_warnings(&type_sources, ast, diagnostic_manager)?;
-
-    // Deuxième passe : modification mutable de typed_list
-    let typed_list = find_types_def_typed_list(ast)?.ok_or_else(|| {
-        ParserInternalError::new("TypedList node disappeared between calls".to_string())
-    })?;
-
-    let new_typed_items: Vec<Box<AstNode>> = merged_items.into_values().collect();
-    typed_list.set_children(new_typed_items);
+    // Étape 2 : reporting immuable
+    report_implicit_either_type_warnings(&type_sources, ast, diagnostic_manager)?;
 
     Ok(changed)
 }
 
+/// Effectue la recherche, fusion des TypedItems, et mise à jour mutable du TypedList.
+/// Retourne les sources des types (pour diagnostics) et un boolé indiquant s’il y a eu changement.
+fn process_types_def(
+    ast: &mut Ast,
+) -> Result<(HashMap<Ident, (HashSet<Ident>, Vec<Span>)>, bool), ParserInternalError> {
+    let typed_list = find_types_def_typed_list_mut(ast)?
+        .ok_or_else(|| ParserInternalError::new("TypedList node not found".to_string()))?;
+
+    // Copie légère (pas clone profond) des enfants pour lecture seule
+    let old_typed_items = typed_list.children().to_vec();
+
+    // Collecte infos et fusion
+    let (merged_items, type_sources, changed) = collect_type_info(old_typed_items)?;
+
+    // Mise à jour mutable du TypedList
+    typed_list.set_children(merged_items.into_values().collect());
+
+    Ok((type_sources, changed))
+}
+
+/// Collects and merges type information from a list of typed AST nodes.
+///
+/// Processes each typed item by extracting its identifier, optional type node,
+/// associated type names, and source span. It accumulates merged typed items,
+/// tracks sources of type names and their spans, and records whether any
+/// merging changes occurred.
+///
+/// # Arguments
+/// * `typed_items` - A vector of boxed AST nodes representing typed items.
+///
+/// # Returns
+/// * `Ok((merged_items, type_sources, changed))`
+///     - `merged_items`: A map from identifiers to their merged typed AST nodes.
+///     - `type_sources`: A map from identifiers to a tuple containing:
+///         - A set of associated type identifiers.
+///         - A vector of spans representing source locations of the types.
+///     - `changed`: A boolean indicating if any merging was performed.
+///
+/// # Errors
+/// Returns `ParserInternalError` if extraction of ID and info from any typed item fails.
 fn collect_type_info(
     typed_items: Vec<Box<AstNode>>,
 ) -> Result<(HashMap<Ident, Box<AstNode>>, HashMap<Ident, (HashSet<Ident>, Vec<Span>)>, bool), ParserInternalError> {
@@ -106,12 +127,11 @@ fn collect_type_info(
     let mut type_sources: HashMap<Ident, (HashSet<Ident>, Vec<Span>)> = HashMap::new();
     let mut changed = false;
 
-    for typed_item in typed_items.into_iter() {
-        let (key, ty_opt, type_names, span) = extract_id_and_info(&typed_item)?;
+    for typed_item in typed_items {
+        // On consomme typed_item dans extract_id_and_info
+        let (key, ty_opt, type_names, span, typed_item) = extract_id_and_info(typed_item)?;
 
-        let entry = type_sources.entry(key).or_insert_with(|| (HashSet::new(), Vec::new()));
-        entry.0.extend(type_names.iter().cloned());
-        entry.1.push(span.clone());
+        update_type_sources(&mut type_sources, key, &type_names, &span);
 
         changed |= merge_typed_item(&mut merged_items, key, typed_item, ty_opt);
     }
@@ -119,60 +139,27 @@ fn collect_type_info(
     Ok((merged_items, type_sources, changed))
 }
 
-fn report_warnings(
-    type_sources: &HashMap<Ident, (HashSet<Ident>, Vec<Span>)>,
-    ast: &Ast,
-    diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), ParserInternalError> {
-    report_implicit_either_type_warnings(type_sources, ast, diagnostic_manager)
-}
-
-
-
-/// Finds the `TypedList` node inside the `TypesDef` node of the given AST.
-///
-/// This function searches the root children of the AST for a node of kind `TypesDef`.
-/// If found, it returns a mutable reference to its first child, which is expected
-/// to be a `TypedList` node.
+/// Finds the `TypedList` node inside a `TypesDef` node in the AST.
 ///
 /// # Arguments
-///
-/// * `ast_old` - A mutable reference to the AST to search.
+/// * `ast` - Mutable reference to the AST.
 ///
 /// # Returns
-///
-/// * `Ok(Some(&mut AstNode))` - The mutable reference to the `TypedList` node inside `TypesDef` if found.
-/// * `Ok(None)` - If no `TypesDef` node is found in the AST.
-/// * `Err(ParserInternalError)` - If the `TypesDef` node does not have a `TypedList` child.
-///
-/// # Errors
-///
-/// Returns an error if the `TypesDef` node exists but does not have a child node,
-/// which should be a `TypedList`.
-pub fn find_types_def_typed_list(
+/// * `Ok(Some(&mut AstNode))` - The first `TypedList` node found inside a `TypesDef` node.
+/// * `Ok(None)` - If no `TypesDef` node is present in the AST.
+/// * `Err(ParserInternalError)` - If a `TypesDef` node is found but it does not contain a `TypedList` child.
+pub fn find_types_def_typed_list_mut(
     ast: &mut Ast,
 ) -> Result<Option<&mut AstNode>, ParserInternalError> {
-    // Search root children of the AST for a node of kind `TypesDef`
-    let types_def_node = match ast
-        .root_mut()
-        .children_mut()
-        .iter_mut()
-        .find(|node| matches!(node.kind(), AstKind::TypesDef))
-    {
+    let types_def_node = match ast.find_node_of_kind_mut(AstKind::TypesDef) {
         Some(node) => node,
-        None => return Ok(None), // Return None if no TypesDef node is found
+        None => return Ok(None),
     };
 
-    // Attempt to get the first child of TypesDef, which should be a TypedList node
     let typed_list_node = types_def_node
-        .children_mut()
-        .get_mut(0)
-        .ok_or_else(|| {
-            // Return an error if the child is missing
-            ParserInternalError::new("TypesDef node must have a TypedList child".to_string())
-        })?;
+        .find_node_of_kind_mut(AstKind::TypedList)
+        .ok_or_else(|| ParserInternalError::new("TypesDef node must have a TypedList child".to_string()))?;
 
-    // Return the found TypedList node wrapped in Some
     Ok(Some(typed_list_node))
 }
 
@@ -199,49 +186,41 @@ pub fn find_types_def_typed_list(
 ///
 /// Returns an error if the first child is not a `PrimitiveType` node, or if extracting type names fails.
 fn extract_id_and_info(
-    typed_item: &Box<AstNode>
-) -> Result<(Ident, Option<Box<AstNode>>, HashSet<Ident>, Span), ParserInternalError> {
-    // Get the children of the typed_item node
-    let children = typed_item.children();
-    // The first child should be a PrimitiveType node
+    mut typed_item: Box<AstNode>, // Ownership du typed_item
+) -> Result<(Ident, Option<Box<AstNode>>, HashSet<Ident>, Span, Box<AstNode>), ParserInternalError> {
+    let children = typed_item.children_mut();
+
+    if children.is_empty() {
+        return Err(ParserInternalError::new(
+            "Expected at least one child node for typed_item".to_string(),
+        ));
+    }
+
     let primitive_type_node = &children[0];
 
-    // Check that the node kind is PrimitiveType
-    let key = match primitive_type_node.kind() {
-        AstKind::PrimitiveType { .. } => {
-            // Retrieve the content from the node
-            let content = primitive_type_node.content();
+    if *primitive_type_node.kind() != AstKind::PrimitiveType {
+        return Err(ParserInternalError::new(format!(
+            "Expected PrimitiveType node, got: {:?}", primitive_type_node.kind()
+        )));
+    }
 
-            // Match on the content
-            match content {
-                AstContent::Ident(id) => *id, // Extract the identifier string
-                other => {
-                    return Err(ParserInternalError::new(format!(
-                        "Expected Ident content inside PrimitiveType, got: {:?}", other
-                    )));
-                }
-            }
-        }
-        other => {
-            return Err(ParserInternalError::new(format!(
-                "Expected PrimitiveType node, got: {:?}", other
-            )));
-        }
-    };
-
-    // Optionally get the second child node representing the type info
-    let ty_opt = children.get(1).cloned();
-    // Clone the span for diagnostics
+    let key = primitive_type_node.expect_ident()?;
     let span = primitive_type_node.span().clone();
 
-    // Extract all type names from the optional type node, or an empty set if none
-    let type_names = match &ty_opt {
+    // Retire le deuxième enfant s'il existe, sinon None
+    let ty_opt = if children.len() > 1 {
+        Some(children.remove(1))
+    } else {
+        None
+    };
+
+    // Extraction des identifiants de type à partir de ty_opt
+    let type_names = match ty_opt.as_ref() {
         Some(ty_node) => extract_type_ids(ty_node)?,
         None => HashSet::new(),
     };
 
-    // Return all extracted data as a tuple
-    Ok((key, ty_opt, type_names, span))
+    Ok((key, ty_opt, type_names, span, typed_item))
 }
 
 /// Extracts a set of primitive type names from a `Type` AST node.
@@ -260,41 +239,27 @@ fn extract_id_and_info(
 /// * `Err(ParserInternalError)` if the node is not of kind `Type`
 ///   or if any child is not a `PrimitiveType`.
 fn extract_type_ids(type_node: &AstNode) -> Result<HashSet<Ident>, ParserInternalError> {
-    // Verify the node is of kind Type
-    if let AstKind::Type = type_node.kind() {
-        let mut ids = HashSet::new();
-        // Iterate over children nodes expecting each to be a PrimitiveType
-        for child in type_node.children() {
-            match child.kind() {
-                AstKind::PrimitiveType => {
-                    if let AstContent::Ident(id) = child.content() {
-                        // Insert the primitive type id (usize) into the set
-                        ids.insert(*id);  // Deref to get usize value
-                    } else {
-                        // Error if the content is not Ident
-                        return Err(ParserInternalError::new(format!(
-                            "Expected Ident inside PrimitiveType node, found: {:?}",
-                            child.content()
-                        )));
-                    }
-                }
-                other => {
-                    // Error if a child is not a PrimitiveType
-                    return Err(ParserInternalError::new(format!(
-                        "Expected PrimitiveType inside Type node, found: {:?}",
-                        other
-                    )));
-                }
-            }
-        }
-        Ok(ids)
-    } else {
-        // Error if the root node is not a Type node
-        Err(ParserInternalError::new(format!(
+    if *type_node.kind() != AstKind::Type {
+        return Err(ParserInternalError::new(format!(
             "Expected Type node, found: {:?}",
             type_node.kind()
-        )))
+        )));
     }
+
+    let mut ids = HashSet::new();
+
+    for child in type_node.children() {
+        if *child.kind() != AstKind::PrimitiveType {
+            return Err(ParserInternalError::new(format!(
+                "Expected PrimitiveType inside Type node, found: {:?}",
+                child.kind()
+            )));
+        }
+
+        ids.insert(child.expect_ident()?);
+    }
+
+    Ok(ids)
 }
 
 /// Updates the `type_sources` map by adding type names and span information for a given key.
@@ -316,14 +281,9 @@ fn update_type_sources(
     type_names: &HashSet<Ident>,
     span: &Span,
 ) {
-    // Insert or get the entry for `key` in the map, initializing with empty sets if absent
     let entry = type_sources.entry(key).or_insert_with(|| (HashSet::new(), Vec::new()));
-
-    // Extend the set of type names with the new ones
-    entry.0.extend(type_names.iter().cloned());
-
-    // Append the span to the vector of spans for this key
-    entry.1.push(span.clone());
+    entry.0.extend(type_names);
+    entry.1.push(span.clone()); // No clone
 }
 
 /// Merges a `typed_item` into the `merged_items` map based on the given `key`.
@@ -383,21 +343,13 @@ fn report_implicit_either_type_warnings(
         // Only emit a warning if the same type is declared in more than one place
         if spans.len() > 1 {
             // Get the interned string name for the base type ID (`ty`)
-            let ty_name: String = ast
-                .expect_str(*ty)
-                .ok_or_else(|| ParserInternalError::new(format!(
-                    "Missing interned name for type id {ty}"
-                )))?
-                .to_string();
+            let ty_name: String = ast.expect_str(*ty)?.to_string();
 
             // Resolve and collect the interned names for each variant type ID
-            let type_names: Vec<String> = types_set
+            let type_names = types_set
                 .iter()
-                .map(|id| {
-                    ast.expect_str(*id)
-                        .map(|s| s.to_string())
-                })
-                .collect::<Result<Vec<String>, ParserInternalError>>()?;
+                .map(|id| ast.expect_str(*id).map(|s| s.to_string()))
+                .collect::<Result<_, _>>()?;
 
             // Construct the warning diagnostic with all relevant data
             let diagnostic = Diagnostic::new(
