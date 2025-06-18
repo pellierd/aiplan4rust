@@ -35,6 +35,7 @@ pub mod assign_op;
 pub mod binary_comp;
 pub mod optimization;
 pub mod requirement;
+mod ident;
 
 pub use arithmetic_op::ArithmeticOp;
 pub use assign_op::AssignOp;

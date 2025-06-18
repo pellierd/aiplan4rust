@@ -797,26 +797,26 @@ pub FComp : Box<AstNode> = {
 }
 
 pub BinaryComp :AstContent = {
-    ">" =>AstContent::Comparison(BinaryComp::Greater),
-    "<" =>AstContent::Comparison(BinaryComp::Less),
-    "=" =>AstContent::Comparison(BinaryComp::Equal),
-    ">=" =>AstContent::Comparison(BinaryComp::GreaterEq),
-    "<=" =>AstContent::Comparison(BinaryComp::LessEq),
+    ">" =>AstContent::BinaryComp(BinaryComp::Greater),
+    "<" =>AstContent::BinaryComp(BinaryComp::Less),
+    "=" =>AstContent::BinaryComp(BinaryComp::Equal),
+    ">=" =>AstContent::BinaryComp(BinaryComp::GreaterEq),
+    "<=" =>AstContent::BinaryComp(BinaryComp::LessEq),
 }
 
 pub AssignOp :AstContent = {
-    "assign" =>AstContent::Assign(AssignOp::Assign),
-    "scale-up" =>AstContent::Assign(AssignOp::ScaleUp),
-    "scale-down" =>AstContent::Assign(AssignOp::ScaleDown),
-    "increase" =>AstContent::Assign(AssignOp::Increase),
-    "decrease" =>AstContent::Assign(AssignOp::Decrease),
+    "assign" =>AstContent::AssignOp(AssignOp::Assign),
+    "scale-up" =>AstContent::AssignOp(AssignOp::ScaleUp),
+    "scale-down" =>AstContent::AssignOp(AssignOp::ScaleDown),
+    "increase" =>AstContent::AssignOp(AssignOp::Increase),
+    "decrease" =>AstContent::AssignOp(AssignOp::Decrease),
 }
 
 pub ArithmeticOp :AstContent = {
-    "-" =>AstContent::Operation(ArithmeticOp::Sub),
-    "+" =>AstContent::Operation(ArithmeticOp::Add),
-    "/" =>AstContent::Operation(ArithmeticOp::Div),
-    "*" =>AstContent::Operation(ArithmeticOp::Mul),
+    "-" =>AstContent::ArithmeticOp(ArithmeticOp::Sub),
+    "+" =>AstContent::ArithmeticOp(ArithmeticOp::Add),
+    "/" =>AstContent::ArithmeticOp(ArithmeticOp::Div),
+    "*" =>AstContent::ArithmeticOp(ArithmeticOp::Mul),
 }
 
 Literal<T> : Box<AstNode> = {
@@ -846,25 +846,25 @@ _FExp : Box<AstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:_FExp> <next_args:_FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end))
     },
 }
 
@@ -876,25 +876,25 @@ pub FExp : Box<AstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:FExp> <arg2:FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:FExp> <next_args:FExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end))
     },
     <fhead:FHead> => fhead,
 }
@@ -907,25 +907,25 @@ pub FExpDA : Box<AstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:FExpDA> <arg2:FExpDA> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:FExpDA> <next_args:FExpDA+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end))
     },
     <fhead:FHead> => fhead, // Add to accept the good syntax
     //<fexp:FExp> => fexp, // Remove for conflict
@@ -1101,9 +1101,9 @@ pub DurationVariable : Box<AstNode> = {
 }
 
 pub DOp :AstContent = {
-    ">=" =>AstContent::Comparison(BinaryComp::GreaterEq),
-    "<=" =>AstContent::Comparison(BinaryComp::LessEq),
-    "=" =>AstContent::Comparison(BinaryComp::Equal),
+    ">=" =>AstContent::BinaryComp(BinaryComp::GreaterEq),
+    "<=" =>AstContent::BinaryComp(BinaryComp::LessEq),
+    "=" =>AstContent::BinaryComp(BinaryComp::Equal),
 }
 
 pub DValue : Box<AstNode> = {
@@ -1215,8 +1215,8 @@ pub FAssignDA : Box<AstNode> = {
 }
 
 pub AssignOpT :AstContent = {
-    "increase" =>AstContent::Assign(AssignOp::Increase),
-    "decrease" =>AstContent::Assign(AssignOp::Decrease),
+    "increase" =>AstContent::AssignOp(AssignOp::Increase),
+    "decrease" =>AstContent::AssignOp(AssignOp::Decrease),
 }
 
 pub FExpT : Box<AstNode> = {
@@ -1224,13 +1224,13 @@ pub FExpT : Box<AstNode> = {
         let mut children = Vec::new();
         children.push(fexp);
         children.push(var);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end))
     },
     <start:@L> "(" "*" <var:ContinusVariable> <fexp:FExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(var);
         children.push(fexp);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end))
     },
     <var:ContinusVariable> => var,
 }
@@ -1304,13 +1304,13 @@ pub InitEl : Box<AstNode> = {
         let mut children = Vec::new();
         children.push(function);
         children.push(number);
-        Box::new(AstNode::new(AstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children , start, end))
+        Box::new(AstNode::new(AstKind::FComp, AstContent::BinaryComp(BinaryComp::Equal), children , start, end))
     },
     <start:@L> "(" "=" <function:BasicFunctionTerm> <constant:Constant> ")"  <end:@R> => {
         let mut children = Vec::new();
         children.push(function);
         children.push(constant);
-        Box::new(AstNode::new(AstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children , start, end))
+        Box::new(AstNode::new(AstKind::FComp, AstContent::BinaryComp(BinaryComp::Equal), children , start, end))
     },
 }
 
@@ -1349,25 +1349,25 @@ pub MetricFExp : Box<AstNode> = {
         if let Some(arg2) = arg2 {
             children.push(arg2);
         }
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Sub), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Sub), children, start, end))
     },
     <start:@L> "(" "/" <arg1:MetricFExp> <arg2:MetricFExp> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.push(arg2);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Div), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Div), children, start, end))
     },
     <start:@L> "(" "+" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Add), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Add), children, start, end))
     },
     <start:@L> "(" "*" <arg1:MetricFExp> <next_args:MetricFExp+> ")" <end:@R> => {
         let mut children = Vec::new();
         children.push(arg1);
         children.extend(next_args);
-        Box::new(AstNode::new(AstKind::Operation, AstContent::Operation(ArithmeticOp::Mul), children, start, end))
+        Box::new(AstNode::new(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), children, start, end))
     },
     //<start:@L> "total-time" <end:@R> => {
     //    Box::new(AstNode::new(AstKind::TotalTime, Vec::new(), start, end))
@@ -1592,7 +1592,7 @@ pub SimpleTaskOrderingConstraint : Box<AstNode> = {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
-        Box::new(AstNode::new(AstKind::TaskOrderingConstraint, AstContent::Comparison(BinaryComp::Less), children, start, end))
+        Box::new(AstNode::new(AstKind::TaskOrderingConstraint, AstContent::BinaryComp(BinaryComp::Less), children, start, end))
     },
 }
 
@@ -1632,7 +1632,7 @@ pub SimpleTaskLogicalConstraint : Box<AstNode> = {
         let mut children = Vec::new();
         children.push(t1);
         children.push(t2);
-        Box::new(AstNode::new(AstKind::FComp, AstContent::Comparison(BinaryComp::Equal), children, start, end))
+        Box::new(AstNode::new(AstKind::FComp, AstContent::BinaryComp(BinaryComp::Equal), children, start, end))
     },
     <start:@L> "(" "not" <constraint:SimpleTaskLogicalConstraint> ")" <end:@R> => {
         let mut children = Vec::new();

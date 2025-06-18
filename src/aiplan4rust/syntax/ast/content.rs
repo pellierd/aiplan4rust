@@ -65,13 +65,13 @@ pub enum Content {
     Requirement(Requirement),
 
     /// A comparison operator, e.g. `=`, `<`, `>`.
-    Comparison(BinaryComp),
+    BinaryComp(BinaryComp),
 
     /// An assignment operator, e.g. `assign`, `increase`.
-    Assign(AssignOp),
+    AssignOp(AssignOp),
 
     /// An arithmetic operator like `+`, `-`, `*`, `/`.
-    Operation(ArithmeticOp),
+    ArithmeticOp(ArithmeticOp),
 
     /// An optimization directive such as `maximize` or `minimize`.
     Optimization(Optimization),
@@ -98,9 +98,9 @@ impl Content {
             Content::Ident(idx) => ctx.get_str(*idx).unwrap_or("(unknown)").to_string(),
             Content::Float(val) => format!("{}", val),
             Content::Requirement(req) => format!("{:?}", req),
-            Content::Comparison(comp) => format!("{:?}", comp),
-            Content::Assign(assign) => format!("{:?}", assign),
-            Content::Operation(op) => format!("{:?}", op),
+            Content::BinaryComp(comp) => format!("{:?}", comp),
+            Content::AssignOp(assign) => format!("{:?}", assign),
+            Content::ArithmeticOp(op) => format!("{:?}", op),
             Content::Optimization(opt) => format!("{:?}", opt),
         }
     }
@@ -113,9 +113,9 @@ impl fmt::Display for Content {
             Content::Ident(idx) => write!(f, "Ident({})", idx),
             Content::Float(val) => write!(f, "{}", val),
             Content::Requirement(req) => write!(f, "{:?}", req),
-            Content::Comparison(comp) => write!(f, "{:?}", comp),
-            Content::Assign(assign) => write!(f, "{:?}", assign),
-            Content::Operation(op) => write!(f, "{:?}", op),
+            Content::BinaryComp(comp) => write!(f, "{:?}", comp),
+            Content::AssignOp(assign) => write!(f, "{:?}", assign),
+            Content::ArithmeticOp(op) => write!(f, "{:?}", op),
             Content::Optimization(opt) => write!(f, "{:?}", opt),
         }
     }
