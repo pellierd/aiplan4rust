@@ -3,12 +3,13 @@ use ordered_float::OrderedFloat;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Optimization, Requirement};
+use crate::aiplan4rust::syntax::StringInterner;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Content {
     #[default]
     None,                             // Pas de données associées
-    Ident(String),                    // Index vers le string pool
+    Ident(usize),                    // Index vers le string pool
     #[serde(
         serialize_with = "serialize_ordered_float",
         deserialize_with = "deserialize_ordered_float"
@@ -19,6 +20,41 @@ pub enum Content {
     Assign(AssignOp),              // Enum définie ailleurs
     Operation(ArithmeticOp),      // Enum définie ailleurs
     Optimization(Optimization),      // Enum définie ailleurs
+}
+
+impl Content {
+    pub fn display_with_context(&self, ctx: &StringInterner) -> String {
+        match self {
+            Content::None => "".to_string(),
+            Content::Ident(idx) => {
+                ctx.get_str(*idx).unwrap_or("(unknown)").to_string()
+            }
+            Content::Float(val) => format!("{}", val),
+            Content::Requirement(req) => format!("{:?}", req),
+            Content::Comparison(comp) => format!("{:?}", comp),
+            Content::Assign(assign) => format!("{:?}", assign),
+            Content::Operation(op) => format!("{:?}", op),
+            Content::Optimization(opt) => format!("{:?}", opt),
+        }
+    }
+}
+impl fmt::Display for Content {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Content::None => write!(f, ""),
+            Content::Ident(idx) => {
+                // Attention ici, il te faut accès au context pour récupérer la chaîne
+                // Soit tu passes le contexte différemment, soit tu fais une méthode dédiée (voir ci-dessous)
+                write!(f, "Ident({})", idx) // Placeholder, à améliorer
+            }
+            Content::Float(val) => write!(f, "{}", val),
+            Content::Requirement(req) => write!(f, "{:?}", req),  // À améliorer avec Display si possible
+            Content::Comparison(comp) => write!(f, "{:?}", comp),
+            Content::Assign(assign) => write!(f, "{:?}", assign),
+            Content::Operation(op) => write!(f, "{:?}", op),
+            Content::Optimization(opt) => write!(f, "{:?}", opt),
+        }
+    }
 }
 
 /// Serialization implementation for `OrderedFloat<f64>`.

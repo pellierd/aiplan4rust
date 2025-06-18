@@ -1,8 +1,9 @@
-
 use std::io::Write;
 use std::fmt;
-use serde::{Deserialize, Serialize};
+
 use crate::aiplan4rust::syntax::int_ast::IntAstNode;
+use crate::aiplan4rust::syntax::int_ast::iterators::{PostorderIter, PreorderIter};
+use crate::aiplan4rust::syntax::StringInterner;
 
 /// A structure representing an abstract syntax tree (AST) and its metadata.
 ///
@@ -31,11 +32,12 @@ use crate::aiplan4rust::syntax::int_ast::IntAstNode;
 /// let source = ast.source_name();
 /// let timestamp = ast.generated_at();
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ast {
     /// The Abstract Syntax Tree (AST) representing the structure of the program.
     root: Box<IntAstNode>,
 
+    context: StringInterner,
     /// The optional filename from which the syntax tree was generated.
     source_name: String,
 
@@ -67,11 +69,13 @@ impl Ast {
     /// ```
     pub fn new(
         root: Box<IntAstNode>,
+        context: StringInterner,
         source_name: String,
         generated_at: std::time::SystemTime,
     ) -> Self {
         Ast {
             root,
+            context,
             source_name,
             generated_at,
         }
@@ -135,22 +139,45 @@ impl Ast {
         self.generated_at
     }
 
+    /// Returns an iterator over the tree in preorder (depth-first).
+    ///
+    /// # Example
+    /// ```rust
+    /// for node in root.preorder() {
+    ///     println!("{:?}", node);
+    /// }
+    /// ```
+    pub fn preorder(&self) -> PreorderIter<'_> {
+        PreorderIter::new(self.root())
+    }
+
+    /// Returns an iterator over the tree in postorder (depth-first).
+    ///
+    /// # Example
+    /// ```rust
+    /// for node in root.postorder() {
+    ///     println!("{:?}", node);
+    /// }
+    /// ```
+    pub fn postorder(&self) -> PostorderIter<'_> {
+        PostorderIter::new(self.root())
+    }
+
 }
 
-/// Implements the `fmt::Display` trait for `Ast`.
-///
-/// This implementation provides a human-readable string representation of the `Ast`
-/// structure. It includes details such as the source name, generation timestamp,
-/// and the root node of the abstract syntax tree.
-///
-/// This is useful for debugging or logging, as it allows instances of `Ast`
-/// to be printed using macros like `println!`.
 impl fmt::Display for Ast {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Abstract Syntax Tree:")?;
-        writeln!(f, " - Source: {}", self.source_name())?;
+        writeln!(f, " - Source: {}", self.source_name)?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
-        writeln!(f, " - Nodes:\n{:?}", self.root())?;
+        writeln!(f, " - Nodes:")?;
+
+        for (node, depth) in self.preorder() {
+            let indent = "  ".repeat(depth);
+            let content_str = node.content().display_with_context(&self.context);
+            writeln!(f, "{}- Kind: {:?}, Content: {}", indent, node.kind(), content_str)?;
+        }
+
         Ok(())
     }
 }

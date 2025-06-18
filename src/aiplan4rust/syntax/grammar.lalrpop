@@ -9,14 +9,14 @@ use crate::aiplan4rust::syntax::elements::ArithmeticOp;
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::AssignOp;
 use crate::aiplan4rust::syntax::elements::Optimization;
-use crate::aiplan4rust::syntax::ParserContext;
+use crate::aiplan4rust::syntax::StringInterner;
 
 use crate::aiplan4rust::syntax::int_ast::IntAstNode;
 use crate::aiplan4rust::syntax::int_ast::IntAstKind;
 use crate::aiplan4rust::syntax::int_ast::AstContent;
 
 
-grammar<'ctx, 'err>(context: &'ctx mut ParserContext, errors: &'err mut Vec<ErrorRecovery<usize, Token, LexicalError>>);
+grammar<'ctx, 'err>(context: &'ctx mut StringInterner, errors: &'err mut Vec<ErrorRecovery<usize, Token, LexicalError>>);
 
 extern {
 
@@ -176,7 +176,7 @@ AstContent, ()> = {
            Err(())
         } else {
             //let _idx = context.intern(name.clone());
-            Ok(AstContent::Ident(name.to_string()))
+            Ok(AstContent::Ident(context.intern(name.to_string())))
         }
     },
     <start:@L> <error:!> <end:@R>  => {
@@ -185,9 +185,9 @@ AstContent, ()> = {
     },
     // Addition to allow the use of special symbols as ordinary symbols. The verification will be performed during
     // semantics analysis
-    <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(name.to_string())),
-    <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(name.to_string())),
-    <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(name.to_string())),
+    <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+    <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+    <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
 }
 
 pub VarName : Result<
@@ -202,7 +202,7 @@ AstContent, ()> = {
            errors.push(error_recovery);
            Err(())
         } else {
-            Ok(AstContent::Ident(name.to_string()))
+            Ok(AstContent::Ident(context.intern(name.to_string())))
         }
     },
     <start:@L> <error:!> <end:@R>  => {
@@ -766,9 +766,9 @@ pub CondEffect : Box<IntAstNode> = {
 pub Term: Box<IntAstNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(IntAstNode::new(IntAstKind::Constant, AstContent::Ident(name), Vec::new(), start, end))
+            Box::new(IntAstNode::new(IntAstKind::Constant, AstContent::Ident(context.intern(name)), Vec::new(), start, end))
         } else {
-            Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(name), Vec::new(), start, end))
+            Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(name)), Vec::new(), start, end))
         }
     },
     <duration:DurationVariable> => duration,
@@ -1097,7 +1097,7 @@ pub SimpleDurationConstraint : Box<IntAstNode> = {
 
 pub DurationVariable : Box<IntAstNode> = {
     <start:@L> <var:"?duration"> <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(var.to_string()), Vec::new(), start, end))
+        Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
     }
 }
 
@@ -1238,7 +1238,7 @@ pub FExpT : Box<IntAstNode> = {
 
 pub ContinusVariable : Box<IntAstNode> = {
     <start:@L> <var:"#t"> <end:@R> => {
-        Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(var.to_string()), Vec::new(), start, end))
+        Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end))
     }
 }
 
@@ -1491,9 +1491,9 @@ pub TaskID : Box<IntAstNode> = {
 pub TaskTerm: Box<IntAstNode> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
-            Box::new(IntAstNode::new(IntAstKind::Constant, AstContent::Ident(name), Vec::new(), start, end))
+            Box::new(IntAstNode::new(IntAstKind::Constant, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
         } else {
-            Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(name), Vec::new(), start, end))
+            Box::new(IntAstNode::new(IntAstKind::Variable, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end))
         }
     },
 }

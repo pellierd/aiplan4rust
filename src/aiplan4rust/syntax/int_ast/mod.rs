@@ -36,6 +36,7 @@ pub mod ast;
 
 pub mod content;
 pub mod kind;
+mod iterators;
 
 pub use kind::Kind as IntAstKind;
 pub use node::Node as IntAstNode;

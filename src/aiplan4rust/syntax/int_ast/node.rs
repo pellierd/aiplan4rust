@@ -1,5 +1,6 @@
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::{Span, StringInterner};
 use std::fmt;
+use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::syntax::int_ast::{AstContent, IntAstKind};
 
@@ -32,7 +33,6 @@ pub struct Node {
 }
 
 impl Node {
-
     /// Creates a new AST node with the specified type, children, and source positions.
     ///
     /// # Arguments
@@ -100,6 +100,19 @@ impl Node {
 
     pub fn set_kind(&mut self, new_kind: IntAstKind) {
         self.kind = new_kind;
+    }
+
+    /// Returns a reference to the node's type (`AstKind`).
+    pub fn content(&self) -> &AstContent {
+        &self.content
+    }
+
+    pub fn content_mut(&mut self) -> &mut AstContent {
+        &mut self.content
+    }
+
+    pub fn set_content(&mut self, new_content: AstContent) {
+        self.content = new_content;
     }
 
     /// Returns an immutable reference to the child nodes.
@@ -170,4 +183,82 @@ impl Node {
         self.span.set_end_column(column);
     }
 
+
+    /// Affiche le nœud sans contexte, avec indentation.
+    pub fn fmt_with_indent(&self, f: &mut fmt::Formatter<'_>, indent: usize) -> fmt::Result {
+        let mut idx: Option<&mut usize> = None;
+        self.fmt_internal(f, None, indent, &mut idx)
+    }
+
+    pub fn fmt_with_context(&self, f: &mut fmt::Formatter<'_>, ctx: &StringInterner) -> fmt::Result {
+        let mut idx: Option<&mut usize> = None;
+        self.fmt_internal(f, Some(ctx), 0, &mut idx)
+    }
+    /// Affiche le nœud avec le contexte, l’indentation et l’index.
+    pub fn fmt_with_context_and_indent(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        ctx: &StringInterner,
+        indent: usize,
+        index: &mut usize,
+    ) -> fmt::Result {
+        let mut index_wrapper = Some(index);
+        self.fmt_internal(f, Some(ctx), indent, &mut index_wrapper)
+    }
+
+    /// Fonction interne factorisée pour l’affichage formaté.
+    fn fmt_internal(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        ctx: Option<&StringInterner>,
+        indent: usize,
+        index: &mut Option<&mut usize>,
+    ) -> fmt::Result {
+        let indent_str = "  ".repeat(indent);
+
+        // Génération du contenu avec ou sans contexte
+        let content_str = match &self.content {
+            AstContent::Ident(idx) => match ctx {
+                Some(c) => c.get_str(*idx).unwrap_or("(unknown)").to_string(),
+                None => format!("Ident({})", idx),
+            },
+            _ => format!("{:?}", self.content),
+        };
+
+        // Affichage avec ou sans index
+        if let Some(idx_ref) = index.as_deref_mut() {
+            writeln!(
+                f,
+                "{}[{}] kind: {:?}, content: {}, span: {:?}",
+                indent_str,
+                *idx_ref,
+                self.kind,
+                content_str,
+                self.span
+            )?;
+            *idx_ref += 1;
+        } else {
+            writeln!(
+                f,
+                "{}kind: {:?}, content: {}, span: {:?}",
+                indent_str,
+                self.kind,
+                content_str,
+                self.span
+            )?;
+        }
+
+        // Affichage récursif des enfants
+        for child in &self.children {
+            child.fmt_internal(f, ctx, indent + 1, index)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl Display for Node {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.fmt_with_indent(f, 0)
+    }
 }

@@ -77,7 +77,7 @@ pub mod span;
 pub mod ast;
 pub mod display;
 
-pub mod context;
+pub mod string_interner;
 
 pub use language::Language;
 pub use parser::Parser;
@@ -86,5 +86,5 @@ pub use span::Span;
 pub use ast::AstKind;
 pub use ast::AstNode;
 pub use display::Display as SyntaxDisplay;
-pub use context::Context as ParserContext;
+pub use string_interner::StringInterner;
 pub mod int_ast;

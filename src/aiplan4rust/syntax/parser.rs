@@ -10,7 +10,7 @@ use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::parser_result::ParserResult;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
-use crate::aiplan4rust::syntax::{Language, ParserContext};
+use crate::aiplan4rust::syntax::{Language, StringInterner};
 use crate::aiplan4rust::syntax::Span;
 
 use lalrpop_util::ErrorRecovery;
@@ -19,6 +19,8 @@ use lalrpop_util::ParseError;
 use std::mem;
 use std::time::SystemTime;
 use crate::aiplan4rust::syntax::int_ast::{IntAst, IntAstNode};
+
+const AVG_LINE_LENGTH: usize = 80;
 
 #[derive(Debug)]
 /// A structure for analyzing the syntax of PDDL expressions.
@@ -49,6 +51,7 @@ use crate::aiplan4rust::syntax::int_ast::{IntAst, IntAstNode};
 pub struct Parser<'a> {
     source_name: Option<&'a str>,
     source: Option<&'a str>,
+    fast_line_table: FastLineTable,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -61,6 +64,7 @@ impl<'a> Parser<'a> {
         Self {
             source_name: None,
             source: None,
+            fast_line_table: FastLineTable::default(),
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
@@ -130,13 +134,16 @@ impl<'a> Parser<'a> {
 
         self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
 
-        let mut context = ParserContext::new();
+        let mut context = StringInterner::new();
 
         // Attempt to parse the source code according to the language specified
         let parse_result = match language {
             Language::PDDL => PDDLParser::new().parse(&mut context, &mut larlpop_errors, lexer),
             Language::HDDL => HDDLParser::new().parse(&mut context, &mut larlpop_errors, lexer),
         };
+
+        // Create a `FastLineTable` with an interval for coarse indexing.
+        self.fast_line_table = FastLineTable::new(source);
 
         // Handle any syntax errors that were collected during parsing
         self.handle_syntax_errors(&larlpop_errors, source);
@@ -149,16 +156,15 @@ impl<'a> Parser<'a> {
         } else {
             match parse_result {
                 Ok(mut root) => {
-                    self.process_ast(&mut root, source)?;
-                    //println!("AST: {}", ast);
                     if self
                         .diagnostic_manager()
                         .has_diagnotics_of_severity(Severity::Error)
                     {
                         Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                     } else {
+                        self.init_ast_span(&mut root);
                         let ast =
-                            IntAst::new(root, source_name.to_string(), SystemTime::now());
+                            IntAst::new(root, context, source_name.to_string(), SystemTime::now());
                         Ok(ParserResult::new(
                             Some(ast),
                             mem::take(&mut self.diagnostic_manager),
@@ -196,61 +202,22 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Processes the abstract syntax tree (AST) based on the parsing result.
-    /// This function normalizes the AST (keeps it in a Box) and initializes its position in the
-    /// source code. If parsing fails or there are syntax errors, it returns `None`.
-    ///
-    /// # Arguments
-    /// * `parse_result`: The result of the parsing attempt, containing the AST or an error.
-    /// * `larlpop_errors`: A list of errors encountered during parsing.
-    /// * `source`: The source code to initialize AST positions.
-    fn process_ast(
-        &mut self,
-        ast: &mut Box<IntAstNode>,
-        source: &'a str,
-    ) -> Result<(), ParserInternalError> {
-
-        // Initialize the position of the AST elements in the source code
-        self.init_ast_position(ast, source);
-        // Initialize the position of the AST elements in the source code
-
-        Ok(())
-    }
-
-    /// Initializes the position information of an abstract syntax tree (AST).
-    /// This function computes the line and column numbers for each node in the AST
-    /// using a `FastLineTable`, which maps byte offsets to positions efficiently.
-    ///
-    /// # Arguments
-    /// - `ast`: A mutable reference to the root node of the AST.
-    /// - `source`: The source code string from which the AST was parsed.
-    fn init_ast_position(&self, ast: &mut IntAstNode, source: &str) {
-        // Create a `FastLineTable` with an interval of 100 lines for coarse indexing.
-        // The interval value (100) can be adjusted depending on the size of the source text.
-        let table = FastLineTable::new(source, 100);
-
-        // Recursively set positions for all AST nodes
-        self.init_ast_position_rec(ast, &table);
-    }
-
     /// Recursively sets the start and end positions (line, column) for each AST node.
     ///
     /// # Arguments
     /// - `ast`: A mutable reference to an AST node.
-    /// - `table`: A reference to the `FastLineTable` used to compute positions.
-    fn init_ast_position_rec(&self, ast: &mut IntAstNode, table: &FastLineTable) {
-
+    fn init_ast_span(&self, ast: &mut IntAstNode) {
         // Compute and set the start position of the current AST node
-        let (line, column) = table.get_position(ast.start_offset());
+        let (line, column) = self.fast_line_table.get_position(ast.start_offset());
         ast.set_start_position(line, column);
 
         // Compute and set the end position of the current AST node
-        let (line, column) = table.get_position(ast.end_offset());
+        let (line, column) = self.fast_line_table.get_position(ast.end_offset());
         ast.set_end_position(line, column);
 
         // Recursively process all child nodes of the current AST node
         for child in ast.children_mut() {
-            self.init_ast_position_rec(child, table);
+            self.init_ast_span(child);
         }
     }
 
@@ -310,78 +277,6 @@ impl<'a> Parser<'a> {
         (line, column)
     }
 
-    /// Calculates the span (start and end positions) of a substring within the source text,
-    /// including line and column information for both start and end positions.
-    ///
-    /// # Arguments
-    ///
-    /// * `start` - The byte index in the source string where the span starts.
-    /// * `end` - The byte index in the source string where the span ends.
-    /// * `source` - The entire source string from which the span is derived.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `Span` struct containing the start and end byte indices along with
-    /// corresponding line and column numbers within the source.
-    ///
-    /// # Notes
-    ///
-    /// This function iterates over the source string character by character,
-    /// updating line and column counts, and stops once the end index is reached.
-    /// It also handles the edge case where `end` equals the length of the source.
-    fn get_span(&self, start: &usize, end: &usize, source: &str) -> Span {
-        // Initialize line and column counters starting at line 1, column 1
-        let mut line = 1;
-        let mut column = 1;
-
-        // Variables to store the start line (sl), start column (sc),
-        // end line (el), and end column (ec) positions
-        let mut sl = 1;
-        let mut sc = 1;
-        let mut el = 1;
-        let mut ec = 1;
-
-        // Iterate over the source string with char indices (byte offset + char)
-        for (i, ch) in source.char_indices() {
-            // When the current index matches the start index, record line and column
-            if i == *start {
-                sl = line;
-                sc = column;
-            }
-            // When the current index matches the end index, record line and column and exit loop
-            if i == *end {
-                el = line;
-                ec = column;
-                break;
-            }
-            // If current character is newline, increment line count and reset column
-            if ch == '\n' {
-                line += 1;
-                column = 1;
-            } else {
-                // Otherwise increment column count
-                column += 1;
-            }
-        }
-
-        // If end is exactly the length of the source, manually capture the last position
-        if *end == source.len() {
-            el = line;
-            ec = column;
-        }
-
-        // Create a new Span with start and end byte indices
-        let mut span = Span::new(*start, *end);
-
-        // Set the detailed line and column info on the Span
-        span.set_begin_line(sl);
-        span.set_begin_column(sc);
-        span.set_end_line(el);
-        span.set_end_column(ec);
-
-        span
-    }
-
     /// Converts a `ParseError` into a `ParsingError`.
     ///
     /// This function takes a `ParseError` and converts it into a `ParsingError`, which can be used
@@ -420,7 +315,7 @@ impl<'a> Parser<'a> {
                         expected:  clean_expected},
                     Provider::Lexer,
                     file_path,
-                    self.get_span(start, end, source),
+                    self.fast_line_table.get_span(*start, *end),
                 )
             }
             ParseError::InvalidToken { location } => {
@@ -428,7 +323,7 @@ impl<'a> Parser<'a> {
                     DiagnosticKind::InvalidToken,
                     Provider::Lexer,
                     file_path,
-                    self.get_span(location, location, source),
+                    self.fast_line_table.get_span(*location, *location),
                 )
             }
             ParseError::User { error } => {
@@ -437,7 +332,7 @@ impl<'a> Parser<'a> {
                     DiagnosticKind::CustomError(content),
                     Provider::Lexer,
                     file_path,
-                    self.get_span(&0, &0, source),
+                    self.fast_line_table.get_span(0, 0),
                 )
             }
             ParseError::UnrecognizedEof { location, expected } => {
@@ -447,7 +342,7 @@ impl<'a> Parser<'a> {
                         expected:  clean_expected},
                     Provider::Lexer,
                     file_path,
-                    self.get_span(location, location, source),
+                    self.fast_line_table.get_span(*location, *location),
                 )
             }
             ParseError::ExtraToken {
@@ -459,7 +354,7 @@ impl<'a> Parser<'a> {
                     },
                     Provider::Lexer,
                     file_path,
-                    self.get_span(start, end, source),
+                    self.fast_line_table.get_span(*start, *end),
                 )
             }
         }
@@ -479,31 +374,52 @@ impl<'a> Parser<'a> {
 /// - `coarse_index`: A vector storing precomputed offsets and their corresponding line numbers
 ///   at intervals of `k` lines to speed up lookups.
 /// - `k`: The interval for the pre-index (determines how frequently the coarse index stores values).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 struct FastLineTable {
     line_starts: Vec<usize>,
     coarse_index: Vec<(usize, usize)>, // (Offset, Line number) every K lines
 }
 
 impl FastLineTable {
-    /// Constructs a new `FastLineTable` from a given source string.
+    /// Creates a new `FastLineTable` with an automatically chosen interval `k`.
+    ///
+    /// The interval is computed based on the number of lines in the source,
+    /// aiming to balance lookup speed and memory usage.
     ///
     /// # Arguments
-    /// - `source`: The input string whose line positions will be indexed.
-    /// - `k`: The interval at which the coarse index stores line offsets.
+    /// - `source`: The full input source code as a string slice.
+    ///
+    /// # Returns
+    /// A `FastLineTable` with dynamically tuned indexing.
+    pub fn new(source: &str) -> Self {
+        let total_lines = bytecount::count(source.as_bytes(), b'\n') + 1;
+        let k = std::cmp::max(10, total_lines / 100);
+        Self::with_capacity(source, k)
+    }
+
+    /// Creates a new `FastLineTable` using a manually specified indexing interval `k`.
+    ///
+    /// A lower `k` gives faster lookups but increases memory usage. A higher `k` reduces
+    /// memory usage but may slow down lookup times. Typical values range from 50 to 500.
+    ///
+    /// # Arguments
+    /// - `source`: The full input source code.
+    /// - `k`: The interval between entries in the coarse index.
     ///
     /// # Returns
     /// A new instance of `FastLineTable`.
-    fn new(source: &str, k: usize) -> Self {
-        let mut line_starts = vec![0]; // The first line always starts at offset 0
+    pub fn with_capacity(source: &str, k: usize) -> Self {
+        const AVG_LINE_LENGTH: usize = 60;
+
+        let mut line_starts = Vec::with_capacity(source.len() / AVG_LINE_LENGTH);
+        line_starts.push(0);
         let mut coarse_index = vec![];
 
-        // Iterate through each byte in the source string
         for (i, b) in source.bytes().enumerate() {
             if b == b'\n' {
-                let line_number = line_starts.len() + 1; // Compute the next line number
-                line_starts.push(i + 1); // Store the offset of the next line
+                let line_number = line_starts.len() + 1;
+                line_starts.push(i + 1);
 
-                // Store coarse index entry every `k` lines
                 if line_number % k == 0 {
                     coarse_index.push((i + 1, line_number));
                 }
@@ -516,6 +432,39 @@ impl FastLineTable {
         }
     }
 
+    /// Calculates the span (start and end positions) of a substring within the source text,
+    /// including line and column information for both start and end positions.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - The byte index in the source string where the span starts.
+    /// * `end` - The byte index in the source string where the span ends.
+    /// * `source` - The entire source string from which the span is derived.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Span` struct containing the start and end byte indices along with
+    /// corresponding line and column numbers within the source.
+    ///
+    /// # Notes
+    ///
+    /// This function iterates over the source string character by character,
+    /// updating line and column counts, and stops once the end index is reached.
+    /// It also handles the edge case where `end` equals the length of the source.
+    fn get_span(&self, start: usize, end: usize) -> Span {
+        let (sl, sc) = self.get_position(start);
+        let (el, ec) = self.get_position(end);
+
+        let mut span = Span::new(start, end);
+        span.set_begin_line(sl);
+        span.set_begin_column(sc);
+        span.set_end_line(el);
+        span.set_end_column(ec);
+
+        span
+    }
+
+
     /// Retrieves the line and column number corresponding to a given byte offset.
     ///
     /// # Arguments
@@ -526,6 +475,10 @@ impl FastLineTable {
     /// - `line_number` is the 1-based index of the line.
     /// - `column_number` is the 1-based index of the column within the line.
     fn get_position(&self, offset: usize) -> (usize, usize) {
+        // Clip offset to maximum valid position (end of source)
+        let max_offset = self.line_starts.last().copied().unwrap_or(0);
+        let offset = offset.min(max_offset);
+
         // Fast lookup using the coarse index (binary search)
         let mut approx_line = match self
             .coarse_index
