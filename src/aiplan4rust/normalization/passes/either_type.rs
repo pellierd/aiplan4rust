@@ -103,29 +103,55 @@ fn collect_either_type_info(
     Ok((modified, warnings))
 }
 
-/// 2ᵉ passe : pour chaque entrée `(dups, span)` on appelle ton reporter.
-fn report_either_type_duplicates(
+/// Reports warnings for duplicate "either type" identifiers found in the AST.
+///
+/// This function processes a list of warnings, where each warning consists of a vector of
+/// duplicated identifiers (`Ident`) along with the source code span where the duplication occurs.
+/// It converts each identifier into its string representation using `ast.expect_str`, reporting
+/// an error if the conversion fails.
+///
+/// For each group of duplicates, a diagnostic warning is emitted via
+/// `report_duplicate_either_type_warning`.
+///
+/// # Arguments
+///
+/// * `warnings` - A vector of tuples, each containing:
+///     - A vector of `Ident` representing duplicated identifiers.
+///     - A `Span` indicating the source location of the duplicates.
+/// * `ast` - Reference to the AST, used to resolve `Ident` to string slices.
+/// * `diagnostic_manager` - The diagnostic manager used to emit warnings.
+///
+/// # Errors
+///
+/// Returns a `ParserInternalError` if any identifier cannot be resolved to a string slice.
+///
+/// # Examples
+///
+/// ```ignore
+/// let warnings = vec![
+///     (vec![id1, id2], span),
+///     (vec![id3, id4], span2),
+/// ];
+/// report_either_type_duplicates(warnings, &ast, &mut diag_manager)?;
+/// ```
+pub fn report_either_type_duplicates(
     warnings: Vec<(Vec<Ident>, Span)>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) {
-    for (duplicates_ids, span) in warnings {
-        // Conversion des ids en String, on filtre les ids qui n'ont pas de correspondance
-        let duplicates: Vec<String> = duplicates_ids
+) -> Result<(), ParserInternalError> {
+    let source_name = ast.source_name();
+
+    for (duplicate_ids, span) in warnings {
+        let duplicates: Vec<String> = duplicate_ids
             .into_iter()
-            .filter_map(|id| ast.context().get_str(id).map(|s| s.to_string()))
-            .collect();
+            .map(|id| ast.expect_str(id).map(str::to_string))
+            .collect::<Result<_, _>>()?;
 
-        report_duplicate_either_type_warning(
-            duplicates,
-            ast.source_name(),
-            &span,
-            diagnostic_manager,
-        );
+        report_duplicate_either_type_warning(duplicates, source_name, &span, diagnostic_manager);
     }
+
+    Ok(())
 }
-
-
 
 /// Reports a diagnostic warning when duplicate types are found in a typed list declaration.
 ///

@@ -79,20 +79,18 @@ pub fn normalize_require_def(
     let mut seen = HashSet::new();
     let mut duplicates = Vec::new();
 
-
     // Retain only unique Requirement nodes, remove duplicates and report warnings
     require_def.children_mut().retain(|child| {
         match child.expect_requirement() {
-            Ok(req) if seen.insert(req) => true, // Unique, on garde
-            Ok(req) => {
-                duplicates.push(req);
+            Ok(r) if seen.insert(r) => true,
+            Ok(r) => {
+                duplicates.push(r);
                 modified = true;
-                false // Doublon, on retire
+                false
             }
-            Err(_) => true, // Pas un Requirement valide, on garde par précaution
+            Err(_) => true,
         }
     });
-
 
     if !duplicates.is_empty() {
         report_duplicate_requirement_warning(
