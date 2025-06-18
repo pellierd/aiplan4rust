@@ -20,7 +20,7 @@ use std::fmt;
 /// - `Equal` (`=`): Represents an "equal to" comparison.
 /// - `GreaterEq` (`>=`): Represents a "greater than or equal to" comparison.
 /// - `LessEq` (`<=`): Represents a "less than or equal to" comparison.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BinaryComp {
     /// Represents a "greater than" comparison (`>`).
     Greater,

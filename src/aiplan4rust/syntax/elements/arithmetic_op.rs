@@ -15,7 +15,7 @@ use std::fmt;
 /// This enumeration defines the basic arithmetic operators commonly found
 /// in PDDL (Planning Domain Definition Language), which are used in numeric
 /// expressions for modifying and evaluating numerical state variables.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ArithmeticOp {
     /// Represents the subtraction operation (`-`).
     Sub,

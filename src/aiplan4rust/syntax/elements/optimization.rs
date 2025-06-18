@@ -18,7 +18,7 @@ use std::fmt;
 /// - `Serialize` and `Deserialize`: Allow the enum to be serialized and deserialized, facilitating
 ///     storage or transmission in formats like JSON.
 ///
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Optimization {
     /// Seeks to minimize the objective function.
     Minimize,

@@ -15,7 +15,7 @@ use std::fmt;
 /// - Representing constants, variables, types, predicates, actions.
 /// - Logical constructs like `And`, `Or`, `Not`.
 /// - Supporting extensions like the HDDL dialect with tasks, methods, and constraints.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Kind {
     /// Represents an absence of kind or uninitialized value.
     #[default]

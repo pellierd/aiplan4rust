@@ -14,7 +14,7 @@ use std::fmt;
 ///
 /// This enum defines various types of assignment or modification operations that can be applied
 /// to variables or parameters in a planning problem or formal model.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AssignOp {
     /// Basic assignment operation (sets a value).
     Assign,

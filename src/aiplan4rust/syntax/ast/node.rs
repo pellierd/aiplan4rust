@@ -1,8 +1,11 @@
 use crate::aiplan4rust::syntax::{Span, StringInterner};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
+use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 
 /// Represents a node in the Abstract Syntax Tree (AST).
 ///
@@ -82,16 +85,50 @@ impl Node {
         }
     }
 
-    // === Accessors and Mutators ===
-
-    /// Returns the total number of nodes in this subtree (including self).
+    /// Returns the total number of nodes in this subtree, including the current node.
+    ///
+    /// This is computed recursively as:
+    /// `1 + sum(size of each child)`.
     ///
     /// # Example
-    /// ```rust
+    /// ```
     /// let size = node.size();
     /// ```
     pub fn size(&self) -> usize {
         1 + self.children.iter().map(|c| c.size()).sum::<usize>()
+    }
+
+    /// Returns the number of direct children of this node.
+    ///
+    /// # Returns
+    /// * `usize` - The number of immediate child nodes.
+    pub fn arity(&self) -> usize {
+        self.children.len()
+    }
+
+    /// Returns the depth of the subtree rooted at this node.
+    ///
+    /// The depth is defined as:
+    /// - `1` if the node is a leaf (has no children),
+    /// - otherwise, `1 + max(depth of each child)`.
+    ///
+    /// # Returns
+    /// * `usize` - The depth of the tree.
+    pub fn depth(&self) -> usize {
+        if self.children.is_empty() {
+            1
+        } else {
+            1 + self.children.iter().map(|c| c.depth()).max().unwrap_or(0)
+        }
+    }
+
+    /// Returns `true` if this node has no children.
+    ///
+    /// # Returns
+    /// * `true` if the node is a leaf.
+    /// * `false` otherwise.
+    pub fn is_leaf(&self) -> bool {
+        self.children.is_empty()
     }
 
     /// Returns a reference to this node's kind (`AstKind`).
@@ -104,10 +141,10 @@ impl Node {
         &mut self.kind
     }
 
-    /// Sets the node kind.
+    /// Sets the node's kind.
     ///
     /// # Arguments
-    /// * `new_kind` - New kind to set.
+    /// * `new_kind` - The new kind to set.
     pub fn set_kind(&mut self, new_kind: AstKind) {
         self.kind = new_kind;
     }
@@ -117,7 +154,7 @@ impl Node {
         &self.content
     }
 
-    /// Returns a mutable reference to the node's content.
+    /// Returns a mutable reference to the node's content (`AstContent`).
     pub fn content_mut(&mut self) -> &mut AstContent {
         &mut self.content
     }
@@ -125,7 +162,7 @@ impl Node {
     /// Sets the node's content.
     ///
     /// # Arguments
-    /// * `new_content` - New content to assign.
+    /// * `new_content` - The new content to assign.
     pub fn set_content(&mut self, new_content: AstContent) {
         self.content = new_content;
     }
@@ -135,61 +172,206 @@ impl Node {
         &self.children
     }
 
-    /// Returns a mutable reference to the child nodes.
+    /// Returns a mutable reference to the vector of child nodes.
     pub fn children_mut(&mut self) -> &mut Vec<Box<Node>> {
         &mut self.children
     }
 
-    /// Replaces the current child nodes with a new vector.
+    /// Replaces the current children with a new list of nodes.
     ///
     /// # Arguments
-    /// * `new_children` - New vector of child nodes.
+    /// * `new_children` - The new children to set.
     pub fn set_children(&mut self, new_children: Vec<Box<Node>>) {
         self.children = new_children;
     }
 
-    /// Returns a reference to the node's source code span.
+    /// Returns a reference to the source code span of this node.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
-    /// Returns a mutable reference to the node's span.
+    /// Returns a mutable reference to the source code span of this node.
     pub fn span_mut(&mut self) -> &mut Span {
         &mut self.span
     }
 
-    /// Returns the start offset in the source code.
+    /// Returns the starting byte offset in the source code.
     pub fn start_offset(&self) -> usize {
         self.span.start()
     }
 
-    /// Returns the end offset in the source code.
+    /// Returns the ending byte offset in the source code.
     pub fn end_offset(&self) -> usize {
         self.span.end()
     }
 
-    /// Returns the start position as a (line, column) tuple.
+    /// Returns the start position as a `(line, column)` tuple.
     ///
-    /// Returns `(usize::MAX, usize::MAX)` if uninitialized.
+    /// # Returns
+    /// * A tuple `(line, column)` if initialized, otherwise `(usize::MAX, usize::MAX)`.
     pub fn start_position(&self) -> (usize, usize) {
         self.span.start_position()
     }
 
-    /// Returns the end position as a (line, column) tuple.
+    /// Returns the end position as a `(line, column)` tuple.
     ///
-    /// Returns `(usize::MAX, usize::MAX)` if uninitialized.
+    /// # Returns
+    /// * A tuple `(line, column)` if initialized, otherwise `(usize::MAX, usize::MAX)`.
     pub fn end_position(&self) -> (usize, usize) {
         self.span.end_position()
     }
 
-    /// Sets the start position (line and column).
+    /// Sets the start position using line and column values.
     ///
     /// # Arguments
-    /// * `line` - Line number.
-    /// * `column` - Column number.
+    /// * `line` - The starting line number.
+    /// * `column` - The starting column number.
     pub fn set_start_position(&mut self, line: usize, column: usize) {
         self.span.set_begin_line(line);
         self.span.set_begin_column(column);
+    }
+
+    /// Returns the identifier if this content is an `Ident`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Ident)` if the content is an identifier.
+    /// - `None` otherwise.
+    pub fn as_ident(&self) -> Option<Ident> {
+        self.content.as_ident()
+    }
+
+    /// Returns the floating-point literal if this content is a `Float`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(OrderedFloat<f64>)` if the content is a floating-point literal.
+    /// - `None` otherwise.
+    pub fn as_float(&self) -> Option<OrderedFloat<f64>> {
+        self.content.as_float()
+    }
+
+    /// Returns the requirement flag if this content is a `Requirement`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Requirement)` if the content is a requirement.
+    /// - `None` otherwise.
+    pub fn as_requirement(&self) -> Option<Requirement> {
+        self.content.as_requirement()
+    }
+
+    /// Returns the binary comparison operator if this content is a `BinaryComp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(BinaryComp)` if the content is a binary comparison operator.
+    /// - `None` otherwise.
+    pub fn as_binary_comp(&self) -> Option<BinaryComp> {
+        self.content.as_binary_comp()
+    }
+
+    /// Returns the assignment operator if this content is an `AssignOp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(AssignOp)` if the content is an assignment operator.
+    /// - `None` otherwise.
+    pub fn as_assign_op(&self) -> Option<AssignOp> {
+        self.content.as_assign_op()
+    }
+
+    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(ArithmeticOp)` if the content is an arithmetic operator.
+    /// - `None` otherwise.
+    pub fn as_arithmetic_op(&self) -> Option<ArithmeticOp> {
+        self.content.as_arithmetic_op()
+    }
+
+    /// Returns the optimization directive if this content is an `Optimization`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Optimization)` if the content is an optimization directive.
+    /// - `None` otherwise.
+    pub fn as_optimization(&self) -> Option<Optimization> {
+        self.content.as_optimization()
+    }
+
+    /// Returns `true` if the content is `None` (empty).
+    ///
+    /// # Returns
+    ///
+    /// - `true` if content is `AstContent::None`.
+    /// - `false` otherwise.
+    pub fn is_none(&self) -> bool {
+        self.content.is_none()
+    }
+
+    /// Returns the identifier if this content is an `Ident`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `Ident`.
+    pub fn expect_ident(&self) -> Result<Ident, ParserInternalError> {
+        self.content.expect_ident()
+    }
+
+    /// Returns the floating-point literal if this content is a `Float`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `Float`.
+    pub fn expect_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
+        self.content.expect_float()
+    }
+
+    /// Returns the requirement flag if this content is a `Requirement`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `Requirement`.
+    pub fn expect_requirement(&self) -> Result<Requirement, ParserInternalError> {
+        self.content.expect_requirement()
+    }
+
+    /// Returns the binary comparison operator if this content is a `BinaryComp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `BinaryComp`.
+    pub fn expect_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
+        self.content.expect_binary_comp()
+    }
+
+    /// Returns the assignment operator if this content is an `AssignOp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `AssignOp`.
+    pub fn expect_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
+        self.content.expect_assign_op()
+    }
+
+    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `ArithmeticOp`.
+    pub fn expect_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
+        self.content.expect_arithmetic_op()
+    }
+
+    /// Returns the optimization directive if this content is an `Optimization`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `Optimization`.
+    pub fn expect_optimization(&self) -> Result<Optimization, ParserInternalError> {
+        self.content.expect_optimization()
     }
 
     /// Sets the end position (line and column).

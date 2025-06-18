@@ -32,7 +32,7 @@ use std::fmt;
 /// The `Requirement` enum represents the various features that a PDDL (Planning Domain Definition
 /// Language) domain or problem can declare using the `:requirements` keyword. Each variant
 /// corresponds to a specific feature that influences the expressiveness of the planning formalism.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Requirement {
     /// Represents the basic STRIPS formalism, which supports only add and delete effects.
     Strips,

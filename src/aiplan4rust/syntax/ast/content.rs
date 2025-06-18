@@ -38,7 +38,7 @@ use std::fmt;
 use ordered_float::OrderedFloat;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
-
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 use crate::aiplan4rust::syntax::StringInterner;
 
@@ -76,6 +76,190 @@ pub enum Content {
 }
 
 impl Content {
+    /// Returns the identifier if this content is an `Ident`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Ident)` if the content is an identifier.
+    /// - `None` otherwise.
+    pub fn as_ident(&self) -> Option<Ident> {
+        match self {
+            Content::Ident(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the floating-point literal if this content is a `Float`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(OrderedFloat<f64>)` if the content is a floating-point literal.
+    /// - `None` otherwise.
+    pub fn as_float(&self) -> Option<OrderedFloat<f64>> {
+        match self {
+            Content::Float(f) => Some(*f),
+            _ => None,
+        }
+    }
+
+    /// Returns the requirement flag if this content is a `Requirement`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Requirement)` if the content is a requirement.
+    /// - `None` otherwise.
+    pub fn as_requirement(&self) -> Option<Requirement> {
+        match self {
+            Content::Requirement(r) => Some(*r),
+            _ => None,
+        }
+    }
+
+    /// Returns the binary comparison operator if this content is a `BinaryComp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(BinaryComp)` if the content is a binary comparison operator.
+    /// - `None` otherwise.
+    pub fn as_binary_comp(&self) -> Option<BinaryComp> {
+        match self {
+            Content::BinaryComp(bc) => Some(*bc),
+            _ => None,
+        }
+    }
+
+    /// Returns the assignment operator if this content is an `AssignOp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(AssignOp)` if the content is an assignment operator.
+    /// - `None` otherwise.
+    pub fn as_assign_op(&self) -> Option<AssignOp> {
+        match self {
+            Content::AssignOp(op) => Some(*op),
+            _ => None,
+        }
+    }
+
+    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(ArithmeticOp)` if the content is an arithmetic operator.
+    /// - `None` otherwise.
+    pub fn as_arithmetic_op(&self) -> Option<ArithmeticOp> {
+        match self {
+            Content::ArithmeticOp(op) => Some(*op),
+            _ => None,
+        }
+    }
+
+    /// Returns the optimization directive if this content is an `Optimization`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Optimization)` if the content is an optimization directive.
+    /// - `None` otherwise.
+    pub fn as_optimization(&self) -> Option<Optimization> {
+        match self {
+            Content::Optimization(opt) => Some(*opt),
+            _ => None,
+        }
+    }
+
+    /// Returns `true` if the content is `None` (empty).
+    ///
+    /// # Returns
+    ///
+    /// - `true` if content is `AstContent::None`.
+    /// - `false` otherwise.
+    pub fn is_none(&self) -> bool {
+        matches!(self, Content::None)
+    }
+    /// Returns the identifier if this content is an `Ident`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `Ident`.
+    pub fn expect_ident(&self) -> Result<Ident, ParserInternalError> {
+        match self {
+            Content::Ident(id) => Ok(*id),
+            other => Err(ParserInternalError::new(format!("Expected AstContent::Ident, found {:?}", other))),
+        }
+    }
+
+    /// Returns the floating-point literal if this content is a `Float`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `Float`.
+    pub fn expect_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
+        match self {
+            Content::Float(f) => Ok(*f),
+            other => Err(ParserInternalError::new(format!("Expected AstContent::Float, found {:?}", other))),
+        }
+    }
+
+    /// Returns the requirement flag if this content is a `Requirement`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `Requirement`.
+    pub fn expect_requirement(&self) -> Result<Requirement, ParserInternalError> {
+        match self {
+            Content::Requirement(r) => Ok(*r),
+            other => Err(ParserInternalError::new(format!("Expected AstContent::Requirement, found {:?}", other))),
+        }
+    }
+
+    /// Returns the binary comparison operator if this content is a `BinaryComp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `BinaryComp`.
+    pub fn expect_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
+        match self {
+            Content::BinaryComp(bc) => Ok(*bc),
+            other => Err(ParserInternalError::new(format!("Expected AstContent::BinaryComp, found {:?}", other))),
+        }
+    }
+
+    /// Returns the assignment operator if this content is an `AssignOp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `AssignOp`.
+    pub fn expect_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
+        match self {
+            Content::AssignOp(op) => Ok(*op),
+            other => Err(ParserInternalError::new(format!("Expected AstContent::AssignOp, found {:?}", other))),
+        }
+    }
+
+    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `ArithmeticOp`.
+    pub fn expect_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
+        match self {
+            Content::ArithmeticOp(op) => Ok(*op),
+            other => Err(ParserInternalError::new(format!("Expected AstContent::ArithmeticOp, found {:?}", other))),
+        }
+    }
+
+    /// Returns the optimization directive if this content is an `Optimization`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `Optimization`.
+    pub fn expect_optimization(&self) -> Result<Optimization, ParserInternalError> {
+        match self {
+            Content::Optimization(opt) => Ok(*opt),
+            other => Err(ParserInternalError::new(format!("Expected AstContent::Optimization, found {:?}", other))),
+        }
+    }
+
     /// Returns a string representation of this `Content` using a [`StringInterner`].
     ///
     /// This is especially useful for resolving interned identifiers to readable names.
