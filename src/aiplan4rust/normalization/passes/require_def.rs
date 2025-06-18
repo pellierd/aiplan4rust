@@ -59,7 +59,6 @@ use crate::aiplan4rust::syntax::Span;
 ///     println!("Duplicate requirements were removed.");
 /// }
 /// ```
-
 pub fn normalize_require_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
@@ -83,23 +82,17 @@ pub fn normalize_require_def(
 
     // Retain only unique Requirement nodes, remove duplicates and report warnings
     require_def.children_mut().retain(|child| {
-        if let AstKind::Requirement = child.kind() {
-            if let AstContent::Requirement(requirement) = child.content() {
-                // Check if this requirement is a duplicate
-                if seen.insert(requirement.clone()) {
-                    true // Keep this unique PrimitiveType child
-                } else {
-                    duplicates.push(requirement.clone());
-                    modified = true; // Duplicate found and removed
-                    false // Remove this duplicate child
-                }
-            } else {
-                true
+        match child.expect_requirement() {
+            Ok(req) if seen.insert(req) => true, // Unique, on garde
+            Ok(req) => {
+                duplicates.push(req);
+                modified = true;
+                false // Doublon, on retire
             }
-        } else {
-            true // Keep non-PrimitiveType children (should be none after validation)
+            Err(_) => true, // Pas un Requirement valide, on garde par précaution
         }
     });
+
 
     if !duplicates.is_empty() {
         report_duplicate_requirement_warning(
@@ -134,16 +127,7 @@ pub fn normalize_require_def(
 fn find_require_def(
     ast: &mut Ast,
 ) -> Result<Option<&mut AstNode>, ParserInternalError> {
-    // Search for the first RequireDef node among the root's children
-    let require_def_node = ast
-        .root_mut()
-        .children_mut()
-        .iter_mut()
-        .find(|node| matches!(node.kind(), AstKind::RequireDef));
-
-    // If a RequireDef node is found, validate its children
-    if let Some(require_def_node) = require_def_node {
-        // Validate that all children are Requirement nodes
+    if let Some(require_def_node) = ast.find_node_of_kind_mut(AstKind::RequireDef) {
         for child in require_def_node.children() {
             if !matches!(child.kind(), AstKind::Requirement) {
                 return Err(ParserInternalError::new(format!(
@@ -152,10 +136,8 @@ fn find_require_def(
                 )));
             }
         }
-        // Return the mutable reference to the valid RequireDef node
-        Ok(Some(require_def_node.as_mut()))
+        Ok(Some(require_def_node))
     } else {
-        // No RequireDef node found
         Ok(None)
     }
 }
