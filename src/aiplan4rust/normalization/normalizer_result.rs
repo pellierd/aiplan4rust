@@ -1,80 +1,142 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::syntax::ast_old::AstOld;
+use crate::aiplan4rust::syntax::ast::Ast;
 use std::fmt;
 
 /// Represents the result of the AST normalization phase.
 ///
-/// Contains:
-/// - The normalized [`AstOld`] (optional, present if normalization succeeds),
-/// - The [`DiagnosticManager`] that collects warnings or issues encountered during normalization.
+/// This struct encapsulates both the normalized [`Ast`] (if normalization succeeded)
+/// and the [`DiagnosticManager`] which collects all warnings, errors,
+/// or informational messages generated during normalization.
 ///
-/// This struct is used after parsing but before semantic analysis.
+/// The `NormalizerResult` is typically produced after parsing and normalization
+/// but before semantic analysis.
+///
+/// # Structure
+/// - `ast`: An optional normalized AST. This is `Some(ast)` if normalization
+///   was successful, otherwise `None`.
+/// - `diagnostic_manager`: Holds diagnostics produced during normalization.
+///
+/// # Usage
+///
+/// After normalization, users can inspect the normalized AST and any
+/// diagnostics to determine if further processing should proceed.
+///
+/// ```rust
+/// let result: NormalizerResult = normalizer.normalize(ast)?;
+///
+/// if let Some(normalized_ast) = result.ast() {
+///     // Use normalized AST
+/// }
+///
+/// for diag in result.diagnostic_manager().diagnostics() {
+///     println!("Diagnostic: {}", diag);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct NormalizerResult {
-    ast: Option<AstOld>,
+    ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
 }
 
 impl NormalizerResult {
-    /// Creates a new `NormalizerResult`.
+    /// Constructs a new `NormalizerResult`.
     ///
     /// # Arguments
-    /// - `ast_old`: An `Option` containing the normalized AST. `Some(ast_old)` if normalization was successful, `None` otherwise.
-    /// - `diagnostic_manager`: The diagnostic manager collecting normalization diagnostics.
-    pub fn new(ast: Option<AstOld>, diagnostic_manager: DiagnosticManager) -> Self {
+    ///
+    /// * `ast` - An optional normalized AST. `Some(ast)` if normalization succeeded,
+    ///   otherwise `None`.
+    /// * `diagnostic_manager` - The diagnostic manager capturing any diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `NormalizerResult`.
+    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
         Self { ast, diagnostic_manager }
     }
 
-    /// Returns a reference to the normalized AST.
+    /// Returns an immutable reference to the normalized AST.
     ///
     /// # Returns
-    /// - `&Option<Ast>`: A reference to the normalized AST, or `None` if none is available.
-    pub fn ast(&self) -> &Option<AstOld> {
+    ///
+    /// A reference to the optional normalized AST. If normalization failed,
+    /// this will be `None`.
+    pub fn ast(&self) -> &Option<Ast> {
         &self.ast
     }
 
     /// Returns a mutable reference to the normalized AST.
     ///
+    /// This allows modification or replacement of the AST within the result.
+    ///
     /// # Returns
-    /// - `&mut Option<Ast>`: A mutable reference allowing modification or replacement of the AST.
-    pub fn ast_mut(&mut self) -> &mut Option<AstOld> {
+    ///
+    /// A mutable reference to the optional normalized AST.
+    pub fn ast_mut(&mut self) -> &mut Option<Ast> {
         &mut self.ast
     }
 
     /// Takes ownership of the normalized AST, leaving `None` in its place.
     ///
+    /// This is useful when transferring ownership out of the result.
+    ///
     /// # Returns
-    /// - `Option<Ast>`: The normalized AST if present, or `None`.
-    pub fn take_ast(&mut self) -> Option<AstOld> {
+    ///
+    /// The normalized AST if present, or `None`.
+    pub fn take_ast(&mut self) -> Option<Ast> {
         self.ast.take()
     }
 
     /// Takes ownership of the diagnostic manager, replacing it with an empty one.
     ///
     /// # Returns
-    /// - `DiagnosticManager`: The previously held diagnostic manager.
+    ///
+    /// The `DiagnosticManager` instance containing collected diagnostics.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         std::mem::take(&mut self.diagnostic_manager)
     }
 
-    /// Returns a reference to the diagnostic manager.
+    /// Returns an immutable reference to the diagnostic manager.
+    ///
+    /// Allows inspection of warnings, errors, or informational diagnostics
+    /// collected during normalization.
     ///
     /// # Returns
-    /// - `&DiagnosticManager`: An immutable reference to the diagnostic manager.
+    ///
+    /// Reference to the internal `DiagnosticManager`.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
     /// Returns a mutable reference to the diagnostic manager.
     ///
+    /// Allows adding or modifying diagnostics after normalization.
+    ///
     /// # Returns
-    /// - `&mut DiagnosticManager`: A mutable reference for adding or modifying diagnostics.
+    ///
+    /// Mutable reference to the internal `DiagnosticManager`.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
 }
 
 impl fmt::Display for NormalizerResult {
+    /// Formats the normalization result for display.
+    ///
+    /// If an AST is present, it prints the root node of the AST.
+    /// It then prints any diagnostics collected during normalization.
+    ///
+    /// If no AST is present, it notes that normalization failed.
+    ///
+    /// # Example output
+    ///
+    /// ```
+    /// Normalized AST:
+    /// (AST root node printed here)
+    ///
+    /// Normalization diagnostics:
+    /// - Warning: ...
+    /// - Error: ...
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ast {
             Some(ast) => {

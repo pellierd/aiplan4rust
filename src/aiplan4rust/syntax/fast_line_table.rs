@@ -18,7 +18,7 @@ impl FastLineTable {
     /// Average line length in bytes, used for initial capacity estimation.
     ///
     /// Public so it can be used elsewhere if needed.
-    pub const AVG_LINE_LENGTH: usize = 60;
+    pub const AVG_LINE_LENGTH: usize = 80;
 
     /// Creates a new `FastLineTable` with an automatically chosen interval `k`.
     ///

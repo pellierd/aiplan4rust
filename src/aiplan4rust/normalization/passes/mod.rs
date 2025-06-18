@@ -25,13 +25,13 @@
 //! been applied.
 //!
 //! ```rust,ignore
-//! let mut ast_old = parse_source_code(source)?;
+//! let mut ast = parse_source_code(source)?;
 //!
 //! // Apply normalizations in the correct order
-//! normalize_typed_list(&mut ast_old)?;
-//! normalize_type_def(&mut ast_old, &mut diagnostics)?;
-//! normalize_require_def(&mut ast_old, &mut diagnostics)?;
-//! normalize_either_type(&mut ast_old)?;
+//! normalize_typed_list(&mut ast)?;
+//! normalize_type_def(&mut ast, &mut diagnostics)?;
+//! normalize_require_def(&mut ast, &mut diagnostics)?;
+//! normalize_either_type(&mut ast)?;
 //! ```
 //!
 //! ## Error Handling
