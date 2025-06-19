@@ -53,7 +53,7 @@ pub fn normalize_either_type(
 
     let (modified, warnings) = collect_either_type_info(root)?;
 
-    report_either_type_duplicates(warnings, ast, diagnostic_manager);
+    report_either_type_duplicates(warnings, ast, diagnostic_manager)?;
 
     Ok(modified)
 }

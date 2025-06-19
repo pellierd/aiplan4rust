@@ -276,14 +276,14 @@ impl Content {
     /// ```
     pub fn display_with_context(&self, ctx: &StringInterner) -> String {
         match self {
-            Content::None => "".to_string(),
-            Content::Ident(idx) => ctx.get_str(*idx).unwrap_or("(unknown)").to_string(),
-            Content::Float(val) => format!("{}", val),
-            Content::Requirement(req) => format!("{:?}", req),
-            Content::BinaryComp(comp) => format!("{:?}", comp),
-            Content::AssignOp(assign) => format!("{:?}", assign),
-            Content::ArithmeticOp(op) => format!("{:?}", op),
-            Content::Optimization(opt) => format!("{:?}", opt),
+            Content::None => "None".to_string(),
+            Content::Ident(idx) => format!("Iden(\"{}\")", ctx.get_str(*idx).unwrap_or("(unknown)").to_string()),
+            Content::Float(val) => format!("Float({})", val),
+            Content::Requirement(req) => format!("Requirement({})", req),
+            Content::BinaryComp(comp) => format!("BinaryComp({})", comp),
+            Content::AssignOp(assign) => format!("AssignOp({})", assign),
+            Content::ArithmeticOp(op) => format!("ArithmeticOp({})", op),
+            Content::Optimization(opt) => format!("Optimization({})", opt),
         }
     }
 }

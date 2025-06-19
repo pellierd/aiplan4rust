@@ -80,21 +80,26 @@ pub fn normalize_type_def(
     Ok(changed)
 }
 
-/// Effectue la recherche, fusion des TypedItems, et mise à jour mutable du TypedList.
-/// Retourne les sources des types (pour diagnostics) et un boolé indiquant s’il y a eu changement.
+/// Searches for a `TypedList` node in the AST, collects and merges its `TypedItems`,
+/// and updates the `TypedList` with the merged results.
+///
+/// Returns a map of type sources (used for diagnostics) and a boolean indicating
+/// whether any changes were made.
+///
+/// If no `TypedList` node is found (e.g., for problems that do not declare any `typedef`),
+/// the function performs no operation and returns an empty result with `changed = false`.
 fn process_types_def(
     ast: &mut Ast,
 ) -> Result<(HashMap<Ident, (HashSet<Ident>, Vec<Span>)>, bool), ParserInternalError> {
-    let typed_list = find_types_def_typed_list_mut(ast)?
-        .ok_or_else(|| ParserInternalError::new("TypedList node not found".to_string()))?;
+    let Some(typed_list) = find_types_def_typed_list_mut(ast)? else {
+        // If no TypedList is found, return empty data and mark no changes
+        return Ok((HashMap::new(), false));
+    };
 
-    // Copie légère (pas clone profond) des enfants pour lecture seule
     let old_typed_items = typed_list.children().to_vec();
 
-    // Collecte infos et fusion
     let (merged_items, type_sources, changed) = collect_type_info(old_typed_items)?;
 
-    // Mise à jour mutable du TypedList
     typed_list.set_children(merged_items.into_values().collect());
 
     Ok((type_sources, changed))
@@ -128,11 +133,8 @@ fn collect_type_info(
     let mut changed = false;
 
     for typed_item in typed_items {
-        // On consomme typed_item dans extract_id_and_info
         let (key, ty_opt, type_names, span, typed_item) = extract_id_and_info(typed_item)?;
-
         update_type_sources(&mut type_sources, key, &type_names, &span);
-
         changed |= merge_typed_item(&mut merged_items, key, typed_item, ty_opt);
     }
 
@@ -209,7 +211,7 @@ fn extract_id_and_info(
 
     // Retire le deuxième enfant s'il existe, sinon None
     let ty_opt = if children.len() > 1 {
-        Some(children.remove(1))
+        Some(children[1].clone())
     } else {
         None
     };
@@ -305,26 +307,40 @@ fn update_type_sources(
 fn merge_typed_item(
     merged_items: &mut HashMap<Ident, Box<AstNode>>,
     key: Ident,
-    typed_item: Box<AstNode>,
-    ty_opt: Option<Box<AstNode>>,
+    new_item: Box<AstNode>,
+    mut new_type_opt: Option<Box<AstNode>>, // On prend ownership ici !
 ) -> bool {
-    if let Some(existing_item) = merged_items.get_mut(&key) {
-        // If the key already exists, try to merge the new type into the existing one
-        if let Some(mut new_ty) = ty_opt {
+    match merged_items.get_mut(&key) {
+        Some(existing_item) => {
             let existing_children = existing_item.children_mut();
+
             if existing_children.len() > 1 {
-                // Merge new_ty's children into the existing second child
-                existing_children[1].children_mut().extend(new_ty.children_mut().drain(..));
-            } else {
-                // If no second child exists, push new_ty as a new child
-                existing_children.push(new_ty);
+                if let Some(mut new_type) = new_type_opt.take() { // on *prend* new_type, ownership
+                    let existing_type = &mut existing_children[1];
+                    let before = existing_type.children().len();
+
+                    existing_type
+                        .children_mut()
+                        .extend(new_type.children_mut().drain(..)); // move sans clone
+
+                    let after = existing_type.children().len();
+                    return after > before;
+                }
             }
+
+            if existing_children.len() == 1 {
+                if let Some(new_type) = new_type_opt.take() {
+                    existing_children.push(new_type); // move direct sans clone
+                    return true;
+                }
+            }
+
+            false
         }
-        true
-    } else {
-        // Insert the typed_item if key does not exist yet
-        merged_items.insert(key, typed_item);
-        true
+        None => {
+            merged_items.insert(key, new_item); // move direct aussi
+            true
+        }
     }
 }
 

@@ -134,6 +134,9 @@ impl Frontend {
                 let mut normalizer = Normalizer::new();
                 let mut normalizer_result =
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
+                if let Some(normalized_ast) = normalizer_result.ast() {
+                    println!("normalizer: {}", normalized_ast);
+                }
                 Self::create_error_result(normalizer_result.diagnostic_manager_mut())
 
                 /*match normalizer_result.take_ast() {
