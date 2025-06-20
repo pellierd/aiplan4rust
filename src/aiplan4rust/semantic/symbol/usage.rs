@@ -6,6 +6,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Represents the usage of a symbol in a specific context within the AST.
 ///
@@ -23,7 +24,7 @@ use std::fmt;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
 
-    symbol: String,
+    symbol: Ident,
 
     /// The kind of the symbol used (e.g., variable, function).
     kind: SymbolKind,
@@ -43,7 +44,7 @@ pub struct Usage {
 
 impl Usage {
     /// Constructeur pour créer un nouveau `Usage`
-    pub fn new(symbol: String, kind: SymbolKind, scope: Scope, source: SymbolSource, span: Span, ast: usize) -> Self {
+    pub fn new(symbol: Ident, kind: SymbolKind, scope: Scope, source: SymbolSource, span: Span, ast: usize) -> Self {
         Usage {
             symbol,
             kind,
@@ -54,8 +55,8 @@ impl Usage {
         }
     }
 
-    pub fn symbol(&self) -> &String {
-        &self.symbol
+    pub fn symbol(&self) -> Ident {
+        self.symbol
     }
 
     /// Accessor for the kind of the symbol used.

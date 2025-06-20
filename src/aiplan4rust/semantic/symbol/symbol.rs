@@ -9,6 +9,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
 use indexmap::IndexSet;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Represents a symbol in a given context, with its associated declarations and usages.
 ///
@@ -47,7 +48,7 @@ use indexmap::IndexSet;
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Symbol {
     /// The unique name of the symbol.
-    name: String,
+    name: Ident,
 
     /// The AST node where the symbol is declared (only once).
     declarations: IndexSet<Declaration>,
@@ -74,9 +75,9 @@ impl Symbol {
     ///
     /// Returns a new `Symbol` instance with the specified name, and empty declarations and usages
     /// lists.
-    pub fn new<S: Into<String>>(name: S) -> Self {
+    pub fn new(name: Ident) -> Self {
         Symbol {
-            name: name.into(),
+            name: name,
             declarations: IndexSet::new(),
             usages: IndexSet::new(),
         }
@@ -87,8 +88,8 @@ impl Symbol {
     /// # Returns
     ///
     /// A reference to the `String` containing the symbol's name.
-    pub fn name(&self) -> &String {
-        &self.name
+    pub fn name(&self) -> Ident {
+        self.name
     }
 
     /// Returns the list of declarations for the symbol.
@@ -140,18 +141,6 @@ impl Symbol {
         self.usages.insert(usage)
     }
 
-    /// Returns the part of the name before the first '/' character, if it exists.
-    ///
-    /// # Returns
-    ///
-    /// A string slice containing the part of the name before the first '/' character,
-    /// or the full name if no '/' is present.
-    pub fn get_formatted_name(&self) -> &str {
-        self.name
-            .split_once('/')
-            .map(|(before, _)| before)
-            .unwrap_or(&self.name)
-    }
 }
 
 impl fmt::Display for Symbol {

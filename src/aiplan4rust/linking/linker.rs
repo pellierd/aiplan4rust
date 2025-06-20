@@ -13,6 +13,7 @@ use std::mem;
 use std::mem::take;
 
 use crate::aiplan4rust::{linking, semantic};
+use crate::aiplan4rust::syntax::elements::Ident;
 
 #[derive(Debug)]
 pub struct Linker {
@@ -127,7 +128,7 @@ impl Linker {
 
         // Apply collected declarations to symbols in the problem's symbol table.
         for (symbol_name, declaration) in declared {
-            if let Some(symbol) = problem_symbol_table.get_symbol_mut(&symbol_name) {
+            if let Some(symbol) = problem_symbol_table.get_symbol_mut(symbol_name) {
                 symbol.add_declaration(declaration);
             }
         }
@@ -179,8 +180,8 @@ impl Linker {
     fn collect_declared_and_undeclared_symbols<'a>(
         problem: &'a SemanticContext,
         domain_symbol_table: &'a SymbolTable,
-        declared: &mut Vec<(String, Declaration)>,
-        undeclared: &mut Vec<(&'a String, &'a Usage)>,
+        declared: &mut Vec<(Ident, Declaration)>,
+        undeclared: &mut Vec<(Ident, &'a Usage)>,
     ) -> Result<bool, ParserInternalError> {
         let problem_symbol_table = problem.symbol_table();
         let mut all_resolved = true;
@@ -196,7 +197,7 @@ impl Linker {
                     // Attempt to resolve declaration from domain by symbol name and usage kind.
                     // Propagate error if resolution fails.
                     let domain_declaration_option = domain_symbol_table.resolve_declaration(
-                        symbol.name(),
+                        &symbol.name(),
                         usage.kind(),
                         &Scope::root(),
                     )?;
@@ -207,7 +208,7 @@ impl Linker {
                         domain_declaration.set_source(SymbolSource::Domain);
 
                         // Queue the declaration to be added to the problem's symbol table.
-                        declared.push((symbol.name().to_string(), domain_declaration));
+                        declared.push((symbol.name(), domain_declaration));
                     } else {
                         // No matching declaration found in domain: record the undeclared symbol.
                         undeclared.push((symbol.name(), usage));

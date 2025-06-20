@@ -1,5 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::symbol::SymbolSource;
+use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -12,6 +12,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 use indexmap::IndexSet;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A table of symbols used by the aiplan4rust.
@@ -36,7 +37,7 @@ use indexmap::IndexSet;
 /// // Insert or query symbols as needed
 /// ```
 pub struct SymbolTable {
-    symbols: LinkedHashMap<String, Symbol>,
+    symbols: LinkedHashMap<Ident, Symbol>,
     source: SymbolSource,
 }
 
@@ -106,7 +107,7 @@ impl SymbolTable {
     ///
     /// # Returns
     /// An iterator over all symbol name and symbol pairs in the symbol table.
-    pub fn iter(&self) -> impl Iterator<Item = (&String, &Symbol)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Ident, &Symbol)> {
         self.symbols.iter()
     }
 
@@ -119,7 +120,7 @@ impl SymbolTable {
     /// # Returns
     /// An iterator over all symbol name and mutable symbol pairs, allowing modification
     /// of the symbols during iteration.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&String, &mut Symbol)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Ident, &mut Symbol)> {
         self.symbols.iter_mut()
     }
 
@@ -128,7 +129,7 @@ impl SymbolTable {
     /// # Arguments
     /// * `key` - A unique key for the symbol.
     /// * `symbol` - The symbol to insert.
-    pub fn insert_symbol(&mut self, key: String, symbol: Symbol) {
+    pub fn insert_symbol(&mut self, key: Ident, symbol: Symbol) {
         self.symbols.insert(key, symbol);
     }
 
@@ -139,8 +140,8 @@ impl SymbolTable {
     ///
     /// # Returns
     /// An `Option` with a reference to the symbol if it exists.
-    pub fn get_symbol(&self, name: &str) -> Option<&Symbol> {
-        self.symbols.get(name)
+    pub fn get_symbol(&self, name: Ident) -> Option<&Symbol> {
+        self.symbols.get(&name)
     }
 
     /// Retrieves a mutable reference to a symbol by its key.
@@ -150,8 +151,8 @@ impl SymbolTable {
     ///
     /// # Returns
     /// An `Option` with a mutable reference if the symbol exists.
-    pub fn get_symbol_mut(&mut self, name: &str) -> Option<&mut Symbol> {
-        self.symbols.get_mut(name)
+    pub fn get_symbol_mut(&mut self, name: Ident) -> Option<&mut Symbol> {
+        self.symbols.get_mut(&name)
     }
 
     /// Returns an iterator over all symbols in the table.
@@ -212,7 +213,7 @@ impl SymbolTable {
     /// ```
     pub fn collect_symbol_with_declaration(
         &self,
-        symbol_name: Option<&str>,
+        symbol_name: Option<&Ident>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Symbol> {
@@ -294,7 +295,7 @@ impl SymbolTable {
     /// ```
     pub fn collect_symbol_with_usages(
         &self,
-        symbol_name: Option<&str>,
+        symbol_name: Option<&Ident>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Symbol> {
@@ -361,7 +362,7 @@ impl SymbolTable {
     /// ```
     pub fn collect_declarations(
         &self,
-        symbol_name: Option<&str>,
+        symbol_name: Option<&Ident>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Declaration> {
@@ -416,7 +417,7 @@ impl SymbolTable {
     /// ```
     pub fn collect_usages(
         &self,
-        symbol_name: Option<&str>,
+        symbol_name: Option<&Ident>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Usage> {
@@ -604,7 +605,7 @@ impl SymbolTable {
     /// [`ParserInternalError`]: crate::errors::ParserInternalError
     pub fn resolve_declaration(
         &self,
-        symbol_name: &str,
+        symbol_name: &Ident,
         usage_kind: &SymbolKind,
         scope: &Scope,
     ) -> Result<Option<&Declaration>, ParserInternalError> {
@@ -644,7 +645,7 @@ impl SymbolTable {
     /// - `Ok(None)`: If no declaration is acceptable.
     /// - `Err`: If multiple valid declarations cause ambiguity.
     fn select_valid_declaration<'a>(
-        symbol_name: &str,
+        symbol_name: &Ident,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, ParserInternalError> {
@@ -708,7 +709,7 @@ impl SymbolTable {
     /// - `Ok(None)`: If no matching declaration exists.
     /// - `Err`: If validation fails due to ambiguity or incompatible kinds.
     fn validate_type_or_predicate_declarations<'a>(
-        symbol_name: &str,
+        symbol_name: &Ident,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, ParserInternalError> {
@@ -746,7 +747,7 @@ impl SymbolTable {
     /// - `Ok(None)`: If none found or incompatible.
     /// - `Err`: If multiple declarations cause ambiguity.
     fn validate_task_declarations<'a>(
-        symbol_name: &str,
+        symbol_name: &Ident,
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, ParserInternalError> {
         // If there is more than one declaration, return an error indicating ambiguity
@@ -861,7 +862,7 @@ impl SymbolTable {
     /// # Returns
     /// A `ParserInternalError` describing the ambiguity in symbol declarations.
     fn multiple_declarations_error(
-        symbol_name: &str,
+        symbol_name: &Ident,
         usage_kind: &SymbolKind,
         count: usize,
     ) -> ParserInternalError {
