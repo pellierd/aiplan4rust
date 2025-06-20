@@ -72,7 +72,7 @@ impl Context {
         let arena = Arena::from_ast(ast);
 
         // Extract the requirements from the syntax tree
-        let requirements = Self::extract_requirements(&arena);
+        let requirements = Self::extract_requirements(&arena)?;
 
         // Create the symbol table from the syntax tree
         let mut builder = SymbolTableBuilder::new();
@@ -101,36 +101,31 @@ impl Context {
     /// # Returns
     ///
     /// A `HashSet` of all declared and implied `Requirement` instances.
-    fn extract_requirements(arena: &ArenaAst) -> HashSet<Requirement> {
+    fn extract_requirements(arena: &ArenaAst) -> Result<HashSet<Requirement>, ParserInternalError> {
         let mut requirements = HashSet::new();
-        let mut processing_requirement_children = false;
 
+        // Step 1: Find the first `RequireDef` node in the AST
+        let mut requirement_def_node = None;
         for node in arena.preorder() {
-            match &node.kind() {
-                AstKind::Requirement=> {
-                    requirements.extend(node.expect_requirement()?.imply());
+            if matches!(node.kind(), AstKind::RequireDef) {
+                requirement_def_node = Some(node);
+                break;
+            }
+        }
 
-                    // If we were not already processing a requirement,
-                    // start processing its children
-                    if !processing_requirement_children {
-                        processing_requirement_children = true;
-                    } else {
-                        // If we encounter another requirement while processing children,
-                        // we can stop as we've processed the first requirement and its subtree
-                        break;
-                    }
-                }
-                _ => {
-                    // While processing the first requirement's children,
-                    // also include implied requirements from those children
-                    if processing_requirement_children {
-                        requirements.extend(node.expect_requirement()?.imply());
+        // Step 2: If found, iterate over its children and collect all `Requirement` nodes
+        if let Some(req_def) = requirement_def_node {
+            for child in req_def.children() {
+                let node = arena.expect_node(*child)?;
+                if matches!(node.kind(), AstKind::Requirement) {
+                    if let Ok(req) = node.expect_requirement() {
+                        requirements.extend(req.imply());
                     }
                 }
             }
         }
 
-        requirements
+        Ok(requirements)
     }
 
     /// Checks whether a specific `Requirement` is declared in the syntax tree.

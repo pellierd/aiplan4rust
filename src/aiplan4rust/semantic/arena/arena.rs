@@ -87,6 +87,10 @@ impl Arena {
         self.nodes.get(id)
     }
 
+    pub fn expect_node(&self, id: usize) -> Result<&Node, ParserInternalError> {
+        self.get_node(id).ok_or_else(|| ParserInternalError::new(format!("Node with id {} not found", id)))
+    }
+
     /// Returns an immutable reference to the parent node of the node at the given index, if it exists.
     ///
     /// # Parameters
