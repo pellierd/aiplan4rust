@@ -1,10 +1,10 @@
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;
 use crate::aiplan4rust::semantic::arena::ArenaAstNode;
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
@@ -48,7 +48,7 @@ pub enum Kind {
         ty2: Vec<String>,
     },
     RequirementViolation {
-        node_kind: AstKindOld,
+        node_kind: AstKind,
         required: Vec<Requirement>,
     },
     DuplicatedSymbolDeclarationInScopeError {
