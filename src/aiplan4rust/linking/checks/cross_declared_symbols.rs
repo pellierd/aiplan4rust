@@ -7,6 +7,7 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
+use crate::aiplan4rust::semantic::context::Context;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::syntax::elements::Ident;
 
@@ -100,7 +101,7 @@ pub fn check_cross_declared_symbols(
                         report_cross_conflict_symbol_error(
                             declaration,
                             domain_kinds,
-                            problem.source_name(),
+                            problem,
                             source,
                             diagnostic_manager,
 
@@ -229,24 +230,27 @@ fn get_relevant_domain_kinds(
 /// );
 /// ```
 fn report_cross_conflict_symbol_error(
-    problem_declaration: &Declaration,
+    declaration: &Declaration,
     domain_kinds: Vec<SymbolKind>,
-    filename: &str,
+    context: &SemanticContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-)  {
+)  -> Result<(), ParserInternalError> {
+    let symbol = declaration.symbol();
+    let symbol_name = context.ast().interner().expect_str(symbol)?;
     let error = Diagnostic::new(
         DiagnosticKind::CrossConflictSymbolDeclarationError {
-            symbol: problem_declaration.symbol().clone(),
-            problem_kind: problem_declaration.kind().clone(),
+            symbol: symbol_name.to_string(),
+            problem_kind: declaration.kind().clone(),
             domain_kinds,
         },
         source,
-        filename.to_string(),
-        problem_declaration.span().clone(),
+        context.source_name().to_string(),
+        declaration.span().clone(),
     );
 
     diagnostic_manager.add_diagnostic(error);
+    Ok(())
 }
 
 /// Checks whether a given symbol declaration should be exempt from conflict checks.
