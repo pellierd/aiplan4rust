@@ -3,14 +3,11 @@ use std::mem;
 
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
-use crate::aiplan4rust::semantic::arena::arena::Arena;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
-use crate::aiplan4rust::syntax::ast_old::{AstKindOld, AstNodeOld, AstOld};
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
-use crate::aiplan4rust::semantic::symbol::kind::Kind;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, TypedSymbol};
+
 use crate::aiplan4rust::semantic::SymbolTable;
-use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
+use crate::aiplan4rust::syntax::ast::AstKind;
 
 pub struct SymbolTableBuilderFromArena<'a> {
     ast: &'a ArenaAst,
@@ -43,10 +40,10 @@ impl<'a> SymbolTableBuilderFromArena<'a> {
         let root = ast.get_node(0).unwrap();
 
         match root.kind() {
-            AstKindOld::Domain => {
+            AstKind::Domain => {
                 self.table_mut().set_source(SymbolSource::Domain);
             }
-            AstKindOld::Problem => {
+            AstKind::Problem => {
                 self.table_mut().set_source(SymbolSource::Problem);
             }
             _ => {
@@ -97,7 +94,7 @@ impl<'a> SymbolTableBuilderFromArena<'a> {
 
 
 
-    fn add_declaration_symbol(
+    /*fn add_declaration_symbol(
         &mut self,
         node_id: usize,
         node: &ArenaAstNode,
@@ -143,7 +140,7 @@ impl<'a> SymbolTableBuilderFromArena<'a> {
         }
 
         Ok(())
-    }
+    }*/
 
 
 

@@ -1,6 +1,10 @@
 use std::fmt;
+use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::syntax::{AstKindOld, Span};
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
+use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 
 /// Represents a node in an Abstract Syntax Tree (AST) arena.
 ///
@@ -38,7 +42,8 @@ use crate::aiplan4rust::syntax::{AstKindOld, Span};
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Node {
-    kind: AstKindOld,
+    kind: AstKind,
+    content: AstContent,
     children: Vec<usize>,
     span: Span,
     parent: Option<usize>,
@@ -58,17 +63,83 @@ impl Node {
     /// # Returns
     ///
     /// A newly created `Node`.
-    pub fn new(kind: AstKindOld, span: Span, parent: Option<usize>) -> Self {
+    pub fn new(kind: AstKind, content: AstContent, span: Span, parent: Option<usize>) -> Self {
         Node {
             kind,
+            content,
             children: Vec::new(),
             span,
             parent,
         }
     }
 
-    /// Returns a reference to the kind of this node.
-    pub fn kind(&self) -> &AstKindOld {
+    /// Returns the total number of nodes in this subtree, including the current node.
+    ///
+    /// This is computed recursively as:
+    /// `1 + sum(size of each child)`.
+    ///
+    /// # Example
+    /// ```
+    /// let size = node.size();
+    /// ```
+    pub fn size(&self, arena: &[Node]) -> usize {
+        let mut count = 0;
+        let mut stack = vec![self];
+
+        while let Some(node) = stack.pop() {
+            count += 1;
+            for &child_idx in &node.children {
+                stack.push(&arena[child_idx]);
+            }
+        }
+
+        count
+    }
+
+    /// Returns the number of direct children of this node.
+    ///
+    /// # Returns
+    /// * `usize` - The number of immediate child nodes.
+    pub fn arity(&self) -> usize {
+        self.children.len()
+    }
+
+    /// Returns the depth of the subtree rooted at this node.
+    ///
+    /// The depth is defined as:
+    /// - `1` if the node is a leaf (has no children),
+    /// - otherwise, `1 + max(depth of each child)`.
+    ///
+    /// # Returns
+    /// * `usize` - The depth of the tree.
+    pub fn depth(&self, arena: &[Node]) -> usize {
+        let mut max_depth = 0;
+        let mut stack = vec![(self, 1)]; // (node, current_depth)
+
+        while let Some((node, depth)) = stack.pop() {
+            if depth > max_depth {
+                max_depth = depth;
+            }
+
+            for &child_idx in &node.children {
+                stack.push((&arena[child_idx], depth + 1));
+            }
+        }
+
+        max_depth
+    }
+
+    /// Returns `true` if this node has no children.
+    ///
+    /// # Returns
+    /// * `true` if the node is a leaf.
+    /// * `false` otherwise.
+    pub fn is_leaf(&self) -> bool {
+        self.children.is_empty()
+    }
+
+    /// Returns a reference to this node's kind (`AstKind`).
+    pub fn kind(&self) -> &AstKind {
         &self.kind
     }
 
@@ -94,35 +165,6 @@ impl Node {
         self.parent.is_none()
     }
 
-    /// Sets the kind of this node.
-    ///
-    /// # Arguments
-    ///
-    /// * `kind` - The new kind to assign to the node.
-    pub fn set_kind(&mut self, kind: AstKindOld) {
-        self.kind = kind;
-    }
-
-    /// Sets the source code span of this node.
-    ///
-    /// # Arguments
-    ///
-    /// * `span` - The new span to assign to the node.
-    pub fn set_span(&mut self, span: Span) {
-        self.span = span;
-    }
-
-    /// Sets the parent of this node.
-    ///
-    /// This is a crate-private method intended to be used by arena internals.
-    ///
-    /// # Arguments
-    ///
-    /// * `parent` - The optional index of the parent node.
-    pub(crate) fn set_parent(&mut self, parent: Option<usize>) {
-        self.parent = parent;
-    }
-
     /// Adds a child node index to this node’s children.
     ///
     /// This is a crate-private method intended to be used by arena internals.
@@ -132,6 +174,149 @@ impl Node {
     /// * `child_id` - The index of the child node to add.
     pub(crate) fn add_child(&mut self, child_id: usize) {
         self.children.push(child_id);
+    }
+
+    /// Returns the identifier if this content is an `Ident`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Ident)` if the content is an identifier.
+    /// - `None` otherwise.
+    pub fn as_ident(&self) -> Option<Ident> {
+        self.content.as_ident()
+    }
+
+    /// Returns the floating-point literal if this content is a `Float`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(OrderedFloat<f64>)` if the content is a floating-point literal.
+    /// - `None` otherwise.
+    pub fn as_float(&self) -> Option<OrderedFloat<f64>> {
+        self.content.as_float()
+    }
+
+    /// Returns the requirement flag if this content is a `Requirement`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Requirement)` if the content is a requirement.
+    /// - `None` otherwise.
+    pub fn as_requirement(&self) -> Option<Requirement> {
+        self.content.as_requirement()
+    }
+
+    /// Returns the binary comparison operator if this content is a `BinaryComp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(BinaryComp)` if the content is a binary comparison operator.
+    /// - `None` otherwise.
+    pub fn as_binary_comp(&self) -> Option<BinaryComp> {
+        self.content.as_binary_comp()
+    }
+
+    /// Returns the assignment operator if this content is an `AssignOp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(AssignOp)` if the content is an assignment operator.
+    /// - `None` otherwise.
+    pub fn as_assign_op(&self) -> Option<AssignOp> {
+        self.content.as_assign_op()
+    }
+
+    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(ArithmeticOp)` if the content is an arithmetic operator.
+    /// - `None` otherwise.
+    pub fn as_arithmetic_op(&self) -> Option<ArithmeticOp> {
+        self.content.as_arithmetic_op()
+    }
+
+    /// Returns the optimization directive if this content is an `Optimization`.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Optimization)` if the content is an optimization directive.
+    /// - `None` otherwise.
+    pub fn as_optimization(&self) -> Option<Optimization> {
+        self.content.as_optimization()
+    }
+
+    /// Returns `true` if the content is `None` (empty).
+    ///
+    /// # Returns
+    ///
+    /// - `true` if content is `AstContent::None`.
+    /// - `false` otherwise.
+    pub fn is_none(&self) -> bool {
+        self.content.is_none()
+    }
+
+    /// Returns the identifier if this content is an `Ident`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `Ident`.
+    pub fn expect_ident(&self) -> Result<Ident, ParserInternalError> {
+        self.content.expect_ident()
+    }
+
+    /// Returns the floating-point literal if this content is a `Float`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `Float`.
+    pub fn expect_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
+        self.content.expect_float()
+    }
+
+    /// Returns the requirement flag if this content is a `Requirement`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `Requirement`.
+    pub fn expect_requirement(&self) -> Result<Requirement, ParserInternalError> {
+        self.content.expect_requirement()
+    }
+
+    /// Returns the binary comparison operator if this content is a `BinaryComp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not a `BinaryComp`.
+    pub fn expect_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
+        self.content.expect_binary_comp()
+    }
+
+    /// Returns the assignment operator if this content is an `AssignOp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `AssignOp`.
+    pub fn expect_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
+        self.content.expect_assign_op()
+    }
+
+    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `ArithmeticOp`.
+    pub fn expect_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
+        self.content.expect_arithmetic_op()
+    }
+
+    /// Returns the optimization directive if this content is an `Optimization`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if the content is not an `Optimization`.
+    pub fn expect_optimization(&self) -> Result<Optimization, ParserInternalError> {
+        self.content.expect_optimization()
     }
 }
 
@@ -160,8 +345,8 @@ impl fmt::Display for Node {
             .join(", ");
         write!(
             f,
-            "Node(kind={:?}, span={:?}, parent={:?}, children=[{}])",
-            self.kind, self.span, self.parent, children_str
+            "Node(kind={:?}, content={}, span={:?}, parent={:?}, children=[{}])",
+            self.kind, self.content, self.span, self.parent, children_str
         )
     }
 }

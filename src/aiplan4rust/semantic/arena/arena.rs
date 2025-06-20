@@ -2,17 +2,13 @@ use std::fmt;
 
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::arena::ArenaAstNode;
 use crate::aiplan4rust::semantic::arena::node::Node;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIterWithIndex;
-use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;
-use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::{AstKindOld, AstNodeOld, Span};
-use crate::aiplan4rust::syntax::ast_old::AstOld;
-use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
+use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
+use crate::aiplan4rust::syntax::{Span, StringInterner};
+use crate::aiplan4rust::syntax::ast::{AstContent, AstNode, AstKind, Ast};
+use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Arena is a data structure that stores AST nodes in a contiguous vector.
 /// Each node keeps track of its children and its parent by index.
@@ -21,9 +17,10 @@ use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 /// without the need for heap allocations per node.
 ///
 /// Nodes are identified by their index in the `nodes` vector.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Arena {
     nodes: Vec<Node>,
+    context: StringInterner,
 }
 
 impl Arena {
@@ -35,7 +32,10 @@ impl Arena {
     /// let arena = Arena::new();
     /// ```
     fn new() -> Self {
-        Self { nodes: Vec::new() }
+        Self {
+            nodes: Vec::default(),
+            context: StringInterner::default(),
+        }
     }
 
     /// Adds a node with a given parent.
@@ -64,9 +64,9 @@ impl Arena {
     /// let root_id = arena.add(root_kind, root_span, None);
     /// let child_id = arena.add(child_kind, child_span, Some(root_id));
     /// ```
-    pub fn add(&mut self, kind: AstKindOld, span: Span, parent_id: Option<usize>) -> usize {
+    pub fn add(&mut self, kind: AstKind, content: AstContent, span: Span, parent_id: Option<usize>) -> usize {
         let id = self.nodes.len();
-        let node = Node::new(kind, span, parent_id);
+        let node = Node::new(kind, content, span, parent_id);
         self.nodes.push(node);
         if let Some(pid) = parent_id {
             self.nodes[pid].add_child(id);
@@ -122,11 +122,9 @@ impl Arena {
     ///    - `Ok(Some(symbol))` if a symbol was found.
     ///    - `Ok(None)` if no symbol is associated with the node.
     ///    - `Err(ParserInternalError)` if the node or its first child is missing or malformed.
-
-
-    /*pub fn get_symbol(&self, id: usize) -> Result<Option<&str>, ParserInternalError> {
+    pub fn get_symbol(&self, id: usize) -> Result<Option<&str>, ParserInternalError> {
         let node = self.get_node(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
-        if let Some(sym) = node.kind().get_symbol() {
+        if let Some(sym) = self.get_str(node.expect_ident()?) {
             return Ok(Some(sym));
         }
         match &node.kind() {
@@ -137,14 +135,14 @@ impl Arena {
                 let child = self.get_node(*child_idx).ok_or_else(|| {
                     ParserInternalError::new(format!("Child node {} not found", child_idx))
                 })?;
-                Ok(child.kind().get_symbol())
+                Ok(self.get_str(child.expect_ident()?))
             }
             _ => Ok(None),
         }
-    }*/
+    }
 
 
-    pub fn get_symbol(&self, id: usize) -> Option<&str> {
+   /*pub fn get_symbol(&self, id: usize) -> Option<&str> {
         let node = self.get_node(id)?;
         self.extract_symbol(node).ok().map(|(name, _)| name)
     }
@@ -201,7 +199,7 @@ impl Arena {
                 ast.kind()
             ))),
         }
-    }
+    }*/
 
     /// Returns a mutable reference to the node at the given index, if it exists.
     ///
@@ -247,8 +245,9 @@ impl Arena {
     /// ```
     /// let arena = Arena::from_ast(&ast_old);
     /// ```
-    pub fn from_ast(ast: &AstOld) -> Self {
+    pub fn from_ast(ast: &Ast) -> Self {
         let mut arena = Arena::new();
+        arena.context  = ast.context().clone();
         let root = ast.root();
         Self::add_iterative(&mut arena, root, None);
         arena
@@ -268,14 +267,14 @@ impl Arena {
     /// # Returns
     ///
     /// Returns the index of the root node added to the arena.
-    fn add_iterative(arena: &mut Arena, root: &AstNodeOld, parent_id: Option<usize>) -> usize {
+    fn add_iterative(arena: &mut Arena, root: &AstNode, parent_id: Option<usize>) -> usize {
         use std::collections::HashMap;
 
         let mut stack = vec![(root, parent_id)];
-        let mut node_ids = HashMap::<*const AstNodeOld, usize>::new();
+        let mut node_ids = HashMap::<*const AstNode, usize>::new();
 
         while let Some((node, parent)) = stack.pop() {
-            let node_id = arena.add(node.kind().clone(), node.span().clone(), parent);
+            let node_id = arena.add(node.kind().clone(), node.content().clone(), node.span().clone(), parent);
             node_ids.insert(node as *const _, node_id);
 
             // Push children onto the stack with current node as their parent,
@@ -399,6 +398,10 @@ impl Arena {
     /// ```
     pub fn postorder_with_index(&self) -> PostorderIterWithIndex<'_> {
         PostorderIterWithIndex::new(self, 0)
+    }
+
+    pub fn get_str(&self, ident: Ident) -> Option<&str> {
+        self.context.get_str(ident)
     }
 }
 
