@@ -2,6 +2,7 @@ use std::fmt;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
@@ -44,9 +45,9 @@ use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, I
 pub struct Node {
     kind: AstKind,
     content: AstContent,
-    children: Vec<usize>,
+    children: Vec<NodeId>,
     span: Span,
-    parent: Option<usize>,
+    parent: Option<NodeId>,
 }
 
 impl Node {
@@ -63,7 +64,7 @@ impl Node {
     /// # Returns
     ///
     /// A newly created `Node`.
-    pub fn new(kind: AstKind, content: AstContent, span: Span, parent: Option<usize>) -> Self {
+    pub fn new(kind: AstKind, content: AstContent, span: Span, parent: Option<NodeId>) -> Self {
         Node {
             kind,
             content,
@@ -89,7 +90,7 @@ impl Node {
         while let Some(node) = stack.pop() {
             count += 1;
             for &child_idx in &node.children {
-                stack.push(&arena[child_idx]);
+                stack.push(&arena[child_idx.as_usize()]);
             }
         }
 
@@ -122,7 +123,7 @@ impl Node {
             }
 
             for &child_idx in &node.children {
-                stack.push((&arena[child_idx], depth + 1));
+                stack.push((&arena[child_idx.as_usize()], depth + 1));
             }
         }
 
@@ -144,7 +145,7 @@ impl Node {
     }
 
     /// Returns a slice of indices referring to this node’s children.
-    pub fn children(&self) -> &[usize] {
+    pub fn children(&self) -> &[NodeId] {
         &self.children
     }
 
@@ -156,7 +157,7 @@ impl Node {
     /// Returns the optional index of this node’s parent.
     ///
     /// Returns `None` if this node has no parent (i.e., it is a root node).
-    pub fn parent(&self) -> Option<usize> {
+    pub fn parent(&self) -> Option<NodeId> {
         self.parent
     }
 
@@ -176,7 +177,7 @@ impl Node {
     /// # Arguments
     ///
     /// * `child_id` - The index of the child node to add.
-    pub(crate) fn add_child(&mut self, child_id: usize) {
+    pub(crate) fn add_child(&mut self, child_id: NodeId) {
         self.children.push(child_id);
     }
 
@@ -260,7 +261,7 @@ impl Node {
         self.content.is_none()
     }
 
-    /// Returns the identifier if this node's content is an `Ident`.
+    /// Returns the identifier if this content is an `Ident`.
     ///
     /// # Errors
     ///
@@ -269,7 +270,7 @@ impl Node {
         self.content.try_ident()
     }
 
-    /// Returns the floating-point literal if this node's content is a `Float`.
+    /// Returns the floating-point literal if this content is a `Float`.
     ///
     /// # Errors
     ///
@@ -278,7 +279,7 @@ impl Node {
         self.content.try_float()
     }
 
-    /// Returns the requirement if this node's content is a `Requirement`.
+    /// Returns the requirement flag if this content is a `Requirement`.
     ///
     /// # Errors
     ///
@@ -287,7 +288,7 @@ impl Node {
         self.content.try_requirement()
     }
 
-    /// Returns the binary comparison operator if this node's content is a `BinaryComp`.
+    /// Returns the binary comparison operator if this content is a `BinaryComp`.
     ///
     /// # Errors
     ///
@@ -296,7 +297,7 @@ impl Node {
         self.content.try_binary_comp()
     }
 
-    /// Returns the assignment operator if this node's content is an `AssignOp`.
+    /// Returns the assignment operator if this content is an `AssignOp`.
     ///
     /// # Errors
     ///
@@ -305,7 +306,7 @@ impl Node {
         self.content.try_assign_op()
     }
 
-    /// Returns the arithmetic operator if this node's content is an `ArithmeticOp`.
+    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
     ///
     /// # Errors
     ///
@@ -314,7 +315,7 @@ impl Node {
         self.content.try_arithmetic_op()
     }
 
-    /// Returns the optimization directive if this node's content is an `Optimization`.
+    /// Returns the optimization directive if this content is an `Optimization`.
     ///
     /// # Errors
     ///

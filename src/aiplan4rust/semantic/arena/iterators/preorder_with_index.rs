@@ -26,11 +26,11 @@
 //! It visits each node before its children, pushing children in reverse order
 //! to the stack to maintain left-to-right traversal order.
 
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
+use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
 
 pub struct PreorderIterWithIndex<'a> {
     arena: &'a ArenaAst,
-    stack: Vec<usize>,
+    stack: Vec<NodeId>,
 }
 
 impl<'a> PreorderIterWithIndex<'a> {
@@ -44,7 +44,7 @@ impl<'a> PreorderIterWithIndex<'a> {
     /// # Returns
     ///
     /// A `PreorderIterWithIndex` ready to iterate over the subtree rooted at `root`.
-    pub fn new(arena: &'a ArenaAst, root: usize) -> Self {
+    pub fn new(arena: &'a ArenaAst, root: NodeId) -> Self {
         Self {
             arena,
             stack: vec![root],
@@ -53,7 +53,7 @@ impl<'a> PreorderIterWithIndex<'a> {
 }
 
 impl<'a> Iterator for PreorderIterWithIndex<'a> {
-    type Item = (usize, &'a ArenaAstNode);
+    type Item = (NodeId, &'a ArenaAstNode);
 
     /// Advances the iterator and returns the next node index and reference in preorder.
     ///

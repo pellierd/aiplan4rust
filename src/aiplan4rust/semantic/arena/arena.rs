@@ -6,6 +6,7 @@ use crate::aiplan4rust::semantic::arena::node::Node;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIterWithIndex;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
+use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode, AstKind, Ast};
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -64,12 +65,12 @@ impl Arena {
     /// let root_id = arena.add(root_kind, root_span, None);
     /// let child_id = arena.add(child_kind, child_span, Some(root_id));
     /// ```
-    pub fn add(&mut self, kind: AstKind, content: AstContent, span: Span, parent_id: Option<usize>) -> usize {
-        let id = self.nodes.len();
+    pub fn add(&mut self, kind: AstKind, content: AstContent, span: Span, parent_id: Option<NodeId>) -> NodeId {
+        let id = NodeId::new(self.nodes.len());
         let node = Node::new(kind, content, span, parent_id);
         self.nodes.push(node);
         if let Some(pid) = parent_id {
-            self.nodes[pid].add_child(id);
+            self.nodes[pid.as_usize()].add_child(id);
         }
         id
     }
@@ -83,11 +84,11 @@ impl Arena {
     /// # Returns
     ///
     /// `Some(&Node)` if the node exists, or `None` otherwise.
-    pub fn get_node(&self, id: usize) -> Option<&Node> {
-        self.nodes.get(id)
+    pub fn get_node(&self, id: NodeId) -> Option<&Node> {
+        self.nodes.get(id.as_usize())
     }
 
-    pub fn expect_node(&self, id: usize) -> Result<&Node, ParserInternalError> {
+    pub fn try_node(&self, id: NodeId) -> Result<&Node, ParserInternalError> {
         self.get_node(id).ok_or_else(|| ParserInternalError::new(format!("Node with id {} not found", id)))
     }
 
@@ -100,10 +101,10 @@ impl Arena {
     /// # Returns
     ///
     /// `Some(&Node)` if the parent node exists, or `None` if the node has no parent or the id is invalid.
-    pub fn get_parent(&self, id: usize) -> Option<&Node> {
-        self.nodes.get(id)
-            .and_then(|node| node.parent())   // Assuming `parent` is an Option<usize>
-            .and_then(|parent_id| self.nodes.get(parent_id))
+    pub fn get_parent(&self, id: NodeId) -> Option<&Node> {
+        self.get_node(id)
+            .and_then(|node| node.parent()) 
+            .and_then(|parent_id| self.get_node(parent_id))
     }
 
     /// Attempts to retrieve the symbol associated with the node at the given index.
@@ -126,7 +127,7 @@ impl Arena {
     ///    - `Ok(Some(symbol))` if a symbol was found.
     ///    - `Ok(None)` if no symbol is associated with the node.
     ///    - `Err(ParserInternalError)` if the node or its first child is missing or malformed.
-    pub fn get_symbol(&self, id: usize) -> Result<Option<&str>, ParserInternalError> {
+    pub fn get_symbol(&self, id: NodeId) -> Result<Option<&str>, ParserInternalError> {
         let node = self.get_node(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
         if let Some(sym) = self.get_str(node.try_ident()?) {
             return Ok(Some(sym));
@@ -144,66 +145,6 @@ impl Arena {
             _ => Ok(None),
         }
     }
-
-
-   /*pub fn get_symbol(&self, id: usize) -> Option<&str> {
-        let node = self.get_node(id)?;
-        self.extract_symbol(node).ok().map(|(name, _)| name)
-    }
-
-    pub fn get_symbol_ref(&self, id: usize) -> Option<SymbolRef> {
-        let node = self.get_node(id)?;
-        self.extract_symbol(node)
-            .ok()
-            .map(|(name, kind)| SymbolRef::new(name, kind))
-    }
-    fn extract_symbol<'a>(
-        &'a self,
-        ast: &'a ArenaAstNode,
-    ) -> Result<(&'a str, SymbolKind), ParserInternalError> {
-        match ast.kind() {
-            AstKindOld::DomainName(name) => Ok((name, SymbolKind::DomainName)),
-            AstKindOld::PrimitiveType(name) => Ok((name, SymbolKind::PrimitiveType)),
-            AstKindOld::ProblemName(name) => Ok((name, SymbolKind::ProblemName)),
-            AstKindOld::Requirement(requirement) => Ok((requirement.as_str(), SymbolKind::Requirement)),
-            AstKindOld::Constant(name) => Ok((name, SymbolKind::Constant)),
-            AstKindOld::Variable(name) => Ok((name, SymbolKind::Variable)),
-            AstKindOld::FunctionSymbol(name) => Ok((name, SymbolKind::Function)),
-            AstKindOld::Predicate(name) => Ok((name, SymbolKind::Predicate)),
-            AstKindOld::ActionSymbol(name) => Ok((name, SymbolKind::Action)),
-            AstKindOld::DASymbol(name) => Ok((name, SymbolKind::DASymbol)),
-            AstKindOld::MethodSymbol(name) => Ok((name, SymbolKind::Method)),
-            AstKindOld::TaskSymbol(name) => Ok((name, SymbolKind::Task)),
-            AstKindOld::TaskID(name) => Ok((name, SymbolKind::TaskID)),
-
-            AstKindOld::AtomicFormula | AstKindOld::FunctionTerm | AstKindOld::Task => {
-                let children = ast.children();
-                if children.is_empty() {
-                    return Err(ParserInternalError::new(format!(
-                        "{} must have children, but none found.",
-                        ast.kind()
-                    )));
-                }
-                let first_child = self.get_node(children[0]).unwrap();
-                match first_child.kind() {
-                    AstKindOld::Predicate(s) => Ok((s, SymbolKind::Predicate)),
-                    AstKindOld::FunctionSymbol(s) => Ok((s, SymbolKind::Function)),
-                    AstKindOld::TaskSymbol(s) => Ok((s, SymbolKind::Task)),
-                    AstKindOld::TotalTime => Ok((TOTAL_TIME, SymbolKind::Function)),
-                    _ => Err(ParserInternalError::new(format!(
-                        "First child of {} must be a Predicate or FunctionSymbol, found: {:?}",
-                        ast.kind(),
-                        first_child.kind()
-                    ))),
-                }
-            }
-
-            _ => Err(ParserInternalError::new(format!(
-                "Unexpected symbol kind encountered: {:?}",
-                ast.kind()
-            ))),
-        }
-    }*/
 
     /// Returns a mutable reference to the node at the given index, if it exists.
     ///
@@ -271,11 +212,11 @@ impl Arena {
     /// # Returns
     ///
     /// Returns the index of the root node added to the arena.
-    fn add_iterative(arena: &mut Arena, root: &AstNode, parent_id: Option<usize>) -> usize {
+    fn add_iterative(arena: &mut Arena, root: &AstNode, parent_id: Option<NodeId>) -> NodeId {
         use std::collections::HashMap;
 
         let mut stack = vec![(root, parent_id)];
-        let mut node_ids = HashMap::<*const AstNode, usize>::new();
+        let mut node_ids = HashMap::<*const AstNode, NodeId>::new();
 
         while let Some((node, parent)) = stack.pop() {
             let node_id = arena.add(node.kind().clone(), node.content().clone(), node.span().clone(), parent);
@@ -304,7 +245,7 @@ impl Arena {
     /// }
     /// ```
     pub fn preorder(&self) -> PreorderIter<'_> {
-        PreorderIter::new(self, 0)
+        PreorderIter::new(self,  NodeId::ROOT_NODE_ID)
     }
 
     /// Returns a preorder (depth-first) iterator starting from the specified node index.
@@ -328,7 +269,7 @@ impl Arena {
     ///     println!("{:?}", node.kind());
     /// }
     /// ```
-    pub fn preorder_from(&self, root: usize) -> PreorderIter<'_> {
+    pub fn preorder_from(&self, root: NodeId) -> PreorderIter<'_> {
         PreorderIter::new(self, root)
     }
 
@@ -345,7 +286,7 @@ impl Arena {
     /// }
     /// ```
     pub fn preorder_with_index(&self) -> PreorderIterWithIndex<'_> {
-        PreorderIterWithIndex::new(self, 0)
+        PreorderIterWithIndex::new(self, NodeId::ROOT_NODE_ID)
     }
 
     /// Returns an iterator over the tree in postorder (depth-first).
@@ -360,7 +301,7 @@ impl Arena {
     /// }
     /// ```
     pub fn postorder(&self) -> PostorderIter<'_> {
-        PostorderIter::new(self, 0)
+        PostorderIter::new(self, NodeId::ROOT_NODE_ID)
     }
 
     /// Returns a postorder (depth-first) iterator starting from the specified node index.
@@ -384,7 +325,7 @@ impl Arena {
     ///     println!("{:?}", node.kind());
     /// }
     /// ```
-    pub fn postorder_from(&self, root: usize) -> PostorderIter<'_> {
+    pub fn postorder_from(&self, root: NodeId) -> PostorderIter<'_> {
         PostorderIter::new(self, root)
     }
 
@@ -401,7 +342,7 @@ impl Arena {
     /// }
     /// ```
     pub fn postorder_with_index(&self) -> PostorderIterWithIndex<'_> {
-        PostorderIterWithIndex::new(self, 0)
+        PostorderIterWithIndex::new(self, NodeId::ROOT_NODE_ID)
     }
 
     pub fn get_str(&self, ident: Ident) -> Option<&str> {

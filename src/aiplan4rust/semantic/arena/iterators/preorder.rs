@@ -21,7 +21,7 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
+use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
 
 /// A preorder (depth-first) iterator over nodes in an `ArenaAst`.
 ///
@@ -36,7 +36,7 @@ use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
 /// See the module-level documentation.
 pub struct PreorderIter<'a> {
     arena: &'a ArenaAst,
-    stack: Vec<usize>,
+    stack: Vec<NodeId>,
 }
 
 impl<'a> PreorderIter<'a> {
@@ -48,10 +48,10 @@ impl<'a> PreorderIter<'a> {
     ///
     /// # Returns
     /// A `PreorderIter` starting at the specified node.
-    pub fn new(arena: &'a ArenaAst, root_index: usize) -> Self {
+    pub fn new(arena: &'a ArenaAst, root: NodeId) -> Self {
         Self {
             arena,
-            stack: vec![root_index],
+            stack: vec![root],
         }
     }
 }

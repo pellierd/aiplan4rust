@@ -116,7 +116,7 @@ impl Context {
         // Step 2: If found, iterate over its children and collect all `Requirement` nodes
         if let Some(req_def) = requirement_def_node {
             for child in req_def.children() {
-                let node = arena.expect_node(*child)?;
+                let node = arena.try_node(*child)?;
                 if matches!(node.kind(), AstKind::Requirement) {
                     if let Ok(req) = node.try_requirement() {
                         requirements.extend(req.imply());

@@ -34,6 +34,8 @@ pub struct Id {
     pub value: usize,
 }
 
+
+
 impl Default for Id {
     /// Returns a default invalid `NodeId` with the sentinel value `usize::MAX`.
     fn default() -> Self {
@@ -42,6 +44,12 @@ impl Default for Id {
 }
 
 impl Id {
+    /// The constant identifier for the root node in the arena.
+    ///
+    /// This constant represents the ID of the root node, which is always zero.
+    /// It is used to access the root node within the arena.
+    pub const ROOT_NODE_ID: Id = Id::new(0);
+
     /// Creates a new `NodeId` from a `usize` value.
     ///
     /// # Arguments

@@ -25,7 +25,7 @@
 //! This iterator uses a stack of tuples `(node index, visited flag)` to track traversal order.
 //! It visits each node’s children before the node itself.
 
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
+use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
 
 /// Iterator for postorder traversal of an [`ArenaAst`], yielding node indices and references.
 ///
@@ -33,7 +33,7 @@ use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
 /// Each item yielded is a tuple `(usize, &ArenaAstNode)`, where `usize` is the node index.
 pub struct PostorderIterWithIndex<'a> {
     arena: &'a ArenaAst,
-    stack: Vec<(usize, bool)>, // (node index, children visited flag)
+    stack: Vec<(NodeId, bool)>, // (node index, children visited flag)
 }
 
 impl<'a> PostorderIterWithIndex<'a> {
@@ -45,7 +45,7 @@ impl<'a> PostorderIterWithIndex<'a> {
     ///
     /// # Returns
     /// A `PostorderIterWithIndex` ready to iterate over the subtree rooted at `root`.
-    pub fn new(arena: &'a ArenaAst, root: usize) -> Self {
+    pub fn new(arena: &'a ArenaAst, root: NodeId) -> Self {
         Self {
             arena,
             stack: vec![(root, false)],
@@ -54,7 +54,7 @@ impl<'a> PostorderIterWithIndex<'a> {
 }
 
 impl<'a> Iterator for PostorderIterWithIndex<'a> {
-    type Item = (usize, &'a ArenaAstNode);
+    type Item = (NodeId, &'a ArenaAstNode);
 
     /// Advances the iterator and returns the next node index and reference in postorder.
     ///
