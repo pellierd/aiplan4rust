@@ -44,5 +44,8 @@ pub mod arena;
 pub mod node;
 pub mod iterators;
 
+pub mod id;
+
 pub use node::Node as ArenaAstNode;
 pub use arena::Arena as ArenaAst;
+pub use id::Id as NodeId;
