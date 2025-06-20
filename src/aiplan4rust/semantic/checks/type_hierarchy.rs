@@ -12,6 +12,8 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use bimap::BiMap;
 use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::StringInterner;
 
 /// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
@@ -142,7 +144,7 @@ pub fn check_type_hierarchy(
 /// ```
 fn report_cyclic_type_declaration_error(
     cycles: &[Vec<usize>],
-    type_bimap: &BiMap<String, usize>,
+    type_bimap: &BiMap<Ident, usize>,
     types: &Vec<&Declaration>,
     filename: &str,
     source: Provider,
@@ -509,7 +511,7 @@ fn compute_transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 /// let adj_matrix = build_type_adjacency_matrix(&index_map, &declarations)?;
 /// ```
 fn build_type_adjacency_matrix(
-    type_bimap: &BiMap<String, usize>,
+    type_bimap: &BiMap<Ident, usize>,
     declarations: &Vec<&Declaration>,
 ) -> Result<Vec<Vec<bool>>, ParserInternalError> {
     let n = type_bimap.len();
@@ -518,12 +520,12 @@ fn build_type_adjacency_matrix(
     let mut matrix = vec![vec![false; n]; n];
 
     // Get the index of the special "object" type once to reuse later
-    let object_index = type_bimap.get_by_left(OBJECT_TYPE).copied();
+    let object_index = type_bimap.get_by_left(&StringInterner::IDENT_OBJECT).copied();
 
     // Iterate over all declared types and their declarations
     for declaration in declarations {
         // Try to get the index for the current type name from the bimap
-        let Some(&type_idx) = type_bimap.get_by_left(declaration.symbol()) else {
+        let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol()) else {
             // If the type is not found in the map (should not happen if map is consistent), skip
             continue;
         };
@@ -599,14 +601,14 @@ fn build_type_adjacency_matrix(
 /// ```
 fn build_type_bimap(
     declarations: &Vec<&Declaration>,
-) -> BiMap<String, usize> {
+) -> BiMap<Ident, usize> {
     // Create an empty BiMap to store type names (String) and their unique indices (usize)
-    let mut temp_map: BiMap<String, usize> = BiMap::new();
+    let mut temp_map: BiMap<Ident, usize> = BiMap::new();
 
     // Iterate over each type declaration in the input map
     for declaration in declarations {
         // If the type name is not already in the BiMap, insert it with a new unique index
-        if !temp_map.contains_left(declaration.symbol()) {
+        if !temp_map.contains_left(&declaration.symbol()) {
             let len = temp_map.len();        // Current size of the map used as next index
             temp_map.insert(declaration.symbol().clone(), len); // Insert the type name with the index
         }
@@ -625,9 +627,9 @@ fn build_type_bimap(
     }
 
     // Ensure the special OBJECT_TYPE is present in the map; add if missing
-    if !temp_map.contains_left(OBJECT_TYPE) {
+    if !temp_map.contains_left(&StringInterner::IDENT_OBJECT) {
         let len = temp_map.len();                    // Next index for insertion
-        temp_map.insert(OBJECT_TYPE.to_string(), len); // Insert OBJECT_TYPE as a key
+        temp_map.insert(StringInterner::IDENT_OBJECT, len); // Insert OBJECT_TYPE as a key
     }
 
     // Return the completed BiMap mapping type names to unique indices
