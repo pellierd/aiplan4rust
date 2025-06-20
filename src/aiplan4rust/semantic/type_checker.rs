@@ -1,15 +1,15 @@
 use std::cell::{Ref, RefCell};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
-use crate::aiplan4rust::syntax::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 
 use std::collections::{HashMap, HashSet};
+use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::StringInterner;
 
 /// PDDL Built-in symbols.
-const PDDL_BUILTIN_TYPES: [&str; 2] = [OBJECT_TYPE, NUMBER_TYPE];
+const PDDL_BUILTIN_TYPES: [Ident; 2] = [StringInterner::IDENT_OBJECT, StringInterner::IDENT_NUMBER];
 
 /// A struct for performing type checking within a given domain.
 ///
@@ -33,7 +33,7 @@ const PDDL_BUILTIN_TYPES: [&str; 2] = [OBJECT_TYPE, NUMBER_TYPE];
 #[derive(Debug, Clone)]
 pub struct TypeChecker<'a> {
     domain_symbol_table: &'a SymbolTable,
-    type_closure_cache: RefCell<HashMap<String, HashSet<String>>>,
+    type_closure_cache: RefCell<HashMap<Ident, HashSet<Ident>>>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -102,13 +102,13 @@ impl<'a> TypeChecker<'a> {
     /// reflect the type hierarchy and ensure accurate subtype detection.
     pub fn is_any_subtype_of(
         &self,
-        ty1: &Vec<String>,
-        ty2: &Vec<String>,
+        ty1: &Vec<Ident>,
+        ty2: &Vec<Ident>,
     ) -> Result<bool, ParserInternalError> {
         let ty1_set: HashSet<_> = ty1.iter().collect(); // références, pas de clone
 
         for ty in ty2.iter() {
-            let closure = self.ascending_type_closure(ty)?;
+            let closure = self.ascending_type_closure(*ty)?;
 
             // Check if any element in closure is in ty1_set
             if closure.iter().any(|closure_ty| ty1_set.contains(closure_ty)) {
@@ -148,8 +148,8 @@ impl<'a> TypeChecker<'a> {
     /// ```
     pub fn is_any_supertype_of(
         &self,
-        ty1: &Vec<String>,
-        ty2: &Vec<String>,
+        ty1: &Vec<Ident>,
+        ty2: &Vec<Ident>,
     ) -> Result<bool, ParserInternalError> {
         // We check if any type in ty2 is a subtype of any type in ty1
         self.is_any_subtype_of(ty2, ty1)
@@ -183,8 +183,8 @@ impl<'a> TypeChecker<'a> {
     /// ```
     pub fn is_any_sub_or_supertype_of(
         &self,
-        ty1: &Vec<String>,
-        ty2: &Vec<String>,
+        ty1: &Vec<Ident>,
+        ty2: &Vec<Ident>,
     ) -> Result<bool, ParserInternalError> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
@@ -225,18 +225,18 @@ impl<'a> TypeChecker<'a> {
     /// type.
     pub fn have_common_supertype(
         &self,
-        ty1: &Vec<String>,
-        ty2: &Vec<String>,
+        ty1: &Vec<Ident>,
+        ty2: &Vec<Ident>,
     ) -> Result<bool, ParserInternalError> {
         let mut supertypes1 = HashSet::new();
 
         for t1 in ty1 {
-            let closure1 = self.ascending_type_closure(t1)?;
+            let closure1 = self.ascending_type_closure(*t1)?;
             supertypes1.extend(closure1.iter().cloned());
         }
 
         for t2 in ty2 {
-            let closure2 = self.ascending_type_closure(t2)?;
+            let closure2 = self.ascending_type_closure(*t2)?;
             if closure2.iter().any(|s| supertypes1.contains(s)) {
                 return Ok(true);
             }
@@ -294,14 +294,14 @@ impl<'a> TypeChecker<'a> {
 
     pub fn ascending_type_closure(
         &self,
-        primitive_type: &str,
-    ) -> Result<Ref<HashSet<String>>, ParserInternalError> {
+        primitive_type: Ident,
+    ) -> Result<Ref<HashSet<Ident>>, ParserInternalError> {
         {
             // First, try to return the cached value without recalculating
             let cache_ref = self.type_closure_cache.borrow();
-            if cache_ref.contains_key(primitive_type) {
+            if cache_ref.contains_key(&primitive_type) {
                 return Ok(Ref::map(cache_ref, |cache| {
-                    cache.get(primitive_type).unwrap()
+                    cache.get(&primitive_type).unwrap()
                 }));
             }
         }
@@ -314,7 +314,7 @@ impl<'a> TypeChecker<'a> {
         // Traverse the type hierarchy upwards
         while let Some(current_type) = to_visit.pop() {
             // Insert the current type; if it was already visited, skip it
-            if !super_types.insert(current_type.to_string()) {
+            if !super_types.insert(current_type) {
                 continue;
             }
 
@@ -325,7 +325,7 @@ impl<'a> TypeChecker<'a> {
 
             // Resolve the declaration for the current type in the root scope
             let declaration = self.domain_symbol_table.resolve_declaration(
-                current_type,
+                &current_type,
                 &SymbolKind::PrimitiveType,
                 &Scope::root(),
             )?;
@@ -334,7 +334,7 @@ impl<'a> TypeChecker<'a> {
                 Some(declaration) => {
                     // If the declaration has supertypes, add them to the stack for traversal
                     if let Some(s_types) = declaration.types() {
-                        to_visit.extend(s_types.iter().map(String::as_str));
+                        to_visit.extend_from_slice(s_types);
                     }
                 }
                 None => continue, // No declaration found, skip
@@ -344,12 +344,12 @@ impl<'a> TypeChecker<'a> {
         // Insert the computed closure into the cache
         self.type_closure_cache
             .borrow_mut()
-            .insert(primitive_type.to_string(), super_types);
+            .insert(primitive_type, super_types);
 
         // Return a reference to the cached closure
         let cache_ref = self.type_closure_cache.borrow();
         Ok(Ref::map(cache_ref, |cache| {
-            cache.get(primitive_type).unwrap()
+            cache.get(&primitive_type).unwrap()
         }))
     }
 
@@ -365,7 +365,7 @@ impl<'a> TypeChecker<'a> {
     /// # Returns
     /// * `bool` - `true` if the type is a PDDL built-in symbol, `false` otherwise.
     ///
-    pub fn is_pddl_builtin_types(ty: &str) -> bool {
+    pub fn is_pddl_builtin_types(ty: Ident) -> bool {
         PDDL_BUILTIN_TYPES.contains(&ty)
     }
 }
