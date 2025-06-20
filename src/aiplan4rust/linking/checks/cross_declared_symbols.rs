@@ -8,6 +8,7 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
 ///
@@ -147,10 +148,10 @@ pub fn check_cross_declared_symbols(
 /// ```
 fn has_relevant_domain_declarations(
     domain_symbol_table: &SymbolTable,
-    symbol_name: &str
+    symbol_name: Ident,
 ) -> bool {
     domain_symbol_table
-        .collect_declarations(Some(symbol_name), None, Some(&Scope::root()))
+        .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
         .into_iter()
         .any(|d| !is_declaration_exempt_from_conflict_check(&d))
 }
@@ -183,10 +184,10 @@ fn has_relevant_domain_declarations(
 /// ```
 fn get_relevant_domain_kinds(
     domain_symbol_table: &SymbolTable,
-    symbol_name: &String,
+    symbol_name: Ident,
 ) -> Vec<SymbolKind> {
     domain_symbol_table
-        .collect_declarations(Some(symbol_name), None, Some(&Scope::root()))
+        .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
         .into_iter()
         .filter(|d| !is_declaration_exempt_from_conflict_check(d))
         .map(|d| d.kind().clone())
