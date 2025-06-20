@@ -1,12 +1,12 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::arena::ArenaAstNode;
+use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
 ///
@@ -140,9 +140,9 @@ fn match_declaration_with_usage(
         let argument = context.ast().get_node(*argument_index).unwrap();
 
         let kind = match argument.kind() {
-            AstKindOld::Variable(_) => SymbolKind::Variable,
-            AstKindOld::Constant(_) => SymbolKind::Constant,
-            AstKindOld::FunctionTerm => SymbolKind::Function,
+            AstKind::Variable => SymbolKind::Variable,
+            AstKind::Constant => SymbolKind::Constant,
+            AstKind::FunctionTerm => SymbolKind::Function,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST kind encountered: {}",
