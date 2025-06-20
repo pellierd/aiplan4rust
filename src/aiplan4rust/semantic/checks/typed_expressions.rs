@@ -1,17 +1,18 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::elements::AssignOp;
+use crate::aiplan4rust::syntax::elements::{AssignOp, Ident};
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
 use crate::aiplan4rust::syntax::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::syntax::ast_old::AstKindOld;
+use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::arena::ArenaAstNode;
+use crate::aiplan4rust::semantic::context::Context;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
+use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks the type correctness of typed expressions in the syntax tree, including comparisons,
 /// assignments, and arithmetic operations.
@@ -52,43 +53,62 @@ pub fn check_typed_expressions(
     let mut no_error = true;
 
     for node in context.ast().preorder() {
-        match node.kind() {
-            // Case for equality check (AssignOp::Assign and BinaryComp::Equal)
-            AstKindOld::FComp(BinaryComp::Equal) | AstKindOld::Assign(AssignOp::Assign) => {
-                let (ty1, ty2) = get_binary_operation_types(node, context)?;
+        if is_equal_binary_comp(node) || is_assign(node) {
+            let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
-                // Call check_equal_and_assign function to handle this case
-                no_error &= check_equal_and_assignment_expression(
-                    context,
-                    type_checker,
-                    node,
-                    &ty1,
-                    &ty2,
-                    source,
-                    diagnostic_manager,
-                )?;
-            }
+            // Call check_equal_and_assign function to handle this case
+            no_error &= check_equal_and_assignment_expression(
+                context,
+                type_checker,
+                node,
+                &ty1,
+                &ty2,
+                source,
+                diagnostic_manager,
+            )?;
+        } else if is_numeric_expression(node) {
+            let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
-            // Case for other comparison and assignment operations (Greater, Less, ScaleUp, etc.)
-            AstKindOld::FComp(BinaryComp::Greater)
-            | AstKindOld::FComp(BinaryComp::GreaterEq)
-            | AstKindOld::FComp(BinaryComp::Less)
-            | AstKindOld::FComp(BinaryComp::LessEq)
-            | AstKindOld::Assign(AssignOp::ScaleUp)
-            | AstKindOld::Assign(AssignOp::ScaleDown)
-            | AstKindOld::Assign(AssignOp::Increase)
-            | AstKindOld::Assign(AssignOp::Decrease) => {
-                let (ty1, ty2) = get_binary_operation_types(node, context)?;
-
-                // Call check_other_cases function to handle these cases
-                no_error &= check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager)?;
-            }
-
-            _ => {}
+            // Call check_other_cases function to handle these cases
+            no_error &= check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager)?;
         }
     }
 
     Ok(no_error)
+}
+
+/// Returns `true` if the node represents an equality binary comparison (`BinaryComp::Equal`).
+fn is_equal_binary_comp(node: &ArenaAstNode) -> bool {
+    matches!(node.kind(), AstKind::FComp) && node.as_binary_comp() == Some(BinaryComp::Equal)
+}
+
+/// Returns `true` if the node represents a simple assignment (`AssignOp::Assign`).
+fn is_assign(node: &ArenaAstNode) -> bool {
+    matches!(node.kind(), AstKind::Assign) && node.as_assign_op() == Some(AssignOp::Assign)
+}
+
+/// Returns `true` if the node is a numeric comparison or a scale assignment expression.
+///
+/// This includes:
+/// - Comparison operators: `Greater`, `GreaterEq`, `Less`, `LessEq`.
+/// - Assignment operators: `ScaleUp`, `ScaleDown`, `Increase`, `Decrease`.
+fn is_numeric_expression(node: &ArenaAstNode) -> bool {
+    matches!(node.kind(), AstKind::FComp)
+        && matches!(
+            node.as_binary_comp(),
+            Some(BinaryComp::Greater)
+                | Some(BinaryComp::GreaterEq)
+                | Some(BinaryComp::Less)
+                | Some(BinaryComp::LessEq)
+        )
+        || matches!(node.kind(), AstKind::Assign)
+        && matches!(
+            node.as_assign_op(),
+            Some(AssignOp::ScaleUp)
+                | Some(AssignOp::ScaleDown)
+                | Some(AssignOp::Increase)
+                | Some(AssignOp::Decrease)
+        )
 }
 
 /// Checks the type compatibility of operands in equality (`=`) or assignment (`assign`) expressions.
@@ -133,20 +153,35 @@ fn check_equal_and_assignment_expression(
     context: &SemanticContext,
     type_checker: &TypeChecker,
     node: &ArenaAstNode,
-    ty1: &Vec<String>,
-    ty2: &Vec<String>,
+    ty1: &Vec<Ident>,
+    ty2: &Vec<Ident>,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
-    if !type_checker.have_common_supertype(ty1, ty2)? {
+
+
+    let interner = context.ast().interner(); // Ou ajuster selon ton accès à l'interner
+
+    let ty1_str: Vec<String> = ty1
+        .iter()
+        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .collect();
+
+    let ty2_str: Vec<String> = ty2
+        .iter()
+        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .collect();
+
+
+    if !type_checker.have_common_supertype(&ty1_str, &ty2_str)? {
         no_error = false;
         report_type_mismatch_in_expression(
             ty1,
             ty2,
-            source.clone(),
-            context.source_name(),
             node.span().clone(),
+            source.clone(),
+            context,
             diagnostic_manager,
         );
     }
@@ -167,20 +202,33 @@ fn check_equal_and_assignment_expression(
 /// - `span`: The span of the syntax node causing the error.
 /// - `diagnostic_manager`: The diagnostic manager to which the error will be added.
 fn report_type_mismatch_in_expression(
-    ty1: &[String],
-    ty2: &[String],
-    source: Provider,
-    filename: &str,
+    ty1: &[Ident],
+    ty2: &[Ident],
     span: Span,
+    source: Provider,
+    context: &SemanticContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
+
+    let interner = context.ast().interner(); // Ou ajuster selon ton accès à l'interner
+
+    let ty1: Vec<String> = ty1
+        .iter()
+        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .collect();
+
+    let ty2: Vec<String> = ty2
+        .iter()
+        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .collect();
+
     let error = Diagnostic::new(
         DiagnosticKind::TypeMismatchInExpression {
-            ty1: ty1.to_vec(),
-            ty2: ty2.to_vec(),
+            ty1,
+            ty2,
         },
         source,
-        filename.to_string(),
+        context.source_name().to_string(),
         span,
     );
     diagnostic_manager.add_diagnostic(error);
@@ -226,23 +274,23 @@ fn report_type_mismatch_in_expression(
 fn check_numeric_expression(
     context: &SemanticContext,
     node: &ArenaAstNode,
-    ty1: &Vec<String>,
-    ty2: &Vec<String>,
+    ty1: &Vec<Ident>,
+    ty2: &Vec<Ident>,
     source: Provider,
     diagnostic_manager:&mut DiagnosticManager
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
     // Handle Greater, Less, etc.
-    let number = vec![NUMBER_TYPE.to_string()];
+    let number = vec![StringInterner::IDENT_NUMBER];
     if ty1 != &number || ty2 != &number {
         no_error = false;
         report_invalid_types_in_numeric_expression(
-            source,
-            context.source_name(),
+            ty1,
+            ty2,
             node.span().clone(),
-            ty1.clone(),
-            ty2.clone(),
+            source,
+            context,
             diagnostic_manager,
         );
     }
@@ -263,17 +311,31 @@ fn check_numeric_expression(
 /// - `ty2`: The types of the right operand.
 /// - `diagnostic_manager`: The diagnostic manager to which the error is added.
 fn report_invalid_types_in_numeric_expression(
-    source: Provider,
-    filename: &str,
+    ty1: &[Ident],
+    ty2: &[Ident],
     span: Span,
-    ty1: Vec<String>,
-    ty2: Vec<String>,
+    source: Provider,
+    context: &SemanticContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
+
+    // Shoudl be removed when symbol table refactoring will be done
+    let interner = context.ast().interner(); // Ou ajuster selon ton accès à l'interner
+
+    let ty1: Vec<String> = ty1
+        .iter()
+        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .collect();
+
+    let ty2: Vec<String> = ty2
+        .iter()
+        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .collect();
+
     let error = Diagnostic::new(
         DiagnosticKind::InvalidTypesInNumericExpression { ty1, ty2 },
         source,
-        filename.to_string(),
+        context.source_name().to_string(),
         span,
     );
     diagnostic_manager.add_diagnostic(error);
@@ -308,7 +370,7 @@ fn report_invalid_types_in_numeric_expression(
 fn get_binary_operation_types(
     node: &ArenaAstNode,
     context: &SemanticContext,
-) -> Result<(Vec<String>, Vec<String>), ParserInternalError> {
+) -> Result<(Vec<Ident>, Vec<Ident>), ParserInternalError> {
     // Validate that there are exactly 2 children
     if node.children().len() != 2 {
         return Err(ParserInternalError::new(
@@ -364,19 +426,19 @@ pub fn get_type(
     index: usize,
     node: &ArenaAstNode,
     context: &SemanticContext
-) -> Result<Option<Vec<String>>, ParserInternalError> {
+) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
-        AstKindOld::Number(_) => get_number_type(),
+        AstKind::Number => get_number_type(),
 
         // Case 2: Variable
-        AstKindOld::Variable(symbol) => get_variable_type(index, symbol, context),
+        AstKind::Variable => get_variable_type(index, node.content().expect_ident()?, context),
 
         // Case 3: Constant
-        AstKindOld::Constant(symbol) => get_constant_type(index, symbol, context),
+        AstKind::Constant => get_constant_type(index, node.content().expect_ident()?, context),
 
         // Case 4: Function Term
-        AstKindOld::FunctionTerm => get_function_term_type(index, node, context),
+        AstKind::FunctionTerm => get_function_term_type(index, node, context),
 
         // Default case: Unexpected AST node
         _ => Err(ParserInternalError::new(format!(
@@ -403,8 +465,8 @@ pub fn get_type(
 /// ```rust
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
-fn get_number_type() -> Result<Option<Vec<String>>, ParserInternalError> {
-    Ok(Some(vec![NUMBER_TYPE.to_string()]))
+fn get_number_type() -> Result<Option<Vec<Ident>>, ParserInternalError> {
+    Ok(Some(vec![StringInterner::IDENT_NUMBER]))
 }
 
 /// Retrieves the type of a variable symbol from the symbol table.
@@ -437,13 +499,13 @@ fn get_number_type() -> Result<Option<Vec<String>>, ParserInternalError> {
 /// ```
 fn get_variable_type(
     index: usize,
-    symbol: &str,
+    symbol: Ident,
     context: &SemanticContext,
-) -> Result<Option<Vec<String>>, ParserInternalError> {
-    if symbol == DURATION_VARIABLE && context.has_requirement(&DurativeActions) {
+) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+    if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.has_requirement(&DurativeActions) {
         return get_number_type();
     }
-    get_declaration_type(index, context.symbol_table())
+    get_declaration_type(index, context)
 }
 
 /// Retrieves the type of a constant symbol from the symbol table.
@@ -470,10 +532,10 @@ fn get_variable_type(
 /// ```
 fn get_constant_type(
     index: usize,
-    _symbol: &str,
+    _symbol: Ident,
     context: &SemanticContext,
-) -> Result<Option<Vec<String>>, ParserInternalError> {
-    get_declaration_type(index, context.symbol_table())
+) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+    get_declaration_type(index, context)
 }
 
 /// Helper function to retrieve the types associated with a symbol usage from the symbol table.
@@ -505,11 +567,31 @@ fn get_constant_type(
 /// ```
 fn get_declaration_type(
     index: usize,
-    symbol_table: &SymbolTable,
-) -> Result<Option<Vec<String>>, ParserInternalError> {
-    match symbol_table.resolve_declaration_by_usage(index)? {
+    context: &SemanticContext,
+) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+    match context.symbol_table().resolve_declaration_by_usage(index)? {
         None => Ok(None),
-        Some(decl) => Ok(decl.types().cloned()),
+        Some(decl) => {
+            let interner = context.ast().interner();
+
+            match decl.types() {
+                Some(types) => {
+                    let mut idents = Vec::with_capacity(types.len());
+                    for name in types {
+                        match interner.lookup(name) {
+                            Some(id) => idents.push(id),
+                            None => {
+                                return Err(ParserInternalError::new(format!(
+                                    "String {:?} not interned", name
+                                )));
+                            }
+                        }
+                    }
+                    Ok(Some(idents))
+                }
+                None => Ok(None),
+            }
+        }
     }
 }
 
@@ -542,7 +624,7 @@ fn get_function_term_type(
     index: usize,
     node: &ArenaAstNode,
     context: &SemanticContext
-) -> Result<Option<Vec<String>>, ParserInternalError> {
+) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     let children = node.children();
     if children.is_empty() {
         return Err(ParserInternalError::new(
@@ -555,11 +637,13 @@ fn get_function_term_type(
         ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 
-    if let AstKindOld::FunctionSymbol(symbol) = functor_entry.kind() {
-        if symbol == TOTAL_TIME && context.has_requirement(&NumericFluents) {
+    if let AstKind::FunctionSymbol = functor_entry.kind() {
+        if functor_entry.expect_ident()? == StringInterner::IDENT_TOTAL_TIME
+            && context.has_requirement(&NumericFluents)
+        {
             return get_number_type();
         }
-        return get_declaration_type(index, context.symbol_table());
+        return get_declaration_type(index, context);
     }
 
     Err(ParserInternalError::new(

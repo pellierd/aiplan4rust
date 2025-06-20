@@ -56,7 +56,7 @@ impl Ident {
     /// # Returns
     ///
     /// A new `Ident` instance.
-    pub fn new(value: usize) -> Self {
+    pub const fn new(value: usize) -> Self {
         Ident { value }
     }
 

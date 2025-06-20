@@ -403,6 +403,10 @@ impl Arena {
     pub fn get_str(&self, ident: Ident) -> Option<&str> {
         self.context.get_str(ident)
     }
+
+    pub fn interner(&self) -> &StringInterner {
+        &self.context
+    }
 }
 
 impl fmt::Display for Arena {

@@ -165,6 +165,10 @@ impl Node {
         self.parent.is_none()
     }
 
+    pub fn content(&self) -> &AstContent {
+        &self.content
+    }
+
     /// Adds a child node index to this node’s children.
     ///
     /// This is a crate-private method intended to be used by arena internals.

@@ -4,6 +4,7 @@ use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use serde::de::SeqAccess;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
 /// by assigning each string a unique numeric index.
@@ -57,20 +58,151 @@ pub struct StringInterner {
 }
 
 impl StringInterner {
-    /// Creates a new, empty `StringInterner`.
+
+    /// The interned identifier for the reserved string `"object"`.
     ///
-    /// # Returns
-    /// A fresh instance of `StringInterner` with no stored strings.
+    /// This constant assumes that the string `"object"` is interned at index `0`
+    /// during the initialization of the [`StringInterner`] via [`intern_reserved`].
+    /// It must match the insertion order used in [`StringInterner::new()`].
     ///
     /// # Example
     /// ```rust
     /// let interner = StringInterner::new();
+    /// assert_eq!(interner.expect_str(StringInterner::IDENT_OBJECT).unwrap(), "object");
+    /// ```
+    pub const IDENT_OBJECT: Ident = Ident::new(0);
+
+    /// The interned identifier for the reserved string `"number"`.
+    ///
+    /// This constant assumes that the string `"number"` is interned at index `1`
+    /// during the initialization of the [`StringInterner`] via [`intern_reserved`].
+    /// It must match the insertion order used in [`StringInterner::new()`].
+    ///
+    /// # Example
+    /// ```rust
+    /// let interner = StringInterner::new();
+    /// assert_eq!(interner.expect_str(StringInterner::IDENT_NUMBER).unwrap(), "number");
+    /// ```
+    pub const IDENT_NUMBER: Ident = Ident::new(1);
+
+    /// The interned identifier for the reserved string `"duration_variable"`.
+    ///
+    /// This constant assumes that the string `"duration_variable"` is interned at index `2`
+    /// during the initialization of the [`StringInterner`] using [`intern_reserved`].
+    ///
+    /// Ensure this index matches the insertion order defined in [`StringInterner::new()`].
+    ///
+    /// # Example
+    /// ```rust
+    /// let interner = StringInterner::new();
+    /// assert_eq!(
+    ///     interner.expect_str(StringInterner::IDENT_DURATION_VARIABLE).unwrap(),
+    ///     "duration_variable"
+    /// );
+    /// ```
+    pub const IDENT_DURATION_VARIABLE: Ident = Ident::new(2);
+
+    /// The interned identifier for the reserved string `"total_time"`.
+    ///
+    /// This constant assumes that the string `"total_time"` is interned at index `3`
+    /// during the initialization of the [`StringInterner`] using [`intern_reserved`].
+    ///
+    /// It is important that this constant's value matches the insertion order
+    /// of reserved strings in [`StringInterner::new()`]. Changing that order without
+    /// updating this constant will result in incorrect behavior.
+    ///
+    /// # Example
+    /// ```rust
+    /// let interner = StringInterner::new();
+    /// assert_eq!(
+    ///     interner.expect_str(StringInterner::IDENT_TOTAL_TIME).unwrap(),
+    ///     "total_time"
+    /// );
+    /// ```
+    pub const IDENT_TOTAL_TIME: Ident = Ident::new(3);
+
+
+
+    /// Creates a new `StringInterner` with reserved strings pre-interned.
+    ///
+    /// This constructor initializes an empty string pool and inserts a predefined set
+    /// of reserved strings (`"object"`, `"number"`, `"total_time"`) at fixed indices.
+    /// These strings are interned using [`intern_reserved`] in a specific order that must
+    /// match the declaration of their corresponding [`Ident`] constants:
+    ///
+    /// - `IDENT_OBJECT` → `"object"` → index 0
+    /// - `IDENT_NUMBER` → `"number"` → index 1
+    /// - 'IDENT_DURATION_VARIABLE` → `"duration_variable"` → index 2
+    /// - `IDENT_TOTAL_TIME` → `"total_time"` → index 3
+    ///
+    /// This setup guarantees stable identifiers for these known strings throughout
+    /// the lifetime of the interner.
+    ///
+    /// # Returns
+    /// A new [`StringInterner`] instance with reserved strings already interned.
+    ///
+    /// # Example
+    /// ```rust
+    /// let interner = StringInterner::new();
+    /// assert_eq!(interner.expect_str(StringInterner::IDENT_OBJECT).unwrap(), "object");
+    /// assert_eq!(interner.expect_str(StringInterner::IDENT_NUMBER).unwrap(), "number");
+    /// assert_eq!(interner.expect_str(StringInterner::IDENT_TOTAL_TIME).unwrap(), "total_time");
     /// ```
     pub fn new() -> Self {
-        Self {
+        let mut interner = StringInterner {
             string_pool: Vec::new(),
             string_index: HashMap::new(),
-        }
+        };
+
+        // Always intern these in the same order as their constant Ident declarations
+        interner.intern_reserved(OBJECT_TYPE);       // index 0
+        interner.intern_reserved(NUMBER_TYPE);       // index 1
+        interner.intern_reserved(DURATION_VARIABLE); // index 2
+        interner.intern_reserved(TOTAL_TIME);        // index 3
+
+
+        interner
+    }
+
+    /// Interns a statically known string without checking for duplicates.
+    ///
+    /// This method is intended to be used internally to insert predefined
+    /// strings (such as reserved keywords or type names) into the interner
+    /// at a fixed position. It **does not** check whether the string already
+    /// exists in the pool — calling this function multiple times with the same
+    /// string will result in duplicate entries.
+    ///
+    /// The input string must have `'static` lifetime and is assumed to be
+    /// unique in the context of interning. It is inserted into the internal
+    /// string pool and assigned the next available index.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - A string slice with `'static` lifetime to be interned directly.
+    ///
+    /// # Returns
+    ///
+    /// * `Ident` - A unique identifier associated with the given string.
+    ///
+    /// # Safety
+    ///
+    /// This function must only be called during controlled initialization (e.g., in `StringInterner::new`)
+    /// and must preserve the order of insertion if corresponding `Ident` constants are declared.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// const TYPE_OBJECT: &str = "object";
+    ///
+    /// let mut interner = StringInterner::new();
+    /// let ident = interner.intern_reserved(TYPE_OBJECT);
+    /// assert_eq!(ident.as_usize(), 0);
+    /// ```
+    fn intern_reserved(&mut self, s: &'static str) -> Ident {
+        let idx = self.string_pool.len();
+        self.string_pool.push(Box::from(s));
+        self.string_index.insert(s, idx);
+        Ident::new(idx)
     }
 
     /// Interns the given string and returns an `Ident` representing it.
@@ -147,6 +279,11 @@ impl StringInterner {
                 self.string_pool.len()
             ))
         })
+    }
+
+    // Lookup an interned string and get its Ident if it exists (no insertion).
+    pub fn lookup(&self, s: &str) -> Option<Ident> {
+        self.string_index.get(s).copied().map(Ident::new)
     }
 }
 
