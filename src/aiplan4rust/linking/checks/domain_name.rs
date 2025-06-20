@@ -35,7 +35,7 @@ pub fn check_domain_name(
     // --- 1. Resolve the domain name declared in the domain AST ---
     // Tries to extract the domain name from the domain's symbol table.
     // If not found, returns an internal syntax error.
-    let declared_domain_name = match domain.symbol_table().resolve_domain_name_declaration()? {
+    let declared = match domain.symbol_table().resolve_domain_name_declaration()? {
         Some(name) => name,
         None => {
             return Err(ParserInternalError::new(
@@ -47,7 +47,7 @@ pub fn check_domain_name(
     // --- 2. Resolve the domain name referenced in the problem AST ---
     // Tries to extract the expected domain name from the problem file.
     // If not found, returns an internal syntax error.
-    let referenced_domain_name = match problem.symbol_table().resolve_domain_name_declaration()? {
+    let referenced = match problem.symbol_table().resolve_domain_name_declaration()? {
         Some(name) => name,
         None => {
             return Err(ParserInternalError::new(
@@ -58,12 +58,12 @@ pub fn check_domain_name(
 
     // --- 3. Compare both domain names ---
     // If the names don't match, emit a diagnostic warning.
-    if declared_domain_name.name() != referenced_domain_name.name() {
+    if declared.name() != referenced.name() {
 
         // --- 4. Locate the AST node for the referenced domain name ---
         // Try to find the declaration in the problem's symbol table.
         match problem.symbol_table().resolve_declaration(
-            referenced_domain_name.name(),
+            &referenced.name(),
             &SymbolKind::DomainName,
             &Scope::root(),
         )? {
@@ -76,10 +76,13 @@ pub fn check_domain_name(
 
                         // --- 6. Emit a warning about the mismatch ---
                         // Includes both names in the diagnostic message.
+
+                        let domain_name = domain.ast().interner().expect_str(declared.name())?;
+                        let problem_domain_name = problem.ast().interner().expect_str(referenced.name())?;
                         let warning = Diagnostic::new(
                             DiagnosticKind::DomainProblemNameMismatch {
-                                domain_name: declared_domain_name.name().clone(),
-                                problem_name: referenced_domain_name.name().clone(),
+                                domain_name: domain_name.to_string(),
+                                problem_name: problem_domain_name.to_string(),
                             },
                             source,
                             problem.source_name().to_string(),
