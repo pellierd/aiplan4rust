@@ -1,11 +1,10 @@
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast_old::AstKindOld;
-use crate::aiplan4rust::syntax::ast_old::AstOld;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
+use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -51,13 +50,13 @@ impl Analyzer {
         &self.diagnostic_manager
     }
 
-    pub fn analyze(&mut self, ast: &AstOld) -> Result<AnalyzerResult, ParserInternalError> {
+    pub fn analyze(&mut self, ast: &Ast) -> Result<AnalyzerResult, ParserInternalError> {
         self.perform_analysis(ast)
     }
 
     pub fn analyze_with_diagnostic_manager(
         &mut self,
-        ast: &AstOld,
+        ast: &Ast,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<AnalyzerResult, ParserInternalError> {
         self.diagnostic_manager = diagnostic_manager;
@@ -66,17 +65,17 @@ impl Analyzer {
 
     fn perform_analysis(
         &mut self,
-        ast: &AstOld,
+        ast: &Ast,
     ) -> Result<AnalyzerResult, ParserInternalError> {
 
         let context = SemanticContext::from(ast)?;
 
         // Step 2: Determine kind and apply semantic checks
         match ast.root().kind() {
-            AstKindOld::Domain => {
+            AstKind::Domain => {
                 Self::check_domain(&context, &mut self.diagnostic_manager)?;
             }
-            AstKindOld::Problem => {
+            AstKind::Problem => {
                 Self::check_problem(&context, &mut self.diagnostic_manager)?;
             }
             _ => {
