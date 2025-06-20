@@ -1,74 +1,85 @@
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fmt::Display;
+use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::StringInterner;
 
+/// Represents a symbol identified by `Ident` with associated types,
+/// also identified by `Ident`.
+///
+/// This structure models semantic symbols (variables, functions, etc.)
+/// along with zero or more associated type identifiers.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-/// Represents a symbol with associated types.
-/// The symbol is of generic type `T`, and the associated types are stored in a vector of the same type.
-pub struct TypedSymbol<T>
-where
-    T: Clone + Display,
-{
-    symbol: T,
-    types: Vec<T>,
+pub struct TypedSymbol {
+    symbol: Ident,
+    types: Vec<Ident>,
 }
 
-impl<T> TypedSymbol<T>
-where
-    T: Clone + Display,
-{
-    /// Creates a new `TypedSymbol` with the given symbol and associated types.
+impl TypedSymbol {
+    /// Creates a new `TypedSymbol` from a symbol and its associated types.
     ///
     /// # Arguments
-    /// * `symbol` - The main symbol of type `T`.
-    /// * `types` - A vector of types associated with the symbol.
+    /// * `symbol` - The main symbol identifier.
+    /// * `types` - A vector of associated type identifiers.
     ///
     /// # Returns
-    /// A `TypedSymbol` instance containing the symbol and its associated types.
-    pub fn new(symbol: T, types: Vec<T>) -> Self {
+    /// A new `TypedSymbol` instance.
+    pub fn new(symbol: Ident, types: Vec<Ident>) -> Self {
         TypedSymbol { symbol, types }
     }
 
-    /// Returns a reference to the symbol.
-    ///
-    /// # Returns
-    /// A reference to the symbol of type `T`.
-    pub fn symbol(&self) -> &T {
-        &self.symbol
+    /// Returns the symbol identifier.
+    pub fn symbol(&self) -> Ident {
+        self.symbol
     }
 
-    /// Returns a reference to the types associated with the symbol.
-    ///
-    /// # Returns
-    /// A reference to a vector containing the associated types.
-    pub fn types(&self) -> &Vec<T> {
+    /// Returns a reference to the vector of associated type identifiers.
+    pub fn types(&self) -> &Vec<Ident> {
         &self.types
     }
 
-    /// Retourne la représentation en `String` (prête pour `println!`)
+    /// Returns a human-readable string representation of the symbol and types,
+    /// using the provided string interner to resolve `Ident`s to their string names.
+    ///
+    /// # Arguments
+    /// * `interner` - The string interner used to resolve identifiers.
+    ///
+    /// # Returns
+    /// A `String` representing the symbol and its types.
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();
         let _ = self.fmt_with_interner(&mut out, interner);
         out
     }
 
+    /// Formats the symbol and associated types using the provided formatter,
+    /// resolving identifiers to their names through the given string interner.
+    ///
+    /// # Arguments
+    /// * `w` - A formatter implementing `fmt::Write` (e.g., `String`, or a formatter).
+    /// * `interner` - The string interner to resolve identifiers.
+    ///
+    /// # Returns
+    /// A `fmt::Result` indicating success or failure.
     pub fn fmt_with_interner(
         &self,
         w: &mut dyn fmt::Write,
         interner: &StringInterner,
     ) -> fmt::Result {
-        write!(w, "{}", self.symbol)?;
+        match interner.get_str(self.symbol) {
+            Some(name) => write!(w, "{}", name)?,
+            None => write!(w, "<uninterned:{}>", self.symbol)?,
+        }
 
-        // If there are associated types, display them after the main symbol
         if !self.types.is_empty() {
             write!(w, " - ")?;
             for (i, ty) in self.types.iter().enumerate() {
                 if i > 0 {
-                    write!(w, " ")?; // Add space between types
+                    write!(w, " ")?;
                 }
-                write!(w, "{}", ty)?;
+                match interner.get_str(*ty) {
+                    Some(type_name) => write!(w, "{}", type_name)?,
+                    None => write!(w, "<uninterned:{}>", ty)?,
+                }
             }
         }
 
@@ -76,28 +87,19 @@ where
     }
 }
 
-impl<T: fmt::Display> fmt::Display for TypedSymbol<T>
-where
-    T: Clone,
-{
-    /// Implements the `Display` trait for `TypedSymbol`.
-    /// This will format the symbol and its associated types as a string.
+impl fmt::Display for TypedSymbol {
+    /// Displays the symbol and types by printing their raw `usize` identifiers.
     ///
-    /// # Arguments
-    /// * `f` - A formatter used to write the formatted string.
-    ///
-    /// # Returns
-    /// A `fmt::Result` indicating whether the formatting succeeded.
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        // Display the main symbol
+    /// This does **not** resolve the identifiers via interner; use
+    /// [`to_string_with_interner`] for human-readable output.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.symbol)?;
 
-        // If there are associated types, display them after the main symbol
         if !self.types.is_empty() {
             write!(f, " - ")?;
             for (i, ty) in self.types.iter().enumerate() {
                 if i > 0 {
-                    write!(f, " ")?; // Add space between types
+                    write!(f, " ")?;
                 }
                 write!(f, "{}", ty)?;
             }

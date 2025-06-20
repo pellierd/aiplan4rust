@@ -1,10 +1,9 @@
 use std::mem;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::elements::{BinaryComp, Ident, Requirement};
-use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
+use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
-use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
+use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::StringInterner;
 
@@ -244,7 +243,7 @@ impl<'a> SymbolTableBuilder<'a> {
         node: &AstNode,
         scope: Scope,
         types: Option<Vec<Ident>>,
-        arguments: Option<Vec<TypedSymbol<Ident>>>,
+        arguments: Option<Vec<TypedSymbol>>,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST kind is valid
         Self::assert_ast_kind(
@@ -1194,7 +1193,7 @@ impl<'a> SymbolTableBuilder<'a> {
     fn extract_arguments_from_typed_list(
         &mut self,
         ast: &AstNode,
-    ) -> Result<Vec<TypedSymbol<Ident>>, ParserInternalError> {
+    ) -> Result<Vec<TypedSymbol>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
         Self::assert_ast_kind(ast, &[AstKind::TypedList])?;
 
@@ -1218,7 +1217,7 @@ impl<'a> SymbolTableBuilder<'a> {
     fn extract_arguments_from_typed_item(
         &mut self,
         typed_item: &AstNode,
-    ) -> Result<Vec<TypedSymbol<Ident>>, ParserInternalError> {
+    ) -> Result<Vec<TypedSymbol>, ParserInternalError> {
         // Ensure the node is of the correct kind
         Self::assert_ast_kind(typed_item, &[AstKind::TypedItem])?;
 

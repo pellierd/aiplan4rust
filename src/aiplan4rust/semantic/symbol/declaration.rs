@@ -54,7 +54,7 @@ pub struct Declaration {
     types: Option<Vec<Ident>>,
 
     /// Optional list of argument types, grouped in parameter lists.
-    arguments: Option<Vec<TypedSymbol<Ident>>>,
+    arguments: Option<Vec<TypedSymbol>>,
 
     span: Span,
     name: Ident,
@@ -68,7 +68,7 @@ impl Declaration {
         scope: Scope,
         source: SymbolSource,
         types: Option<Vec<Ident>>,
-        arguments: Option<Vec<TypedSymbol<Ident>>>,
+        arguments: Option<Vec<TypedSymbol>>,
         span : Span,
         ast: usize,
     ) -> Self {
@@ -151,11 +151,11 @@ impl Declaration {
     /// # Returns
     ///
     /// * `Option<&Vec<TypedSymbol<String>>>` - An optional reference to the list of argument types.
-    pub fn arguments(&self) -> Option<&Vec<TypedSymbol<Ident>>> {
+    pub fn arguments(&self) -> Option<&Vec<TypedSymbol>> {
         self.arguments.as_ref()
     }
 
-    pub fn into_arguments(self) -> Option<Vec<TypedSymbol<Ident>>> {
+    pub fn into_arguments(self) -> Option<Vec<TypedSymbol>> {
         self.arguments
     }
 
@@ -194,7 +194,7 @@ impl Declaration {
     /// # Returns
     ///
     /// * `Option<&mut Vec<TypedSymbol<String>>>` - A mutable reference to the list of argument types.
-    pub fn arguments_mut(&mut self) -> Option<&mut Vec<TypedSymbol<Ident>>> {
+    pub fn arguments_mut(&mut self) -> Option<&mut Vec<TypedSymbol>> {
         self.arguments.as_mut()
     }
 
@@ -237,7 +237,7 @@ impl Declaration {
     /// # Arguments
     ///
     /// * `arguments` - The list of argument types to set for the symbol.
-    pub fn set_arguments(&mut self, arguments: Option<Vec<TypedSymbol<Ident>>>) {
+    pub fn set_arguments(&mut self, arguments: Option<Vec<TypedSymbol>>) {
         self.arguments = arguments;
     }
 
