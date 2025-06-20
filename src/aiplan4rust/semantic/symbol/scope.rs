@@ -4,12 +4,13 @@ use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
+use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Scope {
-    stack: Vec<usize>,
+    stack: Vec<NodeId>,
 }
 
 impl Scope {
@@ -19,7 +20,7 @@ impl Scope {
         if let Some(parent_scope) = parent {
             scope.stack.extend(parent_scope.stack.iter().cloned());
         }
-        scope.stack.push(ast);
+        scope.stack.push(NodeId::new(ast));
         scope
     }
 
@@ -33,7 +34,7 @@ impl Scope {
     }
 
     // Fonction pour créer un itérateur sur `Scope`
-    pub fn iter(&self) -> impl Iterator<Item = &usize> {
+    pub fn iter(&self) -> impl Iterator<Item = &NodeId> {
         self.stack.iter()
     }
 
@@ -97,7 +98,7 @@ impl Scope {
     ) -> fmt::Result {
         let mut scope_strings: Vec<String> = Vec::new();
         for ast_index in self.stack.iter() {
-            if let Some(ast) = map.get(ast_index) {
+            if let Some(ast) = map.get(*ast_index.as_usize()) {
                 let (line, column) = ast.start_position();
                 let scope_string = format!("[{} {}:{}]", ast.kind(), line, column);
                 scope_strings.push(scope_string);
