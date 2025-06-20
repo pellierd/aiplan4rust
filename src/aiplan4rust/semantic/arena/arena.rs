@@ -103,7 +103,7 @@ impl Arena {
     /// `Some(&Node)` if the parent node exists, or `None` if the node has no parent or the id is invalid.
     pub fn get_parent(&self, id: NodeId) -> Option<&Node> {
         self.get_node(id)
-            .and_then(|node| node.parent()) 
+            .and_then(|node| node.parent())
             .and_then(|parent_id| self.get_node(parent_id))
     }
 

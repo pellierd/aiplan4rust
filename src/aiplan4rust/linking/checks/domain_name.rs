@@ -1,5 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::{Scope, SymbolKind};
 
@@ -70,7 +71,7 @@ pub fn check_domain_name(
 
                 // --- 5. Retrieve the corresponding AST entry ---
                 // Needed to determine the span (location) for the warning.
-                match problem.ast().get_node(domain_name_declaration.ast()) {
+                match problem.ast().get_node(NodeId::new(domain_name_declaration.ast())) {
                     Some(ast) => {
 
                         // --- 6. Emit a warning about the mismatch ---
