@@ -12,10 +12,10 @@ use crate::aiplan4rust::syntax::lexer::token::DURATION_VARIABLE;
 use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::OBJECT_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
-use crate::aiplan4rust::syntax::ast_old::AstKindOld;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.
@@ -202,14 +202,14 @@ fn skip_unused_symbol_declaration(
     if matches!(declaration.kind(), SymbolKind::Variable)
         && (declaration
             .scope()
-            .contains_ast_of_kind(AstKindOld::AtomicFormulaSkeleton, context)?
+            .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, context)?
             || declaration.scope().contains_ast_of_kind(
-        AstKindOld::AtomicFunctionSkeleton,
+        AstKind::AtomicFunctionSkeleton,
         context,
             )?
             || declaration // Add for HDDL
                 .scope()
-                .contains_ast_of_kind(AstKindOld::TaskDef, context)?)
+                .contains_ast_of_kind(AstKind::TaskDef, context)?)
     {
         return Ok(true);
     }

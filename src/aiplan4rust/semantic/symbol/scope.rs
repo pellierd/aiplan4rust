@@ -1,11 +1,11 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast_old::{AstKindOld, AstNodeOld};
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
 use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Scope {
@@ -67,9 +67,9 @@ impl Scope {
     ///     Err(e) => eprintln!("Error: {}", e),
     /// }
     /// ```
-    pub fn contains_ast_of_kinda(
+    pub fn contains_ast_of_kind(
         &self,
-        kind: AstKindOld,
+        kind: AstKind,
         context: &SemanticContext,
     ) -> Result<bool, ParserInternalError> {
         for id in &self.stack {
@@ -93,7 +93,7 @@ impl Scope {
     pub fn display_with_map(
         &self,
         f: &mut fmt::Formatter<'_>,
-        map: &LinkedHashMap<usize, &Box<AstNodeOld>>,
+        map: &LinkedHashMap<usize, &Box<AstNode>>,
     ) -> fmt::Result {
         let mut scope_strings: Vec<String> = Vec::new();
         for ast_index in self.stack.iter() {
