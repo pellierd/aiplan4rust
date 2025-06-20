@@ -162,7 +162,7 @@ pub fn check_requirement_violations(
             }
 
             AstKind::FComp => {
-                match node.expect_binary_comp()? {
+                match node.try_binary_comp()? {
                     BinaryComp::Equal => {
                         checked &= report_requirement_violation(
                             node,

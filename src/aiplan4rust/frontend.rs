@@ -134,28 +134,21 @@ impl Frontend {
                 let mut normalizer = Normalizer::new();
                 let mut normalizer_result =
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
-                if let Some(normalized_ast) = normalizer_result.ast() {
-                    println!("normalizer: {}", normalized_ast);
-                }
-                Self::create_error_result(normalizer_result.diagnostic_manager_mut())
 
-                /*match normalizer_result.take_ast() {
+                match normalizer_result.take_ast() {
                     Some(normalized_ast) => {
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();
-
-
-
-                        /*// Analyze the normalized AST with the diagnostics.
+                        // Analyze the normalized AST with the diagnostics.
                         let mut analyzer = Analyzer::new();
                         let analysis_result =
                             analyzer.analyze_with_diagnostic_manager(&normalized_ast, diagnostic_manager)?;
 
                         // Return the analysis result.
-                        Ok(analysis_result)*/
+                        Ok(analysis_result)
                     }
                     None => Self::create_error_result(normalizer_result.diagnostic_manager_mut()),
-                }*/
+                }
             }
             //None => Self::create_error_result(parser_result.diagnostic_manager_mut()),
             None => Self::create_error_result(parser_result.diagnostic_manager_mut())

@@ -128,7 +128,7 @@ impl Arena {
     ///    - `Err(ParserInternalError)` if the node or its first child is missing or malformed.
     pub fn get_symbol(&self, id: usize) -> Result<Option<&str>, ParserInternalError> {
         let node = self.get_node(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
-        if let Some(sym) = self.get_str(node.expect_ident()?) {
+        if let Some(sym) = self.get_str(node.try_ident()?) {
             return Ok(Some(sym));
         }
         match &node.kind() {
@@ -139,7 +139,7 @@ impl Arena {
                 let child = self.get_node(*child_idx).ok_or_else(|| {
                     ParserInternalError::new(format!("Child node {} not found", child_idx))
                 })?;
-                Ok(self.get_str(child.expect_ident()?))
+                Ok(self.get_str(child.try_ident()?))
             }
             _ => Ok(None),
         }

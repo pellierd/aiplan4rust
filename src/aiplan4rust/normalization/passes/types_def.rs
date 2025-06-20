@@ -206,7 +206,7 @@ fn extract_id_and_info(
         )));
     }
 
-    let key = primitive_type_node.expect_ident()?;
+    let key = primitive_type_node.try_ident()?;
     let span = primitive_type_node.span().clone();
 
     // Retire le deuxième enfant s'il existe, sinon None
@@ -258,7 +258,7 @@ fn extract_type_ids(type_node: &AstNode) -> Result<HashSet<Ident>, ParserInterna
             )));
         }
 
-        ids.insert(child.expect_ident()?);
+        ids.insert(child.try_ident()?);
     }
 
     Ok(ids)

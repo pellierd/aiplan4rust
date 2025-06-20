@@ -118,7 +118,7 @@ impl Context {
             for child in req_def.children() {
                 let node = arena.expect_node(*child)?;
                 if matches!(node.kind(), AstKind::Requirement) {
-                    if let Ok(req) = node.expect_requirement() {
+                    if let Ok(req) = node.try_requirement() {
                         requirements.extend(req.imply());
                     }
                 }

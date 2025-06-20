@@ -81,7 +81,7 @@ pub fn normalize_require_def(
 
     // Retain only unique Requirement nodes, remove duplicates and report warnings
     require_def.children_mut().retain(|child| {
-        match child.expect_requirement() {
+        match child.try_requirement() {
             Ok(r) if seen.insert(r) => true,
             Ok(r) => {
                 duplicates.push(r);

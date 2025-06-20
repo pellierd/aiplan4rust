@@ -196,7 +196,7 @@ fn extract_task_ids(
         };
         match child_node.kind() {
             AstKind::TaskID => {
-                vec_task_id.push(child_node.expect_ident()?);
+                vec_task_id.push(child_node.try_ident()?);
             }
             _ => {
                 // Recursively handle non-TaskID children

@@ -415,68 +415,68 @@ impl<'a> SymbolTableBuilder<'a> {
         match node.kind() {
             // Handling different AST node kinds and returning appropriate symbol information
             AstKind::DomainName => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::DomainName))
             },
             AstKind::PrimitiveType => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::PrimitiveType))
             }
             AstKind::ProblemName => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::ProblemName))
             },
             AstKind::Requirement => {
-                let req = node.expect_requirement()?;
+                let req = node.try_requirement()?;
                 Ok((req.to_string(), SymbolKind::Requirement))
             }
             AstKind::Constant => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::Constant))
             },
             AstKind::Variable => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::Variable))
             },
             AstKind::FunctionSymbol => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::Function))
             },
             AstKind::Predicate => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::Predicate))
             },
             AstKind::ActionSymbol => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::Action))
             },
             AstKind::DASymbol => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::DASymbol))
             },
 
             // Add on for HDDL support
             AstKind::MethodSymbol => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::Method))
             },
             AstKind::TaskSymbol => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::Task))
             },
             AstKind::TaskID => {
-                let ident = node.expect_ident()?;
+                let ident = node.try_ident()?;
                 let name = self.ast.unwrap().expect_str(ident)?;
                 Ok((name.to_string(), SymbolKind::TaskID))
             },
@@ -493,17 +493,17 @@ impl<'a> SymbolTableBuilder<'a> {
                 let first_child = children[0].as_ref();
                 match first_child.kind() {
                     AstKind::Predicate=> {
-                        let ident = node.expect_ident()?;
+                        let ident = first_child.try_ident()?;
                         let name = self.ast.unwrap().expect_str(ident)?;
                         Ok((name.to_string(), SymbolKind::Predicate))
                     },
                     AstKind::FunctionSymbol => {
-                        let ident = node.expect_ident()?;
+                        let ident = first_child.try_ident()?;
                         let name = self.ast.unwrap().expect_str(ident)?;
                         Ok((name.to_string(), SymbolKind::Function))
                     },
                     AstKind::TaskSymbol=> {
-                        let ident = node.expect_ident()?;
+                        let ident = first_child.try_ident()?;
                         let name = self.ast.unwrap().expect_str(ident)?;
                         Ok((name.to_string(), SymbolKind::Task))
                     },

@@ -321,68 +321,69 @@ impl Node {
         self.content.is_none()
     }
 
-    /// Returns the identifier if this content is an `Ident`.
+    /// Attempts to retrieve the identifier if this content is an `Ident`.
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not an `Ident`.
-    pub fn expect_ident(&self) -> Result<Ident, ParserInternalError> {
-        self.content.expect_ident()
+    /// Returns a [`ParserInternalError`] if the content is not an `Ident`.
+    pub fn try_ident(&self) -> Result<Ident, ParserInternalError> {
+        self.content.try_ident()
     }
 
-    /// Returns the floating-point literal if this content is a `Float`.
+    /// Attempts to retrieve the floating-point literal if this content is a `Float`.
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not a `Float`.
-    pub fn expect_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
-        self.content.expect_float()
+    /// Returns a [`ParserInternalError`] if the content is not a `Float`.
+    pub fn try_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
+        self.content.try_float()
     }
 
-    /// Returns the requirement flag if this content is a `Requirement`.
+    /// Attempts to retrieve the requirement if this content is a `Requirement`.
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not a `Requirement`.
-    pub fn expect_requirement(&self) -> Result<Requirement, ParserInternalError> {
-        self.content.expect_requirement()
+    /// Returns a [`ParserInternalError`] if the content is not a `Requirement`.
+    pub fn try_requirement(&self) -> Result<Requirement, ParserInternalError> {
+        self.content.try_requirement()
     }
 
-    /// Returns the binary comparison operator if this content is a `BinaryComp`.
+    /// Attempts to retrieve the binary comparison operator if this content is a `BinaryComp`.
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not a `BinaryComp`.
-    pub fn expect_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
-        self.content.expect_binary_comp()
+    /// Returns a [`ParserInternalError`] if the content is not a `BinaryComp`.
+    pub fn try_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
+        self.content.try_binary_comp()
     }
 
-    /// Returns the assignment operator if this content is an `AssignOp`.
+    /// Attempts to retrieve the assignment operator if this content is an `AssignOp`.
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not an `AssignOp`.
-    pub fn expect_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
-        self.content.expect_assign_op()
+    /// Returns a [`ParserInternalError`] if the content is not an `AssignOp`.
+    pub fn try_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
+        self.content.try_assign_op()
     }
 
-    /// Returns the arithmetic operator if this content is an `ArithmeticOp`.
+    /// Attempts to retrieve the arithmetic operator if this content is an `ArithmeticOp`.
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not an `ArithmeticOp`.
-    pub fn expect_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
-        self.content.expect_arithmetic_op()
+    /// Returns a [`ParserInternalError`] if the content is not an `ArithmeticOp`.
+    pub fn try_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
+        self.content.try_arithmetic_op()
     }
 
-    /// Returns the optimization directive if this content is an `Optimization`.
+    /// Attempts to retrieve the optimization directive if this content is an `Optimization`.
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not an `Optimization`.
-    pub fn expect_optimization(&self) -> Result<Optimization, ParserInternalError> {
-        self.content.expect_optimization()
+    /// Returns a [`ParserInternalError`] if the content is not an `Optimization`.
+    pub fn try_optimization(&self) -> Result<Optimization, ParserInternalError> {
+        self.content.try_optimization()
     }
+
 
     /// Sets the end position (line and column).
     ///

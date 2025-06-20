@@ -176,12 +176,13 @@ impl Content {
     pub fn is_none(&self) -> bool {
         matches!(self, Content::None)
     }
+
     /// Returns the identifier if this content is an `Ident`.
     ///
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not an `Ident`.
-    pub fn expect_ident(&self) -> Result<Ident, ParserInternalError> {
+    pub fn try_ident(&self) -> Result<Ident, ParserInternalError> {
         match self {
             Content::Ident(id) => Ok(*id),
             other => Err(ParserInternalError::new(format!("Expected AstContent::Ident, found {:?}", other))),
@@ -193,7 +194,7 @@ impl Content {
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not a `Float`.
-    pub fn expect_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
+    pub fn try_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
         match self {
             Content::Float(f) => Ok(*f),
             other => Err(ParserInternalError::new(format!("Expected AstContent::Float, found {:?}", other))),
@@ -205,7 +206,7 @@ impl Content {
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not a `Requirement`.
-    pub fn expect_requirement(&self) -> Result<Requirement, ParserInternalError> {
+    pub fn try_requirement(&self) -> Result<Requirement, ParserInternalError> {
         match self {
             Content::Requirement(r) => Ok(*r),
             other => Err(ParserInternalError::new(format!("Expected AstContent::Requirement, found {:?}", other))),
@@ -217,7 +218,7 @@ impl Content {
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not a `BinaryComp`.
-    pub fn expect_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
+    pub fn try_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
         match self {
             Content::BinaryComp(bc) => Ok(*bc),
             other => Err(ParserInternalError::new(format!("Expected AstContent::BinaryComp, found {:?}", other))),
@@ -229,7 +230,7 @@ impl Content {
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not an `AssignOp`.
-    pub fn expect_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
+    pub fn try_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
         match self {
             Content::AssignOp(op) => Ok(*op),
             other => Err(ParserInternalError::new(format!("Expected AstContent::AssignOp, found {:?}", other))),
@@ -241,7 +242,7 @@ impl Content {
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not an `ArithmeticOp`.
-    pub fn expect_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
+    pub fn try_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
         match self {
             Content::ArithmeticOp(op) => Ok(*op),
             other => Err(ParserInternalError::new(format!("Expected AstContent::ArithmeticOp, found {:?}", other))),
@@ -253,7 +254,7 @@ impl Content {
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not an `Optimization`.
-    pub fn expect_optimization(&self) -> Result<Optimization, ParserInternalError> {
+    pub fn try_optimization(&self) -> Result<Optimization, ParserInternalError> {
         match self {
             Content::Optimization(opt) => Ok(*opt),
             other => Err(ParserInternalError::new(format!("Expected AstContent::Optimization, found {:?}", other))),

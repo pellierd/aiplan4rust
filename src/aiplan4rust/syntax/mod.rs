@@ -74,7 +74,6 @@ pub mod parser;
 pub mod parser_result;
 pub mod grammar;
 pub mod span;
-pub mod ast_old;
 
 pub mod ast;
 pub mod display;
@@ -85,8 +84,6 @@ pub use language::Language;
 pub use parser::Parser;
 pub use parser_result::ParserResult;
 pub use span::Span;
-pub use ast_old::AstKindOld;
-pub use ast_old::AstNodeOld;
 pub use display::Display as SyntaxDisplay;
 pub use string_interner::StringInterner;
 pub use fast_line_table::FastLineTable;

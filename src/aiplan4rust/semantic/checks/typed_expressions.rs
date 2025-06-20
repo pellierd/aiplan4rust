@@ -432,10 +432,10 @@ pub fn get_type(
         AstKind::Number => get_number_type(),
 
         // Case 2: Variable
-        AstKind::Variable => get_variable_type(index, node.content().expect_ident()?, context),
+        AstKind::Variable => get_variable_type(index, node.content().try_ident()?, context),
 
         // Case 3: Constant
-        AstKind::Constant => get_constant_type(index, node.content().expect_ident()?, context),
+        AstKind::Constant => get_constant_type(index, node.content().try_ident()?, context),
 
         // Case 4: Function Term
         AstKind::FunctionTerm => get_function_term_type(index, node, context),
@@ -638,7 +638,7 @@ fn get_function_term_type(
     })?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
-        if functor_entry.expect_ident()? == StringInterner::IDENT_TOTAL_TIME
+        if functor_entry.try_ident()? == StringInterner::IDENT_TOTAL_TIME
             && context.has_requirement(&NumericFluents)
         {
             return get_number_type();
