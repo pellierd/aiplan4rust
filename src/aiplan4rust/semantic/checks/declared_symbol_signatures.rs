@@ -5,7 +5,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
-use crate::aiplan4rust::semantic::arena::ArenaAstNode;
+use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
@@ -74,7 +74,7 @@ pub fn check_declared_symbol_signatures(
                     diagnostic_manager,
                 )? {
                     no_error &= false;
-                    let entry = context.ast().get_node(usage.ast()).unwrap();
+                    let entry = context.ast().get_node(NodeId::new(usage.ast())).unwrap();
                     let diagnostic_kind = match declaration.kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
                             symbol: symbol.name().clone()
@@ -132,7 +132,7 @@ fn match_declaration_with_usage(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let ast_usage = context.ast().get_node(usage.ast()).ok_or_else(|| {
+    let ast_usage = context.ast().get_node(NodeId::new(usage.ast())).ok_or_else(|| {
         ParserInternalError::new(format!("AST entry not found for usage '{}'", usage.ast()))
     })?;
 
@@ -157,7 +157,7 @@ fn match_declaration_with_usage(
             symbol_table,
             context,
             argument,
-            *argument_index,
+            argument_index.as_usize(),
             kind,
             index,
             type_checker,
@@ -202,7 +202,7 @@ fn match_argument(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax tree
-    let symbol = context.ast().get_symbol(argument_index)?;
+    let symbol = context.ast().get_symbol(NodeId::new(argument_index))?;
     // Check that the symbol exists; return an error if it is missing
     let name = match symbol {
         Some(n) => n,
