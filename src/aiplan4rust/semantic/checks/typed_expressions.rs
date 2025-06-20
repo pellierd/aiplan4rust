@@ -160,21 +160,7 @@ fn check_equal_and_assignment_expression(
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
-
-    let interner = context.ast().interner(); // Ou ajuster selon ton accès à l'interner
-
-    let ty1_str: Vec<String> = ty1
-        .iter()
-        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
-        .collect();
-
-    let ty2_str: Vec<String> = ty2
-        .iter()
-        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
-        .collect();
-
-
-    if !type_checker.have_common_supertype(&ty1_str, &ty2_str)? {
+    if !type_checker.have_common_supertype(&ty1, &ty2)? {
         no_error = false;
         report_type_mismatch_in_expression(
             ty1,
@@ -570,28 +556,8 @@ fn get_declaration_type(
     context: &SemanticContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     match context.symbol_table().resolve_declaration_by_usage(index.as_usize())? {
+        Some(decl) => Ok(decl.types().cloned()), // Clone not necessary 
         None => Ok(None),
-        Some(decl) => {
-            let interner = context.ast().interner();
-
-            match decl.types() {
-                Some(types) => {
-                    let mut idents = Vec::with_capacity(types.len());
-                    for name in types {
-                        match interner.lookup(name) {
-                            Some(id) => idents.push(id),
-                            None => {
-                                return Err(ParserInternalError::new(format!(
-                                    "String {:?} not interned", name
-                                )));
-                            }
-                        }
-                    }
-                    Ok(Some(idents))
-                }
-                None => Ok(None),
-            }
-        }
     }
 }
 
