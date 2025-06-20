@@ -57,13 +57,13 @@ pub struct Declaration {
     arguments: Option<Vec<TypedSymbol<Ident>>>,
 
     span: Span,
-    name: String,
+    name: Ident,
 }
 
 impl Declaration {
     /// Constructor to create a new `Declaration`
     pub fn new(
-        name : String,
+        name : Ident,
         kind: SymbolKind,
         scope: Scope,
         source: SymbolSource,
@@ -202,8 +202,8 @@ impl Declaration {
         &self.span
     }
 
-    pub fn symbol(&self) -> &String {
-        &self.name
+    pub fn symbol(&self) -> Ident {
+        self.name
     }
 
     // Setters
