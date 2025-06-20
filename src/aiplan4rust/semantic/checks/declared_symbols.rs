@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticContext;
 
 use std::collections::{HashMap, HashSet};
-
+use crate::aiplan4rust::semantic::arena::NodeId;
 
 pub fn check_declared_symbols(
     context: &SemanticContext,
@@ -60,7 +60,7 @@ fn check_symbol_declarations(
                 continue;
             }
 
-            let ast_entry = context.get(declaration.ast()).unwrap();
+            let ast_entry = context.get(NodeId::new(declaration.ast())).unwrap();
             let current_scope = declaration.scope();
 
             let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));
@@ -84,7 +84,7 @@ fn check_symbol_declarations(
                     checked = false;
 
                     let scope_index = conflicting_scope.iter().last().unwrap();
-                    let scope = context.get(*scope_index).unwrap();
+                    let scope = context.get(NodeId::new(*scope_index)).unwrap();
 
                     let error = Diagnostic::new(
                         DiagnosticKind::DuplicatedSymbolDeclarationInScopeError {
