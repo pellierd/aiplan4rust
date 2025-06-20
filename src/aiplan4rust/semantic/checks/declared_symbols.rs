@@ -84,7 +84,7 @@ fn check_symbol_declarations(
                     checked = false;
 
                     let scope_index = conflicting_scope.iter().last().unwrap();
-                    let scope = context.get(NodeId::new(*scope_index)).unwrap();
+                    let scope = context.get(*scope_index).unwrap();
 
                     let error = Diagnostic::new(
                         DiagnosticKind::DuplicatedSymbolDeclarationInScopeError {

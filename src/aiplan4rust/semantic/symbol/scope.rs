@@ -39,7 +39,7 @@ impl Scope {
     }
 
     // Fonction pour obtenir un itérateur mutable si nécessaire
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut usize> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut NodeId> {
         self.stack.iter_mut()
     }
 
@@ -98,7 +98,7 @@ impl Scope {
     ) -> fmt::Result {
         let mut scope_strings: Vec<String> = Vec::new();
         for ast_index in self.stack.iter() {
-            if let Some(ast) = map.get(*ast_index.as_usize()) {
+            if let Some(ast) = map.get(&ast_index.as_usize()) {
                 let (line, column) = ast.start_position();
                 let scope_string = format!("[{} {}:{}]", ast.kind(), line, column);
                 scope_strings.push(scope_string);
@@ -110,7 +110,7 @@ impl Scope {
 
 // Implémentation du trait Iterator pour Scope
 impl Iterator for Scope {
-    type Item = usize;  // Définition du type d'élément à itérer (ici usize)
+    type Item = NodeId;  // Définition du type d'élément à itérer (ici usize)
 
     fn next(&mut self) -> Option<Self::Item> {
         self.stack.pop() // Retourne et retire le dernier élément de la pile
