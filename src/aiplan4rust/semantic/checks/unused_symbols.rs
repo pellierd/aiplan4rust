@@ -266,20 +266,20 @@ fn check_pddl_builtin_symbol_declaration(
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
-    let (expected_kind, requirements) = match declaration.symbol().as_str() {
-        OBJECT_TYPE
+    let (expected_kind, requirements) = match declaration.symbol() {
+        StringInterner::IDENT_OBJECT
         if context.has_requirement(&Typing) || context.has_requirement(&Adl) =>
             {
                 (SymbolKind::PrimitiveType, vec![Typing, Adl])
             }
-        NUMBER_TYPE if context.has_requirement(&NumericFluents) => (
+        StringInterner::IDENT_NUMBER if context.has_requirement(&NumericFluents) => (
             SymbolKind::PrimitiveType,
             vec![NumericFluents, Fluents],
         ),
-        TOTAL_TIME if context.has_requirement(&NumericFluents) => {
+        StringInterner::IDENT_TOTAL_TIME if context.has_requirement(&NumericFluents) => {
             (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
-        DURATION_VARIABLE if context.has_requirement(&DurativeActions) => (
+        StringInterner::IDENT_DURATION_VARIABLE if context.has_requirement(&DurativeActions) => (
             SymbolKind::Variable,
             vec![DurativeActions],
         ),
