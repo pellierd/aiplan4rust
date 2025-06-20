@@ -16,6 +16,7 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::StringInterner;
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.
@@ -181,17 +182,17 @@ fn skip_unused_symbol_declaration(
         return Ok(true);
     }
 
-    match declaration.symbol().as_str() {
-        OBJECT_TYPE
+    match declaration.symbol() {
+        StringInterner::IDENT_OBJECT
             if context.has_requirement(&Typing)
                 || context.has_requirement(&Adl) =>
         {
             return Ok(true)
         }
-        NUMBER_TYPE | TOTAL_TIME if context.has_requirement(&NumericFluents) => {
+        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if context.has_requirement(&NumericFluents) => {
             return Ok(true)
         }
-        DURATION_VARIABLE if context.has_requirement(&DurativeActions) => {
+        StringInterner::IDENT_DURATION_VARIABLE if context.has_requirement(&DurativeActions) => {
             return Ok(true)
         }
         _ => {}
