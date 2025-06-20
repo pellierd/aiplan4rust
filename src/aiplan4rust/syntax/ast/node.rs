@@ -34,6 +34,7 @@ use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, I
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Node {
+    id : usize, // Unique identifier for the node,ti remove
     kind: AstKind,
     content: AstContent,
     children: Vec<Box<Node>>,
@@ -59,6 +60,7 @@ impl Node {
     /// ```
     pub fn new(kind: AstKind, content: AstContent, children: Vec<Box<Node>>, start: usize, end: usize) -> Node {
         Node {
+            id : usize::MAX, // To remove
             kind,
             content,
             children,
@@ -78,11 +80,19 @@ impl Node {
     /// A newly created `Node`.
     pub fn new_with_span(kind: AstKind, content: AstContent, children: Vec<Box<Node>>, span: Span) -> Node {
         Node {
+            id : usize::MAX, // To remove
             kind,
             content,
             children,
             span,
         }
+    }
+
+    pub fn id(&self) -> usize {
+        self.id
+    }
+    pub fn set_id(&mut self, id: usize) {
+        self.id = id;
     }
 
     /// Returns the total number of nodes in this subtree, including the current node.

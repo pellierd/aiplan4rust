@@ -68,6 +68,7 @@ use crate::aiplan4rust::syntax::StringInterner;
 /// symbolic strings, and metadata such as source origin and generation timestamp.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ast {
+
     /// Root node of the AST.
     root: Box<AstNode>,
 
@@ -103,6 +104,36 @@ impl Ast {
             generated_at,
         }
     }
+    pub fn default() -> Self {
+        Ast {
+            root: Box::new(AstNode::default()),         // suppose que AstNode impl Default
+            context: StringInterner::new(),             // interner vide
+            source_name: String::new(),                  // chaîne vide par défaut
+            generated_at: SystemTime::now(),             // horodatage actuel
+        }
+    }
+
+    // Should be removed when moving to arena
+    pub fn assign_ids(&mut self) {
+        let mut stack = Vec::new();
+        let mut index = 0;
+
+        // On pousse la racine sur la pile
+        stack.push(&mut *self.root);
+
+        while let Some(node) = stack.pop() {
+            // Attribuer l'ID au nœud courant
+            node.set_id(index);
+            index += 1;
+
+            // Pousser les enfants sur la pile dans l'ordre inverse
+            // pour un parcours préordre correct
+            for child in node.children_mut().iter_mut().rev() {
+                stack.push(child);
+            }
+        }
+    }
+
 
     /// Returns a reference to the AST root node.
     pub fn root(&self) -> &Box<AstNode> {
