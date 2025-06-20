@@ -152,9 +152,9 @@ fn report_cyclic_type_declaration_error(
 ) -> Result<(), ParserInternalError> {
 
     // Build a fast lookup map from symbol names to declarations
-    let type_map: HashMap<&str, &Declaration> = types
+    let type_map: HashMap<Ident, &Declaration> = types
         .iter()
-        .map(|decl| (decl.symbol().as_str(), *decl))
+        .map(|&decl| (decl.symbol(), decl))
         .collect();
 
     // Process each cycle to generate detailed diagnostic information
@@ -164,7 +164,7 @@ fn report_cyclic_type_declaration_error(
         // Convert type indices to symbols, and then to their declarations
         for &index in cycle {
             if let Some(symbol) = type_bimap.get_by_right(&index) {
-                if let Some(declaration) = type_map.get(symbol.as_str()) {
+                if let Some(declaration) = type_map.get(symbol) {
                     cycle_detail.push((*declaration).clone()); // Clone to own the declaration
                 }
             }
