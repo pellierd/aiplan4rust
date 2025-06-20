@@ -13,6 +13,7 @@ use serde::Serialize;
 use std::fmt;
 use indexmap::IndexSet;
 use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::StringInterner;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A table of symbols used by the aiplan4rust.
@@ -872,7 +873,25 @@ impl SymbolTable {
         ))
     }
 
+    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
+        let mut out = String::new();
+        let _ = self.fmt_with_interner(&mut out, interner);
+        out
+    }
 
+    pub fn fmt_with_interner(
+        &self,
+        w: &mut dyn fmt::Write,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        // Parcourt tous les symboles dans la table
+        for symbol in self.symbols.values() {
+            // Utilise la méthode fmt_with_interner de chaque symbole, en passant l'interner
+            symbol.fmt_with_interner(w, interner)?;
+            writeln!(w)?; // Ajoute un saut de ligne après chaque symbole
+        }
+        Ok(())
+    }
 
 }
 

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::Severity;
-use crate::aiplan4rust::syntax::elements::Requirement;
+use crate::aiplan4rust::syntax::elements::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;
@@ -143,7 +143,7 @@ impl Kind {
 
             // WARNINGS LINKER
             Kind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
-            Kind::CrossConflictSymbolDeclarationError { .. } => "W2001".to_string(),
+            Kind::CrossConflictSymbolDeclarationError { .. } => "E2001".to_string(),
 
 
             Kind::CustomError(_) => "E000X".to_string(),
@@ -461,10 +461,10 @@ impl Kind {
                 ))
             }
             Kind::CyclicTypeDeclarationError { cycle } => {
-                let cycle_symbols: Vec<&str> = cycle.iter().map(|decl| decl.symbol().as_str()).collect();
+                let cycle_symbols: Vec<Ident> = cycle.iter().map(|decl| decl.symbol()).collect();
                 Some(format!(
-                    "Cycle detected in type hierarchy: {}. Remove cyclic inheritance to fix.",
-                    cycle_symbols.join(" -> ")
+                    "Cycle detected in type hierarchy: {:?}. Remove cyclic inheritance to fix.",
+                    cycle_symbols
                 ))
             }
             Kind::CrossConflictSymbolDeclarationError { symbol, problem_kind, domain_kinds } => {

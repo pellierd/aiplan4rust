@@ -1,4 +1,4 @@
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -274,7 +274,7 @@ impl Declaration {
     /// let declaration = Declaration { ... };
     /// println!("{}", declaration.format_types());
     /// ```
-    fn format_types(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt_types(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(types) = &self.types {
             write!(f, ", types: (")?;
             if types.is_empty() {
@@ -293,6 +293,66 @@ impl Declaration {
                 write!(f, ")")?;
             }
         }
+        Ok(())
+    }
+
+    /// Formats the type information of the declaration using a `StringInterner`
+    /// to resolve identifier names.
+    ///
+    /// This function writes a human-readable representation of the declaration's
+    /// associated types into the given [`std::fmt::Formatter`], resolving interned
+    /// identifiers into strings using the provided [`StringInterner`].
+    ///
+    /// - If there are no types, it writes `", types: ()"`.
+    /// - If there is one type, it writes it directly: `", types: (type_name)"`.
+    /// - If there are multiple types, it uses PDDL's `either` syntax:
+    ///   `", types: (either type1 type2 ...)"`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A mutable reference to the formatter used for output.
+    /// * `interner` - A reference to the `StringInterner` used to resolve identifiers.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure during formatting.
+    ///
+    /// # Example Output
+    ///
+    /// - `types: ()`
+    /// - `types: (object)`
+    /// - `types: (either vehicle robot)`
+    ///
+    /// Uninterned identifiers will be printed as `<uninterned:ID>`.
+    pub fn fmt_types_with_interner(
+        &self,
+        w: &mut dyn fmt::Write,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        if let Some(types) = &self.types {
+            write!(w, ", types: (")?;
+
+            match types.as_slice() {
+                [] => write!(w, ")")?,
+                [single] => {
+                    match interner.get_str(*single) {
+                        Some(name) => write!(w, "{})", name)?,
+                        None => write!(w, "<uninterned:{}>)", single)?,
+                    }
+                }
+                _ => {
+                    write!(w, "either")?;
+                    for ty in types {
+                        match interner.get_str(*ty) {
+                            Some(name) => write!(w, " {}", name)?,
+                            None => write!(w, " <uninterned:{}>", ty)?,
+                        }
+                    }
+                    write!(w, ")")?;
+                }
+            }
+        }
+
         Ok(())
     }
 
@@ -317,35 +377,111 @@ impl Declaration {
     /// let declaration = Declaration { ... };
     /// println!("{}", declaration.format_arguments());
     /// ```
-    fn format_arguments(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt_arguments(&self, w: &mut dyn fmt::Write,) -> fmt::Result {
         if let Some(arguments) = &self.arguments {
-            write!(f, ", arguments: (")?;
+            write!(w, ", arguments: (")?;
             for (i, argument) in arguments.iter().enumerate() {
                 if i > 0 {
-                    write!(f, " ")?;
+                    write!(w, " ")?;
                 }
                 // Affiche le nom de l'argument avec son index
-                write!(f, "{}", argument)?;
+                write!(w, "{}", argument)?;
             }
-            write!(f, ")")?;
+            write!(w, ")")?;
         }
         Ok(())
+    }
+
+    /// Formats the arguments of the declaration using a `StringInterner`
+    /// to resolve interned identifiers into strings.
+    ///
+    /// This function writes a human-readable list of the declaration's arguments
+    /// into the given [`std::fmt::Formatter`]. Each argument is resolved using
+    /// the provided `StringInterner`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output to.
+    /// * `interner` - The `StringInterner` used to look up string values from argument identifiers.
+    ///
+    /// # Example Output
+    ///
+    /// - `arguments: (x y z)`
+    ///
+    /// If an identifier is not found in the interner, it will be printed as `<uninterned:ID>`.
+    pub fn fmt_arguments_with_interner(
+        &self,
+        w: &mut dyn fmt::Write,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        if let Some(arguments) = &self.arguments {
+            write!(w, ", arguments: (")?;
+
+            for (i, typed_symbol) in arguments.iter().enumerate() {
+                if i > 0 {
+                    write!(w, " ")?;
+                }
+                write!(w, "{}", typed_symbol)?;
+            }
+
+            write!(w, ")")?;
+        }
+
+        Ok(())
+    }
+    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
+        let mut out = String::new();
+        let _ = self.fmt_with_interner(&mut out, interner);
+        out
+    }
+
+    pub fn fmt_with_interner(
+        &self,
+        w: &mut dyn fmt::Write,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        // Récupère la chaîne correspondant à `self.name` via l'interner, ou affiche <uninterned> sinon
+        let name_str = match interner.get_str(self.name) {
+            Some(name) => name,
+            None => "<uninterned>",
+        };
+
+        // Affiche les éléments principaux : ast_old, kind, et le nom résolu
+        write!(
+            w,
+            "[index: {}, kind: {}, ident: {}",
+            self.ast(),
+            self.kind(),
+            name_str
+        )?;
+
+        // Ajoute scope et source
+        write!(w, ", scope: {}, source: {}", self.scope(), self.source())?;
+
+        // Appelle la version avec interner pour formater les types
+        self.fmt_types_with_interner(w, interner)?;
+
+        // Appelle la version avec interner pour formater les arguments
+        self.fmt_arguments_with_interner(w, interner)?;
+
+        // Ferme la bracket
+        write!(w, "]")
     }
 }
 
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the main elements: ast_old, kind, scope, and source
-        write!(f, "[index: {}, kind: {}", self.ast(), self.kind())?;
+        write!(f, "[index: {}, kind: {}, ident: {}", self.ast(), self.kind(), self.name)?;
 
         // Add scope and source at the end
         write!(f, ", scope: {}, source: {}", self.scope(), self.source())?;
 
         // Call the format_types function to format the types
-        self.format_types(f)?;
+        self.fmt_types(f)?;
 
         // Call the format_arguments function to format the arguments
-        self.format_arguments(f)?;
+        self.fmt_arguments(f)?;
 
         // Close the bracket
         write!(f, "]")

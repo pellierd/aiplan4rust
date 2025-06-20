@@ -1,4 +1,4 @@
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -151,14 +151,38 @@ impl Usage {
     pub fn set_source(&mut self, source: SymbolSource) {
         self.source = source;
     }
+
+    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
+        let mut out = String::new();
+        let _ = self.fmt_with_interner(&mut out, interner);
+        out
+    }
+
+    pub fn fmt_with_interner(
+        &self,
+        w: &mut dyn fmt::Write,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        let symbol_str = match interner.get_str(self.symbol) {
+            Some(name) => name,
+            None => "<uninterned>",
+        };
+
+        write!(
+            w,
+            "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
+            self.ast, self.kind, symbol_str, self.scope, self.source
+        )?;
+        Ok(())
+    }
 }
 
 impl fmt::Display for Usage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "[index: {}, kind: {}, scope: {}, usage: {}]",
-            self.ast, self.kind, self.scope, self.source
+            "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
+            self.ast, self.kind, self.symbol, self.scope, self.source
         )?;
         Ok(())
     }

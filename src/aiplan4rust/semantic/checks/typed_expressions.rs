@@ -200,12 +200,12 @@ fn report_type_mismatch_in_expression(
 
     let ty1: Vec<String> = ty1
         .iter()
-        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let ty2: Vec<String> = ty2
         .iter()
-        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let error = Diagnostic::new(
@@ -310,12 +310,12 @@ fn report_invalid_types_in_numeric_expression(
 
     let ty1: Vec<String> = ty1
         .iter()
-        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let ty2: Vec<String> = ty2
         .iter()
-        .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let error = Diagnostic::new(

@@ -77,8 +77,8 @@ pub fn check_domain_name(
                         // --- 6. Emit a warning about the mismatch ---
                         // Includes both names in the diagnostic message.
 
-                        let domain_name = domain.ast().interner().expect_str(declared.name())?;
-                        let problem_domain_name = problem.ast().interner().expect_str(referenced.name())?;
+                        let domain_name = domain.ast().interner().try_str(declared.name())?;
+                        let problem_domain_name = problem.ast().interner().try_str(referenced.name())?;
                         let warning = Diagnostic::new(
                             DiagnosticKind::DomainProblemNameMismatch {
                                 domain_name: domain_name.to_string(),

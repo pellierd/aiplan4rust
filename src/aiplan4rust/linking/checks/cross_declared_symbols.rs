@@ -80,6 +80,9 @@ pub fn check_cross_declared_symbols(
     let domain_symbol_table = domain.symbol_table();
     let problem_symbol_table = problem.symbol_table();
 
+    println!("************* DOMAINE TABLE *************");
+    println!("{}", domain_symbol_table.to_string_with_interner(domain.ast().interner()));
+
     // Step 3: Iterate over all symbols declared in the problem.
     for symbol in problem_symbol_table.values() {
         // Step 4: Iterate over each declaration of the symbol.
@@ -104,8 +107,7 @@ pub fn check_cross_declared_symbols(
                             problem,
                             source,
                             diagnostic_manager,
-
-                        );
+                        )?;
 
                         // Step 10: Mark the overall check as failed.
                         checked = false;
@@ -237,7 +239,7 @@ fn report_cross_conflict_symbol_error(
     diagnostic_manager: &mut DiagnosticManager,
 )  -> Result<(), ParserInternalError> {
     let symbol = declaration.symbol();
-    let symbol_name = context.ast().interner().expect_str(symbol)?;
+    let symbol_name = context.ast().interner().try_str(symbol)?;
     let error = Diagnostic::new(
         DiagnosticKind::CrossConflictSymbolDeclarationError {
             symbol: symbol_name.to_string(),

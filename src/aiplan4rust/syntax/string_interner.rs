@@ -271,7 +271,7 @@ impl StringInterner {
     /// assert!(interner.expect_str(invalid_id).is_err());
     /// ```
     ///
-    pub fn expect_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
+    pub fn try_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
         self.get_str(ident).ok_or_else(|| {
             ParserInternalError::new(format!(
                 "Invalid Ident {}: out of bounds for interner size {}",

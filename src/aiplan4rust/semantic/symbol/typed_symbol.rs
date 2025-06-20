@@ -2,6 +2,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 use std::fmt::Display;
+use crate::aiplan4rust::syntax::StringInterner;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 /// Represents a symbol with associated types.
@@ -44,6 +45,34 @@ where
     /// A reference to a vector containing the associated types.
     pub fn types(&self) -> &Vec<T> {
         &self.types
+    }
+
+    /// Retourne la représentation en `String` (prête pour `println!`)
+    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
+        let mut out = String::new();
+        let _ = self.fmt_with_interner(&mut out, interner);
+        out
+    }
+
+    pub fn fmt_with_interner(
+        &self,
+        w: &mut dyn fmt::Write,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        write!(w, "{}", self.symbol)?;
+
+        // If there are associated types, display them after the main symbol
+        if !self.types.is_empty() {
+            write!(w, " - ")?;
+            for (i, ty) in self.types.iter().enumerate() {
+                if i > 0 {
+                    write!(w, " ")?; // Add space between types
+                }
+                write!(w, "{}", ty)?;
+            }
+        }
+
+        Ok(())
     }
 }
 

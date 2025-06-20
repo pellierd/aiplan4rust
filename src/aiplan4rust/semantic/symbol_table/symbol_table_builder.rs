@@ -141,7 +141,8 @@ impl<'a> SymbolTableBuilder<'a> {
             // Handle declarations: These simply register symbols without additional processing
             AstKind::DomainName
             | AstKind::ProblemName
-            | AstKind::Requirement => {
+            //| AstKind::Requirement
+            => {
                 self.add_declaration_symbol(ast, scope.clone(), None, None)?;
             }
 
@@ -252,7 +253,7 @@ impl<'a> SymbolTableBuilder<'a> {
                 AstKind::DomainName,
                 AstKind::PrimitiveType,
                 AstKind::ProblemName,
-                AstKind::Requirement,
+                //AstKind::Requirement,
                 AstKind::Constant,
                 AstKind::Variable,
                 AstKind::Predicate,
@@ -430,7 +431,7 @@ impl<'a> SymbolTableBuilder<'a> {
             //AstKind::Requirement => {
             //    let req = node.try_requirement()?;
             //    Ok((req.to_string(), SymbolKind::Requirement))
-            //}
+           // }
             AstKind::Constant => {
                 let ident = node.try_ident()?;
                 Ok((ident, SymbolKind::Constant))

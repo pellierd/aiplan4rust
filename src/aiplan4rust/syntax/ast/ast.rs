@@ -175,7 +175,7 @@ impl Ast {
     }
 
     pub fn expect_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
-        self.context.expect_str(ident)
+        self.context.try_str(ident)
     }
 
     /// Finds the first node of the specified kind anywhere in the AST (immutable).

@@ -10,6 +10,7 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use indexmap::IndexSet;
 use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::StringInterner;
 
 /// Represents a symbol in a given context, with its associated declarations and usages.
 ///
@@ -139,6 +140,67 @@ impl Symbol {
     /// `true` if the usage was added, `false` if it was already present.
     pub fn add_usage(&mut self, usage: Usage) -> bool {
         self.usages.insert(usage)
+    }
+
+
+    /// Retourne la représentation en `String` (prête pour `println!`)
+    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
+        let mut out = String::new();
+        let _ = self.fmt_with_interner(&mut out, interner);
+        out
+    }
+
+    /// Formats the symbol information along with its declarations and usages,
+    /// resolving interned identifiers via the provided `StringInterner`.
+    ///
+    /// This method writes a human-readable representation of the symbol, including
+    /// its name, declarations, and usages, to the given formatter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - Formatter to write the output to.
+    /// * `interner` - The `StringInterner` used to resolve identifier names within declarations and usages.
+    ///
+    /// # Example output
+    ///
+    /// ```text
+    /// [Symbol: 'move']
+    ///  - Declarations (2):
+    ///    - Declaration details here...
+    ///    - Declaration details here...
+    ///  - Usages (3):
+    ///    - Usage details here...
+    ///    - Usage details here...
+    ///    - Usage details here...
+    /// ```
+    pub fn fmt_with_interner(
+        &self,
+        w: &mut dyn fmt::Write,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        // Display the symbol name
+        match interner.get_str(self.name) {
+            Some(name) => writeln!(w, "[Symbol: '{}']", name)?,
+            None => writeln!(w, "[Symbol: <uninterned:{}>]", self.name)?,
+        }
+
+        // Display declarations
+        writeln!(w, " - Declarations ({}):", self.declarations.len())?;
+        for decl in &self.declarations {
+            write!(w, "   - ")?;
+            decl.fmt_with_interner(w, interner)?; // Appel direct à la méthode qui écrit dans `f`
+            writeln!(w)?; // fin de ligne
+        }
+
+        // Display usages
+        writeln!(w, " - Usages ({}):", self.usages.len())?;
+        for usage in &self.usages {
+            write!(w, "   - ")?;
+            usage.fmt_with_interner(w, interner)?;
+            writeln!(w)?;
+        }
+
+        Ok(())
     }
 
 }
