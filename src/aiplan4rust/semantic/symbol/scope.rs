@@ -67,7 +67,7 @@ impl Scope {
     ///     Err(e) => eprintln!("Error: {}", e),
     /// }
     /// ```
-    pub fn contains_ast_of_kind(
+    pub fn contains_ast_of_kinda(
         &self,
         kind: AstKindOld,
         context: &SemanticContext,
