@@ -6,8 +6,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
 use crate::aiplan4rust::semantic::{SymbolTable, SymbolTableBuilder};
 use crate::aiplan4rust::semantic::arena::arena::Arena;
-use crate::aiplan4rust::syntax::ast_old::AstOld;
-use crate::aiplan4rust::syntax::AstKindOld;
+use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::elements::Requirement;
 
 /// Represents the semantic context resulting from the semantic analysis phase.
@@ -69,7 +68,7 @@ impl Context {
     ///
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
-    pub fn from(ast: &AstOld) -> Result<Self, ParserInternalError> {
+    pub fn from(ast: &Ast) -> Result<Self, ParserInternalError> {
         let arena = Arena::from_ast(ast);
 
         // Extract the requirements from the syntax tree
@@ -108,8 +107,8 @@ impl Context {
 
         for node in arena.preorder() {
             match &node.kind() {
-                AstKindOld::Requirement(req) => {
-                    requirements.extend(req.imply());
+                AstKind::Requirement=> {
+                    requirements.extend(node.expect_requirement()?.imply());
 
                     // If we were not already processing a requirement,
                     // start processing its children
@@ -125,9 +124,7 @@ impl Context {
                     // While processing the first requirement's children,
                     // also include implied requirements from those children
                     if processing_requirement_children {
-                        if let AstKindOld::Requirement(child_req) = &node.kind() {
-                            requirements.extend(child_req.imply());
-                        }
+                        requirements.extend(node.expect_requirement()?.imply());
                     }
                 }
             }
