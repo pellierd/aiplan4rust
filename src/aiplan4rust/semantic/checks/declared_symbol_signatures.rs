@@ -75,18 +75,19 @@ pub fn check_declared_symbol_signatures(
                 )? {
                     no_error &= false;
                     let entry = context.ast().get_node(NodeId::new(usage.ast())).unwrap();
+                    let name = context.ast().interner().expect_str(symbol.name())?;
                     let diagnostic_kind = match declaration.kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
-                            symbol: symbol.name().clone()
+                            symbol: name.to_string(),
                         },
                         SymbolKind::Function => DiagnosticKind::UnDefinedFunction {
-                            symbol: symbol.name().clone()
+                            symbol: name.to_string()
                         },
                         SymbolKind::Task => DiagnosticKind::UnDefinedCompoundTask {
-                            symbol: symbol.name().clone()
+                            symbol: name.to_string()
                         },
                         SymbolKind::Action => DiagnosticKind::UnDefinedPrimitiveTask {
-                            symbol: symbol.name().clone()
+                            symbol: name.to_string()
                         },
                         _ => unreachable!(),
                     };
@@ -202,21 +203,11 @@ fn match_argument(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax tree
-    let symbol = context.ast().get_symbol(NodeId::new(argument_index))?;
-    // Check that the symbol exists; return an error if it is missing
-    let name = match symbol {
-        Some(n) => n,
-        None => {
-            return Err(ParserInternalError::new(format!(
-                "Symbol for argument at index {} not found",
-                index
-            )))
-        }
-    };
+    let name = context.ast().try_node(NodeId::new(argument_index))?.try_ident()?;
 
     // Look up the corresponding declaration in the symbol table,
     // given the expected kind and usage scope
-    let symbol_declaration = match symbol_table.resolve_declaration(name, &kind, usage.scope())? {
+    let symbol_declaration = match symbol_table.resolve_declaration(&name, &kind, usage.scope())? {
         Some(decl) => decl,
         None => {
             return Err(ParserInternalError::new(format!(
@@ -282,11 +273,21 @@ fn match_argument(
         && *usage.kind() == SymbolKind::Task
     {
         // Add a warning diagnostic for this special case
+        let interner = context.ast().interner();
+        let ty1_str: Vec<String> = ty1
+            .iter()
+            .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+            .collect();
+        let ty2_str: Vec<String> = ty2
+            .iter()
+            .map(|id| interner.expect_str(*id).unwrap_or("<invalid>").to_string())
+            .collect();
+
         let warning = Diagnostic::new(
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration {
                 argument: name.to_string(),
-                type_declared: ty1.clone(),
-                type_used: ty2.clone(),
+                type_declared: ty1_str,
+                type_used: ty2_str,
             },
             Provider::Analyzer,
             context.source_name().to_string(),
