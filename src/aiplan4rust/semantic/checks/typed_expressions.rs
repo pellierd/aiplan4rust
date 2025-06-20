@@ -9,7 +9,7 @@ use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
-use crate::aiplan4rust::semantic::arena::ArenaAstNode;
+use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
 use crate::aiplan4rust::semantic::context::Context;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -423,7 +423,7 @@ fn get_binary_operation_types(
 /// let ty = get_type(index, &node, &annotated_syntax_tree)?;
 /// ```
 pub fn get_type(
-    index: usize,
+    index: NodeId,
     node: &ArenaAstNode,
     context: &SemanticContext
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
@@ -498,7 +498,7 @@ fn get_number_type() -> Result<Option<Vec<Ident>>, ParserInternalError> {
 /// let ty = get_variable_type(42, "?x", &annotated_syntax_tree)?;
 /// ```
 fn get_variable_type(
-    index: usize,
+    index: NodeId,
     symbol: Ident,
     context: &SemanticContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
@@ -531,7 +531,7 @@ fn get_variable_type(
 /// let ty = get_constant_type(12, "loc1", &annotated_syntax_tree)?;
 /// ```
 fn get_constant_type(
-    index: usize,
+    index: NodeId,
     _symbol: Ident,
     context: &SemanticContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
@@ -566,10 +566,10 @@ fn get_constant_type(
 /// }
 /// ```
 fn get_declaration_type(
-    index: usize,
+    index: NodeId,
     context: &SemanticContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
-    match context.symbol_table().resolve_declaration_by_usage(index)? {
+    match context.symbol_table().resolve_declaration_by_usage(index.as_usize())? {
         None => Ok(None),
         Some(decl) => {
             let interner = context.ast().interner();
@@ -621,7 +621,7 @@ fn get_declaration_type(
 /// let ty = get_function_term_type(10, &node, &annotated_syntax_tree)?;
 /// ```
 fn get_function_term_type(
-    index: usize,
+    index: NodeId,
     node: &ArenaAstNode,
     context: &SemanticContext
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
