@@ -71,9 +71,10 @@ fn check_symbol_declarations(
 
                 if (current_kind == &SymbolKind::PrimitiveType && previous_kind == &SymbolKind::Predicate) ||
                     (current_kind == &SymbolKind::Predicate && previous_kind == &SymbolKind::PrimitiveType) {
+                    let name = context.ast().interner().expect_str(symbol.name())?;
                     let warning = Diagnostic::new(
                         DiagnosticKind::WarningAmbiguousTypePredicateSymbol {
-                            symbol: symbol.name().clone(),
+                            symbol: name.to_string(),
                         },
                         Provider::Analyzer,
                         context.source_name().clone(),
@@ -86,9 +87,10 @@ fn check_symbol_declarations(
                     let scope_index = conflicting_scope.iter().last().unwrap();
                     let scope = context.get(*scope_index).unwrap();
 
+                    let name = context.ast().interner().expect_str(symbol.name())?;
                     let error = Diagnostic::new(
                         DiagnosticKind::DuplicatedSymbolDeclarationInScopeError {
-                            symbol: symbol.name().clone(),
+                            symbol: name.to_string(),
                             declaration1: previous_declaration.clone(),
                             declaration2: declaration.clone(),
                             scope: scope.clone(),
