@@ -17,6 +17,7 @@ use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::syntax::StringInterner;
 
 /// Checks if there are any undeclared symbols used in the given syntax tree.
 ///
@@ -247,9 +248,9 @@ fn is_pddl_builtin_symbol(
     symbol: &Symbol,
     context: &SemanticContext,
 ) -> bool {
-    match symbol.name().as_str() {
+    match symbol.name() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
-        OBJECT_TYPE
+        StringInterner::IDENT_OBJECT
             if context.has_requirement(&Typing)
                 || context.has_requirement(&Adl) =>
         {
@@ -258,12 +259,12 @@ fn is_pddl_builtin_symbol(
 
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
-        NUMBER_TYPE | TOTAL_TIME if context.has_requirement(&NumericFluents) => {
+        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if context.has_requirement(&NumericFluents) => {
             true
         }
 
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        DURATION_VARIABLE if context.has_requirement(&DurativeActions) => true,
+        StringInterner::IDENT_DURATION_VARIABLE if context.has_requirement(&DurativeActions) => true,
 
         // Default case for any other symbols.
         _ => false,

@@ -556,7 +556,7 @@ fn get_declaration_type(
     context: &SemanticContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     match context.symbol_table().resolve_declaration_by_usage(index.as_usize())? {
-        Some(decl) => Ok(decl.types().cloned()), // Clone not necessary 
+        Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
         None => Ok(None),
     }
 }
