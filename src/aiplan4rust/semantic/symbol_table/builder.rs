@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::mem;
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
+use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, TypedSymbol};
 
@@ -37,7 +37,7 @@ impl<'a> SymbolTableBuilderFromArena<'a> {
     ) -> Result<SymbolTable, ParserInternalError> {
         self.ast = ast;
 
-        let root = ast.get_node(0).unwrap();
+        let root = ast.get_node(NodeId::ROOT_NODE_ID).unwrap();
 
         match root.kind() {
             AstKind::Domain => {
@@ -62,9 +62,9 @@ impl<'a> SymbolTableBuilderFromArena<'a> {
     pub fn initialize_from_arena(
         &mut self,
     ) -> Result<(), ParserInternalError> {
-        let mut stack: VecDeque<(usize, Scope)> = VecDeque::new();
+        let mut stack: VecDeque<(NodeId, Scope)> = VecDeque::new();
 
-        stack.push_back((0, Scope::new(0, None)));
+        stack.push_back((NodeId::ROOT_NODE_ID, Scope::new(0, None)));
 
         while let Some((node_id, scope)) = stack.pop_back() {
             let node = self.ast.get_node(node_id).unwrap();
