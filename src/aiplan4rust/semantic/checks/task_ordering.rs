@@ -1,12 +1,12 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast_old::AstKindOld;
-
-use std::collections::HashMap;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::Span;
+
+use std::collections::HashMap;
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Checks the task ordering constraints in the provided annotated syntax tree and detects any
 /// cyclic dependencies.
@@ -69,7 +69,7 @@ pub fn check_task_ordering(
 
     for node in context.ast().preorder() {
         match node.kind() {
-            AstKindOld::TaskOrderingConstraintDef => {
+            AstKind::TaskOrderingConstraintDef => {
                 let task_ids = extract_task_ids(node, context.ast())?;
                 let mut matrix = build_task_order_matrix(&task_ids)?;
                 transitive_closure(&mut matrix);
@@ -179,10 +179,10 @@ fn report_cyclic_task_ordering_error(
 ///   in the order they appear in the tree, from top to bottom.
 /// - If a node does not directly contain a `TaskID`, the function will recursively search through
 ///   its child nodes.
-fn extract_task_ids<'a>(
-    node: &'a ArenaAstNode,
-    tree: &'a ArenaAst,
-) -> Result<Vec<&'a String>, ParserInternalError> {
+fn extract_task_ids(
+    node: &ArenaAstNode,
+    tree: &ArenaAst,
+) -> Result<Vec<Ident>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {
         let child_node = match tree.get_node(*child_index) {
@@ -195,8 +195,8 @@ fn extract_task_ids<'a>(
             }
         };
         match child_node.kind() {
-            AstKindOld::TaskID(id) => {
-                vec_task_id.push(id);
+            AstKind::TaskID => {
+                vec_task_id.push(child_node.expect_ident()?);
             }
             _ => {
                 // Recursively handle non-TaskID children
@@ -265,7 +265,7 @@ fn extract_task_ids<'a>(
 ///
 /// - Each consecutive pair of task IDs in the input slice represents an ordering constraint where
 ///   the first task must precede the second.
-fn build_task_order_matrix(task_ids: &Vec<&String>) -> Result<Vec<Vec<bool>>, ParserInternalError> {
+fn build_task_order_matrix(task_ids: &Vec<Ident>) -> Result<Vec<Vec<bool>>, ParserInternalError> {
     // Ensure the number of task IDs is even, as we expect pairs of tasks
     if task_ids.len() % 2 != 0 {
         return Err(ParserInternalError::new(
@@ -274,15 +274,15 @@ fn build_task_order_matrix(task_ids: &Vec<&String>) -> Result<Vec<Vec<bool>>, Pa
     }
 
     // Build a map from task IDs to unique indices
-    let map = build_task_index_map(&task_ids);
+    let map = build_task_index_map(task_ids);
     let size = map.len(); // Number of unique tasks
     let mut matrix = vec![vec![false; size]; size]; // Initialize the matrix with false values
 
     // Iterate over the task IDs in pairs (task1, task2), (task3, task4), etc.
     for pair in task_ids.chunks(2) {
         // Get the indices of the task IDs in the map
-        let i = map[pair[0]];
-        let j = map[pair[1]];
+        let i = map[&pair[0]];
+        let j = map[&pair[1]];
 
         // Set the matrix entry to true for the ordering constraint
         matrix[i][j] = true;
@@ -334,10 +334,10 @@ fn build_task_order_matrix(task_ids: &Vec<&String>) -> Result<Vec<Vec<bool>>, Pa
 /// - The returned map will have only unique task IDs as keys, with no duplicates.
 /// - The function iterates over the slice once, and assigns indices sequentially based on the
 ///   order in which task IDs appear.
-fn build_task_index_map<'a>(task_ids: &[&'a String]) -> HashMap<&'a String, usize> {
+fn build_task_index_map(task_ids: &[Ident]) -> HashMap<&Ident, usize> {
     let mut map = HashMap::new();
     let mut index = 0;
-    for &task_id in task_ids {
+    for task_id in task_ids {
         if !map.contains_key(task_id) {
             map.insert(task_id, index);
             index += 1;
