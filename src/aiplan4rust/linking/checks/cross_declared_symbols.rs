@@ -193,7 +193,7 @@ fn get_relevant_domain_kinds(
         .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
         .into_iter()
         .filter(|d| !is_declaration_exempt_from_conflict_check(d))
-        .map(|d| d.kind().clone())
+        .map(|d| d.kind())
         .collect()
 }
 
