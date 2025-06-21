@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
 use crate::aiplan4rust::semantic::symbol::Declaration;
@@ -13,7 +13,6 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 use std::fs::File;
-use indexmap::IndexSet;
 use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::ast::AstContent;
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -474,7 +473,7 @@ impl SymbolTable {
     fn collect<'a, T: Filterable>(
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
-        items: &'a IndexSet<T>,
+        items: &'a HashSet<T>,
     ) -> Vec<&'a T> {
         items.iter()
             .filter(|item| {
@@ -504,7 +503,7 @@ impl SymbolTable {
     ///
     /// # Returns
     /// - `Ok(Some(&Declaration))`: Exactly one matching declaration found.
-    /// - `Ok(None)`: No matching usage or declaration found for the given index.
+    /// - `Ok(None)`: No matching usage or declaration found for the given xx.
     /// - `Err(ParserInternalError)`: Multiple declarations match the usage, indicating ambiguity.
     ///
     /// # Errors

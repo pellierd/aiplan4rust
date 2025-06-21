@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
 
@@ -9,7 +9,6 @@ use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
-use indexmap::IndexSet;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::StringInterner;
 
@@ -53,10 +52,10 @@ pub struct Symbol {
     name: Ident,
 
     /// The AST node where the symbol is declared (only once).
-    declarations: IndexSet<Declaration>,
+    declarations: HashSet<Declaration>,
 
     /// The list of AST nodes where the symbol is used.
-    usages: IndexSet<Usage>,
+    usages: HashSet<Usage>,
 }
 
 // Manually implement the `Hash` trait for `Symbol`, using only the `name` field.
@@ -80,8 +79,8 @@ impl Symbol {
     pub fn new(name: Ident) -> Self {
         Symbol {
             name: name,
-            declarations: IndexSet::new(),
-            usages: IndexSet::new(),
+            declarations: HashSet::new(),
+            usages: HashSet::new(),
         }
     }
 
@@ -99,12 +98,12 @@ impl Symbol {
     /// # Returns
     ///
     /// A reference to the list of `Declaration` objects.
-    pub fn declarations(&self) -> &IndexSet<Declaration> {
+    pub fn declarations(&self) -> &HashSet<Declaration> {
         &self.declarations
     }
 
     /// Returns a mutable reference to the list of declarations for the symbol.
-    pub fn declarations_mut(&mut self) -> &mut IndexSet<Declaration> {
+    pub fn declarations_mut(&mut self) -> &mut HashSet<Declaration> {
         &mut self.declarations
     }
 
@@ -113,7 +112,7 @@ impl Symbol {
     /// # Returns
     ///
     /// A reference to the list of `Usage` objects.
-    pub fn usages(&self) -> &IndexSet<Usage> {
+    pub fn usages(&self) -> &HashSet<Usage> {
         &self.usages
     }
 
@@ -144,22 +143,22 @@ impl Symbol {
     }
 
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        // Remap du nom principal
         if let Some(new_name) = map.get(&self.name) {
             self.name = new_name.clone();
         }
 
-        // On reconstruit la collection avec les éléments modifiés
-        self.declarations = self.declarations.iter()
-            .map(|decl| {
-                let mut decl = decl.clone();
+        // Extraire, modifier et reconstruire declarations
+        self.declarations = self.declarations.drain()
+            .map(|mut decl| {
                 decl.remap_idents(map);
                 decl
             })
             .collect();
 
-        self.usages = self.usages.iter()
-            .map(|usage| {
-                let mut usage = usage.clone();
+        // Extraire, modifier et reconstruire usages
+        self.usages = self.usages.drain()
+            .map(|mut usage| {
                 usage.remap_idents(map);
                 usage
             })
