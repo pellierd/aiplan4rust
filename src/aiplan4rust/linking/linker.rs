@@ -39,20 +39,9 @@ impl Linker {
 
         let domain_interner = domain.ast().interner();
         let problem_interner = problem.ast().interner();
-
-        println!("********* AVANT ***********");
-        println!("********* DOMAIN ***********");
-        println!("{}", domain_interner);
-        println!("********* PROBLEM ***********");
-        println!("{}", problem_interner);
+        
 
         let result = StringInterner::merge_problem_into_domain(domain_interner, problem_interner);
-
-        println!("********* APRES ***********");
-        println!("********* DOMAIN ***********");
-        println!("{}", domain_interner);
-        println!("********* PROBLEM ***********");
-        println!("{}", problem_interner);
 
         problem.ast_mut().remap_idents(&result.problem_to_global);
         problem.symbol_table_mut().remap_idents(&result.problem_to_global);

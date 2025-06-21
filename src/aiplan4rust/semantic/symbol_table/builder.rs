@@ -115,7 +115,6 @@ impl<'a> SymbolTableBuilder<'a> {
         // Initialize symbols from the AST root node
         self.initialize_from_ast(root_ref)?;
 
-        println!("{}", self.table);
         // Return the built symbol table, transferring ownership
         Ok(mem::take(&mut self.table))
     }

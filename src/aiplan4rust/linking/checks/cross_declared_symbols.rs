@@ -80,11 +80,6 @@ pub fn check_cross_declared_symbols(
     let domain_symbol_table = domain.symbol_table();
     let problem_symbol_table = problem.symbol_table();
 
-    println!("************* DOMAINE TABLE *************");
-    println!("{}", domain_symbol_table.to_string_with_interner(domain.ast().interner()));
-    println!("************* PROBLEM TABLE *************");
-    println!("{}", problem_symbol_table.to_string_with_interner(domain.ast().interner()));
-
     // Step 3: Iterate over all symbols declared in the problem.
     for symbol in problem_symbol_table.values() {
         // Step 4: Iterate over each declaration of the symbol.
@@ -97,24 +92,6 @@ pub fn check_cross_declared_symbols(
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.name()) {
                     // Step 7: Get the kinds of the relevant domain declarations.
                     let domain_kinds: Vec<SymbolKind> = get_relevant_domain_kinds(domain_symbol_table, symbol.name());
-                    let interner = problem.ast().interner();
-                    if interner.try_str(symbol.name())? == "left" {
-                        println!("domain_kinds{:?} {} {}", domain_kinds,symbol.name(), interner.try_str(symbol.name())?);
-                        let declarations = domain_symbol_table.collect_declarations(
-                            Some(&symbol.name()),
-                            None,
-                            Some(&Scope::root())
-                        );
-
-                        println!("DECLARATIONS:");
-                        for decl in declarations {
-                            println!(" - {}", decl.to_string_with_interner(domain.ast().interner()));
-                        }
-                        let s = domain_symbol_table.get_symbol(symbol.name()).unwrap();
-                        println!("{} {}", s, s.to_string_with_interner(domain.ast().interner()));
-
-                    }
-
 
                     // Step 8: Check if the kind of the problem declaration exists in the domain kinds.
                     let same_kind_exists = domain_kinds.iter().any(|k| k == declaration.kind());
