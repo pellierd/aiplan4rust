@@ -19,9 +19,6 @@ use lalrpop_util::ParseError;
 use std::mem;
 use std::time::SystemTime;
 
-
-const AVG_LINE_LENGTH: usize = 80;
-
 #[derive(Debug)]
 /// A structure for analyzing the syntax of PDDL expressions.
 ///

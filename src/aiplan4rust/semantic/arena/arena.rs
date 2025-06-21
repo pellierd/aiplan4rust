@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantic::arena::iterators::PostorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIterWithIndex;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
-use crate::aiplan4rust::semantic::arena::NodeId;
+use crate::aiplan4rust::semantic::arena::{NodeId, NodeRef};
 use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode, AstKind, Ast};
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -88,6 +88,18 @@ impl Arena {
     /// `Some(&Node)` if the node exists, or `None` otherwise.
     pub fn get_node(&self, id: NodeId) -> Option<&Node> {
         self.nodes.get(id.as_usize())
+    }
+
+    pub fn get_node_ref(&self, id: NodeId) -> Option<NodeRef> {
+        self.get_node(id).map(|node| NodeRef::new(id, node))
+    }
+
+    pub fn root_node(&self) -> Option<&Node> {
+        self.get_node(NodeId::ROOT_NODE_ID)
+    }
+
+    pub fn root_node_ref(&self) -> Option<NodeRef<'_>> {
+        self.root_node().map(|node| NodeRef::new(NodeId::ROOT_NODE_ID, node))
     }
 
     pub fn try_node(&self, id: NodeId) -> Result<&Node, ParserInternalError> {
