@@ -1,236 +1,211 @@
-
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::linking::LinkedSemanticContext;
+use crate::aiplan4rust::linking::{resolution, LinkedSemanticContext};
 use crate::aiplan4rust::linking::LinkerResult;
-use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
-use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::SymbolTable;
-
-use std::mem;
-use std::mem::take;
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::syntax::StringInterner;
 
+use std::mem::take;
+
+/// The `Linker` is responsible for performing the linking phase
+/// of the AIPlan4Rust compilation pipeline.
+///
+/// It takes care of:
+/// 1. Resolving symbols between the domain and problem definitions,
+/// 2. Performing semantic and structural consistency checks,
+/// 3. Producing a `LinkerResult` which includes the linked domain/problem
+///    pair (`LinkedSemanticContext`) and diagnostic information.
+///
+/// # Example
+/// ```rust
+/// let mut linker = Linker::new();
+/// let result = linker.link(domain_context, problem_context)?;
+/// if let Some(linked) = result.task() {
+///     // use the linked planning task...
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Linker {
     diagnostic_manager: DiagnosticManager,
 }
 
 impl Linker {
+    /// Creates a new instance of the `Linker`.
     pub fn new() -> Self {
         Self {
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
 
+    /// Returns an immutable reference to the internal `DiagnosticManager`,
+    /// which contains diagnostics collected during the linking process.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
+    /// Performs the linking process between a domain and a problem context.
+    ///
+    /// This includes three main steps:
+    /// 1. **Symbol Resolution**: Merge interning spaces and update symbol references
+    ///    in the problem to align with the domain.
+    /// 2. **Linking Checks**: Validate consistency between domain and problem symbols,
+    ///    check undeclared or unused identifiers, and verify signatures and requirements.
+    /// 3. **Result Finalization**: If no errors were collected during linking, produce
+    ///    a `LinkedSemanticContext`; otherwise, return diagnostics without a task.
+    ///
+    /// # Arguments
+    ///
+    /// * `domain` - A `SemanticContext` representing the parsed domain.
+    /// * `problem` - A mutable `SemanticContext` representing the parsed problem.
+    ///
+    /// # Returns
+    ///
+    /// A `LinkerResult` containing an optional `LinkedSemanticContext` and diagnostics.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ParserInternalError` if any step in the linking process fails.
     pub fn link(
         &mut self,
         domain: SemanticContext,
         mut problem: SemanticContext,
     ) -> Result<LinkerResult, ParserInternalError> {
+        // Step 1: Resolve symbols between domain and problem
+        resolution::resolve_symbols(&domain, &mut problem)?;
 
-        let domain_interner = domain.ast().interner();
-        let problem_interner = problem.ast().interner();
-        
+        // Step 2: Perform various semantic and structural linking checks
+        perform_linking_checks(&domain, &problem, &mut self.diagnostic_manager)?;
 
-        let result = StringInterner::merge_problem_into_domain(domain_interner, problem_interner);
+        // Step 3: Finalize and return the linking result
+        finalize_linking_result(domain, problem, &mut self.diagnostic_manager)
+    }
+}
 
-        problem.ast_mut().remap_idents(&result.problem_to_global);
-        problem.symbol_table_mut().remap_idents(&result.problem_to_global);
+/// Performs semantic and structural linking checks between a domain and a problem.
+///
+/// This function runs a sequence of verification passes to ensure the compatibility and
+/// coherence between a domain and a problem during the linking phase. It emits diagnostics
+/// (warnings and errors) via the provided `DiagnosticManager`.
+///
+/// The checks are performed in two phases:
+///
+/// 1. **Structural Checks** (always executed):
+///     - Domain and problem name consistency (`check_domain_name`)
+///     - Duplicate symbol declarations (`check_cross_declared_symbols`)
+///     - Undeclared symbol usages (`check_undeclared_symbols`)
+///     - Unused symbol declarations (`check_unused_symbols`)
+///
+/// 2. **Type-Dependent Checks** (executed only if no errors found in phase 1):
+///     - Signature validation of declared symbols (`check_declared_symbol_signatures`)
+///     - Type correctness of expressions (`check_typed_expressions`)
+///     - Task ordering consistency (`check_task_ordering`)
+///     - Requirement compliance (`check_requirement_violations`)
+///
+/// # Arguments
+///
+/// * `domain` - A reference to the domain's `SemanticContext`.
+/// * `problem` - A reference to the problem's `SemanticContext`.
+/// * `diagnostic_manager` - A mutable reference to the `DiagnosticManager` to collect diagnostics.
+///
+/// # Returns
+///
+/// Returns `Ok(true)` if all checks passed successfully without critical errors, or `Ok(false)`
+/// if some checks failed but no internal error occurred. Returns `Err` if an internal error
+/// (e.g., inconsistent state or invalid assumptions) occurs during the process.
+///
+/// # Errors
+///
+/// Returns `ParserInternalError` if an internal semantic or resolution error prevents
+/// the checks from completing.
+///
+/// # Example
+///
+/// ```rust
+/// let mut diagnostics = DiagnosticManager::default();
+/// let result = perform_linking_checks(&domain_ctx, &problem_ctx, &mut diagnostics)?;
+/// if !result {
+///     eprintln!("Some linking checks failed");
+/// }
+/// ```
+///
+pub fn perform_linking_checks(
+    domain: &SemanticContext,
+    problem: &SemanticContext,
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<bool, ParserInternalError> {
+    linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
 
-        problem.ast_mut().set_interner(result.global);
+    let mut check = linking::checks::check_cross_declared_symbols(domain, problem, Provider::Linker, diagnostic_manager)?;
+    check &= semantic::checks::check_undeclared_symbols(problem, &[], Provider::Linker, diagnostic_manager)?;
+    check &= semantic::checks::check_unused_symbols(problem, &[], Provider::Linker, diagnostic_manager)?;
 
-        Self::update_problem_symbols_table_from_domain(&mut problem, domain.symbol_table())?;
+    if check {
+        let type_checker = TypeChecker::new(&domain.symbol_table());
 
-        linking::checks::check_domain_name(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
+        semantic::checks::check_declared_symbol_signatures(problem, &type_checker, diagnostic_manager)?;
+        semantic::checks::check_typed_expressions(problem, &type_checker, Provider::Linker, diagnostic_manager)?;
+        semantic::checks::check_task_ordering(problem, Provider::Linker, diagnostic_manager)?;
 
-        let mut check  = linking::checks::check_cross_declared_symbols(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
-        check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
-        check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        let mut requirements = domain.requirements().clone();
+        requirements.extend(problem.requirements().clone());
 
-        if check {
-
-            let type_checker = TypeChecker::new(&domain.symbol_table());
-            semantic::checks::check_declared_symbol_signatures(&problem, &type_checker, &mut self.diagnostic_manager)?;
-
-            // Check functional expressions in the domain using the type checker
-            semantic::checks::check_typed_expressions(&problem, &type_checker, Provider::Linker, &mut self.diagnostic_manager)?;
-
-            semantic::checks::check_task_ordering(&problem, Provider::Linker, &mut self.diagnostic_manager)?;
-
-            let mut requirements = domain.requirements().clone();
-            requirements.extend(problem.requirements().clone());
-            semantic::checks::check_requirement_violations(
-                &problem,
-                &requirements,
-                Provider::Linker,
-                &mut self.diagnostic_manager
-            )?;
-        }
-
-        // Vérifier si des erreurs de type ParseError existent dans le gestionnaire d'erreurs
-        if self
-            .diagnostic_manager()
-            .has_diagnotics_of_severity(Severity::Error)
-        {
-            // Si des erreurs existent, renvoyer LinkerResult sans LiftedPlanningTask
-            Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager)))
-        } else {
-            // Sinon, créer un LiftedPlanningTask à partir des domaines et problèmes déplaçés
-            //let mut domain = domain.clone();
-            let lifted_planning_task =
-                LinkedSemanticContext::new(domain, problem);
-
-            // Retourner LinkerResult avec LiftedPlanningTask et l'ErrorManager mis à jour
-            Ok(LinkerResult::new(
-                Some(lifted_planning_task),
-                mem::take(&mut self.diagnostic_manager),
-            ))
-        }
+        semantic::checks::check_requirement_violations(
+            problem,
+            &requirements,
+            Provider::Linker,
+            diagnostic_manager,
+        )?;
     }
 
-    /// Updates the problem's symbol table by adding declarations found in the domain's symbol table.
-    ///
-    /// For each symbol in the problem's symbol table that has no declarations,
-    /// this function attempts to find matching declarations from the domain symbol table
-    /// based on the symbol's name and the usage kind. Matching declarations are cloned,
-    /// their origin is marked as coming from the domain, and then added to the problem's symbol.
-    ///
-    /// This function does not directly handle undeclared symbols diagnostics; instead,
-    /// it relies on the helper `collect_declared_and_undeclared_symbols` to gather
-    /// necessary updates and undeclared symbols.
-    ///
-    /// # Arguments
-    ///
-    /// * `problem` - A mutable reference to the `AnnotatedSyntaxTree` representing the problem.
-    /// * `domain_symbol_table` - A reference to the domain's `SymbolTable`.
-    ///
-    /// # Returns
-    ///
-    /// Returns `Ok(())` on success, or propagates any `ParserInternalError` encountered
-    /// during resolution.
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// update_problem_symbols_table_from_domain(&mut problem_ast, &domain_symbol_table)?;
-    /// ```
-    ///
-    fn update_problem_symbols_table_from_domain<'a>(
-        problem: &'a mut SemanticContext,
-        domain_symbol_table: &'a SymbolTable,
-    ) -> Result<(), ParserInternalError> {
-        let mut declared = Vec::new();
-        let mut undeclared = Vec::new();
+    Ok(check)
+}
 
-        // Collect symbol declarations to add and gather undeclared symbols.
-        Self::collect_declared_and_undeclared_symbols(problem, domain_symbol_table, &mut declared, &mut undeclared)?;
+/// Finalizes the result of the linking process by examining diagnostics
+/// and determining whether a valid `LinkedSemanticContext` can be returned.
+///
+/// If any diagnostic with severity `Error` is present in the diagnostic manager,
+/// this function returns a `LinkerResult` without a `LinkedSemanticContext` (`None`),
+/// indicating that linking failed due to unrecoverable issues.
+///
+/// Otherwise, a new `LinkedSemanticContext` is created from the provided `domain`
+/// and `problem`, and returned within the `LinkerResult`.
+///
+/// In both cases, the function takes ownership of the `diagnostic_manager`'s contents,
+/// transferring any collected diagnostics into the result.
+///
+/// # Arguments
+///
+/// * `domain` - The fully resolved domain context.
+/// * `problem` - The fully resolved problem context.
+/// * `diagnostic_manager` - A mutable reference to the diagnostic manager holding any diagnostics emitted during linking.
+///
+/// # Returns
+///
+/// A `Result<LinkerResult, ParserInternalError>`:
+/// - `Ok(LinkerResult)` containing either a valid `LinkedSemanticContext` or `None` (if errors are present).
+/// - Any internal error from earlier stages is propagated as `Err`.
+///
+/// # Example
+///
+/// ```ignore
+/// let result = finalize_linking_result(domain, problem, &mut diagnostic_manager)?;
+/// if result.task().is_some() {
+///     println!("Linking successful!");
+/// }
+/// ```
+fn finalize_linking_result(
+    domain: SemanticContext,
+    problem: SemanticContext,
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<LinkerResult, ParserInternalError> {
+    // If there are any errors in the diagnostics, return a result without a planning task.
+    if diagnostic_manager.has_diagnotics_of_severity(Severity::Error) {
+        Ok(LinkerResult::new(None, take(diagnostic_manager)))
+    } else {
+        // All checks passed — build the final linked planning task.
+        let lifted = LinkedSemanticContext::new(domain, problem);
 
-        // Get mutable access to problem's symbol table.
-        let problem_symbol_table = problem.symbol_table_mut();
-
-        // Apply collected declarations to symbols in the problem's symbol table.
-        for (symbol_name, declaration) in declared {
-            if let Some(symbol) = problem_symbol_table.get_symbol_mut(symbol_name) {
-                symbol.add_declaration(declaration);
-            }
-        }
-
-        Ok(())
-    }
-
-
-    /// Collects symbol declarations from the domain symbol table for symbols in the problem
-    /// that currently lack declarations, and gathers undeclared symbols.
-    ///
-    /// This function performs no mutation on the problem or domain symbol tables.
-    /// Instead, it collects:
-    /// - `updates`: a vector of `(symbol_name, declaration)` pairs to be added to the problem.
-    /// - `undeclared`: a vector of references to symbols and their usages that could not be
-    ///   resolved.
-    ///
-    /// The function returns `Ok(true)` if all symbols were resolved, or `Ok(false)` if some
-    /// remain undeclared. It propagates any internal errors encountered during resolution.
-    ///
-    /// # Arguments
-    ///
-    /// * `problem` - A reference to the problem's annotated syntax tree.
-    /// * `domain_symbol_table` - A reference to the domain's symbol table.
-    /// * `updates` - A mutable vector to collect declarations to add.
-    /// * `undeclared` - A mutable vector to collect undeclared symbols.
-    ///
-    /// # Returns
-    ///
-    /// A `Result<bool, ParserInternalError>`. The boolean indicates whether all symbols were
-    /// resolved (`true`) or not (`false`).
-    ///
-    /// # Example
-    ///
-    /// ```ignore
-    /// let mut updates = Vec::new();
-    /// let mut undeclared = Vec::new();
-    /// let all_resolved = collect_declared_and_undeclared_symbols(
-    ///     &problem,
-    ///     &domain_symbol_table,
-    ///     &mut updates,
-    ///     &mut undeclared
-    /// )?;
-    /// if !all_resolved {
-    ///     // Handle undeclared symbols diagnostics...
-    /// }
-    /// ```
-    ///
-    fn collect_declared_and_undeclared_symbols<'a>(
-        problem: &'a SemanticContext,
-        domain_symbol_table: &'a SymbolTable,
-        declared: &mut Vec<(Ident, Declaration)>,
-        undeclared: &mut Vec<(Ident, &'a Usage)>,
-    ) -> Result<bool, ParserInternalError> {
-        let problem_symbol_table = problem.symbol_table();
-        let mut all_resolved = true;
-
-        // Iterate over all symbols in the problem symbol table.
-        for symbol in problem_symbol_table.values() {
-            // Only process symbols with no declarations.
-            if symbol.declarations().is_empty() {
-
-                // For each usage of the symbol, try to resolve a matching declaration in the domain.
-                for usage in symbol.usages() {
-
-                    // Attempt to resolve declaration from domain by symbol name and usage kind.
-                    // Propagate error if resolution fails.
-                    let domain_declaration_option = domain_symbol_table.resolve_declaration(
-                        &symbol.name(),
-                        usage.kind(),
-                        &Scope::root(),
-                    )?;
-
-                    if let Some(domain_declaration) = domain_declaration_option {
-                        // Clone the declaration and mark it as originating from the domain.
-                        let mut domain_declaration = domain_declaration.clone();
-                        domain_declaration.set_source(SymbolSource::Domain);
-
-                        // Queue the declaration to be added to the problem's symbol table.
-                        declared.push((symbol.name(), domain_declaration));
-                    } else {
-                        // No matching declaration found in domain: record the undeclared symbol.
-                        undeclared.push((symbol.name(), usage));
-
-                        // Mark that not all symbols could be resolved.
-                        all_resolved = false;
-                    }
-                }
-            }
-        }
-
-        Ok(all_resolved)
+        // Return the linked task with the collected diagnostics.
+        Ok(LinkerResult::new(Some(lifted), take(diagnostic_manager)))
     }
 }
