@@ -11,5 +11,4 @@ pub use analyzer_result::AnalyzerResult;
 pub use analyzer::Analyzer;
 pub use symbol_table::SymbolTable;
 pub use type_checker::TypeChecker;
-pub use symbol_table::SymbolTableBuilder;
 pub use context::Context as SemanticContext;

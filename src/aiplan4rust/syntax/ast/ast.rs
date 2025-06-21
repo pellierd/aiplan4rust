@@ -57,7 +57,6 @@
 use std::fmt;
 use std::time::SystemTime;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstNode, iterators::{PreorderIter, PostorderIter}, AstKind};
 use crate::aiplan4rust::syntax::ast::node::Node;
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -113,28 +112,6 @@ impl Ast {
             generated_at: SystemTime::now(),             // horodatage actuel
         }
     }
-
-    // Should be removed when moving to arena
-    pub fn assign_ids(&mut self) {
-        let mut stack = Vec::new();
-        let mut index = 0;
-
-        // On pousse la racine sur la pile
-        stack.push(&mut *self.root);
-
-        while let Some(node) = stack.pop() {
-            // Attribuer l'ID au nœud courant
-            node.set_id(NodeId::new(index));
-            index += 1;
-
-            // Pousser les enfants sur la pile dans l'ordre inverse
-            // pour un parcours préordre correct
-            for child in node.children_mut().iter_mut().rev() {
-                stack.push(child);
-            }
-        }
-    }
-
 
     /// Returns a reference to the AST root node.
     pub fn root(&self) -> &Box<AstNode> {

@@ -1,7 +1,6 @@
 use std::mem;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId, NodeRef};
-use crate::aiplan4rust::semantic::arena::node::Node;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
@@ -43,15 +42,15 @@ enum Comparator {
     GreaterEq, // Greater than or equal
 }
 
-pub struct SymbolTableBuilderFromArena<'a> {
+pub struct SymbolTableBuilder<'a> {
     table: SymbolTable,
     ast: Option<&'a ArenaAst>,
 }
 
-impl<'a> SymbolTableBuilderFromArena<'a> {
+impl<'a> SymbolTableBuilder<'a> {
     /// Creates a new `SymbolTableBuilder` instance.
     pub fn new() -> Self {
-        SymbolTableBuilderFromArena {
+        SymbolTableBuilder {
             table: SymbolTable::new(SymbolSource::Unknown),
             ast: None,
         }

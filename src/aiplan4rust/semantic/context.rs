@@ -4,9 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
-use crate::aiplan4rust::semantic::{SymbolTable, SymbolTableBuilder};
+use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::semantic::arena::arena::Arena;
-use crate::aiplan4rust::semantic::symbol_table::SymbolTableBuilderFromArena;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableBuilder;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::elements::Requirement;
 
@@ -76,7 +76,7 @@ impl Context {
         let requirements = Self::extract_requirements(&arena)?;
 
         // Create the symbol table from the syntax tree
-        let mut builder = SymbolTableBuilderFromArena::new();
+        let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(&arena)?;
 
 
