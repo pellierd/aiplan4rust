@@ -1,4 +1,5 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::Error;
 
 /// A unique identifier for nodes in an arena.
 ///
@@ -25,8 +26,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Derives
 ///
-/// Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`, `Serialize`, and `Deserialize`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+/// Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Id {
     /// The integer value representing the node identifier.
     ///
@@ -90,6 +91,24 @@ impl Id {
     /// ```
     pub fn is_valid(&self) -> bool {
         self.value != usize::MAX
+    }
+}
+
+// Sérialisation en string
+impl Serialize for Id {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_str(&self.value.to_string())
+    }
+}
+
+// Désérialisation depuis string
+impl<'de> Deserialize<'de> for Id {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: Deserializer<'de> {
+        let s = String::deserialize(deserializer)?;
+        let value = s.parse::<usize>().map_err(D::Error::custom)?;
+        Ok(Id { value })
     }
 }
 
