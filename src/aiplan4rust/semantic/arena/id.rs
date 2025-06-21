@@ -34,8 +34,6 @@ pub struct Id {
     pub value: usize,
 }
 
-
-
 impl Default for Id {
     /// Returns a default invalid `NodeId` with the sentinel value `usize::MAX`.
     fn default() -> Self {

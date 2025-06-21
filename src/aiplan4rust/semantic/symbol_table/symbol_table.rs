@@ -879,7 +879,7 @@ impl SymbolTable {
         ))
     }
 
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+    /*pub fn remap_identsv1(&mut self, map: &HashMap<Ident, Ident>) {
         // Reconstruire un nouveau LinkedHashMap avec les clés remappées
         let mut new_symbols = LinkedHashMap::new();
 
@@ -896,31 +896,83 @@ impl SymbolTable {
 
         self.symbols = new_symbols;
 
-        // Optionnel : remapper la source aussi si besoin
-        // self.source.remap_idents(map);  // selon définition
-    }
+    }*/
 
     // Version sans clone a testé
-    /*pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        // Remap les Symbol eux-mêmes
-        for symbol in self.symbols.values_mut() {
+    /*pub fn remap_identsv2(&mut self, map: &HashMap<Ident, Ident>) {
+        let mut new_symbols = LinkedHashMap::new();
+
+        // On consomme self.symbols avec `drain()` pour éviter les clones
+        for (key, mut symbol) in self.symbols.drain() {
+            // Remapper les Symbol eux-mêmes
+            symbol.remap_idents(map);
+
+            // Trouver la nouvelle clé
+            let new_key = map.get(&key).cloned().unwrap_or_else(|| key.clone());
+
+            // Vérification de conflits
+            if new_symbols.contains_key(&new_key) {
+                panic!(
+                    "Conflit de remapping : deux symboles sont remappés vers {:?}",
+                    new_key
+                );
+            }
+
+            new_symbols.insert(new_key, symbol);
+        }
+
+        // Remplacer la map d'origine
+        self.symbols = new_symbols;
+    }*/
+
+    pub fn remap_identsv3(&mut self, map: &HashMap<Ident, Ident>) {
+        let mut new_symbols = LinkedHashMap::new();
+
+        // On consomme self.symbols avec `drain()` pour éviter les clones
+        for (key, mut symbol) in self.symbols.drain() {
+            // Remapper les Symbol eux-mêmes
+            symbol.remap_idents(map);
+
+            // Trouver la nouvelle clé
+            let new_key = map.get(&key).cloned().unwrap_or_else(|| key.clone());
+
+            // Vérification de conflits
+            if new_symbols.contains_key(&new_key) {
+                panic!(
+                    "Conflit de remapping : deux symboles sont remappés vers {:?}",
+                    new_key
+                );
+            }
+
+            new_symbols.insert(new_key, symbol);
+        }
+
+        // Remplacer la map d'origine
+        self.symbols = new_symbols;
+    }
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        // Étape 1 : remap interne des Symbol
+        for (_key, symbol) in self.symbols.iter_mut() {
             symbol.remap_idents(map);
         }
 
-        // Collecter les clés à remplacer
-        let keys_to_replace: Vec<(Ident, Ident)> = self.symbols.keys()
-            .filter_map(|key| {
-                map.get(key).map(|new_key| (key.clone(), new_key.clone()))
-            })
-            .collect();
+        // Étape 2 : reconstruire la map avec les clés remappées
+        let mut new_symbols = LinkedHashMap::with_capacity(self.symbols.len());
 
-        // Remplacer les clés sans cloner les Symbol
-        for (old_key, new_key) in keys_to_replace {
-            if let Some(symbol) = self.symbols.remove(&old_key) {
-                self.symbols.insert(new_key, symbol);
+        // On prend la map complète pour pouvoir la vider et déplacer les valeurs
+        for (key, symbol) in std::mem::take(&mut self.symbols) {
+            // Cherche la nouvelle clé (clone seulement si mappé)
+            let new_key = map.get(&key).cloned().unwrap_or(key);
+
+            if new_symbols.contains_key(&new_key) {
+                panic!("Conflit : plusieurs symboles remappés vers {:?}", new_key);
             }
+
+            new_symbols.insert(new_key, symbol);
         }
-    }*/
+
+        self.symbols = new_symbols;
+    }
 
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();
