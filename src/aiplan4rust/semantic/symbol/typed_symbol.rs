@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -35,6 +36,20 @@ impl TypedSymbol {
     /// Returns a reference to the vector of associated type identifiers.
     pub fn types(&self) -> &Vec<Ident> {
         &self.types
+    }
+
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        // Remap le symbol principal
+        if let Some(new_symbol) = map.get(&self.symbol) {
+            self.symbol = new_symbol.clone();
+        }
+
+        // Remap tous les types dans le vecteur
+        for ty in self.types.iter_mut() {
+            if let Some(new_ty) = map.get(ty) {
+                *ty = new_ty.clone();
+            }
+        }
     }
 
     /// Returns a human-readable string representation of the symbol and types,

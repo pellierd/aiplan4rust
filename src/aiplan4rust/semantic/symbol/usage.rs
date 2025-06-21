@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -151,6 +152,13 @@ impl Usage {
     pub fn set_source(&mut self, source: SymbolSource) {
         self.source = source;
     }
+
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        if let Some(new_ident) = map.get(&self.symbol) {
+            self.symbol = new_ident.clone();
+        }
+    }
+
 
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();

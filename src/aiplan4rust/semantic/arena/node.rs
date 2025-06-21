@@ -170,6 +170,10 @@ impl Node {
         &self.content
     }
 
+    pub fn content_mut(&mut self) -> &mut AstContent {
+        &mut self.content
+    }
+
     /// Adds a child node index to this node’s children.
     ///
     /// This is a crate-private method intended to be used by arena internals.

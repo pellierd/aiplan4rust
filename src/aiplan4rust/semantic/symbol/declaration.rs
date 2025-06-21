@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -251,6 +252,30 @@ impl Declaration {
     pub fn set_scope(&mut self, scope: Scope) {
         self.scope = scope;
     }
+
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        // Remap le nom principal
+        if let Some(new_ident) = map.get(&self.name) {
+            self.name = new_ident.clone();
+        }
+
+        // Remap les types associés (Option<Vec<Ident>>)
+        if let Some(ref mut types) = self.types {
+            for ident in types.iter_mut() {
+                if let Some(new_ident) = map.get(ident) {
+                    *ident = new_ident.clone();
+                }
+            }
+        }
+
+        // Remap les identifiants dans les arguments (Option<Vec<TypedSymbol>>)
+        if let Some(ref mut args) = self.arguments {
+            for arg in args.iter_mut() {
+                arg.remap_idents(map);
+            }
+        }
+    }
+
 
     /// Formats the types of the declaration for display.
     ///

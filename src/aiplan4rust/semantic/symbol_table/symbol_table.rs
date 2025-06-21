@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
 use crate::aiplan4rust::semantic::symbol::Declaration;
@@ -11,9 +12,14 @@ use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
+use std::fs::File;
 use indexmap::IndexSet;
+use crate::aiplan4rust::semantic::arena::NodeId;
+use crate::aiplan4rust::syntax::ast::AstContent;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::StringInterner;
+
+use std::io::Write;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A table of symbols used by the aiplan4rust.
@@ -76,6 +82,7 @@ impl SymbolTable {
             source,
         }
     }
+
 
     /// Returns a reference to the origin/source information of the symbol table.
     ///
@@ -773,7 +780,6 @@ impl SymbolTable {
         }
     }
 
-
     /// Resolves the unique `DomainName` symbol in the symbol table.
     ///
     /// This function searches for symbols of kind `DomainName` in the current symbol table.
@@ -872,6 +878,49 @@ impl SymbolTable {
             symbol_name, usage_kind, count
         ))
     }
+
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        // Reconstruire un nouveau LinkedHashMap avec les clés remappées
+        let mut new_symbols = LinkedHashMap::new();
+
+        for (key, symbol) in self.symbols.iter_mut() {
+            // Remap de la valeur Symbol
+            symbol.remap_idents(map);
+
+            // Trouve la clé remappée (ou garde l’originale)
+            let new_key = map.get(key).cloned().unwrap_or_else(|| key.clone());
+
+            // Insère dans la nouvelle table
+            new_symbols.insert(new_key, symbol.clone());
+        }
+
+        self.symbols = new_symbols;
+
+        // Optionnel : remapper la source aussi si besoin
+        // self.source.remap_idents(map);  // selon définition
+    }
+
+    // Version sans clone a testé
+    /*pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        // Remap les Symbol eux-mêmes
+        for symbol in self.symbols.values_mut() {
+            symbol.remap_idents(map);
+        }
+
+        // Collecter les clés à remplacer
+        let keys_to_replace: Vec<(Ident, Ident)> = self.symbols.keys()
+            .filter_map(|key| {
+                map.get(key).map(|new_key| (key.clone(), new_key.clone()))
+            })
+            .collect();
+
+        // Remplacer les clés sans cloner les Symbol
+        for (old_key, new_key) in keys_to_replace {
+            if let Some(symbol) = self.symbols.remove(&old_key) {
+                self.symbols.insert(new_key, symbol);
+            }
+        }
+    }*/
 
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();

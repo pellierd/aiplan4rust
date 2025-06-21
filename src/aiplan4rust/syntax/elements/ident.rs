@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Represents a unique identifier as an unsigned integer.
 ///
@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 /// let default_id = Ident::default();
 /// assert_eq!(default_id.value, usize::MAX);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Ident {
     /// The integer value representing the identifier.
     pub value: usize,
@@ -108,5 +108,23 @@ impl From<Ident> for usize {
     /// ```
     fn from(ident: Ident) -> usize {
         ident.value
+    }
+}
+
+// Sérialisation en tant que String (clé JSON)
+impl Serialize for Ident {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: Serializer {
+        serializer.serialize_str(&self.value.to_string())
+    }
+}
+
+// Désérialisation depuis une clé String
+impl<'de> Deserialize<'de> for Ident {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where D: Deserializer<'de> {
+        let s = String::deserialize(deserializer)?;
+        let value = s.parse::<usize>().map_err(serde::de::Error::custom)?;
+        Ok(Ident { value })
     }
 }

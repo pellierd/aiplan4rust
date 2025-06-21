@@ -1,13 +1,14 @@
+
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::linking::ident_linker::IdentLinker;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use crate::aiplan4rust::semantic::context::Context;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::syntax::elements::Ident;
 
@@ -82,6 +83,8 @@ pub fn check_cross_declared_symbols(
 
     println!("************* DOMAINE TABLE *************");
     println!("{}", domain_symbol_table.to_string_with_interner(domain.ast().interner()));
+    println!("************* PROBLEM TABLE *************");
+    println!("{}", problem_symbol_table.to_string_with_interner(domain.ast().interner()));
 
     // Step 3: Iterate over all symbols declared in the problem.
     for symbol in problem_symbol_table.values() {
@@ -92,9 +95,28 @@ pub fn check_cross_declared_symbols(
                 && *declaration.source() == SymbolSource::Problem
             {
                 // Step 6: Check if there are relevant domain declarations for the symbol.
+                let domin_symabol =
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.name()) {
                     // Step 7: Get the kinds of the relevant domain declarations.
                     let domain_kinds: Vec<SymbolKind> = get_relevant_domain_kinds(domain_symbol_table, symbol.name());
+                    let interner = problem.ast().interner();
+                    if interner.try_str(symbol.name())? == "left" {
+                        println!("domain_kinds{:?} {} {}", domain_kinds,symbol.name(), interner.try_str(symbol.name())?);
+                        let declarations = domain_symbol_table.collect_declarations(
+                            Some(&symbol.name()),
+                            None,
+                            Some(&Scope::root())
+                        );
+
+                        println!("DECLARATIONS:");
+                        for decl in declarations {
+                            println!(" - {}", decl.to_string_with_interner(domain.ast().interner()));
+                        }
+                        let s = domain_symbol_table.get_symbol(symbol.name()).unwrap();
+                        println!("{} {}", s, s.to_string_with_interner(domain.ast().interner()));
+
+                    }
+
 
                     // Step 8: Check if the kind of the problem declaration exists in the domain kinds.
                     let same_kind_exists = domain_kinds.iter().any(|k| k == declaration.kind());
@@ -112,7 +134,7 @@ pub fn check_cross_declared_symbols(
                         // Step 10: Mark the overall check as failed.
                         checked = false;
                     }
-                }
+                };
             }
         }
     }
@@ -153,10 +175,11 @@ fn has_relevant_domain_declarations(
     domain_symbol_table: &SymbolTable,
     symbol_name: Ident,
 ) -> bool {
-    domain_symbol_table
-        .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
-        .into_iter()
-        .any(|d| !is_declaration_exempt_from_conflict_check(&d))
+        domain_symbol_table
+            .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
+            .into_iter()
+            .any(|d| !is_declaration_exempt_from_conflict_check(&d))
+
 }
 
 /// Retrieves the kinds of all relevant declarations for a given symbol name
@@ -189,12 +212,12 @@ fn get_relevant_domain_kinds(
     domain_symbol_table: &SymbolTable,
     symbol_name: Ident,
 ) -> Vec<SymbolKind> {
-    domain_symbol_table
-        .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
-        .into_iter()
-        .filter(|d| !is_declaration_exempt_from_conflict_check(d))
-        .map(|d| d.kind())
-        .collect()
+        domain_symbol_table
+            .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
+            .into_iter()
+            .filter(|d| !is_declaration_exempt_from_conflict_check(d))
+            .map(|d| d.kind().clone())
+            .collect()
 }
 
 /// Reports a conflict error when a symbol declared in the problem syntax tree

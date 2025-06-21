@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
 
@@ -142,6 +143,28 @@ impl Symbol {
         self.usages.insert(usage)
     }
 
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        if let Some(new_name) = map.get(&self.name) {
+            self.name = new_name.clone();
+        }
+
+        // On reconstruit la collection avec les éléments modifiés
+        self.declarations = self.declarations.iter()
+            .map(|decl| {
+                let mut decl = decl.clone();
+                decl.remap_idents(map);
+                decl
+            })
+            .collect();
+
+        self.usages = self.usages.iter()
+            .map(|usage| {
+                let mut usage = usage.clone();
+                usage.remap_idents(map);
+                usage
+            })
+            .collect();
+    }
 
     /// Retourne la représentation en `String` (prête pour `println!`)
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {

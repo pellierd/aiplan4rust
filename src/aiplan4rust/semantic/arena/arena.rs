@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
@@ -155,8 +156,8 @@ impl Arena {
     /// # Returns
     ///
     /// `Some(&mut Node)` if the node exists, or `None` otherwise.
-    pub fn get_mut(&mut self, id: usize) -> Option<&mut Node> {
-        self.nodes.get_mut(id)
+    pub fn get_node_mut(&mut self, id: NodeId) -> Option<&mut Node> {
+        self.nodes.get_mut(id.as_usize())
     }
 
     /// Returns the total number of nodes stored in the arena.
@@ -351,6 +352,27 @@ impl Arena {
 
     pub fn interner(&self) -> &StringInterner {
         &self.context
+    }
+
+    pub fn set_interner(&mut self, interner: StringInterner) {
+        self.context = interner;
+    }
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        let mut stack = vec![NodeId::ROOT_NODE_ID];
+
+        while let Some(current_id) = stack.pop() {
+            if let Some(node) = self.get_node_mut(current_id) {
+                if let AstContent::Ident(id) = node.content_mut() {
+                    if let Some(new_id) = map.get(id) {
+                        *id = new_id.clone();
+                    }
+                }
+
+                for &child_id in node.children() {
+                    stack.push(child_id);
+                }
+            }
+        }
     }
 }
 

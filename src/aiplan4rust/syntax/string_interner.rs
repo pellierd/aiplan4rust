@@ -121,8 +121,6 @@ impl StringInterner {
     /// ```
     pub const IDENT_TOTAL_TIME: Ident = Ident::new(3);
 
-
-
     /// Creates a new `StringInterner` with reserved strings pre-interned.
     ///
     /// This constructor initializes an empty string pool and inserts a predefined set
@@ -285,6 +283,51 @@ impl StringInterner {
     pub fn lookup(&self, s: &str) -> Option<Ident> {
         self.string_index.get(s).copied().map(Ident::new)
     }
+
+    /// Returns an iterator over the interned `Ident`s (the indices).
+    /// Returns an iterator over all interned identifiers (`Ident`).
+    pub fn keys(&self) -> impl Iterator<Item = Ident> + '_ {
+        (0..self.string_pool.len()).map(Ident::new)
+    }
+
+    /// Returns an iterator over interned strings (`&str`).
+    pub fn values(&self) -> impl Iterator<Item = &str> + '_ {
+        self.string_pool.iter().map(|s| s.as_ref())
+    }
+
+    /// Returns an iterator over `(Ident, &str)` pairs.
+    pub fn iter(&self) -> impl Iterator<Item = (Ident, &str)> + '_ {
+        self.string_pool
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (Ident::new(i), s.as_ref()))
+    }
+
+    /// Fusionne le problème dans l’interner du domaine.
+    /// Le domaine est cloné pour créer un interner global.
+    /// Renvoie la table de correspondance entre idents problème et idents globaux.
+    pub fn merge_problem_into_domain(
+        domain_interner: &StringInterner,
+        problem_interner: &StringInterner,
+    ) -> InternerMergeResult {
+        let mut global = domain_interner.clone();
+        let mut problem_to_global = HashMap::new();
+
+        for (old_id, s) in problem_interner.iter() {
+            let new_id = global.intern(s.to_string());
+            problem_to_global.insert(old_id, new_id);
+        }
+
+        InternerMergeResult { global, problem_to_global }
+    }
+
+}
+
+
+pub struct InternerMergeResult {
+    pub global: StringInterner,
+    /// Map problème ancien Ident → global Ident
+    pub problem_to_global: HashMap<Ident, Ident>,
 }
 
 impl Serialize for StringInterner {

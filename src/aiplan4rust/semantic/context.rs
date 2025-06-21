@@ -77,7 +77,7 @@ impl Context {
         // Create the symbol table from the syntax tree
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(ast)?;
-
+        
         // Create and return the annotated syntax tree
         Ok(Context::new(
             arena,
@@ -161,6 +161,10 @@ impl Context {
     /// Returns a reference to the internal AST arena.
     pub fn ast(&self) -> &ArenaAst {
         &self.ast
+    }
+
+    pub fn ast_mut(&mut self) -> &mut ArenaAst {
+        &mut self.ast
     }
 
     /// Returns the set of semantic requirements.

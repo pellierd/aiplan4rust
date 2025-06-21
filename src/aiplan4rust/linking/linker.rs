@@ -11,9 +11,11 @@ use crate::aiplan4rust::semantic::SymbolTable;
 
 use std::mem;
 use std::mem::take;
-
+use itertools::Itertools;
 use crate::aiplan4rust::{linking, semantic};
+use crate::aiplan4rust::linking::ident_linker::IdentLinker;
 use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::StringInterner;
 
 #[derive(Debug)]
 pub struct Linker {
@@ -37,13 +39,35 @@ impl Linker {
         mut problem: SemanticContext,
     ) -> Result<LinkerResult, ParserInternalError> {
 
-        linking::checks::check_domain_name(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
+        let domain_interner = domain.ast().interner();
+        let problem_interner = problem.ast().interner();
+
+        println!("********* AVANT ***********");
+        println!("********* DOMAIN ***********");
+        println!("{}", domain_interner);
+        println!("********* PROBLEM ***********");
+        println!("{}", problem_interner);
+
+        let result = StringInterner::merge_problem_into_domain(domain_interner, problem_interner);
+
+        println!("********* APRES ***********");
+        println!("********* DOMAIN ***********");
+        println!("{}", domain_interner);
+        println!("********* PROBLEM ***********");
+        println!("{}", problem_interner);
+
+        problem.ast_mut().remap_idents(&result.problem_to_global);
+        problem.symbol_table_mut().remap_idents(&result.problem_to_global);
+
+        problem.ast_mut().set_interner(result.global);
 
         Self::update_problem_symbols_table_from_domain(&mut problem, domain.symbol_table())?;
 
+        linking::checks::check_domain_name(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
+
         let mut check  = linking::checks::check_cross_declared_symbols(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
-        check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
-        check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        //check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        //check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
 
         if check {
 
