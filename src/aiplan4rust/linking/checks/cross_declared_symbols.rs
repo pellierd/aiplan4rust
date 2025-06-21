@@ -4,7 +4,6 @@ use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::linking::ident_linker::IdentLinker;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -95,7 +94,6 @@ pub fn check_cross_declared_symbols(
                 && *declaration.source() == SymbolSource::Problem
             {
                 // Step 6: Check if there are relevant domain declarations for the symbol.
-                let domin_symabol =
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.name()) {
                     // Step 7: Get the kinds of the relevant domain declarations.
                     let domain_kinds: Vec<SymbolKind> = get_relevant_domain_kinds(domain_symbol_table, symbol.name());

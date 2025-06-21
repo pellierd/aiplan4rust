@@ -1,6 +1,5 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::{Scope, SymbolKind};
 

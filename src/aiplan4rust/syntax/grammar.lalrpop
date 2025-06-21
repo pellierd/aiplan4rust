@@ -4,7 +4,6 @@ use ordered_float::OrderedFloat;
 
 use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::elements::ArithmeticOp;
 use crate::aiplan4rust::syntax::elements::BinaryComp;

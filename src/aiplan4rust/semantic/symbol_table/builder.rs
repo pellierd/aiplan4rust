@@ -2,9 +2,9 @@ use std::collections::VecDeque;
 use std::mem;
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
+use crate::aiplan4rust::semantic::arena::{ArenaAst, NodeId};
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, TypedSymbol};
+use crate::aiplan4rust::semantic::symbol::{Scope};
 
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstKind;

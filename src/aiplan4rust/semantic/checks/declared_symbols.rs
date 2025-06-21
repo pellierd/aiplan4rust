@@ -6,7 +6,6 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::SemanticContext;
 
 use std::collections::{HashMap, HashSet};
-use crate::aiplan4rust::semantic::arena::NodeId;
 
 pub fn check_declared_symbols(
     context: &SemanticContext,

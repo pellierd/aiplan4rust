@@ -146,7 +146,7 @@ impl<'a> Parser<'a> {
         self.fast_line_table = FastLineTable::new(source);
 
         // Handle any syntax errors that were collected during parsing
-        self.handle_syntax_errors(&larlpop_errors, source);
+        self.handle_syntax_errors(&larlpop_errors);
 
         if self
             .diagnostic_manager()
@@ -174,7 +174,6 @@ impl<'a> Parser<'a> {
                 Err(e) => {
                     let error = self.to_parser_error(
                         &e,
-                        source,
                         Some(source_name),
                     );
                     self.diagnostic_manager.add_diagnostic(error);
@@ -193,11 +192,10 @@ impl<'a> Parser<'a> {
     fn handle_syntax_errors(
         &mut self,
         larlpop_errors: &[ErrorRecovery<usize, Token, LexicalError>],
-        source: &'a str,
     ) {
         for larlpop_error in larlpop_errors {
             // Convert each LALRPOP error into a ParserError and add it to the error manager
-            let parser_error = self.to_parser_error(&larlpop_error.error, source, self.source_name);
+            let parser_error = self.to_parser_error(&larlpop_error.error, self.source_name);
             self.diagnostic_manager.add_diagnostic(parser_error);
         }
     }
@@ -299,7 +297,6 @@ impl<'a> Parser<'a> {
     fn to_parser_error(
         &self,
         error: &ParseError<usize, Token, LexicalError>,
-        source: &str,
         file_path: Option<&str>,
     ) -> Diagnostic {
         let file_path = file_path.unwrap().to_string();

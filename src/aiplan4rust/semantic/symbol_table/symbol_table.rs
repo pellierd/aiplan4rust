@@ -1,24 +1,21 @@
-use std::collections::{HashMap, HashSet};
+
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
+use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
+use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::StringInterner;
+use crate::aiplan4rust::semantic::arena::NodeId;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
-use std::fs::File;
-use crate::aiplan4rust::semantic::arena::NodeId;
-use crate::aiplan4rust::syntax::ast::AstContent;
-use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::syntax::StringInterner;
-
-use std::io::Write;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 /// A table of symbols used by the aiplan4rust.

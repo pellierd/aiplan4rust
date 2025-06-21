@@ -54,7 +54,7 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use std::fmt::{self, Write as _};
+use std::fmt;
 use std::time::SystemTime;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::NodeId;

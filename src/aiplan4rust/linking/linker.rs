@@ -11,9 +11,7 @@ use crate::aiplan4rust::semantic::SymbolTable;
 
 use std::mem;
 use std::mem::take;
-use itertools::Itertools;
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::linking::ident_linker::IdentLinker;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::StringInterner;
 
@@ -66,8 +64,8 @@ impl Linker {
         linking::checks::check_domain_name(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
 
         let mut check  = linking::checks::check_cross_declared_symbols(&domain, &problem, Provider::Linker, &mut self.diagnostic_manager)?;
-        //check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
-        //check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        check &= semantic::checks::check_undeclared_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
+        check &=semantic::checks::check_unused_symbols(&problem, &[], Provider::Linker, &mut self.diagnostic_manager)?;
 
         if check {
 

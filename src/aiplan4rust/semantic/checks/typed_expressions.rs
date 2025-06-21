@@ -4,14 +4,9 @@ use crate::aiplan4rust::syntax::elements::{AssignOp, Ident};
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
-use crate::aiplan4rust::syntax::lexer::token::DURATION_VARIABLE;
-use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
-use crate::aiplan4rust::syntax::lexer::token::TOTAL_TIME;
 use crate::aiplan4rust::syntax::{Span, StringInterner};
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
-use crate::aiplan4rust::semantic::context::Context;
-use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks the type correctness of typed expressions in the syntax tree, including comparisons,

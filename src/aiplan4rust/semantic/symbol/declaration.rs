@@ -447,7 +447,7 @@ impl Declaration {
                 if i > 0 {
                     write!(w, " ")?;
                 }
-                write!(w, "{}", typed_symbol)?;
+                typed_symbol.fmt_with_interner(w, interner)?;
             }
 
             write!(w, ")")?;
