@@ -8,6 +8,7 @@ use crate::aiplan4rust::semantic::symbol::TypedSymbol;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
+use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Represents a declaration in the abstract syntax tree (AST).
@@ -40,7 +41,7 @@ use crate::aiplan4rust::syntax::elements::Ident;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
     /// The AST node of the declaration
-    ast: usize,
+    ast: NodeId,
 
     /// The kind of the symbol declared
     kind: SymbolKind,
@@ -71,7 +72,7 @@ impl Declaration {
         types: Option<Vec<Ident>>,
         arguments: Option<Vec<TypedSymbol>>,
         span : Span,
-        ast: usize,
+        ast: NodeId,
     ) -> Self {
         Declaration {
             ast,
@@ -92,7 +93,7 @@ impl Declaration {
     /// # Returns
     ///
     /// * `usize` - The AST node index.
-    pub fn ast(&self) -> usize {
+    pub fn ast(&self) -> NodeId {
         self.ast
     }
 

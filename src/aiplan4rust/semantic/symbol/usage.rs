@@ -7,6 +7,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
+use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Represents the usage of a symbol in a specific context within the AST.
@@ -39,13 +40,13 @@ pub struct Usage {
     source: SymbolSource,
 
     /// The AST node index where the symbol is used.
-    ast: usize,
+    ast: NodeId,
 
 }
 
 impl Usage {
     /// Constructeur pour créer un nouveau `Usage`
-    pub fn new(symbol: Ident, kind: SymbolKind, scope: Scope, source: SymbolSource, span: Span, ast: usize) -> Self {
+    pub fn new(symbol: Ident, kind: SymbolKind, scope: Scope, source: SymbolSource, span: Span, ast: NodeId) -> Self {
         Usage {
             symbol,
             kind,
@@ -104,7 +105,7 @@ impl Usage {
     /// # Returns
     ///
     /// * `usize` - The index of the AST node where the symbol is used.
-    pub fn ast(&self) -> usize {
+    pub fn ast(&self) -> NodeId {
         self.ast
     }
 

@@ -57,6 +57,7 @@
 use std::fmt::{self, Write as _};
 use std::time::SystemTime;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstNode, iterators::{PreorderIter, PostorderIter}, AstKind};
 use crate::aiplan4rust::syntax::ast::node::Node;
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -123,7 +124,7 @@ impl Ast {
 
         while let Some(node) = stack.pop() {
             // Attribuer l'ID au nœud courant
-            node.set_id(index);
+            node.set_id(NodeId::new(index));
             index += 1;
 
             // Pousser les enfants sur la pile dans l'ordre inverse

@@ -60,7 +60,7 @@ fn check_symbol_declarations(
                 continue;
             }
 
-            let ast_entry = context.get(NodeId::new(declaration.ast())).unwrap();
+            let ast_entry = context.get(declaration.ast()).unwrap();
             let current_scope = declaration.scope();
 
             let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));

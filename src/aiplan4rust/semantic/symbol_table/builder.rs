@@ -62,9 +62,9 @@ impl<'a> SymbolTableBuilderFromArena<'a> {
     pub fn initialize_from_arena(
         &mut self,
     ) -> Result<(), ParserInternalError> {
-        let mut stack: VecDeque<(NodeId, Scope)> = VecDeque::new();
+        let mut stack: VecDeque<(NodeId, &Scope)> = VecDeque::new();
 
-        stack.push_back((NodeId::ROOT_NODE_ID, Scope::new(0, None)));
+        stack.push_back((NodeId::ROOT_NODE_ID, Scope::root()));
 
         while let Some((node_id, scope)) = stack.pop_back() {
             let node = self.ast.get_node(node_id).unwrap();

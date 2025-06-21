@@ -552,10 +552,10 @@ fn get_constant_type(
 /// }
 /// ```
 fn get_declaration_type(
-    index: NodeId,
+    node_id: NodeId,
     context: &SemanticContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
-    match context.symbol_table().resolve_declaration_by_usage(index.as_usize())? {
+    match context.symbol_table().resolve_declaration_by_usage(node_id)? {
         Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
         None => Ok(None),
     }

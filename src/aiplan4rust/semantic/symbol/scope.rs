@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
+use once_cell::sync::Lazy;
+
 use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
@@ -14,18 +16,23 @@ pub struct Scope {
 }
 
 impl Scope {
-    pub fn new(ast: usize, parent: Option<&Scope>) -> Self {
+    pub fn new(ast: NodeId, parent: Option<&Scope>) -> Self {
         let mut scope = Scope { stack: Vec::new() };
 
         if let Some(parent_scope) = parent {
             scope.stack.extend(parent_scope.stack.iter().cloned());
         }
-        scope.stack.push(NodeId::new(ast));
+        scope.stack.push(ast);
         scope
     }
 
-    pub fn root() -> Self {
-        Scope::new(0, None)
+    pub fn root() -> &'static Scope {
+        static ROOT: Lazy<Scope> = Lazy::new(|| {
+            Scope {
+                stack: vec![NodeId::ROOT_NODE_ID], // définition directe ici
+            }
+        });
+        &ROOT
     }
 
     /// Returns `true` if `self` starts with the given `prefix` scope.

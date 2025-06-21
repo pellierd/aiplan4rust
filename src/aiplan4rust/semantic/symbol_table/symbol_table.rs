@@ -520,7 +520,7 @@ impl SymbolTable {
     /// ```
     pub fn resolve_declaration_by_usage(
         &self,
-        index: usize,
+        node_id: NodeId,
     ) -> Result<Option<&Declaration>, ParserInternalError> {
         // Iterate over every symbol stored in the symbol table
         for symbol in self.symbols.values() {
@@ -530,7 +530,7 @@ impl SymbolTable {
             // Iterate through all usages of this symbol
             for usage in symbol.usages() {
                 // Check if the usage's AST index matches the requested index
-                if usage.ast() == index {
+                if usage.ast() == node_id {
                     // Filter declarations to those whose scope is compatible with the usage's scope
                     let filtered: Vec<&Declaration> = declarations
                         .iter()
@@ -545,7 +545,7 @@ impl SymbolTable {
                             // Multiple matching declarations found, which is an error case
                             return Err(ParserInternalError::new(format!(
                                 "Multiple declarations found for usage at AST index {}.",
-                                index
+                                node_id
                             )));
                         }
                     }

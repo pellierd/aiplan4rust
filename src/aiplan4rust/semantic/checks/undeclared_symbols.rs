@@ -180,7 +180,7 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
     // the right side of type declarations in PDDL.For example, types like "car" or "vehicle"
     // might not be explicitly declared but are understood in the domain context.
     let check_usages_at_root_scope = |usage: &Usage| {
-        let root_scope = Scope::new(0, None);
+        let root_scope = Scope::root();
         symbol
             .usages()
             .iter()
