@@ -1,12 +1,12 @@
-use std::cell::{Ref, RefCell};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 use std::collections::{HashMap, HashSet};
-use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::syntax::StringInterner;
+use std::cell::{Ref, RefCell};
 
 /// PDDL Built-in symbols.
 const PDDL_BUILTIN_TYPES: [Ident; 2] = [StringInterner::IDENT_OBJECT, StringInterner::IDENT_NUMBER];

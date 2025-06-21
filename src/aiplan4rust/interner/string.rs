@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
@@ -302,31 +303,6 @@ impl StringInterner {
             .map(|(i, s)| (Ident::new(i), s.as_ref()))
     }
 
-    /// Fusionne le problème dans l’interner du domaine.
-    /// Le domaine est cloné pour créer un interner global.
-    /// Renvoie la table de correspondance entre idents problème et idents globaux.
-    pub fn merge_problem_into_domain(
-        domain_interner: &StringInterner,
-        problem_interner: &StringInterner,
-    ) -> InternerMergeResult {
-        let mut global = domain_interner.clone();
-        let mut problem_to_global = HashMap::new();
-
-        for (old_id, s) in problem_interner.iter() {
-            let new_id = global.intern(s.to_string());
-            problem_to_global.insert(old_id, new_id);
-        }
-
-        InternerMergeResult { global, problem_to_global }
-    }
-
-}
-
-
-pub struct InternerMergeResult {
-    pub global: StringInterner,
-    /// Map problème ancien Ident → global Ident
-    pub problem_to_global: HashMap<Ident, Ident>,
 }
 
 impl Serialize for StringInterner {

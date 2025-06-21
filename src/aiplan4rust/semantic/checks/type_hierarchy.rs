@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use bimap::BiMap;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::syntax::StringInterner;
+use crate::aiplan4rust::interner::StringInterner;
 
 /// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///

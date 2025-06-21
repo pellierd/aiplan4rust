@@ -3,6 +3,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::elements::Requirement::Adl;
 use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
@@ -13,7 +14,7 @@ use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::SemanticContext;
-use crate::aiplan4rust::syntax::StringInterner;
+
 
 /// Checks if there are any undeclared symbols used in the given syntax tree.
 ///

@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-use std::fmt;
-
-use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::node::Node;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIter;
@@ -9,9 +5,15 @@ use crate::aiplan4rust::semantic::arena::iterators::PostorderIterWithIndex;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
 use crate::aiplan4rust::semantic::arena::{NodeId, NodeRef};
-use crate::aiplan4rust::syntax::{Span, StringInterner};
+use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode, AstKind, Ast};
 use crate::aiplan4rust::syntax::elements::Ident;
+
+use std::collections::HashMap;
+use std::fmt;
+
+use serde::{Deserialize, Serialize};
 
 /// Arena is a data structure that stores AST nodes in a contiguous vector.
 /// Each node keeps track of its children and its parent by index.

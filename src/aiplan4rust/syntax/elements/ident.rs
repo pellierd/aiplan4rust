@@ -111,7 +111,21 @@ impl From<Ident> for usize {
     }
 }
 
-// Sérialisation en tant que String (clé JSON)
+/// Implements serialization of `Ident` as a `String`
+///
+/// This allows `Ident` to be used as a **key in a JSON `HashMap`**. Since JSON requires all object
+/// keys to be strings, we convert the internal `usize` value of the `Ident` into a string.
+///
+/// # Example JSON Output
+/// A `HashMap<Ident, T>` will serialize to:
+/// ```json
+/// {
+///   "42": { ... }
+/// }
+/// ```
+///
+/// This approach ensures compatibility with JSON's requirements while preserving internal numeric
+/// IDs.
 impl Serialize for Ident {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
@@ -119,7 +133,22 @@ impl Serialize for Ident {
     }
 }
 
-// Désérialisation depuis une clé String
+/// Implements deserialization of `Ident` from a string
+///
+/// When deserializing a structure like `HashMap<Ident, T>` from JSON, the keys are read as strings.
+/// This implementation parses those strings back into numeric IDs (`usize`) and reconstructs the
+/// `Ident`.
+///
+/// # Example JSON Input
+/// ```json
+/// {
+///   "42": { ... }
+/// }
+/// ```
+/// will be deserialized into a `HashMap<Ident, T>` with `Ident { value: 42 }` as a key.
+///
+/// This is necessary because JSON object keys are always strings, and we need to convert them
+/// back into usable internal identifiers.
 impl<'de> Deserialize<'de> for Ident {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {

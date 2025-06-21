@@ -1,16 +1,17 @@
-use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
+use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::interner::StringInterner;
 
 use serde::Deserialize;
 use serde::Serialize;
 
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
-use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::syntax::StringInterner;
+
 
 /// Represents a symbol in a given context, with its associated declarations and usages.
 ///

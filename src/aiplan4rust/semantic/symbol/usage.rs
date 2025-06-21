@@ -1,14 +1,15 @@
-use std::collections::HashMap;
-use crate::aiplan4rust::syntax::{Span, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::arena::NodeId;
+use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::syntax::Span;
 
+use std::collections::HashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
-use crate::aiplan4rust::semantic::arena::NodeId;
-use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Represents the usage of a symbol in a specific context within the AST.
 ///

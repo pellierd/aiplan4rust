@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::syntax::StringInterner;
+use crate::aiplan4rust::interner::StringInterner;
 
 /// Represents a symbol identified by `Ident` with associated types,
 /// also identified by `Ident`.

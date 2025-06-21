@@ -4,13 +4,14 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::parser_result::ParserResult;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
-use crate::aiplan4rust::syntax::{FastLineTable, Language, StringInterner};
+use crate::aiplan4rust::syntax::{FastLineTable, Language};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
 
 use lalrpop_util::ErrorRecovery;
@@ -18,6 +19,7 @@ use lalrpop_util::ParseError;
 
 use std::mem;
 use std::time::SystemTime;
+
 
 #[derive(Debug)]
 /// A structure for analyzing the syntax of PDDL expressions.
@@ -131,12 +133,12 @@ impl<'a> Parser<'a> {
 
         self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
 
-        let mut context = StringInterner::new();
+        let mut interner = StringInterner::new();
 
         // Attempt to parse the source code according to the language specified
         let parse_result = match language {
-            Language::PDDL => PDDLParser::new().parse(&mut context, &mut larlpop_errors, lexer),
-            Language::HDDL => HDDLParser::new().parse(&mut context, &mut larlpop_errors, lexer),
+            Language::PDDL => PDDLParser::new().parse(&mut interner, &mut larlpop_errors, lexer),
+            Language::HDDL => HDDLParser::new().parse(&mut interner, &mut larlpop_errors, lexer),
         };
 
         // Create a `FastLineTable` with an interval for coarse indexing.
@@ -161,7 +163,7 @@ impl<'a> Parser<'a> {
                     } else {
                         self.init_ast_span(&mut root);
                         let ast =
-                            Ast::new(root, context, source_name.to_string(), SystemTime::now());
+                            Ast::new(root, interner, source_name.to_string(), SystemTime::now());
                         Ok(ParserResult::new(
                             Some(ast),
                             mem::take(&mut self.diagnostic_manager),

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::syntax::{Span, StringInterner};
+use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;

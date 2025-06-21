@@ -1,14 +1,14 @@
+use crate::aiplan4rust::semantic::arena::NodeId;
+use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::frontend::ParserInternalError;
+
 use linked_hash_map::LinkedHashMap;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
 use once_cell::sync::Lazy;
-
-use crate::aiplan4rust::semantic::arena::NodeId;
-use crate::aiplan4rust::semantic::SemanticContext;
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Scope {

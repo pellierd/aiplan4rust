@@ -1,72 +1,79 @@
-/// The `aiplan4rust` module provides core components for parsing PDDL and HDDL files,
-/// including parsing logic, error handling, and diagnostics rendering.
-///
-/// # Overview
-/// This module enables reading, parsing, and error reporting for planning domain
-/// description languages (PDDL and HDDL). It manages syntax analysis and presents
-/// clear diagnostics to users.
-///
-/// # Example
-/// The following example demonstrates how to read a file, parse its content with the `Parser`,
-/// and render any parsing errors encountered.
-///
-/// ```rust
-/// use aiplan4rust::{Parser, Renderer};
-/// use std::fs::File;
-/// use std::io::Read;
-///
-/// /// Reads the entire content of the file at `path` into a String.
-/// /// Returns an I/O error if the file cannot be read.
-/// fn read_file(path: &str) -> Result<String, std::io::Error> {
-///     let mut file = File::open(path)?;
-///     let mut content = String::new();
-///     file.read_to_string(&mut content)?;
-///     Ok(content)
-/// }
-///
-/// let source_path = "domain.pddl";  // Specify your domain file path here.
-///
-/// let content = read_file(source_path)?;
-///
-/// let mut parser = Parser::new();
-///
-/// // Replace `language` with the appropriate Language enum variant.
-/// let parser_result = parser.parse(source_path, &content, language)?;
-///
-/// let mut renderer = Renderer::new(parser_result.diagnostic_manager());
-/// renderer.display();
-/// ```
-///
-/// # Explanation
-/// This module encapsulates the workflow of reading PDDL/HDDL source files,
-/// parsing them, and rendering diagnostics for any errors encountered.
-/// Errors are managed via the `DiagnosticRenderer` to provide clear and
-/// user-friendly error messages.
-///
-/// # Notes
-/// - Focus is on syntax parsing and error reporting.
-/// - You must specify the `language` parameter to indicate the parsing language (PDDL/HDDL).
-///
-/// # Example Output
-/// If parsing errors occur, detailed error messages with line and column information
-/// will be displayed to help locate and fix issues.
-///
-/// # Syntax Display Trait
-/// The `SyntaxDisplay` trait provides a standardized interface for converting
-/// AST nodes into their syntax string representations. This abstraction supports
-/// multiple planning domain languages such as PDDL and HDDL, enabling consistent
-/// and customizable pretty-printing and serialization of AST structures.
-///
-/// Implementors of `SyntaxDisplay` must provide methods to produce a string
-/// representation optionally respecting indentation or depth for formatting.
-///
-/// # Modules
-/// This crate exposes submodules for language definitions, lexical analysis,
-/// parsing, grammar rules, AST structures, spans, parser results, and syntax display.
-///
-/// # Exports
-/// Key components like `Language`, `Parser`, `ParserResult`, `Span`, `AstKind`, `AstNode`,
-/// and `SyntaxDisplay` are re-exported for convenient external use.
+//! The `aiplan4rust` crate provides the core components for parsing PDDL and HDDL planning domain languages.
+//!
+//! # Overview
+//! This crate enables the reading, parsing, and structured error reporting of PDDL and HDDL files,
+//! commonly used in AI planning. It provides high-level abstractions over the parser pipeline,
+//! lexical analysis, abstract syntax tree (AST) representations, and diagnostic rendering.
+//!
+//! # Features
+//! - Support for both PDDL and HDDL syntax
+//! - Modular parser architecture with a shared diagnostic framework
+//! - Span-based error messages with line/column resolution
+//! - AST representations and utilities for syntax display
+//!
+//! # Example
+//! Basic usage for parsing a domain file and rendering diagnostics:
+//!
+//! ```rust
+//! use aiplan4rust::{Parser, Renderer};
+//! use std::fs::File;
+//! use std::io::Read;
+//!
+//! fn read_file(path: &str) -> Result<String, std::io::Error> {
+//!     let mut file = File::open(path)?;
+//!     let mut content = String::new();
+//!     file.read_to_string(&mut content)?;
+//!     Ok(content)
+//! }
+//!
+//! let source_path = "domain.pddl"; // Replace with your PDDL or HDDL file
+//! let content = read_file(source_path)?;
+//!
+//! let mut parser = Parser::new();
+//! let parser_result = parser.parse(source_path, &content, aiplan4rust::Language::Pddl)?;
+//!
+//! let mut renderer = Renderer::new(parser_result.diagnostic_manager());
+//! renderer.display();
+//! ```
+//!
+//! # Architecture
+//! The parser architecture is divided into the following stages:
+//! 1. **Lexical Analysis** — Handled by the `lexer` module.
+//! 2. **Grammar Parsing** — Rules and grammar trees are handled in `parser` and `grammar`.
+//! 3. **AST Construction** — AST nodes and types are defined under `ast`.
+//! 4. **Span Resolution** — File offsets are translated using `span` and `fast_line_table`.
+//! 5. **Diagnostics** — Errors are collected and rendered with severity metadata.
+//!
+//! # Syntax Display Trait
+//! The [`SyntaxDisplay`] trait allows converting AST nodes to language-specific
+//! representations (pretty-printed or serialized). This is useful for pretty-printing or emitting code.
+//!
+//! # Notes
+//! - The crate no longer depends internally on `string-interner`; interning logic has been modularized.
+//! - `Language` must be explicitly passed when parsing a file to select between PDDL and HDDL.
+//!
+//! # Modules
+//! - [`elements`] – Utility types used across AST and grammar processing
+//! - [`language`] – Definition of supported planning languages (PDDL/HDDL)
+//! - [`lexer`] – Tokenizer for input streams
+//! - [`parser`] – Entrypoint to the parsing pipeline
+//! - [`parser_result`] – Wrapper for the output of the parsing process
+//! - [`grammar`] – Grammar-specific logic
+//! - [`ast`] – Abstract syntax tree definitions
+//! - [`display`] – Provides the `SyntaxDisplay` trait
+//! - [`span`] – Source position tracking with spans
+//! - [`fast_line_table`] – Maps file offsets to line/column
+//!
+//! # Re-exports
+//! The following are exposed for convenience:
+//!
+//! - [`Language`] — Language selector enum
+//! - [`Parser`] — High-level parser interface
+//! - [`ParserResult`] — Result type returned by the parser
+//! - [`Span`] — Span utility for error reporting
+//! - [`SyntaxDisplay`] — Trait for AST-to-string formatting
+//! - [`FastLineTable`] — Efficient file line tracking
+
 pub mod elements;
 pub mod language;
 pub mod lexer;
@@ -74,10 +81,8 @@ pub mod parser;
 pub mod parser_result;
 pub mod grammar;
 pub mod span;
-
 pub mod ast;
 pub mod display;
-pub mod string_interner;
 pub mod fast_line_table;
 
 pub use language::Language;
@@ -85,5 +90,4 @@ pub use parser::Parser;
 pub use parser_result::ParserResult;
 pub use span::Span;
 pub use display::Display as SyntaxDisplay;
-pub use string_interner::StringInterner;
 pub use fast_line_table::FastLineTable;

@@ -3,7 +3,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolSource, Usage};
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::syntax::StringInterner;
+use crate::aiplan4rust::interner::{InternerMergeResult, StringInterner};
 
 /// Resolves symbols by merging string interners from domain and problem,
 /// remapping identifiers in the problem to a unified global interner,
@@ -31,13 +31,15 @@ pub fn resolve_symbols(
     problem: &mut SemanticContext,
 ) -> Result<(), ParserInternalError> {
     // 1. Merge string interners from domain and problem to create a global interner
-    let result = StringInterner::merge_problem_into_domain(
+    let mut result = InternerMergeResult::from_domain_and_problem(
         domain.ast().interner(),
         problem.ast().interner()
     );
 
     // 2. Remap identifiers in problem AST and symbol table to global interner space
-    remap_problem_idents(problem, &result.problem_to_global, result.global);
+    let problem_ident_map = result.take_problem_ident_map();
+    let global_interner = result.take_interner();
+    remap_problem_idents(problem, &problem_ident_map, global_interner);
 
     // 3. Update problem's symbol table by injecting declarations from the domain symbol table
     update_problem_symbols_table_from_domain(problem, domain.symbol_table())?;
@@ -55,12 +57,12 @@ pub fn resolve_symbols(
 /// * `global_interner` - The merged global string interner.
 fn remap_problem_idents(
     problem: &mut SemanticContext,
-    problem_to_global: &HashMap<Ident, Ident>,
-    global_interner: StringInterner,
+    problem_ident_map: &HashMap<Ident, Ident>,
+    interner: StringInterner,
 ) {
-    problem.ast_mut().remap_idents(problem_to_global);
-    problem.symbol_table_mut().remap_idents(problem_to_global);
-    problem.ast_mut().set_interner(global_interner);
+    problem.ast_mut().remap_idents(problem_ident_map);
+    problem.symbol_table_mut().remap_idents(problem_ident_map);
+    problem.ast_mut().set_interner(interner);
 }
 
 /// Updates the problem's symbol table by adding declarations found in the domain's symbol table.
