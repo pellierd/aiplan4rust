@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::symbol::SymbolSource;
+use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::arena::NodeId;
@@ -27,10 +27,7 @@ use std::fmt;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
 
-    symbol: Ident,
-
-    /// The kind of the symbol used (e.g., variable, function).
-    kind: SymbolKind,
+    symbol_ref: SymbolRef,
 
     /// The scope where the symbol is used (e.g., function, block).
     scope: Scope,
@@ -49,8 +46,7 @@ impl Usage {
     /// Constructeur pour créer un nouveau `Usage`
     pub fn new(symbol: Ident, kind: SymbolKind, scope: Scope, source: SymbolSource, span: Span, ast: NodeId) -> Self {
         Usage {
-            symbol,
-            kind,
+            symbol_ref: SymbolRef::new(symbol, kind),
             scope,
             source,
             span,
@@ -59,7 +55,7 @@ impl Usage {
     }
 
     pub fn symbol(&self) -> Ident {
-        self.symbol
+        self.symbol_ref.ident()
     }
 
     /// Accessor for the kind of the symbol used.
@@ -69,8 +65,8 @@ impl Usage {
     /// # Returns
     ///
     /// * `&SymbolKind` - A reference to the kind of the symbol.
-    pub fn kind(&self) -> &SymbolKind {
-        &self.kind
+    pub fn kind(&self) -> SymbolKind {
+        self.symbol_ref.kind()
     }
 
     /// Accessor for the scope in which the symbol is used.
@@ -156,8 +152,8 @@ impl Usage {
     }
 
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        if let Some(new_ident) = map.get(&self.symbol) {
-            self.symbol = new_ident.clone();
+        if let Some(new_ident) = map.get(&self.symbol()) {
+            self.symbol_ref.set_ident(new_ident.clone());
         }
     }
 
@@ -173,7 +169,7 @@ impl Usage {
         w: &mut dyn fmt::Write,
         interner: &StringInterner,
     ) -> fmt::Result {
-        let symbol_str = match interner.get_str(self.symbol) {
+        let symbol_str = match interner.get_str(self.symbol()) {
             Some(name) => name,
             None => "<uninterned>",
         };
@@ -181,7 +177,7 @@ impl Usage {
         write!(
             w,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.kind, symbol_str, self.scope, self.source
+            self.ast, self.kind(), symbol_str, self.scope, self.source
         )?;
         Ok(())
     }
@@ -192,7 +188,7 @@ impl fmt::Display for Usage {
         write!(
             f,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.kind, self.symbol, self.scope, self.source
+            self.ast, self.kind(), self.symbol(), self.scope, self.source
         )?;
         Ok(())
     }

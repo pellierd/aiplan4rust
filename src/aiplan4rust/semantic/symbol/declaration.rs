@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::symbol::SymbolSource;
+use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::TypedSymbol;
@@ -41,11 +41,8 @@ use crate::aiplan4rust::syntax::elements::Ident;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
-    /// The AST node of the declaration
-    ast: NodeId,
 
-    /// The kind of the symbol declared
-    kind: SymbolKind,
+    symbol_ref: SymbolRef,
 
     /// The scope of the declaration
     scope: Scope,
@@ -59,8 +56,11 @@ pub struct Declaration {
     /// Optional list of argument types, grouped in parameter lists.
     arguments: Option<Vec<TypedSymbol>>,
 
+    /// The AST node of the declaration
+    ast: NodeId,
+
     span: Span,
-    name: Ident,
+
 }
 
 impl Declaration {
@@ -76,14 +76,13 @@ impl Declaration {
         ast: NodeId,
     ) -> Self {
         Declaration {
-            ast,
-            kind,
+            symbol_ref : SymbolRef::new(name, kind),
             scope,
             source,
             types,
             arguments,
             span,
-            name,
+            ast,
         }
     }
 
@@ -100,13 +99,13 @@ impl Declaration {
 
     /// Accessor for the kind of the symbol declared.
     ///
-    /// Returns a reference to the symbol's kind (e.g., variable, function).
+    /// Returns the symbol kind (e.g., variable, function).
     ///
     /// # Returns
     ///
-    /// * `&SymbolKind` - A reference to the kind of the symbol.
-    pub fn kind(&self) -> &SymbolKind {
-        &self.kind
+    /// * `SymbolKind` - The kind of the symbol.
+    pub fn kind(&self) -> SymbolKind {
+        self.symbol_ref.kind()
     }
 
     /// Accessor for the scope of the declaration.
@@ -206,7 +205,7 @@ impl Declaration {
     }
 
     pub fn symbol(&self) -> Ident {
-        self.name
+        self.symbol_ref.ident()
     }
 
     // Setters
@@ -257,8 +256,8 @@ impl Declaration {
 
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         // Remap le nom principal
-        if let Some(new_ident) = map.get(&self.name) {
-            self.name = new_ident.clone();
+        if let Some(new_ident) = map.get(&self.symbol()) {
+            self.symbol_ref.set_ident(new_ident.clone())
         }
 
         // Remap les types associés (Option<Vec<Ident>>)
@@ -468,7 +467,7 @@ impl Declaration {
         interner: &StringInterner,
     ) -> fmt::Result {
         // Récupère la chaîne correspondant à `self.name` via l'interner, ou affiche <uninterned> sinon
-        let name_str = match interner.get_str(self.name) {
+        let name_str = match interner.get_str(self.symbol()) {
             Some(name) => name,
             None => "<uninterned>",
         };
@@ -499,7 +498,7 @@ impl Declaration {
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the main elements: ast_old, kind, scope, and source
-        write!(f, "[index: {}, kind: {}, ident: {}", self.ast(), self.kind(), self.name)?;
+        write!(f, "[index: {}, kind: {}, ident: {}", self.ast(), self.kind(), self.symbol())?;
 
         // Add scope and source at the end
         write!(f, ", scope: {}, source: {}", self.scope(), self.source())?;

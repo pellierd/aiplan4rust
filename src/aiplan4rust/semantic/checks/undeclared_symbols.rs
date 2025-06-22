@@ -128,11 +128,11 @@ pub fn check_undeclared_symbols(
 fn should_skip_symbol(
     symbol: &Symbol,
     context: &SemanticContext,
-    usage_kind: &SymbolKind,
+    usage_kind: SymbolKind,
     skip_symbols: &[SymbolKind],
 ) -> bool {
     // Skip if the symbol is predefined in PDDL or if it matches a symbol kind in the skip list.
-    is_pddl_builtin_symbol(symbol, context) || skip_symbols.contains(usage_kind)
+    is_pddl_builtin_symbol(symbol, context) || skip_symbols.contains(&usage_kind)
 }
 
 /// Checks if a declaration for the given symbol usage exists in the symbol's declarations.
@@ -188,8 +188,8 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
     // This ensures we match tasks that are declared with Action or Task symbols.
     let check_primitive_task_declaration = |declaration: &Declaration| {
         usage_scope.starts_with(&declaration.scope())
-            && (*declaration.kind() == SymbolKind::Action
-                || *declaration.kind() == SymbolKind::Task)
+            && (declaration.kind() == SymbolKind::Action
+                || declaration.kind() == SymbolKind::Task)
     };
 
     match usage.kind() {

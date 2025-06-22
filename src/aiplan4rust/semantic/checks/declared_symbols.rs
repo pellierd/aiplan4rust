@@ -50,7 +50,7 @@ fn check_symbol_declarations(
 
         for declaration in symbol.declarations() {
             if let Some(kinds) = kinds_to_check {
-                if !kinds.contains(declaration.kind()) {
+                if !kinds.contains(&declaration.kind()) {
                     continue;
                 }
             }
@@ -68,8 +68,8 @@ fn check_symbol_declarations(
                 let current_kind = declaration.kind();
                 let previous_kind = previous_declaration.kind();
 
-                if (current_kind == &SymbolKind::PrimitiveType && previous_kind == &SymbolKind::Predicate) ||
-                    (current_kind == &SymbolKind::Predicate && previous_kind == &SymbolKind::PrimitiveType) {
+                if (current_kind == SymbolKind::PrimitiveType && previous_kind == SymbolKind::Predicate) ||
+                    (current_kind == SymbolKind::Predicate && previous_kind == SymbolKind::PrimitiveType) {
                     let name = context.ast().interner().try_str(symbol.name())?;
                     let warning = Diagnostic::new(
                         DiagnosticKind::WarningAmbiguousTypePredicateSymbol {

@@ -37,7 +37,7 @@ pub trait Filterable: Debug + Display {
     /// # Returns
     ///
     /// A reference to the `SymbolKind` of the symbol.
-    fn kind(&self) -> &SymbolKind;
+    fn kind(&self) -> SymbolKind;
 
     /// Returns the `Scope` of the symbol.
     ///
@@ -54,7 +54,7 @@ impl Filterable for Declaration {
     /// # Returns
     ///
     /// A reference to the `SymbolKind` of the declaration.
-    fn kind(&self) -> &SymbolKind {
+    fn kind(&self) -> SymbolKind {
         self.kind() // Delegates to the `kind` method in `Declaration`.
     }
 
@@ -75,7 +75,7 @@ impl Filterable for Usage {
     /// # Returns
     ///
     /// A reference to the `SymbolKind` of the usage.
-    fn kind(&self) -> &SymbolKind {
+    fn kind(&self) -> SymbolKind {
         self.kind() // Delegates to the `kind` method in `Usage`.
     }
 

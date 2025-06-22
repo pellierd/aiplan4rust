@@ -1,6 +1,7 @@
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::elements::Ident;
 use std::fmt;
+use serde::{Deserialize, Serialize};
 
 /// Represents a reference to a declared symbol, with its identifier and kind.
 ///
@@ -8,7 +9,7 @@ use std::fmt;
 /// to describe the declaration of a symbol (e.g., constant, predicate, action).
 ///
 /// A `Reference` is immutable, hashable, and suitable for use in maps or sets.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Reference {
     ident: Ident,
     kind: SymbolKind,
@@ -32,9 +33,27 @@ impl Reference {
         self.ident
     }
 
+    /// Sets the [`Ident`] of the symbol.
+    ///
+    /// # Arguments
+    ///
+    /// * `ident` - The new identifier to set.
+    pub fn set_ident(&mut self, ident: Ident) {
+        self.ident = ident;
+    }
+
     /// Returns the [`SymbolKind`] of the symbol.
     pub fn kind(&self) -> SymbolKind {
         self.kind
+    }
+
+    /// Sets the [`SymbolKind`] of the symbol.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The new symbol kind to set.
+    pub fn set_kind(&mut self, kind: SymbolKind) {
+        self.kind = kind;
     }
 }
 

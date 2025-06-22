@@ -71,7 +71,7 @@ pub fn check_unused_symbols(
 
             // Skip declarations that should not be analyzed
             if skip_unused_symbol_declaration(declaration, context)?
-                || skip_symbols.iter().any(|kind| kind == declaration_kind)
+                || skip_symbols.iter().any(|kind| *kind == declaration_kind)
             {
                 continue;
             }
@@ -283,7 +283,7 @@ fn check_pddl_builtin_symbol_declaration(
         _ => return true,
     };
 
-    if *declaration.kind() != expected_kind {
+    if declaration.kind() != expected_kind {
         report_symbol_declared_as_keyword_error(
             declaration,
             expected_kind,

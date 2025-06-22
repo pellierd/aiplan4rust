@@ -154,7 +154,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
             for usage in symbol.usages() {
                 let domain_declaration_option = domain_symbol_table.resolve_declaration(
                     &symbol.name(),
-                    usage.kind(),
+                    &usage.kind(),
                     &Scope::root(),
                 )?;
 

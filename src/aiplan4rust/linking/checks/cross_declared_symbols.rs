@@ -94,7 +94,7 @@ pub fn check_cross_declared_symbols(
                     let domain_kinds: Vec<SymbolKind> = get_relevant_domain_kinds(domain_symbol_table, symbol.name());
 
                     // Step 8: Check if the kind of the problem declaration exists in the domain kinds.
-                    let same_kind_exists = domain_kinds.iter().any(|k| k == declaration.kind());
+                    let same_kind_exists = domain_kinds.iter().any(|k| *k == declaration.kind());
 
                     // Step 9: If no matching kind found, report a conflict error.
                     if !same_kind_exists {

@@ -267,10 +267,10 @@ fn match_argument(
 
     // Special tolerated case: accept a primitive task matching an action/method with a supertype
     if !is_subtype
-        && (*declaration.kind() == SymbolKind::Action
-        || *declaration.kind() == SymbolKind::DASymbol
-        || *declaration.kind() == SymbolKind::Method)
-        && *usage.kind() == SymbolKind::Task
+        && (declaration.kind() == SymbolKind::Action
+        || declaration.kind() == SymbolKind::DASymbol
+        || declaration.kind() == SymbolKind::Method)
+        && usage.kind() == SymbolKind::Task
     {
         // Add a warning diagnostic for this special case
         let interner = context.ast().interner();
