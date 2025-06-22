@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 

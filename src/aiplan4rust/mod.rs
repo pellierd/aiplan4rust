@@ -7,6 +7,7 @@ pub mod syntax;
 pub mod semantic;
 pub mod normalization;
 pub mod interner;
+mod ir;
 
 pub use file_format::FileFormat;
 pub use frontend::Frontend;
