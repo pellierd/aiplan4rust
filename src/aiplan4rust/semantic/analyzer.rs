@@ -50,22 +50,77 @@ impl Analyzer {
         &self.diagnostic_manager
     }
 
-    pub fn analyze(&mut self, ast: &Ast) -> Result<AnalyzerResult, ParserInternalError> {
+    /// Performs semantic analysis on the given mutable AST.
+    ///
+    /// This method takes a mutable reference to an [`Ast`], allowing the analyzer
+    /// to modify its contents during analysis. In particular, it may take ownership
+    /// of internal components such as the `StringInterner` to avoid costly cloning.
+    ///
+    /// # Parameters
+    /// - `ast`: A mutable reference to the AST to analyze. The AST may be mutated,
+    ///   and some of its internal data (e.g., the interner) may be moved out.
+    ///
+    /// # Returns
+    /// Returns an [`AnalyzerResult`] on success or a [`ParserInternalError`] if
+    /// the analysis fails.
+    ///
+    /// # Note
+    /// Because the AST is passed as mutable, this function can efficiently
+    /// consume parts of the AST (such as the interner) to avoid duplication.
+    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, ParserInternalError> {
         self.perform_analysis(ast)
     }
 
+    /// Performs semantic analysis on the given mutable AST with a custom diagnostic manager.
+    ///
+    /// This method allows injecting a [`DiagnosticManager`] to collect diagnostics
+    /// (errors, warnings, infos) during the analysis. The AST is passed as a mutable
+    /// reference so the analyzer can modify it and potentially take ownership of
+    /// internal data such as the `StringInterner` to avoid cloning.
+    ///
+    /// # Parameters
+    /// - `ast`: A mutable reference to the AST to analyze. It may be mutated or partially consumed.
+    /// - `diagnostic_manager`: The diagnostic manager to use for collecting diagnostics.
+    ///
+    /// # Returns
+    /// Returns an [`AnalyzerResult`] on success or a [`ParserInternalError`] if the analysis fails.
+    ///
+    /// # Note
+    /// Passing the diagnostic manager by value replaces the analyzer's current
+    /// diagnostic manager with the provided one.
     pub fn analyze_with_diagnostic_manager(
         &mut self,
-        ast: &Ast,
+        ast: &mut Ast,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<AnalyzerResult, ParserInternalError> {
         self.diagnostic_manager = diagnostic_manager;
         self.perform_analysis(ast)
     }
 
+    /// Performs semantic analysis on the provided AST.
+    ///
+    /// This function consumes the AST by creating a `SemanticContext` from it,
+    /// then applies domain-specific semantic checks depending on the root node kind
+    /// (`Domain` or `Problem`). If the root node kind is unexpected, an error is returned.
+    ///
+    /// During analysis, diagnostics (errors, warnings, infos) are collected in
+    /// the internal diagnostic manager.
+    ///
+    /// # Parameters
+    /// - `ast`: A mutable reference to the AST to analyze. It may be mutated or partially consumed.
+    ///
+    /// # Returns
+    /// Returns an `AnalyzerResult` containing:
+    /// - `Some(SemanticContext)` if analysis succeeded without errors.
+    /// - `None` if semantic errors were found.
+    ///
+    /// The `AnalyzerResult` always contains the diagnostics collected during analysis.
+    ///
+    /// # Errors
+    /// Returns a `ParserInternalError` if the AST's root node kind is unexpected.
     fn perform_analysis(
         &mut self,
-        ast: &Ast,
+        ast: &mut Ast,
     ) -> Result<AnalyzerResult, ParserInternalError> {
 
         let context = SemanticContext::from(ast)?;

@@ -75,7 +75,7 @@ pub fn check_declared_symbol_signatures(
                 )? {
                     no_error &= false;
                     let entry = context.ast().get_node(usage.node_id()).unwrap();
-                    let name = context.ast().interner().try_str(symbol.name())?;
+                    let name = context.interner().try_resolve(symbol.name())?;
                     let diagnostic_kind = match declaration.symbol_kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
                             symbol: name.to_string(),
@@ -273,14 +273,14 @@ fn match_argument(
         && usage.symbol_kind() == SymbolKind::Task
     {
         // Add a warning diagnostic for this special case
-        let interner = context.ast().interner();
+        let interner = context.interner();
         let ty1_str: Vec<String> = ty1
             .iter()
-            .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
+            .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
             .collect();
         let ty2_str: Vec<String> = ty2
             .iter()
-            .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
+            .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
             .collect();
 
         let warning = Diagnostic::new(

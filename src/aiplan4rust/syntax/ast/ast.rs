@@ -123,9 +123,19 @@ impl Ast {
         &mut self.root
     }
 
+    /// Consumes and returns the root AST node.
+    pub fn take_root(&mut self) -> Box<AstNode> {
+        std::mem::take(&mut self.root)
+    }
+
     /// Returns a reference to the string interner used during parsing.
     pub fn interner(&self) -> &StringInterner {
         &self.interner
+    }
+
+    /// Consumes and returns the string interner.
+    pub fn take_interner(&mut self) -> StringInterner {
+        std::mem::take(&mut self.interner)
     }
 
     /// Returns the name or label of the source that generated this AST.
@@ -148,12 +158,41 @@ impl Ast {
         PostorderIter::new(self.root())
     }
 
-    pub fn get_str(&self, ident: Ident) -> Option<&str> {
-        self.interner.get_str(ident)
+    /// Attempts to resolve an interned identifier to its corresponding string slice.
+    ///
+    /// Returns `Some(&str)` if the identifier exists in the interner, or `None` otherwise.
+    ///
+    /// # Arguments
+    /// * `ident` - The interned identifier to resolve.
+    ///
+    /// # Examples
+    /// ```rust
+    /// if let Some(name) = ast.resolve(some_ident) {
+    ///     println!("Resolved name: {}", name);
+    /// }
+    /// ```
+    pub fn resolve(&self, ident: Ident) -> Option<&str> {
+        self.interner.resolve(ident)
     }
 
-    pub fn expect_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
-        self.interner.try_str(ident)
+    /// Attempts to resolve an interned identifier to its corresponding string slice,
+    /// returning an error if the identifier is not found.
+    ///
+    /// # Arguments
+    /// * `ident` - The interned identifier to resolve.
+    ///
+    /// # Errors
+    /// Returns a `ParserInternalError` if the identifier is not present in the interner.
+    ///
+    /// # Examples
+    /// ```rust
+    /// match ast.try_resolve(some_ident) {
+    ///     Ok(name) => println!("Resolved name: {}", name),
+    ///     Err(e) => eprintln!("Failed to resolve ident: {}", e),
+    /// }
+    /// ```
+    pub fn try_resolve(&self, ident: Ident) -> Result<&str, ParserInternalError> {
+        self.interner.try_resolve(ident)
     }
 
     /// Finds the first node of the specified kind anywhere in the AST (immutable).

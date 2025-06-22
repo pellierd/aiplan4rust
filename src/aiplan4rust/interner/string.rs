@@ -237,7 +237,7 @@ impl StringInterner {
     /// assert_eq!(interner.get_str(ident), Some("hello"));
     /// assert_eq!(interner.get_str(Ident::new(9999)), None);
     /// ```
-    pub fn get_str(&self, ident: Ident) -> Option<&str> {
+    pub fn resolve(&self, ident: Ident) -> Option<&str> {
         self.string_pool.get(ident.as_usize()).map(|s| s.as_ref())
     }
     /// Returns the interned string associated with the given `Ident`.
@@ -268,8 +268,8 @@ impl StringInterner {
     /// assert!(interner.expect_str(invalid_id).is_err());
     /// ```
     ///
-    pub fn try_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
-        self.get_str(ident).ok_or_else(|| {
+    pub fn try_resolve(&self, ident: Ident) -> Result<&str, ParserInternalError> {
+        self.resolve(ident).ok_or_else(|| {
             ParserInternalError::new(format!(
                 "Invalid Ident {}: out of bounds for interner size {}",
                 ident.as_usize(),

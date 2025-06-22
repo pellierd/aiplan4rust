@@ -202,7 +202,7 @@ impl Symbol {
         interner: &StringInterner,
     ) -> fmt::Result {
         // Display the symbol name
-        match interner.get_str(self.name) {
+        match interner.resolve(self.name) {
             Some(name) => writeln!(w, "[Symbol: '{}']", name)?,
             None => writeln!(w, "[Symbol: <uninterned:{}>]", self.name)?,
         }

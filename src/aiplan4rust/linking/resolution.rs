@@ -32,8 +32,8 @@ pub fn resolve_symbols(
 ) -> Result<(), ParserInternalError> {
     // 1. Merge string interners from domain and problem to create a global interner
     let mut result = InternerMergeResult::from_domain_and_problem(
-        domain.ast().interner(),
-        problem.ast().interner()
+        domain.interner(),
+        problem.interner()
     );
 
     // 2. Remap identifiers in problem AST and symbol table to global interner space
@@ -62,7 +62,7 @@ fn remap_problem_idents(
 ) {
     problem.ast_mut().remap_idents(problem_ident_map);
     problem.symbol_table_mut().remap_idents(problem_ident_map);
-    problem.ast_mut().set_interner(interner);
+    problem.set_interner(interner);
 }
 
 /// Updates the problem's symbol table by adding declarations found in the domain's symbol table.

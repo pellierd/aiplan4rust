@@ -504,7 +504,7 @@ impl Node {
         // Resolve content string either from context or show raw content
         let content_str = match &self.content {
             AstContent::Ident(idx) => match ctx {
-                Some(c) => c.get_str(*idx).unwrap_or("(unknown)").to_string(),
+                Some(c) => c.resolve(*idx).unwrap_or("(unknown)").to_string(),
                 None => format!("Ident({})", idx),
             },
             _ => format!("{:?}", self.content),

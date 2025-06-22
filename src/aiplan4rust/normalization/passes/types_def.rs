@@ -359,12 +359,12 @@ fn report_implicit_either_type_warnings(
         // Only emit a warning if the same type is declared in more than one place
         if spans.len() > 1 {
             // Get the interned string name for the base type ID (`ty`)
-            let ty_name: String = ast.expect_str(*ty)?.to_string();
+            let ty_name: String = ast.try_resolve(*ty)?.to_string();
 
             // Resolve and collect the interned names for each variant type ID
             let type_names = types_set
                 .iter()
-                .map(|id| ast.expect_str(*id).map(|s| s.to_string()))
+                .map(|id| ast.try_resolve(*id).map(|s| s.to_string()))
                 .collect::<Result<_, _>>()?;
 
             // Construct the warning diagnostic with all relevant data

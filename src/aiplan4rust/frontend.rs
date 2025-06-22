@@ -136,13 +136,13 @@ impl Frontend {
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
 
                 match normalizer_result.take_ast() {
-                    Some(normalized_ast) => {
+                    Some(mut normalized_ast) => {
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                         // Analyze the normalized AST with the diagnostics.
                         let mut analyzer = Analyzer::new();
                         let analysis_result =
-                            analyzer.analyze_with_diagnostic_manager(&normalized_ast, diagnostic_manager)?;
+                            analyzer.analyze_with_diagnostic_manager(&mut normalized_ast, diagnostic_manager)?;
 
                         // Return the analysis result.
                         Ok(analysis_result)

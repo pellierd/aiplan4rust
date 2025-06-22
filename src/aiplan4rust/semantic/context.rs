@@ -3,6 +3,7 @@ use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::semantic::arena::arena::Arena;
@@ -29,6 +30,8 @@ pub struct Context {
     /// The symbol table constructed during semantic analysis.
     symbol_table: SymbolTable,
 
+    interner: StringInterner,
+
     /// The name of the source file or input that was parsed.
     source_name: String,
 
@@ -40,16 +43,18 @@ impl Context {
     /// Constructs a new `SemanticContext` from its components.
     ///
     /// # Arguments
-    /// * `ast_old` - The arena-based abstract syntax tree.
+    /// * `ast` - The arena-based abstract syntax tree.
     /// * `source_name` - The name of the input source file.
     /// * `requirements` - A set of extracted semantic requirements.
     /// * `symbol_table` - The resulting symbol table from analysis.
+    /// * `interner` - The string interner used for symbol resolution and deduplication.
     /// * `generated_at` - The timestamp marking when the context was built.
     pub fn new(
         ast: ArenaAst,
         source_name: String,
         requirements: HashSet<Requirement>,
         symbol_table: SymbolTable,
+        interner: StringInterner,
         generated_at: SystemTime,
     ) -> Self {
         Self {
@@ -57,10 +62,10 @@ impl Context {
             source_name,
             requirements,
             symbol_table,
+            interner,
             generated_at,
         }
     }
-
 
     /// Creates a new `AnnotatedSyntaxTree` from a `SyntaxTree`.
     ///
@@ -69,7 +74,7 @@ impl Context {
     ///
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
-    pub fn from(ast: &Ast) -> Result<Self, ParserInternalError> {
+    pub fn from(ast: &mut Ast) -> Result<Self, ParserInternalError> {
         let arena = Arena::from_ast(ast);
 
         // Extract the requirements from the syntax tree
@@ -79,9 +84,7 @@ impl Context {
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(&arena)?;
 
-
-        //let mut builder = SymbolTableBuilder::new();
-        //let symbol_table = builder.build(ast)?;
+        let interner = ast.take_interner();
 
         // Create and return the annotated syntax tree
         Ok(Context::new(
@@ -89,6 +92,7 @@ impl Context {
             ast.source_name().to_string(),
             requirements,
             symbol_table,
+            interner,
             SystemTime::now(),
         ))
     }
@@ -204,6 +208,14 @@ impl Context {
     /// Returns the source file name or input name associated with the AST.
     pub fn source_name(&self) -> &String {
         &self.source_name
+    }
+
+    pub fn interner(&self) -> &StringInterner {
+         &self.interner
+    }
+
+     pub fn set_interner(&mut self, interner: StringInterner) {
+        self.interner = interner;
     }
 
 }

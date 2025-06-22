@@ -192,16 +192,16 @@ fn report_type_mismatch_in_expression(
     diagnostic_manager: &mut DiagnosticManager,
 ) {
 
-    let interner = context.ast().interner(); // Ou ajuster selon ton accès à l'interner
+    let interner = context.interner(); // Ou ajuster selon ton accès à l'interner
 
     let ty1: Vec<String> = ty1
         .iter()
-        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let ty2: Vec<String> = ty2
         .iter()
-        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let error = Diagnostic::new(
@@ -302,16 +302,16 @@ fn report_invalid_types_in_numeric_expression(
 ) {
 
     // Shoudl be removed when symbol table refactoring will be done
-    let interner = context.ast().interner(); // Ou ajuster selon ton accès à l'interner
+    let interner = context.interner(); // Ou ajuster selon ton accès à l'interner
 
     let ty1: Vec<String> = ty1
         .iter()
-        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let ty2: Vec<String> = ty2
         .iter()
-        .map(|id| interner.try_str(*id).unwrap_or("<invalid>").to_string())
+        .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
         .collect();
 
     let error = Diagnostic::new(

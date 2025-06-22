@@ -271,7 +271,7 @@ impl Declaration {
             match types.as_slice() {
                 [] => write!(w, ")")?,
                 [single] => {
-                    match interner.get_str(*single) {
+                    match interner.resolve(*single) {
                         Some(name) => write!(w, "{})", name)?,
                         None => write!(w, "<uninterned:{}>)", single)?,
                     }
@@ -279,7 +279,7 @@ impl Declaration {
                 _ => {
                     write!(w, "either")?;
                     for ty in types {
-                        match interner.get_str(*ty) {
+                        match interner.resolve(*ty) {
                             Some(name) => write!(w, " {}", name)?,
                             None => write!(w, " <uninterned:{}>", ty)?,
                         }
@@ -403,7 +403,7 @@ impl Declaration {
         interner: &StringInterner,
     ) -> fmt::Result {
         // Récupère la chaîne correspondant à `self.name` via l'interner, ou affiche <uninterned> sinon
-        let name_str = match interner.get_str(self.symbol_ident()) {
+        let name_str = match interner.resolve(self.symbol_ident()) {
             Some(name) => name,
             None => "<uninterned>",
         };

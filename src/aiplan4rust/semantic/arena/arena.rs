@@ -26,7 +26,6 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Arena {
     nodes: Vec<Node>,
-    interner: StringInterner,
 }
 
 impl Arena {
@@ -40,7 +39,6 @@ impl Arena {
     fn new() -> Self {
         Self {
             nodes: Vec::default(),
-            interner: StringInterner::default(),
         }
     }
 
@@ -140,46 +138,6 @@ impl Arena {
             .and_then(|node| node.parent())
             .and_then(|parent_id| self.get_node(parent_id))
     }
-
-    /// Attempts to retrieve the symbol associated with the node at the given index.
-    ///
-    /// This method returns:
-    /// - `Ok(Some(&String))` if a symbol is found associated with the node.
-    /// - `Ok(None)` if the node does not have an associated symbol (this is not considered an error).
-    /// - `Err(ParserInternalError)` if the node does not exist or is malformed (e.g., a `FunctionTerm` or `AtomicFormula` node
-    ///   without children, or a missing child node).
-    ///
-    /// The method first tries to get the symbol directly from the node's kind. If none is found,
-    /// and the node is a compound type like `FunctionTerm` or `AtomicFormula`, it attempts to derive
-    /// the symbol from the first child node recursively.
-    ///
-    /// # Parameters
-    /// - `id`: The index of the node in the arena.
-    ///
-    /// # Returns
-    /// - `Result<Option<&String>, ParserInternalError>`:
-    ///    - `Ok(Some(symbol))` if a symbol was found.
-    ///    - `Ok(None)` if no symbol is associated with the node.
-    ///    - `Err(ParserInternalError)` if the node or its first child is missing or malformed.
-    pub fn get_symbol(&self, id: NodeId) -> Result<Option<&str>, ParserInternalError> {
-        let node = self.get_node(id).ok_or_else(|| ParserInternalError::new("Node not found".to_string()))?;
-        if let Some(sym) = self.get_str(node.try_ident()?) {
-            return Ok(Some(sym));
-        }
-        match &node.kind() {
-            AstKind::FunctionTerm | AstKind::AtomicFormula => {
-                let child_idx = node.children().first().ok_or_else(|| {
-                    ParserInternalError::new("No children found for FunctionTerm or AtomicFormula".to_string())
-                })?;
-                let child = self.get_node(*child_idx).ok_or_else(|| {
-                    ParserInternalError::new(format!("Child node {} not found", child_idx))
-                })?;
-                Ok(self.get_str(child.try_ident()?))
-            }
-            _ => Ok(None),
-        }
-    }
-
 
     pub fn try_symbol_ref<T>(&self, value: T) -> Result<SymbolRef, ParserInternalError>
     where
@@ -329,7 +287,6 @@ impl Arena {
     /// ```
     pub fn from_ast(ast: &Ast) -> Self {
         let mut arena = Arena::new();
-        arena.interner = ast.interner().clone();
         let root = ast.root();
         Self::add_iterative(&mut arena, root, None);
         arena
@@ -482,17 +439,6 @@ impl Arena {
         PostorderIterWithIndex::new(self, NodeId::ROOT_NODE_ID)
     }
 
-    pub fn get_str(&self, ident: Ident) -> Option<&str> {
-        self.interner.get_str(ident)
-    }
-
-    pub fn interner(&self) -> &StringInterner {
-        &self.interner
-    }
-
-    pub fn set_interner(&mut self, interner: StringInterner) {
-        self.interner = interner;
-    }
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         let mut stack = vec![NodeId::ROOT_NODE_ID];
 

@@ -279,7 +279,7 @@ impl Content {
     pub fn display_with_context(&self, ctx: &StringInterner) -> String {
         match self {
             Content::None => "None".to_string(),
-            Content::Ident(idx) => format!("Iden(\"{}\")", ctx.get_str(*idx).unwrap_or("(unknown)").to_string()),
+            Content::Ident(idx) => format!("Iden(\"{}\")", ctx.resolve(*idx).unwrap_or("(unknown)").to_string()),
             Content::Float(val) => format!("Float({})", val),
             Content::Requirement(req) => format!("Requirement({})", req),
             Content::BinaryComp(comp) => format!("BinaryComp({})", comp),

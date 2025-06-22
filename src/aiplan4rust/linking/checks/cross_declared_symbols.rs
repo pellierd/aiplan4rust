@@ -237,7 +237,7 @@ fn report_cross_conflict_symbol_error(
     diagnostic_manager: &mut DiagnosticManager,
 )  -> Result<(), ParserInternalError> {
     let symbol = declaration.symbol_ident();
-    let symbol_name = context.ast().interner().try_str(symbol)?;
+    let symbol_name = context.interner().try_resolve(symbol)?;
     let error = Diagnostic::new(
         DiagnosticKind::CrossConflictSymbolDeclarationError {
             symbol: symbol_name.to_string(),

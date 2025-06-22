@@ -144,7 +144,7 @@ pub fn report_either_type_duplicates(
     for (duplicate_ids, span) in warnings {
         let duplicates: Vec<String> = duplicate_ids
             .into_iter()
-            .map(|id| ast.expect_str(id).map(str::to_string))
+            .map(|id| ast.try_resolve(id).map(str::to_string))
             .collect::<Result<_, _>>()?;
 
         report_duplicate_either_type_warning(duplicates, source_name, &span, diagnostic_manager);

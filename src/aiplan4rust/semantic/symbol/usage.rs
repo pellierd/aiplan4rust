@@ -160,7 +160,7 @@ impl Usage {
         w: &mut dyn fmt::Write,
         interner: &StringInterner,
     ) -> fmt::Result {
-        let symbol_str = match interner.get_str(self.symbol_ident()) {
+        let symbol_str = match interner.resolve(self.symbol_ident()) {
             Some(name) => name,
             None => "<uninterned>",
         };

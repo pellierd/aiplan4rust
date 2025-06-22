@@ -80,7 +80,7 @@ impl TypedSymbol {
         w: &mut dyn fmt::Write,
         interner: &StringInterner,
     ) -> fmt::Result {
-        match interner.get_str(self.symbol) {
+        match interner.resolve(self.symbol) {
             Some(name) => write!(w, "{}", name)?,
             None => write!(w, "<uninterned:{}>", self.symbol)?,
         }
@@ -91,7 +91,7 @@ impl TypedSymbol {
                 if i > 0 {
                     write!(w, " ")?;
                 }
-                match interner.get_str(*ty) {
+                match interner.resolve(*ty) {
                     Some(type_name) => write!(w, "{}", type_name)?,
                     None => write!(w, "<uninterned:{}>", ty)?,
                 }
