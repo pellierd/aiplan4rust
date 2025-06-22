@@ -73,7 +73,7 @@ pub struct Ast {
     root: Box<AstNode>,
 
     /// String interner used during parsing.
-    context: StringInterner,
+    interner: StringInterner,
 
     /// Name or identifier for the source of the parsed AST.
     source_name: String,
@@ -88,18 +88,18 @@ impl Ast {
     /// # Arguments
     ///
     /// - `root`: The root node of the AST.
-    /// - `context`: A [`StringInterner`] used to resolve interned content within the AST.
+    /// - `interner`: A [`StringInterner`] used to resolve interned content within the AST.
     /// - `source_name`: A human-readable label for the origin of the AST.
     /// - `generated_at`: A [`SystemTime`] indicating when the AST was built.
     pub fn new(
         root: Box<AstNode>,
-        context: StringInterner,
+        interner: StringInterner,
         source_name: String,
         generated_at: SystemTime,
     ) -> Self {
         Self {
             root,
-            context,
+            interner,
             source_name,
             generated_at,
         }
@@ -107,7 +107,7 @@ impl Ast {
     pub fn default() -> Self {
         Ast {
             root: Box::new(AstNode::default()),         // suppose que AstNode impl Default
-            context: StringInterner::new(),             // interner vide
+            interner: StringInterner::new(),             // interner vide
             source_name: String::new(),                  // chaîne vide par défaut
             generated_at: SystemTime::now(),             // horodatage actuel
         }
@@ -125,7 +125,7 @@ impl Ast {
 
     /// Returns a reference to the string interner used during parsing.
     pub fn interner(&self) -> &StringInterner {
-        &self.context
+        &self.interner
     }
 
     /// Returns the name or label of the source that generated this AST.
@@ -149,11 +149,11 @@ impl Ast {
     }
 
     pub fn get_str(&self, ident: Ident) -> Option<&str> {
-        self.context.get_str(ident)
+        self.interner.get_str(ident)
     }
 
     pub fn expect_str(&self, ident: Ident) -> Result<&str, ParserInternalError> {
-        self.context.try_str(ident)
+        self.interner.try_str(ident)
     }
 
     /// Finds the first node of the specified kind anywhere in the AST (immutable).
@@ -190,7 +190,7 @@ impl fmt::Display for Ast {
 
         for (node, depth) in self.preorder() {
             let indent = "  ".repeat(depth);
-            let content = node.content().display_with_context(&self.context);
+            let content = node.content().display_with_context(&self.interner);
             writeln!(f, "{}- Kind: {:?}, Content: {}", indent, node.kind(), content)?;
         }
 
