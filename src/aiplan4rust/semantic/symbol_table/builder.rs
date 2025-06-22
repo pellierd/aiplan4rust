@@ -1,12 +1,11 @@
 use std::mem;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId, NodeRef};
+use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeRef};
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, SymbolKind, TypedSymbol, Usage};
+use crate::aiplan4rust::semantic::symbol::SymbolSource;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, TypedSymbol, Usage};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::interner::StringInterner;
 
 /// `Comparator` is an enum that represents the different types of comparisons
 /// that can be made between values, specifically for validating the number of children
@@ -42,122 +41,106 @@ enum Comparator {
     GreaterEq, // Greater than or equal
 }
 
-pub struct SymbolTableBuilder<'a> {
+/// A builder for constructing a [`SymbolTable`] from an abstract syntax tree (AST).
+///
+/// `SymbolTableBuilder` encapsulates the logic for traversing an [`ArenaAst`]
+/// and populating a `SymbolTable` with symbols extracted from the tree. It
+/// identifies the root node type (e.g., Domain or Problem), determines the source
+/// of the symbol table, and initializes it accordingly.
+///
+/// This pattern separates the concerns of AST traversal and symbol table
+/// construction, allowing better testability and error handling.
+///
+/// # Example
+///
+/// ```rust
+/// let mut builder = SymbolTableBuilder::new();
+/// let symbol_table = builder.build(&ast)?;
+/// ```
+pub struct SymbolTableBuilder {
     table: SymbolTable,
-    ast: Option<&'a ArenaAst>,
 }
 
-impl<'a> SymbolTableBuilder<'a> {
-    /// Creates a new `SymbolTableBuilder` instance.
+impl SymbolTableBuilder {
+    /// Creates a new `SymbolTableBuilder` with an empty symbol table.
+    ///
+    /// The internal table is initialized with [`SymbolSource::Unknown`] as the default source.
+    /// The actual source (Domain or Problem) will be determined during the build process.
     pub fn new() -> Self {
         SymbolTableBuilder {
             table: SymbolTable::new(SymbolSource::Unknown),
-            ast: None,
         }
     }
 
+    /// Returns a shared reference to the internal symbol table.
+    ///
+    /// This is mainly used internally to inspect the current state during construction.
     fn table(&self) -> &SymbolTable {
         &self.table
     }
 
+    /// Returns a mutable reference to the internal symbol table.
+    ///
+    /// This allows the table to be modified while inserting symbols during the build process.
     fn table_mut(&mut self) -> &mut SymbolTable {
         &mut self.table
     }
 
-    #[allow(dead_code)]
-    fn set_table(&mut self, table: SymbolTable) {
-        self.table = table;
-    }
-
-    /// Récupère un nœud AST depuis l'arène à partir de son ID, ou retourne une erreur si absent.
-    fn try_node_ref(&self, id: NodeId) -> Result<NodeRef<'a>, ParserInternalError> {
-        // Vérifie que l'arène est initialisée
-        let arena = self.ast.ok_or_else(|| {
-            ParserInternalError::new("Arena is not initialized".to_string())
-        })?;
-
-        let node_ref = arena.try_node_ref(id)?;
-
-        // Retourne un NodeRef avec id et node
-        Ok(node_ref)
-    }
-
-    /// Extracts a `SymbolRef` (identifier + kind) from the given AST node reference.
+    /// Returns the internal symbol table, consuming it from the builder.
     ///
-    /// This function analyzes the kind of the node referenced by `node_ref` and determines
-    /// whether it corresponds to a recognizable symbol in the PDDL or HDDL grammar. It then returns
-    /// a [`SymbolRef`] which combines the symbol's identifier with its semantic kind.
-    ///
-    /// It supports both basic symbol declarations (e.g., predicates, constants, actions),
-    /// and structured constructs (e.g., `AtomicFormula`, `FunctionTerm`, and `Task`) which require
-    /// resolving the symbol from their first child node.
-    ///
-    /// Internally, this function delegates to the underlying AST context.
-    ///
-    /// # Arguments
-    ///
-    /// * `node_ref` - A reference to a specific node in the AST from which to extract symbol information.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(SymbolRef)` – If a valid symbol reference could be extracted.
-    /// * `Err(ParserInternalError)` – If the node kind is unrecognized, improperly formed,
-    ///   or violates expected structure (e.g. missing children).
-    ///
-    /// # Supported Kinds
-    ///
-    /// - **Simple symbols:**
-    ///   - `DomainName`, `PrimitiveType`, `ProblemName`, `Constant`, `Variable`,
-    ///     `FunctionSymbol`, `Predicate`, `ActionSymbol`, `DASymbol`,
-    ///     `MethodSymbol`, `TaskSymbol`, `TaskID`
-    ///
-    /// - **Structured symbols:**
-    ///   - `AtomicFormula`, `FunctionTerm`, `Task`
-    ///     → resolved through their first child which must be:
-    ///       `Predicate`, `FunctionSymbol`, `TaskSymbol`, or `TotalTime` (special case)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - The node kind is not supported as a symbol.
-    /// - The node requires children and has none.
-    /// - The first child of a structured node is of an invalid kind.
+    /// This method moves out the current `SymbolTable` from the builder,
+    /// leaving an empty default-initialized table in its place.
     ///
     /// # Example
     ///
+    /// ```rust
+    /// let mut builder = SymbolTableBuilder::new();
+    /// // build or modify the table...
+    /// let table = builder.table_table();
+    /// // builder.table is now empty/reset
     /// ```
-    /// let node_ref = ast.get_node_ref_by_id(id)?;
-    /// let symbol_ref = analyzer.try_symbol_ref(node_ref)?;
-    /// println!("symbol: {} {:?}", symbol_ref.ident(), symbol_ref.kind());
-    /// ```
-    fn try_symbol_ref(
-        &self,
-        node_ref: NodeRef,
-    ) -> Result<SymbolRef, ParserInternalError> {
-        self.ast.unwrap().try_symbol_ref(node_ref.id())
+    pub fn take_table(&mut self) -> SymbolTable {
+        mem::take(&mut self.table)
     }
 
-
-    pub fn build(&mut self, syntax_tree: &'a ArenaAst) -> Result<SymbolTable, ParserInternalError> {
-        // Determine the root kind (Domain or Problem) and set the source in the symbol table
-        self.ast = Some(syntax_tree);
-
-        // Récupérer la racine de l'AST, gérer le cas où elle n'existe pas
-        let root_ref = syntax_tree.root_node_ref().ok_or_else(|| {
+    /// Builds a complete [`SymbolTable`] from the given abstract syntax tree.
+    ///
+    /// This method:
+    /// - Retrieves the root node of the AST.
+    /// - Ensures that the root is either a `Domain` or `Problem`.
+    /// - Sets the table's source accordingly.
+    /// - Initializes the table using the AST contents.
+    ///
+    /// # Arguments
+    ///
+    /// * `ast` - A reference to the [`ArenaAst`] representing the parsed syntax tree.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`ParserInternalError`] if:
+    /// - The AST has no root node.
+    /// - The root node is not a valid entry point (Domain or Problem).
+    /// - An error occurs during symbol initialization.
+    ///
+    /// # Returns
+    ///
+    /// A fully initialized `SymbolTable` on success.
+    pub fn build(&mut self, ast: &ArenaAst) -> Result<SymbolTable, ParserInternalError> {
+        // Retrieve the root of the AST and handle the case where it is missing
+        let root_ref = ast.root_node_ref().ok_or_else(|| {
             ParserInternalError::new("AST root node is missing".to_string())
         })?;
         let root_node = root_ref.node();
+
+        // Determine the root kind and set the source of the symbol table
         match root_node.kind() {
             AstKind::Domain => {
-                // Mark the table as coming from a domain
                 self.table_mut().set_source(SymbolSource::Domain);
             }
             AstKind::Problem => {
-                // Mark the table as coming from a problem
                 self.table_mut().set_source(SymbolSource::Problem);
             }
             _ => {
-                // Return an error if the root node kind is unexpected
                 return Err(ParserInternalError::new(format!(
                     "Invalid AST: root node is not a Domain or Problem, found: {}",
                     root_node.kind()
@@ -165,49 +148,94 @@ impl<'a> SymbolTableBuilder<'a> {
             }
         }
 
-        // Initialize symbols from the AST root node
-        self.initialize_from_ast(root_ref)?;
+        // Traverse the AST and initialize the symbol table
+        self.initialize_from_ast(root_ref, ast)?;
 
-        // Return the built symbol table, transferring ownership
-        Ok(mem::take(&mut self.table))
+        // Return the constructed symbol table
+        Ok(std::mem::take(&mut self.table))
     }
 
-    /// This function initializes the symbol table based on the Abstract Syntax Tree (AST) nodes.
-    /// It processes different AST kinds and either adds declaration symbols, symbol usages, or
-    /// handles specific cases like actions and atomic formulas.
+    /// Initializes the symbol table by processing nodes from the Abstract Syntax Tree (AST).
+    ///
+    /// This function recursively traverses the AST starting from the given `node_ref`,
+    /// handling different kinds of AST nodes to populate the symbol table appropriately.
+    /// Depending on the node kind, it may add symbol declarations, register symbol usages,
+    /// or perform special handling for constructs such as actions and atomic formulas.
     ///
     /// # Arguments
-    /// * `ast_old` - A reference to the AST node to be processed. It can be a variety of types
-    ///   depending on the node.
-    /// * `scope` - The scope in which the symbol is being declared or used. It helps manage
-    ///   variable or function visibility.
+    ///
+    /// * `node_ref` - A reference to the AST node from which initialization begins.
+    ///                This node acts as the root for the current scope of symbol processing.
+    /// * `ast` - A reference to the entire AST (`ArenaAst`), used for node lookups and context.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(())` on success, or a [`ParserInternalError`] if an error occurs during
+    /// symbol initialization, such as invalid node types or semantic errors.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut builder = SymbolTableBuilder::new();
+    /// let root_node_ref = ast.root_node_ref().unwrap();
+    /// builder.initialize_from_ast(root_node_ref, &ast)?;
+    /// ```
     fn initialize_from_ast(
         &mut self,
-        ast: NodeRef,
+        node_ref: NodeRef,
+        ast: &ArenaAst,
     ) -> Result<(), ParserInternalError> {
-        self.init_from(ast, Scope::new(ast.id(), None))?;
+        self.init_from(node_ref, ast, Scope::new(node_ref.id(), None))?;
         Ok(())
     }
 
-    /// This function initializes the symbol table based on the Abstract Syntax Tree (AST) nodes.
-    /// It processes different AST kinds and either adds declaration symbols, symbol usages, or
-    /// handles specific cases like actions and atomic formulas.
+    /// Recursively initializes the symbol table by processing AST nodes.
+    ///
+    /// This function examines the kind of the AST node referenced by `node_ref`
+    /// and performs symbol table operations accordingly. It handles declarations,
+    /// symbol usages, and special AST constructs such as actions, formulas, and HTN tasks.
+    /// For unhandled node kinds, it recursively processes their child nodes.
     ///
     /// # Arguments
-    /// * `ast_old` - A reference to the AST node to be processed. It can be a variety of types
-    ///   depending on the node.
-    /// * `index` - The index of the AST entry, used to uniquely identify the node in the symbol table.
-    /// * `index_table` - A reference to the table that maps AST entries to their respective indices.
-    /// * `scope` - The scope in which the symbol is being declared or used. It helps manage
-    ///   variable or function visibility, ensuring that symbols are correctly handled in the context
-    ///   of the program structure.
+    ///
+    /// * `node_ref` - The reference to the AST node currently being processed.
+    /// * `ast` - The full abstract syntax tree (`ArenaAst`) that contains the node.
+    /// * `scope` - The current scope, which manages symbol visibility and hierarchical
+    ///   structure within the AST.
+    ///
+    /// # Behavior by AST node kind
+    ///
+    /// - `DomainName`, `ProblemName`: Add declaration symbols without further recursion.
+    /// - `TypedList`: Initialize symbol entries with specialized typed list logic.
+    /// - `PrimitiveType`, `Constant`, `Variable`: Register symbols as usages.
+    /// - `ActionDef`, `DurativeActionDef`: Initialize action-related symbols.
+    /// - `AtomicFormulaSkeleton`: Special symbol table handling for formula skeletons.
+    /// - `AtomicFormula`, `FunctionTerm`: Recursively initialize atomic formulas and function terms.
+    /// - `Forall`, `Exists`: Handle quantified expressions and logical scopes.
+    /// - `MethodDef`, `TaskDef`: Initialize HTN method and task definitions.
+    /// - `Task`, `TaggedTask`: Handle HTN individual tasks and tagged tasks.
+    /// - `TaskOrderingConstraint`: Initialize constraints between HTN tasks.
+    /// - Other nodes: Recursively process all child nodes.
     ///
     /// # Returns
-    /// * `Result<(), ParserInternalError>` - Returns `Ok(())` on success, or an error if any problem
-    ///   is encountered during symbol table initialization.
+    ///
+    /// Returns `Ok(())` if all nodes and symbols are successfully processed, or
+    /// a `ParserInternalError` if an error occurs at any step.
+    ///
+    /// # Errors
+    ///
+    /// This method returns an error if symbol registration or node processing fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut builder = SymbolTableBuilder::new();
+    /// builder.init_from(root_node_ref, &ast, initial_scope)?;
+    /// ```
     fn init_from(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Determine the type of the AST node and apply appropriate processing
@@ -215,79 +243,78 @@ impl<'a> SymbolTableBuilder<'a> {
             // Handle declarations: These simply register symbols without additional processing
             AstKind::DomainName
             | AstKind::ProblemName
-            //| AstKind::Requirement
             => {
-                self.add_declaration_symbol(node_ref, scope.clone(), None, None)?;
+                self.add_declaration_symbol(node_ref, ast, scope.clone(), None, None)?;
             }
 
             // Handle typed lists: Requires specialized initialization logic
             AstKind::TypedList => {
-                self.init_from_typed_list(node_ref, scope.clone())?;
+                self.init_from_typed_list(node_ref, ast, scope.clone())?;
             }
 
             // Handle primitive types, constants, and variables: Register them as symbol usages
             AstKind::PrimitiveType
             | AstKind::Constant
             | AstKind::Variable => {
-                self.add_symbol_usage(node_ref, scope.clone())?;
+                self.add_symbol_usage(node_ref, ast, scope.clone())?;
             }
 
             // Handle action definitions
             AstKind::ActionDef => {
-                self.init_from_action_def(node_ref, scope.clone())?;
+                self.init_from_action_def(node_ref, ast, scope.clone())?;
             }
 
             // Handle durative actions, which include timing constraints
             AstKind::DurativeActionDef => {
-                self.init_from_durative_action_def(node_ref, scope.clone())?;
+                self.init_from_durative_action_def(node_ref, ast, scope.clone())?;
             }
 
             // Handle atomic formula skeletons: Requires custom symbol table handling
             AstKind::AtomicFormulaSkeleton => {
-                self.init_from_atomic_formula_skeleton(node_ref, scope.clone())?;
+                self.init_from_atomic_formula_skeleton(node_ref, ast, scope.clone())?;
             }
 
             // Handle atomic formulas and function terms: These require recursive processing
             AstKind::AtomicFormula | AstKind::FunctionTerm => {
-                self.init_from_atomic_formula(node_ref, scope.clone())?;
+                self.init_from_atomic_formula(node_ref, ast, scope.clone())?;
             }
 
             // Handle quantified expressions (`Forall` and `Exists`): Need special treatment for
             // logical scopes
             AstKind::Forall | AstKind::Exists => {
-                self.init_from_quantified_expression(node_ref, scope.clone())?;
+                self.init_from_quantified_expression(node_ref, ast, scope.clone())?;
             }
 
             // Handle hierarchical task network (HTN) method definitions
             AstKind::MethodDef => {
-                self.init_from_method_def(node_ref, scope.clone())?;
+                self.init_from_method_def(node_ref, ast, scope.clone())?;
             }
 
             // Handle task definitions in HTN planning
             AstKind::TaskDef => {
-                self.init_from_task_def(node_ref, scope.clone())?;
+                self.init_from_task_def(node_ref, ast, scope.clone())?;
             }
 
             // Handle individual task references in HTN planning
             AstKind::Task => {
-                self.init_from_atomic_formula(node_ref, scope.clone())?;
+                self.init_from_atomic_formula(node_ref, ast, scope.clone())?;
             }
 
             // Handle tagged tasks, which include additional metadata in HTN planning
             AstKind::TaggedTask => {
-                self.init_from_tagged_task(node_ref, scope.clone())?;
+                self.init_from_tagged_task(node_ref, ast, scope.clone())?;
             }
 
             // Handle task ordering constraints in HTN planning
             AstKind::TaskOrderingConstraint => {
-                self.init_from_task_ordering_constraint(node_ref, scope.clone())?;
+                self.init_from_task_ordering_constraint(node_ref, ast, scope.clone())?;
             }
 
             // Default case: If the AST node is not explicitly handled, process its children
             // recursively
             _ => {
                 for child in node_ref.node().children() {
-                    self.init_from(self.try_node_ref(*child)?, scope.clone())?;
+                    self.init_from(ast.try_node_ref(*child)?, ast, scope.clone())?;
                 }
             }
         }
@@ -296,26 +323,44 @@ impl<'a> SymbolTableBuilder<'a> {
         Ok(())
     }
 
-    /// Adds a new symbol declaration to the symbol table. This function first extracts
-    /// the symbol name and kind from the AST node using the `extract_symbol_info` function.
-    /// It then verifies the AST node's kind using `assert_ast_kind` to ensure it's one of the valid types.
-    /// If the symbol is already present, it adds a new declaration to the existing symbol;
-    /// otherwise, it creates a new symbol and inserts it into the symbol table.
+    /// Adds a new symbol declaration to the symbol table.
+    ///
+    /// This function extracts the symbol's name and kind from the given AST node by
+    /// using `try_symbol_ref`. It first asserts that the AST node's kind is valid for a
+    /// declaration using `assert_ast_kind`. Then, it either updates an existing symbol
+    /// in the symbol table by adding a new declaration or creates a new symbol with
+    /// the declaration and inserts it into the table.
     ///
     /// # Arguments
     ///
-    /// * `ast_old` - A reference to a boxed `Ast` object representing the AST node.
-    /// * `scope` - The current scope in which the symbol is declared.
-    /// * `types` - Optional vector of types associated with the declaration.
-    /// * `arguments` - Optional vector of typed symbols representing the arguments of the symbol.
+    /// * `node_ref` - A reference to the AST node representing the symbol declaration.
+    /// * `ast` - The abstract syntax tree (`ArenaAst`) containing the node.
+    /// * `scope` - The current scope in which the symbol is declared, affecting visibility.
+    /// * `types` - Optional vector of identifier types associated with the symbol declaration.
+    /// * `arguments` - Optional vector of typed symbols representing the symbol's arguments.
     ///
     /// # Returns
     ///
-    /// * `Ok(())` - If the symbol is successfully added.
-    /// * `Err(ParserInternalError)` - If any error occurs during the symbol extraction or insertion process.
+    /// * `Ok(())` - When the symbol declaration is successfully added to the symbol table.
+    /// * `Err(ParserInternalError)` - If the AST node kind is invalid, symbol extraction fails,
+    ///   or insertion into the table encounters an error.
+    ///
+    /// # Panics
+    ///
+    /// This function will return an error if the AST node kind does not match expected
+    /// declaration kinds.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut builder = SymbolTableBuilder::new();
+    /// let node_ref = ast.try_node_ref(node_id)?;
+    /// builder.add_declaration_symbol(node_ref, &ast, current_scope, None, None)?;
+    /// ```
     fn add_declaration_symbol(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
         types: Option<Vec<Ident>>,
         arguments: Option<Vec<TypedSymbol>>,
@@ -327,7 +372,6 @@ impl<'a> SymbolTableBuilder<'a> {
                 AstKind::DomainName,
                 AstKind::PrimitiveType,
                 AstKind::ProblemName,
-                //AstKind::Requirement,
                 AstKind::Constant,
                 AstKind::Variable,
                 AstKind::Predicate,
@@ -342,7 +386,7 @@ impl<'a> SymbolTableBuilder<'a> {
         )?;
 
         // Extract the symbol information from the AST
-        let symbol_ref = self.try_symbol_ref(node_ref)?;
+        let symbol_ref = ast.try_symbol_ref(node_ref)?;
         let name = symbol_ref.ident();
         let kind = symbol_ref.kind();
 
@@ -364,25 +408,46 @@ impl<'a> SymbolTableBuilder<'a> {
         Ok(())
     }
 
-    /// Adds the usage of a symbol in the given AST node, updating or inserting it into the symbol
-    /// table.
+    /// Adds the usage of a symbol found in the given AST node to the symbol table.
     ///
-    /// This function handles different kinds of AST nodes (such as domain names, problem names,
-    /// requirements, constants, variables, and formulas) by extracting the relevant symbol
-    /// information. It checks if the symbol already exists in the symbol table, adding the usage
-    /// information to it, or creates a new symbol entry if it doesn't exist.
+    /// This function processes AST nodes representing symbol usages, such as domain names,
+    /// problem names, constants, variables, atomic formulas, function terms, and tasks.
+    /// It first validates the AST node kind to ensure it is appropriate for symbol usage.
+    /// For certain node kinds that represent complex expressions (e.g., atomic formulas),
+    /// it also verifies the presence of at least one child node.
     ///
-    /// # Parameters
-    /// - `ast_old`: The AST node representing the symbol to be added or updated.
-    /// - `scope`: The scope in which the symbol is being used.
+    /// The symbol's identifier and kind are extracted, and the function then updates
+    /// the symbol table: if the symbol already exists, the usage information is appended;
+    /// otherwise, a new symbol entry is created with the usage data.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_ref` - A reference to the AST node representing the symbol usage.
+    /// * `ast` - The full abstract syntax tree (`ArenaAst`) containing the node.
+    /// * `scope` - The scope context in which the symbol is used, which controls visibility.
     ///
     /// # Returns
-    /// - `Ok(())` if the symbol usage was added successfully.
-    /// - `Err(ParserInternalError)` if an error occurred, such as an unexpected AST node type or
-    ///   invalid child node structure.
+    ///
+    /// * `Ok(())` - Indicates the symbol usage was successfully recorded.
+    /// * `Err(ParserInternalError)` - Returned if the AST node kind is invalid, the node’s
+    ///   structure is incorrect (e.g., missing children), or if symbol extraction fails.
+    ///
+    /// # Panics
+    ///
+    /// The function will return an error if the AST node kind does not match any of the
+    /// expected kinds or if required children are missing.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let mut builder = SymbolTableBuilder::new();
+    /// let node_ref = ast.try_node_ref(node_id)?;
+    /// builder.add_symbol_usage(node_ref, &ast, current_scope)?;
+    /// ```
     fn add_symbol_usage(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST node is of a valid kind for symbol usage.
@@ -408,7 +473,7 @@ impl<'a> SymbolTableBuilder<'a> {
         }
 
         // Extract symbol name and type based on the AST node's kind.
-        let symbol_ref= self.try_symbol_ref(node_ref)?;
+        let symbol_ref= ast.try_symbol_ref(node_ref)?;
         let name = symbol_ref.ident();
         let kind = symbol_ref.kind();
 
@@ -428,42 +493,52 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes the symbol table from a `TypedList` AST node.
     ///
-    /// This function processes a `TypedList` node in the AST, adding its elements (such as types,
-    /// constants, variables, etc.)
-    /// to the symbol table. It handles the node in three cases:
-    /// 1. No children: It returns early without processing.
-    /// 2. Exactly two children: It processes them without recursion.
-    /// 3. More than two children: It recursively processes additional `TypedList` nodes.
+    /// This function processes a `TypedList` node in the AST by iterating over its children,
+    /// which represent typed elements such as types, constants, variables, or other symbols.
+    /// It handles the node structure by:
+    /// - Returning early if there are no children (nothing to process).
+    /// - Recursively processing each child node as a typed item.
     ///
-    /// # Parameters
-    /// - `ast_old`: A reference to a boxed `Ast` node of type `TypedList`.
-    /// - `scope`: The scope in which the symbol table is being initialized.
+    /// # Arguments
+    ///
+    /// * `node_ref` - A reference to the `TypedList` AST node to process.
+    /// * `ast` - The full abstract syntax tree (`ArenaAst`) containing the node.
+    /// * `scope` - The current scope within which the symbols are being initialized.
     ///
     /// # Returns
-    /// - `Ok(())`: If all nodes are processed successfully and the symbol table is updated.
-    /// - `Err(ParserInternalError)`: If there is an unexpected AST node or an invalid structure
-    ///   encountered.
     ///
-    /// # Error Handling
-    /// If the function encounters an unexpected AST structure or node type (such as a missing child
-    /// or an unsupported node type), it will return a `ParserInternalError` with a description of
-    /// the problem.
+    /// * `Ok(())` if all children are successfully processed and the symbol table is updated.
+    /// * `Err(ParserInternalError)` if the node is not of the expected kind or if any child node
+    ///   fails to process correctly.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the AST node kind is not `TypedList` or if any of the child nodes cannot
+    /// be processed as a typed item.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// let typed_list_node = ast.try_node_ref(node_id)?;
+    /// builder.init_from_typed_list(typed_list_node, &ast, current_scope)?;
+    /// ```
     fn init_from_typed_list(
         &mut self,
-        ast: NodeRef,
+        node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the expected type 'TypedList'
-        Self::assert_ast_kind(ast.node(), &[AstKind::TypedList])?;
+        Self::assert_ast_kind(node_ref.node(), &[AstKind::TypedList])?;
 
-        let children = ast.node().children();
+        let children = node_ref.node().children();
 
         if children.is_empty() {
             return Ok(());
         }
 
         for typed_item in children.iter() {
-            self.init_from_typed_item(self.try_node_ref(*typed_item)?, scope.clone())?;
+            self.init_from_typed_item(ast.try_node_ref(*typed_item)?, ast, scope.clone())?;
         }
 
         Ok(())
@@ -471,54 +546,60 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes symbol declarations from a `TypedItem` syntax node.
     ///
-    /// A `TypedItem` node typically represents a declaration where a list of symbols (constants or
-    /// variables) are associated with a type (e.g., `?x - type`). This function handles parsing
-    /// both the symbol list and the type annotation, and registers the symbols in the internal
-    /// symbol table.
+    /// A `TypedItem` node typically represents a declaration where a list of symbols (e.g.,
+    /// constants or variables) is associated with a type (e.g., `?x ?y - location`). This function
+    /// parses both the symbol list and the type annotation and registers the symbols in the
+    /// internal symbol table.
     ///
     /// # Parameters
-    /// - `typed_item`: A reference to the `SyntaxNode` representing the `TypedItem`.
-    /// - `scope`: The current `Scope` in which the symbols are declared. This is cloned when needed
-    ///   to preserve scoping across recursive calls.
+    ///
+    /// - `node_ref`: A reference to the `TypedItem` AST node to process.
+    /// - `ast`: The full abstract syntax tree (`ArenaAst`) containing the node.
+    /// - `scope`: The current scope in which the symbols are declared. This is cloned as needed
+    ///   to maintain correct scoping during recursive calls.
     ///
     /// # Behavior
-    /// - The function first ensures the node is of kind `TypedItem`.
-    /// - It retrieves the children of the node:
-    ///     - If there is only one child, it is treated as an untyped declaration (empty type
-    ///       vector).
-    ///     - If there are two children, the second is parsed to extract the associated types.
-    ///     - Any other number of children is treated as an error.
-    /// - The first child (the symbol list) is then processed with the extracted types.
-    /// - Each symbol in the list is added to the internal symbol table with the given scope and
-    ///   types.
+    ///
+    /// - Verifies that the node kind is `TypedItem`.
+    /// - Extracts the children of the node:
+    ///   - If there is only one child, treats it as an untyped declaration (empty type list).
+    ///   - If there are exactly two children, parses the second child to extract the associated
+    ///     types.
+    ///   - Returns an error if the number of children is anything other than 1 or 2.
+    /// - Processes the first child as the list of symbols to be declared, associating them with the
+    ///   extracted types.
+    /// - Adds each symbol to the symbol table with the given scope and types.
     ///
     /// # Errors
-    /// - Returns `ParserInternalError` if:
-    ///     - The node is not a `TypedItem`.
-    ///     - The number of children is invalid (neither 1 nor 2).
-    ///     - Parsing the type fails.
-    ///     - Inserting the declaration fails (e.g., due to a duplicate symbol).
+    ///
+    /// Returns `ParserInternalError` if:
+    /// - The node is not of kind `TypedItem`.
+    /// - The number of children is invalid (not 1 or 2).
+    /// - Parsing the type annotation fails.
+    /// - Adding the declarations to the symbol table fails.
     ///
     /// # Example
+    ///
     /// ```text
-    /// (?x ?y - location)      => symbols: [?x, ?y], type: location
-    /// (?z)                    => symbol: [?z], no type
+    /// (?x ?y - location)  // symbols: ?x, ?y; type: location
+    /// (?z)                // symbol: ?z; no associated type
     /// ```
     fn init_from_typed_item(
         &mut self,
-        typed_item: NodeRef,
+        node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the node is of the expected kind
-        Self::assert_ast_kind(typed_item.node(), &[AstKind::TypedItem])?;
+        Self::assert_ast_kind(node_ref.node(), &[AstKind::TypedItem])?;
 
         // Get its children
-        let children = typed_item.node().children();
+        let children = node_ref.node().children();
 
         // Match on the number of children to extract the types or fallback to an empty vector
         let types = match children.len() {
             1 => Vec::new(),
-            2 => self.init_from_type(self.try_node_ref(children[1])?, scope.clone())?,
+            2 => self.init_from_type(ast.try_node_ref(children[1])?, ast, scope.clone())?,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "TypedItem node has unexpected number of children: {}",
@@ -527,40 +608,45 @@ impl<'a> SymbolTableBuilder<'a> {
             }
         };
         // Process the first element of the pair
-        self.init_from_typed_item_elements(self.try_node_ref(children[0])?, scope, types)
+        self.init_from_typed_item_elements(ast.try_node_ref(children[0])?, ast, scope, types)
     }
 
-    /// Helper function to process an individual element of the TypedList.
+    /// Helper function to process an individual element of the `TypedList`.
     ///
-    /// This function adds the element to the symbol table based on its type (e.g., PrimitiveType,
-    /// Constant, Variable, etc.). It can also handle nested elements like AtomicFunctionSkeleton.
-    ///
-    /// # Parameters
-    /// - `element`: The AST node representing the element (could be PrimitiveType, Constant, etc.).
-    /// - `scope`: The scope in which the symbol table is being updated.
-    /// - `types`: The types associated with the element.
-    /// Helper function to process an individual element of the TypedList.
-    ///
-    /// This function adds the element to the symbol table based on its type (e.g., PrimitiveType,
-    /// Constant, Variable, etc.). It can also handle nested elements like AtomicFunctionSkeleton.
+    /// This function adds the element to the symbol table based on its type, such as
+    /// `PrimitiveType`, `Constant`, `Variable`, or handles nested elements like
+    /// `AtomicFunctionSkeleton`.
     ///
     /// # Parameters
-    /// - `element`: The AST node representing the element (could be PrimitiveType, Constant, etc.).
-    /// - `scope`: The scope in which the symbol table is being updated.
-    /// - `types`: The types associated with the element.
+    ///
+    /// - `node_ref`: The AST node representing the element to process. This node is expected
+    ///   to be one of the accepted kinds (e.g., `PrimitiveType`, `Constant`, `Variable`, or `AtomicFunctionSkeleton`).
+    /// - `ast`: The full abstract syntax tree (`ArenaAst`) that contains the node.
+    /// - `scope`: The current scope in which the symbol is being declared or used.
+    /// - `types`: A vector of type identifiers associated with the element.
+    ///
+    /// # Behavior
+    ///
+    /// - Validates that the AST node kind is one of the expected types.
+    /// - If the element is a constant, variable, or primitive type, it adds a declaration symbol
+    ///   to the symbol table with the provided types.
+    /// - If the element is an atomic function skeleton, it recursively initializes it accordingly.
+    /// - The function assumes all other node kinds are invalid and will panic if encountered.
+    ///
+    /// # Returns
+    ///
+    /// - Returns `Ok(())` on successful processing.
+    /// - Returns an error if the AST node kind is invalid or any symbol table operation fails.
     fn init_from_typed_item_elements(
         &mut self,
-        elt: NodeRef,
+        node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
         types: Vec<Ident>,
     ) -> Result<(), ParserInternalError> {
-        //Self::assert_ast_kind(elements, &[AstKindOld::TypedItemElements])?;
-
-
-        //for elt in elements.children() {
-        // Vérifie que l'élément est d'un type AST attendu
+        // Validate that the node kind is one of the expected AST kinds
         Self::assert_ast_kind(
-            elt.node(),
+            node_ref.node(),
             &[
                 AstKind::PrimitiveType,
                 AstKind::Constant,
@@ -569,91 +655,87 @@ impl<'a> SymbolTableBuilder<'a> {
             ],
         )?;
 
-        match elt.node().kind() {
+        match node_ref.node().kind() {
             AstKind::PrimitiveType | AstKind::Constant | AstKind::Variable => {
-                // Pour les constantes et variables, on ajoute simplement la déclaration
-                self.add_declaration_symbol(elt, scope.clone(), Some(types.clone()), None)?;
+                // For constants and variables, add a declaration symbol with the provided types
+                self.add_declaration_symbol(node_ref, ast, scope.clone(), Some(types.clone()), None)?;
             }
 
             AstKind::AtomicFunctionSkeleton => {
-                // Appel récursif pour les squelettes de fonction atomique
-                self.init_from_atomic_function_skeleton(elt, scope.clone(), types.clone())?;
+                // Recursively initialize atomic function skeleton elements
+                self.init_from_atomic_function_skeleton(node_ref, ast, scope.clone(), types.clone())?;
             }
 
             _ => {
-                // Ne devrait jamais arriver grâce au assert_ast_kind
-                unreachable!("Unexpected AST node type: {:?}", elt.node().kind());
+                // This should never happen due to the earlier assertion
+                unreachable!("Unexpected AST node type: {:?}", node_ref.node().kind());
             }
         }
-        //}
 
         Ok(())
     }
 
     /// Initializes the symbol table for an atomic function skeleton.
     ///
-    /// This function processes an AST node of type `AtomicFunctionSkeleton` and performs
-    /// the following tasks:
-    /// - Validates that the AST node is of type `AtomicFunctionSkeleton`.
-    /// - Ensures the node has at least two children: the function symbol and the list of arguments.
-    /// - Validates that the first child is of type `FunctionSymbol` and extracts it.
-    /// - Creates a new scope for the function and initializes the symbol table for the function's
-    ///   arguments.
-    /// - Extracts the arguments and calculates their arity.
-    /// - Adds the function declaration to the symbol table with the provided types and arguments.
+    /// This function processes an AST node of kind `AtomicFunctionSkeleton` by performing several key steps:
+    /// - Verifies that the AST node is of the correct kind (`AtomicFunctionSkeleton`).
+    /// - Checks that the node has at least two children: the function symbol and the list of arguments.
+    /// - Validates that the first child is a `FunctionSymbol` node.
+    /// - Creates a new nested scope for the function and initializes symbols for its arguments.
+    /// - Extracts the arguments and computes their arity.
+    /// - Adds a function declaration to the symbol table with the associated types and arguments.
     ///
     /// # Parameters
-    /// - `ast_old`: A reference to a boxed `Ast` node of type `AtomicFunctionSkeleton`.
-    /// - `scope`: The current scope in which the function is defined. This scope is used for symbol
-    ///   resolution and declarations.
-    /// - `types`: A vector of strings representing the types associated with the function.
+    /// - `node_ref`: The AST node reference corresponding to the `AtomicFunctionSkeleton`.
+    /// - `ast`: Reference to the complete AST (`ArenaAst`) containing the node.
+    /// - `scope`: The current scope in which the function is declared; used for symbol resolution.
+    /// - `types`: A vector of type identifiers associated with the function.
     ///
     /// # Returns
-    /// - `Ok(())`: If the function is successfully processed and the symbol table is updated.
-    /// - `Err(ParserInternalError)`: If any validation fails (e.g., invalid AST node type or
-    ///   incorrect number of children).
+    /// - `Ok(())` on successful processing and symbol table update.
+    /// - `Err(ParserInternalError)` if any validation or symbol table operation fails, such as:
+    ///   - The node is not an `AtomicFunctionSkeleton`.
+    ///   - The node has fewer than two children.
+    ///   - The first child is not a `FunctionSymbol`.
     ///
     /// # Example
     /// ```rust
-    /// let ast_old = // ... get the AST node for AtomicFunctionSkeleton
-    /// let scope = // ... obtain the scope
+    /// let ast_node = /* obtain AtomicFunctionSkeleton node reference */;
+    /// let current_scope = /* current scope context */;
     /// let types = vec!["int".to_string(), "bool".to_string()];
-    /// let result = symbol_table.init_symbol_table_from_atomic_function_skeleton(&ast_old, scope, types);
+    ///
+    /// let result = symbol_table.init_from_atomic_function_skeleton(ast_node, &ast, current_scope, types);
     /// match result {
-    ///     Ok(_) => println!("Function initialized successfully"),
-    ///     Err(e) => eprintln!("Error: {:?}", e),
+    ///     Ok(()) => println!("Function initialized successfully"),
+    ///     Err(e) => eprintln!("Error initializing function: {:?}", e),
     /// }
     /// ```
     ///
     /// # Error Handling
-    /// If the function encounters an AST node that doesn't match the expected structure or if any
-    /// required components are missing, it will return a `ParserInternalError` with a message
-    /// specifying the problem. For example, if the first child of the `AtomicFunctionSkeleton` is
-    /// not a `FunctionSymbol`, an error will be raised detailing the encountered type.
+    /// The function returns a `ParserInternalError` describing any encountered issue, such as unexpected
+    /// AST node kinds or structural problems in the `AtomicFunctionSkeleton` node.
     ///
     /// # Notes
-    /// - This function assumes that the `init_symbol_table_from_typed_list` method handles the
-    ///   argument's type validation.
-    /// - The arguments' types and their arity are extracted and used to update the symbol table,
-    ///   ensuring proper symbol resolution.
-    /// - This method is part of a larger symbol table management system for function definitions
-    ///   and their scope resolution.
+    /// - Assumes `init_from_typed_list` correctly initializes and validates argument types.
+    /// - This function is integral to managing function symbol declarations and their scopes
+    ///   within the symbol table system.
     fn init_from_atomic_function_skeleton(
         &mut self,
-        ast: NodeRef,
+        node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
         types: Vec<Ident>,
     ) -> Result<(), ParserInternalError> {
         // Check that the AST node is of the expected type 'Function'
-        Self::assert_ast_kind(ast.node(), &[AstKind::AtomicFunctionSkeleton])?;
+        Self::assert_ast_kind(node_ref.node(), &[AstKind::AtomicFunctionSkeleton])?;
 
         // Ensure the node has at least two children (function symbol and arguments)
-        Self::assert_ast_children_number(ast.node(), 2, Comparator::GreaterEq)?;
+        Self::assert_ast_children_number(node_ref.node(), 2, Comparator::GreaterEq)?;
 
-        let children = ast.node().children();
+        let children = node_ref.node().children();
 
         // Retrieve the first child and validate it as a 'FunctionSymbol'
-        let functor_ref = self.try_node_ref(children[0])?;
+        let functor_ref = ast.try_node_ref(children[0])?;
         if *functor_ref.node().kind() != AstKind::FunctionSymbol {
             return Err(ParserInternalError::new(format!(
                 "First child of 'Function' must match the expected kind. Encountered: '{:?}'",
@@ -661,20 +743,22 @@ impl<'a> SymbolTableBuilder<'a> {
             )))
         }
 
-        let arguments = self.try_node_ref(children[1])?;
+        let arguments = ast.try_node_ref(children[1])?;
         // Initialize the symbol table for the arguments;
         self.init_from_typed_list(
             arguments,
-            Scope::new(ast.id(), Some(&scope)),
+            ast,
+            Scope::new(node_ref.id(), Some(&scope)),
         )?;
 
         // Extract the arguments and calculate the arity
         let arguments =
-            self.extract_arguments_from_typed_list(arguments)?;
+            self.extract_arguments_from_typed_list(arguments, ast)?;
 
         // Add the declaration to the symbol table
         self.add_declaration_symbol(
             functor_ref,
+            ast,
             scope.clone(),
             Some(types),
             Some(arguments),
@@ -685,39 +769,42 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes the symbol table for an action definition.
     ///
-    /// This function processes an `ActionDef`, `DurativeActionDef`, or `MethodDef` AST node.
-    /// It extracts the action name, parameters, and body, adding relevant symbols to the table.
+    /// This function processes an AST node representing an action or method definition, which can be
+    /// one of `ActionDef`, `DurativeActionDef`, or `MethodDef`. It extracts the action/method name,
+    /// parameters, and body, adding the appropriate symbols to the symbol table.
     ///
     /// # Parameters
-    /// - `ast_old`: The AST node representing the action definition.
-    /// - `index`: The index of the node in the AST table.
-    /// - `index_table`: The table containing all AST nodes.
-    /// - `scope`: The current scope in which the action is being defined.
+    /// - `node_ref`: The AST node reference corresponding to the action definition.
+    /// - `ast`: Reference to the AST (`ArenaAst`) containing the node.
+    /// - `scope`: The current scope in which the action or method is defined.
     ///
     /// # Returns
-    /// - `Ok(())` if the initialization succeeds.
-    /// - `Err(ParserInternalError)` if the AST structure is invalid.
+    /// - `Ok(())` if the initialization completes successfully.
+    /// - `Err(ParserInternalError)` if the AST node does not have the expected structure or kind.
     ///
     /// # AST Structure
-    /// The function expects the node to have exactly three children:
-    /// 1. **Name**: The action/method name, which is added as a declaration symbol.
+    /// The node must have exactly three children:
+    /// 1. **Name**: The identifier of the action or method, added as a declaration symbol.
     /// 2. **Parameters**: The parameter list, which is recursively processed.
-    /// 3. **Body**: The action/method body, which is recursively processed.
+    /// 3. **Body**: The body of the action or method, which is recursively processed.
     ///
     /// # Example
     /// ```rust
-    /// // Assuming `ast_old`, `index`, `index_table`, and `scope` are correctly initialized:
-    /// parser.init_from_action_def(&ast_old, index, &index_table, scope)?;
+    /// // Assuming `node_ref`, `ast`, and `scope` are correctly initialized:
+    /// symbol_table.init_from_action_def(node_ref, &ast, scope)?;
     /// ```
     ///
-    /// This function delegates to `init_from_definition` for common logic.
+    /// This function delegates the main work to `init_from_def`, passing in the expected node kinds,
+    /// expected number of children, and a flag indicating the presence of a body.
     fn init_from_action_def(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             node_ref,
+            ast,
             scope,
             &[
                 AstKind::ActionDef,
@@ -731,28 +818,41 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes the symbol table for a method definition.
     ///
-    /// This function ensures that the given AST node is a `MethodDef` and has
-    /// the expected number of children (name, parameters, and body). It then
-    /// processes these components accordingly.
+    /// This function verifies that the given AST node is of kind `MethodDef` and contains exactly
+    /// three children representing the method name, its parameters, and its body. It then processes
+    /// these components to update the symbol table accordingly.
     ///
-    /// # Arguments
-    ///
-    /// * `ast_old` - A reference to the AST entry representing the method definition.
-    /// * `index` - The index of the AST entry.
-    /// * `index_table` - A reference to the AST table containing all nodes.
-    /// * `scope` - The current scope in which the method definition resides.
+    /// # Parameters
+    /// - `node_ref`: The AST node reference corresponding to the method definition.
+    /// - `ast`: Reference to the AST (`ArenaAst`) that contains the node.
+    /// - `scope`: The current scope in which the method is defined.
     ///
     /// # Returns
+    /// - `Ok(())` if the initialization completes successfully.
+    /// - `Err(ParserInternalError)` if the node kind or structure is invalid.
     ///
-    /// Returns `Ok(())` if the initialization is successful, or a `ParserInternalError`
-    /// if an issue occurs.
+    /// # AST Structure
+    /// The node is expected to have three children:
+    /// 1. **Name**: The method's identifier, added as a declaration symbol.
+    /// 2. **Parameters**: The method parameters, recursively processed.
+    /// 3. **Body**: The method body, recursively processed.
+    ///
+    /// # Example
+    /// ```rust
+    /// // Assuming `node_ref`, `ast`, and `scope` are initialized:
+    /// symbol_table.init_from_method_def(node_ref, &ast, scope)?;
+    /// ```
+    ///
+    /// This function delegates the main processing to `init_from_def`.
     fn init_from_method_def(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             node_ref,
+            ast,
             scope,
             &[AstKind::MethodDef],
             3,    // MethodDef has 3 children (name, parameters, body)
@@ -762,28 +862,41 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes the symbol table for a durative action definition.
     ///
-    /// This function ensures that the given AST node is a `DurativeActionDef` and
-    /// has the expected number of children (name, parameters, and body). It then
-    /// processes these components accordingly.
+    /// This function verifies that the given AST node is of kind `DurativeActionDef` and contains
+    /// exactly three children representing the action's name, parameters, and body. It processes
+    /// these components to update the symbol table accordingly.
     ///
-    /// # Arguments
-    ///
-    /// * `ast_old` - A reference to the AST entry representing the durative action.
-    /// * `index` - The index of the AST entry.
-    /// * `index_table` - A reference to the AST table containing all nodes.
-    /// * `scope` - The current scope in which the durative action definition resides.
+    /// # Parameters
+    /// - `node_ref`: The AST node reference corresponding to the durative action definition.
+    /// - `ast`: Reference to the AST (`ArenaAst`) containing the node.
+    /// - `scope`: The current scope in which the durative action is defined.
     ///
     /// # Returns
+    /// - `Ok(())` if the initialization completes successfully.
+    /// - `Err(ParserInternalError)` if the node kind or structure is invalid.
     ///
-    /// Returns `Ok(())` if the initialization is successful, or a `ParserInternalError`
-    /// if an issue occurs.
+    /// # AST Structure
+    /// The node is expected to have three children:
+    /// 1. **Name**: The durative action's identifier, added as a declaration symbol.
+    /// 2. **Parameters**: The action parameters, recursively processed.
+    /// 3. **Body**: The action body, recursively processed.
+    ///
+    /// # Example
+    /// ```rust
+    /// // Assuming `node_ref`, `ast`, and `scope` are initialized:
+    /// symbol_table.init_from_durative_action_def(node_ref, &ast, scope)?;
+    /// ```
+    ///
+    /// This function delegates the main processing to `init_from_def`.
     fn init_from_durative_action_def(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             node_ref,
+            ast,
             scope,
             &[AstKind::DurativeActionDef],
             3,    // DurativeActionDef has 3 children (name, parameters, body)
@@ -793,29 +906,40 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes the symbol table for a task definition.
     ///
-    /// This function ensures that the given AST node is a `TaskDef` and has
-    /// the expected number of children (name and parameters). Since a task
-    /// definition does not include a body, the function processes only these
-    /// components.
+    /// This function validates that the given AST node is of kind `TaskDef` and contains exactly
+    /// two children: the task name and its parameters. Since task definitions do not have a body,
+    /// only these components are processed and added to the symbol table.
     ///
-    /// # Arguments
-    ///
-    /// * `ast_old` - A reference to the AST entry representing the task definition.
-    /// * `index` - The index of the AST entry.
-    /// * `index_table` - A reference to the AST table containing all nodes.
-    /// * `scope` - The current scope in which the task definition resides.
+    /// # Parameters
+    /// - `node_ref`: The AST node reference corresponding to the task definition.
+    /// - `ast`: Reference to the AST (`ArenaAst`) containing the node.
+    /// - `scope`: The current scope in which the task is defined.
     ///
     /// # Returns
+    /// - `Ok(())` if the initialization completes successfully.
+    /// - `Err(ParserInternalError)` if the node kind or structure is invalid.
     ///
-    /// Returns `Ok(())` if the initialization is successful, or a `ParserInternalError`
-    /// if an issue occurs.
+    /// # AST Structure
+    /// The node is expected to have two children:
+    /// 1. **Name**: The task's identifier, added as a declaration symbol.
+    /// 2. **Parameters**: The task parameters, recursively processed.
+    ///
+    /// # Example
+    /// ```rust
+    /// // Assuming `node_ref`, `ast`, and `scope` are initialized:
+    /// symbol_table.init_from_task_def(node_ref, &ast, scope)?;
+    /// ```
+    ///
+    /// This function delegates the main processing to `init_from_def`.
     fn init_from_task_def(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         self.init_from_def(
             node_ref,
+            ast,
             scope,
             &[AstKind::TaskDef],
             2,     // TaskDef has only 2 children (name, parameters)
@@ -823,23 +947,49 @@ impl<'a> SymbolTableBuilder<'a> {
         )
     }
 
-    /// Initializes a definition node (ActionDef, DurativeActionDef, MethodDef, or TaskDef)
-    /// by extracting its name and parameters, and optionally its body.
+    /// Initializes a definition node (`ActionDef`, `DurativeActionDef`, `MethodDef`, or `TaskDef`)
+    /// by extracting its name, parameters, and optionally its body, updating the symbol table accordingly.
     ///
-    /// # Arguments
-    /// - `ast_old`: The AST entry to process.
-    /// - `index`: The index of the node in the AST table.
-    /// - `index_table`: Reference to the AST table.
-    /// - `scope`: The current scope for symbol resolution.
-    /// - `valid_kinds`: A slice of valid `AstKindOld` values.
-    /// - `expected_children`: The number of children expected (2 for `TaskDef`, 3 for actions).
-    /// - `has_body`: Whether the definition has a body (true for actions, false for tasks).
+    /// This function performs the following steps:
+    /// - Validates that the AST node is one of the expected kinds.
+    /// - Confirms the node has the expected number of children.
+    /// - Extracts the definition name and adds it as a declaration in the current scope.
+    /// - Recursively processes the parameter list (`TypedList`), adding parameter symbols.
+    /// - If the definition has a body (e.g., actions and methods), recursively processes the body.
+    ///
+    /// # Parameters
+    /// - `node_ref`: Reference to the AST node representing the definition.
+    /// - `ast`: The AST arena containing all nodes.
+    /// - `scope`: The current symbol table scope for resolving symbols and declarations.
+    /// - `valid_kinds`: Slice of valid AST kinds that this function can process.
+    /// - `expected_children`: The exact number of child nodes expected (2 for tasks, 3 for actions/methods).
+    /// - `has_body`: Indicates if the definition node includes a body that needs processing.
     ///
     /// # Returns
-    /// Returns `Ok(())` on success or a `ParserInternalError` if validation fails.
+    /// - `Ok(())` if initialization completes successfully.
+    /// - `Err(ParserInternalError)` if validation fails or processing encounters an unexpected AST structure.
+    ///
+    /// # AST Structure
+    /// The node's children are expected as follows:
+    /// 1. **Name** — the identifier of the definition.
+    /// 2. **Parameters** — a `TypedList` node representing parameters.
+    /// 3. **Body** (optional) — the body of the definition (only if `has_body` is true).
+    ///
+    /// # Example
+    /// ```rust
+    /// symbol_table.init_from_def(
+    ///     node_ref,
+    ///     &ast,
+    ///     scope,
+    ///     &[AstKind::ActionDef, AstKind::MethodDef],
+    ///     3,
+    ///     true,
+    /// )?;
+    /// ```
     fn init_from_def(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
         valid_kinds: &[AstKind],
         expected_children: usize,
@@ -854,21 +1004,22 @@ impl<'a> SymbolTableBuilder<'a> {
         let children = node_ref.node().children();
 
         // First child: definition name, add to symbol table
-        let name = self.try_node_ref(children[0])?;
+        let name = ast.try_node_ref(children[0])?;
 
         // Second child: parameters, recursively initialize the symbol table
-        let parameters = self.try_node_ref(children[1])?;
-        //self.extract_arguments_from_typed_list(parameters)?;
+        let parameters = ast.try_node_ref(children[1])?;
         self.init_from_typed_list(
             parameters,
+            ast,
             Scope::new(node_ref.id(), Some(&scope)),
         )?;
 
         let parameters =
-            self.extract_arguments_from_typed_list(parameters)?;
+            self.extract_arguments_from_typed_list(parameters, ast)?;
 
         self.add_declaration_symbol(
             name,
+            ast,
             scope.clone(),
             None,
             Some(parameters),
@@ -876,9 +1027,10 @@ impl<'a> SymbolTableBuilder<'a> {
 
         // Third child: body (if applicable)
         if has_body {
-            let body = self.try_node_ref(children[2])?;
+            let body = ast.try_node_ref(children[2])?;
             self.init_from(
                 body,
+                ast,
                 Scope::new(node_ref.id(), Some(&scope)),
             )?;
         }
@@ -886,29 +1038,35 @@ impl<'a> SymbolTableBuilder<'a> {
         Ok(())
     }
 
-    /// Initializes the syntax state from an atomic formula or function term AST node.
+    /// Initializes the syntax state from an `AtomicFormula`, `FunctionTerm`, or `Task` AST node.
     ///
-    /// This function processes an `AstEntry` of type `AtomicFormula` or `FunctionTerm`. It ensures that
-    /// the node has at least one child, representing the symbol. The function first registers the
-    /// symbol usage, then recursively processes the remaining children, which represent the arguments.
+    /// This function processes an AST node expected to represent either an atomic formula,
+    /// a function term, or a task. It verifies that the node has at least one child (the symbol),
+    /// registers the usage of that symbol, then recursively processes all children as arguments.
     ///
-    /// # Arguments
-    /// * `ast_old` - A reference to the `AstEntry` to process.
-    /// * `_index` - The index of the AST node in the table (not used in this function).
-    /// * `index_table` - A reference to the `AstTable`, which contains the AST nodes.
-    /// * `scope` - The current scope used for symbol resolution.
+    /// # Parameters
+    /// - `node_ref`: Reference to the AST node representing the atomic formula or function term.
+    /// - `ast`: The AST arena containing all nodes.
+    /// - `scope`: The current scope used for symbol resolution and symbol usage registration.
     ///
     /// # Returns
-    /// Returns `Ok(())` if the AST node is successfully processed. Otherwise, returns a `ParserInternalError`.
+    /// - `Ok(())` if the node and its children are successfully processed.
+    /// - `Err(ParserInternalError)` if the node kind is invalid, lacks children, or if recursive processing fails.
     ///
     /// # Errors
-    /// This function returns an error if:
-    /// * The `ast_old` is not of type `AtomicFormula` or `FunctionTerm`.
-    /// * The `ast_old` has no children (it must have at least one, representing the symbol).
-    /// * Any recursive call to `init_from` fails.
+    /// Returns an error if:
+    /// - The AST node kind is not one of `AtomicFormula`, `FunctionTerm`, or `Task`.
+    /// - The node has no children (at least one child is expected as the symbol).
+    /// - Any recursive call to `init_from` returns an error.
+    ///
+    /// # Example
+    /// ```rust
+    /// symbol_table.init_from_atomic_formula(node_ref, &ast, scope)?;
+    /// ```
     fn init_from_atomic_formula(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the correct kind (AtomicFormula or FunctionTerm)
@@ -925,52 +1083,54 @@ impl<'a> SymbolTableBuilder<'a> {
         Self::assert_ast_children_number(node_ref.node(), 1, Comparator::GreaterEq)?;
 
         // Retrieve and register the first child (symbol)
-        self.add_symbol_usage(node_ref, scope.clone())?;
+        self.add_symbol_usage(node_ref, ast, scope.clone())?;
 
         // Process the remaining children (arguments)
         for child in node_ref.node().children() {
-            self.init_from(self.try_node_ref(*child)?, scope.clone())?;
+            self.init_from(ast.try_node_ref(*child)?, ast, scope.clone())?;
         }
 
         Ok(())
     }
 
-    /// Initializes the symbol table for a quantified expression in the AST.
+    /// Initializes the symbol table for a quantified expression (`Exists` or `Forall`) in the AST.
     ///
-    /// This function validates that the given AST node is of a quantified expression type (either
-    /// `Exists` or `Forall`). It then processes the children of the AST node. The first child
-    /// should represent a variable declaration, and the second child should be an inner expression.
-    /// The function recursively initializes the symbol table for both the variable declaration and
-    /// the inner expression.
+    /// This function verifies that the AST node is a quantified expression of kind
+    /// `Exists` or `Forall` and that it has exactly two children:
+    /// 1. A variable declaration (or typed list)
+    /// 2. An inner expression.
+    ///
+    /// It then recursively initializes the symbol table for both the variable declarations and
+    /// the inner expression, creating a new nested scope for these initializations.
     ///
     /// # Parameters
-    /// - `ast_old`: A reference to a boxed `Ast` node representing the quantified expression. The node
-    ///   should be of kind `Exists` or `Forall`.
-    /// - `scope`: The current scope to be passed to the symbol table initialization.
+    /// - `node_ref`: Reference to the AST node representing the quantified expression.
+    /// - `ast`: The AST arena containing all nodes.
+    /// - `scope`: The current scope in which the quantified expression resides.
     ///
     /// # Returns
-    /// - `Ok(())`: If the initialization is successful.
-    /// - `Err(ParserInternalError)`: If any errors occur, such as an unexpected AST node type,
-    ///   incorrect number of children, or issues initializing the symbol table.
+    /// - `Ok(())` if the symbol table initialization succeeds.
+    /// - `Err(ParserInternalError)` if the node is not a quantified expression, if
+    ///   the number of children is incorrect, or if initialization of children fails.
     ///
     /// # Errors
-    /// - `ParserInternalError`: If the AST node type is not `Exists` or `Forall`, or if there are
-    ///   issues with the children (e.g., the number of children is not exactly 2).
-    ///   The error message will specify the expected node type and the number of children.
+    /// Returns a `ParserInternalError` if:
+    /// - The node kind is not `Exists` or `Forall`.
+    /// - The node does not have exactly two children.
+    /// - Initialization of the typed list or inner expression fails.
     ///
     /// # Example
     /// ```rust
-    /// let ast_old = ...; // An Ast node representing a quantified expression
-    /// let scope = ...; // The current scope
-    /// let result = symbol_table.init_symbol_table_from_quantified_expression(ast_old, scope);
+    /// let result = symbol_table.init_from_quantified_expression(node_ref, &ast, scope);
     /// match result {
-    ///     Ok(_) => println!("Symbol table initialized successfully"),
-    ///     Err(e) => eprintln!("Error: {}", e),
+    ///     Ok(_) => println!("Quantified expression processed successfully"),
+    ///     Err(e) => eprintln!("Error initializing quantified expression: {}", e),
     /// }
     /// ```
     fn init_from_quantified_expression(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Check if the AST node is of kind 'Exists' or 'Forall'
@@ -981,18 +1141,20 @@ impl<'a> SymbolTableBuilder<'a> {
 
         let children = node_ref.node().children();
         // Retrieve the children (variables and inner expression)
-        let variables = self.try_node_ref(children[0])?;
-        let expression = self.try_node_ref(children[1])?;
+        let variables = ast.try_node_ref(children[0])?;
+        let expression = ast.try_node_ref(children[1])?;
 
         // Initialize the symbol table for the variables (first child)
         self.init_from_typed_list(
             variables,
+            ast,
             Scope::new(node_ref.id(), Some(&scope)),
         )?;
 
         // Initialize the symbol table for the inner expression (second child)
         self.init_from(
             expression,
+            ast,
             Scope::new(node_ref.id(), Some(&scope)),
         )?;
 
@@ -1001,35 +1163,35 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes the symbol table for an atomic formula skeleton in the AST.
     ///
-    /// This function validates that the given AST node has the expected structure for an atomic
-    /// formula, which includes a predicate and at least one argument. It checks the following:
-    /// 1. The node has at least two children: a predicate and its arguments.
-    /// 2. The first child is of the `Predicate` kind.
-    /// The function then recursively initializes the symbol table for the arguments of the predicate.
+    /// This function verifies that the AST node has the correct structure for an atomic formula skeleton,
+    /// which consists of a predicate followed by its arguments. Specifically, it ensures:
+    /// 1. The node has exactly two children: a predicate and an argument list.
+    /// 2. The first child is of kind `Predicate`.
+    ///
+    /// Then, it recursively initializes the symbol table for the argument list, extracts the arguments,
+    /// and adds the predicate declaration with its arguments to the symbol table.
     ///
     /// # Parameters
-    /// - `ast_old`: A reference to a boxed `Ast` node representing the atomic formula skeleton. It should
-    ///   have at least two children: a predicate and its arguments.
-    /// - `scope`: The current scope to be passed to the symbol table initialization.
+    /// - `node_ref`: A reference to the AST node representing the atomic formula skeleton.
+    /// - `ast`: The arena containing all AST nodes.
+    /// - `scope`: The current scope for symbol resolution.
     ///
     /// # Returns
-    /// - `Ok(())`: If the initialization is successful.
-    /// - `Err(ParserInternalError)`: If any validation errors occur, such as an incorrect number of children
-    ///   or an invalid AST node type.
+    /// - `Ok(())` if initialization is successful.
+    /// - `Err(ParserInternalError)` if the node does not meet expected structure or if processing fails.
     ///
     /// # Example
     /// ```rust
-    /// let ast_old = ...; // An Ast node representing an atomic formula skeleton
-    /// let scope = ...; // The current scope
-    /// let result = symbol_table.init_symbol_table_from_atomic_formula_skeleton(ast_old, scope);
+    /// let result = symbol_table.init_from_atomic_formula_skeleton(node_ref, &ast, scope);
     /// match result {
     ///     Ok(_) => println!("Symbol table initialized successfully"),
-    ///     Err(e) => eprintln!("Error: {}", e),
+    ///     Err(e) => eprintln!("Error initializing atomic formula skeleton: {}", e),
     /// }
     /// ```
     fn init_from_atomic_formula_skeleton(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         let children = node_ref.node().children();
@@ -1038,20 +1200,22 @@ impl<'a> SymbolTableBuilder<'a> {
         Self::assert_ast_children_number(node_ref.node(), 2, Comparator::Equal)?;
 
         // Ensure the first child is of kind 'Predicate'
-        let predicate = self.try_node_ref(children[0])?;
+        let predicate = ast.try_node_ref(children[0])?;
         Self::assert_ast_kind(predicate.node(), &[AstKind::Predicate])?;
 
         // Retrieve and process arguments
-        let arguments = self.try_node_ref(children[1])?;
+        let arguments = ast.try_node_ref(children[1])?;
         self.init_from_typed_list(
             arguments,
+            ast,
             Scope::new(node_ref.id(), Some(&scope)),
         )?;
 
         let arguments =
-            self.extract_arguments_from_typed_list(arguments)?;
+            self.extract_arguments_from_typed_list(arguments, ast)?;
         self.add_declaration_symbol(
             predicate,
+            ast,
             scope.clone(),
             None,
             Some(arguments),
@@ -1060,77 +1224,77 @@ impl<'a> SymbolTableBuilder<'a> {
         Ok(())
     }
 
-    /// Extracts arguments from a TypedList AST node, which consists of a list of symbols with
-    /// types.
+    /// Extracts arguments from a `TypedList` AST node, which consists of a list of typed symbols.
     ///
-    /// This function processes the AST node representing a `TypedList` and recursively extracts the
-    /// variable or constant names, along with their corresponding types. It handles three distinct
-    /// cases:
-    /// - If the list is empty, it returns an empty vector.
-    /// - If the list contains exactly two children, it processes them and returns a vector with a
-    ///   single entry.
-    /// - If the list contains three children, it processes the first two and recursively processes
-    ///   the third child.
+    /// This function processes the AST node representing a `TypedList`. A `TypedList` contains
+    /// multiple typed items, each typically representing one or more variables/constants along
+    /// with their types. The function recursively extracts all such typed symbols and collects them
+    /// into a flat vector.
     ///
     /// # Parameters
-    /// - `ast_old`: The AST node representing a TypedList, containing a sequence of children to be
-    ///   processed.
+    /// - `node_ref`: The AST node representing a `TypedList`.
+    /// - `ast`: The arena containing all AST nodes.
     ///
     /// # Returns
-    /// - `Ok(Vec<TypedSymbol<String>>)` if the extraction is successful. This will contain a vector
-    ///   of `TypedSymbol` representing the extracted arguments (with their types).
-    /// - `Err(ParserInternalError)` if the AST node is not of the expected type (`TypedList`), or
-    ///   if the list's structure doesn't match the expected number of children or contains
-    ///   unexpected kinds of elements.
+    /// - `Ok(Vec<TypedSymbol>)`: A vector of typed symbols extracted from the list.
+    /// - `Err(ParserInternalError)`: If the AST node is not a `TypedList` or if processing any
+    ///   child node fails.
     ///
     /// # Errors
-    /// - Returns an error if the AST node is not of kind `TypedList`.
-    /// - Returns an error if the first child is neither a `Variable` nor a `Constant`.
-    /// - Returns an error if the second child cannot be processed as a list of primitive types.
-    /// - Returns an error if the number of children is less than 2 or more than 3 in an unexpected
-    ///   way.
+    /// This function returns an error if:
+    /// - The provided node is not of kind `TypedList`.
+    /// - Any of the typed items in the list fail to be extracted correctly.
     ///
     /// # Example
-    /// ```
-    /// let ast_old = // Some AST node of kind TypedList
-    /// let result = self.extract_arguments_from_typed_list(&ast_old);
-    /// match result {
-    ///     Ok(arguments) => {
-    ///         // Use extracted arguments
-    ///     },
-    ///     Err(e) => {
-    ///         // Handle error
-    ///     }
+    /// ```rust
+    /// let arguments = symbol_table.extract_arguments_from_typed_list(node_ref, &ast)?;
+    /// for arg in arguments {
+    ///     println!("Argument: {:?} with type {:?}", arg.name, arg.type_);
     /// }
     /// ```
     fn extract_arguments_from_typed_list(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
     ) -> Result<Vec<TypedSymbol>, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
         Self::assert_ast_kind(node_ref.node(), &[AstKind::TypedList])?;
 
         let mut typed_arguments = Vec::new();
         for typed_item_id in node_ref.node().children() {
-            let typed_item_ref = self.try_node_ref(*typed_item_id)?;
-            typed_arguments.extend(self.extract_arguments_from_typed_item(typed_item_ref)?);
+            let typed_item_ref = ast.try_node_ref(*typed_item_id)?;
+            typed_arguments.extend(self.extract_arguments_from_typed_item(typed_item_ref, ast)?);
         }
         Ok(typed_arguments)
     }
 
-    /// Extracts `TypedSymbol`s from a `TypedItem` node. A `TypedItem` consists of:
-    /// - A first child: list of Constant or Variable nodes.
-    /// - An optional second child: the associated type(s).
+    /// Extracts `TypedSymbol`s from a `TypedItem` AST node.
+    ///
+    /// A `TypedItem` typically has:
+    /// - A first child node: either a `Constant` or `Variable`.
+    /// - An optional second child node: the associated type(s).
     ///
     /// This function validates the structure, extracts the type information,
-    /// and returns a list of typed symbols.
+    /// and returns a vector of `TypedSymbol`s containing the name and associated types.
     ///
     /// # Errors
-    /// Return a `ParserInternalError` if the node is not a `TypedItem`, or if its
-    /// children are not valid constants or variables.
+    /// Returns a `ParserInternalError` if:
+    /// - The node is not of kind `TypedItem`.
+    /// - The first child is not a `Constant` or `Variable`.
+    /// - The number of children is not 1 or 2.
+    /// - Extracting the type(s) fails.
+    ///
+    /// # Example
+    /// ```rust
+    /// let typed_symbols = self.extract_arguments_from_typed_item(typed_item_ref, &ast)?;
+    /// for ts in typed_symbols {
+    ///     println!("Symbol: {}, Types: {:?}", ts.name, ts.type_);
+    /// }
+    /// ```
     fn extract_arguments_from_typed_item(
         &mut self,
         typed_item_ref: NodeRef,
+        ast: &ArenaAst,
     ) -> Result<Vec<TypedSymbol>, ParserInternalError> {
         // Ensure the node is of the correct kind
         Self::assert_ast_kind(typed_item_ref.node(), &[AstKind::TypedItem])?;
@@ -1140,7 +1304,7 @@ impl<'a> SymbolTableBuilder<'a> {
         // Extract types if available, or use an empty vector
         let types = match children.len() {
             1 => Vec::new(),
-            2 => self.extract_type(self.try_node_ref(children[1])?)?,
+            2 => self.extract_type(ast.try_node_ref(children[1])?, ast)?,
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "TypedItem must have 1 or 2 children, got {}",
@@ -1150,11 +1314,11 @@ impl<'a> SymbolTableBuilder<'a> {
         };
 
         let mut typed_arguments = Vec::new();
-        let elt = self.try_node_ref(children[0])?;
+        let elt = ast.try_node_ref(children[0])?;
 
         match elt.node().kind() {
             AstKind::Constant | AstKind::Variable => {
-                let symbol_ref = self.try_symbol_ref(elt)?;
+                let symbol_ref = ast.try_symbol_ref(elt)?;
                 let name = symbol_ref.ident();
                 typed_arguments.push(TypedSymbol::new(name, types.clone()));
             }
@@ -1169,29 +1333,37 @@ impl<'a> SymbolTableBuilder<'a> {
         Ok(typed_arguments)
     }
 
-
-    /// Extracts type names from an AST node without recording symbol usage.
+    /// Extracts type names from a `Type` AST node without recording symbol usage.
+    ///
+    /// This function validates that the given AST node is of kind `Type` and
+    /// extracts all contained primitive type identifiers.
     ///
     /// # Arguments
     ///
-    /// * `types` - A reference to an AST node that must be of kind `Type`.
+    /// * `type_ref` - A reference to an AST node expected to be of kind `Type`.
+    /// * `ast` - The AST arena containing all nodes.
     ///
     /// # Returns
     ///
-    /// A `Result` containing a vector of extracted type names or a `ParserInternalError` if the
-    ///   node is invalid.
+    /// Returns a vector of type identifiers (`Ident`) wrapped in `Ok` if successful,
+    /// or a `ParserInternalError` if the node is invalid or contains unexpected children.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node is not of kind `Type` or if any child node is not of kind `PrimitiveType`.
     fn extract_type(
         &mut self,
         type_ref: NodeRef,
+        ast: &ArenaAst,
     ) -> Result<Vec<Ident>, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
         Self::assert_ast_kind(type_ref.node(), &[AstKind::Type])?;
 
         let mut super_types = Vec::new();
         for ty in type_ref.node().children() {
-            let ty_ref = self.try_node_ref(*ty)?;
+            let ty_ref = ast.try_node_ref(*ty)?;
             if let AstKind::PrimitiveType = ty_ref.node().kind() {
-                let symbol_ref = self.try_symbol_ref(ty_ref)?;
+                let symbol_ref = ast.try_symbol_ref(ty_ref)?;
                 let name = symbol_ref.ident();
                 super_types.push(name);
             } else {
@@ -1204,34 +1376,41 @@ impl<'a> SymbolTableBuilder<'a> {
         Ok(super_types)
     }
 
-    /// Initializes type information and records symbol usage.
+    /// Initializes type information and records symbol usage in the given scope.
     ///
-    /// This function extracts type names and additionally registers them as used symbols
-    /// in the given scope.
+    /// This function validates that the AST node is of kind `Type`, extracts the contained
+    /// primitive type identifiers, and registers each as a symbol usage within the specified scope.
     ///
     /// # Arguments
     ///
-    /// * `types` - A reference to an AST node that must be of kind `Type`.
+    /// * `type_ref` - A reference to an AST node expected to be of kind `Type`.
+    /// * `ast` - The AST arena containing all nodes.
     /// * `scope` - The scope in which the type symbols are used.
     ///
     /// # Returns
     ///
-    /// A `Result` containing a vector of extracted type names or a `ParserInternalError` if the
-    /// node is invalid.
+    /// Returns a vector of type identifiers (`Ident`) wrapped in `Ok` if successful,
+    /// or a `ParserInternalError` if the node is invalid or contains unexpected children.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node is not of kind `Type` or if any child node is not of kind
+    /// `PrimitiveType`.
     fn init_from_type(
         &mut self,
         type_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<Vec<Ident>, ParserInternalError> {
         Self::assert_ast_kind(type_ref.node(), &[AstKind::Type])?;
-        let super_types = self.extract_type(type_ref)?; // Reuse `extract_type` to get type names
+        let super_types = self.extract_type(type_ref, ast)?; // Reuse `extract_type` to get type names
 
         // Register each type as a symbol usage in the given scope
         for ty in type_ref.node().children() {
-            let ty_ref = self.try_node_ref(*ty)?;
+            let ty_ref = ast.try_node_ref(*ty)?;
             let ty_node = ty_ref.node();
             Self::assert_ast_kind(ty_node, &[AstKind::PrimitiveType])?;
-            self.add_symbol_usage(ty_ref, scope.clone())?;
+            self.add_symbol_usage(ty_ref, ast, scope.clone())?;
         }
 
         Ok(super_types)
@@ -1239,21 +1418,29 @@ impl<'a> SymbolTableBuilder<'a> {
 
     /// Initializes the symbol table from a tagged task definition in the AST.
     ///
-    /// This function processes a tagged task by extracting its identifier and associated task,
-    /// adding the identifier as a declaration, and then initializing the task itself.
+    /// This function validates that the AST node is of kind `TaggedTask` and contains exactly two children:
+    /// an identifier and the associated task. It registers the identifier as a declaration symbol
+    /// within the given scope, then initializes the symbol table for the referenced task.
     ///
     /// # Arguments
-    /// * `ast_old` - A reference to the AST entry representing the tagged task.
-    /// * `_index` - The index of the AST entry (not used in this function).
-    /// * `index_table` - A reference to the AST table containing all parsed nodes.
-    /// * `scope` - The scope in which the task symbols should be declared or used.
+    ///
+    /// * `node_ref` - A reference to the AST node representing the tagged task.
+    /// * `ast` - The AST arena containing all nodes.
+    /// * `scope` - The current scope where the symbol declarations and usages apply.
     ///
     /// # Returns
-    /// * `Result<(), ParserInternalError>` - Returns `Ok(())` if successful, or an error if the AST
-    ///   structure is unexpected.
+    ///
+    /// Returns `Ok(())` if the initialization is successful,
+    /// or a `ParserInternalError` if the AST structure is invalid or unexpected.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node is not of kind `TaggedTask`, does not have exactly two children,
+    /// or if the children are not of expected kinds (`TaskID` for the first and `Task` for the second).
     fn init_from_tagged_task(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1261,62 +1448,47 @@ impl<'a> SymbolTableBuilder<'a> {
         Self::assert_ast_children_number(node_ref.node(), 2, Comparator::Equal)?;
 
         let children = node_ref.node().children();
-        let task_id = self.try_node_ref(children[0])?;
+        let task_id = ast.try_node_ref(children[0])?;
         Self::assert_ast_kind(task_id.node(), &[AstKind::TaskID])?;
 
         // Add the task identifier as a declaration symbol
-        self.add_declaration_symbol(task_id, scope.clone(), None, None)?;
+        self.add_declaration_symbol(task_id, ast, scope.clone(), None, None)?;
 
         // Process the actual task
-        let task = self.try_node_ref(children[1])?;
+        let task = ast.try_node_ref(children[1])?;
         Self::assert_ast_kind(task.node(), &[AstKind::Task])?;
 
-        self.init_from_atomic_formula(task, scope.clone())?;
+        self.init_from_atomic_formula(task, ast, scope.clone())?;
 
         Ok(())
     }
 
     /// Initializes a task ordering constraint from the given AST node.
     ///
-    /// This function processes an `AstEntry` representing a task ordering constraint,
-    /// ensuring its validity and extracting the referenced task identifiers. It verifies
-    /// that the AST node is correctly structured and that it contains exactly two child
-    /// nodes representing ordered tasks.
+    /// This function validates that the AST node is of kind `TaskOrderingConstraint` and contains
+    /// exactly two children, each representing a `TaskID`. It registers both task identifiers as
+    /// symbol usages within the given scope.
     ///
     /// # Arguments
     ///
-    /// * `ast_old` - A reference to an `AstEntry` representing the task ordering constraint.
-    /// * `_index` - An unused index parameter.
-    /// * `index_table` - A reference to an `AstTable` used for resolving AST entries.
-    /// * `scope` - The current `Scope` used for symbol tracking.
+    /// * `node_ref` - A reference to the AST node representing the task ordering constraint.
+    /// * `ast` - The AST arena containing all nodes.
+    /// * `scope` - The current scope used for symbol tracking.
     ///
     /// # Returns
     ///
-    /// * `Ok(())` - If the task ordering constraint is correctly initialized.
-    /// * `Err(ParserInternalError)` - If the AST node has an invalid structure or unexpected child
-    ///   types.
-    ///
-    /// # Behavior
-    ///
-    /// 1. **Validation Checks:**
-    ///    - Ensures that the AST node is of type `TaskOrderingConstraint(BinaryComp::Less)`.
-    ///    - Ensures that the AST node has exactly **two children** (representing tasks).
-    ///
-    /// 2. **Extracting Task Identifiers:**
-    ///    - Retrieves the first child and verifies it is of type `TaskID(String)`.
-    ///    - Registers its usage in the symbol table.
-    ///    - Retrieves the second child and verifies it is also of type `TaskID(String)`.
-    ///    - Registers its usage in the symbol table.
+    /// Returns `Ok(())` if the initialization is successful,
+    /// or a `ParserInternalError` if the AST node is invalid or children are not as expected.
     ///
     /// # Errors
     ///
-    /// Returns a `ParserInternalError` if:
-    /// - The AST node is not of kind `TaskOrderingConstraint(BinaryComp::Less)`.
-    /// - The AST node does not have exactly two children.
-    /// - Either child is not of kind `TaskID(String)`.
+    /// Returns an error if the node is not of kind `TaskOrderingConstraint`,
+    /// if it does not have exactly two children,
+    /// or if either child is not of kind `TaskID`.
     fn init_from_task_ordering_constraint(
         &mut self,
         node_ref: NodeRef,
+        ast: &ArenaAst,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is a tagged task
@@ -1327,48 +1499,36 @@ impl<'a> SymbolTableBuilder<'a> {
         Self::assert_ast_children_number(node_ref.node(), 2, Comparator::Equal)?;
 
         let children = node_ref.node().children();
-        let t1 = self.try_node_ref(children[0])?;
+        let t1 = ast.try_node_ref(children[0])?;
         Self::assert_ast_kind(t1.node(), &[AstKind::TaskID])?;
-        self.add_symbol_usage(t1, scope.clone())?;
+        self.add_symbol_usage(t1, ast, scope.clone())?;
 
-        let t2 = self.try_node_ref(children[1])?;
+        let t2 = ast.try_node_ref(children[1])?;
         Self::assert_ast_kind(t2.node(), &[AstKind::TaskID])?;
-        self.add_symbol_usage(t2, scope.clone())?;
+        self.add_symbol_usage(t2, ast, scope.clone())?;
 
         Ok(())
     }
 
     /// Asserts that the AST node's kind is contained within the provided set of valid kinds.
     ///
-    /// # Parameters
-    /// - `ast_old`: The AST node to check.
-    /// - `valid_kinds`: A slice of valid AST kinds that the node should match.
-    ///
-    /// # Returns
-    /// - `Ok(())`: If the AST node's kind is valid.
-    /// - `Err(ParserInternalError)`: If the AST node's kind is not valid.
-    /// Asserts that the AST node's kind is contained within the provided set of valid kinds.
-    ///
     /// This function checks if the kind of the provided AST node matches one of the valid kinds
     /// in the `valid_kinds` slice. If the AST node's kind is one of the allowed kinds, the function
-    /// will return `Ok(())`. Otherwise, it will return an error with a message specifying the invalid
-    /// node's kind and the list of expected valid kinds.
+    /// returns `Ok(())`. Otherwise, it returns a `ParserInternalError` specifying the invalid
+    /// node's kind and the expected kinds.
     ///
     /// # Parameters
-    /// - `ast_old`: The AST node to check. This node should have a specific kind that needs to be
-    ///   validated.
-    /// - `valid_kinds`: A slice of valid AST kinds that the node should match. The slice can contain
-    ///   any combination of the `AstKindOld` enum variants, such as `Predicate`, `DomainName`,
-    ///   `ProblemName`, etc.
+    /// - `node`: The AST node to check. This node should have a specific kind that needs validation.
+    /// - `valid_kinds`: A slice of valid AST kinds that the node is allowed to have.
     ///
     /// # Returns
-    /// - `Ok(())`: If the AST node's kind is valid and matches one of the kinds in `valid_kinds`.
-    /// - `Err(ParserInternalError)`: If the AST node's kind is not valid, an error is returned. The
-    ///   error message will include the actual node's kind and the expected valid kinds.
+    /// - `Ok(())` if the AST node's kind matches one of the valid kinds.
+    /// - `Err(ParserInternalError)` if the AST node's kind is not valid, including an error message
+    ///   with the actual and expected kinds.
     ///
     /// # Example
     /// ```rust
-    /// let result = Self::assert_ast_kind(ast_old, &[AstKindOld::Predicate(_), AstKindOld::DomainName(_)]);
+    /// let result = Self::assert_ast_kind(node, &[AstKind::Predicate, AstKind::DomainName]);
     /// match result {
     ///     Ok(()) => println!("Valid AST node!"),
     ///     Err(e) => println!("Error: {}", e),
@@ -1423,48 +1583,34 @@ impl<'a> SymbolTableBuilder<'a> {
         }
     }
 
-    /// `assert_ast_children_number` verifies that the number of children in a given AST node
-    /// satisfies a specified comparison with an expected length.
+    /// Verifies that the number of children in an AST node satisfies a specified comparison
+    /// with an expected length.
     ///
-    /// This function checks if the number of children in the AST node (i.e., its direct descendants)
-    /// matches the expected length based on the provided `Comparator` comparison type.
-    /// If the comparison fails, it returns an error indicating the mismatch.
+    /// This function checks if the number of children (direct descendants) of the given AST node
+    /// matches the expected length according to the provided `Comparator`.
+    /// If the comparison fails, it returns a `ParserInternalError` detailing the mismatch.
     ///
     /// # Parameters
-    /// - `ast_old`: The AST node whose children are being checked.
-    /// - `expected_len`: The expected number of children for the given AST node.
-    /// - `comparator`: The comparison type used to validate the number of children relative to
-    ///   `expected_len`. It can be one of the following:
-    ///   - `Comparator::Equal`: The number of children should be exactly equal to `expected_len`.
-    ///   - `Comparator::NotEqual`: The number of children should not be equal to `expected_len`.
-    ///   - `Comparator::Less`: The number of children should be less than `expected_len`.
-    ///   - `Comparator::Greater`: The number of children should be greater than `expected_len`.
-    ///   - `Comparator::LessEq`: The number of children should be less than or equal to `expected_len`.
-    ///   - `Comparator::GreaterEq`: The number of children should be greater than or equal to
-    ///     `expected_len`.
+    /// - `node`: The AST node whose children count is being validated.
+    /// - `expected_len`: The expected number of children.
+    /// - `comparator`: The comparison operator used to validate the children count:
+    ///   - `Comparator::Equal`: number of children should be exactly equal to `expected_len`.
+    ///   - `Comparator::NotEqual`: number of children should not be equal to `expected_len`.
+    ///   - `Comparator::Less`: number of children should be less than `expected_len`.
+    ///   - `Comparator::Greater`: number of children should be greater than `expected_len`.
+    ///   - `Comparator::LessEq`: number of children should be less than or equal to `expected_len`.
+    ///   - `Comparator::GreaterEq`: number of children should be greater than or equal to `expected_len`.
     ///
     /// # Returns
-    /// - `Ok(())` if the comparison is valid.
-    /// - `Err(ParserInternalError)` if the comparison fails, indicating the expected and actual number
-    ///   of children.
-    ///
-    /// # Errors
-    /// This function returns a `ParserInternalError` if the comparison does not hold true, providing
-    /// an error message with details about the AST node kind, the expected number of children,
-    /// the actual number of children, and the comparison type used.
+    /// - `Ok(())` if the number of children satisfies the comparison.
+    /// - `Err(ParserInternalError)` if the validation fails, including details of the expected and actual counts.
     ///
     /// # Example
     /// ```rust
-    ///
-    /// let ast_old = get_some_ast_node();
-    /// Self::assert_ast_children_number(&ast_old, 3, Comparator::GreaterEq).unwrap(); // Passes if node has 3 or more children
-    /// Self::assert_ast_children_number(&ast_old, 2, Comparator::Equal).unwrap_err(); // Fails if node doesn't have exactly 2 children
+    /// let node = get_some_ast_node();
+    /// Self::assert_ast_children_number(&node, 3, Comparator::GreaterEq).unwrap(); // passes if node has 3 or more children
+    /// Self::assert_ast_children_number(&node, 2, Comparator::Equal).unwrap_err(); // fails if node doesn't have exactly 2 children
     /// ```
-    ///
-    /// # Notes
-    /// This function provides a convenient way to enforce the expected structure of AST nodes during
-    /// parsing, ensuring that the number of children aligns with the expectations set by the aiplan4rust
-    /// logic.
     fn assert_ast_children_number(
         node: &ArenaAstNode,
         expected_len: usize,

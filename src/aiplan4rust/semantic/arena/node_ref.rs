@@ -49,21 +49,20 @@ impl<'a> NodeRef<'a> {
     }
 }
 
-/// Allows conversion from a [`NodeRef`] reference to its corresponding [`NodeId`].
 ///
-/// This implementation enables seamless usage of functions that take a `NodeId`
-/// while passing a reference to a `NodeRef`, improving API ergonomics.
+/// This implementation enables seamless use of a `NodeRef` wherever a `NodeId` is expected,
+/// improving API ergonomics by avoiding the need for manual `.id()` calls.
 ///
 /// # Example
 ///
 /// ```rust
 /// fn get_symbol<T: Into<NodeId>>(input: T) { /* ... */ }
 ///
-/// let node_ref: NodeRef = /* obtain a NodeRef */;
-/// let _ = get_symbol(&node_ref); // Works because of this `From` implementation
+/// let node_ref: NodeRef = /* obtain a NodeRef somehow */;
+/// let _ = get_symbol(node_ref); // Works because of this `From` implementation
 /// ```
-impl<'a> From<&NodeRef<'a>> for NodeId {
-    fn from(node_ref: &NodeRef<'a>) -> Self {
+impl<'a> From<NodeRef<'a>> for NodeId {
+    fn from(node_ref: NodeRef<'a>) -> Self {
         node_ref.id()
     }
 }
