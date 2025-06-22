@@ -361,10 +361,10 @@ fn get_binary_operation_types(
     }
 
     let arg1 = context
-        .get(node.children()[0])
+        .get_node(node.children()[0])
         .ok_or_else(|| ParserInternalError::new("Missing first argument.".to_string()))?;
     let arg2 = context
-        .get(node.children()[1])
+        .get_node(node.children()[1])
         .ok_or_else(|| ParserInternalError::new("Missing second argument.".to_string()))?;
 
     let ty1 = get_type(node.children()[0], arg1, context)?.ok_or_else(|| {
@@ -595,7 +595,7 @@ fn get_function_term_type(
     }
 
     let functor_index = children[0];
-    let functor_entry = context.get(functor_index).ok_or_else(|| {
+    let functor_entry = context.get_node(functor_index).ok_or_else(|| {
         ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 

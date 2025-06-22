@@ -59,7 +59,7 @@ fn check_symbol_declarations(
                 continue;
             }
 
-            let ast_entry = context.get(declaration.node_id()).unwrap();
+            let ast_entry = context.get_node(declaration.node_id()).unwrap();
             let current_scope = declaration.scope();
 
             let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));
@@ -84,7 +84,7 @@ fn check_symbol_declarations(
                     checked = false;
 
                     let scope_index = conflicting_scope.iter().last().unwrap();
-                    let scope = context.get(*scope_index).unwrap();
+                    let scope = context.get_node(*scope_index).unwrap();
 
                     let name = context.ast().interner().try_str(symbol.name())?;
                     let error = Diagnostic::new(

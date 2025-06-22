@@ -200,14 +200,14 @@ fn skip_unused_symbol_declaration(
     if matches!(declaration.symbol_kind(), SymbolKind::Variable)
         && (declaration
             .scope()
-            .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, context)?
-            || declaration.scope().contains_ast_of_kind(
+            .contains_node_of_kind(AstKind::AtomicFormulaSkeleton, context.ast())?
+            || declaration.scope().contains_node_of_kind(
         AstKind::AtomicFunctionSkeleton,
-        context,
+        context.ast(),
             )?
             || declaration // Add for HDDL
                 .scope()
-                .contains_ast_of_kind(AstKind::TaskDef, context)?)
+                .contains_node_of_kind(AstKind::TaskDef, context.ast())?)
     {
         return Ok(true);
     }

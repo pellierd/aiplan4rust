@@ -4,8 +4,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
-use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::arena::arena::Arena;
+use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableBuilder;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::elements::Requirement;
@@ -80,10 +81,9 @@ impl Context {
         let symbol_table = builder.build(&arena)?;
 
 
-
         //let mut builder = SymbolTableBuilder::new();
         //let symbol_table = builder.build(ast)?;
-        
+
         // Create and return the annotated syntax tree
         Ok(Context::new(
             arena,
@@ -160,8 +160,12 @@ impl Context {
     }
 
     /// Returns a reference to a node by its index, if it exists.
-    pub fn get(&self, id: NodeId) -> Option<&ArenaAstNode> {
+    pub fn get_node(&self, id: NodeId) -> Option<&ArenaAstNode> {
         self.ast.get_node(id)
+    }
+
+    pub fn try_node(&self, id: NodeId) -> Result<&ArenaAstNode, ParserInternalError> {
+        self.ast.try_node(id)
     }
 
     /// Returns a reference to the internal AST arena.
@@ -202,6 +206,7 @@ impl Context {
     pub fn source_name(&self) -> &String {
         &self.source_name
     }
+
 }
 
 impl fmt::Display for Context {
