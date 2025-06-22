@@ -5,66 +5,82 @@ use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::TypedSymbol;
+use crate::aiplan4rust::semantic::arena::NodeId;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
-use crate::aiplan4rust::semantic::arena::NodeId;
-use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Represents a declaration in the abstract syntax tree (AST).
 ///
-/// This struct holds information about a symbol declared in the program, including its
-/// associated AST node, symbol type, scope, source, and optional types and arguments.
+/// This struct holds detailed information about a declared symbol in the program,
+/// including its symbol reference (identifier and kind), scope, source, optional types,
+/// optional argument lists, the AST node it corresponds to, and its source span.
 ///
 /// # Fields
 ///
-/// * `ast_old` - The AST node index of the declaration.
-/// * `kind` - The type or kind of the symbol declared (e.g., variable, function).
-/// * `scope` - The scope in which the declaration is valid.
-/// * `source` - The source from which the declaration originates (e.g., file or module).
-/// * `types` - An optional list of types associated with the symbol, if any. This can be `None` if
-///   not provided.
-/// * `arguments` - An optional list of argument types, grouped in parameter lists, if applicable.
+/// * `symbol_ref` - The symbol reference containing the identifier and kind of the symbol.
+/// * `scope` - The scope in which the declaration is valid (e.g., global, local).
+/// * `source` - The source from which the declaration originates (e.g., domain, problem, file).
+/// * `types` - Optional list of types associated with the symbol, if any.
+/// * `arguments` - Optional list of argument types, grouped in parameter lists, if applicable.
+/// * `node_id` - The AST node identifier representing this declaration.
+/// * `span` - The source span indicating where this declaration occurs in the source code.
 ///
 /// # Example
 ///
 /// ```rust
-/// let declaration = Declaration {
-///     ast_old: 1,
-///     kind: SymbolKind::Variable,
-///     scope: Scope::Global,
-///     source: Source::File("main.rs".into()),
-///     types: Some(vec!["int".into()]),
-///     arguments: None,
-/// };
-/// ```
+/// let symbol_ref = SymbolRef::new(Ident::from("x"), SymbolKind::Variable);
+/// let declaration = Declaration::new(
+///     symbol_ref,
+///     Scope::Global,
+///     SymbolSource::File("main.pddl".into()),
+///     Some(vec![Ident::from("int")]),
+///     None,
+///     Span::dummy(),
+///     1,
+/// );
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
-
+    // Reference to the symbol declared.
     symbol_ref: SymbolRef,
 
-    /// The scope of the declaration
+    // The scope of the declaration.
     scope: Scope,
 
-    /// The source of the declaration
+    // The source from which the declaration originates.
     source: SymbolSource,
 
-    /// Optional list of types associated with the symbol.
+    // Optional list of types associated with the symbol.
     types: Option<Vec<Ident>>,
 
-    /// Optional list of argument types, grouped in parameter lists.
+    // Optional list of argument types, grouped in parameter lists.
     arguments: Option<Vec<TypedSymbol>>,
 
-    /// The AST node of the declaration
-    node_id: NodeId,
-
+    // The span in source code where the declaration is located.
     span: Span,
 
+    // The AST node ID corresponding to this declaration.
+    node_id: NodeId,
 }
 
 impl Declaration {
-    /// Constructor to create a new `Declaration`
+    /// Constructor to create a new `Declaration`.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol_ref` - The reference to the symbol being declared.
+    /// * `scope` - The scope in which the declaration is valid.
+    /// * `source` - The source from which the declaration originates.
+    /// * `types` - Optional list of types associated with the symbol.
+    /// * `arguments` - Optional list of argument types, grouped in parameter lists.
+    /// * `span` - The span in the source code where the declaration is located.
+    /// * `node_id` - The AST node ID representing this declaration.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `Declaration`.
     pub fn new(
         symbol_ref: SymbolRef,
         scope: Scope,
