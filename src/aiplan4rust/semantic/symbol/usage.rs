@@ -26,24 +26,36 @@ use std::fmt;
 /// - `Deserialize`: To allow deserialization from serialized formats.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
-
+    /// Reference to the symbol being used.
     symbol_ref: SymbolRef,
 
     /// The scope where the symbol is used (e.g., function, block).
     scope: Scope,
 
-    span: Span,
-
     /// The source of the usage (e.g., file or module).
     source: SymbolSource,
 
-    /// The AST node index where the symbol is used.
-    ast: NodeId,
+    /// The source code span corresponding to this usage.
+    span: Span,
 
+    /// The AST node index where the symbol usage occurs.
+    ast: NodeId,
 }
 
 impl Usage {
-    /// Constructeur pour créer un nouveau `Usage`
+    /// Constructs a new `Usage` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `symbol_ref` - The reference to the symbol being used.
+    /// * `scope` - The scope in which the symbol usage occurs.
+    /// * `source` - The origin/source of this usage (e.g., file or module).
+    /// * `span` - The span in the source code corresponding to this usage.
+    /// * `ast` - The AST node identifier where this usage appears.
+    ///
+    /// # Returns
+    ///
+    /// A new `Usage` struct initialized with the provided values.
     pub fn new(symbol_ref: SymbolRef, scope: Scope, source: SymbolSource, span: Span, ast: NodeId) -> Self {
         Usage {
             symbol_ref,
@@ -54,122 +66,101 @@ impl Usage {
         }
     }
 
-    pub fn symbol(&self) -> Ident {
+
+    pub fn symbol_ref(&self) -> &SymbolRef {
+        &self.symbol_ref
+    }
+
+    /// Returns the identifier (`Ident`) of the referenced symbol.
+    pub fn symbol_ident(&self) -> Ident {
         self.symbol_ref.ident()
     }
 
-    /// Accessor for the kind of the symbol used.
-    ///
-    /// Returns a reference to the symbol's kind.
-    ///
-    /// # Returns
-    ///
-    /// * `&SymbolKind` - A reference to the kind of the symbol.
-    pub fn kind(&self) -> SymbolKind {
+    /// Returns the kind (`SymbolKind`) of the referenced symbol.
+    pub fn symbol_kind(&self) -> SymbolKind {
         self.symbol_ref.kind()
     }
 
-    /// Accessor for the scope in which the symbol is used.
-    ///
-    /// Returns a reference to the scope of the usage.
+    /// Returns a reference to the scope in which the symbol is used.
     ///
     /// # Returns
     ///
-    /// * `&Scope` - A reference to the scope where the symbol is used.
+    /// A reference to the [`Scope`] where the symbol usage occurs.
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
 
-    /// Accessor for the source of the usage.
-    ///
-    /// Returns a reference to the source from which the usage originates.
+    /// Returns a reference to the source of the symbol usage.
     ///
     /// # Returns
     ///
-    /// * `&Source` - A reference to the source of the usage.
+    /// A reference to the [`SymbolSource`] indicating the origin of this usage.
     pub fn source(&self) -> &SymbolSource {
         &self.source
     }
 
+    /// Returns a reference to the span in the source code for this usage.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
-    /// Accessor for the AST node of the usage.
-    ///
-    /// Returns the index of the AST node where the symbol is used.
+    /// Returns the AST node identifier where the symbol is used.
     ///
     /// # Returns
     ///
-    /// * `usize` - The index of the AST node where the symbol is used.
-    pub fn ast(&self) -> NodeId {
+    /// The [`NodeId`] corresponding to the AST node of this usage.
+    pub fn node_id(&self) -> NodeId {
         self.ast
     }
 
-
-    /// Mutable accessor for the scope of the usage.
+    /// Remaps the identifiers in this declaration using the provided map.
     ///
-    /// Allows modification of the scope where the symbol is used.
-    ///
-    /// # Returns
-    ///
-    /// * `&mut Scope` - A mutable reference to the scope of the usage.
-    pub fn scope_mut(&mut self) -> &mut Scope {
-        &mut self.scope
-    }
-
-    /// Mutable accessor for the source of the usage.
-    ///
-    /// Allows modification of the source from which the usage originates.
-    ///
-    /// # Returns
-    ///
-    /// * `&mut Source` - A mutable reference to the source of the usage.
-    pub fn source_mut(&mut self) -> &mut SymbolSource {
-        &mut self.source
-    }
-
-    /// Setter for the scope of the usage.
-    ///
-    /// Sets the scope where the symbol is used to the provided value.
+    /// If the current symbol's identifier is found as a key in `map`,
+    /// it is replaced by the corresponding value.
     ///
     /// # Arguments
     ///
-    /// * `scope` - The new scope to set for the usage.
-    pub fn set_scope(&mut self, scope: Scope) {
-        self.scope = scope;
-    }
-
-    /// Setter for the source of the usage.
-    ///
-    /// Sets the source of the usage to the provided value.
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - The new source to set for the usage.
-    pub fn set_source(&mut self, source: SymbolSource) {
-        self.source = source;
-    }
-
+    /// * `map` - A hash map from old `Ident` to new `Ident` to be applied.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        if let Some(new_ident) = map.get(&self.symbol()) {
+        if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol_ref.set_ident(new_ident.clone());
         }
     }
 
-
+    /// Converts the declaration to a `String` representation using the provided interner.
+    ///
+    /// # Arguments
+    ///
+    /// * `interner` - A `StringInterner` to resolve interned strings.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing this declaration, formatted using the interner.
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();
         let _ = self.fmt_with_interner(&mut out, interner);
         out
     }
 
+    /// Formats the usage into the given writer, resolving interned strings via the interner.
+    ///
+    /// This method writes a human-readable representation of the usage, including its AST node index,
+    /// symbol kind, identifier (resolved from the interner), scope, and source.
+    ///
+    /// # Arguments
+    ///
+    /// * `w` - A mutable reference to a type implementing `fmt::Write`, where the output is written.
+    /// * `interner` - A `StringInterner` used to resolve the interned identifier string.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `fmt::Result` indicating success or failure of the write operation.
     pub fn fmt_with_interner(
         &self,
         w: &mut dyn fmt::Write,
         interner: &StringInterner,
     ) -> fmt::Result {
-        let symbol_str = match interner.get_str(self.symbol()) {
+        let symbol_str = match interner.get_str(self.symbol_ident()) {
             Some(name) => name,
             None => "<uninterned>",
         };
@@ -177,18 +168,30 @@ impl Usage {
         write!(
             w,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.kind(), symbol_str, self.scope, self.source
+            self.ast, self.symbol_kind(), symbol_str, self.scope, self.source
         )?;
         Ok(())
     }
 }
 
 impl fmt::Display for Usage {
+    /// Formats the `Usage` for display.
+    ///
+    /// This implementation writes a human-readable string representing the usage,
+    /// including the AST node index, symbol kind, identifier, scope, and source.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output to.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.kind(), self.symbol(), self.scope, self.source
+            self.ast, self.symbol_kind(), self.symbol_ident(), self.scope, self.source
         )?;
         Ok(())
     }

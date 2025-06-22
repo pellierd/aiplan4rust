@@ -199,7 +199,7 @@ impl Kind {
                 "Cyclic task-ordering constraint detected.".to_string()
             }
             Kind::UndeclaredSymbolError { usage} => {
-                format!("{} symbol '{}' undeclared.", usage.symbol(), usage.kind())
+                format!("{} symbol '{}' undeclared.", usage.symbol_ident(), usage.symbol_kind())
             }
             Kind::SymbolDeclaredAsKeywordError {declaration, ..} => {
                 format!("Symbol '{}' used as a language keyword", declaration.symbol_ident())
@@ -348,58 +348,58 @@ impl Kind {
             }
             Kind::CyclicTaskOrderingError => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
             Kind::UndeclaredSymbolError { usage} => {
-                match usage.kind() {
+                match usage.symbol_kind() {
                     SymbolKind::Function => Some(format!(
                         "Function '{}' is not declared. Please declare it before use in the ':functions' block.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::Predicate => Some(format!(
                         "Predicate '{}' is not declared. Please declare it before use in ':predicates' block.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::Action => Some(format!(
                         "Action '{}' is not declared. Please define it using the ':action' keyword.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::DASymbol => Some(format!(
                         "Durative action '{}' is not declared. Please define it using the ':durative-action' keyword.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::Method => Some(format!(
                         "Method '{}' is not declared. Please define it in the ':methods' keyword.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::Task => Some(format!(
                         "Task '{}' is not declared. Please ensure it's defined using the ':task' keyword.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::TaskID => Some(format!(
                         "Task identifier '{}' is not declared. Verify it's correctly assigned in your task network.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::Constant => Some(format!(
                         "Constant '{}' is not declared. Declare it in the ':constants' section in domain files of in ':object' in problem files.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::DomainName => Some(format!(
                         "Domain '{}' is not recognized. Make sure the domain name is correctly defined.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::PrimitiveType => Some(format!(
                         "Type '{}' is not declared. Ensure it's defined in the ':types' section.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::ProblemName => Some(format!(
                         "Problem '{}' is not declared. Verify the problem file or declaration.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::Requirement => Some(format!(
                         "Requirement '{}' is not recognized. Check for typos or unsupported features.",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                     SymbolKind::Variable => Some(format!(
                         "Variable '{}' is not declared. Declare it using the correct syntax (e.g., '?x - type').",
-                        usage.symbol()
+                        usage.symbol_ident()
                     )),
                 }
             }

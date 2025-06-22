@@ -67,7 +67,7 @@ pub fn check_undeclared_symbols(
         // Iterate over all usages of the symbol.
         for usage in symbol.usages() {
             // Skip the symbol if it meets the criteria (e.g., already declared or needs to be skipped).
-            if should_skip_symbol(symbol, context, usage.kind(), skip_symbols) {
+            if should_skip_symbol(symbol, context, usage.symbol_kind(), skip_symbols) {
                 continue;
             }
 
@@ -169,7 +169,7 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
     // This closure checks if the declaration's scope starts with the usage scope and if the
     // declaration kind matches the usage kind.
     let check_declarations = |declaration: &Declaration| {
-        usage_scope.starts_with(&declaration.scope()) && declaration.symbol_kind() == usage.kind()
+        usage_scope.starts_with(&declaration.scope()) && declaration.symbol_kind() == usage.symbol_kind()
     };
 
     // For PrimitiveType, we also check usages at the root scope.
@@ -181,7 +181,7 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
         symbol
             .usages()
             .iter()
-            .any(|u| usage.scope().starts_with(&root_scope) && u.kind() == usage.kind())
+            .any(|u| usage.scope().starts_with(&root_scope) && u.symbol_kind() == usage.symbol_kind())
     };
 
     // For SymbolKind::Task, we also check if declaration.kind() is Action or Task.
@@ -192,7 +192,7 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
                 || declaration.symbol_kind() == SymbolKind::Task)
     };
 
-    match usage.kind() {
+    match usage.symbol_kind() {
         SymbolKind::Task => symbol
             .declarations()
             .iter()

@@ -74,7 +74,7 @@ pub fn check_declared_symbol_signatures(
                     diagnostic_manager,
                 )? {
                     no_error &= false;
-                    let entry = context.ast().get_node(usage.ast()).unwrap();
+                    let entry = context.ast().get_node(usage.node_id()).unwrap();
                     let name = context.ast().interner().try_str(symbol.name())?;
                     let diagnostic_kind = match declaration.symbol_kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
@@ -133,8 +133,8 @@ fn match_declaration_with_usage(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let ast_usage = context.ast().get_node(usage.ast()).ok_or_else(|| {
-        ParserInternalError::new(format!("AST entry not found for usage '{}'", usage.ast()))
+    let ast_usage = context.ast().get_node(usage.node_id()).ok_or_else(|| {
+        ParserInternalError::new(format!("AST entry not found for usage '{}'", usage.node_id()))
     })?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
@@ -270,7 +270,7 @@ fn match_argument(
         && (declaration.symbol_kind() == SymbolKind::Action
         || declaration.symbol_kind() == SymbolKind::DASymbol
         || declaration.symbol_kind() == SymbolKind::Method)
-        && usage.kind() == SymbolKind::Task
+        && usage.symbol_kind() == SymbolKind::Task
     {
         // Add a warning diagnostic for this special case
         let interner = context.ast().interner();

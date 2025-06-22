@@ -76,7 +76,7 @@ impl Filterable for Usage {
     ///
     /// A reference to the `SymbolKind` of the usage.
     fn kind(&self) -> SymbolKind {
-        self.kind() // Delegates to the `kind` method in `Usage`.
+        self.symbol_kind() // Delegates to the `kind` method in `Usage`.
     }
 
     /// Returns the `Scope` of the usage.

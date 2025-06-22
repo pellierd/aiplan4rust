@@ -365,12 +365,38 @@ impl Declaration {
 
         Ok(())
     }
+    /// Converts the `Usage` to a `String` using a given `StringInterner`.
+    ///
+    /// This method formats the `Usage` by resolving symbol identifiers through the
+    /// provided interner, producing a human-readable string representation.
+    ///
+    /// # Arguments
+    ///
+    /// * `interner` - A reference to a `StringInterner` used to resolve interned strings.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the formatted `Usage`.
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();
         let _ = self.fmt_with_interner(&mut out, interner);
         out
     }
 
+    /// Formats the `Usage` to a formatter using a `StringInterner` to resolve identifiers.
+    ///
+    /// Writes a detailed representation of the usage, including its AST node index,
+    /// symbol kind, resolved identifier name, scope, source, and optionally formatted
+    /// types and arguments.
+    ///
+    /// # Arguments
+    ///
+    /// * `w` - A mutable reference to a writer implementing `fmt::Write`.
+    /// * `interner` - A reference to a `StringInterner` used to resolve interned strings.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `fmt::Result` indicating success or failure of the formatting operation.
     pub fn fmt_with_interner(
         &self,
         w: &mut dyn fmt::Write,
@@ -382,7 +408,7 @@ impl Declaration {
             None => "<uninterned>",
         };
 
-        // Affiche les éléments principaux : ast_old, kind, et le nom résolu
+        // Affiche les éléments principaux : node_id, kind, et le nom résolu
         write!(
             w,
             "[index: {}, kind: {}, ident: {}",
@@ -406,6 +432,23 @@ impl Declaration {
 }
 
 impl fmt::Display for Declaration {
+    /// Formats the `Declaration` for display purposes.
+    ///
+    /// This implementation writes a structured representation of the declaration,
+    /// including its AST node index, symbol kind, identifier, scope, source,
+    /// and optionally the associated types and argument types.
+    ///
+    /// The output format looks like:
+    /// `[index: <node_id>, kind: <symbol_kind>, ident: <identifier>, scope: <scope>, source:
+    ///  <source>, types: [...], arguments: [...]]`
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter used to write the string representation.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` which is `Ok` if formatting succeeded, or an error if it failed.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the main elements: ast_old, kind, scope, and source
         write!(f, "[index: {}, kind: {}, ident: {}", self.node_id(), self.symbol_kind(), self.symbol_ident())?;

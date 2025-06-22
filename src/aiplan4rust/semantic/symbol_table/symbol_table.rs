@@ -527,7 +527,7 @@ impl SymbolTable {
             // Iterate through all usages of this symbol
             for usage in symbol.usages() {
                 // Check if the usage's AST index matches the requested index
-                if usage.ast() == node_id {
+                if usage.node_id() == node_id {
                     // Filter declarations to those whose scope is compatible with the usage's scope
                     let filtered: Vec<&Declaration> = declarations
                         .iter()
