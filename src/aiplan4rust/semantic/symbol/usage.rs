@@ -44,9 +44,9 @@ pub struct Usage {
 
 impl Usage {
     /// Constructeur pour créer un nouveau `Usage`
-    pub fn new(symbol: Ident, kind: SymbolKind, scope: Scope, source: SymbolSource, span: Span, ast: NodeId) -> Self {
+    pub fn new(symbol_ref: SymbolRef, scope: Scope, source: SymbolSource, span: Span, ast: NodeId) -> Self {
         Usage {
-            symbol_ref: SymbolRef::new(symbol, kind),
+            symbol_ref,
             scope,
             source,
             span,

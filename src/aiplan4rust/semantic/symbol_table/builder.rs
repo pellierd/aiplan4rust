@@ -388,19 +388,18 @@ impl SymbolTableBuilder {
         // Extract the symbol information from the AST
         let symbol_ref = ast.try_symbol_ref(node_ref)?;
         let name = symbol_ref.ident();
-        let kind = symbol_ref.kind();
 
         // Check if the symbol is already in the symbol table and add a declaration
         let source = self.table().source().clone();
         if let Some(symbol) = self.table_mut().get_symbol_mut(name) {
             let declaration =
-                Declaration::new(name, kind, scope, source, types, arguments, node_ref.node().span().clone(), node_ref.id());
+                Declaration::new(symbol_ref, scope, source, types, arguments, node_ref.node().span().clone(), node_ref.id());
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
             let mut symbol = Symbol::new(name);
             let declaration =
-                Declaration::new(name, kind, scope, source, types, arguments, node_ref.node().span().clone(), node_ref.id());
+                Declaration::new(symbol_ref, scope, source, types, arguments, node_ref.node().span().clone(), node_ref.id());
             symbol.add_declaration(declaration);
             self.table_mut().insert_symbol(name, symbol); // Insert the new symbol into the table
         }
@@ -474,19 +473,18 @@ impl SymbolTableBuilder {
 
         // Extract symbol name and type based on the AST node's kind.
         let symbol_ref= ast.try_symbol_ref(node_ref)?;
-        let name = symbol_ref.ident();
-        let kind = symbol_ref.kind();
+        let symbol_ident = symbol_ref.ident();
 
         // If the symbol exists, add the usage; otherwise, create a new symbol.
         let source = self.table().source().clone();
-        if let Some(symbol) = self.table_mut().get_symbol_mut(name) {
-            let usage = Usage::new(name, kind, scope, source, node_ref.node().span().clone(), node_ref.id());
+        if let Some(symbol) = self.table_mut().get_symbol_mut(symbol_ident) {
+            let usage = Usage::new(symbol_ref, scope, source, node_ref.node().span().clone(), node_ref.id());
             symbol.add_usage(usage);
         } else {
-            let mut symbol = Symbol::new(name);
-            let usage = Usage::new(name, kind, scope, source, node_ref.node().span().clone(), node_ref.id());
+            let mut symbol = Symbol::new(symbol_ident);
+            let usage = Usage::new(symbol_ref, scope, source, node_ref.node().span().clone(), node_ref.id());
             symbol.add_usage(usage);
-            self.table_mut().insert_symbol(name, symbol);
+            self.table_mut().insert_symbol(symbol_ident, symbol);
         }
         Ok(())
     }

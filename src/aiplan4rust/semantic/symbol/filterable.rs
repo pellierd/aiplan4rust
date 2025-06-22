@@ -55,7 +55,7 @@ impl Filterable for Declaration {
     ///
     /// A reference to the `SymbolKind` of the declaration.
     fn kind(&self) -> SymbolKind {
-        self.kind() // Delegates to the `kind` method in `Declaration`.
+        self.symbol_kind() // Delegates to the `kind` method in `Declaration`.
     }
 
     /// Returns the `Scope` of the declaration.

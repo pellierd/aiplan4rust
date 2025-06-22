@@ -54,7 +54,7 @@ pub fn check_declared_symbol_signatures(
         // Check all declarations of the symbol.
         for declaration in symbol.declarations() {
             if !matches!(
-                declaration.kind(),
+                declaration.symbol_kind(),
                 SymbolKind::Predicate
                     | SymbolKind::Function
                     | SymbolKind::Task
@@ -76,7 +76,7 @@ pub fn check_declared_symbol_signatures(
                     no_error &= false;
                     let entry = context.ast().get_node(usage.ast()).unwrap();
                     let name = context.ast().interner().try_str(symbol.name())?;
-                    let diagnostic_kind = match declaration.kind() {
+                    let diagnostic_kind = match declaration.symbol_kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
                             symbol: name.to_string(),
                         },
@@ -267,9 +267,9 @@ fn match_argument(
 
     // Special tolerated case: accept a primitive task matching an action/method with a supertype
     if !is_subtype
-        && (declaration.kind() == SymbolKind::Action
-        || declaration.kind() == SymbolKind::DASymbol
-        || declaration.kind() == SymbolKind::Method)
+        && (declaration.symbol_kind() == SymbolKind::Action
+        || declaration.symbol_kind() == SymbolKind::DASymbol
+        || declaration.symbol_kind() == SymbolKind::Method)
         && usage.kind() == SymbolKind::Task
     {
         // Add a warning diagnostic for this special case

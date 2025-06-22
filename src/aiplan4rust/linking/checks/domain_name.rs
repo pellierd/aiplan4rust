@@ -70,7 +70,7 @@ pub fn check_domain_name(
 
                 // --- 5. Retrieve the corresponding AST entry ---
                 // Needed to determine the span (location) for the warning.
-                match problem.ast().get_node(domain_name_declaration.ast()) {
+                match problem.ast().get_node(domain_name_declaration.node_id()) {
                     Some(ast) => {
 
                         // --- 6. Emit a warning about the mismatch ---

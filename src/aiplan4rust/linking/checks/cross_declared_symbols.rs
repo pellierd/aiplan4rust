@@ -86,7 +86,7 @@ pub fn check_cross_declared_symbols(
         for declaration in symbol.declarations() {
             // Step 5: Skip declarations exempt from conflict check or not from problem source.
             if !is_declaration_exempt_from_conflict_check(declaration)
-                && *declaration.source() == SymbolSource::Problem
+                && declaration.source() == SymbolSource::Problem
             {
                 // Step 6: Check if there are relevant domain declarations for the symbol.
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.name()) {
@@ -94,7 +94,7 @@ pub fn check_cross_declared_symbols(
                     let domain_kinds: Vec<SymbolKind> = get_relevant_domain_kinds(domain_symbol_table, symbol.name());
 
                     // Step 8: Check if the kind of the problem declaration exists in the domain kinds.
-                    let same_kind_exists = domain_kinds.iter().any(|k| *k == declaration.kind());
+                    let same_kind_exists = domain_kinds.iter().any(|k| *k == declaration.symbol_kind());
 
                     // Step 9: If no matching kind found, report a conflict error.
                     if !same_kind_exists {
@@ -191,7 +191,7 @@ fn get_relevant_domain_kinds(
             .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
             .into_iter()
             .filter(|d| !is_declaration_exempt_from_conflict_check(d))
-            .map(|d| d.kind().clone())
+            .map(|d| d.symbol_kind().clone())
             .collect()
 }
 
@@ -236,12 +236,12 @@ fn report_cross_conflict_symbol_error(
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 )  -> Result<(), ParserInternalError> {
-    let symbol = declaration.symbol();
+    let symbol = declaration.symbol_ident();
     let symbol_name = context.ast().interner().try_str(symbol)?;
     let error = Diagnostic::new(
         DiagnosticKind::CrossConflictSymbolDeclarationError {
             symbol: symbol_name.to_string(),
-            problem_kind: declaration.kind().clone(),
+            problem_kind: declaration.symbol_kind().clone(),
             domain_kinds,
         },
         source,
@@ -282,7 +282,7 @@ fn report_cross_conflict_symbol_error(
 /// ```
 fn is_declaration_exempt_from_conflict_check(declaration: &Declaration) -> bool {
     matches!(
-        declaration.kind(),
+        declaration.symbol_kind(),
         SymbolKind::DomainName | SymbolKind::ProblemName
     )
 }

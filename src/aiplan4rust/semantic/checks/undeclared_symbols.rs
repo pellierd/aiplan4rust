@@ -169,7 +169,7 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
     // This closure checks if the declaration's scope starts with the usage scope and if the
     // declaration kind matches the usage kind.
     let check_declarations = |declaration: &Declaration| {
-        usage_scope.starts_with(&declaration.scope()) && declaration.kind() == usage.kind()
+        usage_scope.starts_with(&declaration.scope()) && declaration.symbol_kind() == usage.kind()
     };
 
     // For PrimitiveType, we also check usages at the root scope.
@@ -188,8 +188,8 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
     // This ensures we match tasks that are declared with Action or Task symbols.
     let check_primitive_task_declaration = |declaration: &Declaration| {
         usage_scope.starts_with(&declaration.scope())
-            && (declaration.kind() == SymbolKind::Action
-                || declaration.kind() == SymbolKind::Task)
+            && (declaration.symbol_kind() == SymbolKind::Action
+                || declaration.symbol_kind() == SymbolKind::Task)
     };
 
     match usage.kind() {

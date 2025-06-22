@@ -50,7 +50,7 @@ fn check_symbol_declarations(
 
         for declaration in symbol.declarations() {
             if let Some(kinds) = kinds_to_check {
-                if !kinds.contains(&declaration.kind()) {
+                if !kinds.contains(&declaration.symbol_kind()) {
                     continue;
                 }
             }
@@ -59,14 +59,14 @@ fn check_symbol_declarations(
                 continue;
             }
 
-            let ast_entry = context.get(declaration.ast()).unwrap();
+            let ast_entry = context.get(declaration.node_id()).unwrap();
             let current_scope = declaration.scope();
 
             let maybe_conflict = seen_scopes.iter().find(|(s, _)| current_scope.starts_with(s));
 
             if let Some((conflicting_scope, previous_declaration)) = maybe_conflict {
-                let current_kind = declaration.kind();
-                let previous_kind = previous_declaration.kind();
+                let current_kind = declaration.symbol_kind();
+                let previous_kind = previous_declaration.symbol_kind();
 
                 if (current_kind == SymbolKind::PrimitiveType && previous_kind == SymbolKind::Predicate) ||
                     (current_kind == SymbolKind::Predicate && previous_kind == SymbolKind::PrimitiveType) {
@@ -111,7 +111,7 @@ fn check_symbol_declarations(
 
 fn skip_duplicated_declaration(declaration: &Declaration) -> Result<bool, ParserInternalError> {
     if matches!(
-        declaration.kind(),
+        declaration.symbol_kind(),
         SymbolKind::DomainName | SymbolKind::ProblemName
     ) {
         return Ok(true);

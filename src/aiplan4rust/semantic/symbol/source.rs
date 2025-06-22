@@ -25,7 +25,7 @@ pub const SYMBOL_SOURCE_UNKNOWN: &str = "Unknown";
 /// let origin = SymbolOrigin::Domain;
 /// assert_eq!(origin.to_string(), "Domain");
 /// ```
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub enum Source {
     /// The symbol originates from the domain file.
     Domain,

@@ -153,7 +153,7 @@ fn report_cyclic_type_declaration_error(
     // Build a fast lookup map from symbol names to declarations
     let type_map: HashMap<Ident, &Declaration> = types
         .iter()
-        .map(|&decl| (decl.symbol(), decl))
+        .map(|&decl| (decl.symbol_ident(), decl))
         .collect();
 
     // Process each cycle to generate detailed diagnostic information
@@ -524,7 +524,7 @@ fn build_type_adjacency_matrix(
     // Iterate over all declared types and their declarations
     for declaration in declarations {
         // Try to get the index for the current type name from the bimap
-        let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol()) else {
+        let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol_ident()) else {
             // If the type is not found in the map (should not happen if map is consistent), skip
             continue;
         };
@@ -533,7 +533,7 @@ fn build_type_adjacency_matrix(
         if type_idx >= n {
             return Err(ParserInternalError::new(format!(
                 "Index {} for type '{}' is out of bounds (max {})",
-                type_idx, declaration.symbol(), n - 1
+                type_idx, declaration.symbol_ident(), n - 1
             )));
         }
 
@@ -607,9 +607,9 @@ fn build_type_bimap(
     // Iterate over each type declaration in the input map
     for declaration in declarations {
         // If the type name is not already in the BiMap, insert it with a new unique index
-        if !temp_map.contains_left(&declaration.symbol()) {
+        if !temp_map.contains_left(&declaration.symbol_ident()) {
             let len = temp_map.len();        // Current size of the map used as next index
-            temp_map.insert(declaration.symbol().clone(), len); // Insert the type name with the index
+            temp_map.insert(declaration.symbol_ident().clone(), len); // Insert the type name with the index
         }
 
         // If the declaration has parent types (e.g., inherited types)

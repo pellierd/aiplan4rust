@@ -718,7 +718,7 @@ impl SymbolTable {
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, ParserInternalError> {
         // Collect all declarations that exactly match the usage kind
-        let matching: Vec<_> = declarations.iter().filter(|d| d.kind() == *usage_kind).collect();
+        let matching: Vec<_> = declarations.iter().filter(|d| d.symbol_kind() == *usage_kind).collect();
 
         match matching.len() {
             // No matching declarations found
@@ -728,9 +728,9 @@ impl SymbolTable {
                 // If there is only one declaration in total, return the matching one
                 1 => Ok(Some(matching[0])),
                 // If there are exactly two declarations in total, check the other one
-                2 => match declarations.iter().find(|d| d.kind() != *usage_kind) {
+                2 => match declarations.iter().find(|d| d.symbol_kind() != *usage_kind) {
                     // If the other declaration kind is compatible, still return the matching one
-                    Some(other) if Self::is_declaration_kind_compatible(usage_kind, &other.kind()) => Ok(Some(matching[0])),
+                    Some(other) if Self::is_declaration_kind_compatible(usage_kind, &other.symbol_kind()) => Ok(Some(matching[0])),
                     // Otherwise, multiple conflicting declarations are found — return an error
                     _ => Err(Self::multiple_declarations_error(symbol_name, usage_kind, declarations.len())),
                 },
@@ -765,7 +765,7 @@ impl SymbolTable {
 
         // Check the first (and only) declaration if it exists
         match declarations.first() {
-            Some(decl) => match decl.kind() {
+            Some(decl) => match decl.symbol_kind() {
                 // If the declaration kind is Task or Action, return it as valid
                 SymbolKind::Task | SymbolKind::Action => Ok(Some(decl)),
                 // Otherwise, no valid declaration found; return None

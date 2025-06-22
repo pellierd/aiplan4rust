@@ -67,7 +67,7 @@ pub fn check_unused_symbols(
 
     for symbol in symbol_table.values() {
         for declaration in symbol.declarations() {
-            let declaration_kind = declaration.kind();
+            let declaration_kind = declaration.symbol_kind();
 
             // Skip declarations that should not be analyzed
             if skip_unused_symbol_declaration(declaration, context)?
@@ -168,7 +168,7 @@ fn skip_unused_symbol_declaration(
 ) -> Result<bool, ParserInternalError> {
     // Skip if the declaration is of a built-in kind: Requirement, Action, DASymbol, or Method
     if matches!(
-        declaration.kind(),
+        declaration.symbol_kind(),
         SymbolKind::DomainName
             | SymbolKind::ProblemName
             | SymbolKind::Requirement
@@ -179,7 +179,7 @@ fn skip_unused_symbol_declaration(
         return Ok(true);
     }
 
-    match declaration.symbol() {
+    match declaration.symbol_ident() {
         StringInterner::IDENT_OBJECT
             if context.has_requirement(&Typing)
                 || context.has_requirement(&Adl) =>
@@ -197,7 +197,7 @@ fn skip_unused_symbol_declaration(
 
     // Skip if the declaration is a variable and its scope contains an atomic skeleton node.
     // Variables within such scopes are typically local and do not need to be checked for duplicates.
-    if matches!(declaration.kind(), SymbolKind::Variable)
+    if matches!(declaration.symbol_kind(), SymbolKind::Variable)
         && (declaration
             .scope()
             .contains_ast_of_kind(AstKind::AtomicFormulaSkeleton, context)?
@@ -263,7 +263,7 @@ fn check_pddl_builtin_symbol_declaration(
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
-    let (expected_kind, requirements) = match declaration.symbol() {
+    let (expected_kind, requirements) = match declaration.symbol_ident() {
         StringInterner::IDENT_OBJECT
         if context.has_requirement(&Typing) || context.has_requirement(&Adl) =>
             {
@@ -283,7 +283,7 @@ fn check_pddl_builtin_symbol_declaration(
         _ => return true,
     };
 
-    if declaration.kind() != expected_kind {
+    if declaration.symbol_kind() != expected_kind {
         report_symbol_declared_as_keyword_error(
             declaration,
             expected_kind,

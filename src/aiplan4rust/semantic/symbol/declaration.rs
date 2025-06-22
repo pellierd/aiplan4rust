@@ -57,7 +57,7 @@ pub struct Declaration {
     arguments: Option<Vec<TypedSymbol>>,
 
     /// The AST node of the declaration
-    ast: NodeId,
+    node_id: NodeId,
 
     span: Span,
 
@@ -66,201 +66,96 @@ pub struct Declaration {
 impl Declaration {
     /// Constructor to create a new `Declaration`
     pub fn new(
-        name : Ident,
-        kind: SymbolKind,
+        symbol_ref: SymbolRef,
         scope: Scope,
         source: SymbolSource,
         types: Option<Vec<Ident>>,
         arguments: Option<Vec<TypedSymbol>>,
         span : Span,
-        ast: NodeId,
+        node_id: NodeId,
     ) -> Self {
         Declaration {
-            symbol_ref : SymbolRef::new(name, kind),
+            symbol_ref,
             scope,
             source,
             types,
             arguments,
             span,
-            ast,
+            node_id,
         }
     }
 
-    /// Accessor for the AST node of the declaration.
-    ///
-    /// Returns the index of the AST node representing this declaration.
-    ///
-    /// # Returns
-    ///
-    /// * `usize` - The AST node index.
-    pub fn ast(&self) -> NodeId {
-        self.ast
+    /// Returns a reference to the [`SymbolRef`] associated with this usage.
+    pub fn symbol_ref(&self) -> &SymbolRef {
+        &self.symbol_ref
     }
 
-    /// Accessor for the kind of the symbol declared.
-    ///
-    /// Returns the symbol kind (e.g., variable, function).
-    ///
-    /// # Returns
-    ///
-    /// * `SymbolKind` - The kind of the symbol.
-    pub fn kind(&self) -> SymbolKind {
+    /// Returns the [`Ident`] of the referenced symbol.
+    pub fn symbol_ident(&self) -> Ident {
+        self.symbol_ref.ident()
+    }
+
+    /// Returns the [`SymbolKind`] of the referenced symbol.
+    pub fn symbol_kind(&self) -> SymbolKind {
         self.symbol_ref.kind()
     }
 
-    /// Accessor for the scope of the declaration.
-    ///
-    /// Returns a reference to the scope in which the declaration is valid.
-    ///
-    /// # Returns
-    ///
-    /// * `&Scope` - A reference to the scope of the declaration.
+    /// Returns a reference to the [`Scope`] in which the symbol is used.
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
 
-    /// Accessor for the source of the declaration.
-    ///
-    /// Returns a reference to the source from which the declaration originates
-    /// (e.g., file or module).
-    ///
-    /// # Returns
-    ///
-    /// * `&Source` - A reference to the source of the declaration.
-    pub fn source(&self) -> &SymbolSource {
-        &self.source
+    /// Returns a reference to the [`SymbolSource`] indicating the origin of the symbol.
+    pub fn source(&self) -> SymbolSource {
+        self.source
     }
 
-    /// Accessor for the list of types associated with the symbol.
-    ///
-    /// Returns an optional reference to a vector of types, if available.
-    ///
-    /// # Returns
-    ///
-    /// * `Option<&Vec<String>>` - An optional reference to the list of types.
+    /// Returns an optional reference to the list of types associated with the symbol.
     pub fn types(&self) -> Option<&Vec<Ident>> {
         self.types.as_ref()
     }
 
-    pub fn into_types(self) -> Option<Vec<Ident>> {
-        self.types
-    }
-
-    /// Accessor for the list of argument types associated with the symbol.
-    ///
-    /// Returns an optional reference to a vector of argument types, if available.
-    ///
-    /// # Returns
-    ///
-    /// * `Option<&Vec<TypedSymbol<String>>>` - An optional reference to the list of argument types.
+    /// Returns an optional reference to the list of arguments associated with the symbol.
     pub fn arguments(&self) -> Option<&Vec<TypedSymbol>> {
         self.arguments.as_ref()
     }
 
-    pub fn into_arguments(self) -> Option<Vec<TypedSymbol>> {
-        self.arguments
-    }
-
-    // Mutable accessors
-
-    /// Mutable accessor for the scope of the declaration.
-    ///
-    /// Returns a mutable reference to the scope, allowing modification.
-    ///
-    /// # Returns
-    ///
-    /// * `&mut Scope` - A mutable reference to the scope of the declaration.
-    pub fn scope_mut(&mut self) -> &mut Scope {
-        &mut self.scope
-    }
-
-    /// Mutable accessor for the list of types associated with the symbol.
-    ///
-    /// Returns a mutable reference to the vector of types, allowing modification.
-    ///
-    /// # Returns
-    ///
-    /// * `Option<&mut Vec<String>>` - A mutable reference to the list of types.
-    pub fn types_mut(&mut self) -> Option<&mut Vec<Ident>> {
-        self.types.as_mut()
-    }
-
-    pub fn take_types(&mut self) -> Option<Vec<Ident>> {
-        self.types.take()
-    }
-
-    /// Mutable accessor for the list of argument types associated with the symbol.
-    ///
-    /// Returns a mutable reference to the vector of argument types, allowing modification.
-    ///
-    /// # Returns
-    ///
-    /// * `Option<&mut Vec<TypedSymbol<String>>>` - A mutable reference to the list of argument types.
-    pub fn arguments_mut(&mut self) -> Option<&mut Vec<TypedSymbol>> {
-        self.arguments.as_mut()
-    }
-
+    /// Returns a reference to the [`Span`] in the source code.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
-    pub fn symbol(&self) -> Ident {
-        self.symbol_ref.ident()
+    /// Returns the [`NodeId`] of the AST node associated with this usage.
+    pub fn node_id(&self) -> NodeId {
+        self.node_id
     }
 
-    // Setters
-
-    /// Setter for the source of the declaration.
+    /// Sets the [`SymbolSource`] of this declaration.
     ///
-    /// Sets the source of the declaration to the provided value.
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - The new source to set for the declaration.
+    /// This method is public within the crate to allow controlled updates.
     pub fn set_source(&mut self, source: SymbolSource) {
         self.source = source;
     }
 
-    /// Setter for the list of types associated with the symbol.
+    /// Remaps all [`Ident`] values in this declaration using the provided mapping.
     ///
-    /// Sets the types of the symbol to the provided list of types.
+    /// This updates:
+    /// - The identifier of the referenced symbol.
+    /// - All associated types (if any).
+    /// - All argument identifiers in parameter lists (if any).
     ///
-    /// # Arguments
-    ///
-    /// * `types` - The list of types to set for the symbol.
-    pub fn set_types(&mut self, types: Option<Vec<Ident>>) {
-        self.types = types;
-    }
-
-    /// Setter for the list of argument types associated with the symbol.
-    ///
-    /// Sets the argument types of the symbol to the provided list of argument types.
+    /// Useful during transformations or normalizations where symbol names are changed.
     ///
     /// # Arguments
     ///
-    /// * `arguments` - The list of argument types to set for the symbol.
-    pub fn set_arguments(&mut self, arguments: Option<Vec<TypedSymbol>>) {
-        self.arguments = arguments;
-    }
-
-    /// Setter for the scope of the declaration.
-    ///
-    /// Sets the scope of the declaration to the provided value.
-    ///
-    /// # Arguments
-    ///
-    /// * `scope` - The new scope to set for the declaration.
-    pub fn set_scope(&mut self, scope: Scope) {
-        self.scope = scope;
-    }
-
+    /// * `map` - A mapping from old [`Ident`]s to new [`Ident`]s.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        // Remap le nom principal
-        if let Some(new_ident) = map.get(&self.symbol()) {
-            self.symbol_ref.set_ident(new_ident.clone())
+        // Remap the main symbol name
+        if let Some(new_ident) = map.get(&self.symbol_ident()) {
+            self.symbol_ref.set_ident(new_ident.clone());
         }
 
-        // Remap les types associés (Option<Vec<Ident>>)
+        // Remap associated types
         if let Some(ref mut types) = self.types {
             for ident in types.iter_mut() {
                 if let Some(new_ident) = map.get(ident) {
@@ -269,14 +164,13 @@ impl Declaration {
             }
         }
 
-        // Remap les identifiants dans les arguments (Option<Vec<TypedSymbol>>)
+        // Remap argument identifiers
         if let Some(ref mut args) = self.arguments {
             for arg in args.iter_mut() {
                 arg.remap_idents(map);
             }
         }
     }
-
 
     /// Formats the types of the declaration for display.
     ///
@@ -467,7 +361,7 @@ impl Declaration {
         interner: &StringInterner,
     ) -> fmt::Result {
         // Récupère la chaîne correspondant à `self.name` via l'interner, ou affiche <uninterned> sinon
-        let name_str = match interner.get_str(self.symbol()) {
+        let name_str = match interner.get_str(self.symbol_ident()) {
             Some(name) => name,
             None => "<uninterned>",
         };
@@ -476,8 +370,8 @@ impl Declaration {
         write!(
             w,
             "[index: {}, kind: {}, ident: {}",
-            self.ast(),
-            self.kind(),
+            self.node_id(),
+            self.symbol_kind(),
             name_str
         )?;
 
@@ -498,7 +392,7 @@ impl Declaration {
 impl fmt::Display for Declaration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the main elements: ast_old, kind, scope, and source
-        write!(f, "[index: {}, kind: {}, ident: {}", self.ast(), self.kind(), self.symbol())?;
+        write!(f, "[index: {}, kind: {}, ident: {}", self.node_id(), self.symbol_kind(), self.symbol_ident())?;
 
         // Add scope and source at the end
         write!(f, ", scope: {}, source: {}", self.scope(), self.source())?;

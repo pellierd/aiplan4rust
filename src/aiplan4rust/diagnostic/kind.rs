@@ -202,13 +202,13 @@ impl Kind {
                 format!("{} symbol '{}' undeclared.", usage.symbol(), usage.kind())
             }
             Kind::SymbolDeclaredAsKeywordError {declaration, ..} => {
-                format!("Symbol '{}' used as a language keyword", declaration.symbol())
+                format!("Symbol '{}' used as a language keyword", declaration.symbol_ident())
             }
             Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning {declaration, ..} => {
-                format!("Symbol '{}' is ambiguous as a language keyword", declaration.symbol())
+                format!("Symbol '{}' is ambiguous as a language keyword", declaration.symbol_ident())
             }
             Kind::UnusedSymbolWarning { declaration } => {
-                format!("{} Symbol '{}' is unused", declaration.kind(), declaration.symbol())
+                format!("{} Symbol '{}' is unused", declaration.symbol_kind(), declaration.symbol_ident())
             }
             Kind::DomainProblemNameMismatch { domain_name, problem_name } => {
                 format!("Domain name '{}' does not match problem name '{}'.", domain_name, problem_name)
@@ -342,8 +342,8 @@ impl Kind {
                     "The symbol '{}' is declared once as a '{}' and again as a '{}'. \
                         Consider renaming one of the declarations or ensuring consistent usage.",
                     symbol,
-                    declaration1.kind(),
-                    declaration2.kind()
+                    declaration1.symbol_kind(),
+                    declaration2.symbol_kind()
                 ))
             }
             Kind::CyclicTaskOrderingError => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
@@ -406,8 +406,8 @@ impl Kind {
             Kind::SymbolDeclaredAsKeywordError { declaration, expected_kind, requirements } => {
                 Some(format!(
                     "Symbol '{}' is reserved as '{}' in the language with requirements: {}. '{}' expected. Consider renaming it or using a different symbol.",
-                    declaration.symbol(),
-                    declaration.kind(),
+                    declaration.symbol_ident(),
+                    declaration.symbol_kind(),
                     Self::format_requirements_list(requirements),
                     expected_kind,
                 ))
@@ -416,16 +416,16 @@ impl Kind {
             Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning { declaration, requirements } => {
                 Some(format!(
                     "{} symbol '{}' is ambiguous as it is used as a keyword in the language with requirements: {}. Consider renaming it or using a different symbol.",
-                    declaration.kind(),
-                    declaration.symbol(),
+                    declaration.symbol_kind(),
+                    declaration.symbol_ident(),
                     Self::format_requirements_list(requirements),
                 ))
             }
             Kind::UnusedSymbolWarning {declaration} => {
                 Some(format!(
                     "{} symbol '{}' is declared but not used. Consider removing it to clean up your code.",
-                    declaration.kind(),
-                    declaration.kind()
+                    declaration.symbol_kind(),
+                    declaration.symbol_kind()
                 ))
             }
             Kind::DomainProblemNameMismatch { domain_name, .. } => {
@@ -461,7 +461,7 @@ impl Kind {
                 ))
             }
             Kind::CyclicTypeDeclarationError { cycle } => {
-                let cycle_symbols: Vec<Ident> = cycle.iter().map(|decl| decl.symbol()).collect();
+                let cycle_symbols: Vec<Ident> = cycle.iter().map(|decl| decl.symbol_ident()).collect();
                 Some(format!(
                     "Cycle detected in type hierarchy: {:?}. Remove cyclic inheritance to fix.",
                     cycle_symbols
