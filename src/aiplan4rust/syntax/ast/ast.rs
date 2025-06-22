@@ -124,7 +124,7 @@ impl Ast {
     }
 
     /// Returns a reference to the string interner used during parsing.
-    pub fn context(&self) -> &StringInterner {
+    pub fn interner(&self) -> &StringInterner {
         &self.context
     }
 

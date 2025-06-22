@@ -26,7 +26,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Arena {
     nodes: Vec<Node>,
-    context: StringInterner,
+    interner: StringInterner,
 }
 
 impl Arena {
@@ -40,7 +40,7 @@ impl Arena {
     fn new() -> Self {
         Self {
             nodes: Vec::default(),
-            context: StringInterner::default(),
+            interner: StringInterner::default(),
         }
     }
 
@@ -329,7 +329,7 @@ impl Arena {
     /// ```
     pub fn from_ast(ast: &Ast) -> Self {
         let mut arena = Arena::new();
-        arena.context  = ast.context().clone();
+        arena.interner = ast.interner().clone();
         let root = ast.root();
         Self::add_iterative(&mut arena, root, None);
         arena
@@ -483,15 +483,15 @@ impl Arena {
     }
 
     pub fn get_str(&self, ident: Ident) -> Option<&str> {
-        self.context.get_str(ident)
+        self.interner.get_str(ident)
     }
 
     pub fn interner(&self) -> &StringInterner {
-        &self.context
+        &self.interner
     }
 
     pub fn set_interner(&mut self, interner: StringInterner) {
-        self.context = interner;
+        self.interner = interner;
     }
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         let mut stack = vec![NodeId::ROOT_NODE_ID];

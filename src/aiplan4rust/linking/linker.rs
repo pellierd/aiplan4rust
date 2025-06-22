@@ -203,9 +203,9 @@ fn finalize_linking_result(
         Ok(LinkerResult::new(None, take(diagnostic_manager)))
     } else {
         // All checks passed — build the final linked planning task.
-        let lifted = LinkedSemanticContext::new(domain, problem);
+        let semantic_context = LinkedSemanticContext::new(domain, problem);
 
         // Return the linked task with the collected diagnostics.
-        Ok(LinkerResult::new(Some(lifted), take(diagnostic_manager)))
+        Ok(LinkerResult::new(Some(semantic_context), take(diagnostic_manager)))
     }
 }
