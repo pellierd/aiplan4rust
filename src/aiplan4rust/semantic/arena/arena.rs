@@ -4,7 +4,7 @@ use crate::aiplan4rust::semantic::arena::iterators::PostorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PostorderIterWithIndex;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIter;
 use crate::aiplan4rust::semantic::arena::iterators::PreorderIterWithIndex;
-use crate::aiplan4rust::semantic::arena::{NodeId, NodeRef};
+use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId, NodeRef};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode, AstKind, Ast};
@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 
 /// Arena is a data structure that stores AST nodes in a contiguous vector.
 /// Each node keeps track of its children and its parent by index.
@@ -108,6 +109,23 @@ impl Arena {
         self.get_node(id).ok_or_else(|| ParserInternalError::new(format!("Node with id {} not found", id)))
     }
 
+    /// Attempts to retrieve a `NodeRef` (containing both the node and its ID) from the AST.
+    ///
+    /// This uses `try_node` internally and returns a `NodeRef` if successful.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The `NodeId` to retrieve from the AST.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(NodeRef)` - A reference to the AST node and its associated ID.
+    /// * `Err(ParserInternalError)` - If the node is not found in the AST.
+    pub fn try_node_ref(&self, id: NodeId) -> Result<NodeRef, ParserInternalError> {
+        let node = self.try_node(id)?;
+        Ok(NodeRef::new(id, node))
+    }
+
     /// Returns an immutable reference to the parent node of the node at the given index, if it exists.
     ///
     /// # Parameters
@@ -159,6 +177,109 @@ impl Arena {
                 Ok(self.get_str(child.try_ident()?))
             }
             _ => Ok(None),
+        }
+    }
+
+
+    pub fn try_symbol_ref<T>(&self, value: T) -> Result<SymbolRef, ParserInternalError>
+    where
+        T: Into<NodeId>,
+    {
+        let id: NodeId = value.into();
+        let node = self.try_node(id)?;
+        let kind = node.kind();
+
+        if matches!(
+            kind,
+            AstKind::DomainName
+                | AstKind::PrimitiveType
+                | AstKind::ProblemName
+                | AstKind::Constant
+                | AstKind::Variable
+                | AstKind::FunctionSymbol
+                | AstKind::Predicate
+                | AstKind::ActionSymbol
+                | AstKind::DASymbol
+                | AstKind::MethodSymbol
+                | AstKind::TaskSymbol
+                | AstKind::TaskID
+        ) {
+            return Self::try_simple_symbol_ref(node);
+        }
+
+        if matches!(
+            kind,
+            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+        ) {
+            return self.try_signature_symbol_ref(node);
+        }
+
+        Err(ParserInternalError::new(format!(
+            "Unexpected symbol kind encountered: {:?}",
+            kind
+        )))
+    }
+
+    fn try_simple_symbol_ref(node: &ArenaAstNode) -> Result<SymbolRef, ParserInternalError> {
+        let kind = node.kind();
+        let symbol_kind = match kind {
+            AstKind::DomainName => SymbolKind::DomainName,
+            AstKind::PrimitiveType => SymbolKind::PrimitiveType,
+            AstKind::ProblemName => SymbolKind::ProblemName,
+            AstKind::Constant => SymbolKind::Constant,
+            AstKind::Variable => SymbolKind::Variable,
+            AstKind::FunctionSymbol => SymbolKind::Function,
+            AstKind::Predicate => SymbolKind::Predicate,
+            AstKind::ActionSymbol => SymbolKind::Action,
+            AstKind::DASymbol => SymbolKind::DASymbol,
+            AstKind::MethodSymbol => SymbolKind::Method,
+            AstKind::TaskSymbol => SymbolKind::Task,
+            AstKind::TaskID => SymbolKind::TaskID,
+            _ => return Err(ParserInternalError::new(format!(
+                "Node kind {:?} is not a simple symbol.",
+                kind
+            ))),
+        };
+
+        let ident = node.try_ident()?;
+        Ok(SymbolRef::new(ident, symbol_kind))
+    }
+
+    fn try_signature_symbol_ref(
+        &self,
+        node: &ArenaAstNode,
+    ) -> Result<SymbolRef, ParserInternalError> {
+        let first_child_id = *node.children().first().ok_or_else(|| {
+            ParserInternalError::new(format!(
+                "{} must have children, but none found.",
+                node.kind()
+            ))
+        })?;
+
+        let child = self.try_node(first_child_id)?;
+        let child_kind = child.kind();
+
+        match child_kind {
+            AstKind::Predicate => {
+                let ident = child.try_ident()?;
+                Ok(SymbolRef::new(ident, SymbolKind::Predicate))
+            }
+            AstKind::FunctionSymbol => {
+                let ident = child.try_ident()?;
+                Ok(SymbolRef::new(ident, SymbolKind::Function))
+            }
+            AstKind::TaskSymbol => {
+                let ident = child.try_ident()?;
+                Ok(SymbolRef::new(ident, SymbolKind::Task))
+            }
+            AstKind::TotalTime => {
+                Ok(SymbolRef::new(StringInterner::IDENT_TOTAL_TIME, SymbolKind::Function))
+            }
+            other => Err(ParserInternalError::new(format!(
+                "First child of {:?} must be a Predicate, FunctionSymbol or TaskSymbol, found: {:?}",
+                node.kind(),
+                other
+            ))),
         }
     }
 
