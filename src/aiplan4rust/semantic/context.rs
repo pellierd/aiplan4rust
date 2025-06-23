@@ -171,6 +171,10 @@ impl Context {
         &mut self.ast
     }
 
+    pub fn take_ast(&mut self) -> ArenaAst {
+        std::mem::take(&mut self.ast)
+    }
+
     /// Returns the set of semantic requirements.
     pub fn requirements(&self) -> &HashSet<Requirement> {
         &self.requirements
@@ -181,6 +185,10 @@ impl Context {
         &mut self.requirements
     }
 
+    pub fn take_requirements(&mut self) -> HashSet<Requirement> {
+        std::mem::take(&mut self.requirements)
+    }
+
     /// Returns the symbol table used during semantic resolution.
     pub fn symbol_table(&self) -> &SymbolTable {
         &self.symbol_table
@@ -189,6 +197,10 @@ impl Context {
     /// Returns a mutable reference to the symbol table.
     pub fn symbol_table_mut(&mut self) -> &mut SymbolTable {
         &mut self.symbol_table
+    }
+
+    pub fn take_symbol_table(&mut self) -> SymbolTable {
+        std::mem::take(&mut self.symbol_table)
     }
 
     /// Returns the timestamp when this semantic context was created.

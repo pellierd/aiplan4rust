@@ -2,10 +2,11 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linking::{resolution, LinkedSemanticContext};
 use crate::aiplan4rust::linking::LinkerResult;
-use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
+use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
 use std::mem::take;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 
 /// The `Linker` is responsible for performing the linking phase
 /// of the AIPlan4Rust compilation pipeline.
@@ -133,6 +134,8 @@ pub fn perform_linking_checks(
     problem: &SemanticContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
+
+    let problem_ctx = CheckContext::from_semantic_context(problem);
     linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
 
     let mut check = linking::checks::check_cross_declared_symbols(domain, problem, Provider::Linker, diagnostic_manager)?;
@@ -142,7 +145,7 @@ pub fn perform_linking_checks(
     if check {
         let type_checker = TypeChecker::new(&domain.symbol_table());
 
-        semantic::checks::check_declared_symbol_signatures(problem, &type_checker, diagnostic_manager)?;
+        semantic::checks::check_declared_symbol_signatures(&problem_ctx, &type_checker, diagnostic_manager)?;
         semantic::checks::check_typed_expressions(problem, &type_checker, Provider::Linker, diagnostic_manager)?;
         semantic::checks::check_task_ordering(problem, Provider::Linker, diagnostic_manager)?;
 
@@ -194,10 +197,15 @@ pub fn perform_linking_checks(
 /// }
 /// ```
 fn finalize_linking_result(
-    domain: SemanticContext,
-    problem: SemanticContext,
+    mut domain: SemanticContext,
+    mut problem: SemanticContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<LinkerResult, ParserInternalError> {
+
+    let domain_table = domain.take_symbol_table();
+    let problem_table = problem.take_symbol_table();
+    let global_table = SymbolTable::merge(domain_table, problem_table)?;
+
     // If there are any errors in the diagnostics, return a result without a planning task.
     if diagnostic_manager.has_diagnotics_of_severity(Severity::Error) {
         Ok(LinkerResult::new(None, take(diagnostic_manager)))

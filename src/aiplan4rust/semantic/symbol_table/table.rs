@@ -882,31 +882,6 @@ impl Table {
         ))
     }
 
-    pub fn remap_identsv3(&mut self, map: &HashMap<Ident, Ident>) {
-        let mut new_symbols = LinkedHashMap::new();
-
-        // On consomme self.symbols avec `drain()` pour éviter les clones
-        for (key, mut symbol) in self.symbols.drain() {
-            // Remapper les Symbol eux-mêmes
-            symbol.remap_idents(map);
-
-            // Trouver la nouvelle clé
-            let new_key = map.get(&key).cloned().unwrap_or_else(|| key.clone());
-
-            // Vérification de conflits
-            if new_symbols.contains_key(&new_key) {
-                panic!(
-                    "Conflit de remapping : deux symboles sont remappés vers {:?}",
-                    new_key
-                );
-            }
-
-            new_symbols.insert(new_key, symbol);
-        }
-
-        // Remplacer la map d'origine
-        self.symbols = new_symbols;
-    }
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         // Étape 1 : remap interne des Symbol
         for (_key, symbol) in self.symbols.iter_mut() {

@@ -4,6 +4,7 @@ use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
@@ -189,6 +190,8 @@ impl Analyzer {
         // Skip unused symbols of kind Constant during the checks
         let skip_symbols_unused = &[SymbolKind::Constant];
 
+        let ctx = CheckContext::from_semantic_context(context);
+
         // Perform the first symbol check (declared symbols check)
         let mut checked= Self::check_symbols(
             context,
@@ -212,7 +215,7 @@ impl Analyzer {
 
             // Check atomic formulas in the domain using the type checker
             checked &= semantic::checks::check_declared_symbol_signatures(
-                context,
+                &ctx,
                 &type_checker,
                 diagnostic_manager,
             )?;

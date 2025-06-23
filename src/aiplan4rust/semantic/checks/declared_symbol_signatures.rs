@@ -6,6 +6,8 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
+use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::checks::context::Context;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
@@ -42,7 +44,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// ```
 
 pub fn check_declared_symbol_signatures(
-    context: &SemanticContext,
+    context: &CheckContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
@@ -129,7 +131,7 @@ fn match_declaration_with_usage(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    context: &SemanticContext,
+    context: &CheckContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
@@ -194,7 +196,7 @@ fn match_argument(
     declaration: &Declaration,
     usage: &Usage,
     symbol_table: &SymbolTable,
-    context: &SemanticContext,
+    context: &CheckContext,
     argument: &ArenaAstNode,
     argument_index: usize,
     kind: SymbolKind,
