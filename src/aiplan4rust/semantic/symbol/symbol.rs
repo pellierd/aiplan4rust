@@ -166,6 +166,19 @@ impl Symbol {
             .collect();
     }
 
+    /// Attempts to merge another symbol into this one by combining declarations and usages.
+    ///
+    /// Returns `true` if the symbols had the same name and were merged successfully.
+    /// Returns `false` if the symbol names differ and the merge was not performed.
+    pub fn merge_with(&mut self, other: Symbol) -> bool {
+        if self.name != other.name {
+            return false;
+        }
+        self.declarations.extend(other.declarations);
+        self.usages.extend(other.usages);
+        true
+    }
+
     /// Retourne la représentation en `String` (prête pour `println!`)
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();

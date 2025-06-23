@@ -7,7 +7,6 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::semantic::arena::arena::Arena;
-use crate::aiplan4rust::semantic::symbol_table::SymbolTableBuilder;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::elements::Requirement;
 
@@ -76,17 +75,9 @@ impl Context {
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
     pub fn from(ast: &mut Ast) -> Result<Self, ParserInternalError> {
         let arena = Arena::from_ast(ast);
-
-        // Extract the requirements from the syntax tree
         let requirements = Self::extract_requirements(&arena)?;
-
-        // Create the symbol table from the syntax tree
-        let mut builder = SymbolTableBuilder::new();
-        let symbol_table = builder.build(&arena)?;
-
+        let symbol_table = SymbolTable::from_ast(&arena)?;
         let interner = ast.take_interner();
-
-        // Create and return the annotated syntax tree
         Ok(Context::new(
             arena,
             ast.source_name().to_string(),

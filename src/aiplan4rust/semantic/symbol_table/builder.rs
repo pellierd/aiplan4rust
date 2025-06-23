@@ -1,4 +1,3 @@
-use std::mem;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeRef};
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -42,7 +41,7 @@ enum Comparator {
     GreaterEq, // Greater than or equal
 }
 
-/// A builder for constructing a [`SymbolTable`] from an abstract syntax tree (AST).
+/// A builder for constructing a [`Table`] from an abstract syntax tree (AST).
 ///
 /// `SymbolTableBuilder` encapsulates the logic for traversing an [`ArenaAst`]
 /// and populating a `SymbolTable` with symbols extracted from the tree. It
@@ -58,7 +57,7 @@ enum Comparator {
 /// let mut builder = SymbolTableBuilder::new();
 /// let symbol_table = builder.build(&ast)?;
 /// ```
-pub struct SymbolTableBuilder {
+pub(crate) struct SymbolTableBuilder {
     table: SymbolTable,
 }
 
@@ -87,24 +86,7 @@ impl SymbolTableBuilder {
         &mut self.table
     }
 
-    /// Returns the internal symbol table, consuming it from the builder.
-    ///
-    /// This method moves out the current `SymbolTable` from the builder,
-    /// leaving an empty default-initialized table in its place.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let mut builder = SymbolTableBuilder::new();
-    /// // build or modify the table...
-    /// let table = builder.table_table();
-    /// // builder.table is now empty/reset
-    /// ```
-    pub fn take_table(&mut self) -> SymbolTable {
-        mem::take(&mut self.table)
-    }
-
-    /// Builds a complete [`SymbolTable`] from the given abstract syntax tree.
+    /// Builds a complete [`Table`] from the given abstract syntax tree.
     ///
     /// This method:
     /// - Retrieves the root node of the AST.

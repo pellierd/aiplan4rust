@@ -8,8 +8,8 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::arena::NodeId;
-use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
+use crate::aiplan4rust::semantic::arena::{ArenaAst, NodeId};
+use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
@@ -35,12 +35,12 @@ use std::collections::{HashMap, HashSet};
 /// // Insert or lookup symbols
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SymbolTable {
+pub struct Table {
     symbols: LinkedHashMap<Ident, Symbol>,
     origin: SymbolTableOrigin,
 }
 
-impl Default for SymbolTable {
+impl Default for Table {
     /// Creates a new `SymbolTable` with empty contents and default origin.
     ///
     /// # Returns
@@ -52,7 +52,7 @@ impl Default for SymbolTable {
     /// assert!(table.is_empty());
     /// ```
     fn default() -> Self {
-        SymbolTable {
+        Table {
             symbols: LinkedHashMap::new(),
             origin: SymbolTableOrigin::default(),
         }
@@ -60,7 +60,7 @@ impl Default for SymbolTable {
 }
 
 
-impl SymbolTable {
+impl Table {
     /// Creates a new, empty `SymbolTable` with the given origin.
     ///
     /// # Parameters
@@ -69,9 +69,9 @@ impl SymbolTable {
     /// # Returns
     /// A new `SymbolTable` instance with no symbols and the specified origin.
     pub fn new(origin: SymbolTableOrigin) -> Self {
-        SymbolTable {
+        Table {
             symbols: LinkedHashMap::new(),
-            origin: origin,
+            origin,
         }
     }
 
@@ -121,6 +121,18 @@ impl SymbolTable {
     /// of the symbols during iteration.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Ident, &mut Symbol)> {
         self.symbols.iter_mut()
+    }
+
+    /// Returns an iterator over the symbol table's entries, consuming the table.
+    ///
+    /// Each item yielded by the iterator is a tuple containing:
+    /// - The symbol's name (`Ident`)
+    /// - The corresponding `Symbol` object (`Symbol`)
+    ///
+    /// # Returns
+    /// An iterator over all symbol name and symbol pairs in the symbol table, consuming the table.
+    pub fn into_iter(self) -> impl Iterator<Item = (Ident, Symbol)> {
+        self.symbols.into_iter()
     }
 
     /// Inserts a symbol into the symbol table using a unique key.
@@ -222,7 +234,7 @@ impl SymbolTable {
                 // Retrieve all declarations of the found symbol
                 let declarations = symbol.declarations();
                 // Filter declarations by optional kind and scope
-                let filtered_declarations = SymbolTable::collect(kind, scope, declarations);
+                let filtered_declarations = Table::collect(kind, scope, declarations);
                 // If any filtered declarations exist, return the symbol wrapped in a vector
                 if !filtered_declarations.is_empty() {
                     return vec![symbol];
@@ -243,7 +255,7 @@ impl SymbolTable {
                 // Retrieve all declarations of the current symbol
                 let declarations = symbol.declarations();
                 // Filter declarations by kind and scope
-                let filtered_declarations = SymbolTable::collect(kind, scope, declarations);
+                let filtered_declarations = Table::collect(kind, scope, declarations);
                 // Keep symbol only if filtered declarations are not empty
                 !filtered_declarations.is_empty()
             })
@@ -305,7 +317,7 @@ impl SymbolTable {
                 // Retrieve all usages associated with the symbol
                 let usages = symbol.usages();
                 // Filter the usages based on the given kind and scope
-                let filtered_usages = SymbolTable::collect(kind, scope, usages);
+                let filtered_usages = Table::collect(kind, scope, usages);
                 // If there is at least one matching usage, return the symbol in a vector
                 if !filtered_usages.is_empty() {
                     return vec![symbol];
@@ -320,7 +332,7 @@ impl SymbolTable {
             // Keep only those symbols that have at least one usage matching the filters
             .filter(|symbol| {
                 let usages = symbol.usages();
-                !SymbolTable::collect(kind, scope, usages).is_empty()
+                !Table::collect(kind, scope, usages).is_empty()
             })
             // Collect the filtered symbols into a vector to return
             .collect()
@@ -369,7 +381,7 @@ impl SymbolTable {
             // If the symbol name is provided, try to get the corresponding symbol.
             if let Some(symbol) = self.symbols.get(name) {
                 // Filter that symbol's declarations using the provided kind and scope.
-                return SymbolTable::collect(kind, scope, symbol.declarations());
+                return Table::collect(kind, scope, symbol.declarations());
             } else {
                 // No such symbol found: return an empty list.
                 return Vec::new();
@@ -380,7 +392,7 @@ impl SymbolTable {
         // and collect declarations matching the kind and scope.
         self.symbols
             .values()
-            .flat_map(|symbol| SymbolTable::collect(kind, scope, symbol.declarations()))
+            .flat_map(|symbol| Table::collect(kind, scope, symbol.declarations()))
             .collect()
     }
 
@@ -424,7 +436,7 @@ impl SymbolTable {
         if let Some(name) = symbol_name {
             if let Some(symbol) = self.symbols.get(name) {
                 // Found the symbol: filter its usages based on the optional kind and scope criteria.
-                return SymbolTable::collect(kind, scope, symbol.usages());
+                return Table::collect(kind, scope, symbol.usages());
             } else {
                 // No symbol with this name found: return an empty vector.
                 return Vec::new();
@@ -434,7 +446,7 @@ impl SymbolTable {
         // No symbol name provided:
         // Iterate over all symbols and collect usages filtered by kind and scope.
         self.symbols.values()
-            .flat_map(|symbol| SymbolTable::collect(kind, scope, symbol.usages()))
+            .flat_map(|symbol| Table::collect(kind, scope, symbol.usages()))
             .collect()
     }
 
@@ -599,8 +611,8 @@ impl SymbolTable {
     /// }
     /// ```
     ///
-    /// [`fetch_declarations`]: SymbolTable::collect_declarations
-    /// [`select_valid_declaration`]: SymbolTable::select_valid_declaration
+    /// [`fetch_declarations`]: Table::collect_declarations
+    /// [`select_valid_declaration`]: Table::select_valid_declaration
     /// [`ParserInternalError`]: crate::errors::ParserInternalError
     pub fn resolve_declaration(
         &self,
@@ -870,52 +882,6 @@ impl SymbolTable {
         ))
     }
 
-    /*pub fn remap_identsv1(&mut self, map: &HashMap<Ident, Ident>) {
-        // Reconstruire un nouveau LinkedHashMap avec les clés remappées
-        let mut new_symbols = LinkedHashMap::new();
-
-        for (key, symbol) in self.symbols.iter_mut() {
-            // Remap de la valeur Symbol
-            symbol.remap_idents(map);
-
-            // Trouve la clé remappée (ou garde l’originale)
-            let new_key = map.get(key).cloned().unwrap_or_else(|| key.clone());
-
-            // Insère dans la nouvelle table
-            new_symbols.insert(new_key, symbol.clone());
-        }
-
-        self.symbols = new_symbols;
-
-    }*/
-
-    // Version sans clone a testé
-    /*pub fn remap_identsv2(&mut self, map: &HashMap<Ident, Ident>) {
-        let mut new_symbols = LinkedHashMap::new();
-
-        // On consomme self.symbols avec `drain()` pour éviter les clones
-        for (key, mut symbol) in self.symbols.drain() {
-            // Remapper les Symbol eux-mêmes
-            symbol.remap_idents(map);
-
-            // Trouver la nouvelle clé
-            let new_key = map.get(&key).cloned().unwrap_or_else(|| key.clone());
-
-            // Vérification de conflits
-            if new_symbols.contains_key(&new_key) {
-                panic!(
-                    "Conflit de remapping : deux symboles sont remappés vers {:?}",
-                    new_key
-                );
-            }
-
-            new_symbols.insert(new_key, symbol);
-        }
-
-        // Remplacer la map d'origine
-        self.symbols = new_symbols;
-    }*/
-
     pub fn remap_identsv3(&mut self, map: &HashMap<Ident, Ident>) {
         let mut new_symbols = LinkedHashMap::new();
 
@@ -965,6 +931,93 @@ impl SymbolTable {
         self.symbols = new_symbols;
     }
 
+
+
+
+    /// Merges two symbol tables (`domain` and `problem`) into a single `SymbolTable`.
+    ///
+    /// The resulting symbol table has the origin set to `SymbolTableOrigin::Merged`.
+    ///
+    /// Symbols from the `domain` table are inserted first. Then symbols from the `problem`
+    /// table are merged:
+    /// - If a symbol from the `problem` table has the same identifier as one in the merged table,
+    ///   an attempt is made to merge their contents via `Symbol::merge_with`.
+    /// - If merging fails (e.g., symbol names differ), the function returns a `ParserInternalError`.
+    /// - Otherwise, the symbol is inserted directly if it does not exist yet.
+    ///
+    /// # Parameters
+    ///
+    /// - `domain`: The symbol table representing domain-level symbols.
+    /// - `problem`: The symbol table representing problem-level symbols.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(SymbolTable)`: The merged symbol table with combined entries.
+    /// - `Err(ParserInternalError)`: If a symbol merge fails due to incompatible symbols.
+    ///
+    /// # Errors
+    ///
+    /// This function returns an error if two symbols with the same identifier cannot be merged,
+    /// typically because their internal names differ.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let merged_table = merge(domain_table, problem_table)?;
+    /// ```
+    ///
+    pub fn merge(domain: Table, problem: Table) -> Result<Table, ParserInternalError> {
+        let mut merged = Table::new(SymbolTableOrigin::Merged);
+
+        // Insert symbols from the domain table
+        for (ident, symbol) in domain.into_iter() {
+            merged.insert_symbol(ident, symbol);
+        }
+
+        // Merge or insert symbols from the problem table
+        for (ident, symbol) in problem.into_iter() {
+            if let Some(existing_symbol) = merged.get_symbol_mut(ident) {
+                if !existing_symbol.merge_with(symbol) {
+                    return Err(ParserInternalError::new(format!(
+                        "Failed to merge symbol with different name: {}", ident
+                    )));
+                }
+            } else {
+                merged.insert_symbol(ident, symbol);
+            }
+        }
+
+        Ok(merged)
+    }
+
+    /// Creates a new `SymbolTable` by building it from the given AST.
+    ///
+    /// This function serves as a convenient entry point to construct
+    /// a symbol table based on the provided abstract syntax tree (`ArenaAst`).
+    /// Internally, it uses `SymbolTableBuilder` to perform the construction.
+    ///
+    /// # Parameters
+    /// - `ast`: A reference to the AST (`ArenaAst`) from which to build the symbol table.
+    ///
+    /// # Returns
+    /// - `Ok(SymbolTable)` if the symbol table was successfully built.
+    /// - `Err(ParserInternalError)` if any error occurred during the building process.
+    ///
+    /// # Example
+    /// ```
+    /// let ast = ...; // Assume you have an ArenaAst instance
+    /// let symbol_table = SymbolTable::from_ast(&ast)?;
+    /// ```
+    ///
+    /// # Errors
+    /// Returns `ParserInternalError` if semantic errors or other parsing issues are detected during building.
+    pub fn from_ast(ast: &ArenaAst) -> Result<Table, ParserInternalError> {
+        let mut builder = SymbolTableBuilder::new();
+        let symbol_table = builder.build(ast)?;
+        Ok(symbol_table)
+    }
+
+
     pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
         let mut out = String::new();
         let _ = self.fmt_with_interner(&mut out, interner);
@@ -998,7 +1051,7 @@ impl SymbolTable {
 /// let symbol_table = SymbolTable::new();
 /// println!("{}", symbol_table); // Prints all symbols line by line.
 /// ```
-impl fmt::Display for SymbolTable {
+impl fmt::Display for Table {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Iterate over all symbols stored in the symbol table.
         for symbol in self.symbols.values() {
