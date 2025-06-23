@@ -6,7 +6,7 @@ pub mod declaration;
 pub mod filterable;
 pub mod symbol;
 pub mod kind;
-pub mod source;
+pub mod origin;
 pub mod reference;
 
 pub use declaration::Declaration;
@@ -16,5 +16,5 @@ pub use symbol::Symbol;
 pub use kind::Kind as SymbolKind;
 pub use typed_symbol::TypedSymbol;
 pub use usage::Usage;
-pub use source::Source as SymbolSource;
+pub use origin::Origin as SymbolOrigin;
 pub use reference::Reference as SymbolRef;

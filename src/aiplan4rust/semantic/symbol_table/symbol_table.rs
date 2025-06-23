@@ -1,6 +1,5 @@
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::symbol::SymbolSource;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -10,6 +9,7 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::arena::NodeId;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
@@ -17,91 +17,86 @@ use serde::Serialize;
 use std::fmt;
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-/// A table of symbols used by the aiplan4rust.
+/// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///
-/// This structure maintains an ordered mapping from unique string keys to `Symbol` instances.
-/// It supports efficient insertion, lookup, and iteration of symbols, preserving insertion order
-/// via the `LinkedHashMap`.
+/// This structure maintains an ordered mapping from identifiers to their corresponding `Symbol`
+/// instances. It is central to parsing, semantic analysis, and later stages such as linking.
 ///
-/// The `source` field tracks the origin of the symbols, useful for context or provenance information.
+/// The insertion order of symbols is preserved via `LinkedHashMap`, which is useful for
+/// deterministic behavior during iteration (e.g., for diagnostics or code generation).
 ///
 /// # Fields
-/// - `symbols`: A `LinkedHashMap` storing symbols by their unique names.
-/// - `source`: The origin or context from which the symbols were loaded or derived.
-///
-/// # Usage
-/// This table is central to parsing and semantic analysis, holding all symbol declarations,
-/// usages, and associated metadata.
+/// - `symbols`: Maps `Ident` to `Symbol`, preserving insertion order.
+/// - `origin`: Indicates the source context of this table (e.g., Domain, Problem, Merged).
 ///
 /// # Example
 /// ```rust
 /// let mut table = SymbolTable::default();
-/// // Insert or query symbols as needed
+/// // Insert or lookup symbols
 /// ```
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SymbolTable {
     symbols: LinkedHashMap<Ident, Symbol>,
-    source: SymbolSource,
+    origin: SymbolTableOrigin,
 }
 
-/// Provides a default constructor for `SymbolTable`.
-///
-/// This implementation initializes a new `SymbolTable` with:
-/// - An empty `symbols` map (using `LinkedHashMap`).
-/// - A default `source` value (`SymbolOrigin::default()`).
-///
-/// # Returns
-/// A new `SymbolTable` instance with default empty contents.
-///
-/// # Example
-/// ```rust
-/// let symbol_table = SymbolTable::default();
-/// ```
 impl Default for SymbolTable {
+    /// Creates a new `SymbolTable` with empty contents and default origin.
+    ///
+    /// # Returns
+    /// A `SymbolTable` with an empty symbol map and origin set to `SymbolTableOrigin::None`.
+    ///
+    /// # Example
+    /// ```rust
+    /// let table = SymbolTable::default();
+    /// assert!(table.is_empty());
+    /// ```
     fn default() -> Self {
         SymbolTable {
             symbols: LinkedHashMap::new(),
-            source: SymbolSource::default(),
+            origin: SymbolTableOrigin::default(),
         }
     }
 }
 
+
 impl SymbolTable {
-    /// Creates a new, empty `SymbolTable`.
+    /// Creates a new, empty `SymbolTable` with the given origin.
+    ///
+    /// # Parameters
+    /// - `origin`: The origin context of this symbol table (e.g., Domain, Problem, Merged).
     ///
     /// # Returns
-    ///
-    /// A new instance of `SymbolTable` with no symbols.
-    pub fn new(source: SymbolSource) -> Self {
+    /// A new `SymbolTable` instance with no symbols and the specified origin.
+    pub fn new(origin: SymbolTableOrigin) -> Self {
         SymbolTable {
             symbols: LinkedHashMap::new(),
-            source,
+            origin: origin,
         }
     }
 
-
-    /// Returns a reference to the origin/source information of the symbol table.
+    /// Returns the origin metadata of the symbol table.
     ///
-    /// The `source` typically represents metadata about where the symbol table
-    /// or its symbols originate from, such as a file, module, or other context.
+    /// The origin describes where the symbol table was constructed from—
+    /// for example, a domain file, a problem file, or the result of merging both.
     ///
     /// # Returns
-    /// A reference to the `SymbolOrigin` associated with this symbol table.
-    pub fn source(&self) -> &SymbolSource {
-        &self.source
+    /// A reference to the `SymbolTableOrigin` associated with this symbol table.
+    pub fn origin(&self) -> SymbolTableOrigin {
+        self.origin
     }
 
-    /// Sets or updates the origin/source information of the symbol table.
+    /// Sets or updates the origin metadata of the symbol table.
     ///
-    /// This can be used to change metadata about where the symbol table or its
-    /// contents are considered to come from, which might affect error reporting,
-    /// analysis, or other tooling.
+    /// This is useful during linking or transformations when the origin context
+    /// of a table changes (e.g., from Domain to Merged).
     ///
     /// # Parameters
-    /// - `source`: The new `SymbolOrigin` value to assign to this symbol table.
-    pub fn set_source(&mut self, source: SymbolSource) {
-        self.source = source;
+    /// - `origin`: The new `SymbolTableOrigin` to assign.
+    pub fn set_origin(&mut self, origin: SymbolTableOrigin) {
+        self.origin = origin;
     }
+
 
     /// Returns an iterator over the symbol table's entries as immutable references.
     ///

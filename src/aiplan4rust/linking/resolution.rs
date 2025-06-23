@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolSource, Usage};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolOrigin, Usage};
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::interner::{InternerMergeResult, StringInterner};
 
@@ -160,7 +160,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
 
                 if let Some(domain_declaration) = domain_declaration_option {
                     let mut domain_declaration = domain_declaration.clone();
-                    domain_declaration.set_source(SymbolSource::Domain);
+                    domain_declaration.set_origin(SymbolOrigin::Domain);
                     declared.push((symbol.name(), domain_declaration));
                 } else {
                     undeclared.push((symbol.name(), usage));

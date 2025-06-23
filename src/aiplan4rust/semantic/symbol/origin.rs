@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Display labels associated with each variant of `SymbolOrigin`.
+/// Display labels associated with each variant of `Origine`.
 pub const SYMBOL_SOURCE_DOMAIN: &str = "Domain";
 pub const SYMBOL_SOURCE_PROBLEM: &str = "Problem";
 pub const SYMBOL_SOURCE_UNKNOWN: &str = "Unknown";
@@ -19,34 +19,34 @@ pub const SYMBOL_SOURCE_UNKNOWN: &str = "Unknown";
 ///
 /// # Example
 ///
-/// ```
-/// use your_crate::symbol::origin::SymbolOrigin;
+/// ```rust
+/// use aiplan4rust::symbol::origin::Origine;
 ///
-/// let origin = SymbolOrigin::Domain;
+/// let origin = Origine::Domain;
 /// assert_eq!(origin.to_string(), "Domain");
 /// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
-pub enum Source {
+pub enum Origin {
     /// The symbol originates from the domain file.
     Domain,
 
     /// The symbol originates from the problem file.
     Problem,
 
-    /// The symbol's origin could not be determined
+    /// The symbol's origin could not be determined (default).
     #[default]
     Unknown,
 }
 
-impl fmt::Display for Source {
-    /// Converts the `SymbolOrigin` variant to a human-readable string.
+impl fmt::Display for Origin {
+    /// Converts the `Origine` variant to a human-readable string.
     ///
-    /// The conversion relies on predefined constants instead of hardcoded strings.
+    /// This implementation uses predefined constants for consistency and easy maintenance.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let label = match self {
-            Source::Domain => SYMBOL_SOURCE_DOMAIN,
-            Source::Problem => SYMBOL_SOURCE_PROBLEM,
-            Source::Unknown => SYMBOL_SOURCE_UNKNOWN,
+            Origin::Domain => SYMBOL_SOURCE_DOMAIN,
+            Origin::Problem => SYMBOL_SOURCE_PROBLEM,
+            Origin::Unknown => SYMBOL_SOURCE_UNKNOWN,
         };
         write!(f, "{}", label)
     }

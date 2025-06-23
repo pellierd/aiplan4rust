@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use crate::aiplan4rust::semantic::symbol::SymbolSource;
+use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
@@ -86,7 +86,7 @@ pub fn check_cross_declared_symbols(
         for declaration in symbol.declarations() {
             // Step 5: Skip declarations exempt from conflict check or not from problem source.
             if !is_declaration_exempt_from_conflict_check(declaration)
-                && declaration.source() == SymbolSource::Problem
+                && declaration.origin() == SymbolOrigin::Problem
             {
                 // Step 6: Check if there are relevant domain declarations for the symbol.
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.name()) {

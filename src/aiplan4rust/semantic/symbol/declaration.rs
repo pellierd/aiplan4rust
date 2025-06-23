@@ -1,31 +1,32 @@
-use std::collections::HashMap;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
+use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::TypedSymbol;
 use crate::aiplan4rust::semantic::arena::NodeId;
 use crate::aiplan4rust::syntax::elements::Ident;
 
+use std::collections::HashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
-/// Represents a declaration in the abstract syntax tree (AST).
+/// Represents a declaration of a symbol in the abstract syntax tree (AST).
 ///
-/// This struct holds detailed information about a declared symbol in the program,
-/// including its symbol reference (identifier and kind), scope, source, optional types,
-/// optional argument lists, the AST node it corresponds to, and its source span.
+/// This struct captures detailed information about a symbol's declaration within
+/// the program, including its identity, scope, origin, associated types, parameters,
+/// AST node, and source code location.
 ///
 /// # Fields
 ///
-/// * `symbol_ref` - The symbol reference containing the identifier and kind of the symbol.
-/// * `scope` - The scope in which the declaration is valid (e.g., global, local).
-/// * `source` - The source from which the declaration originates (e.g., domain, problem, file).
-/// * `types` - Optional list of types associated with the symbol, if any.
-/// * `arguments` - Optional list of argument types, grouped in parameter lists, if applicable.
-/// * `node_id` - The AST node identifier representing this declaration.
+/// * `symbol_ref` - The reference to the symbol being declared, containing its identifier and kind.
+/// * `scope` - The scope in which this declaration is valid (e.g., global, local).
+/// * `origin` - The origin or source domain of the declaration, typically indicating
+///   whether it belongs to the domain or problem context.
+/// * `types` - An optional list of types associated with the symbol (e.g., return types or annotations).
+/// * `arguments` - Optional lists of typed parameters or arguments, grouped by parameter lists, if applicable.
+/// * `node_id` - The AST node identifier corresponding to this declaration.
 /// * `span` - The source span indicating where this declaration occurs in the source code.
 ///
 /// # Example
@@ -35,12 +36,13 @@ use std::fmt;
 /// let declaration = Declaration::new(
 ///     symbol_ref,
 ///     Scope::Global,
-///     SymbolSource::File("main.pddl".into()),
+///     SymbolOrigin::Domain,   // Origin could be Domain or Problem
 ///     Some(vec![Ident::from("int")]),
 ///     None,
 ///     Span::dummy(),
-///     1,
+///     NodeId(1),
 /// );
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
     // Reference to the symbol declared.
@@ -49,8 +51,8 @@ pub struct Declaration {
     // The scope of the declaration.
     scope: Scope,
 
-    // The source from which the declaration originates.
-    source: SymbolSource,
+    // The origin from which the declaration originates.
+    origin: SymbolOrigin,
 
     // Optional list of types associated with the symbol.
     types: Option<Vec<Ident>>,
@@ -66,40 +68,60 @@ pub struct Declaration {
 }
 
 impl Declaration {
-    /// Constructor to create a new `Declaration`.
+    /// Creates a new `Declaration` instance.
     ///
-    /// # Arguments
+    /// Constructs a `Declaration` that represents the declaration of a symbol within
+    /// a given scope, along with optional type information and arguments.
     ///
-    /// * `symbol_ref` - The reference to the symbol being declared.
-    /// * `scope` - The scope in which the declaration is valid.
-    /// * `source` - The source from which the declaration originates.
-    /// * `types` - Optional list of types associated with the symbol.
-    /// * `arguments` - Optional list of argument types, grouped in parameter lists.
-    /// * `span` - The span in the source code where the declaration is located.
-    /// * `node_id` - The AST node ID representing this declaration.
+    /// # Parameters
+    ///
+    /// - `symbol_ref`: A reference to the symbol being declared.
+    /// - `scope`: The scope in which this declaration is valid (e.g., function, module).
+    /// - `origin`: The origin or source of the declaration (e.g., domain or problem).
+    /// - `types`: An optional list of types associated with the symbol (e.g., return types or type
+    ///   annotations).
+    /// - `arguments`: An optional list of typed symbols representing the parameters or arguments,
+    ///   possibly grouped by parameter lists.
+    /// - `span`: The source code span that locates where the declaration appears.
+    /// - `node_id`: The AST node identifier corresponding to this declaration.
     ///
     /// # Returns
     ///
-    /// A new instance of `Declaration`.
+    /// A new `Declaration` instance populated with the provided information.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let decl = Declaration::new(
+    ///     symbol_ref,
+    ///     scope,
+    ///     source,
+    ///     Some(vec![type_ident]),
+    ///     Some(vec![typed_arg]),
+    ///     span,
+    ///     node_id,
+    /// );
+    /// ```
     pub fn new(
         symbol_ref: SymbolRef,
         scope: Scope,
-        source: SymbolSource,
+        origin: SymbolOrigin,
         types: Option<Vec<Ident>>,
         arguments: Option<Vec<TypedSymbol>>,
-        span : Span,
+        span: Span,
         node_id: NodeId,
     ) -> Self {
         Declaration {
             symbol_ref,
             scope,
-            source,
+            origin,
             types,
             arguments,
             span,
             node_id,
         }
     }
+
 
     /// Returns a reference to the [`SymbolRef`] associated with this usage.
     pub fn symbol_ref(&self) -> &SymbolRef {
@@ -121,9 +143,9 @@ impl Declaration {
         &self.scope
     }
 
-    /// Returns a reference to the [`SymbolSource`] indicating the origin of the symbol.
-    pub fn source(&self) -> SymbolSource {
-        self.source
+    /// Returns a reference to the [`SymbolOrigin`] indicating the origin of the symbol.
+    pub fn origin(&self) -> SymbolOrigin {
+        self.origin
     }
 
     /// Returns an optional reference to the list of types associated with the symbol.
@@ -146,11 +168,11 @@ impl Declaration {
         self.node_id
     }
 
-    /// Sets the [`SymbolSource`] of this declaration.
+    /// Sets the [`SymbolOrigin`] of this declaration.
     ///
     /// This method is public within the crate to allow controlled updates.
-    pub fn set_source(&mut self, source: SymbolSource) {
-        self.source = source;
+    pub fn set_origin(&mut self, origin: SymbolOrigin) {
+        self.origin = origin;
     }
 
     /// Remaps all [`Ident`] values in this declaration using the provided mapping.
@@ -418,7 +440,7 @@ impl Declaration {
         )?;
 
         // Ajoute scope et source
-        write!(w, ", scope: {}, source: {}", self.scope(), self.source())?;
+        write!(w, ", scope: {}, source: {}", self.scope(), self.origin())?;
 
         // Appelle la version avec interner pour formater les types
         self.fmt_types_with_interner(w, interner)?;
@@ -454,7 +476,7 @@ impl fmt::Display for Declaration {
         write!(f, "[index: {}, kind: {}, ident: {}", self.node_id(), self.symbol_kind(), self.symbol_ident())?;
 
         // Add scope and source at the end
-        write!(f, ", scope: {}, source: {}", self.scope(), self.source())?;
+        write!(f, ", scope: {}, source: {}", self.scope(), self.origin())?;
 
         // Call the format_types function to format the types
         self.fmt_types(f)?;

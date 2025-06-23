@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolSource};
+use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::arena::NodeId;
@@ -11,19 +11,48 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
-/// Represents the usage of a symbol in a specific context within the AST.
+/// Represents a specific usage of a symbol within the Abstract Syntax Tree (AST).
 ///
-/// The `Usage` struct stores information about the reference to a symbol,
-/// including its AST node, its kind, the scope in which it is used, and the
-/// source of the usage.
+/// This struct encapsulates detailed information about where and how a symbol is referenced
+/// during the compilation or analysis process. It tracks the symbol's reference, the
+/// lexical scope of the usage, the origin of the symbol usage (such as the file or module),
+/// the precise location in the source code, and the AST node associated with this usage.
 ///
-/// The struct is derived with the following traits:
-/// - `Debug`: To allow for easy debugging output.
-/// - `Clone`: To allow for cloning of instances.
-/// - `Eq`: To allow comparison for equality.
-/// - `PartialEq`: To allow partial equality comparison.
-/// - `Serialize`: To allow serialization for storage or transmission.
-/// - `Deserialize`: To allow deserialization from serialized formats.
+/// # Fields
+///
+/// - `symbol_ref`: A reference to the symbol being used. This links the usage back to the symbol's
+///   definition.
+/// - `scope`: The lexical or logical scope (such as a function or block) in which the symbol is
+///   used.
+/// - `origin`: The origin or source of the usage, indicating the file, module, or context from
+///   which this usage arises.
+/// - `span`: The source code span that highlights the exact location of the usage in the source
+///   code (e.g., line and column range).
+/// - `ast`: The AST node index (NodeId) corresponding to this particular usage occurrence.
+///
+/// # Derives
+///
+/// This struct implements the following traits:
+/// - `Debug`: Enables formatted printing useful for debugging.
+/// - `Clone`: Allows creating deep copies of `Usage` instances.
+/// - `Eq` and `PartialEq`: Support for equality comparisons.
+/// - `Hash`: Enables use in hash-based collections like `HashMap` or `HashSet`.
+/// - `Serialize` and `Deserialize`: Allow serializing to and deserializing from formats such as
+///   JSON, enabling persistence or inter-process communication.
+///
+/// # Example
+///
+/// ```
+/// # use your_crate::{Usage, SymbolRef, Scope, SymbolOrigin, Span, NodeId};
+/// let usage = Usage {
+///     symbol_ref: SymbolRef::new(...),
+///     scope: Scope::Function,
+///     origin: SymbolOrigin::File("src/main.rs".into()),
+///     span: Span::new(10, 20),
+///     ast: NodeId(42),
+/// };
+/// println!("{:?}", usage);
+/// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
     /// Reference to the symbol being used.
@@ -33,7 +62,7 @@ pub struct Usage {
     scope: Scope,
 
     /// The source of the usage (e.g., file or module).
-    source: SymbolSource,
+    origin: SymbolOrigin,
 
     /// The source code span corresponding to this usage.
     span: Span,
@@ -41,32 +70,35 @@ pub struct Usage {
     /// The AST node index where the symbol usage occurs.
     ast: NodeId,
 }
-
 impl Usage {
     /// Constructs a new `Usage` instance.
     ///
     /// # Arguments
     ///
-    /// * `symbol_ref` - The reference to the symbol being used.
-    /// * `scope` - The scope in which the symbol usage occurs.
-    /// * `source` - The origin/source of this usage (e.g., file or module).
+    /// * `symbol_ref` - Reference to the symbol being used.
+    /// * `scope` - The scope in which this symbol usage occurs.
+    /// * `source` - The origin of this usage, indicating where the symbol comes from (e.g., domain or problem).
     /// * `span` - The span in the source code corresponding to this usage.
-    /// * `ast` - The AST node identifier where this usage appears.
+    /// * `ast` - The identifier of the AST node where this usage appears.
     ///
     /// # Returns
     ///
-    /// A new `Usage` struct initialized with the provided values.
-    pub fn new(symbol_ref: SymbolRef, scope: Scope, source: SymbolSource, span: Span, ast: NodeId) -> Self {
+    /// A new `Usage` struct initialized with the given parameters.
+    pub fn new(
+        symbol_ref: SymbolRef,
+        scope: Scope,
+        source: SymbolOrigin,
+        span: Span,
+        ast: NodeId,
+    ) -> Self {
         Usage {
             symbol_ref,
             scope,
-            source,
+            origin: source,
             span,
-            ast
+            ast,
         }
     }
-
-
     pub fn symbol_ref(&self) -> &SymbolRef {
         &self.symbol_ref
     }
@@ -90,13 +122,16 @@ impl Usage {
         &self.scope
     }
 
-    /// Returns a reference to the source of the symbol usage.
+    /// Returns a reference to the origin of the symbol usage.
+    ///
+    /// This indicates where the symbol was originally sourced from,
+    /// such as the domain or problem context.
     ///
     /// # Returns
     ///
-    /// A reference to the [`SymbolSource`] indicating the origin of this usage.
-    pub fn source(&self) -> &SymbolSource {
-        &self.source
+    /// A reference to the [`SymbolOrigin`] enum representing the symbol's provenance.
+    pub fn origin(&self) -> SymbolOrigin {
+        self.origin
     }
 
     /// Returns a reference to the span in the source code for this usage.
@@ -168,7 +203,7 @@ impl Usage {
         write!(
             w,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.symbol_kind(), symbol_str, self.scope, self.source
+            self.ast, self.symbol_kind(), symbol_str, self.scope, self.origin
         )?;
         Ok(())
     }
@@ -191,7 +226,7 @@ impl fmt::Display for Usage {
         write!(
             f,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.symbol_kind(), self.symbol_ident(), self.scope, self.source
+            self.ast, self.symbol_kind(), self.symbol_ident(), self.scope, self.origin
         )?;
         Ok(())
     }

@@ -2,8 +2,9 @@ use std::mem;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeRef};
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::semantic::symbol::SymbolSource;
+use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, TypedSymbol, Usage};
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
@@ -68,7 +69,7 @@ impl SymbolTableBuilder {
     /// The actual source (Domain or Problem) will be determined during the build process.
     pub fn new() -> Self {
         SymbolTableBuilder {
-            table: SymbolTable::new(SymbolSource::Unknown),
+            table: SymbolTable::new(SymbolTableOrigin::Unknown),
         }
     }
 
@@ -135,10 +136,10 @@ impl SymbolTableBuilder {
         // Determine the root kind and set the source of the symbol table
         match root_node.kind() {
             AstKind::Domain => {
-                self.table_mut().set_source(SymbolSource::Domain);
+                self.table_mut().set_origin(SymbolTableOrigin::Domain);
             }
             AstKind::Problem => {
-                self.table_mut().set_source(SymbolSource::Problem);
+                self.table_mut().set_origin(SymbolTableOrigin::Problem);
             }
             _ => {
                 return Err(ParserInternalError::new(format!(
@@ -387,21 +388,21 @@ impl SymbolTableBuilder {
 
         // Extract the symbol information from the AST
         let symbol_ref = ast.try_symbol_ref(node_ref)?;
-        let name = symbol_ref.ident();
+        let ident = symbol_ref.ident();
 
         // Check if the symbol is already in the symbol table and add a declaration
-        let source = self.table().source().clone();
-        if let Some(symbol) = self.table_mut().get_symbol_mut(name) {
+        let origin = SymbolOrigin::from(self.table().origin());
+        if let Some(symbol) = self.table_mut().get_symbol_mut(ident) {
             let declaration =
-                Declaration::new(symbol_ref, scope, source, types, arguments, node_ref.node().span().clone(), node_ref.id());
+                Declaration::new(symbol_ref, scope, origin, types, arguments, node_ref.node().span().clone(), node_ref.id());
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
-            let mut symbol = Symbol::new(name);
+            let mut symbol = Symbol::new(ident);
             let declaration =
-                Declaration::new(symbol_ref, scope, source, types, arguments, node_ref.node().span().clone(), node_ref.id());
+                Declaration::new(symbol_ref, scope, origin, types, arguments, node_ref.node().span().clone(), node_ref.id());
             symbol.add_declaration(declaration);
-            self.table_mut().insert_symbol(name, symbol); // Insert the new symbol into the table
+            self.table_mut().insert_symbol(ident, symbol); // Insert the new symbol into the table
         }
 
         Ok(())
@@ -473,18 +474,18 @@ impl SymbolTableBuilder {
 
         // Extract symbol name and type based on the AST node's kind.
         let symbol_ref= ast.try_symbol_ref(node_ref)?;
-        let symbol_ident = symbol_ref.ident();
+        let ident = symbol_ref.ident();
 
         // If the symbol exists, add the usage; otherwise, create a new symbol.
-        let source = self.table().source().clone();
-        if let Some(symbol) = self.table_mut().get_symbol_mut(symbol_ident) {
-            let usage = Usage::new(symbol_ref, scope, source, node_ref.node().span().clone(), node_ref.id());
+        let origin = SymbolOrigin::from(self.table().origin());
+        if let Some(symbol) = self.table_mut().get_symbol_mut(ident) {
+            let usage = Usage::new(symbol_ref, scope, origin, node_ref.node().span().clone(), node_ref.id());
             symbol.add_usage(usage);
         } else {
-            let mut symbol = Symbol::new(symbol_ident);
-            let usage = Usage::new(symbol_ref, scope, source, node_ref.node().span().clone(), node_ref.id());
+            let mut symbol = Symbol::new(ident);
+            let usage = Usage::new(symbol_ref, scope, origin, node_ref.node().span().clone(), node_ref.id());
             symbol.add_usage(usage);
-            self.table_mut().insert_symbol(symbol_ident, symbol);
+            self.table_mut().insert_symbol(ident, symbol);
         }
         Ok(())
     }
