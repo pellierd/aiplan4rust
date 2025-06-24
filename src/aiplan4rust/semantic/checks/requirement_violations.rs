@@ -8,13 +8,13 @@ use crate::aiplan4rust::syntax::elements::Requirement::{
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::semantic::arena::ArenaAstNode;
-use crate::aiplan4rust::semantic::SemanticContext;
 
 use std::collections::HashSet;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 pub fn check_requirement_violations(
-    context: &SemanticContext,
+    context: &CheckContext,
     requirements: &HashSet<Requirement>,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,

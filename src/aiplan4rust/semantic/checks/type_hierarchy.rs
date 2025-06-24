@@ -6,13 +6,13 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use bimap::BiMap;
-use crate::aiplan4rust::semantic::SemanticContext;
-use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::interner::StringInterner;
 
 /// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
@@ -60,7 +60,7 @@ use crate::aiplan4rust::interner::StringInterner;
 ///     Err(err) => eprintln!("Internal error: {:?}", err),
 /// }
 pub fn check_type_hierarchy(
-    context: &SemanticContext,
+    context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {

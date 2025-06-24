@@ -1,73 +1,79 @@
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::arena::ArenaAst;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
+use crate::aiplan4rust::syntax::elements::Requirement;
+
+use std::collections::HashSet;
 
 /// A lightweight wrapper to pass semantic context components to verification functions.
 ///
-/// `CheckContext` allows verification functions to be reused in both normal semantic passes
-/// and in linking, by providing a flexible structure containing only the AST, symbol table,
-/// interner, and source name — without requiring a full `SemanticContext`.
+/// `Context` allows semantic check functions to be reused across multiple phases,
+/// including standalone semantic analysis and cross-file linking. It encapsulates the minimal
+/// data required for semantic verification — without needing the full `SemanticContext`.
 ///
 /// # Why This Wrapper?
-/// In standard semantic analysis, all data (AST, symbols, interner) comes from a single file
-/// and is contained in a `SemanticContext`. But during **linking**, data must be verified
-/// using components that come from **different sources** — for example, the domain file and
-/// the problem file might each have their own interner or symbol table.
+/// In standard semantic analysis, all relevant data comes from a single file and is contained
+/// in a `SemanticContext`. However, during **linking**, components (AST, symbol table, interner)
+/// may come from **different files** (e.g., domain and problem).
 ///
-/// `CheckContext` allows you to pass a **custom combination of AST, symbols and interner**
-/// to verification functions. This enables code reuse: the same checks can run seamlessly
-/// whether you're analyzing a single file or linking two files together.
+/// `Context` enables you to:
+/// - **Reuse** existing semantic verification logic
+/// - **Inject** arbitrary components like renamed ASTs or merged symbol tables
+/// - Avoid reconstructing or mutating `SemanticContext` instances just to run checks
 ///
 /// # When to Use
-/// - During semantic verification of a single parsed file (via `SemanticContext`)
-/// - During linking, when combining and verifying symbols or AST nodes from multiple files
-/// - When reusing verification passes on renamed ASTs or merged symbol tables
+/// - During verification of a single parsed file (via `from_semantic_context`)
+/// - During linking, when validating problem elements using domain definitions
+/// - When working with transformed ASTs or custom symbol tables
 ///
 /// # Benefits
-/// - Enables **reuse** of semantic check functions during the linking phase
-/// - Avoids building temporary `SemanticContext` structs just for verification
-/// - Keeps function signatures clean and consistent
+/// - Encourages modular, testable verification functions
+/// - Reduces boilerplate in check function signatures
+/// - Clarifies the dependency contract of a verification pass
 ///
 /// # Example
 /// ```rust
-/// fn check_task_ordering(ctx: CheckContext) {
-///     let ast = ctx.ast();
+/// fn check_unused_symbols(ctx: &Context) {
 ///     let symbols = ctx.symbol_table();
-///     // Use them directly for analysis...
+///     // Perform check logic...
 /// }
 /// ```
 ///
 /// # Fields
-/// - `ast`: The abstract syntax tree (AST) to check.
-/// - `symbols`: The symbol table used to resolve identifiers.
-/// - `interner`: The interner for resolving strings to internal symbols.
-/// - `source_name`: The name of the source file (used in diagnostics).
-
+/// - `ast`: The abstract syntax tree for the context.
+/// - `symbols`: The symbol table used during resolution.
+/// - `interner`: The global string interner for identifiers.
+/// - `source_name`: The name of the source file (used for diagnostics).
+/// - `requirements`: Active requirements (e.g., :typing, :durative-actions).
+#[derive(Clone)]
 pub struct Context<'a> {
     ast:         &'a ArenaAst,
     symbols:     &'a SymbolTable,
     interner:    &'a StringInterner,
     source_name: &'a str,
+    requirements: &'a HashSet<Requirement>,
 }
 
 impl<'a> Context<'a> {
-    /// Creates a new `CheckContext` from separate components.
+    /// Creates a new `Context` from individual components.
     pub fn new(
         ast: &'a ArenaAst,
         symbols: &'a SymbolTable,
         interner: &'a StringInterner,
         source_name: &'a str,
+        requirements: &'a HashSet<Requirement>,
     ) -> Self {
-        Context { ast, symbols, interner, source_name }
+        Self { ast, symbols, interner, source_name, requirements }
     }
 
-    /// Creates a `CheckContext` from a full `SemanticContext`.
+    /// Creates a `Context` from a full `SemanticContext`.
     pub fn from_semantic_context(ctx: &'a SemanticContext) -> Self {
-        Context {
+        Self {
             ast: &ctx.ast(),
             symbols: &ctx.symbol_table(),
             interner: &ctx.interner(),
             source_name: &ctx.source_name(),
+            requirements: &ctx.requirements(),
         }
     }
 
@@ -89,5 +95,10 @@ impl<'a> Context<'a> {
     /// Returns the name of the source file.
     pub fn source_name(&self) -> &'a str {
         self.source_name
+    }
+
+    /// Returns the active requirements.
+    pub fn requirements(&self) -> &'a HashSet<Requirement> {
+        self.requirements
     }
 }

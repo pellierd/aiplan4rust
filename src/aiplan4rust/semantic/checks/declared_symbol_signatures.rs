@@ -4,10 +4,9 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
+use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::checks::context::Context;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.

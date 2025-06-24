@@ -6,8 +6,9 @@ use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
+use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks the type correctness of typed expressions in the syntax tree, including comparisons,
@@ -41,7 +42,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// }
 /// ```
 pub fn check_typed_expressions(
-    context: &SemanticContext,
+    context: &CheckContext,
     type_checker: &TypeChecker,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
@@ -146,7 +147,7 @@ fn is_numeric_expression(node: &ArenaAstNode) -> bool {
 /// );
 /// ```
 fn check_equal_and_assignment_expression(
-    context: &SemanticContext,
+    context: &CheckContext,
     type_checker: &TypeChecker,
     node: &ArenaAstNode,
     ty1: &Vec<Ident>,
@@ -188,7 +189,7 @@ fn report_type_mismatch_in_expression(
     ty2: &[Ident],
     span: Span,
     source: Provider,
-    context: &SemanticContext,
+    context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
 
@@ -254,7 +255,7 @@ fn report_type_mismatch_in_expression(
 /// );
 /// ```
 fn check_numeric_expression(
-    context: &SemanticContext,
+    context: &CheckContext,
     node: &ArenaAstNode,
     ty1: &Vec<Ident>,
     ty2: &Vec<Ident>,
@@ -297,7 +298,7 @@ fn report_invalid_types_in_numeric_expression(
     ty2: &[Ident],
     span: Span,
     source: Provider,
-    context: &SemanticContext,
+    context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
 
@@ -351,7 +352,7 @@ fn report_invalid_types_in_numeric_expression(
 /// ```
 fn get_binary_operation_types(
     node: &ArenaAstNode,
-    context: &SemanticContext,
+    context: &CheckContext,
 ) -> Result<(Vec<Ident>, Vec<Ident>), ParserInternalError> {
     // Validate that there are exactly 2 children
     if node.children().len() != 2 {
@@ -359,11 +360,11 @@ fn get_binary_operation_types(
             "Binary operations must have exactly two children.".to_string(),
         ));
     }
-
-    let arg1 = context
+    let ast = context.ast();
+    let arg1 = ast
         .get_node(node.children()[0])
         .ok_or_else(|| ParserInternalError::new("Missing first argument.".to_string()))?;
-    let arg2 = context
+    let arg2 = ast
         .get_node(node.children()[1])
         .ok_or_else(|| ParserInternalError::new("Missing second argument.".to_string()))?;
 
@@ -407,7 +408,7 @@ fn get_binary_operation_types(
 pub fn get_type(
     index: NodeId,
     node: &ArenaAstNode,
-    context: &SemanticContext
+    context: &CheckContext
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
@@ -482,9 +483,9 @@ fn get_number_type() -> Result<Option<Vec<Ident>>, ParserInternalError> {
 fn get_variable_type(
     index: NodeId,
     symbol: Ident,
-    context: &SemanticContext,
+    context: &CheckContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
-    if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.has_requirement(&DurativeActions) {
+    if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
         return get_number_type();
     }
     get_declaration_type(index, context)
@@ -515,7 +516,7 @@ fn get_variable_type(
 fn get_constant_type(
     index: NodeId,
     _symbol: Ident,
-    context: &SemanticContext,
+    context: &CheckContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     get_declaration_type(index, context)
 }
@@ -549,7 +550,7 @@ fn get_constant_type(
 /// ```
 fn get_declaration_type(
     node_id: NodeId,
-    context: &SemanticContext,
+    context: &CheckContext,
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id)? {
         Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
@@ -585,7 +586,7 @@ fn get_declaration_type(
 fn get_function_term_type(
     index: NodeId,
     node: &ArenaAstNode,
-    context: &SemanticContext
+    context: &CheckContext
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     let children = node.children();
     if children.is_empty() {
@@ -595,13 +596,13 @@ fn get_function_term_type(
     }
 
     let functor_index = children[0];
-    let functor_entry = context.get_node(functor_index).ok_or_else(|| {
+    let functor_entry = context.ast().get_node(functor_index).ok_or_else(|| {
         ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
         if functor_entry.try_ident()? == StringInterner::IDENT_TOTAL_TIME
-            && context.has_requirement(&NumericFluents)
+            && context.requirements().contains(&NumericFluents)
         {
             return get_number_type();
         }

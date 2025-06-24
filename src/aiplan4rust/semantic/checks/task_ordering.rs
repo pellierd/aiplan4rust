@@ -1,10 +1,10 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
-use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::elements::Ident;
 
@@ -61,7 +61,7 @@ use crate::aiplan4rust::syntax::elements::Ident;
 /// the function returns a `ParserInternalError`.
 ///
 pub fn check_task_ordering(
-    context: &SemanticContext,
+    context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {

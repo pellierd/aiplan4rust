@@ -8,4 +8,4 @@ pub use context::LinkedSemanticContext;
 pub use linker::Linker;
 pub use linker_result::LinkerResult;
 
-pub use resolution::resolve_symbols;
+pub use resolution::resolve_external_references;

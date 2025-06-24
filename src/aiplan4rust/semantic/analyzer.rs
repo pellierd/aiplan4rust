@@ -125,14 +125,15 @@ impl Analyzer {
     ) -> Result<AnalyzerResult, ParserInternalError> {
 
         let context = SemanticContext::from(ast)?;
+        let check_ctx = CheckContext::from_semantic_context(&context);
 
         // Step 2: Determine kind and apply semantic checks
         match ast.root().kind() {
             AstKind::Domain => {
-                Self::check_domain(&context, &mut self.diagnostic_manager)?;
+                Self::check_domain(&check_ctx, &mut self.diagnostic_manager)?;
             }
             AstKind::Problem => {
-                Self::check_problem(&context, &mut self.diagnostic_manager)?;
+                Self::check_problem(&check_ctx, &mut self.diagnostic_manager)?;
             }
             _ => {
                 return Err(ParserInternalError::new(format!(
@@ -184,13 +185,12 @@ impl Analyzer {
     /// }
     /// ```
     fn check_domain(
-        context: &SemanticContext,
+        context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, ParserInternalError> {
         // Skip unused symbols of kind Constant during the checks
         let skip_symbols_unused = &[SymbolKind::Constant];
 
-        let ctx = CheckContext::from_semantic_context(context);
 
         // Perform the first symbol check (declared symbols check)
         let mut checked= Self::check_symbols(
@@ -215,7 +215,7 @@ impl Analyzer {
 
             // Check atomic formulas in the domain using the type checker
             checked &= semantic::checks::check_declared_symbol_signatures(
-                &ctx,
+                context,
                 &type_checker,
                 diagnostic_manager,
             )?;
@@ -233,7 +233,6 @@ impl Analyzer {
                 Provider::Analyzer,
                 diagnostic_manager
             )?;
-
             semantic::checks::check_requirement_violations(
                 context,
                 context.requirements(),
@@ -263,7 +262,7 @@ impl Analyzer {
     /// * `Ok(false)` indicates that errors were found.
     /// * `Err(ParserInternalError)` indicates an internal error occurred.
     fn check_problem(
-        context: &SemanticContext,
+        context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, ParserInternalError> {
         let skip_types_undeclared = &[
@@ -328,18 +327,16 @@ impl Analyzer {
     /// }
     /// ```
     pub fn check_symbols(
-        context: &SemanticContext,
+        context: &CheckContext,
         skip_types_undeclared: &[SymbolKind], // Types of symbols to ignore during undeclared symbol checking
         skip_symbols_unused: &[SymbolKind],   // Symbols to ignore during unused symbol checking
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, ParserInternalError> {
         let mut checked = true;
 
-
-
         // Check declared symbols in the annotated syntax tree
         // This check ensures that declared symbols follow the correct syntax and declarations
-        checked &= semantic::checks::check_declared_symbols(&context, diagnostic_manager)?;
+        checked &= semantic::checks::check_declared_symbols(context, diagnostic_manager)?;
 
         // Check for undeclared symbols, skipping specific types of symbols
         // This ensures that all symbols used in the tree are declared, except for those types in

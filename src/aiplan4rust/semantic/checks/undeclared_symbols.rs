@@ -4,6 +4,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::elements::Requirement::Adl;
 use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
@@ -13,8 +14,6 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::SemanticContext;
-
 
 /// Checks if there are any undeclared symbols used in the given syntax tree.
 ///
@@ -53,7 +52,7 @@ use crate::aiplan4rust::semantic::SemanticContext;
 /// }
 /// ```
 pub fn check_undeclared_symbols(
-    context: &SemanticContext,
+    context: &CheckContext,
     skip_symbols: &[SymbolKind],
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
@@ -119,7 +118,7 @@ pub fn check_undeclared_symbols(
 /// ```rust
 /// let should_skip = should_skip_symbol(
 ///     &symbol,
-///     &annotated_syntax_tree,
+///     &ast,
 ///     &SymbolKind::Action,
 ///     &[SymbolKind::Action],
 /// );
@@ -127,7 +126,7 @@ pub fn check_undeclared_symbols(
 /// ```
 fn should_skip_symbol(
     symbol: &Symbol,
-    context: &SemanticContext,
+    context: &CheckContext,
     usage_kind: SymbolKind,
     skip_symbols: &[SymbolKind],
 ) -> bool {
@@ -243,25 +242,25 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
 
 fn is_pddl_builtin_symbol(
     symbol: &Symbol,
-    context: &SemanticContext,
+    context: &CheckContext,
 ) -> bool {
     match symbol.name() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
         StringInterner::IDENT_OBJECT
-            if context.has_requirement(&Typing)
-                || context.has_requirement(&Adl) =>
+            if context.requirements().contains(&Typing)
+                || context.requirements().contains(&Adl) =>
         {
             true
         }
 
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
-        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if context.has_requirement(&NumericFluents) => {
+        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if context.requirements().contains(&NumericFluents) => {
             true
         }
 
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        StringInterner::IDENT_DURATION_VARIABLE if context.has_requirement(&DurativeActions) => true,
+        StringInterner::IDENT_DURATION_VARIABLE if context.requirements().contains(&DurativeActions) => true,
 
         // Default case for any other symbols.
         _ => false,

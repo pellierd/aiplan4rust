@@ -12,7 +12,6 @@ pub mod unused_symbols;
 pub mod context;
 
 pub use declared_symbols::check_declared_symbols;
-pub use declared_symbols::check_declared_symbols_of_kinds;
 pub use declared_symbol_signatures::check_declared_symbol_signatures;
 pub use requirement_violations::check_requirement_violations;
 pub use task_ordering::check_task_ordering;

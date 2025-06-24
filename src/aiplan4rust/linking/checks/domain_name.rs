@@ -1,5 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::{Scope, SymbolKind};
 
@@ -26,7 +27,7 @@ use crate::aiplan4rust::semantic::symbol::{Scope, SymbolKind};
 /// Emits a `DomainProblemNameMismatch` warning if the domain names differ.
 pub fn check_domain_name(
     domain: &SemanticContext,
-    problem: &SemanticContext,
+    problem: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {

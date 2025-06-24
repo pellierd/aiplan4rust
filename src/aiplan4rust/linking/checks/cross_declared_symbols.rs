@@ -8,6 +8,7 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::syntax::elements::Ident;
 
@@ -69,7 +70,7 @@ use crate::aiplan4rust::syntax::elements::Ident;
 /// ```
 pub fn check_cross_declared_symbols(
     domain: &SemanticContext,
-    problem: &SemanticContext,
+    problem: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
@@ -232,7 +233,7 @@ fn get_relevant_domain_kinds(
 fn report_cross_conflict_symbol_error(
     declaration: &Declaration,
     domain_kinds: Vec<SymbolKind>,
-    context: &SemanticContext,
+    context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 )  -> Result<(), ParserInternalError> {

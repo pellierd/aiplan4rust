@@ -26,20 +26,13 @@ use crate::aiplan4rust::interner::{InternerMergeResult, StringInterner};
 /// ```ignore
 /// resolve_symbols(&domain_context, &mut problem_context)?;
 /// ```
-pub fn resolve_symbols(
+pub fn resolve_external_references(
     domain: &SemanticContext,
     problem: &mut SemanticContext,
 ) -> Result<(), ParserInternalError> {
-    // 1. Merge string interners from domain and problem to create a global interner
-    let mut result = InternerMergeResult::from_domain_and_problem(
-        domain.interner(),
-        problem.interner()
-    );
 
-    // 2. Remap identifiers in problem AST and symbol table to global interner space
-    let problem_ident_map = result.take_problem_ident_map();
-    let global_interner = result.take_interner();
-    remap_problem_idents(problem, &problem_ident_map, global_interner);
+
+
 
     // 3. Update problem's symbol table by injecting declarations from the domain symbol table
     update_problem_symbols_table_from_domain(problem, domain.symbol_table())?;
@@ -47,23 +40,7 @@ pub fn resolve_symbols(
     Ok(())
 }
 
-/// Remaps identifiers in the problem's AST and symbol table to the global interner space,
-/// then updates the problem AST to use the global interner.
-///
-/// # Arguments
-///
-/// * `problem` - Mutable reference to the problem semantic context.
-/// * `problem_to_global` - Mapping from problem's local identifiers to global identifiers.
-/// * `global_interner` - The merged global string interner.
-fn remap_problem_idents(
-    problem: &mut SemanticContext,
-    problem_ident_map: &HashMap<Ident, Ident>,
-    interner: StringInterner,
-) {
-    problem.ast_mut().remap_idents(problem_ident_map);
-    problem.symbol_table_mut().remap_idents(problem_ident_map);
-    problem.set_interner(interner);
-}
+
 
 /// Updates the problem's symbol table by adding declarations found in the domain's symbol table.
 ///

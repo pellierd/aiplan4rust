@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::linking::{resolution, LinkedSemanticContext};
@@ -6,7 +7,9 @@ use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 
 use std::mem::take;
+use crate::aiplan4rust::interner::{InternerMergeResult, StringInterner};
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::syntax::elements::Ident;
 
 /// The `Linker` is responsible for performing the linking phase
 /// of the AIPlan4Rust compilation pipeline.
@@ -44,44 +47,89 @@ impl Linker {
         &self.diagnostic_manager
     }
 
-    /// Performs the linking process between a domain and a problem context.
+    /// Performs semantic linking between a domain and a problem context.
     ///
-    /// This includes three main steps:
-    /// 1. **Symbol Resolution**: Merge interning spaces and update symbol references
-    ///    in the problem to align with the domain.
-    /// 2. **Linking Checks**: Validate consistency between domain and problem symbols,
-    ///    check undeclared or unused identifiers, and verify signatures and requirements.
-    /// 3. **Result Finalization**: If no errors were collected during linking, produce
-    ///    a `LinkedSemanticContext`; otherwise, return diagnostics without a task.
+    /// This function carries out the following steps:
+    ///
+    /// 1. Merges string interners from the domain and the problem to create a global interner.
+    /// 2. Remaps identifiers in the problem's AST and symbol table to correspond to the global interner.
+    /// 3. Resolves external references in the problem against the domain.
+    /// 4. Creates a verification context (`CheckContext`) using the problem's AST, symbol table,
+    ///    global interner, source name, and requirements.
+    /// 5. Performs semantic and structural linking checks on the problem.
+    /// 6. Finalizes the linking process and returns the result, while managing diagnostics.
     ///
     /// # Arguments
     ///
-    /// * `domain` - A `SemanticContext` representing the parsed domain.
-    /// * `problem` - A mutable `SemanticContext` representing the parsed problem.
+    /// * `domain` - The semantic context representing the domain (reference context).
+    /// * `problem` - The semantic context of the problem to be linked.
     ///
     /// # Returns
     ///
-    /// A `LinkerResult` containing an optional `LinkedSemanticContext` and diagnostics.
+    /// * `Ok(LinkerResult)` if linking succeeds.
+    /// * `Err(ParserInternalError)` if an error occurs during resolution or verification.
     ///
-    /// # Errors
+    /// # Notes
     ///
-    /// Returns `ParserInternalError` if any step in the linking process fails.
+    /// Identifier remapping ensures symbol consistency within the unified identifier space.
+    /// The diagnostic manager collects errors or warnings encountered during linking.
+    ///
     pub fn link(
         &mut self,
         domain: SemanticContext,
         mut problem: SemanticContext,
     ) -> Result<LinkerResult, ParserInternalError> {
-        // Step 1: Resolve symbols between domain and problem
-        resolution::resolve_symbols(&domain, &mut problem)?;
 
-        // Step 2: Perform various semantic and structural linking checks
-        perform_linking_checks(&domain, &problem, &mut self.diagnostic_manager)?;
+        // Step 1: Merge the string interners from domain and problem to form a global interner
+        let mut result = InternerMergeResult::from_domain_and_problem(
+            domain.interner(),
+            problem.interner()
+        );
+        let global_interner = result.take_interner();
 
-        // Step 3: Finalize and return the linking result
+        // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
+        let problem_ident_map = result.take_problem_ident_map();
+        remap_problem_idents(&mut problem, &problem_ident_map);
+
+        // Step 3: Resolve external references in the problem with respect to the domain
+        resolution::resolve_external_references(&domain, &mut problem)?;
+
+        // Step 4: Create a check context for the problem using the global interner
+        // and Pperform semantic and structural linking checks on the problem
+        let problem_ctx = CheckContext::new(
+            problem.ast(),
+            problem.symbol_table(),
+            &global_interner,
+            problem.source_name(),
+            problem.requirements(),
+        );
+        perform_linking_checks(&domain, &problem_ctx, &mut self.diagnostic_manager)?;
+
+        // Step 6: Finalize and return the linking result, reporting diagnostics if any
         finalize_linking_result(domain, problem, &mut self.diagnostic_manager)
     }
 }
 
+/// Remaps identifiers in the problem's AST and symbol table using the provided mapping.
+///
+/// This function updates all identifiers in the problem’s AST and symbol table
+/// to their corresponding identifiers in the global interner space according to
+/// the `problem_ident_map`.
+///
+/// **Note:** This function does not modify or replace the underlying string interner itself;
+/// it only updates the identifier references within the problem to align with the global interner.
+///
+/// # Arguments
+///
+/// * `problem` - Mutable reference to the problem semantic context.
+/// * `problem_ident_map` - A mapping from the problem's local identifiers to the global identifiers.
+fn remap_problem_idents(
+    problem: &mut SemanticContext,
+    problem_ident_map: &HashMap<Ident, Ident>,
+) {
+    problem.ast_mut().remap_idents(problem_ident_map);
+    problem.symbol_table_mut().remap_idents(problem_ident_map);
+}
 /// Performs semantic and structural linking checks between a domain and a problem.
 ///
 /// This function runs a sequence of verification passes to ensure the compatibility and
@@ -131,11 +179,10 @@ impl Linker {
 ///
 pub fn perform_linking_checks(
     domain: &SemanticContext,
-    problem: &SemanticContext,
+    problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
 
-    let problem_ctx = CheckContext::from_semantic_context(problem);
     linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
 
     let mut check = linking::checks::check_cross_declared_symbols(domain, problem, Provider::Linker, diagnostic_manager)?;
@@ -145,7 +192,7 @@ pub fn perform_linking_checks(
     if check {
         let type_checker = TypeChecker::new(&domain.symbol_table());
 
-        semantic::checks::check_declared_symbol_signatures(&problem_ctx, &type_checker, diagnostic_manager)?;
+        semantic::checks::check_declared_symbol_signatures(problem, &type_checker, diagnostic_manager)?;
         semantic::checks::check_typed_expressions(problem, &type_checker, Provider::Linker, diagnostic_manager)?;
         semantic::checks::check_task_ordering(problem, Provider::Linker, diagnostic_manager)?;
 

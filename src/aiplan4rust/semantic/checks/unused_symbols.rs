@@ -4,6 +4,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::elements::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
@@ -11,7 +12,6 @@ use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
 use crate::aiplan4rust::syntax::elements::Requirement::Typing;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 
@@ -58,7 +58,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// }
 /// ```
 pub fn check_unused_symbols(
-    context: &SemanticContext,
+    context: &CheckContext,
     skip_symbols: &[SymbolKind],
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
@@ -164,7 +164,7 @@ fn report_unused_symbol_warning(
 /// locally scoped variables that are not meant to be globally referenced.
 fn skip_unused_symbol_declaration(
     declaration: &Declaration,
-    context: &SemanticContext,
+    context: &CheckContext,
 ) -> Result<bool, ParserInternalError> {
     // Skip if the declaration is of a built-in kind: Requirement, Action, DASymbol, or Method
     if matches!(
@@ -179,17 +179,18 @@ fn skip_unused_symbol_declaration(
         return Ok(true);
     }
 
+    let requirements = context.requirements();
     match declaration.symbol_ident() {
         StringInterner::IDENT_OBJECT
-            if context.has_requirement(&Typing)
-                || context.has_requirement(&Adl) =>
+            if requirements.contains(&Typing)
+                || requirements.contains(&Adl) =>
         {
             return Ok(true)
         }
-        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if context.has_requirement(&NumericFluents) => {
+        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if requirements.contains(&NumericFluents) => {
             return Ok(true)
         }
-        StringInterner::IDENT_DURATION_VARIABLE if context.has_requirement(&DurativeActions) => {
+        StringInterner::IDENT_DURATION_VARIABLE if requirements.contains(&DurativeActions) => {
             return Ok(true)
         }
         _ => {}
@@ -259,24 +260,25 @@ fn skip_unused_symbol_declaration(
 /// ```
 fn check_pddl_builtin_symbol_declaration(
     declaration: &Declaration,
-    context: &SemanticContext,
+    context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> bool {
+    let requirements = context.requirements();
     let (expected_kind, requirements) = match declaration.symbol_ident() {
         StringInterner::IDENT_OBJECT
-        if context.has_requirement(&Typing) || context.has_requirement(&Adl) =>
+        if requirements.contains(&Typing) || requirements.contains(&Adl) =>
             {
                 (SymbolKind::PrimitiveType, vec![Typing, Adl])
             }
-        StringInterner::IDENT_NUMBER if context.has_requirement(&NumericFluents) => (
+        StringInterner::IDENT_NUMBER if requirements.contains(&NumericFluents) => (
             SymbolKind::PrimitiveType,
             vec![NumericFluents, Fluents],
         ),
-        StringInterner::IDENT_TOTAL_TIME if context.has_requirement(&NumericFluents) => {
+        StringInterner::IDENT_TOTAL_TIME if requirements.contains(&NumericFluents) => {
             (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
-        StringInterner::IDENT_DURATION_VARIABLE if context.has_requirement(&DurativeActions) => (
+        StringInterner::IDENT_DURATION_VARIABLE if requirements.contains(&DurativeActions) => (
             SymbolKind::Variable,
             vec![DurativeActions],
         ),
