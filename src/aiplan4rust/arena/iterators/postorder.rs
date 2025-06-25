@@ -1,21 +1,21 @@
 use crate::aiplan4rust::arena::arena::Arena;
-use crate::aiplan4rust::arena::node::Node;
+use crate::aiplan4rust::arena::node::NodeTrait;
 use crate::aiplan4rust::arena::NodeId;
 
 /// Postorder (depth-first) iterator over `Arena` nodes.
-pub struct PostorderIter<'a, T: Node> {
+pub struct PostorderIter<'a, T: NodeTrait> {
     arena: &'a Arena<T>,
     stack: Vec<(NodeId, usize)>,
 }
 
-impl<'a, T: Node> PostorderIter<'a, T> {
+impl<'a, T: NodeTrait> PostorderIter<'a, T> {
     /// Create a postorder iterator starting from `root`.
     pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
         PostorderIter { arena, stack: vec![(root, 0)] }
     }
 }
 
-impl<'a, T: Node> Iterator for PostorderIter<'a, T> {
+impl<'a, T: NodeTrait> Iterator for PostorderIter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {

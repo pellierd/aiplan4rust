@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::aiplan4rust::arena::{NodeId, Node};
+use crate::aiplan4rust::arena::{NodeId, NodeTrait};
 
 /// A lightweight reference to an AST node stored in an arena.
 ///
@@ -9,12 +9,12 @@ use crate::aiplan4rust::arena::{NodeId, Node};
 ///
 /// The lifetime `'a` ensures the `NodeRef` cannot outlive the arena node it references.
 #[derive(Copy, Clone, Debug)]
-pub struct NodeRef<'a, T: Node + ?Sized> {
+pub struct NodeRef<'a, T: NodeTrait + ?Sized> {
     id: NodeId,
     node: &'a T,
 }
 
-impl<'a, T: Node + ?Sized> NodeRef<'a, T> {
+impl<'a, T: NodeTrait + ?Sized> NodeRef<'a, T> {
     /// Creates a new `NodeRef` from a node ID and a reference to a node.
     ///
     /// # Parameters
@@ -41,25 +41,25 @@ impl<'a, T: Node + ?Sized> NodeRef<'a, T> {
 }
 
 /// Enables conversion from `NodeRef` to `Id` for ergonomic use.
-impl<'a, T: Node + ?Sized> From<NodeRef<'a, T>> for NodeId {
+impl<'a, T: NodeTrait + ?Sized> From<NodeRef<'a, T>> for NodeId {
     fn from(node_ref: NodeRef<'a, T>) -> Self {
         node_ref.id()
     }
 }
 
-impl<'a, T: Node + fmt::Display + ?Sized> fmt::Display for NodeRef<'a, T> {
+impl<'a, T: NodeTrait + fmt::Display + ?Sized> fmt::Display for NodeRef<'a, T> {
     /// Formats the `NodeRef` for display purposes.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NodeRef {{ id: {:?}, node: {} }}", self.id, self.node)
     }
 }
 
-pub struct NodeRefMut<'a, T: Node + ?Sized> {
+pub struct NodeRefMut<'a, T: NodeTrait + ?Sized> {
     id: NodeId,
     node: &'a mut T,
 }
 
-impl<'a, T: Node + ?Sized> NodeRefMut<'a, T> {
+impl<'a, T: NodeTrait + ?Sized> NodeRefMut<'a, T> {
     pub fn new(id: NodeId, node: &'a mut T) -> Self {
         NodeRefMut { id, node }
     }
@@ -71,7 +71,7 @@ impl<'a, T: Node + ?Sized> NodeRefMut<'a, T> {
     }
 }
 
-impl<'a, T: fmt::Display + Node> fmt::Display for NodeRefMut<'a, T> {
+impl<'a, T: fmt::Display + NodeTrait> fmt::Display for NodeRefMut<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NodeRefMut {{ id: {:?}, node: {} }}", self.id, self.node)
     }

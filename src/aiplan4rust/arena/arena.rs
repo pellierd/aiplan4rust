@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::arena::Node;
+use crate::aiplan4rust::arena::NodeTrait;
 use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::arena::iterators::{PostorderIter, PostorderIterWithIndex, PreorderIterWithIndex};
 use crate::aiplan4rust::arena::iterators::PreorderIter;
@@ -12,11 +12,11 @@ use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstNode};
 use crate::aiplan4rust::syntax::elements::Ident;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Arena<T: Node> {
+pub struct Arena<T: NodeTrait> {
     nodes: Vec<T>,
 }
 
-impl<T: Node> Arena<T> {
+impl<T: NodeTrait> Arena<T> {
     pub fn new() -> Self {
         Arena { nodes: Vec::new() }
     }

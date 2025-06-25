@@ -2,8 +2,9 @@ pub mod arena;
 pub mod id;
 mod iterators;
 pub mod node;
-mod node_ref;
+pub mod node_ref;
+mod ast_node;
 
 pub use id::Id as NodeId;
 pub use arena::Arena;
-pub use node::Node;
+pub use node::NodeTrait;

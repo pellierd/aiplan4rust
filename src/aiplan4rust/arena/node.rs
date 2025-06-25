@@ -5,7 +5,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::elements::Ident;
 
 /// Trait générique pour tout type de nœud utilisé dans une `Arena`.
-pub trait Node {
+pub trait NodeTrait {
     fn parent(&self) -> Option<NodeId>;
     fn children(&self) -> &[NodeId];
 
