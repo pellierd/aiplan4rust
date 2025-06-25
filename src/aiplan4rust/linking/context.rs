@@ -1,95 +1,161 @@
-use crate::aiplan4rust::semantic::SemanticContext;
-
-use serde::Deserialize;
-use serde::Serialize;
 use std::fmt;
+use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::semantic::arena::ArenaAst;
+use crate::aiplan4rust::semantic::SymbolTable;
 
-
-/// Represents a lifted planning task consisting of a domain and a problem.
+/// Represents a linked semantic context combining a domain and a problem.
 ///
-/// This structure holds both the lifted domain and problem, which are used in the planning process.
-/// The domain defines the possible actions, predicates, and other relevant information for planning,
-/// while the problem specifies the initial state, goal, and other problem-specific details.
+/// This structure holds the merged and linked Abstract Syntax Trees (ASTs) for both
+/// the domain and the problem, along with a combined symbol table and a unified string interner.
+/// It also stores metadata about the source files and the timestamp when the linking was performed.
 ///
 /// # Fields
-/// - `domain`: The lifted domain that defines the planning problem's actions and predicates.
-/// - `problem`: The lifted problem that defines the initial state and goal for the planning task.
+///
+/// * `domain` - The AST arena representing the domain context.
+/// * `problem` - The AST arena representing the problem context after linking.
+/// * `symbol_table` - The combined symbol table reflecting all linked symbols.
+/// * `interner` - The unified string interner used for identifiers across domain and problem.
+/// * `domain_source` - The source file or identifier for the domain.
+/// * `problem_source` - The source file or identifier for the problem.
+/// * `generated_at` - The timestamp when this linked context was created.
 ///
 /// # Methods
-/// - `new(domain: LiftedDomain, problem: LiftedProblem)`: Creates a new `LiftedPlanningTask`
-///   from a domain and problem.
-/// - `domain()`: Returns an immutable reference to the `LiftedDomain`.
-/// - `problem()`: Returns an immutable reference to the `LiftedProblem`.
-/// - `domain_mut()`: Returns a mutable reference to the `LiftedDomain` to allow modification.
-/// - `problem_mut()`: Returns a mutable reference to the `LiftedProblem` to allow modification.
+///
+/// This struct provides accessor methods for each field, both immutable and mutable:
+///
+/// * `domain()` / `domain_mut()`
+/// * `problem()` / `problem_mut()`
+/// * `symbol_table()` / `symbol_table_mut()`
+/// * `interner()` / `interner_mut()`
+/// * `domain_source()` / `domain_source_mut()`
+/// * `problem_source()` / `problem_source_mut()`
+/// * `generated_at()` / `generated_at_mut()`
 ///
 /// # Display Implementation
-/// The `Display` trait is implemented to provide a human-readable string representation of the
-/// `LiftedPlanningTask`. It includes general information about the domain and problem, along with
-/// their details.
+///
+/// Implements the `Display` trait to provide a human-readable summary of the linked semantic context,
+/// including source information, timestamps, and counts of AST nodes and symbol table entries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkedSemanticContext {
-    domain: SemanticContext,
-    problem: SemanticContext,
+    domain: ArenaAst,
+    problem: ArenaAst,
+    symbol_table: SymbolTable,
+    interner: StringInterner,
+    domain_source: String,
+    problem_source: String,
+    generated_at: std::time::SystemTime,
 }
 
 impl LinkedSemanticContext {
-    /// Creates a new `LiftedPlanningTask` from the provided domain and problem.
+    /// Creates a new `LinkedSemanticContext` from its components.
     ///
     /// # Arguments
-    /// - `domain`: A `LiftedDomain` that defines the actions and predicates for the task.
-    /// - `problem`: A `LiftedProblem` that specifies the initial state, goal, and other details.
+    ///
+    /// * `domain` - The AST arena representing the domain context.
+    /// * `problem` - The AST arena representing the problem context.
+    /// * `symbol_table` - The combined symbol table after linking domain and problem.
+    /// * `interner` - The unified string interner used for identifiers.
+    /// * `domain_source` - The source (e.g. filename) of the domain.
+    /// * `problem_source` - The source (e.g. filename) of the problem.
     ///
     /// # Returns
-    /// A new instance of `LiftedPlanningTask`.
-    pub fn new(domain: SemanticContext, problem: SemanticContext) -> Self {
-        LinkedSemanticContext { domain, problem }
+    ///
+    /// A new `LinkedSemanticContext` instance with the current system time as the generation timestamp.
+    pub fn new(
+        domain: ArenaAst,
+        problem: ArenaAst,
+        symbol_table: SymbolTable,
+        interner: StringInterner,
+        domain_source: String,
+        problem_source: String,
+    ) -> Self {
+        LinkedSemanticContext {
+            domain,
+            problem,
+            symbol_table,
+            interner,
+            domain_source,
+            problem_source,
+            generated_at: std::time::SystemTime::now(),
+        }
     }
 
-    /// Returns an immutable reference to the `LiftedDomain` of the planning task.
-    ///
-    /// # Returns
-    /// An immutable reference to the `LiftedDomain` struct.
-    pub fn domain(&self) -> &SemanticContext {
+    /// Returns an immutable reference to the domain AST arena.
+    pub fn domain(&self) -> &ArenaAst {
         &self.domain
     }
 
-    /// Returns an immutable reference to the `LiftedProblem` of the planning task.
-    ///
-    /// # Returns
-    /// An immutable reference to the `LiftedProblem` struct.
-    pub fn problem(&self) -> &SemanticContext {
-        &self.problem
-    }
-
-    /// Returns a mutable reference to the `LiftedDomain` of the planning task.
-    ///
-    /// # Returns
-    /// A mutable reference to the `LiftedDomain` struct, allowing modifications to the domain.
-    pub fn domain_mut(&mut self) -> &mut SemanticContext {
+    /// Returns a mutable reference to the domain AST arena.
+    pub fn domain_mut(&mut self) -> &mut ArenaAst {
         &mut self.domain
     }
 
-    /// Returns a mutable reference to the `LiftedProblem` of the planning task.
-    ///
-    /// # Returns
-    /// A mutable reference to the `LiftedProblem` struct, allowing modifications to the problem.
-    pub fn problem_mut(&mut self) -> &mut SemanticContext {
+    /// Returns an immutable reference to the problem AST arena.
+    pub fn problem(&self) -> &ArenaAst {
+        &self.problem
+    }
+
+    /// Returns a mutable reference to the problem AST arena.
+    pub fn problem_mut(&mut self) -> &mut ArenaAst {
         &mut self.problem
+    }
+
+    /// Returns an immutable reference to the combined symbol table.
+    pub fn symbol_table(&self) -> &SymbolTable {
+        &self.symbol_table
+    }
+
+    /// Returns a mutable reference to the combined symbol table.
+    pub fn symbol_table_mut(&mut self) -> &mut SymbolTable {
+        &mut self.symbol_table
+    }
+
+    /// Returns an immutable reference to the unified string interner.
+    pub fn interner(&self) -> &StringInterner {
+        &self.interner
+    }
+
+    /// Returns a mutable reference to the unified string interner.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
+        &mut self.interner
+    }
+
+    /// Returns a reference to the domain source (e.g. filename or identifier).
+    pub fn domain_source(&self) -> &str {
+        &self.domain_source
+    }
+
+    /// Returns a mutable reference to the domain source string.
+    pub fn domain_source_mut(&mut self) -> &mut String {
+        &mut self.domain_source
+    }
+
+    /// Returns a reference to the problem source (e.g. filename or identifier).
+    pub fn problem_source(&self) -> &str {
+        &self.problem_source
+    }
+
+    /// Returns a mutable reference to the problem source string.
+    pub fn problem_source_mut(&mut self) -> &mut String {
+        &mut self.problem_source
+    }
+
+    /// Returns the timestamp when this linked context was generated.
+    pub fn generated_at(&self) -> std::time::SystemTime {
+        self.generated_at
     }
 }
 
 impl fmt::Display for LinkedSemanticContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Display the general information about the LiftedPlanningTask
-        write!(f, "Lifted Planning Task Information:\n")?;
-
-        // Display domain details
-        write!(f, "Domain: \n{}", self.domain())?;
-
-        // Display problem details
-        write!(f, "Problem: \n{}", self.problem())?;
-
+        writeln!(f, "LinkedSemanticContext Summary:")?;
+        writeln!(f, "  Domain source: {}", self.domain_source())?;
+        writeln!(f, "  Problem source: {}", self.problem_source())?;
+        writeln!(f, "  Generated at: {:?}", self.generated_at())?;
+        writeln!(f, "  Domain AST nodes count:\n{}", self.domain())?;
+        writeln!(f, "  Problem AST nodes count:\n{}", self.problem())?;
+        writeln!(f, "  Symbol table entries:\n{}", self.symbol_table())?;
         Ok(())
     }
 }
