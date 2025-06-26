@@ -1,7 +1,5 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::tree::{NodeContent, NodeId};
 

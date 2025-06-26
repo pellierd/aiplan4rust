@@ -21,7 +21,7 @@ use crate::aiplan4rust::syntax::elements::{Ident, Requirement};
 ///
 /// # Fields
 ///
-/// - `kind`: The type of AST node (e.g., expression, statement).
+/// - `kind`: The type of AST node (e.g., expr, statement).
 /// - `children`: A vector of indices pointing to child nodes.
 /// - `span`: The source code span this node covers.
 /// - `parent`: An optional index of the parent node. `None` if this node is a root.

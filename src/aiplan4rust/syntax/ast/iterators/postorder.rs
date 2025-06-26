@@ -4,7 +4,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 /// yielding each node along with its depth.
 ///
 /// In post-order traversal, all children of a node are visited before the node itself.
-/// This is useful for tasks like expression evaluation or resource cleanup.
+/// This is useful for tasks like expr evaluation or resource cleanup.
 ///
 /// # Example
 ///

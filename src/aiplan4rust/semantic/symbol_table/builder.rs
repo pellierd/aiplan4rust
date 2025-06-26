@@ -195,7 +195,7 @@ impl SymbolTableBuilder {
     /// - `ActionDef`, `DurativeActionDef`: Initialize action-related symbols.
     /// - `AtomicFormulaSkeleton`: Special symbol table handling for formula skeletons.
     /// - `AtomicFormula`, `FunctionTerm`: Recursively initialize atomic formulas and function terms.
-    /// - `Forall`, `Exists`: Handle quantified expression and logical scopes.
+    /// - `Forall`, `Exists`: Handle quantified expr and logical scopes.
     /// - `MethodDef`, `TaskDef`: Initialize HTN method and task definitions.
     /// - `Task`, `TaggedTask`: Handle HTN individual tasks and tagged tasks.
     /// - `TaskOrderingConstraint`: Initialize constraints between HTN tasks.
@@ -263,7 +263,7 @@ impl SymbolTableBuilder {
                 self.init_from_atomic_formula(node_ref, ast, scope.clone())?;
             }
 
-            // Handle quantified expression (`Forall` and `Exists`): Need special treatment for
+            // Handle quantified expr (`Forall` and `Exists`): Need special treatment for
             // logical scopes
             AstKind::Forall | AstKind::Exists => {
                 self.init_from_quantified_expression(node_ref, ast, scope.clone())?;
@@ -396,7 +396,7 @@ impl SymbolTableBuilder {
     /// This function processes AST nodes representing symbol usages, such as domain names,
     /// problem names, constants, variables, atomic formulas, function terms, and tasks.
     /// It first validates the AST node kind to ensure it is appropriate for symbol usage.
-    /// For certain node kinds that represent complex expression (e.g., atomic formulas),
+    /// For certain node kinds that represent complex expr (e.g., atomic formulas),
     /// it also verifies the presence of at least one child node.
     ///
     /// The symbol's identifier and kind are extracted, and the function then updates
@@ -1085,38 +1085,38 @@ impl SymbolTableBuilder {
         Ok(())
     }
 
-    /// Initializes the symbol table for a quantified expression (`Exists` or `Forall`) in the AST.
+    /// Initializes the symbol table for a quantified expr (`Exists` or `Forall`) in the AST.
     ///
-    /// This function verifies that the AST node is a quantified expression of kind
+    /// This function verifies that the AST node is a quantified expr of kind
     /// `Exists` or `Forall` and that it has exactly two children:
     /// 1. A variable declaration (or typed list)
-    /// 2. An inner expression.
+    /// 2. An inner expr.
     ///
     /// It then recursively initializes the symbol table for both the variable declarations and
-    /// the inner expression, creating a new nested scope for these initializations.
+    /// the inner expr, creating a new nested scope for these initializations.
     ///
     /// # Parameters
-    /// - `node_ref`: Reference to the AST node representing the quantified expression.
+    /// - `node_ref`: Reference to the AST node representing the quantified expr.
     /// - `ast`: The AST tree containing all nodes.
-    /// - `scope`: The current scope in which the quantified expression resides.
+    /// - `scope`: The current scope in which the quantified expr resides.
     ///
     /// # Returns
     /// - `Ok(())` if the symbol table initialization succeeds.
-    /// - `Err(ParserInternalError)` if the node is not a quantified expression, if
+    /// - `Err(ParserInternalError)` if the node is not a quantified expr, if
     ///   the number of children is incorrect, or if initialization of children fails.
     ///
     /// # Errors
     /// Returns a `ParserInternalError` if:
     /// - The node kind is not `Exists` or `Forall`.
     /// - The node does not have exactly two children.
-    /// - Initialization of the typed list or inner expression fails.
+    /// - Initialization of the typed list or inner expr fails.
     ///
     /// # Example
     /// ```rust
     /// let result = symbol_table.init_from_quantified_expression(node_ref, &ast, scope);
     /// match result {
-    ///     Ok(_) => println!("Quantified expression processed successfully"),
-    ///     Err(e) => eprintln!("Error initializing quantified expression: {}", e),
+    ///     Ok(_) => println!("Quantified expr processed successfully"),
+    ///     Err(e) => eprintln!("Error initializing quantified expr: {}", e),
     /// }
     /// ```
     fn init_from_quantified_expression(
@@ -1128,11 +1128,11 @@ impl SymbolTableBuilder {
         // Check if the AST node is of kind 'Exists' or 'Forall'
         Self::assert_ast_kind(node_ref.node(), &[AstKind::Exists, AstKind::Forall])?;
 
-        // Ensure the AST has exactly 2 children (variables and inner expression)
+        // Ensure the AST has exactly 2 children (variables and inner expr)
         Self::assert_ast_children_number(node_ref.node(), 2, Comparator::Equal)?;
 
         let children = node_ref.node().children();
-        // Retrieve the children (variables and inner expression)
+        // Retrieve the children (variables and inner expr)
         let variables = &ast.try_node_ref(children[0])?;
         let expression = &ast.try_node_ref(children[1])?;
 
@@ -1143,7 +1143,7 @@ impl SymbolTableBuilder {
             Scope::new(node_ref.id(), Some(&scope)),
         )?;
 
-        // Initialize the symbol table for the inner expression (second child)
+        // Initialize the symbol table for the inner expr (second child)
         self.init_from(
             expression,
             ast,

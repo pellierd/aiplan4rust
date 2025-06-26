@@ -56,7 +56,7 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::ir::expression::ExprKind;
+use crate::aiplan4rust::ir::expr::ExprKind;
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::AstKind;
 

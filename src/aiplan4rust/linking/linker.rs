@@ -173,7 +173,7 @@ fn remap_problem_idents(
 ///
 /// 2. **Type-Dependent Checks** (executed only if no errors found in phase 1):
 ///     - Signature validation of declared symbols (`check_declared_symbol_signatures`)
-///     - Type correctness of expression (`check_typed_expressions`)
+///     - Type correctness of expr (`check_typed_expressions`)
 ///     - Task ordering consistency (`check_task_ordering`)
 ///     - Requirement compliance (`check_requirement_violations`)
 ///
@@ -247,7 +247,7 @@ pub fn perform_linking_checks(
             diagnostic_manager,
         )?;
 
-        // Verify the type correctness of expression in the problem
+        // Verify the type correctness of expr in the problem
         semantic::checks::check_typed_expressions(
             problem,
             &type_checker,

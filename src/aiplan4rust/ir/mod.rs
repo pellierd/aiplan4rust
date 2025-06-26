@@ -1,10 +1,10 @@
-use crate::aiplan4rust::ir::expression::Expr;
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::ir::expr::Expr;
+
 pub mod builder;
-pub mod expression;
+pub mod expr;
 
 pub use builder::IRBuilder;
 
 
-pub type Precondition = TreeArena<Expr>;
-pub type Effect = TreeArena<Expr>;
+pub type Precondition = Expr;
+pub type Effect = Expr;

@@ -22,16 +22,16 @@ use std::time::SystemTime;
 
 
 #[derive(Debug)]
-/// A structure for analyzing the syntax of PDDL expression.
+/// A structure for analyzing the syntax of PDDL expr.
 ///
-/// The `SyntaxAnalyzer` is responsible for parsing and validating PDDL expression from
+/// The `SyntaxAnalyzer` is responsible for parsing and validating PDDL expr from
 /// a given source string. It works with an optional path for file-based sources and an
 /// error manager to handle any parsing errors.
 ///
 /// # Fields
-/// - `source`: A reference to the source string containing the PDDL expression to analyze.
+/// - `source`: A reference to the source string containing the PDDL expr to analyze.
 /// - `path`: An optional `PathBuf` representing the file path from which the source is read.
-/// - `pddl_fragment`: The `PDDLFragment` that represents the parsed expression.
+/// - `pddl_fragment`: The `PDDLFragment` that represents the parsed expr.
 /// - `error_manager`: A mutable reference to the `ErrorManager` for managing parsing errors.
 ///
 /// # Example
@@ -39,7 +39,7 @@ use std::time::SystemTime;
 /// use aiplan4rust::aiplan4rust::syntax::syntax::PDDLFragment;
 /// let source = "(define (problem test) ...)";
 /// let mut error_manager = ErrorManager::new();
-/// let pddl_expression = PDDLFragment::Domain; // Example expression
+/// let pddl_expression = PDDLFragment::Domain; // Example expr
 /// let syntax_analyzer = SyntaxAnalyzer {
 ///     source,
 ///     path: None,

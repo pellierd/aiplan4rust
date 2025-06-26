@@ -39,7 +39,7 @@ pub enum Kind {
     /// The name of the problem in a planning description.
     ProblemName,
 
-    /// A predicate symbol used in logical expression or conditions.
+    /// A predicate symbol used in logical expr or conditions.
     Predicate,
 
     /// An action symbol within the problem domain.
@@ -96,7 +96,7 @@ pub enum Kind {
     /// Definition of functions.
     FunctionsDef,
 
-    /// Represents a term in a function expression.
+    /// Represents a term in a function expr.
     FunctionTerm,
 
     /// Skeleton structure of atomic functions.

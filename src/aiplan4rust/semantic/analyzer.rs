@@ -162,7 +162,7 @@ impl Analyzer {
     /// This function performs several checks specific to the domain section of the syntax tree:
     /// 1. It first checks the declared symbols against the given exclusions for unused symbols.
     /// 2. If the symbol check passes, it proceeds to check for atomic formula correctness.
-    /// 3. Then, it checks the functional expression correctness using the type information from the
+    /// 3. Then, it checks the functional expr correctness using the type information from the
     ///   symbol table.
     ///
     /// # Parameters
@@ -220,7 +220,7 @@ impl Analyzer {
                 diagnostic_manager,
             )?;
 
-            // Check functional expression in the domain using the type checker
+            // Check functional expr in the domain using the type checker
             checked &= semantic::checks::check_typed_expressions(
                 context,
                 &type_checker,

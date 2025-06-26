@@ -184,13 +184,13 @@ impl Kind {
                 format!("Primitive task '{}' is undefined", symbol)
             }
             Kind::TypeMismatchInExpression { .. } => {
-                "Type mismatch in expression.".to_string()
+                "Type mismatch in expr.".to_string()
             }
             Kind::InvalidTypesInNumericExpression { .. } => {
-                "Invalid operand types in numeric expression.".to_string()
+                "Invalid operand types in numeric expr.".to_string()
             }
             Kind::RequirementViolation { node_kind, .. } => {
-                format!("'{}' expression is not allowed in the current context.", node_kind)
+                format!("'{}' expr is not allowed in the current context.", node_kind)
             }
             Kind::DuplicatedSymbolDeclarationInScopeError { symbol, .. } => {
                 format!("Duplicate declaration of symbol '{}'.", symbol)
@@ -326,7 +326,7 @@ impl Kind {
             }
             Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
                 Some(format!(
-                    "Numeric expression require operands of type 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
+                    "Numeric expr require operands of type 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
                     Self::format_types(ty1), Self::format_types(ty2)
                 ))
             }

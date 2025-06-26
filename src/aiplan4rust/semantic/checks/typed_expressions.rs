@@ -11,10 +11,10 @@ use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
-/// Checks the type correctness of typed expression in the syntax tree, including comparisons,
+/// Checks the type correctness of typed expr in the syntax tree, including comparisons,
 /// assignments, and arithmetic operations.
 ///
-/// This function traverses the annotated syntax tree to verify that expression have compatible
+/// This function traverses the annotated syntax tree to verify that expr have compatible
 /// types according to their operation kind. It supports:
 /// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type compatibility.
 /// - Other comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, `*=`, `/=`),
@@ -30,7 +30,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
 ///
 /// # Returns
-/// - `Ok(true)` if all typed expression are correct.
+/// - `Ok(true)` if all typed expr are correct.
 /// - `Ok(false)` if one or more type mismatches were found and reported.
 /// - `Err(ParserInternalError)` if an internal error occurred during processing.
 ///
@@ -38,7 +38,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// ```rust
 /// let result = check_typed_expressions(&ast_old, &type_checker, source, &mut diagnostic_manager)?;
 /// if result {
-///     println!("All typed expression are valid.");
+///     println!("All typed expr are valid.");
 /// }
 /// ```
 pub fn check_typed_expressions(
@@ -84,7 +84,7 @@ fn is_assign(node: &AstArenaNode) -> bool {
     matches!(node.kind(), AstKind::Assign) && node.as_assign_op() == Some(AssignOp::Assign)
 }
 
-/// Returns `true` if the node is a numeric comparison or a scale assignment expression.
+/// Returns `true` if the node is a numeric comparison or a scale assignment expr.
 ///
 /// This includes:
 /// - Comparison operators: `Greater`, `GreaterEq`, `Less`, `LessEq`.
@@ -108,7 +108,7 @@ fn is_numeric_expression(node: &AstArenaNode) -> bool {
         )
 }
 
-/// Checks the type compatibility of operands in equality (`=`) or assignment (`assign`) expression.
+/// Checks the type compatibility of operands in equality (`=`) or assignment (`assign`) expr.
 ///
 /// This function verifies that the types of both operands involved in an equality or assignment
 /// operation are compatible. Equality comparisons (`=`) require operands of the same type,
@@ -172,14 +172,14 @@ fn check_equal_and_assignment_expression(
     Ok(no_error)
 }
 
-/// Reports a type mismatch error for an expression involving two type lists.
+/// Reports a type mismatch error for an expr involving two type lists.
 ///
 /// This function creates and adds a diagnostic error indicating that the two sets
-/// of types involved in an expression are incompatible.
+/// of types involved in an expr are incompatible.
 ///
 /// # Parameters
-/// - `ty1`: The first type list involved in the expression.
-/// - `ty2`: The second type list involved in the expression.
+/// - `ty1`: The first type list involved in the expr.
+/// - `ty2`: The second type list involved in the expr.
 /// - `source`: The diagnostic source context indicating where diagnostics originate.
 /// - `filename`: The filename where the error occurred.
 /// - `span`: The span of the syntax node causing the error.
@@ -217,12 +217,12 @@ fn report_type_mismatch_in_expression(
     diagnostic_manager.add_diagnostic(error);
 }
 
-/// Checks whether the operand types in a numeric comparison or assignment expression
+/// Checks whether the operand types in a numeric comparison or assignment expr
 /// are compatible with numeric operations (i.e., of type `number`).
 ///
-/// This function is used specifically for expression involving numeric comparisons
+/// This function is used specifically for expr involving numeric comparisons
 /// (e.g., `greater`, `less`, `>=`, `<=`) and numeric assignment operations
-/// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such expression
+/// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such expr
 /// to be valid, both operands must have the `number` type.
 ///
 /// If either operand does not have the `number` type, the function logs a
@@ -230,7 +230,7 @@ fn report_type_mismatch_in_expression(
 ///
 /// # Parameters
 /// - `annotated_syntax_tree`: The annotated syntax tree containing the AST and metadata.
-/// - `node`: The syntax node representing the numeric expression.
+/// - `node`: The syntax node representing the numeric expr.
 /// - `ty1`: A reference to a vector of strings representing the type of the left operand.
 /// - `ty2`: A reference to a vector of strings representing the type of the right operand.
 /// - `source`: The diagnostic source indicating where this check is performed.
@@ -281,10 +281,10 @@ fn check_numeric_expression(
     Ok(no_error)
 }
 
-/// Reports a diagnostic error when numeric expression have invalid operand types.
+/// Reports a diagnostic error when numeric expr have invalid operand types.
 ///
 /// This helper function creates and adds a diagnostic indicating that the operand types
-/// in a numeric expression are invalid (i.e., not of type `number`).
+/// in a numeric expr are invalid (i.e., not of type `number`).
 ///
 /// # Parameters
 /// - `source`: The diagnostic source indicating where the error arises.
@@ -324,7 +324,7 @@ fn report_invalid_types_in_numeric_expression(
     diagnostic_manager.add_diagnostic(error);
 }
 
-/// Retrieves and returns the types of both operands in a binary expression.
+/// Retrieves and returns the types of both operands in a binary expr.
 ///
 /// This function ensures that the given syntax node represents a binary operation
 /// with exactly two children. It then looks up the types of both operand nodes
@@ -383,7 +383,7 @@ fn get_binary_operation_types(
 /// This function supports several kinds of nodes: numbers, variables, constants,
 /// and function terms. It delegates type resolution to specialized helper functions
 /// depending on the node kind. The function is used during type checking to retrieve
-/// the declared or inferred type of an expression or symbol.
+/// the declared or inferred type of an expr or symbol.
 ///
 /// # Parameters
 /// - `index`: The index of the current node in the syntax tree.

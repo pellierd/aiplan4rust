@@ -217,10 +217,10 @@ pub const CONSTRAINTS: &str = ":constraints";
 pub const ACTION_COSTS: &str = ":action-costs";
 
 // PDDL SEPARATORS
-/// "(" is used to denote the opening parenthesis in expression or groupings.
+/// "(" is used to denote the opening parenthesis in expr or groupings.
 pub const LPAREN: &str = "(";
 
-/// ")" is used to denote the closing parenthesis in expression or groupings.
+/// ")" is used to denote the closing parenthesis in expr or groupings.
 pub const RPAREN: &str = ")";
 
 // PDDL Arithmetic operators
@@ -268,10 +268,10 @@ pub const INCREASE: &str = "increase";
 /// Represents the "decrease" operator in PDDL.
 pub const DECREASE: &str = "decrease";
 
-/// "minimize" is used to specify that the objective is to minimize the value of an expression or a variable.
+/// "minimize" is used to specify that the objective is to minimize the value of an expr or a variable.
 pub const MINIMIZE: &str = "minimize";
 
-/// "maximize" is used to specify that the objective is to maximize the value of an expression or a variable.
+/// "maximize" is used to specify that the objective is to maximize the value of an expr or a variable.
 pub const MAXIMIZE: &str = "maximize";
 
 // Special
@@ -339,7 +339,7 @@ pub const HTN: &str = ":htn";
 /// This enum is used to categorize and parse the different types of tokens that can be encountered
 /// in a domain specification, such as keywords, identifiers, numbers, operators, and special
 /// symbols. Each variant corresponds to a specific type of token that the lexer can identify, and
-/// some variants include regular expression and logic for parsing token values.
+/// some variants include regular expr and logic for parsing token values.
 ///
 /// This enum leverages the `Logos` crate for efficient lexical analysis, utilizing custom regex
 /// patterns for token recognition. The associated `lex()` function will match input tokens based on
@@ -430,7 +430,7 @@ pub enum Token {
     #[token(":parallel")]
     Parallel,
 
-    // Expressions: Tokens for logical and mathematical expression.
+    // Expressions: Tokens for logical and mathematical expr.
     #[token("preference")]
     Preference,
     #[token("and")]
