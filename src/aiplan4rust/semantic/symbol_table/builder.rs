@@ -133,7 +133,7 @@ impl SymbolTableBuilder {
 
         // Traverse the AST and initialize the symbol table
         self.initialize_from_ast(&root_ref, ast)?;
-
+        
         // Return the constructed symbol table
         Ok(std::mem::take(&mut self.table))
     }

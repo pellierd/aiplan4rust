@@ -75,8 +75,10 @@ impl Context {
     pub fn from(ast: &mut Ast) -> Result<Self, ParserInternalError> {
         let arena = TreeArena::from_ast(ast);
         let requirements = Self::extract_requirements(&arena)?;
-        let symbol_table = SymbolTable::from_ast(&arena)?;
         let interner = ast.take_interner();
+        let symbol_table = SymbolTable::from_ast(&arena)?;
+        println!("Symbol table initialized with {} symbols.", symbol_table.to_string_with_interner(&interner));
+
         Ok(Context::new(
             arena,
             ast.source_name().to_string(),
