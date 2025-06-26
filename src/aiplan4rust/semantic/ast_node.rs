@@ -242,41 +242,30 @@ impl TreeNode for AstArenaNode {
         self.remap_idents(map)
     }
 
-    fn try_symbol_ref(&self, arena: &TreeArena<Self>) -> Result<SymbolRef, ParserInternalError> {
-        let kind = self.kind();
-
-        if matches!(
-            kind,
-            AstKind::DomainName
-                | AstKind::PrimitiveType
-                | AstKind::ProblemName
-                | AstKind::Constant
-                | AstKind::Variable
-                | AstKind::FunctionSymbol
-                | AstKind::Predicate
-                | AstKind::ActionSymbol
-                | AstKind::DASymbol
-                | AstKind::MethodSymbol
-                | AstKind::TaskSymbol
-                | AstKind::TaskID
-        ) {
-            return Self::try_simple_symbol_ref(self);
-        }
-
-        if matches!(
-            kind,
-            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
-        ) {
-            return Self::try_signature_symbol_ref(self, arena);
-        }
-
-        Err(ParserInternalError::new(format!(
-            "Unexpected symbol kind encountered: {:?}",
-            kind
-        )))
-    }
-
     fn content_mut(&mut self) -> &mut Self::Content {
         self.data.content_mut()
     }
+
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, ParserInternalError> {
+        let kind = self.kind();
+        let symbol_kind = match kind {
+            AstKind::DomainName => SymbolKind::DomainName,
+            AstKind::PrimitiveType => SymbolKind::PrimitiveType,
+            AstKind::ProblemName => SymbolKind::ProblemName,
+            AstKind::Constant => SymbolKind::Constant,
+            AstKind::Variable => SymbolKind::Variable,
+            AstKind::FunctionSymbol => SymbolKind::Function,
+            AstKind::Predicate => SymbolKind::Predicate,
+            AstKind::ActionSymbol => SymbolKind::Action,
+            AstKind::DASymbol => SymbolKind::DASymbol,
+            AstKind::MethodSymbol => SymbolKind::Method,
+            AstKind::TaskSymbol => SymbolKind::Task,
+            AstKind::TaskID => SymbolKind::TaskID,
+            _ => return Ok(None),
+        };
+
+        let ident = self.try_ident()?;
+        Ok(Some(SymbolRef::new(ident, symbol_kind)))
+    }
+
 }

@@ -182,23 +182,6 @@ pub trait TreeNode {
         self.parent().is_none()
     }
 
-    /// Attempts to extract a symbol reference from this node within the provided arena.
-    ///
-    /// # Arguments
-    ///
-    /// - `arena`: The `TreeArena` that contains this node and its siblings/parents/children.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(SymbolRef)` if successful.
-    /// - `Err(ParserInternalError)` if the node cannot be resolved as a symbol.
-    ///
-    /// # Note
-    ///
-    /// This method is crucial for semantic analysis phases, linking syntax nodes to symbol table entries.
-    fn try_symbol_ref(&self, arena: &TreeArena<Self>) -> Result<SymbolRef, ParserInternalError>
-    where
-        Self: Sized;
 
     // Delegation methods to the node’s content, allowing convenient extraction
     // of specific semantic types without manually matching on content.
@@ -233,6 +216,8 @@ pub trait TreeNode {
         self.content().as_optimization()
     }
 
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, ParserInternalError>;
+
     // Try-extraction methods that return Result for better error handling.
 
     /// Attempts to extract an identifier from the node’s content.
@@ -264,4 +249,8 @@ pub trait TreeNode {
     fn try_optimization(&self) -> Result<Optimization, ParserInternalError> {
         self.content().try_optimization()
     }
+    fn try_symbol_ref(&self) -> Result<SymbolRef, ParserInternalError> {
+        self.as_symbol_ref()?.ok_or_else(|| ParserInternalError::new("Not a SymbolRef".to_string()))
+    }
+
 }

@@ -212,7 +212,7 @@ impl fmt::Display for Scope {
                 write!(f, ", ")?;
             }
             // Write the NodeId using its Display implementation
-            write!(f, "{}", node_id)?;
+            write!(f, "{}", node_id.as_usize())?;
             first = false;
         }
 

@@ -203,7 +203,7 @@ impl Usage {
         write!(
             w,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.symbol_kind(), symbol_str, self.scope, self.origin
+            self.ast.as_usize(), self.symbol_kind(), symbol_str, self.scope, self.origin
         )?;
         Ok(())
     }
@@ -226,7 +226,7 @@ impl fmt::Display for Usage {
         write!(
             f,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast, self.symbol_kind(), self.symbol_ident(), self.scope, self.origin
+            self.ast.as_usize(), self.symbol_kind(), self.symbol_ident(), self.scope, self.origin
         )?;
         Ok(())
     }

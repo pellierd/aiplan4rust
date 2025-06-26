@@ -42,7 +42,6 @@ use std::fmt;
 use ordered_float::OrderedFloat;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
-use crate::aiplan4rust::syntax::ast::AstContent;
 
 /// Represents semantic content associated with an AST node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]

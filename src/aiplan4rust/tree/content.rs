@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 
 /// Trait representing the semantic content stored within a tree node.
@@ -155,4 +156,5 @@ pub trait NodeContent {
         self.as_optimization()
             .ok_or_else(|| ParserInternalError::new("Not an Optimization".to_string()))
     }
+
 }

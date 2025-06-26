@@ -434,7 +434,7 @@ impl Declaration {
         write!(
             w,
             "[index: {}, kind: {}, ident: {}",
-            self.node_id(),
+            self.node_id().as_usize(),
             self.symbol_kind(),
             name_str
         )?;
@@ -473,7 +473,7 @@ impl fmt::Display for Declaration {
     /// A `fmt::Result` which is `Ok` if formatting succeeded, or an error if it failed.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Display the main elements: ast_old, kind, scope, and source
-        write!(f, "[index: {}, kind: {}, ident: {}", self.node_id(), self.symbol_kind(), self.symbol_ident())?;
+        write!(f, "[index: {}, kind: {}, ident: {}", self.node_id().as_usize(), self.symbol_kind(), self.symbol_ident())?;
 
         // Add scope and source at the end
         write!(f, ", scope: {}, source: {}", self.scope(), self.origin())?;

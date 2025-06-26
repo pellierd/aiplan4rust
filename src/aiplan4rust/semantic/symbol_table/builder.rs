@@ -133,7 +133,7 @@ impl SymbolTableBuilder {
 
         // Traverse the AST and initialize the symbol table
         self.initialize_from_ast(&root_ref, ast)?;
-        
+
         // Return the constructed symbol table
         Ok(std::mem::take(&mut self.table))
     }
@@ -455,8 +455,18 @@ impl SymbolTableBuilder {
             Self::assert_ast_children_number(node_ref.node(), 1, Comparator::GreaterEq)?;
         }
 
+        let symbol_ref = if matches!(
+            node_ref.node().kind(),
+            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+        ) {
+            let first_node_ref = ast.try_node_ref(node_ref.node().children()[0])?;
+            ast.try_symbol_ref(first_node_ref.id())?
+        } else {
+            ast.try_symbol_ref(node_ref.id())?
+        };
+
         // Extract symbol name and type based on the AST node's kind.
-        let symbol_ref= ast.try_symbol_ref(node_ref.id())?;
+        //let symbol_ref= ast.try_symbol_ref(node_ref.id())?;
         let ident = symbol_ref.ident();
 
         // If the symbol exists, add the usage; otherwise, create a new symbol.

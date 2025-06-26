@@ -100,7 +100,7 @@ impl<T: TreeNode> TreeArena<T> {
     /// Attempts to retrieve a `SymbolRef` from a node.
     pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, ParserInternalError> {
         let node = self.try_node(id)?;
-        node.try_symbol_ref(self)
+        node.try_symbol_ref()
     }
 
     /// Returns the total number of nodes in the arena.
