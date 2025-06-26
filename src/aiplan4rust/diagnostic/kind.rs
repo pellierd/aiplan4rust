@@ -3,7 +3,7 @@ use crate::aiplan4rust::syntax::elements::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;
-use crate::aiplan4rust::semantic::arena::ArenaAstNode;
+use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 
@@ -55,7 +55,7 @@ pub enum Kind {
         symbol: String,
         declaration1: Declaration,
         declaration2: Declaration,
-        scope: ArenaAstNode,
+        scope: AstArenaNode,
     },
     CyclicTaskOrderingError,
     UndeclaredSymbolError {
@@ -326,7 +326,7 @@ impl Kind {
             }
             Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
                 Some(format!(
-                    "Numeric expressions require operands of type 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
+                    "Numeric expression require operands of type 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
                     Self::format_types(ty1), Self::format_types(ty2)
                 ))
             }

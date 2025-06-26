@@ -1,6 +1,6 @@
-//! Tree traversal iterators for abstract syntax trees (ASTs) and similar structures.
+//! Tree traversal iter for abstract syntax trees (ASTs) and similar structures.
 //!
-//! This module provides two depth-first traversal iterators for hierarchical data:
+//! This module provides two depth-first traversal iter for hierarchical data:
 //!
 //! - [`PreorderIter`]: Visits each node **before** its children (pre-order).
 //! - [`PostorderIter`]: Visits each node **after** its children (post-order).
@@ -8,7 +8,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use aiplan4rust::syntax::iterators::PreorderIter;
+//! use aiplan4rust::syntax::iter::PreorderIter;
 //!
 //! // Assuming `root` is the root node of your tree:
 //! let preorder_iter = PreorderIter::new(&root);
@@ -18,7 +18,7 @@
 //! ```
 //!
 //! ```rust
-//! use aiplan4rust::syntax::iterators::PostorderIter;
+//! use aiplan4rust::syntax::iter::PostorderIter;
 //!
 //! let postorder_iter = PostorderIter::new(&root);
 //! for node in postorder_iter {
@@ -28,7 +28,7 @@
 //!
 //! # Notes
 //!
-//! These iterators are generic over tree-like structures where each node has zero
+//! These iter are generic over tree-like structures where each node has zero
 //! or more children. They encapsulate traversal logic, making it easy to explore
 //! nodes in a consistent and controlled manner.
 

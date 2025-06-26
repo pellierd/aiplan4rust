@@ -1,9 +1,10 @@
+use crate::aiplan4rust::tree::TreeArena;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::arena::ArenaAst;
-use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
+use crate::aiplan4rust::semantic::{AstArenaNode, SemanticContext, SymbolTable};
 use crate::aiplan4rust::syntax::elements::Requirement;
 
 use std::collections::HashSet;
+
 
 /// A lightweight wrapper to pass semantic context components to verification functions.
 ///
@@ -47,7 +48,7 @@ use std::collections::HashSet;
 /// - `requirements`: Active requirements (e.g., :typing, :durative-actions).
 #[derive(Clone)]
 pub struct Context<'a> {
-    ast:         &'a ArenaAst,
+    ast:         &'a TreeArena<AstArenaNode>,
     symbols:     &'a SymbolTable,
     interner:    &'a StringInterner,
     source_name: &'a str,
@@ -57,7 +58,7 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     /// Creates a new `Context` from individual components.
     pub fn new(
-        ast: &'a ArenaAst,
+        ast: &'a TreeArena<AstArenaNode>,
         symbols: &'a SymbolTable,
         interner: &'a StringInterner,
         source_name: &'a str,
@@ -78,7 +79,7 @@ impl<'a> Context<'a> {
     }
 
     /// Returns the AST.
-    pub fn ast(&self) -> &'a ArenaAst {
+    pub fn ast(&self) -> &'a TreeArena<AstArenaNode> {
         self.ast
     }
 

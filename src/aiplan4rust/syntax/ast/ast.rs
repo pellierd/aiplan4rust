@@ -16,7 +16,7 @@
 //!
 //! # Traversal
 //!
-//! The tree can be traversed using built-in iterators:
+//! The tree can be traversed using built-in iter:
 //!
 //! - [`Ast::preorder()`] — depth-first traversal where the parent is visited before its children.
 //! - [`Ast::postorder()`] — depth-first traversal where the children are visited before the parent.

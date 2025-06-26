@@ -54,7 +54,7 @@ pub enum Requirement {
     ConditionalEffects,
     /// Enables numeric state variables (deprecated in favor of `NumericFluents`).
     Fluents,
-    /// Supports numeric state variables and arithmetic expressions.
+    /// Supports numeric state variables and arithmetic expression.
     NumericFluents,
     /// Supports function with type that differ from number
     ObjectFluents,

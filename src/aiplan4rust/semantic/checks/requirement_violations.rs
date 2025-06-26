@@ -7,11 +7,12 @@ use crate::aiplan4rust::syntax::elements::Requirement::{
 };
 use crate::aiplan4rust::syntax::elements::BinaryComp;
 use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::semantic::arena::ArenaAstNode;
 
 use std::collections::HashSet;
+use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::tree::TreeNode;
 
 pub fn check_requirement_violations(
     context: &CheckContext,
@@ -80,9 +81,9 @@ pub fn check_requirement_violations(
 
             AstKind::Or => {
                 let parent = context.ast().get_parent(index).unwrap();
-                if *parent.kind() != AstKind::MethodPreconditionDef
-                    && *parent.kind() != AstKind::PreconditionDef
-                    && *parent.kind() != AstKind::EffectDef
+                if parent.kind() != AstKind::MethodPreconditionDef
+                    && parent.kind() != AstKind::PreconditionDef
+                    && parent.kind() != AstKind::EffectDef
                 {
                     checked &= report_requirement_violation(
                         node,
@@ -191,7 +192,7 @@ pub fn check_requirement_violations(
     Ok(checked)
 }
 fn report_requirement_violation(
-    node: &ArenaAstNode,
+    node: &AstArenaNode,
     requirements: &HashSet<Requirement>,
     filename: &str,
     source: Provider,

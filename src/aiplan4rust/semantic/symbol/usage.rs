@@ -2,7 +2,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::arena::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::syntax::Span;
 

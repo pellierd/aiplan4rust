@@ -11,7 +11,7 @@
 //! - [`ast`]: The complete AST structure and root logic.
 //! - [`kind`]: Enumerates the kinds of AST nodes (e.g., keyword, identifier).
 //! - [`content`]: Defines the data payload associated with AST nodes.
-//! - [`iterators`]: Contains pre-order and post-order traversal iterators.
+//! - [`iterators`]: Contains pre-order and post-order traversal iter.
 //!
 //! # Re-exports
 //!
@@ -35,10 +35,10 @@
 //!
 //! # Traversal
 //!
-//! Use the iterators in [`iterators`] to walk through the AST:
+//! Use the iter in [`iterators`] to walk through the AST:
 //!
 //! ```rust
-//! use aiplan4rust::syntax::iterators::PreorderIter;
+//! use aiplan4rust::syntax::iter::PreorderIter;
 //!
 //! let iter = PreorderIter::new(ast.root());
 //! for (node, depth) in iter {

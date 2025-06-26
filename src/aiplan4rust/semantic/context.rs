@@ -4,9 +4,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode, NodeId};
-use crate::aiplan4rust::semantic::SymbolTable;
-use crate::aiplan4rust::semantic::arena::arena::Arena;
+use crate::aiplan4rust::tree::{TreeArena, NodeId};
+use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::syntax::elements::Requirement;
 
@@ -20,8 +19,8 @@ use crate::aiplan4rust::syntax::elements::Requirement;
 /// between parsing and later phases such as type checking, optimization, or code generation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
-    /// The AST stored in an arena for efficient indexing and traversal.
-    ast: ArenaAst,
+    /// The AST stored in an tree for efficient indexing and traversal.
+    ast: TreeArena<AstArenaNode>,
 
     /// The set of semantic requirements (e.g., domain-specific constraints or planner capabilities).
     requirements: HashSet<Requirement>,
@@ -42,14 +41,14 @@ impl Context {
     /// Constructs a new `SemanticContext` from its components.
     ///
     /// # Arguments
-    /// * `ast` - The arena-based abstract syntax tree.
+    /// * `ast` - The tree-based abstract syntax tree.
     /// * `source_name` - The name of the input source file.
     /// * `requirements` - A set of extracted semantic requirements.
     /// * `symbol_table` - The resulting symbol table from analysis.
     /// * `interner` - The string interner used for symbol resolution and deduplication.
     /// * `generated_at` - The timestamp marking when the context was built.
     pub fn new(
-        ast: ArenaAst,
+        ast: TreeArena<AstArenaNode>,
         source_name: String,
         requirements: HashSet<Requirement>,
         symbol_table: SymbolTable,
@@ -74,7 +73,7 @@ impl Context {
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
     pub fn from(ast: &mut Ast) -> Result<Self, ParserInternalError> {
-        let arena = Arena::from_ast(ast);
+        let arena = TreeArena::from_ast(ast);
         let requirements = Self::extract_requirements(&arena)?;
         let symbol_table = SymbolTable::from_ast(&arena)?;
         let interner = ast.take_interner();
@@ -88,20 +87,20 @@ impl Context {
         ))
     }
 
-    /// Extracts all implied `Requirement` instances from an arena-based syntax tree,
+    /// Extracts all implied `Requirement` instances from an tree-based syntax tree,
     /// assuming all requirements are declared under a single parent node.
     ///
-    /// Traverses the arena to find the first node of kind `Requirement`,
+    /// Traverses the tree to find the first node of kind `Requirement`,
     /// collects it and all its children, then stops.
     ///
     /// # Arguments
     ///
-    /// * `arena` - A reference to the arena-based syntax tree.
+    /// * `tree` - A reference to the tree-based syntax tree.
     ///
     /// # Returns
     ///
     /// A `HashSet` of all declared and implied `Requirement` instances.
-    fn extract_requirements(arena: &ArenaAst) -> Result<HashSet<Requirement>, ParserInternalError> {
+    fn extract_requirements(arena: &TreeArena<AstArenaNode>) -> Result<HashSet<Requirement>, ParserInternalError> {
         let mut requirements = HashSet::new();
 
         // Step 1: Find the first `RequireDef` node in the AST
@@ -154,24 +153,24 @@ impl Context {
     }
 
     /// Returns a reference to a node by its index, if it exists.
-    pub fn get_node(&self, id: NodeId) -> Option<&ArenaAstNode> {
+    pub fn get_node(&self, id: NodeId) -> Option<&AstArenaNode> {
         self.ast.get_node(id)
     }
 
-    pub fn try_node(&self, id: NodeId) -> Result<&ArenaAstNode, ParserInternalError> {
+    pub fn try_node(&self, id: NodeId) -> Result<&AstArenaNode, ParserInternalError> {
         self.ast.try_node(id)
     }
 
-    /// Returns a reference to the internal AST arena.
-    pub fn ast(&self) -> &ArenaAst {
+    /// Returns a reference to the internal AST tree.
+    pub fn ast(&self) -> &TreeArena<AstArenaNode> {
         &self.ast
     }
 
-    pub fn ast_mut(&mut self) -> &mut ArenaAst {
+    pub fn ast_mut(&mut self) -> &mut TreeArena<AstArenaNode> {
         &mut self.ast
     }
 
-    pub fn take_ast(&mut self) -> ArenaAst {
+    pub fn take_ast(&mut self) -> TreeArena<AstArenaNode> {
         std::mem::take(&mut self.ast)
     }
 
@@ -227,7 +226,7 @@ impl fmt::Display for Context {
     /// Formats the semantic context for display.
     ///
     /// The output includes metadata (timestamp and source), semantic requirements,
-    /// the arena-based AST, and the symbol table.
+    /// the tree-based AST, and the symbol table.
     ///
     /// # Example
     /// ```text
@@ -262,7 +261,7 @@ impl fmt::Display for Context {
             writeln!(f, "  - {}", req)?;
         }
 
-        writeln!(f, "\nAbstract Syntax Tree:\n{}", self.ast)?;
+        writeln!(f, "\nAbstract Syntax Tree:\n{:?}", self.ast)?;
 
         writeln!(f, "\nSymbol Table:\n{}", self.symbol_table)?;
 

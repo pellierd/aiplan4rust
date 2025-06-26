@@ -220,7 +220,7 @@ impl Analyzer {
                 diagnostic_manager,
             )?;
 
-            // Check functional expressions in the domain using the type checker
+            // Check functional expression in the domain using the type checker
             checked &= semantic::checks::check_typed_expressions(
                 context,
                 &type_checker,

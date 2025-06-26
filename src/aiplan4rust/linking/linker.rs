@@ -89,6 +89,7 @@ impl Linker {
 
         // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
         let problem_ident_map = result.take_problem_ident_map();
+
         remap_problem_idents(&mut problem, &problem_ident_map);
 
         // Step 3: Resolve external references in the problem with respect to the domain
@@ -172,7 +173,7 @@ fn remap_problem_idents(
 ///
 /// 2. **Type-Dependent Checks** (executed only if no errors found in phase 1):
 ///     - Signature validation of declared symbols (`check_declared_symbol_signatures`)
-///     - Type correctness of expressions (`check_typed_expressions`)
+///     - Type correctness of expression (`check_typed_expressions`)
 ///     - Task ordering consistency (`check_task_ordering`)
 ///     - Requirement compliance (`check_requirement_violations`)
 ///
@@ -246,7 +247,7 @@ pub fn perform_linking_checks(
             diagnostic_manager,
         )?;
 
-        // Verify the type correctness of expressions in the problem
+        // Verify the type correctness of expression in the problem
         semantic::checks::check_typed_expressions(
             problem,
             &type_checker,

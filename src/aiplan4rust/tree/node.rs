@@ -1,0 +1,267 @@
+use std::collections::HashMap;
+use ordered_float::OrderedFloat;
+use crate::aiplan4rust::tree::{TreeArena, NodeId, NodeContent};
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::semantic::symbol::SymbolRef;
+use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+
+/// A generic trait representing a node in a tree stored within an `Arena`.
+///
+/// This trait defines the minimal interface that any node type must implement to
+/// be used in a tree structure managed by a `TreeArena`. It provides methods to
+/// navigate parent-child relationships, modify the tree, work with node content,
+/// and extract semantic information like identifiers and symbols.
+///
+/// # Trait Type Parameters
+///
+/// - `Kind`: The type representing the kind/category of the node.
+/// - `Content`: The type of the node’s semantic content, which must implement [`NodeContent`].
+///
+/// # Core Responsibilities
+///
+/// - Access and modify the node's kind and content.
+/// - Navigate the tree structure: get parent and children, add children.
+/// - Remap identifiers within the node's content using a mapping table.
+/// - Query node properties such as leaf/root status and arity (number of children).
+/// - Attempt to extract a symbol reference from the node within a tree arena.
+///
+/// # Example
+///
+/// ```rust
+/// use std::collections::HashMap;
+/// use crate::aiplan4rust::tree::{TreeNode, NodeId};
+/// use crate::aiplan4rust::syntax::elements::Ident;
+///
+/// struct MyNode {
+///     parent: Option<NodeId>,
+///     children: Vec<NodeId>,
+///     idents: Vec<Ident>,
+/// }
+///
+/// impl TreeNode for MyNode {
+///     type Kind = MyKind;
+///     type Content = MyContent;
+///
+///     fn kind(&self) -> Self::Kind { /* ... */ }
+///     fn set_kind(&mut self, kind: Self::Kind) { /* ... */ }
+///     fn content(&self) -> &Self::Content { /* ... */ }
+///     fn content_mut(&mut self) -> &mut Self::Content { /* ... */ }
+///
+///     fn parent(&self) -> Option<NodeId> { self.parent }
+///     fn set_parent(&mut self, parent: Option<NodeId>) { self.parent = parent; }
+///     fn children(&self) -> &[NodeId] { &self.children }
+///     fn add_child(&mut self, child: NodeId) { self.children.push(child); }
+///
+///     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+///         for id in &mut self.idents {
+///             if let Some(new_id) = map.get(id) {
+///                 *id = *new_id;
+///             }
+///         }
+///     }
+///
+///     fn try_symbol_ref(&self, _arena: &TreeArena<Self>) -> Result<SymbolRef, ParserInternalError> {
+///         unimplemented!()
+///     }
+/// }
+/// ```
+///
+/// # Notes
+///
+/// - The default implementations of some methods (like `is_leaf`, `arity`, and
+///   delegation methods for content extraction) provide convenience but can
+///   be overridden for optimization or specific behaviors.
+/// - The trait expects an associated `Content` type implementing [`NodeContent`],
+///   providing methods to access semantic information.
+///
+/// # See Also
+///
+/// - [`TreeArena`] for managing trees of nodes implementing this trait.
+/// - [`NodeContent`] for content types that hold semantic node data.
+/// - [`ParserInternalError`] for error handling during parsing or resolution.
+/// - [`SymbolRef`] for referencing symbols resolved from nodes.
+///
+pub trait TreeNode {
+    /// The type used to represent the node's kind.
+    type Kind;
+
+    /// The type used to represent the semantic content of the node.
+    type Content: NodeContent;
+
+    /// Returns the kind of the node.
+    fn kind(&self) -> Self::Kind;
+
+    /// Sets the kind of the node.
+    fn set_kind(&mut self, kind: Self::Kind);
+
+    /// Returns a reference to the node's semantic content.
+    fn content(&self) -> &Self::Content;
+
+    /// Returns a mutable reference to the node's semantic content.
+    fn content_mut(&mut self) -> &mut Self::Content;
+
+    /// Returns `true` if the node has no meaningful content.
+    ///
+    /// By default, this delegates to `content().is_none()`.
+    fn has_content(&self) -> bool {
+        self.content().is_none()
+    }
+
+    /// Returns the ID of the node’s parent if it exists.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(NodeId)` if the node has a parent.
+    /// - `None` if this node is the root of the tree.
+    fn parent(&self) -> Option<NodeId>;
+
+    /// Sets the parent of this node.
+    ///
+    /// # Arguments
+    ///
+    /// - `parent`: The parent node's ID, or `None` to unset and mark this node as root.
+    fn set_parent(&mut self, parent: Option<NodeId>);
+
+    /// Returns a slice of IDs representing this node’s immediate children.
+    ///
+    /// # Returns
+    ///
+    /// A slice of `NodeId` elements corresponding to the children.
+    fn children(&self) -> &[NodeId];
+
+    /// Adds a child node to this node.
+    ///
+    /// # Arguments
+    ///
+    /// - `child`: The child node’s ID to append.
+    fn add_child(&mut self, child: NodeId);
+
+    /// Remaps identifiers inside the node’s content according to the given map.
+    ///
+    /// This is useful for operations like renaming or merging scopes.
+    ///
+    /// # Arguments
+    ///
+    /// - `map`: A `HashMap` mapping old identifiers to new identifiers.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>);
+
+    /// Returns `true` if this node is a leaf (has no children).
+    ///
+    /// # Returns
+    ///
+    /// - `true` if the node has no children.
+    /// - `false` otherwise.
+    ///
+    /// # Default
+    ///
+    /// Checks if `children().is_empty()`.
+    fn is_leaf(&self) -> bool {
+        self.children().is_empty()
+    }
+
+    /// Returns the number of direct children this node has.
+    ///
+    /// # Returns
+    ///
+    /// The count of immediate child nodes.
+    ///
+    /// # Default
+    ///
+    /// Returns `children().len()`.
+    fn arity(&self) -> usize {
+        self.children().len()
+    }
+
+    /// Returns `true` if this node is the root of the tree (has no parent).
+    ///
+    /// # Returns
+    ///
+    /// - `true` if `parent()` returns `None`.
+    /// - `false` otherwise.
+    fn is_root(&self) -> bool {
+        self.parent().is_none()
+    }
+
+    /// Attempts to extract a symbol reference from this node within the provided arena.
+    ///
+    /// # Arguments
+    ///
+    /// - `arena`: The `TreeArena` that contains this node and its siblings/parents/children.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(SymbolRef)` if successful.
+    /// - `Err(ParserInternalError)` if the node cannot be resolved as a symbol.
+    ///
+    /// # Note
+    ///
+    /// This method is crucial for semantic analysis phases, linking syntax nodes to symbol table entries.
+    fn try_symbol_ref(&self, arena: &TreeArena<Self>) -> Result<SymbolRef, ParserInternalError>
+    where
+        Self: Sized;
+
+    // Delegation methods to the node’s content, allowing convenient extraction
+    // of specific semantic types without manually matching on content.
+
+    /// Returns the identifier if present in the node’s content.
+    fn as_ident(&self) -> Option<Ident> {
+        self.content().as_ident()
+    }
+
+    /// Returns the floating-point literal if present in the node’s content.
+    fn as_float(&self) -> Option<OrderedFloat<f64>> {
+        self.content().as_float()
+    }
+
+    /// Returns the binary comparison operator if present in the node’s content.
+    fn as_binary_comp(&self) -> Option<BinaryComp> {
+        self.content().as_binary_comp()
+    }
+
+    /// Returns the assignment operator if present in the node’s content.
+    fn as_assign_op(&self) -> Option<AssignOp> {
+        self.content().as_assign_op()
+    }
+
+    /// Returns the arithmetic operator if present in the node’s content.
+    fn as_arithmetic_op(&self) -> Option<ArithmeticOp> {
+        self.content().as_arithmetic_op()
+    }
+
+    /// Returns the optimization directive if present in the node’s content.
+    fn as_optimization(&self) -> Option<Optimization> {
+        self.content().as_optimization()
+    }
+
+    // Try-extraction methods that return Result for better error handling.
+
+    /// Attempts to extract an identifier from the node’s content.
+    fn try_ident(&self) -> Result<Ident, ParserInternalError> {
+        self.content().try_ident()
+    }
+
+    /// Attempts to extract a floating-point literal from the node’s content.
+    fn try_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
+        self.content().try_float()
+    }
+
+    /// Attempts to extract a binary comparison operator from the node’s content.
+    fn try_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
+        self.content().try_binary_comp()
+    }
+
+    /// Attempts to extract an assignment operator from the node’s content.
+    fn try_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
+        self.content().try_assign_op()
+    }
+
+    /// Attempts to extract an arithmetic operator from the node’s content.
+    fn try_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
+        self.content().try_arithmetic_op()
+    }
+
+    /// Attempts to extract an optimization directive from the node’s content.
+    fn try_optimization(&self) -> Result<Optimization, ParserInternalError> {
+        self.content().try_optimization()
+    }
+}

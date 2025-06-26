@@ -1,10 +1,10 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
 
-/// A unique identifier for nodes in an arena.
+/// A unique identifier for nodes in an tree.
 ///
 /// This struct wraps a `usize` that serves as a unique index or ID for nodes
-/// in a tree or arena structure. It provides type safety and utility methods
+/// in a tree or tree structure. It provides type safety and utility methods
 /// to work with node identifiers.
 ///
 /// # Sentinel value
@@ -28,26 +28,26 @@ use serde::de::Error;
 ///
 /// Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Id {
+pub struct NodeId {
     /// The integer value representing the node identifier.
     ///
     /// `usize::MAX` is used as an invalid sentinel value.
     pub value: usize,
 }
 
-impl Default for Id {
+impl Default for NodeId {
     /// Returns a default invalid `NodeId` with the sentinel value `usize::MAX`.
     fn default() -> Self {
-        Id { value: usize::MAX }
+        NodeId { value: usize::MAX }
     }
 }
 
-impl Id {
-    /// The constant identifier for the root node in the arena.
+impl NodeId {
+    /// The constant identifier for the root node in the tree.
     ///
     /// This constant represents the ID of the root node, which is always zero.
-    /// It is used to access the root node within the arena.
-    pub const ROOT_NODE_ID: Id = Id::new(0);
+    /// It is used to access the root node within the tree.
+    pub const ROOT_ID: NodeId = NodeId::new(0);
 
     /// Creates a new `NodeId` from a `usize` value.
     ///
@@ -59,7 +59,7 @@ impl Id {
     ///
     /// A new `NodeId` wrapping the provided value.
     pub const fn new(value: usize) -> Self {
-        Id { value }
+        NodeId { value }
     }
 
     /// Returns the underlying `usize` value of the `NodeId`.
@@ -95,7 +95,7 @@ impl Id {
 }
 
 // Sérialisation en string
-impl Serialize for Id {
+impl Serialize for NodeId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         serializer.serialize_str(&self.value.to_string())
@@ -103,16 +103,16 @@ impl Serialize for Id {
 }
 
 // Désérialisation depuis string
-impl<'de> Deserialize<'de> for Id {
+impl<'de> Deserialize<'de> for NodeId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
         let s = String::deserialize(deserializer)?;
         let value = s.parse::<usize>().map_err(D::Error::custom)?;
-        Ok(Id { value })
+        Ok(NodeId { value })
     }
 }
 
-impl std::fmt::Display for Id {
+impl std::fmt::Display for NodeId {
     /// Formats the `NodeId` for display purposes.
     ///
     /// Displays as `NodeId(<value>)` if valid, or `NodeId(<invalid>)` if not.
@@ -125,7 +125,7 @@ impl std::fmt::Display for Id {
     }
 }
 
-impl From<usize> for Id {
+impl From<usize> for NodeId {
     /// Converts a `usize` into a `NodeId`.
     ///
     /// # Examples
@@ -135,11 +135,11 @@ impl From<usize> for Id {
     /// assert_eq!(id.as_usize(), 10);
     /// ```
     fn from(value: usize) -> Self {
-        Id::new(value)
+        NodeId::new(value)
     }
 }
 
-impl From<Id> for usize {
+impl From<NodeId> for usize {
     /// Converts a `NodeId` back into a `usize`.
     ///
     /// # Examples
@@ -149,7 +149,7 @@ impl From<Id> for usize {
     /// let raw: usize = id.into();
     /// assert_eq!(raw, 5);
     /// ```
-    fn from(id: Id) -> usize {
+    fn from(id: NodeId) -> usize {
         id.value
     }
 }

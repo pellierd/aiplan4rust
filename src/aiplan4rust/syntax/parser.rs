@@ -22,9 +22,9 @@ use std::time::SystemTime;
 
 
 #[derive(Debug)]
-/// A structure for analyzing the syntax of PDDL expressions.
+/// A structure for analyzing the syntax of PDDL expression.
 ///
-/// The `SyntaxAnalyzer` is responsible for parsing and validating PDDL expressions from
+/// The `SyntaxAnalyzer` is responsible for parsing and validating PDDL expression from
 /// a given source string. It works with an optional path for file-based sources and an
 /// error manager to handle any parsing errors.
 ///

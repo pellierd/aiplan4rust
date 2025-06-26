@@ -8,7 +8,8 @@ pub mod semantic;
 pub mod normalization;
 pub mod interner;
 mod ir;
-mod arena;
+mod tree;
+pub mod serialization;
 
 pub use file_format::FileFormat;
 pub use frontend::Frontend;

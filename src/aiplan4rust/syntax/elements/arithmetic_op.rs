@@ -10,11 +10,11 @@ use serde::Serialize;
 use std::fmt;
 
 /// Represents binary comparison operators used in logical and
-/// Represents arithmetic operations that can be used in PDDL expressions.
+/// Represents arithmetic operations that can be used in PDDL expression.
 ///
 /// This enumeration defines the basic arithmetic operators commonly found
 /// in PDDL (Planning Domain Definition Language), which are used in numeric
-/// expressions for modifying and evaluating numerical state variables.
+/// expression for modifying and evaluating numerical state variables.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ArithmeticOp {
     /// Represents the subtraction operation (`-`).
@@ -32,7 +32,7 @@ impl fmt::Display for ArithmeticOp {
     ///
     /// This method allows `ArithmeticOp` to be formatted as a string when printed
     /// using formatting macros such as `println!`. It provides a string representation
-    /// of the arithmetic operation, making it easier to display and debug arithmetic expressions.
+    /// of the arithmetic operation, making it easier to display and debug arithmetic expression.
     ///
     /// # Arguments
     /// - `f`: A mutable reference to the formatter, which is used to build the output string.

@@ -6,15 +6,15 @@ use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
 use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
+use crate::aiplan4rust::semantic::{AstArenaNode, TypeChecker};
+use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
-/// Checks the type correctness of typed expressions in the syntax tree, including comparisons,
+/// Checks the type correctness of typed expression in the syntax tree, including comparisons,
 /// assignments, and arithmetic operations.
 ///
-/// This function traverses the annotated syntax tree to verify that expressions have compatible
+/// This function traverses the annotated syntax tree to verify that expression have compatible
 /// types according to their operation kind. It supports:
 /// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type compatibility.
 /// - Other comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, `*=`, `/=`),
@@ -30,7 +30,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
 ///
 /// # Returns
-/// - `Ok(true)` if all typed expressions are correct.
+/// - `Ok(true)` if all typed expression are correct.
 /// - `Ok(false)` if one or more type mismatches were found and reported.
 /// - `Err(ParserInternalError)` if an internal error occurred during processing.
 ///
@@ -38,7 +38,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// ```rust
 /// let result = check_typed_expressions(&ast_old, &type_checker, source, &mut diagnostic_manager)?;
 /// if result {
-///     println!("All typed expressions are valid.");
+///     println!("All typed expression are valid.");
 /// }
 /// ```
 pub fn check_typed_expressions(
@@ -75,12 +75,12 @@ pub fn check_typed_expressions(
 }
 
 /// Returns `true` if the node represents an equality binary comparison (`BinaryComp::Equal`).
-fn is_equal_binary_comp(node: &ArenaAstNode) -> bool {
+fn is_equal_binary_comp(node: &AstArenaNode) -> bool {
     matches!(node.kind(), AstKind::FComp) && node.as_binary_comp() == Some(BinaryComp::Equal)
 }
 
 /// Returns `true` if the node represents a simple assignment (`AssignOp::Assign`).
-fn is_assign(node: &ArenaAstNode) -> bool {
+fn is_assign(node: &AstArenaNode) -> bool {
     matches!(node.kind(), AstKind::Assign) && node.as_assign_op() == Some(AssignOp::Assign)
 }
 
@@ -89,7 +89,7 @@ fn is_assign(node: &ArenaAstNode) -> bool {
 /// This includes:
 /// - Comparison operators: `Greater`, `GreaterEq`, `Less`, `LessEq`.
 /// - Assignment operators: `ScaleUp`, `ScaleDown`, `Increase`, `Decrease`.
-fn is_numeric_expression(node: &ArenaAstNode) -> bool {
+fn is_numeric_expression(node: &AstArenaNode) -> bool {
     matches!(node.kind(), AstKind::FComp)
         && matches!(
             node.as_binary_comp(),
@@ -108,7 +108,7 @@ fn is_numeric_expression(node: &ArenaAstNode) -> bool {
         )
 }
 
-/// Checks the type compatibility of operands in equality (`=`) or assignment (`assign`) expressions.
+/// Checks the type compatibility of operands in equality (`=`) or assignment (`assign`) expression.
 ///
 /// This function verifies that the types of both operands involved in an equality or assignment
 /// operation are compatible. Equality comparisons (`=`) require operands of the same type,
@@ -149,7 +149,7 @@ fn is_numeric_expression(node: &ArenaAstNode) -> bool {
 fn check_equal_and_assignment_expression(
     context: &CheckContext,
     type_checker: &TypeChecker,
-    node: &ArenaAstNode,
+    node: &AstArenaNode,
     ty1: &Vec<Ident>,
     ty2: &Vec<Ident>,
     source: Provider,
@@ -220,9 +220,9 @@ fn report_type_mismatch_in_expression(
 /// Checks whether the operand types in a numeric comparison or assignment expression
 /// are compatible with numeric operations (i.e., of type `number`).
 ///
-/// This function is used specifically for expressions involving numeric comparisons
+/// This function is used specifically for expression involving numeric comparisons
 /// (e.g., `greater`, `less`, `>=`, `<=`) and numeric assignment operations
-/// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such expressions
+/// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such expression
 /// to be valid, both operands must have the `number` type.
 ///
 /// If either operand does not have the `number` type, the function logs a
@@ -256,7 +256,7 @@ fn report_type_mismatch_in_expression(
 /// ```
 fn check_numeric_expression(
     context: &CheckContext,
-    node: &ArenaAstNode,
+    node: &AstArenaNode,
     ty1: &Vec<Ident>,
     ty2: &Vec<Ident>,
     source: Provider,
@@ -281,7 +281,7 @@ fn check_numeric_expression(
     Ok(no_error)
 }
 
-/// Reports a diagnostic error when numeric expressions have invalid operand types.
+/// Reports a diagnostic error when numeric expression have invalid operand types.
 ///
 /// This helper function creates and adds a diagnostic indicating that the operand types
 /// in a numeric expression are invalid (i.e., not of type `number`).
@@ -351,7 +351,7 @@ fn report_invalid_types_in_numeric_expression(
 /// let (ty1, ty2) = get_binary_operation_types(&node, &annotated_syntax_tree)?;
 /// ```
 fn get_binary_operation_types(
-    node: &ArenaAstNode,
+    node: &AstArenaNode,
     context: &CheckContext,
 ) -> Result<(Vec<Ident>, Vec<Ident>), ParserInternalError> {
     // Validate that there are exactly 2 children
@@ -407,7 +407,7 @@ fn get_binary_operation_types(
 /// ```
 pub fn get_type(
     index: NodeId,
-    node: &ArenaAstNode,
+    node: &AstArenaNode,
     context: &CheckContext
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     match node.kind() {
@@ -585,7 +585,7 @@ fn get_declaration_type(
 /// ```
 fn get_function_term_type(
     index: NodeId,
-    node: &ArenaAstNode,
+    node: &AstArenaNode,
     context: &CheckContext
 ) -> Result<Option<Vec<Ident>>, ParserInternalError> {
     let children = node.children();

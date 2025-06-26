@@ -1,9 +1,10 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::arena::{ArenaAst, ArenaAstNode};
+use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
+use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -180,8 +181,8 @@ fn report_cyclic_task_ordering_error(
 /// - If a node does not directly contain a `TaskID`, the function will recursively search through
 ///   its child nodes.
 fn extract_task_ids(
-    node: &ArenaAstNode,
-    tree: &ArenaAst,
+    node: &AstArenaNode,
+    tree: &TreeArena<AstArenaNode>,
 ) -> Result<Vec<Ident>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {

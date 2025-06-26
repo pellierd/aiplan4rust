@@ -4,8 +4,8 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::semantic::arena::{ArenaAstNode, NodeId};
+use crate::aiplan4rust::semantic::{AstArenaNode, TypeChecker};
+use crate::aiplan4rust::tree::{NodeId, TreeNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
@@ -196,7 +196,7 @@ fn match_argument(
     usage: &Usage,
     symbol_table: &SymbolTable,
     context: &CheckContext,
-    argument: &ArenaAstNode,
+    argument: &AstArenaNode,
     argument_index: usize,
     kind: SymbolKind,
     index: usize,

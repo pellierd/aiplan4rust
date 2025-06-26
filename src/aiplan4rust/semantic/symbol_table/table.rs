@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::arena::{ArenaAst, NodeId};
+use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
 
 use linked_hash_map::LinkedHashMap;
@@ -16,6 +16,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 use std::collections::{HashMap, HashSet};
+use crate::aiplan4rust::semantic::AstArenaNode;
 
 /// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///
@@ -986,7 +987,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns `ParserInternalError` if semantic errors or other parsing issues are detected during building.
-    pub fn from_ast(ast: &ArenaAst) -> Result<Table, ParserInternalError> {
+    pub fn from_ast(ast: &TreeArena<AstArenaNode>) -> Result<Table, ParserInternalError> {
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(ast)?;
         Ok(symbol_table)

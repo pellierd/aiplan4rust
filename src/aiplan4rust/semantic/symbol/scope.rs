@@ -1,4 +1,4 @@
-use crate::aiplan4rust::semantic::arena::{ArenaAst, NodeId};
+use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::frontend::ParserInternalError;
 
@@ -7,6 +7,7 @@ use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
 use once_cell::sync::Lazy;
+use crate::aiplan4rust::semantic::AstArenaNode;
 
 /// Represents a lexical or semantic scope within the AST.
 ///
@@ -72,7 +73,7 @@ impl Scope {
     pub fn root() -> &'static Scope {
         static ROOT: Lazy<Scope> = Lazy::new(|| {
             Scope {
-                stack: vec![NodeId::ROOT_NODE_ID], // définition directe ici
+                stack: vec![NodeId::ROOT_ID], // définition directe ici
             }
         });
         &ROOT
@@ -126,7 +127,7 @@ impl Scope {
     ///
     /// # Parameters
     /// - `kind`: The kind of AST node to search for.
-    /// - `ast`: Reference to the AST arena containing all nodes.
+    /// - `ast`: Reference to the AST tree containing all nodes.
     ///
     /// # Returns
     /// - `Ok(true)` if any node in the scope's stack has the specified kind.
@@ -145,11 +146,11 @@ impl Scope {
     pub fn contains_node_of_kind(
         &self,
         kind: AstKind,
-        ast: &ArenaAst,
+        ast: &TreeArena<AstArenaNode>,
     ) -> Result<bool, ParserInternalError> {
         for &id in self.iter() {
             let node = ast.try_node(id)?;
-            if *node.kind() == kind {
+            if node.kind() == kind {
                 return Ok(true);
             }
         }

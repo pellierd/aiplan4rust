@@ -1,8 +1,8 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::arena::ArenaAst;
-use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
 
 /// Represents a linked semantic context combining a domain and a problem.
 ///
@@ -12,8 +12,8 @@ use crate::aiplan4rust::semantic::SymbolTable;
 ///
 /// # Fields
 ///
-/// * `domain` - The AST arena representing the domain context.
-/// * `problem` - The AST arena representing the problem context after linking.
+/// * `domain` - The AST tree representing the domain context.
+/// * `problem` - The AST tree representing the problem context after linking.
 /// * `symbol_table` - The combined symbol table reflecting all linked symbols.
 /// * `interner` - The unified string interner used for identifiers across domain and problem.
 /// * `domain_source` - The source file or identifier for the domain.
@@ -38,8 +38,8 @@ use crate::aiplan4rust::semantic::SymbolTable;
 /// including source information, timestamps, and counts of AST nodes and symbol table entries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkedSemanticContext {
-    domain: ArenaAst,
-    problem: ArenaAst,
+    domain: TreeArena<AstArenaNode>,
+    problem: TreeArena<AstArenaNode>,
     symbol_table: SymbolTable,
     interner: StringInterner,
     domain_source: String,
@@ -52,8 +52,8 @@ impl LinkedSemanticContext {
     ///
     /// # Arguments
     ///
-    /// * `domain` - The AST arena representing the domain context.
-    /// * `problem` - The AST arena representing the problem context.
+    /// * `domain` - The AST tree representing the domain context.
+    /// * `problem` - The AST tree representing the problem context.
     /// * `symbol_table` - The combined symbol table after linking domain and problem.
     /// * `interner` - The unified string interner used for identifiers.
     /// * `domain_source` - The source (e.g. filename) of the domain.
@@ -63,8 +63,8 @@ impl LinkedSemanticContext {
     ///
     /// A new `LinkedSemanticContext` instance with the current system time as the generation timestamp.
     pub fn new(
-        domain: ArenaAst,
-        problem: ArenaAst,
+        domain: TreeArena<AstArenaNode>,
+        problem: TreeArena<AstArenaNode>,
         symbol_table: SymbolTable,
         interner: StringInterner,
         domain_source: String,
@@ -81,23 +81,23 @@ impl LinkedSemanticContext {
         }
     }
 
-    /// Returns an immutable reference to the domain AST arena.
-    pub fn domain(&self) -> &ArenaAst {
+    /// Returns an immutable reference to the domain AST tree.
+    pub fn domain(&self) -> &TreeArena<AstArenaNode> {
         &self.domain
     }
 
-    /// Returns a mutable reference to the domain AST arena.
-    pub fn domain_mut(&mut self) -> &mut ArenaAst {
+    /// Returns a mutable reference to the domain AST tree.
+    pub fn domain_mut(&mut self) -> &mut TreeArena<AstArenaNode> {
         &mut self.domain
     }
 
-    /// Returns an immutable reference to the problem AST arena.
-    pub fn problem(&self) -> &ArenaAst {
+    /// Returns an immutable reference to the problem AST tree.
+    pub fn problem(&self) -> &TreeArena<AstArenaNode> {
         &self.problem
     }
 
-    /// Returns a mutable reference to the problem AST arena.
-    pub fn problem_mut(&mut self) -> &mut ArenaAst {
+    /// Returns a mutable reference to the problem AST tree.
+    pub fn problem_mut(&mut self) -> &mut TreeArena<AstArenaNode> {
         &mut self.problem
     }
 
@@ -153,8 +153,8 @@ impl fmt::Display for LinkedSemanticContext {
         writeln!(f, "  Domain source: {}", self.domain_source())?;
         writeln!(f, "  Problem source: {}", self.problem_source())?;
         writeln!(f, "  Generated at: {:?}", self.generated_at())?;
-        writeln!(f, "  Domain AST nodes count:\n{}", self.domain())?;
-        writeln!(f, "  Problem AST nodes count:\n{}", self.problem())?;
+        writeln!(f, "  Domain AST nodes:\n{:?}", self.domain())?;
+        writeln!(f, "  Problem AST nodes:\n{:?}", self.problem())?;
         writeln!(f, "  Symbol table entries:\n{}", self.symbol_table())?;
         Ok(())
     }
