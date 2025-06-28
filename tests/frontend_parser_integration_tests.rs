@@ -73,7 +73,7 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
                     .expect("Failed to write diagnostics");
                 diag_file.write_all(&buffer).expect("Failed to write to diag file");
 
-                if linker_result.planning_task().is_none() {
+                if linker_result.linked_semantic_context().is_none() {
                     eprintln!(
                         "\x1b[1;36m===> Failure:\x1b[0m {}",
                         diag_path.display()

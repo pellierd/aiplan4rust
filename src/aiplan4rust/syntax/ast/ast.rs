@@ -60,7 +60,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{AstNode, iterators::{PreorderIter, PostorderIter}, AstKind};
 use crate::aiplan4rust::syntax::ast::node::Node;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 /// A complete abstract syntax tree and its associated context.
 ///
@@ -229,7 +229,7 @@ impl fmt::Display for Ast {
 
         for (node, depth) in self.preorder() {
             let indent = "  ".repeat(depth);
-            let content = node.content().display_with_context(&self.interner);
+            let content = node.content().to_string_with_interner(&self.interner);
             writeln!(f, "{}- Kind: {:?}, Content: {}", indent, node.kind(), content)?;
         }
 

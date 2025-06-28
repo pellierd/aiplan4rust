@@ -6,6 +6,7 @@ pub mod node;
 
 pub mod kind;
 mod transform;
+pub mod wrapper;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode as ExprNode;

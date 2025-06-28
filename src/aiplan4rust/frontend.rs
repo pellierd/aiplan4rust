@@ -16,6 +16,7 @@ use std::fs::File;
 use std::io::Read;
 
 use std::string::String;
+use crate::aiplan4rust::ir::IRBuilder;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -67,6 +68,11 @@ impl Frontend {
                 linker_result
                     .diagnostic_manager_mut()
                     .add_diagnostic_from(&diagnostic_manager);
+
+                println!("Bannanenene");
+                let mut ir_builder = IRBuilder::new();
+                ir_builder.build(linker_result.linked_semantic_context().unwrap())?;
+                println!("Bannanenene");
 
                 Ok(linker_result)
             }

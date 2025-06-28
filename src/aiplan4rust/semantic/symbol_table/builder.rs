@@ -2,7 +2,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::tree::{TreeArena, NodeRef};
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, Symbol, TypedSymbol, Usage};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, TypedSymbol, Usage};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
 use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -381,7 +381,7 @@ impl SymbolTableBuilder {
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
-            let mut symbol = Symbol::new(ident);
+            let mut symbol = SymbolEntry::new(ident);
             let declaration =
                 Declaration::new(symbol_ref, scope, origin, types, arguments, node_ref.node().span().clone(), node_ref.id());
             symbol.add_declaration(declaration);
@@ -475,7 +475,7 @@ impl SymbolTableBuilder {
             let usage = Usage::new(symbol_ref, scope, origin, node_ref.node().span().clone(), node_ref.id());
             symbol.add_usage(usage);
         } else {
-            let mut symbol = Symbol::new(ident);
+            let mut symbol = SymbolEntry::new(ident);
             let usage = Usage::new(symbol_ref, scope, origin, node_ref.node().span().clone(), node_ref.id());
             symbol.add_usage(usage);
             self.table_mut().insert_symbol(ident, symbol);

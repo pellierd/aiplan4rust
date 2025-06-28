@@ -100,7 +100,7 @@ fn link(domain_file: &str, problem_file: &str, format: &FileFormat, output: &str
     // Appel de la méthode link sur frontend
     match frontend.link(domain_file, problem_file) {
         Ok(linker_result) => {
-            if let Some(planning_task) = linker_result.planning_task() {
+            if let Some(planning_task) = linker_result.linked_semantic_context() {
                 // Si le linking réussit et qu'il y a un planning_task, le sérialiser
                 if let Err(e) =
                     frontend.serialize_planning_task_to_file(&planning_task, format, output)
@@ -163,7 +163,7 @@ pub fn parse(
                     "{} No output file produced due to errors.",
                     "===>".blue().bold()
                 );
-            } else if let Some(planning_task) = result.planning_task() {
+            } else if let Some(planning_task) = result.linked_semantic_context() {
                 if let Err(e) =
                     frontend.serialize_planning_task_to_file(&planning_task, format, output)
                 {

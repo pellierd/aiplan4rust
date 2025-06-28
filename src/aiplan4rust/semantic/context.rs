@@ -77,7 +77,6 @@ impl Context {
         let requirements = Self::extract_requirements(&arena)?;
         let interner = ast.take_interner();
         let symbol_table = SymbolTable::from_ast(&arena)?;
-        println!("Symbol table initialized with {} symbols.", symbol_table.to_string_with_interner(&interner));
 
         Ok(Context::new(
             arena,

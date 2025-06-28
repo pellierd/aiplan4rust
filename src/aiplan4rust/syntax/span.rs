@@ -160,7 +160,7 @@ impl Span {
 }
 
 impl fmt::Display for Span {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    /*fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "[start={}, end={}", self.start, self.end)?;
 
         if self.begin_line != usize::MAX {
@@ -177,5 +177,17 @@ impl fmt::Display for Span {
         }
 
         write!(f, "]")
+    }*/
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "[{};{};{};{};{};{}]",
+            self.start,
+            self.end,
+            self.begin_line,
+            self.begin_column,
+            self.end_line,
+            self.end_column
+        )
     }
 }

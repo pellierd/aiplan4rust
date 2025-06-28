@@ -3,12 +3,14 @@ use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_DOWN;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_UP;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
 
 use std::fmt;
+use std::fmt::Formatter;
 
 /// Represents assignment operations that can be used in planning and mathematical models.
 ///
@@ -46,4 +48,41 @@ impl fmt::Display for AssignOp {
     }
 }
 
-impl SyntaxDisplay for AssignOp {}
+/// Implements the `DisplayWithInterner` trait for `AssignOp`.
+///
+/// Since `AssignOp` can be directly formatted via the standard
+/// `Display` trait, this implementation simply delegates to it.
+///
+/// The `interner` parameter is unused because `AssignOp` does not
+/// require any interner-based resolution.
+///
+/// # Example
+///
+/// ```
+/// let op = AssignOp::Assign;
+/// let s = format!("{}", op); // Using Display implementation
+/// ```
+impl DisplayWithInterner for AssignOp {
+    fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        // Delegate to the standard Display implementation.
+        fmt::Display::fmt(self, f)
+    }
+}
+
+/// Implements the `DisplaySyntax` trait for `AssignOp`.
+///
+/// This implementation relies on the blanket implementation of
+/// `DisplaySyntax` for all types that implement `DisplayWithInterner`,
+/// so it is left empty.
+///
+/// # Example
+///
+/// ```
+/// let op = AssignOp::Assign;
+/// let s = op.to_string_with_interner(&interner); // Uses DisplayWithInterner under the hood
+/// ```
+impl DisplaySyntax for AssignOp {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        self.fmt_with(f, interner)
+    }
+}

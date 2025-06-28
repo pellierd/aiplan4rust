@@ -2,12 +2,14 @@ use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;
 use crate::aiplan4rust::syntax::lexer::token::SUB;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
 
 use std::fmt;
+use std::fmt::Formatter;
 
 /// Represents binary comparison operators used in logical and
 /// Represents arithmetic operations that can be used in PDDL expr.
@@ -50,4 +52,42 @@ impl fmt::Display for ArithmeticOp {
     }
 }
 
-impl SyntaxDisplay for ArithmeticOp {}
+/// Implements the `DisplayWithInterner` trait for `ArithmeticOp`.
+///
+/// Since `ArithmeticOp` can be directly formatted via the standard
+/// `Display` trait, this implementation simply delegates to it.
+///
+/// The `interner` parameter is unused because `ArithmeticOp` does not
+/// require any interner-based resolution.
+///
+/// # Example
+///
+/// ```
+/// let op = ArithmeticOp::Add;
+/// let s = format!("{}", op); // Using standard Display implementation
+/// ```
+impl DisplayWithInterner for ArithmeticOp {
+    fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        // Delegate to the standard Display implementation.
+        fmt::Display::fmt(self, f)
+    }
+}
+
+/// Implements the `DisplaySyntax` trait for `ArithmeticOp`.
+///
+/// This implementation relies on the blanket implementation of
+/// `DisplaySyntax` for all types that implement `DisplayWithInterner`,
+/// so it is left empty.
+///
+/// # Example
+///
+/// ```
+/// let op = ArithmeticOp::Add;
+/// // Uses DisplayWithInterner under the hood via DisplaySyntax
+/// let s = op.to_string_with_interner(&interner);
+/// ```
+impl DisplaySyntax for ArithmeticOp {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        self.fmt_with(f, interner)
+    }
+}

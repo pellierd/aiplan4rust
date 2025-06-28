@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::tree::{TreeArena, NodeId, TreeNode, AbstractNode};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
@@ -74,7 +75,6 @@ impl AstArenaNode {
         self.content().as_requirement()
     }
 
-
     /// Returns the requirement flag if this content is a `Requirement`.
     ///
     /// # Errors
@@ -92,71 +92,6 @@ impl AstArenaNode {
                 }
             }
             _ => {}
-        }
-    }
-
-    fn try_simple_symbol_ref(node: &Self) -> Result<SymbolRef, ParserInternalError> {
-        let kind = node.kind();
-        let symbol_kind = match kind {
-            AstKind::DomainName => SymbolKind::DomainName,
-            AstKind::PrimitiveType => SymbolKind::PrimitiveType,
-            AstKind::ProblemName => SymbolKind::ProblemName,
-            AstKind::Constant => SymbolKind::Constant,
-            AstKind::Variable => SymbolKind::Variable,
-            AstKind::FunctionSymbol => SymbolKind::Function,
-            AstKind::Predicate => SymbolKind::Predicate,
-            AstKind::ActionSymbol => SymbolKind::Action,
-            AstKind::DASymbol => SymbolKind::DASymbol,
-            AstKind::MethodSymbol => SymbolKind::Method,
-            AstKind::TaskSymbol => SymbolKind::Task,
-            AstKind::TaskID => SymbolKind::TaskID,
-            _ => {
-                return Err(ParserInternalError::new(format!(
-                    "Node kind {:?} is not a simple symbol.",
-                    kind
-                )))
-            }
-        };
-
-        let ident = node.try_ident()?;
-        Ok(SymbolRef::new(ident, symbol_kind))
-    }
-
-    fn try_signature_symbol_ref(
-        node: &Self,
-        arena: &TreeArena<Self>,
-    ) -> Result<SymbolRef, ParserInternalError> {
-        let first_child_id = *node.children().first().ok_or_else(|| {
-            ParserInternalError::new(format!(
-                "{} must have children, but none found.",
-                node.kind()
-            ))
-        })?;
-
-        let child = arena.try_node(first_child_id)?;
-        let child_kind = child.kind();
-
-        match child_kind {
-            AstKind::Predicate => {
-                let ident = child.try_ident()?;
-                Ok(SymbolRef::new(ident, SymbolKind::Predicate))
-            }
-            AstKind::FunctionSymbol => {
-                let ident = child.try_ident()?;
-                Ok(SymbolRef::new(ident, SymbolKind::Function))
-            }
-            AstKind::TaskSymbol => {
-                let ident = child.try_ident()?;
-                Ok(SymbolRef::new(ident, SymbolKind::Task))
-            }
-            AstKind::TotalTime => {
-                Ok(SymbolRef::new(StringInterner::IDENT_TOTAL_TIME, SymbolKind::Function))
-            }
-            other => Err(ParserInternalError::new(format!(
-                "First child of {:?} must be Predicate, FunctionSymbol or TaskSymbol, found: {:?}",
-                node.kind(),
-                other
-            ))),
         }
     }
 }
@@ -193,19 +128,38 @@ impl fmt::Display for AstArenaNode {
     /// // Node(kind=PrimitiveType("t1"), span={ start: 0, end: 5 }, parent=None, children=[1, 2])
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let children_str = self.children()
+        let children = self.children()
             .iter()
             .map(|idx| idx.to_string())
             .collect::<Vec<_>>()
             .join(", ");
+        let parent = self.parent()
+            .map(|idx| idx.to_string())
+            .unwrap_or_else(|| "none".to_string());
         write!(
             f,
-            "Node(kind={:?}, content={}, span={:?}, parent={:?}, children=[{}])",
-            self.kind(), self.content(), self.span(), self.parent(), children_str
+            "Node[kind={}, content={}, span={}, parent={}, children=[{}]]",
+            self.kind(), self.content(), self.span(), parent, children
         )
     }
 }
 
+impl DisplayWithInterner for AstArenaNode {
+    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        let parent = self.parent()
+            .map(|idx| idx.as_usize().to_string())
+            .unwrap_or_else(|| "none".to_string());
+
+        write!(
+            f,
+            "Node[kind={}, content={}, span={}, parent={}]",
+            self.kind(),
+            self.content().to_string_with_interner(interner),
+            self.span(),
+            parent,
+        )
+    }
+}
 impl TreeNode for AstArenaNode {
     type Kind = AstKind;
     type Content = AstContent;

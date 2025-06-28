@@ -11,7 +11,7 @@ use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
 use crate::aiplan4rust::syntax::elements::Requirement::Typing;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
-use crate::aiplan4rust::semantic::symbol::Symbol;
+use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 
@@ -125,7 +125,7 @@ pub fn check_undeclared_symbols(
 /// assert_eq!(should_skip, true);  // Assuming the symbol kind matches and is in the skip list.
 /// ```
 fn should_skip_symbol(
-    symbol: &Symbol,
+    symbol: &SymbolEntry,
     context: &CheckContext,
     usage_kind: SymbolKind,
     skip_symbols: &[SymbolKind],
@@ -161,7 +161,7 @@ fn should_skip_symbol(
 /// let declaration_found = is_declaration_found(&symbol, &usage);
 /// assert_eq!(declaration_found, true);  // Assuming a matching declaration was found.
 /// ```
-fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
+fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage) -> bool {
     let usage_scope = usage.scope();
 
     // Common closure to check declarations for the given kind and scope
@@ -241,7 +241,7 @@ fn is_declaration_found(symbol: &Symbol, usage: &Usage) -> bool {
 /// - `duration_variable`: Predefined when the `DurativeActions` requirement is enabled.
 
 fn is_pddl_builtin_symbol(
-    symbol: &Symbol,
+    symbol: &SymbolEntry,
     context: &CheckContext,
 ) -> bool {
     match symbol.name() {

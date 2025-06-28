@@ -34,11 +34,12 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::tree::NodeContent;
 use crate::aiplan4rust::serialization::{serialize_ordered_float, deserialize_ordered_float};
 
 use std::fmt;
+use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
@@ -102,34 +103,7 @@ impl Content {
             other => Err(ParserInternalError::new(format!("Expected AstContent::Requirement, found {:?}", other))),
         }
     }
-
-    /// Returns a string representation of this `Content` using a [`StringInterner`].
-    ///
-    /// This is especially useful for resolving interned identifiers to readable names.
-    ///
-    /// # Arguments
-    /// * `ctx` — A reference to the string interner used during parsing.
-    ///
-    /// # Example
-    /// ```
-    /// let mut interner = StringInterner::default();
-    /// let id = interner.intern("load");
-    /// let c = Content::Ident(id);
-    /// assert_eq!(c.display_with_context(&interner), "load");
-    /// ```
-    pub fn display_with_context(&self, ctx: &StringInterner) -> String {
-        match self {
-            Content::None => "None".to_string(),
-            Content::Ident(idx) => format!("Iden(\"{}\")", ctx.resolve(*idx).unwrap_or("(unknown)").to_string()),
-            Content::Float(val) => format!("Float({})", val),
-            Content::Requirement(req) => format!("Requirement({})", req),
-            Content::BinaryComp(comp) => format!("BinaryComp({})", comp),
-            Content::AssignOp(assign) => format!("AssignOp({})", assign),
-            Content::ArithmeticOp(op) => format!("ArithmeticOp({})", op),
-            Content::Optimization(opt) => format!("Optimization({})", opt),
-        }
     }
-}
 
 impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -142,6 +116,17 @@ impl fmt::Display for Content {
             Content::AssignOp(assign) => write!(f, "{}", assign),
             Content::ArithmeticOp(op) => write!(f, "{}", op),
             Content::Optimization(opt) => write!(f, "{}", opt),
+        }
+    }
+}
+
+impl DisplayWithInterner for Content {
+    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        match self {
+            Content::Ident(idx) => {
+                write!(f, "\"{}\"", interner.resolve(*idx).unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING))
+            },
+            _ => fmt::Display::fmt(self, f),
         }
     }
 }

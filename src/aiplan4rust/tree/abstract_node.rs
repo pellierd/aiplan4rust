@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::fmt;
 use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::tree::{NodeContent, NodeId};
 
@@ -112,5 +114,27 @@ impl<K: Copy, C: NodeContent> AbstractNode<K, C> {
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         self.content.remap_idents(map);
     }
+}
 
+impl<K, C> DisplayWithInterner for AbstractNode<K, C>
+where
+    K: Copy + fmt::Display,
+    C: NodeContent + DisplayWithInterner,
+{
+    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        // Affiche `kind` avec Debug et `content` avec DisplayWithInterner
+        write!(
+            f,
+            "Node[kind={}, content=",
+            self.kind
+        )?;
+
+        self.content.fmt_with(f, interner)?;
+
+        write!(
+            f,
+            "parent={:?}]",
+            self.parent
+        )
+    }
 }

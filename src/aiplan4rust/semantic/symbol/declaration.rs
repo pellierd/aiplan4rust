@@ -46,7 +46,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
     // Reference to the symbol declared.
-    symbol_ref: SymbolRef,
+    symbol: SymbolRef,
 
     // The scope of the declaration.
     scope: Scope,
@@ -112,7 +112,7 @@ impl Declaration {
         node_id: NodeId,
     ) -> Self {
         Declaration {
-            symbol_ref,
+            symbol: symbol_ref,
             scope,
             origin,
             types,
@@ -125,17 +125,17 @@ impl Declaration {
 
     /// Returns a reference to the [`SymbolRef`] associated with this usage.
     pub fn symbol_ref(&self) -> &SymbolRef {
-        &self.symbol_ref
+        &self.symbol
     }
 
     /// Returns the [`Ident`] of the referenced symbol.
     pub fn symbol_ident(&self) -> Ident {
-        self.symbol_ref.ident()
+        self.symbol.ident()
     }
 
     /// Returns the [`SymbolKind`] of the referenced symbol.
     pub fn symbol_kind(&self) -> SymbolKind {
-        self.symbol_ref.kind()
+        self.symbol.kind()
     }
 
     /// Returns a reference to the [`Scope`] in which the symbol is used.
@@ -190,7 +190,7 @@ impl Declaration {
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         // Remap the main symbol name
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
-            self.symbol_ref.set_ident(new_ident.clone());
+            self.symbol.set_ident(new_ident.clone());
         }
 
         // Remap associated types

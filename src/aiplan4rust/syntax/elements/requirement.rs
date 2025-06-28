@@ -20,12 +20,14 @@ use crate::aiplan4rust::syntax::lexer::token::STRIPS;
 use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
 use crate::aiplan4rust::syntax::lexer::token::TYPING;
 use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
 
 use std::fmt;
+use std::fmt::Formatter;
 
 /// # PDDL Requirements Enum
 ///
@@ -165,15 +167,44 @@ impl fmt::Display for Requirement {
         write!(f, "{}", self.as_str())
     }
 }
-impl SyntaxDisplay for Requirement {
-    /// Converts the `Requirement` into its PDDL-compliant string representation.
-    ///
-    /// This function leverages the `Display` trait implementation to generate
-    /// the corresponding PDDL lexeme for a given `Requirement` variant.
-    ///
-    /// # Returns
-    /// - A `String`
-    fn to_syntax_string(&self) -> String {
-        format!("{}", self)
+
+/// Implements the `DisplayWithInterner` trait for `Requirement`.
+///
+/// This implementation formats the `Requirement` value by
+/// delegating to the standard `Display` trait, as it doesn't
+/// require interner-based resolution.
+///
+/// The `interner` parameter is unused.
+///
+/// # Example
+///
+/// ```
+/// let req = Requirement::Mandatory;
+/// let s = req.to_string_with_interner(&interner);
+/// assert_eq!(s, "Mandatory");
+/// ```
+impl DisplayWithInterner for Requirement {
+    fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        fmt::Display::fmt(self, f)
+    }
+}
+
+/// Implements the `DisplaySyntax` trait for `Requirement`.
+///
+/// This trait formats the value for user-facing syntax display.
+///
+/// By default, it calls `DisplayWithInterner::fmt_with`,
+/// providing consistent formatting across both traits.
+///
+/// # Example
+///
+/// ```
+/// let req = Requirement::Mandatory;
+/// let s = req.to_string_syntax(&interner);
+/// assert_eq!(s, "Mandatory");
+/// ```
+impl DisplaySyntax for Requirement {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        self.fmt_with(f, interner)
     }
 }

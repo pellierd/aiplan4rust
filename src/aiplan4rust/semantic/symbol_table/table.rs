@@ -3,7 +3,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
-use crate::aiplan4rust::semantic::symbol::Symbol;
+use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -37,7 +37,7 @@ use crate::aiplan4rust::semantic::AstArenaNode;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Table {
-    symbols: LinkedHashMap<Ident, Symbol>,
+    symbols: LinkedHashMap<Ident, SymbolEntry>,
     origin: SymbolTableOrigin,
 }
 
@@ -107,7 +107,7 @@ impl Table {
     ///
     /// # Returns
     /// An iterator over all symbol name and symbol pairs in the symbol table.
-    pub fn iter(&self) -> impl Iterator<Item = (&Ident, &Symbol)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&Ident, &SymbolEntry)> {
         self.symbols.iter()
     }
 
@@ -120,7 +120,7 @@ impl Table {
     /// # Returns
     /// An iterator over all symbol name and mutable symbol pairs, allowing modification
     /// of the symbols during iteration.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Ident, &mut Symbol)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&Ident, &mut SymbolEntry)> {
         self.symbols.iter_mut()
     }
 
@@ -132,7 +132,7 @@ impl Table {
     ///
     /// # Returns
     /// An iterator over all symbol name and symbol pairs in the symbol table, consuming the table.
-    pub fn into_iter(self) -> impl Iterator<Item = (Ident, Symbol)> {
+    pub fn into_iter(self) -> impl Iterator<Item = (Ident, SymbolEntry)> {
         self.symbols.into_iter()
     }
 
@@ -141,7 +141,7 @@ impl Table {
     /// # Arguments
     /// * `key` - A unique key for the symbol.
     /// * `symbol` - The symbol to insert.
-    pub fn insert_symbol(&mut self, key: Ident, symbol: Symbol) {
+    pub fn insert_symbol(&mut self, key: Ident, symbol: SymbolEntry) {
         self.symbols.insert(key, symbol);
     }
 
@@ -152,7 +152,7 @@ impl Table {
     ///
     /// # Returns
     /// An `Option` with a reference to the symbol if it exists.
-    pub fn get_symbol(&self, name: Ident) -> Option<&Symbol> {
+    pub fn get_symbol(&self, name: Ident) -> Option<&SymbolEntry> {
         self.symbols.get(&name)
     }
 
@@ -163,7 +163,7 @@ impl Table {
     ///
     /// # Returns
     /// An `Option` with a mutable reference if the symbol exists.
-    pub fn get_symbol_mut(&mut self, name: Ident) -> Option<&mut Symbol> {
+    pub fn get_symbol_mut(&mut self, name: Ident) -> Option<&mut SymbolEntry> {
         self.symbols.get_mut(&name)
     }
 
@@ -171,7 +171,7 @@ impl Table {
     ///
     /// # Returns
     /// An iterator yielding references to all symbols.
-    pub fn values(&self) -> impl Iterator<Item=&Symbol> {
+    pub fn values(&self) -> impl Iterator<Item=&SymbolEntry> {
         self.symbols.values()
     }
 
@@ -179,7 +179,7 @@ impl Table {
     ///
     /// # Returns
     /// An iterator yielding mutable references to all symbols.
-    pub fn values_mut(&mut self) -> impl Iterator<Item=&mut Symbol> {
+    pub fn values_mut(&mut self) -> impl Iterator<Item=&mut SymbolEntry> {
         self.symbols.iter_mut().map(|(_, symbol)| symbol)
     }
 
@@ -228,7 +228,7 @@ impl Table {
         symbol_name: Option<&Ident>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
-    ) -> Vec<&Symbol> {
+    ) -> Vec<&SymbolEntry> {
         // If a specific symbol name is provided, try to get the symbol directly from the hashmap
         if let Some(name) = symbol_name {
             if let Some(symbol) = self.symbols.get(name) {
@@ -310,7 +310,7 @@ impl Table {
         symbol_name: Option<&Ident>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
-    ) -> Vec<&Symbol> {
+    ) -> Vec<&SymbolEntry> {
         // If a specific symbol name is provided, try to get that symbol directly from the symbol table
         if let Some(name) = symbol_name {
             // Attempt to find the symbol by name in the symbol map
@@ -799,7 +799,7 @@ impl Table {
     /// # Errors
     /// Returns an error when multiple `DomainName` symbols are found, indicating
     /// that the annotated syntax tree (AST) is structurally invalid.
-    pub fn resolve_domain_name_declaration(&self) -> Result<Option<&Symbol>, ParserInternalError> {
+    pub fn resolve_domain_name_declaration(&self) -> Result<Option<&SymbolEntry>, ParserInternalError> {
         self.resolve_unique_declaration(SymbolKind::DomainName)
     }
 
@@ -818,7 +818,7 @@ impl Table {
     /// # Errors
     /// Returns an error when multiple `ProblemName` symbols are found, indicating
     /// that the annotated syntax tree (AST) is structurally invalid.
-    pub fn resolve_problem_name_declaration(&self) -> Result<Option<&Symbol>, ParserInternalError> {
+    pub fn resolve_problem_name_declaration(&self) -> Result<Option<&SymbolEntry>, ParserInternalError> {
         self.resolve_unique_declaration(SymbolKind::ProblemName)
     }
 
@@ -845,7 +845,7 @@ impl Table {
     fn resolve_unique_declaration(
         &self,
         kind: SymbolKind,
-    ) -> Result<Option<&Symbol>, ParserInternalError> {
+    ) -> Result<Option<&SymbolEntry>, ParserInternalError> {
         let symbols = self.collect_symbol_with_declaration(None, Some(&kind), None);
 
         match symbols.len() {

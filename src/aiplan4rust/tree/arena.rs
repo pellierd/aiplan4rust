@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::tree::{TreeNode, NodeId};
@@ -7,6 +8,7 @@ use crate::aiplan4rust::tree::iter::{
 };
 use crate::aiplan4rust::tree::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::{AstArenaNode, symbol::SymbolRef};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -192,6 +194,47 @@ impl<T: TreeNode> TreeArena<T> {
         max_depth
     }
 }
+
+impl<T> DisplayWithInterner for TreeArena<T>
+where
+    T: TreeNode + DisplayWithInterner,
+{
+    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        writeln!(f, "TreeArena [")?;
+
+        for (node_id, node) in self.preorder_with_index() {
+            // Calcul de la profondeur du noeud en montant vers la racine
+            let mut depth = 0;
+            let mut current = node.parent();
+
+            while let Some(parent_id) = current {
+                depth += 1;
+                current = self.nodes[parent_id.as_usize()].parent();
+            }
+
+            // Indentation selon la profondeur (2 espaces par niveau)
+            for _ in 0..depth {
+                write!(f, "  ")?;
+            }
+
+            node.fmt_with(f, interner)?;
+            writeln!(f)?;
+        }
+
+        writeln!(f, "]")
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
 
 impl TreeArena<AstArenaNode> {
     /// Builds a `TreeArena<AstArenaNode>` from an `Ast`.

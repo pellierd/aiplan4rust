@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::tree::{TreeArena, NodeId, NodeContent};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 
@@ -81,7 +82,7 @@ use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, I
 /// - [`ParserInternalError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
 ///
-pub trait TreeNode {
+pub trait TreeNode : DisplayWithInterner {
     /// The type used to represent the node's kind.
     type Kind;
 

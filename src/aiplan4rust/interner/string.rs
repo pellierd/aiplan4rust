@@ -58,6 +58,10 @@ pub struct StringInterner {
 
 impl StringInterner {
 
+    /// A placeholder string returned when an interned index cannot be resolved.
+    /// This string is guaranteed not to conflict with any valid PDDL identifiers.
+    pub const UNKNOWN_INTERNED_STRING: &str = "#UNKNOWN";
+
     /// The interned identifier for the reserved string `"object"`.
     ///
     /// This constant assumes that the string `"object"` is interned at index `0`

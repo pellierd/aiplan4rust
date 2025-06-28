@@ -1,3 +1,9 @@
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::syntax::DisplaySyntax;
+
+use std::fmt;
+use std::fmt::Formatter;
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Represents a unique identifier as an unsigned integer.
@@ -30,7 +36,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// let default_id = Ident::default();
 /// assert_eq!(default_id.value, usize::MAX);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Ident {
     /// The integer value representing the identifier.
     pub value: usize,
@@ -76,9 +83,67 @@ impl Ident {
 impl std::fmt::Display for Ident {
     /// Formats the identifier for display.
     ///
-    /// Displays as `Ident(<value>)`.
+    /// This implementation shows the identifier as `#<value>`,
+    /// where `<value>` is the internal numeric representation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let ident = Ident { value: 42 };
+    /// assert_eq!(format!("{}", ident), "#42");
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Ident({})", self.value)
+        write!(f, "#{}", self.value)
+    }
+}
+
+/// Implements the `DisplayWithInterner` trait for `Ident`.
+///
+/// This allows formatting an `Ident` by resolving its internal
+/// `usize` value to a string using the provided `StringInterner`.
+///
+/// If the interner cannot resolve the identifier, a fallback
+/// constant string `UNKNOWN_INTERNED_STRING` is displayed instead.
+///
+/// # Example
+///
+/// ```
+/// let ident = Ident { value: 42 };
+/// let interner = StringInterner::new();
+/// // Assuming interner has some strings interned
+/// let s = ident.to_string_with_interner(&interner);
+/// ```
+impl DisplayWithInterner for Ident {
+    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        if let Some(name) = interner.resolve(*self) {
+            write!(f, "{}", name)
+        } else {
+            write!(f, "{}", StringInterner::UNKNOWN_INTERNED_STRING)
+        }
+    }
+}
+
+/// Implements the `DisplaySyntax` trait for `Ident`.
+///
+/// This uses the provided `StringInterner` to resolve the interned string
+/// corresponding to the identifier's `value`.
+///
+/// If the interner cannot resolve the value, it falls back to displaying
+/// the raw `usize` value.
+///
+/// # Example
+///
+/// ```
+/// let ident = Ident { value: 42 };
+/// let s = ident.fmt_syntax(&mut formatter, &interner)?;
+/// ```
+impl DisplaySyntax for Ident {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        if let Some(name) = interner.resolve(*self) {
+            write!(f, "{}", name)
+        } else {
+            write!(f, "{}", StringInterner::UNKNOWN_INTERNED_STRING)
+        }
     }
 }
 
@@ -108,52 +173,5 @@ impl From<Ident> for usize {
     /// ```
     fn from(ident: Ident) -> usize {
         ident.value
-    }
-}
-
-/// Implements serialization of `Ident` as a `String`
-///
-/// This allows `Ident` to be used as a **key in a JSON `HashMap`**. Since JSON requires all object
-/// keys to be strings, we convert the internal `usize` value of the `Ident` into a string.
-///
-/// # Example JSON Output
-/// A `HashMap<Ident, T>` will serialize to:
-/// ```json
-/// {
-///   "42": { ... }
-/// }
-/// ```
-///
-/// This approach ensures compatibility with JSON's requirements while preserving internal numeric
-/// IDs.
-impl Serialize for Ident {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where S: Serializer {
-        serializer.serialize_str(&self.value.to_string())
-    }
-}
-
-/// Implements deserialization of `Ident` from a string
-///
-/// When deserializing a structure like `HashMap<Ident, T>` from JSON, the keys are read as strings.
-/// This implementation parses those strings back into numeric IDs (`usize`) and reconstructs the
-/// `Ident`.
-///
-/// # Example JSON Input
-/// ```json
-/// {
-///   "42": { ... }
-/// }
-/// ```
-/// will be deserialized into a `HashMap<Ident, T>` with `Ident { value: 42 }` as a key.
-///
-/// This is necessary because JSON object keys are always strings, and we need to convert them
-/// back into usable internal identifiers.
-impl<'de> Deserialize<'de> for Ident {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where D: Deserializer<'de> {
-        let s = String::deserialize(deserializer)?;
-        let value = s.parse::<usize>().map_err(serde::de::Error::custom)?;
-        Ok(Ident { value })
     }
 }

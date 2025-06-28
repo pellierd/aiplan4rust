@@ -29,7 +29,7 @@ use std::fmt;
 /// - `is_none`: Checks whether a lifted planning task is absent.
 #[derive(Debug, Clone)]
 pub struct LinkerResult {
-    planning_task: Option<LinkedSemanticContext>,
+    context: Option<LinkedSemanticContext>,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -44,7 +44,7 @@ impl LinkerResult {
     /// A `LinkerResult` containing the provided values.
     pub fn new(planning_task: Option<LinkedSemanticContext>, diagnostic_manager: DiagnosticManager) -> Self {
         LinkerResult {
-            planning_task,
+            context: planning_task,
             diagnostic_manager,
         }
     }
@@ -53,16 +53,16 @@ impl LinkerResult {
     ///
     /// # Returns
     /// `Some(&LiftedPlanningTask)` if the task exists, otherwise `None`.
-    pub fn planning_task(&self) -> Option<&LinkedSemanticContext> {
-        self.planning_task.as_ref()
+    pub fn linked_semantic_context(&self) -> Option<&LinkedSemanticContext> {
+        self.context.as_ref()
     }
 
     /// Returns a mutable reference to the lifted planning task.
     ///
     /// # Returns
     /// `Some(&mut LiftedPlanningTask)` if the task exists, otherwise `None`.
-    pub fn planning_task_mut(&mut self) -> Option<&mut LinkedSemanticContext> {
-        self.planning_task.as_mut()
+    pub fn linked_semantic_context_mut(&mut self) -> Option<&mut LinkedSemanticContext> {
+        self.context.as_mut()
     }
 
     /// Returns an immutable reference to the error manager.
@@ -86,7 +86,7 @@ impl LinkerResult {
     /// # Returns
     /// `true` if the lifted planning task exists, `false` otherwise.
     pub fn is_some(&self) -> bool {
-        self.planning_task.is_some()
+        self.context.is_some()
     }
 
     /// Checks whether a lifted planning task is absent.
@@ -94,13 +94,13 @@ impl LinkerResult {
     /// # Returns
     /// `true` if the lifted planning task is absent, `false` otherwise.
     pub fn is_none(&self) -> bool {
-        self.planning_task.is_none()
+        self.context.is_none()
     }
 }
 
 impl fmt::Display for LinkerResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.planning_task {
+        match &self.context {
             Some(task) => {
                 // If the lifted planning task exists, display the task and any errors.
                 write!(f, "Linking successful:\n{}", task)?;

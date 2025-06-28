@@ -1,53 +1,72 @@
-use std::fmt;
+//! Defines the `DisplaySyntax` trait for formatting values in user-facing syntax,
+//! potentially using an interner to resolve identifiers.
 
-/// A trait for types that can be represented as a syntax string for planning domain languages,
-/// such as PDDL or HDDL.
-///
-/// This trait provides functionality to display an object in a domain-specific language
-/// compatible string format. It includes methods to specify indentation depth for
-/// pretty-printing nested structures.
-///
-/// Implementors must also implement `fmt::Display`, which defines the default string representation.
-///
-/// # Examples
-///
-/// ```rust
-/// use aiplan4rust::SyntaxDisplay;
-///
-/// struct Example;
-///
-/// impl std::fmt::Display for Example {
-///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-///         write!(f, "example")
-///     }
-/// }
-///
-/// impl SyntaxDisplay for Example {}
-///
-/// let e = Example;
-/// assert_eq!(e.to_syntax_string(), "example");
-/// assert_eq!(e.to_syntax_string_with_depth(1), "    example"); // 2 spaces * depth * 2 = 4 spaces
-/// ```
-pub trait Display: fmt::Display {
-    /// Converts the object to a syntax string with default depth (0).
+use std::fmt::{self, Formatter, Write};
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+
+/// A trait for displaying a value in its concrete syntax,
+/// resolving any interned identifiers as needed.
+pub trait DisplaySyntax {
+    /// Formats the value using the given [`StringInterner`] and the provided formatter.
+    fn fmt_syntax(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result;
+
+    /// Attempts to format the value into a [`String`] using the given [`StringInterner`].
     ///
-    /// This method returns the string representation with no indentation.
-    ///
-    /// # Returns
-    /// A `String` containing the syntax representation of the object.
-    fn to_syntax_string(&self) -> String {
-        self.to_syntax_string_with_depth(0)
+    /// This version returns a `Result` and does not panic.
+    fn try_to_syntax_string(
+        &self,
+        interner: &StringInterner,
+    ) -> Result<String, fmt::Error>
+    where
+        Self: Sized,
+    {
+        let mut s = String::new();
+        write!(
+            &mut s,
+            "{}",
+            DisplaySyntaxWrapper {
+                value: self,
+                interner,
+            }
+        )?;
+        Ok(s)
     }
 
-    /// Converts the object to a syntax string with a specified indentation depth.
+    /// Convenience method that formats the value into a [`String`] using the given
+    /// [`StringInterner`].
     ///
-    /// # Parameters
-    /// - `depth`: The indentation level; each level corresponds to 2 spaces of indentation.
+    /// This method panics if formatting fails. Prefer [`try_to_syntax_string`] if you want
+    /// to handle errors explicitly.
     ///
-    /// # Returns
-    /// A `String` containing the syntax representation of the object, indented accordingly.
-    fn to_syntax_string_with_depth(&self, depth: usize) -> String {
-        let offset = "  ".repeat(depth); // 2 spaces per depth level
-        format!("{}{}", offset, self)
+    /// # Panics
+    ///
+    /// Panics if formatting into the string fails.
+    fn to_syntax_string(
+        &self,
+        interner: &StringInterner,
+    ) -> String
+    where
+        Self: Sized,
+    {
+        self.try_to_syntax_string(interner)
+            .expect("Formatting into syntax string failed")
+    }
+}
+
+/// A wrapper used to implement [`std::fmt::Display`] by delegating to [`DisplaySyntax`].
+pub struct DisplaySyntaxWrapper<'a, T: ?Sized> {
+    pub value: &'a T,
+    pub interner: &'a StringInterner,
+}
+
+impl<'a, T: DisplaySyntax + ?Sized> fmt::Display
+for DisplaySyntaxWrapper<'a, T>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.value.fmt_syntax(f, self.interner)
     }
 }

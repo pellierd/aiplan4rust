@@ -47,18 +47,19 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::serialization::{serialize_ordered_float, deserialize_ordered_float};
 use crate::aiplan4rust::tree::NodeContent;
 
 use std::fmt;
+use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::ir::expr::ExprKind;
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 
 /// Represents the semantic content attached to an AST node.
 ///
@@ -95,37 +96,6 @@ pub enum Content {
     Optimization(Optimization),
 }
 
-impl Content {
-    /// Returns a string representation of the content by resolving interned identifiers
-    /// via a [`StringInterner`].
-    ///
-    /// Useful for producing human-readable output.
-    ///
-    /// # Arguments
-    ///
-    /// * `ctx` - Reference to the interner used for resolving identifiers.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let mut interner = StringInterner::default();
-    /// let id = interner.intern("load");
-    /// let c = ExprContent::Ident(id);
-    /// assert_eq!(c.display_with_context(&interner), "Iden(\"load\")");
-    /// ```
-    pub fn display_with_context(&self, ctx: &StringInterner) -> String {
-        match self {
-            Content::None => "None".to_string(),
-            Content::Ident(idx) => format!("Iden(\"{}\")", ctx.resolve(*idx).unwrap_or("(unknown)").to_string()),
-            Content::Float(val) => format!("Float({})", val),
-            Content::BinaryComp(comp) => format!("BinaryComp({})", comp),
-            Content::AssignOp(assign) => format!("AssignOp({})", assign),
-            Content::ArithmeticOp(op) => format!("ArithmeticOp({})", op),
-            Content::Optimization(opt) => format!("Optimization({})", opt),
-        }
-    }
-}
-
 impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -136,6 +106,18 @@ impl fmt::Display for Content {
             Content::AssignOp(assign) => write!(f, "{:?}", assign),
             Content::ArithmeticOp(op) => write!(f, "{:?}", op),
             Content::Optimization(opt) => write!(f, "{:?}", opt),
+        }
+    }
+}
+
+impl DisplayWithInterner for Content {
+    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        match self {
+            Content::Ident(idx) => {
+                let resolved = interner.resolve(*idx).unwrap_or("(unknown)");
+                write!(f, "Iden(\"{}\")", resolved)
+            },
+            _ => fmt::Display::fmt(self, f),
         }
     }
 }
@@ -221,6 +203,23 @@ impl NodeContent for Content {
             if let Some(new_id) = map.get(id) {
                 *id = *new_id;
             }
+        }
+    }
+}
+
+impl TryFrom<&AstContent> for Content {
+    type Error = ParserInternalError;
+
+    fn try_from(content: &AstContent) -> Result<Self, Self::Error> {
+        match content {
+            AstContent::Ident(ident) => Ok(Content::Ident(*ident)),
+            AstContent::Float(n) => Ok(Content::Float(*n)),
+            AstContent::BinaryComp(op) => Ok(Content::BinaryComp(*op)),
+            AstContent::AssignOp(op) => Ok(Content::AssignOp(*op)),
+            AstContent::ArithmeticOp(op) => Ok(Content::ArithmeticOp(*op)),
+            AstContent::Optimization(op) => Ok(Content::Optimization(*op)),
+            AstContent::Requirement(_) => Err(ParserInternalError::new("UnsupportedContent(Requirement".to_string())),
+            AstContent::None => Ok(Content::None)
         }
     }
 }
