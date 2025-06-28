@@ -43,6 +43,7 @@ use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
+use crate::aiplan4rust::syntax::DisplaySyntax;
 
 /// Represents semantic content associated with an AST node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -106,10 +107,22 @@ impl Content {
     }
 
 impl fmt::Display for Content {
+    /// Formats the `Content` enum for display without any interner resolution.
+    ///
+    /// Each variant is formatted in a straightforward manner:
+    /// - `None` displays as an empty string.
+    /// - `Ident` displays using its `Display` impl (usually as `#<value>`).
+    /// - Other variants delegate to their respective `Display` impl.
+    ///
+    /// # Example
+    /// ```
+    /// let c = Content::Float(3.14);
+    /// println!("{}", c); // outputs "3.14"
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Content::None => write!(f, ""),
-            Content::Ident(idx) => write!(f, "Ident({})", idx),
+            Content::Ident(idx) => write!(f, "{}", idx),
             Content::Float(val) => write!(f, "{}", val),
             Content::Requirement(req) => write!(f, "{}", req),
             Content::BinaryComp(comp) => write!(f, "{}", comp),
@@ -121,16 +134,61 @@ impl fmt::Display for Content {
 }
 
 impl DisplayWithInterner for Content {
+    /// Formats the `Content` enum using the provided `StringInterner` for
+    /// interned string resolution.
+    ///
+    /// This is important for the `Ident` variant, which stores an index and
+    /// needs to be resolved to the actual string via the interner.
+    ///
+    /// For other variants, it delegates to the regular `Display` implementation.
+    ///
+    /// # Example
+    /// ```
+    /// let ident = Content::Ident(some_idx);
+    /// let s = ident.to_string_with_interner(&interner);
+    /// ```
     fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         match self {
             Content::Ident(idx) => {
-                write!(f, "\"{}\"", interner.resolve(*idx).unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING))
+                // Resolve the interned string, or fallback if not found.
+                write!(
+                    f,
+                    "\"{}\"",
+                    interner.resolve(*idx).unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING)
+                )
             },
             _ => fmt::Display::fmt(self, f),
         }
     }
 }
 
+impl DisplaySyntax for Content {
+    /// Formats the `Content` enum for syntax display, which is very similar
+    /// to `DisplayWithInterner`.
+    ///
+    /// For `Ident`, it outputs the resolved interned string in quotes.
+    /// Other variants use the standard `Display` formatting.
+    ///
+    /// This method can be used when rendering content for source-like syntax display.
+    ///
+    /// # Example
+    /// ```
+    /// let content = Content::Ident(idx);
+    /// content.fmt_syntax(&mut formatter, &interner)?;
+    /// ```
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        match self {
+            Content::Ident(idx) => {
+                write!(
+                    f,
+                    "\"{}\"",
+                    interner.resolve(*idx).unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING)
+                )
+            },
+            _ => fmt::Display::fmt(self, f),
+        }
+    }
+}
 impl NodeContent for Content {
     /// Returns the identifier if this content is an `Ident`.
     ///

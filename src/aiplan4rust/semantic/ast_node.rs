@@ -160,6 +160,7 @@ impl DisplayWithInterner for AstArenaNode {
         )
     }
 }
+
 impl TreeNode for AstArenaNode {
     type Kind = AstKind;
     type Content = AstContent;
@@ -176,8 +177,16 @@ impl TreeNode for AstArenaNode {
         &self.data.content()
     }
 
+    fn content_mut(&mut self) -> &mut Self::Content {
+        self.data.content_mut()
+    }
+
     fn parent(&self) -> Option<NodeId> {
         self.data.parent()
+    }
+
+    fn set_parent(&mut self, parent: Option<NodeId>) {
+        self.data.set_parent(parent)
     }
 
     fn children(&self) -> &[NodeId] {
@@ -188,16 +197,8 @@ impl TreeNode for AstArenaNode {
         self.data.add_child(child)
     }
 
-    fn set_parent(&mut self, parent: Option<NodeId>) {
-        self.data.set_parent(parent)
-    }
-
     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         self.remap_idents(map)
-    }
-
-    fn content_mut(&mut self) -> &mut Self::Content {
-        self.data.content_mut()
     }
 
     fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, ParserInternalError> {
