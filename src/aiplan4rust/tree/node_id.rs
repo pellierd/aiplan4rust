@@ -118,9 +118,9 @@ impl std::fmt::Display for NodeId {
     /// Displays as `NodeId(<value>)` if valid, or `NodeId(<invalid>)` if not.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_valid() {
-            write!(f, "NodeId({})", self.value)
+            write!(f, "#{}", self.value)
         } else {
-            write!(f, "NodeId(<invalid>)")
+            write!(f, "#invalid")
         }
     }
 }

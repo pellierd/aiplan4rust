@@ -1,6 +1,7 @@
 use crate::aiplan4rust::ir::expr::{Expr, ExprNode, ExprKind, ExprContent};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::TypedSymbol;
 use crate::aiplan4rust::syntax::elements::Ident;
 
@@ -86,8 +87,39 @@ impl fmt::Display for Action {
             .collect::<Vec<_>>()
             .join(", ");
 
-        write!(f, "{}({})", self.name, params)?;
-        write!(f, " pre: {:?}", self.precondition)?;
-        write!(f, " eff: {:?}", self.effect)
+        writeln!(f, "########################################")?;
+        writeln!(f, "### ACTION [{}]", self.name)?;
+        writeln!(f, "### PARAMETERS [{}]", params)?;
+        writeln!(f, "### PRECONDITION")?;
+        writeln!(f, "{}", self.precondition)?;
+        writeln!(f, "### EFFECT")?;
+        writeln!(f, "{}", self.effect)?;
+        writeln!(f, "########################################")
+    }
+}
+
+impl DisplayWithInterner for Action {
+    fn fmt_with(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> std::fmt::Result {
+        let params = self
+            .parameters
+            .iter()
+            .map(|p| p.to_string_with_interner(interner))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        writeln!(f, "########################################")?;
+        writeln!(f, "### ACTION [{}]", self.name)?;
+        writeln!(f, "### PARAMETERS [{}]", params)?;
+        writeln!(f, "########################################")?;
+        writeln!(f, "### PRECONDITION")?;
+        self.precondition.fmt_with(f, interner)?;
+        writeln!(f, "########################################")?;
+        writeln!(f, "### EFFECT")?;
+        self.effect.fmt_with(f, interner)?;
+        writeln!(f, "########################################")
     }
 }

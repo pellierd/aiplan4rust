@@ -37,18 +37,12 @@ impl IRBuilder {
 
         let ast = context.domain();
         println!("AST ------>  {}", ast.to_string_with_interner(context.interner()));
+        //println!("AST ------>  {}", ast);
         let entries = context.symbol_table().collect_declarations(None, Some(&SymbolKind::Action), None);
         for entry in entries {
-            println!("-----> {:?}", entry.to_string_with_interner(context.interner()));
             let action_symbol_node = ast.try_node(entry.node_id())?;
             let action_node = ast.try_node(action_symbol_node.parent().unwrap())?;
-            println!("****************");
-            println!("{}", action_node.to_string_with_interner(context.interner()));
-            println!("****************{}", action_node.children().len());
             let action_def_body_node = ast.try_node(*action_node.children().get(2).unwrap())?;
-            println!("****************");
-            println!("{}", action_def_body_node.to_string_with_interner(context.interner()));
-            println!("****************");
             let pre_def_node = ast.try_node(*action_def_body_node.children().get(0).unwrap())?;
             let eff_def_node = ast.try_node(*action_def_body_node.children().get(1).unwrap())?;
 
@@ -56,13 +50,13 @@ impl IRBuilder {
             let pre = wrap(*pre_def_node.children().get(0).unwrap(), ast)?;
             let eff = wrap(*eff_def_node.children().get(0).unwrap(), ast)?;
 
-            println!("****************");
+            /*println!("****************");
             println!("{}", pre.to_string_with_interner(context.interner()));
             println!("****************");
 
             println!("****************");
             println!("{}", eff.to_string_with_interner(context.interner()));
-            println!("****************");
+            println!("****************");*/
 
             let action = Action::new(
                 entry.symbol_ref().ident(),
@@ -71,7 +65,7 @@ impl IRBuilder {
                 eff,
             );
 
-            println!("action: {:?}", action);
+            println!("{}", action.to_string_with_interner(context.interner()));
 
 
         }

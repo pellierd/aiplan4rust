@@ -9,6 +9,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
+use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::elements::{Ident, Requirement};
 
 /// Represents a node in an Abstract Syntax Tree (AST) tree.
@@ -111,21 +112,19 @@ impl DerefMut for AstArenaNode {
 }
 
 impl fmt::Display for AstArenaNode {
-    /// Formats the `Node` for display purposes.
+    /// Affiche un résumé complet du nœud, utile pour le debug ou logs.
     ///
-    /// Prints a concise summary of the node, including:
-    /// - The kind of the node (`kind`)
-    /// - The source code span associated with the node (`span`)
-    /// - The index of the parent node if it exists (`parent`)
-    /// - The list of children node indices (`children`)
+    /// Affiche :
+    /// - le type/kind du nœud,
+    /// - le contenu (`content`),
+    /// - la position source (`span`),
+    /// - le parent s'il existe,
+    /// - la liste des enfants (indices).
     ///
-    /// # Example
-    ///
+    /// # Exemple
     /// ```rust
-    /// // Assuming `node` is an instance of `Node`
     /// println!("{}", node);
-    /// // Output example:
-    /// // Node(kind=PrimitiveType("t1"), span={ start: 0, end: 5 }, parent=None, children=[1, 2])
+    /// // Node[kind=PrimitiveType("t1"), content=..., span=..., parent=none, children=[1, 2]]
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let children = self.children()
@@ -133,30 +132,27 @@ impl fmt::Display for AstArenaNode {
             .map(|idx| idx.to_string())
             .collect::<Vec<_>>()
             .join(", ");
-        let parent = self.parent()
-            .map(|idx| idx.to_string())
-            .unwrap_or_else(|| "none".to_string());
-        write!(
-            f,
-            "Node[kind={}, content={}, span={}, parent={}, children=[{}]]",
-            self.kind(), self.content(), self.span(), parent, children
-        )
-    }
-}
 
-impl DisplayWithInterner for AstArenaNode {
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         let parent = self.parent()
-            .map(|idx| idx.as_usize().to_string())
-            .unwrap_or_else(|| "none".to_string());
+            .map_or("none".to_string(), |idx| idx.to_string());
+
+        let span = self.span();
+        let span_str = format!(
+            "[l{}:c{}-l{}:c{}]",
+            span.begin_line(),
+            span.begin_column(),
+            span.end_line(),
+            span.end_column()
+        );
 
         write!(
             f,
-            "Node[kind={}, content={}, span={}, parent={}]",
+            "[kind={}, content={}, span={} parent={}, children=[{}]]",
             self.kind(),
-            self.content().to_string_with_interner(interner),
-            self.span(),
+            self.content(),
+            span_str,
             parent,
+            children,
         )
     }
 }
@@ -223,4 +219,86 @@ impl TreeNode for AstArenaNode {
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
 
+    /// Recursively pretty-prints this node and its children as a tree.
+    fn fmt_with(
+        &self,
+        f: &mut Formatter<'_>,
+        arena: &TreeArena<Self>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        fn fmt_node(
+            node: &AstArenaNode,
+            f: &mut Formatter<'_>,
+            arena: &TreeArena<AstArenaNode>,
+            interner: &StringInterner,
+            prefix: &str,
+            last: bool,
+        ) -> fmt::Result {
+            let branch = if last { "└─" } else { "├─" };
+
+            let content_str = match node.content() {
+                Content::None => String::new(),
+                Content::Ident(id) => format!(" [{}]", id.to_string_with_interner(interner)),
+                other => format!(" [{}]", other),
+            };
+
+            let (line, column) = node.span().start_position();
+            let span_str = format!(" (l{}:c{})", line, column);
+
+            // On différencie si c'est la racine ultime ou pas
+            let children = node.children();
+            let len = children.len();
+
+            // Écrire la ligne courante
+            write!(
+                f,
+                "{}{}{}{}{}",
+                prefix,
+                branch,
+                node.kind(),
+                content_str,
+                span_str
+            )?;
+
+            // Si ce nœud a des enfants, on passe à la ligne
+            if !children.is_empty() {
+                writeln!(f)?;
+            }
+
+            let new_prefix = if last {
+                format!("{}   ", prefix)
+            } else {
+                format!("{}│  ", prefix)
+            };
+
+            // Parcourir les enfants
+            for (i, child_idx) in children.iter().enumerate() {
+                let child = arena
+                    .get_node(*child_idx)
+                    .expect("Child not found in arena");
+                fmt_node(child, f, arena, interner, &new_prefix, i == len - 1)?;
+
+                // Si ce n'est pas le dernier enfant, retour à la ligne après chaque sous-arbre
+                if i < len - 1 {
+                    writeln!(f)?;
+                }
+            }
+
+            Ok(())
+        }
+
+        fmt_node(self, f, arena, interner, "", true)
+    }
+
+
+
+
+
+
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
+    where
+        Self: Sized
+    {
+        self.fmt_with(f, arena, interner)
+    }
 }

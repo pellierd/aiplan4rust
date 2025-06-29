@@ -1,8 +1,10 @@
 use std::collections::HashMap;
+use std::fmt;
+use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::tree::{TreeArena, NodeId, NodeContent};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::DisplayWithInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 
@@ -82,7 +84,7 @@ use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, I
 /// - [`ParserInternalError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
 ///
-pub trait TreeNode : DisplayWithInterner {
+pub trait TreeNode {
     /// The type used to represent the node's kind.
     type Kind;
 
@@ -252,6 +254,99 @@ pub trait TreeNode : DisplayWithInterner {
     }
     fn try_symbol_ref(&self) -> Result<SymbolRef, ParserInternalError> {
         self.as_symbol_ref()?.ok_or_else(|| ParserInternalError::new("Not a SymbolRef".to_string()))
+    }
+
+    /// Formats the node with access to the arena and an interner.
+    ///
+    /// This method allows accessing other nodes in the arena,
+    /// useful for displaying children or related information.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `arena` - Reference to the arena containing all nodes.
+    /// * `interner` - Reference to the interner for resolving identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing fails.
+    fn fmt_with(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
+    where Self: Sized;
+
+    /// Formats the node using a specific syntax style.
+    ///
+    /// Similar to `fmt_with` but formats according to a specific grammar or style.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `arena` - Reference to the arena containing all nodes.
+    /// * `interner` - Reference to the interner for resolving identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if writing fails.
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
+    where Self: Sized;
+
+    /// Converts the node to a string using `fmt_with`.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - Reference to the arena to fetch other nodes if needed.
+    /// * `interner` - Reference to the interner for resolving identifiers.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let s = node.to_string_with_interner(&arena, &interner);
+    /// println!("{}", s);
+    /// ```
+    fn to_string_with_interner(&self, arena: &TreeArena<Self>, interner: &StringInterner) -> String
+    where Self: Sized {
+        struct DisplayWrapper<'a, T: TreeNode> {
+            node: &'a T,
+            arena: &'a TreeArena<T>,
+            interner: &'a StringInterner,
+        }
+
+        impl<'a, T: TreeNode> fmt::Display for DisplayWrapper<'a, T> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result  {
+                self.node.fmt_with(f, self.arena, self.interner)
+            }
+        }
+
+        format!("{}", DisplayWrapper { node: self, arena, interner })
+    }
+
+    /// Converts the node to a string using the specific syntax formatting.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - Reference to the arena to fetch other nodes if needed.
+    /// * `interner` - Reference to the interner for resolving identifiers.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let s = node.to_string_syntax(&arena, &interner);
+    /// println!("{}", s);
+    /// ```
+    fn to_string_syntax(&self, arena: &TreeArena<Self>, interner: &StringInterner) -> String
+    where Self: Sized {
+        struct SyntaxDisplayWrapper<'a, T: TreeNode> {
+            node: &'a T,
+            arena: &'a TreeArena<T>,
+            interner: &'a StringInterner,
+        }
+
+        impl<'a, T: TreeNode> fmt::Display for SyntaxDisplayWrapper<'a, T> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result  {
+                self.node.fmt_syntax(f, self.arena, self.interner)
+            }
+        }
+
+        format!("{}", SyntaxDisplayWrapper { node: self, arena, interner })
     }
 
 }

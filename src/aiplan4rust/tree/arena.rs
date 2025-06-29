@@ -11,6 +11,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::{AstArenaNode, symbol::SymbolRef};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
+use crate::aiplan4rust::syntax::DisplaySyntax;
 use crate::aiplan4rust::syntax::elements::Ident;
 
 /// A flat arena-based tree structure for storing nodes of type `T`.
@@ -195,36 +196,93 @@ impl<T: TreeNode> TreeArena<T> {
     }
 }
 
-impl<T> DisplayWithInterner for TreeArena<T>
+impl<T> std::fmt::Display for TreeArena<T>
 where
-    T: TreeNode + DisplayWithInterner,
+    T: TreeNode + std::fmt::Display,
 {
-    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        writeln!(f, "TreeArena [")?;
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        fn fmt_node<T: TreeNode + std::fmt::Display>(
+            arena: &TreeArena<T>,
+            f: &mut std::fmt::Formatter<'_>,
+            node: &T,
+            node_index: usize,
+            indent: usize,
+            is_last: bool,
+        ) -> std::fmt::Result {
+            for _ in 0..indent {
+                write!(f, "  ")?;
+            }
+            writeln!(f, "Node #{}: {}", node_index, node)?;
 
-        for (node_id, node) in self.preorder_with_index() {
-            // Calcul de la profondeur du noeud en montant vers la racine
-            let mut depth = 0;
-            let mut current = node.parent();
-
-            while let Some(parent_id) = current {
-                depth += 1;
-                current = self.nodes[parent_id.as_usize()].parent();
+            let children = node.children();
+            for (i, child_idx) in children.iter().enumerate() {
+                let child = arena.get_node(*child_idx).expect("Child not found");
+                fmt_node(
+                    arena,
+                    f,
+                    child,
+                    child_idx.as_usize(),
+                    indent + 1,
+                    false, // les enfants ne sont pas le dernier noeud global
+                )?;
             }
 
-            // Indentation selon la profondeur (2 espaces par niveau)
-            for _ in 0..depth {
+            for _ in 0..indent {
                 write!(f, "  ")?;
             }
 
-            node.fmt_with(f, interner)?;
-            writeln!(f)?;
+            if is_last {
+                // Dernier nœud global -> pas de \n final
+                write!(f, "End Node #{}", node_index)
+            } else {
+                writeln!(f, "End Node #{}", node_index)
+            }
         }
 
-        writeln!(f, "]")
+        if let Some(root) = self.root_node() {
+            fmt_node(
+                self,
+                f,
+                root,
+                NodeId::ROOT_ID.as_usize(),
+                0,
+                true, // la racine est le dernier nœud global
+            )
+        } else {
+            write!(f, "<empty>")
+        }
     }
 }
 
+
+
+
+
+impl<T> DisplayWithInterner for TreeArena<T>
+where
+    T: TreeNode,
+{
+    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        if let Some(root) = self.root_node() {
+            writeln!(f, "Root\n{}\n", root.to_string_with_interner(self, interner))
+        } else {
+            writeln!(f, "<empty>")
+        }
+    }
+}
+
+impl<T> DisplaySyntax for TreeArena<T>
+where
+    T: TreeNode,
+{
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        if let Some(root) = self.root_node() {
+            writeln!(f, "{}", root.to_string_syntax(self, interner))
+        } else {
+            writeln!(f, "")
+        }
+    }
+}
 
 
 
