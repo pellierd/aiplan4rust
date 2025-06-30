@@ -7,7 +7,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
 
@@ -16,6 +16,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Display;
 use crate::aiplan4rust::semantic::AstArenaNode;
 
 /// A symbol table used in `aiplan4rust` to store and manage symbols.
@@ -993,27 +994,6 @@ impl Table {
         Ok(symbol_table)
     }
 
-
-    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
-        let mut out = String::new();
-        let _ = self.fmt_with_interner(&mut out, interner);
-        out
-    }
-
-    pub fn fmt_with_interner(
-        &self,
-        w: &mut dyn fmt::Write,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        // Parcourt tous les symboles dans la table
-        for symbol in self.symbols.values() {
-            // Utilise la méthode fmt_with_interner de chaque symbole, en passant l'interner
-            symbol.fmt_with_interner(w, interner)?;
-            writeln!(w)?; // Ajoute un saut de ligne après chaque symbole
-        }
-        Ok(())
-    }
-
 }
 
 /// Implements the `Display` trait for `SymbolTable`.
@@ -1036,6 +1016,22 @@ impl fmt::Display for Table {
             writeln!(f, "{}", symbol)?;
         }
         // Return Ok to indicate successful formatting.
+        Ok(())
+    }
+}
+
+impl DisplayWithInterner for Table {
+    fn fmt_with(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        // Parcourt tous les symboles dans la table
+        for symbol in self.symbols.values() {
+            // Utilise la méthode fmt_with_interner de chaque symbole, en passant l'interner
+            symbol.fmt_with(f, interner)?;
+            writeln!(f)?; // Ajoute un saut de ligne après chaque symbole
+        }
         Ok(())
     }
 }

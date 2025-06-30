@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::semantic::symbol::Type;
 
 /// Represents a symbol identified by `Ident` with associated types,
 /// also identified by `Ident`.
@@ -12,7 +13,7 @@ use crate::aiplan4rust::interner::StringInterner;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol {
     symbol: Ident,
-    types: Vec<Ident>,
+    ty: Type,
 }
 
 impl TypedSymbol {
@@ -24,8 +25,8 @@ impl TypedSymbol {
     ///
     /// # Returns
     /// A new `TypedSymbol` instance.
-    pub fn new(symbol: Ident, types: Vec<Ident>) -> Self {
-        TypedSymbol { symbol, types }
+    pub fn new(symbol: Ident, types: Type) -> Self {
+        TypedSymbol { symbol, ty: types }
     }
 
     /// Returns the symbol identifier.
@@ -34,8 +35,8 @@ impl TypedSymbol {
     }
 
     /// Returns a reference to the vector of associated type identifiers.
-    pub fn types(&self) -> &Vec<Ident> {
-        &self.types
+    pub fn types(&self) -> &Type {
+        &self.ty
     }
 
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
@@ -45,60 +46,11 @@ impl TypedSymbol {
         }
 
         // Remap tous les types dans le vecteur
-        for ty in self.types.iter_mut() {
+        for ty in self.ty.iter_mut() {
             if let Some(new_ty) = map.get(ty) {
                 *ty = new_ty.clone();
             }
         }
-    }
-
-    /// Returns a human-readable string representation of the symbol and types,
-    /// using the provided string interner to resolve `Ident`s to their string names.
-    ///
-    /// # Arguments
-    /// * `interner` - The string interner used to resolve identifiers.
-    ///
-    /// # Returns
-    /// A `String` representing the symbol and its types.
-    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
-        let mut out = String::new();
-        let _ = self.fmt_with_interner(&mut out, interner);
-        out
-    }
-
-    /// Formats the symbol and associated types using the provided formatter,
-    /// resolving identifiers to their names through the given string interner.
-    ///
-    /// # Arguments
-    /// * `w` - A formatter implementing `fmt::Write` (e.g., `String`, or a formatter).
-    /// * `interner` - The string interner to resolve identifiers.
-    ///
-    /// # Returns
-    /// A `fmt::Result` indicating success or failure.
-    pub fn fmt_with_interner(
-        &self,
-        w: &mut dyn fmt::Write,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        match interner.resolve(self.symbol) {
-            Some(name) => write!(w, "{}", name)?,
-            None => write!(w, "<uninterned:{}>", self.symbol)?,
-        }
-
-        if !self.types.is_empty() {
-            write!(w, " - ")?;
-            for (i, ty) in self.types.iter().enumerate() {
-                if i > 0 {
-                    write!(w, " ")?;
-                }
-                match interner.resolve(*ty) {
-                    Some(type_name) => write!(w, "{}", type_name)?,
-                    None => write!(w, "<uninterned:{}>", ty)?,
-                }
-            }
-        }
-
-        Ok(())
     }
 }
 
@@ -110,14 +62,44 @@ impl fmt::Display for TypedSymbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.symbol)?;
 
-        if !self.types.is_empty() {
+        if !self.ty.is_empty() {
             write!(f, " - ")?;
-            for (i, ty) in self.types.iter().enumerate() {
+            for (i, ty) in self.ty.iter().enumerate() {
                 if i > 0 {
                     write!(f, " ")?;
                 }
                 write!(f, "{}", ty)?;
             }
+        }
+
+        Ok(())
+    }
+}
+
+impl DisplayWithInterner for TypedSymbol {
+    /// Formats the symbol and its associated type using the string interner.
+    ///
+    /// # Arguments
+    /// * `w` - The formatter to write to.
+    /// * `interner` - The string interner used to resolve identifiers.
+    ///
+    /// # Returns
+    /// A `fmt::Result` indicating success or failure.
+    fn fmt_with(
+        &self,
+        w: &mut std::fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> std::fmt::Result {
+        // Format the symbol name
+        match interner.resolve(self.symbol) {
+            Some(name) => write!(w, "{}", name)?,
+            None => write!(w, "<uninterned:{}>", self.symbol)?,
+        }
+
+        // If type is not empty, format it after a separator
+        if !self.ty.is_empty() {
+            write!(w, " - ")?;
+            self.ty.fmt_with(w, interner)?;
         }
 
         Ok(())

@@ -1,14 +1,14 @@
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::hash::Hash;
 use std::hash::Hasher;
 
@@ -178,14 +178,29 @@ impl SymbolEntry {
         self.usages.extend(other.usages);
         true
     }
+}
 
-    /// Retourne la représentation en `String` (prête pour `println!`)
-    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
-        let mut out = String::new();
-        let _ = self.fmt_with_interner(&mut out, interner);
-        out
+impl fmt::Display for SymbolEntry {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "[Symbol: \'{}\']", self.name)?;
+
+        // Display declarations
+        writeln!(f, " - Declarations ({}):", self.declarations.len())?;
+        for decl in &self.declarations {
+            writeln!(f, "   - {}", decl)?;
+        }
+
+        // Display usages
+        writeln!(f, " - Usages ({}):", self.usages.len())?;
+        for usage in &self.usages {
+            writeln!(f, "   - {}", usage)?;
+        }
+
+        Ok(())
     }
+}
 
+impl DisplayWithInterner for SymbolEntry {
     /// Formats the symbol information along with its declarations and usages,
     /// resolving interned identifiers via the provided `StringInterner`.
     ///
@@ -209,9 +224,9 @@ impl SymbolEntry {
     ///    - Usage details here...
     ///    - Usage details here...
     /// ```
-    pub fn fmt_with_interner(
+    fn fmt_with(
         &self,
-        w: &mut dyn fmt::Write,
+        w: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
         // Display the symbol name
@@ -224,7 +239,7 @@ impl SymbolEntry {
         writeln!(w, " - Declarations ({}):", self.declarations.len())?;
         for decl in &self.declarations {
             write!(w, "   - ")?;
-            decl.fmt_with_interner(w, interner)?; // Appel direct à la méthode qui écrit dans `f`
+            decl.fmt_with(w, interner)?; // Appel direct à la méthode qui écrit dans `f`
             writeln!(w)?; // fin de ligne
         }
 
@@ -232,29 +247,8 @@ impl SymbolEntry {
         writeln!(w, " - Usages ({}):", self.usages.len())?;
         for usage in &self.usages {
             write!(w, "   - ")?;
-            usage.fmt_with_interner(w, interner)?;
+            usage.fmt_with(w, interner)?;
             writeln!(w)?;
-        }
-
-        Ok(())
-    }
-
-}
-
-impl fmt::Display for SymbolEntry {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "[Symbol: \'{}\']", self.name)?;
-
-        // Display declarations
-        writeln!(f, " - Declarations ({}):", self.declarations.len())?;
-        for decl in &self.declarations {
-            writeln!(f, "   - {}", decl)?;
-        }
-
-        // Display usages
-        writeln!(f, " - Usages ({}):", self.usages.len())?;
-        for usage in &self.usages {
-            writeln!(f, "   - {}", usage)?;
         }
 
         Ok(())

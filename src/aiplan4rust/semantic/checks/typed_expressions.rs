@@ -9,6 +9,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::{AstArenaNode, TypeChecker};
 use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::symbol::Type;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks the type correctness of typed expr in the syntax tree, including comparisons,
@@ -150,8 +151,8 @@ fn check_equal_and_assignment_expression(
     context: &CheckContext,
     type_checker: &TypeChecker,
     node: &AstArenaNode,
-    ty1: &Vec<Ident>,
-    ty2: &Vec<Ident>,
+    ty1: &Type,
+    ty2: &Type,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
@@ -185,8 +186,8 @@ fn check_equal_and_assignment_expression(
 /// - `span`: The span of the syntax node causing the error.
 /// - `diagnostic_manager`: The diagnostic manager to which the error will be added.
 fn report_type_mismatch_in_expression(
-    ty1: &[Ident],
-    ty2: &[Ident],
+    ty1: &Type,
+    ty2: &Type,
     span: Span,
     source: Provider,
     context: &CheckContext,
@@ -257,16 +258,15 @@ fn report_type_mismatch_in_expression(
 fn check_numeric_expression(
     context: &CheckContext,
     node: &AstArenaNode,
-    ty1: &Vec<Ident>,
-    ty2: &Vec<Ident>,
+    ty1: &Type,
+    ty2: &Type,
     source: Provider,
     diagnostic_manager:&mut DiagnosticManager
 ) -> Result<bool, ParserInternalError> {
     let mut no_error = true;
 
     // Handle Greater, Less, etc.
-    let number = vec![StringInterner::IDENT_NUMBER];
-    if ty1 != &number || ty2 != &number {
+    if ty1 != Type::number() || ty2 != Type::number() {
         no_error = false;
         report_invalid_types_in_numeric_expression(
             ty1,
@@ -294,8 +294,8 @@ fn check_numeric_expression(
 /// - `ty2`: The types of the right operand.
 /// - `diagnostic_manager`: The diagnostic manager to which the error is added.
 fn report_invalid_types_in_numeric_expression(
-    ty1: &[Ident],
-    ty2: &[Ident],
+    ty1: &Type,
+    ty2: &Type,
     span: Span,
     source: Provider,
     context: &CheckContext,
@@ -353,7 +353,7 @@ fn report_invalid_types_in_numeric_expression(
 fn get_binary_operation_types(
     node: &AstArenaNode,
     context: &CheckContext,
-) -> Result<(Vec<Ident>, Vec<Ident>), ParserInternalError> {
+) -> Result<(Type, Type), ParserInternalError> {
     // Validate that there are exactly 2 children
     if node.children().len() != 2 {
         return Err(ParserInternalError::new(
@@ -409,7 +409,7 @@ pub fn get_type(
     index: NodeId,
     node: &AstArenaNode,
     context: &CheckContext
-) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+) -> Result<Option<Type>, ParserInternalError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         AstKind::Number => get_number_type(),
@@ -448,8 +448,8 @@ pub fn get_type(
 /// ```rust
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
-fn get_number_type() -> Result<Option<Vec<Ident>>, ParserInternalError> {
-    Ok(Some(vec![StringInterner::IDENT_NUMBER]))
+fn get_number_type() -> Result<Option<Type>, ParserInternalError> {
+    Ok(Some(Type::number().clone()))
 }
 
 /// Retrieves the type of a variable symbol from the symbol table.
@@ -484,7 +484,7 @@ fn get_variable_type(
     index: NodeId,
     symbol: Ident,
     context: &CheckContext,
-) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+) -> Result<Option<Type>, ParserInternalError> {
     if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
         return get_number_type();
     }
@@ -517,7 +517,7 @@ fn get_constant_type(
     index: NodeId,
     _symbol: Ident,
     context: &CheckContext,
-) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+) -> Result<Option<Type>, ParserInternalError> {
     get_declaration_type(index, context)
 }
 
@@ -551,7 +551,7 @@ fn get_constant_type(
 fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
-) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+) -> Result<Option<Type>, ParserInternalError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id)? {
         Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
         None => Ok(None),
@@ -587,7 +587,7 @@ fn get_function_term_type(
     index: NodeId,
     node: &AstArenaNode,
     context: &CheckContext
-) -> Result<Option<Vec<Ident>>, ParserInternalError> {
+) -> Result<Option<Type>, ParserInternalError> {
     let children = node.children();
     if children.is_empty() {
         return Err(ParserInternalError::new(

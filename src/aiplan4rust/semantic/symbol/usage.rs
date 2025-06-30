@@ -1,4 +1,4 @@
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -161,52 +161,6 @@ impl Usage {
             self.symbol_ref.set_ident(new_ident.clone());
         }
     }
-
-    /// Converts the declaration to a `String` representation using the provided interner.
-    ///
-    /// # Arguments
-    ///
-    /// * `interner` - A `StringInterner` to resolve interned strings.
-    ///
-    /// # Returns
-    ///
-    /// A `String` representing this declaration, formatted using the interner.
-    pub fn to_string_with_interner(&self, interner: &StringInterner) -> String {
-        let mut out = String::new();
-        let _ = self.fmt_with_interner(&mut out, interner);
-        out
-    }
-
-    /// Formats the usage into the given writer, resolving interned strings via the interner.
-    ///
-    /// This method writes a human-readable representation of the usage, including its AST node index,
-    /// symbol kind, identifier (resolved from the interner), scope, and source.
-    ///
-    /// # Arguments
-    ///
-    /// * `w` - A mutable reference to a type implementing `fmt::Write`, where the output is written.
-    /// * `interner` - A `StringInterner` used to resolve the interned identifier string.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `fmt::Result` indicating success or failure of the write operation.
-    pub fn fmt_with_interner(
-        &self,
-        w: &mut dyn fmt::Write,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        let symbol_str = match interner.resolve(self.symbol_ident()) {
-            Some(name) => name,
-            None => "<uninterned>",
-        };
-
-        write!(
-            w,
-            "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast.as_usize(), self.symbol_kind(), symbol_str, self.scope, self.origin
-        )?;
-        Ok(())
-    }
 }
 
 impl fmt::Display for Usage {
@@ -227,6 +181,40 @@ impl fmt::Display for Usage {
             f,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
             self.ast.as_usize(), self.symbol_kind(), self.symbol_ident(), self.scope, self.origin
+        )?;
+        Ok(())
+    }
+}
+
+impl DisplayWithInterner for Usage {
+
+    /// Formats the usage into the given writer, resolving interned strings via the interner.
+    ///
+    /// This method writes a human-readable representation of the usage, including its AST node index,
+    /// symbol kind, identifier (resolved from the interner), scope, and source.
+    ///
+    /// # Arguments
+    ///
+    /// * `w` - A mutable reference to a type implementing `fmt::Write`, where the output is written.
+    /// * `interner` - A `StringInterner` used to resolve the interned identifier string.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `fmt::Result` indicating success or failure of the write operation.
+    fn fmt_with(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        let symbol_str = match interner.resolve(self.symbol_ident()) {
+            Some(name) => name,
+            None => "<uninterned>",
+        };
+
+        write!(
+            f,
+            "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
+            self.ast.as_usize(), self.symbol_kind(), symbol_str, self.scope, self.origin
         )?;
         Ok(())
     }

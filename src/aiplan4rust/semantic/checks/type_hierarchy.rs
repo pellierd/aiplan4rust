@@ -540,7 +540,7 @@ fn build_type_adjacency_matrix(
         match declaration.types() {
             Some(parents) => {
                 // For each parent type, set an edge in the adjacency matrix
-                for parent in parents {
+                for parent in parents.iter() {
                     if let Some(&parent_idx) = type_bimap.get_by_left(parent) {
                         // Validate parent_idx is within bounds
                         if parent_idx >= n {
@@ -615,7 +615,7 @@ fn build_type_bimap(
         // If the declaration has parent types (e.g., inherited types)
         if let Some(parents) = declaration.types() {
             // Iterate over each parent type
-            for parent in parents {
+            for parent in parents.iter() {
                 // Insert the parent type into the map if it's not already present
                 if !temp_map.contains_left(parent) {
                     let len = temp_map.len();      // Get next index based on current size

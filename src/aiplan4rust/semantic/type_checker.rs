@@ -1,6 +1,6 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::symbol::Scope;
+use crate::aiplan4rust::semantic::symbol::{Scope, Type};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::elements::Ident;
@@ -102,8 +102,8 @@ impl<'a> TypeChecker<'a> {
     /// reflect the type hierarchy and ensure accurate subtype detection.
     pub fn is_any_subtype_of(
         &self,
-        ty1: &Vec<Ident>,
-        ty2: &Vec<Ident>,
+        ty1: &Type,
+        ty2: &Type,
     ) -> Result<bool, ParserInternalError> {
         let ty1_set: HashSet<_> = ty1.iter().collect(); // références, pas de clone
 
@@ -148,8 +148,8 @@ impl<'a> TypeChecker<'a> {
     /// ```
     pub fn is_any_supertype_of(
         &self,
-        ty1: &Vec<Ident>,
-        ty2: &Vec<Ident>,
+        ty1: &Type,
+        ty2: &Type,
     ) -> Result<bool, ParserInternalError> {
         // We check if any type in ty2 is a subtype of any type in ty1
         self.is_any_subtype_of(ty2, ty1)
@@ -183,8 +183,8 @@ impl<'a> TypeChecker<'a> {
     /// ```
     pub fn is_any_sub_or_supertype_of(
         &self,
-        ty1: &Vec<Ident>,
-        ty2: &Vec<Ident>,
+        ty1: &Type,
+        ty2: &Type,
     ) -> Result<bool, ParserInternalError> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
@@ -225,17 +225,17 @@ impl<'a> TypeChecker<'a> {
     /// type.
     pub fn have_common_supertype(
         &self,
-        ty1: &Vec<Ident>,
-        ty2: &Vec<Ident>,
+        ty1: &Type,
+        ty2: &Type,
     ) -> Result<bool, ParserInternalError> {
         let mut supertypes1 = HashSet::new();
 
-        for t1 in ty1 {
+        for t1 in ty1.iter() {
             let closure1 = self.ascending_type_closure(*t1)?;
             supertypes1.extend(closure1.iter().cloned());
         }
 
-        for t2 in ty2 {
+        for t2 in ty2.iter() {
             let closure2 = self.ascending_type_closure(*t2)?;
             if closure2.iter().any(|s| supertypes1.contains(s)) {
                 return Ok(true);
@@ -334,7 +334,7 @@ impl<'a> TypeChecker<'a> {
                 Some(declaration) => {
                     // If the declaration has supertypes, add them to the stack for traversal
                     if let Some(s_types) = declaration.types() {
-                        to_visit.extend_from_slice(s_types);
+                        to_visit.extend_from_slice(s_types.as_slice());
                     }
                 }
                 None => continue, // No declaration found, skip
