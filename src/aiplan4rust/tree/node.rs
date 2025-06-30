@@ -86,7 +86,7 @@ use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, I
 ///
 pub trait TreeNode {
     /// The type used to represent the node's kind.
-    type Kind;
+    type Kind: std::fmt::Display;
 
     /// The type used to represent the semantic content of the node.
     type Content: NodeContent;
@@ -118,6 +118,26 @@ pub trait TreeNode {
     /// - `None` if this node is the root of the tree.
     fn parent(&self) -> Option<NodeId>;
 
+    /// Returns the `NodeId` of the parent of this node, or an error if there is no parent.
+    ///
+    /// # Errors
+    /// Returns a `ParserInternalError` if this node has no parent.
+    ///
+    /// # Example
+    /// ```rust
+    /// let parent_id = node.try_parent()?;
+    /// let parent_node = arena.try_node(parent_id)?;
+    /// ```
+    ///
+    /// # Panics
+    /// This method does **not** panic. It returns a proper `Result`.
+    fn try_parent(&self) -> Result<NodeId, ParserInternalError> {
+        self.parent().ok_or_else(|| ParserInternalError::new(format!(
+            "Expected parent for node kind {} but found none",
+            self.kind()
+        )))
+    }
+
     /// Sets the parent of this node.
     ///
     /// # Arguments
@@ -138,6 +158,34 @@ pub trait TreeNode {
     ///
     /// - `child`: The child node’s ID to append.
     fn add_child(&mut self, child: NodeId);
+
+    /// Returns the `NodeId` of the child at the given index, or an error if the index is out of bounds.
+    ///
+    /// # Arguments
+    /// * `index` - The zero-based position of the child to retrieve.
+    ///
+    /// # Errors
+    /// Returns a `ParserInternalError` if the node has fewer children than the requested index.
+    ///
+    /// # Example
+    /// ```rust
+    /// let child_id = node.try_child(0)?;
+    /// let child_node = arena.try_node(child_id)?;
+    /// ```
+    ///
+    /// # Panics
+    /// This method does **not** panic. It returns a proper `Result`.
+    fn try_child(&self, index: usize) -> Result<NodeId, ParserInternalError> {
+        self.children()
+            .get(index)
+            .copied()
+            .ok_or_else(|| ParserInternalError::new(format!(
+                "Expected child index {} in node kind {} but found only {} children",
+                index,
+                self.kind(),
+                self.children().len()
+            )))
+    }
 
     /// Remaps identifiers inside the node’s content according to the given map.
     ///

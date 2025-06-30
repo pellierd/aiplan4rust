@@ -41,22 +41,13 @@ impl IRBuilder {
         let entries = context.symbol_table().collect_declarations(None, Some(&SymbolKind::Action), None);
         for entry in entries {
             let action_symbol_node = ast.try_node(entry.node_id())?;
-            let action_node = ast.try_node(action_symbol_node.parent().unwrap())?;
-            let action_def_body_node = ast.try_node(*action_node.children().get(2).unwrap())?;
-            let pre_def_node = ast.try_node(*action_def_body_node.children().get(0).unwrap())?;
-            let eff_def_node = ast.try_node(*action_def_body_node.children().get(1).unwrap())?;
+            let action_node = ast.try_node(action_symbol_node.try_parent()?)?;
+            let action_def_body_node = ast.try_node(action_node.try_child(2)?)?;
+            let pre_def_node = ast.try_node(action_def_body_node.try_child(0)?)?;
+            let eff_def_node = ast.try_node(action_def_body_node.try_child(1)?)?;
+            let pre = wrap(pre_def_node.try_child(0)?, ast)?;
+            let eff = wrap(eff_def_node.try_child(0)?, ast)?;
 
-
-            let pre = wrap(*pre_def_node.children().get(0).unwrap(), ast)?;
-            let eff = wrap(*eff_def_node.children().get(0).unwrap(), ast)?;
-
-            /*println!("****************");
-            println!("{}", pre.to_string_with_interner(context.interner()));
-            println!("****************");
-
-            println!("****************");
-            println!("{}", eff.to_string_with_interner(context.interner()));
-            println!("****************");*/
 
             let action = Action::new(
                 entry.symbol_ref().ident(),
@@ -67,7 +58,7 @@ impl IRBuilder {
 
             println!("{}", action.to_string_with_interner(context.interner()));
 
-
+            actions.push(action);
         }
 
         Ok(actions)

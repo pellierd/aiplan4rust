@@ -1,9 +1,14 @@
 use crate::aiplan4rust::ir::expr::{Expr, ExprNode, ExprKind, ExprContent};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::semantic::symbol::TypedSymbol;
+use crate::aiplan4rust::ir::expr::wrapper::wrap;
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::semantic::symbol::{SymbolEntry, TypedSymbol};
+use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::tree::TreeNode;
 
 /// Represents an instantaneous action with always-present (possibly empty) precondition and effect.
 ///
@@ -75,6 +80,38 @@ impl Action {
     pub fn set_effect(&mut self, eff: Expr) {
         self.effect = eff;
     }
+
+    /*pub fn from_ast(
+        action_node: &AstArenaNode,
+        ast: &Ast,
+    ) -> Result<Self, ParserInternalError> {
+
+        let action_name = ast.try_node(action_node.try_child(0)?)?;
+
+        let action_parameters = ast.try_node(action_node.try_child(1)?)?;
+
+        // Récupérer le corps de la définition d'action
+        let action_def_body_node = ast.try_node(action_node.try_child(2)?)?;
+
+        // Récupérer le noeud de la précondition
+        let pre_def_node = ast.try_node(action_def_body_node.try_child(0)?)?;
+
+        // Récupérer le noeud de l'effet
+        let eff_def_node = ast.try_node(action_def_body_node.try_child(1)?)?;
+
+        // Extraire la formule préconditionnelle
+        let pre = wrap(pre_def_node.try_child(0)?, ast)?;
+
+        // Extraire la formule d'effet
+        let eff = wrap(eff_def_node.try_child(0)?, ast)?;
+
+        Ok(Action::new(
+            entry.symbol_ref().ident().to_string(),
+            entry.arguments().unwrap().clone(),
+            pre,
+            eff,
+        ))
+    }*/
 }
 
 

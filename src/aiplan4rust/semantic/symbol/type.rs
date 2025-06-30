@@ -2,7 +2,7 @@ use std::fmt;
 use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::syntax::elements::Ident;
 
-/// Represents a type in the lifted planning problem IR.
+/// Represents a type in a planning problem IR.
 ///
 /// A type is always represented as a non-empty list of atomic type identifiers.
 /// If the list contains a single identifier, it represents an atomic (primitive) type.
