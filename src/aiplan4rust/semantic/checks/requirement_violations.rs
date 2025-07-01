@@ -1,12 +1,12 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::elements::Requirement::{
+use crate::aiplan4rust::lang::Requirement::{
     ConditionalEffects, DerivedPredicates, DisjunctivePreconditions, DurativeActions, Equality,
     ExistentialPreconditions, Fluents, NegativePreconditions, NumericFluents, ObjectFluents,
     Preferences, Typing, UniversalPreconditions,
 };
-use crate::aiplan4rust::syntax::elements::BinaryComp;
-use crate::aiplan4rust::syntax::elements::Requirement;
+use crate::aiplan4rust::lang::BinaryComp;
+use crate::aiplan4rust::lang::Requirement;
 
 use std::collections::HashSet;
 use crate::aiplan4rust::semantic::AstArenaNode;

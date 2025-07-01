@@ -1,13 +1,13 @@
-use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
-use std::fmt;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
-use crate::aiplan4rust::syntax::ast::{Ast, FromAst};
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt;
 
 /// Represents a symbol identified by `Ident` with associated types,
 /// also identified by `Ident`.

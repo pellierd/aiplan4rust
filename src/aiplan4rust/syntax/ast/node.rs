@@ -1,14 +1,13 @@
-use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
-use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Optimization, Requirement};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::NodeContent;
-use std::fmt;
-use std::fmt::{Display, Formatter};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 
 /// Represents a node in the Abstract Syntax Tree (AST).

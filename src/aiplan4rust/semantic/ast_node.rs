@@ -1,17 +1,17 @@
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
+use crate::aiplan4rust::syntax::ast::content::Content;
+use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
+use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::tree::{AbstractNode, NodeId, TreeArena, TreeNode};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
-use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::tree::{TreeArena, NodeId, TreeNode, AbstractNode};
-use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
-use crate::aiplan4rust::syntax::ast::content::Content;
-use crate::aiplan4rust::syntax::elements::Requirement;
-use crate::aiplan4rust::lang::Ident;
 
 /// Represents a node in an Abstract Syntax Tree (AST) tree.
 ///

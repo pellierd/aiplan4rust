@@ -5,10 +5,10 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::elements::Requirement;
 use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes the requirement declarations by removing duplicates from the `RequireDef` node.

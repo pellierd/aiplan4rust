@@ -2,8 +2,19 @@ pub mod types;
 pub mod typed_symbol;
 pub mod typed_list;
 pub mod ident;
+pub mod requirement;
+pub mod arithmetic_op;
+pub mod assign_op;
+pub mod binary_comp;
+pub mod optimization;
+
 
 pub use types::Type;
 pub use typed_symbol::TypedSymbol;
 pub use typed_list::TypedList;
 pub use ident::Ident;
+pub use requirement::Requirement;
+pub use arithmetic_op::ArithmeticOp;
+pub use assign_op::AssignOp;
+pub use binary_comp::BinaryComp;
+pub use optimization::Optimization;

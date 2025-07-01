@@ -33,8 +33,7 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Optimization, Requirement};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, Ident, Requirement};
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::tree::NodeContent;
 use crate::aiplan4rust::serialization::{serialize_ordered_float, deserialize_ordered_float};

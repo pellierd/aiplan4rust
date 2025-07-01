@@ -1,11 +1,11 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::ir::expr::Expr;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;

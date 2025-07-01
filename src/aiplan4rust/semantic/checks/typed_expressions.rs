@@ -1,17 +1,17 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::elements::AssignOp;
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::elements::BinaryComp;
-use crate::aiplan4rust::syntax::elements::Requirement::DurativeActions;
-use crate::aiplan4rust::syntax::elements::Requirement::NumericFluents;
-use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::{AstArenaNode, TypeChecker};
-use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::lang::AssignOp;
+use crate::aiplan4rust::lang::BinaryComp;
+use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::Requirement::DurativeActions;
+use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::{AstArenaNode, TypeChecker};
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
 
 /// Checks the type correctness of typed expr in the syntax tree, including comparisons,
 /// assignments, and arithmetic operations.

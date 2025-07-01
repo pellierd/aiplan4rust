@@ -7,7 +7,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
-use crate::aiplan4rust::syntax::elements::Requirement;
+use crate::aiplan4rust::lang::Requirement;
 
 /// Represents the semantic context resulting from the semantic analysis phase.
 ///

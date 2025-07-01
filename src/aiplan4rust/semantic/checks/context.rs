@@ -1,7 +1,7 @@
-use crate::aiplan4rust::tree::TreeArena;
 use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::{AstArenaNode, SemanticContext, SymbolTable};
-use crate::aiplan4rust::syntax::elements::Requirement;
+use crate::aiplan4rust::tree::TreeArena;
 
 use std::collections::HashSet;
 

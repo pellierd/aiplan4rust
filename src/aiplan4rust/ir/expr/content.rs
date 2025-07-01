@@ -45,19 +45,19 @@
 //! This is useful for producing human-readable output, especially for debugging or logging.
 //!
 
-use std::collections::HashMap;
-use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
-use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::serialization::{serialize_ordered_float, deserialize_ordered_float};
+use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
+use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::tree::NodeContent;
+use std::collections::HashMap;
 
-use std::fmt;
-use ordered_float::OrderedFloat;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::Visitor;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::AstContent;
+use ordered_float::OrderedFloat;
+use serde::de::Visitor;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt;
 
 /// Represents the semantic content attached to an AST node.
 ///

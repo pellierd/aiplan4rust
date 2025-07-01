@@ -53,7 +53,6 @@
 //! - `Language` must be explicitly passed when parsing a file to select between PDDL and HDDL.
 //!
 //! # Modules
-//! - [`elements`] – Utility types used across AST and grammar processing
 //! - [`language`] – Definition of supported planning languages (PDDL/HDDL)
 //! - [`lexer`] – Tokenizer for input streams
 //! - [`parser`] – Entrypoint to the parsing pipeline
@@ -74,7 +73,6 @@
 //! - [`SyntaxDisplay`] — Trait for AST-to-string formatting
 //! - [`FastLineTable`] — Efficient file line tracking
 
-pub mod elements;
 pub mod language;
 pub mod lexer;
 pub mod parser;
