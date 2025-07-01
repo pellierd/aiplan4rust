@@ -9,7 +9,6 @@ pub mod kind;
 pub mod origin;
 pub mod symbol;
 
-pub mod ty;
 
 pub use declaration::Declaration;
 pub use filterable::Filterable;
@@ -20,4 +19,3 @@ pub use typed_symbol::TypedSymbol;
 pub use usage::Usage;
 pub use origin::Origin as SymbolOrigin;
 pub use symbol::Symbol as SymbolRef;
-pub use ty::Type;

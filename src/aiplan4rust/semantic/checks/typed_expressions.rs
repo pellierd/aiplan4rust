@@ -9,7 +9,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::{AstArenaNode, TypeChecker};
 use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::Type;
+use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Checks the type correctness of typed expr in the syntax tree, including comparisons,

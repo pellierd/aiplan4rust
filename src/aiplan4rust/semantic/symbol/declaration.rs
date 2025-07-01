@@ -1,9 +1,9 @@
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin, Type};
+use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::symbol::TypedSymbol;
+use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::ir::TypedList;
