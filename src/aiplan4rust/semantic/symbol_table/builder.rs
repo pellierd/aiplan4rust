@@ -3,11 +3,13 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::ir::TypedList;
 use crate::aiplan4rust::tree::{TreeArena, NodeRef};
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, TypedSymbol, Usage};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry,Usage};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
 use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::lang::TypedSymbol;
+
 
 /// `Comparator` is an enum that represents the different types of comparisons
 /// that can be made between values, specifically for validating the number of children
