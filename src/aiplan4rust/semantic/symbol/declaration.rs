@@ -3,10 +3,10 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::ir::TypedList;
+use crate::aiplan4rust::lang::TypedList;
+use crate::aiplan4rust::lang::Type;
 
 use std::collections::HashMap;
 use serde::Deserialize;
