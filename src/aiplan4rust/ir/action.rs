@@ -1,14 +1,14 @@
-use crate::aiplan4rust::ir::expr::{Expr, ExprNode, ExprKind, ExprContent};
-use serde::{Deserialize, Serialize};
-use std::fmt;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::ir::expr::wrapper::wrap;
+use crate::aiplan4rust::ir::expr::Expr;
+use crate::aiplan4rust::ir::typed_list::TypedList;
+use crate::aiplan4rust::semantic::symbol::TypedSymbol;
 use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::semantic::symbol::{SymbolEntry, TypedSymbol};
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::elements::Ident;
-use crate::aiplan4rust::tree::TreeNode;
+use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Represents an instantaneous action with always-present (possibly empty) precondition and effect.
 ///
@@ -19,7 +19,7 @@ pub struct Action {
     name: Ident,
 
     /// Formal parameters, e.g. `?x - location`.
-    parameters: Vec<TypedSymbol>,
+    parameters: TypedList,
 
     /// Precondition expression (never `None`; defaults to empty `Or`).
     precondition: Expr,
@@ -32,7 +32,7 @@ impl Action {
     /// Create a new `Action` with the given name and parameters.
     ///
     /// The precondition and effect default to an empty `Or` expression.
-    pub fn new(name: Ident, parameters: Vec<TypedSymbol>, precondition: Expr, effect: Expr) -> Self {
+    pub fn new(name: Ident, parameters: TypedList, precondition: Expr, effect: Expr) -> Self {
         Self {
             name,
             parameters,
@@ -57,7 +57,7 @@ impl Action {
     }
 
     /// Sets the action’s parameters.
-    pub fn set_parameters(&mut self, params: Vec<TypedSymbol>) {
+    pub fn set_parameters(&mut self, params: TypedList) {
         self.parameters = params;
     }
 
@@ -80,40 +80,59 @@ impl Action {
     pub fn set_effect(&mut self, eff: Expr) {
         self.effect = eff;
     }
-
-    /*pub fn from_ast(
-        action_node: &AstArenaNode,
-        ast: &Ast,
-    ) -> Result<Self, ParserInternalError> {
-
-        let action_name = ast.try_node(action_node.try_child(0)?)?;
-
-        let action_parameters = ast.try_node(action_node.try_child(1)?)?;
-
-        // Récupérer le corps de la définition d'action
-        let action_def_body_node = ast.try_node(action_node.try_child(2)?)?;
-
-        // Récupérer le noeud de la précondition
-        let pre_def_node = ast.try_node(action_def_body_node.try_child(0)?)?;
-
-        // Récupérer le noeud de l'effet
-        let eff_def_node = ast.try_node(action_def_body_node.try_child(1)?)?;
-
-        // Extraire la formule préconditionnelle
-        let pre = wrap(pre_def_node.try_child(0)?, ast)?;
-
-        // Extraire la formule d'effet
-        let eff = wrap(eff_def_node.try_child(0)?, ast)?;
-
-        Ok(Action::new(
-            entry.symbol_ref().ident().to_string(),
-            entry.arguments().unwrap().clone(),
-            pre,
-            eff,
-        ))
-    }*/
 }
 
+impl FromAst for Action {
+    /// Constructs an `Action` from an AST node.
+    ///
+    /// # Expected AST structure
+    ///
+    /// The input `node` should represent an `Action` with exactly three children:
+    /// 1. The first child is the name node (identifier).
+    /// 2. The second child is the parameters node, which contains a typed list.
+    /// 3. The third child is the definition body node, which can have up to two children:
+    ///     - The first child (optional) represents the precondition.
+    ///     - The second child (optional) represents the effect.
+    ///
+    /// If the precondition or effect nodes are missing, an empty expression (`Expr::empty_or()`) is used.
+    fn from_ast(
+        node: &AstArenaNode,
+        ast: &TreeArena<AstArenaNode>,
+    ) -> Result<Self, ParserInternalError> {
+        // Retrieve the action name node and extract its identifier
+        let name_node = ast.try_node(node.try_child(0)?)?;
+        let name = name_node.try_ident()?;
+
+        // Retrieve the parameters node and parse it into a TypedList
+        let params_node = ast.try_node(node.try_child(1)?)?;
+        let parameters = TypedList::from_ast(&params_node, ast)?;
+
+        // Retrieve the definition body node
+        let def_body_node = ast.try_node(node.try_child(2)?)?;
+
+        // Retrieve the precondition if it exists; otherwise use an empty expression
+        let precondition = if let Some(pre_def_id) = def_body_node.try_child(0).ok() {
+            let pre_def = ast.try_node(pre_def_id)?;
+            let pre_id = pre_def.try_child(0)?;
+            let pre = ast.try_node(pre_id)?;
+            Expr::from_ast(pre, ast)?
+        } else {
+            Expr::empty_or()
+        };
+
+        // Retrieve the effect if it exists; otherwise use an empty expression
+        let effect = if let Some(effect_def_id) = def_body_node.try_child(1).ok() {
+            let eff_def = ast.try_node(effect_def_id)?;
+            let eff_id = eff_def.try_child(0)?;
+            let eff = ast.try_node(eff_id)?;
+            Expr::from_ast(eff, ast)?
+        } else {
+            Expr::empty_or()
+        };
+
+        Ok(Action::new(name, parameters, precondition, effect))
+    }
+}
 
 impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -149,7 +168,11 @@ impl DisplayWithInterner for Action {
             .join(", ");
 
         writeln!(f, "########################################")?;
-        writeln!(f, "### ACTION [{}]", self.name)?;
+        writeln!(
+            f,
+            "### ACTION [{}]",
+            self.name.to_string_with_interner(interner)
+        )?;
         writeln!(f, "### PARAMETERS [{}]", params)?;
         writeln!(f, "########################################")?;
         writeln!(f, "### PRECONDITION")?;

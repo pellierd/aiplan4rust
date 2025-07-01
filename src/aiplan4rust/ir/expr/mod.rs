@@ -1,17 +1,16 @@
-use crate::aiplan4rust::tree::{NodeId, TreeArena};
+use crate::aiplan4rust::tree::NodeId;
 
 pub mod content;
 
 pub mod node;
 
 pub mod kind;
-mod transform;
-pub mod wrapper;
+pub mod transform;
+pub mod expr;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode as ExprNode;
 pub use kind::Kind as ExprKind;
-
+pub use expr::Expr as Expr;
 
 pub type ExprId = NodeId;
-pub type Expr = TreeArena<ExprNode>;

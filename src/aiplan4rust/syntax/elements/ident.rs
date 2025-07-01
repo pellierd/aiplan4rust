@@ -78,6 +78,20 @@ impl Ident {
     pub fn as_usize(&self) -> usize {
         self.value
     }
+
+    /// Returns `true` if this identifier holds a valid (initialized) value.
+    ///
+    /// # Example
+    /// ```
+    /// let ident = Ident::default();
+    /// assert!(!ident.is_valid());
+    ///
+    /// let ident = Ident { value: 42 };
+    /// assert!(ident.is_valid());
+    /// ```
+    pub fn is_valid(&self) -> bool {
+        self.value != usize::MAX
+    }
 }
 
 impl std::fmt::Display for Ident {

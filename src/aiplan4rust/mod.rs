@@ -10,6 +10,7 @@ pub mod interner;
 mod ir;
 mod tree;
 pub mod serialization;
+mod lang;
 
 pub use file_format::FileFormat;
 pub use frontend::Frontend;

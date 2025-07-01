@@ -1,11 +1,13 @@
-use crate::aiplan4rust::ir::expr::Expr;
 
 pub mod builder;
+pub mod action;
 pub mod expr;
-mod action;
+pub mod planning_problem;
+pub mod typed_list;
 
 pub use builder::IRBuilder;
 
+pub use typed_list::TypedList;
 
-pub type Precondition = Expr;
-pub type Effect = Expr;
+//pub type Precondition = Expr;
+//pub type Effect = Expr;

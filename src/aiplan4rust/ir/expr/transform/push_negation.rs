@@ -1,7 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::ir::expr::Expr;
-use crate::aiplan4rust::ir::expr::{ExprNode, ExprContent, ExprKind};
-use crate::aiplan4rust::ir::expr::ExprId;  // alias de NodeId
+use crate::aiplan4rust::ir::expr::{Expr, ExprNode, ExprContent, ExprKind, ExprId};
 
 /// Applies negation pushing transformation starting from the root node.
 /// Returns the ExprId of the transformed node.

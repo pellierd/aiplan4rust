@@ -69,10 +69,10 @@ impl Frontend {
                     .diagnostic_manager_mut()
                     .add_diagnostic_from(&diagnostic_manager);
 
-                /*println!("Bannanenene");
+                println!("Bannanenene");
                 let mut ir_builder = IRBuilder::new();
                 ir_builder.build(linker_result.linked_semantic_context().unwrap())?;
-                println!("Bannanenene");*/
+                println!("Bannanenene");
 
                 Ok(linker_result)
             }

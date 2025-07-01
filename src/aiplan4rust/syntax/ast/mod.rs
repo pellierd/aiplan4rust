@@ -53,8 +53,11 @@ pub mod content;
 pub mod kind;
 pub mod iterators;
 
+pub mod from_ast;
+
 // Public re-exports
 pub use node::Node as AstNode;
 pub use kind::Kind as AstKind;
 pub use content::Content as AstContent;
 pub use ast::Ast;
+pub use from_ast::FromAst;

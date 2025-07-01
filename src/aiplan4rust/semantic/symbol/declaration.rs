@@ -6,6 +6,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::TypedSymbol;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::ir::TypedList;
 
 use std::collections::HashMap;
 use serde::Deserialize;
@@ -58,7 +59,7 @@ pub struct Declaration {
     types: Option<Type>,
 
     // Optional list of argument types, grouped in parameter lists.
-    arguments: Option<Vec<TypedSymbol>>,
+    arguments: Option<TypedList>,
 
     // The span in source code where the declaration is located.
     span: Span,
@@ -107,7 +108,7 @@ impl Declaration {
         scope: Scope,
         origin: SymbolOrigin,
         types: Option<Type>,
-        arguments: Option<Vec<TypedSymbol>>,
+        arguments: Option<TypedList>,
         span: Span,
         node_id: NodeId,
     ) -> Self {
@@ -154,7 +155,7 @@ impl Declaration {
     }
 
     /// Returns an optional reference to the list of arguments associated with the symbol.
-    pub fn arguments(&self) -> Option<&Vec<TypedSymbol>> {
+    pub fn arguments(&self) -> Option<&TypedList> {
         self.arguments.as_ref()
     }
 
@@ -253,7 +254,7 @@ impl Declaration {
         }
         Ok(())
     }
-
+    
     /// Formats the arguments of the declaration for display.
     ///
     /// If the declaration has a list of arguments, this function formats them

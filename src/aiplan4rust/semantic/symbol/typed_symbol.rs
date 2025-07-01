@@ -1,9 +1,13 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::semantic::symbol::Type;
+use crate::aiplan4rust::syntax::ast::{Ast, FromAst};
+use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
 /// Represents a symbol identified by `Ident` with associated types,
 /// also identified by `Ident`.
@@ -103,5 +107,32 @@ impl DisplayWithInterner for TypedSymbol {
         }
 
         Ok(())
+    }
+}
+
+impl FromAst for TypedSymbol {
+    /// Constructs a `TypedSymbol` from an AST node.
+    ///
+    /// # Expectations
+    /// - The provided `node` **must** be of kind `TypedItem`.
+    /// - The node has **at most two children**:
+    ///   - The **first child** is the symbol (mandatory).
+    ///   - The **second child** is the type (optional).
+    /// - If the second child (type) is absent, returns a `TypedSymbol` with an empty `Type`.
+    ///
+    /// # Errors
+    /// Returns a `ParserInternalError` if accessing the children or parsing fails.
+    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+        let children = node.children();
+        let symbol_node = ast.try_node(children[0])?;
+
+        let ty = if children.len() > 1 {
+            let ty_node = ast.try_node(children[1])?;
+            Type::from_ast(ty_node, ast)?
+        } else {
+            Type::new()
+        };
+
+        Ok(TypedSymbol::new(symbol_node.try_ident()?, ty))
     }
 }

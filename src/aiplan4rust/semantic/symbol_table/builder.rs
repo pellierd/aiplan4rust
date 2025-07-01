@@ -1,7 +1,7 @@
 use std::default;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::ir::TypedList;
 use crate::aiplan4rust::tree::{TreeArena, NodeRef};
-use crate::aiplan4rust::syntax::elements::Ident;
 use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, TypedSymbol, Usage};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
@@ -348,7 +348,7 @@ impl SymbolTableBuilder {
         ast: &TreeArena<AstArenaNode>,
         scope: Scope,
         types: Option<Type>,
-        arguments: Option<Vec<TypedSymbol>>,
+        arguments: Option<TypedList>,
     ) -> Result<(), ParserInternalError> {
         // Assert that the AST kind is valid
         /*Self::assert_ast_kind(
@@ -1249,11 +1249,11 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstArenaNode>,
         ast: &TreeArena<AstArenaNode>,
-    ) -> Result<Vec<TypedSymbol>, ParserInternalError> {
+    ) -> Result<TypedList, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
         //Self::assert_ast_kind(node_ref.node(), &[AstKind::TypedList])?;
 
-        let mut typed_arguments = Vec::new();
+        let mut typed_arguments = TypedList::new();
         for typed_item_id in node_ref.node().children() {
             let typed_item_ref = &ast.try_node_ref(*typed_item_id)?;
             typed_arguments.extend(self.extract_arguments_from_typed_item(typed_item_ref, ast)?);
@@ -1288,7 +1288,7 @@ impl SymbolTableBuilder {
         &mut self,
         typed_item_ref: &NodeRef<AstArenaNode>,
         ast: &TreeArena<AstArenaNode>,
-    ) -> Result<Vec<TypedSymbol>, ParserInternalError> {
+    ) -> Result<TypedList, ParserInternalError> {
         // Ensure the node is of the correct kind
         //Self::assert_ast_kind(typed_item_ref.node(), &[AstKind::TypedItem])?;
 
@@ -1306,7 +1306,7 @@ impl SymbolTableBuilder {
             }
         };
 
-        let mut typed_arguments = Vec::new();
+        let mut typed_arguments = TypedList::new();
         let elt = ast.try_node_ref(children[0])?;
 
         match elt.node().kind() {
