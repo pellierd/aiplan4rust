@@ -1,6 +1,6 @@
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;

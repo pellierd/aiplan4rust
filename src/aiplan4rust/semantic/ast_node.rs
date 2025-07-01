@@ -10,7 +10,8 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::ast::content::Content;
-use crate::aiplan4rust::syntax::elements::{Ident, Requirement};
+use crate::aiplan4rust::syntax::elements::Requirement;
+use crate::aiplan4rust::lang::Ident;
 
 /// Represents a node in an Abstract Syntax Tree (AST) tree.
 ///

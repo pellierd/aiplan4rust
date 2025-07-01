@@ -1,5 +1,6 @@
 use crate::aiplan4rust::diagnostic::Severity;
-use crate::aiplan4rust::syntax::elements::{Ident, Requirement};
+use crate::aiplan4rust::syntax::elements::Requirement;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use std::fmt;

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 
 use std::collections::HashMap;
 use std::fmt;

@@ -6,7 +6,8 @@ use crate::aiplan4rust::tree::{TreeArena, NodeId, NodeContent};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
+use crate::aiplan4rust::lang::Ident;
 
 /// A generic trait representing a node in a tree stored within an `Arena`.
 ///

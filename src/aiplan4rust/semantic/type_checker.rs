@@ -4,7 +4,7 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 
 use std::collections::{HashMap, HashSet};
 use std::cell::{Ref, RefCell};

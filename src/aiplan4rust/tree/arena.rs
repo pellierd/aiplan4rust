@@ -12,7 +12,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::{AstArenaNode, symbol::SymbolRef};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
 use crate::aiplan4rust::syntax::DisplaySyntax;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 
 /// A flat arena-based tree structure for storing nodes of type `T`.
 ///

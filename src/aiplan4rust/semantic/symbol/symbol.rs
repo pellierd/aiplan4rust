@@ -1,5 +1,5 @@
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 use std::fmt;
 use serde::{Deserialize, Serialize};
 

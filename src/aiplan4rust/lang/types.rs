@@ -5,7 +5,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
 /// Represents a type in a planning problem IR.

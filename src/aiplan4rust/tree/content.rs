@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::DisplayWithInterner;
-use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
+use crate::aiplan4rust::lang::Ident;
 
 /// Trait representing the semantic content stored within a tree node.
 ///

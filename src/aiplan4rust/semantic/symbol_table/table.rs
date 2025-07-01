@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};

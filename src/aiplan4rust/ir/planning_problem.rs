@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::ir::action::Action;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 
 /// Represents a planning problem in the domain.
 ///

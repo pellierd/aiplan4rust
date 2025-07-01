@@ -7,7 +7,7 @@ use crate::aiplan4rust::{linking, semantic};
 use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolOrigin, Usage};
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 
 use std::collections::HashMap;
 use std::mem::take;

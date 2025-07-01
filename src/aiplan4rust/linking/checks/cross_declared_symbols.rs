@@ -10,7 +10,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
 ///

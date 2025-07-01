@@ -46,20 +46,18 @@
 //!
 
 use std::collections::HashMap;
-use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::syntax::elements::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::serialization::{serialize_ordered_float, deserialize_ordered_float};
 use crate::aiplan4rust::tree::NodeContent;
 
 use std::fmt;
-use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Visitor;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::ir::expr::ExprKind;
-use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
+use crate::aiplan4rust::syntax::ast::AstContent;
 
 /// Represents the semantic content attached to an AST node.
 ///

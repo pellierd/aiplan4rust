@@ -8,7 +8,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes all `Type` nodes in the given AST by removing duplicate `PrimitiveType` children.

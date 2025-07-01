@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::syntax::elements::Ident;
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::tree::{NodeContent, NodeId};
 
 /// A generic tree node used in arena-based trees.
