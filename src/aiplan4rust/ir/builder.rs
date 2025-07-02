@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::ir::action::Action;
-use crate::aiplan4rust::ir::atomic_skeleton::Predicate;
+use crate::aiplan4rust::ir::Predicate;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::ir::planning_problem::PlanningProblem;
-use crate::aiplan4rust::ir::atomic_skeleton::Function;
+use crate::aiplan4rust::ir::Function;
 use crate::aiplan4rust::ir::expr::Expr;
+use crate::aiplan4rust::ir::task::Task;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
@@ -55,6 +56,9 @@ impl IRBuilder {
                 }
                 AstKind::Constraints => {
                     ir.set_constraints(Expr::from_ast(node, domain)?);
+                }
+                AstKind::TaskDef => {
+                    ir.add_task(Task::from_ast(node, domain)?);
                 }
                 AstKind::ActionDef => {
                     ir.add_action(Action::from_ast(node, domain)?);

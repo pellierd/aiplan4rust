@@ -1,6 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::ir::expr::Expr;
+use crate::aiplan4rust::ir::Signature;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
@@ -9,17 +10,14 @@ use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::ir::task::Task;
 
 /// Represents an instantaneous action with always-present (possibly empty) precondition and effect.
 ///
 /// By convention, an “empty” expression is represented as an `Or` node with no children.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Action {
-    /// The action’s name, e.g. `"move"`.
-    name: Ident,
-
-    /// Formal parameters, e.g. `?x - location`.
-    parameters: TypedList,
+    signature : Signature,
 
     /// Precondition expression (never `None`; defaults to empty `Or`).
     precondition: Expr,
@@ -34,31 +32,34 @@ impl Action {
     /// The precondition and effect default to an empty `Or` expression.
     pub fn new(name: Ident, parameters: TypedList, precondition: Expr, effect: Expr) -> Self {
         Self {
-            name,
-            parameters,
+            signature: Signature::new(name, parameters),
             precondition,
             effect,
         }
     }
 
+    pub fn signature(&self) -> &Signature {
+        &self.signature
+    }
+
     /// Returns the action’s name.
     pub fn name(&self) -> Ident {
-        self.name
+        self.signature.name()
     }
 
     /// Sets the action’s name.
     pub fn set_name(&mut self, name: Ident) {
-        self.name = name;
+        self.signature.set_name(name);
     }
 
     /// Returns a slice of the action’s parameters.
     pub fn parameters(&self) -> &[TypedSymbol] {
-        &self.parameters
+        &self.signature.parameters()
     }
 
     /// Sets the action’s parameters.
-    pub fn set_parameters(&mut self, params: TypedList) {
-        self.parameters = params;
+    pub fn set_parameters(&mut self, parameters: TypedList) {
+        self.signature.set_parameters(parameters);
     }
 
     /// Returns a reference to the precondition expression.
@@ -99,13 +100,8 @@ impl FromAst for Action {
         node: &AstArenaNode,
         ast: &TreeArena<AstArenaNode>,
     ) -> Result<Self, ParserInternalError> {
-        // Retrieve the action name node and extract its identifier
-        let name_node = ast.try_node(node.try_child(0)?)?;
-        let name = name_node.try_ident()?;
-
-        // Retrieve the parameters node and parse it into a TypedList
-        let params_node = ast.try_node(node.try_child(1)?)?;
-        let parameters = TypedList::from_ast(&params_node, ast)?;
+        // Retrieve the action signature from the first two children of the node
+        let signature = Signature::from_ast(node, ast)?;
 
         // Retrieve the definition body node
         let def_body_node = ast.try_node(node.try_child(2)?)?;
@@ -130,21 +126,21 @@ impl FromAst for Action {
             Expr::empty_or()
         };
 
-        Ok(Action::new(name, parameters, precondition, effect))
+        Ok(Action {signature, precondition, effect} )
     }
 }
 
 impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let params = self
-            .parameters
+            .parameters()
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(", ");
 
         writeln!(f, "########################################")?;
-        writeln!(f, "### ACTION [{}]", self.name)?;
+        writeln!(f, "### ACTION [{}]", self.name())?;
         writeln!(f, "### PARAMETERS [{}]", params)?;
         writeln!(f, "### PRECONDITION")?;
         writeln!(f, "{}", self.precondition)?;
@@ -161,7 +157,7 @@ impl DisplayWithInterner for Action {
         interner: &StringInterner,
     ) -> std::fmt::Result {
         let params = self
-            .parameters
+            .parameters()
             .iter()
             .map(|p| p.to_string_with_interner(interner))
             .collect::<Vec<_>>()
@@ -171,7 +167,7 @@ impl DisplayWithInterner for Action {
         writeln!(
             f,
             "### ACTION [{}]",
-            self.name.to_string_with_interner(interner)
+            self.name().to_string_with_interner(interner)
         )?;
         writeln!(f, "### PARAMETERS [{}]", params)?;
         writeln!(f, "########################################")?;

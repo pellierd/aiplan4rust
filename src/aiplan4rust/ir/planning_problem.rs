@@ -1,8 +1,9 @@
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::ir::action::Action;
-use crate::aiplan4rust::ir::atomic_skeleton::{Function, Predicate};
+use crate::aiplan4rust::ir::{Function, Predicate};
 use crate::aiplan4rust::ir::expr::Expr;
+use crate::aiplan4rust::ir::task::Task;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 
 /// Represents a planning problem within a domain.
@@ -44,7 +45,11 @@ pub struct PlanningProblem {
     functions: Vec<Function>,
 
     /// The constraints for this planning problem,
+    /// No constraints are represented by an empty and `Expr'.
     constraints: Expr,
+
+    /// The list of tasks defined in this planning problem.
+    tasks: Vec<Task>,
 
     /// The list of actions defined in this planning problem.
     actions: Vec<Action>,
@@ -71,6 +76,7 @@ impl PlanningProblem {
             predicates: Vec::new(),
             functions: Vec::new(),
             constraints: Expr::empty_and(),
+            tasks: Vec::new(),
             actions: Vec::new(),
         }
     }
@@ -275,6 +281,31 @@ impl PlanningProblem {
     /// Sets the constraints expression.
     pub fn set_constraints(&mut self, constraints: Expr) {
         self.constraints = constraints;
+    }
+
+    // === Tasks ===
+
+    /// Returns a reference to the list of tasks.
+    pub fn tasks(&self) -> &Vec<Task> {
+        &self.tasks
+    }
+
+    /// Returns a mutable reference to the list of tasks.
+    pub fn tasks_mut(&mut self) -> &mut Vec<Task> {
+        &mut self.tasks
+    }
+
+    /// Adds a single task.
+    pub fn add_task(&mut self, task: Task) {
+        self.tasks.push(task);
+    }
+
+    /// Adds multiple tasks.
+    pub fn add_tasks<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = Task>,
+    {
+        self.tasks.extend(iter);
     }
 
     // === Actions ===
