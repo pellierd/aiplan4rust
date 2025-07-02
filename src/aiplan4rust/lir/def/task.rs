@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::lang::{Ident, Type, TypedList};
-use crate::aiplan4rust::ir::{Function, Signature};
+use crate::aiplan4rust::lang::{Ident, TypedList};
+use crate::aiplan4rust::lir::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::DisplaySyntax;
@@ -25,7 +25,7 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Task {
-    signature: Signature,
+    header: NamedTypedList,
 }
 
 impl Task {
@@ -40,23 +40,23 @@ impl Task {
     ///
     /// A new `Task` instance.
     pub fn new(name: Ident, parameters: TypedList) -> Self {
-        let signature = Signature::new(name, parameters);
-        Self { signature }
+        let signature = NamedTypedList::new(name, parameters);
+        Self { header: signature }
     }
 }
 
 // Allow direct access to the methods of `Signature`.
 impl Deref for Task {
-    type Target = Signature;
+    type Target = NamedTypedList;
 
     fn deref(&self) -> &Self::Target {
-        &self.signature
+        &self.header
     }
 }
 
 impl DerefMut for Task {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.signature
+        &mut self.header
     }
 }
 
@@ -74,8 +74,8 @@ impl FromAst for Task {
         node: &AstArenaNode,
         ast: &TreeArena<AstArenaNode>,
     ) -> Result<Self, ParserInternalError> {
-        let signature = Signature::from_ast(node, ast)?;
-        Ok(Task { signature })
+        let signature = NamedTypedList::from_ast(node, ast)?;
+        Ok(Task { header: signature })
     }
 }
 
@@ -84,7 +84,7 @@ impl FromAst for Task {
 /// This delegates formatting to the underlying `Signature`.
 impl fmt::Display for Task {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.signature.fmt(f)
+        self.header.fmt(f)
     }
 }
 
@@ -97,7 +97,7 @@ impl DisplayWithInterner for Task {
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.signature.fmt_with(f, interner)
+        self.header.fmt_with(f, interner)
     }
 }
 
@@ -110,6 +110,6 @@ impl DisplaySyntax for Task {
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.signature.fmt_syntax(f, interner)
+        self.header.fmt_syntax(f, interner)
     }
 }

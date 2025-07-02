@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::Read;
 
 use std::string::String;
-use crate::aiplan4rust::ir::IRBuilder;
+use crate::aiplan4rust::lir::IRBuilder;
 
 #[derive(Debug)]
 pub struct Frontend {}

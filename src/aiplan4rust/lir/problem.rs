@@ -1,9 +1,8 @@
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::ir::action::Action;
-use crate::aiplan4rust::ir::{Function, Predicate};
-use crate::aiplan4rust::ir::expr::Expr;
-use crate::aiplan4rust::ir::task::Task;
+use crate::aiplan4rust::lir::lifted::LiftedAction;
+use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
+use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 
 /// Represents a planning problem within a domain.
@@ -22,7 +21,7 @@ use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 /// assert_eq!(problem.problem_name().as_str(), "my_problem");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct PlanningProblem {
+pub struct Problem {
     /// The identifier of the domain.
     domain_name: Ident,
 
@@ -39,23 +38,23 @@ pub struct PlanningProblem {
     constants: HashSet<TypedSymbol>,
 
     /// The list of predicates in the planning problem.
-    predicates: Vec<Predicate>,
+    predicates: Vec<PredicateDef>,
 
     /// The list of functions in the planning problem.
-    functions: Vec<Function>,
+    functions: Vec<FunctionDef>,
 
     /// The constraints for this planning problem,
     /// No constraints are represented by an empty and `Expr'.
     constraints: Expr,
 
     /// The list of tasks defined in this planning problem.
-    tasks: Vec<Task>,
+    tasks: Vec<TaskDef>,
 
     /// The list of actions defined in this planning problem.
-    actions: Vec<Action>,
+    actions: Vec<LiftedAction>,
 }
 
-impl PlanningProblem {
+impl Problem {
     /// Creates a new empty `PlanningProblem` with default identifiers
     /// and no requirements, types, constants, predicates, functions, or actions.
     ///
@@ -219,24 +218,24 @@ impl PlanningProblem {
     // === Predicates ===
 
     /// Returns a reference to the list of predicates.
-    pub fn predicates(&self) -> &Vec<Predicate> {
+    pub fn predicates(&self) -> &Vec<PredicateDef> {
         &self.predicates
     }
 
     /// Returns a mutable reference to the list of predicates.
-    pub fn predicates_mut(&mut self) -> &mut Vec<Predicate> {
+    pub fn predicates_mut(&mut self) -> &mut Vec<PredicateDef> {
         &mut self.predicates
     }
 
     /// Adds a single predicate.
-    pub fn add_predicate(&mut self, predicate: Predicate) {
+    pub fn add_predicate(&mut self, predicate: PredicateDef) {
         self.predicates.push(predicate);
     }
 
     /// Adds multiple predicates.
     pub fn add_predicates<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = Predicate>,
+        I: IntoIterator<Item =PredicateDef>,
     {
         self.predicates.extend(iter);
     }
@@ -244,24 +243,24 @@ impl PlanningProblem {
     // === Functions ===
 
     /// Returns a reference to the list of functions.
-    pub fn functions(&self) -> &Vec<Function> {
+    pub fn functions(&self) -> &Vec<FunctionDef> {
         &self.functions
     }
 
     /// Returns a mutable reference to the list of functions.
-    pub fn functions_mut(&mut self) -> &mut Vec<Function> {
+    pub fn functions_mut(&mut self) -> &mut Vec<FunctionDef> {
         &mut self.functions
     }
 
     /// Adds a single function.
-    pub fn add_function(&mut self, function: Function) {
+    pub fn add_function(&mut self, function: FunctionDef) {
         self.functions.push(function);
     }
 
     /// Adds multiple functions.
     pub fn add_functions<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = Function>,
+        I: IntoIterator<Item =FunctionDef>,
     {
         self.functions.extend(iter);
     }
@@ -286,24 +285,24 @@ impl PlanningProblem {
     // === Tasks ===
 
     /// Returns a reference to the list of tasks.
-    pub fn tasks(&self) -> &Vec<Task> {
+    pub fn tasks(&self) -> &Vec<TaskDef> {
         &self.tasks
     }
 
     /// Returns a mutable reference to the list of tasks.
-    pub fn tasks_mut(&mut self) -> &mut Vec<Task> {
+    pub fn tasks_mut(&mut self) -> &mut Vec<TaskDef> {
         &mut self.tasks
     }
 
     /// Adds a single task.
-    pub fn add_task(&mut self, task: Task) {
+    pub fn add_task(&mut self, task: TaskDef) {
         self.tasks.push(task);
     }
 
     /// Adds multiple tasks.
     pub fn add_tasks<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = Task>,
+        I: IntoIterator<Item =TaskDef>,
     {
         self.tasks.extend(iter);
     }
@@ -311,24 +310,24 @@ impl PlanningProblem {
     // === Actions ===
 
     /// Returns a reference to the list of actions.
-    pub fn actions(&self) -> &Vec<Action> {
+    pub fn actions(&self) -> &Vec<LiftedAction> {
         &self.actions
     }
 
     /// Returns a mutable reference to the list of actions.
-    pub fn actions_mut(&mut self) -> &mut Vec<Action> {
+    pub fn actions_mut(&mut self) -> &mut Vec<LiftedAction> {
         &mut self.actions
     }
 
     /// Adds a single action.
-    pub fn add_action(&mut self, action: Action) {
+    pub fn add_action(&mut self, action: LiftedAction) {
         self.actions.push(action);
     }
 
     /// Adds multiple actions.
     pub fn add_actions<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = Action>,
+        I: IntoIterator<Item = LiftedAction>,
     {
         self.actions.extend(iter);
     }

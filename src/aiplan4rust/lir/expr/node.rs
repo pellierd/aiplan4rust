@@ -6,8 +6,8 @@ use std::ops::{Deref, DerefMut};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::ir::expr::content::Content;
-use crate::aiplan4rust::ir::expr::{ExprContent, ExprKind};
+use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::tree::{AbstractNode, NodeContent, NodeId, TreeArena, TreeNode};

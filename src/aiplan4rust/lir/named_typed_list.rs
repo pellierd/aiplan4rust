@@ -21,14 +21,14 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 /// println!("Name: {}", pred.name);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct Signature {
+pub struct NamedTypedList {
     /// Name of the predicate or function.
     name: Ident,
     /// Signature describing parameter types and optional return type.
     parameters: TypedList,
 }
 
-impl Signature {
+impl NamedTypedList {
     /// Creates a new skeleton with a name and a list of parameters.
     pub fn new(name: Ident, parameters: TypedList) -> Self {
         Self { name, parameters }
@@ -57,7 +57,7 @@ impl Signature {
     }
 }
 
-impl FromAst for Signature {
+impl FromAst for NamedTypedList {
     fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
         let name_id = node.try_child(0)?;
         let name_node = ast.try_node(name_id)?;
@@ -67,11 +67,11 @@ impl FromAst for Signature {
         let params_node = ast.try_node(params_id)?;
         let parameters = TypedList::from_ast(params_node, ast)?;
 
-        Ok(Signature::new(name, parameters))
+        Ok(NamedTypedList::new(name, parameters))
     }
 }
 
-impl Display for Signature {
+impl Display for NamedTypedList {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[name: ")?;
         self.name.fmt(f)?;
@@ -81,7 +81,7 @@ impl Display for Signature {
     }
 }
 
-impl DisplayWithInterner for Signature {
+impl DisplayWithInterner for NamedTypedList {
     fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         write!(f, "[name: ")?;
         self.name.fmt_with(f, interner)?;
@@ -91,7 +91,7 @@ impl DisplayWithInterner for Signature {
     }
 }
 
-impl DisplaySyntax for Signature {
+impl DisplaySyntax for NamedTypedList {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

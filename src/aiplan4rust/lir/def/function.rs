@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Serialize, Deserialize};
 
 use crate::aiplan4rust::lang::{Ident, Type, TypedList};
-use crate::aiplan4rust::ir::Signature;
+use crate::aiplan4rust::lir::NamedTypedList;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
@@ -13,7 +13,7 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
 /// Represents the signature of a PDDL function (name, typed parameters, return type).
 ///
-/// This type encapsulates a [`Signature`] to factor out the name and parameters,
+/// This type encapsulates a [`NamedTypedList`] to factor out the name and parameters,
 /// and explicitly adds the return type.
 ///
 /// # Example
@@ -30,13 +30,13 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 ///
 /// # Details
 ///
-/// - Implements [`Deref`] and [`DerefMut`] to [`Signature`] so you can directly access
+/// - Implements [`Deref`] and [`DerefMut`] to [`NamedTypedList`] so you can directly access
 ///   methods like `name()` or `parameters()`.
 /// - Can be created from an AST using [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Function {
     /// The skeleton holding the name and parameters.
-    signature: Signature,
+    header: NamedTypedList,
     /// The return type of the function.
     ty: Type,
 }
@@ -50,8 +50,8 @@ impl Function {
     /// * `parameters` - The typed list of parameters.
     /// * `ty` - The return type.
     pub fn new(name: Ident, parameters: TypedList, ty: Type) -> Self {
-        let skeleton = Signature::new(name, parameters);
-        Self { signature: skeleton, ty }
+        let skeleton = NamedTypedList::new(name, parameters);
+        Self { header: skeleton, ty }
     }
 
     /// Returns a reference to the return type.
@@ -62,16 +62,16 @@ impl Function {
 
 // Enable treating FunctionSkeleton as a Skeleton directly.
 impl Deref for Function {
-    type Target = Signature;
+    type Target = NamedTypedList;
 
     fn deref(&self) -> &Self::Target {
-        &self.signature
+        &self.header
     }
 }
 
 impl DerefMut for Function {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.signature
+        &mut self.header
     }
 }
 
@@ -84,20 +84,20 @@ impl FromAst for Function {
     /// 1 - the typed parameter list
     /// 2 - the return type
     fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
-        let signature = Signature::from_ast(node, ast)?;
+        let signature = NamedTypedList::from_ast(node, ast)?;
 
         let ty_id = node.try_child(2)?;
         let ty_node = ast.try_node(ty_id)?;
         let ty = Type::from_ast(ty_node, ast)?;
 
-        Ok(Function { signature, ty })
+        Ok(Function { header: signature, ty })
     }
 }
 
 /// Simple display: `name(params) -> return_type`.
 impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} -> {}", self.signature, self.ty)
+        write!(f, "{} -> {}", self.header, self.ty)
     }
 }
 
@@ -111,7 +111,7 @@ impl DisplayWithInterner for Function {
         write!(
             f,
             "{} -> {:?}",
-            self.signature.to_string_with_interner(interner),
+            self.header.to_string_with_interner(interner),
             self.ty.to_string_with_interner(interner)
         )
     }

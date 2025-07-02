@@ -1,14 +1,12 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::ir::action::Action;
-use crate::aiplan4rust::ir::Predicate;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
-use crate::aiplan4rust::ir::planning_problem::PlanningProblem;
-use crate::aiplan4rust::ir::Function;
-use crate::aiplan4rust::ir::expr::Expr;
-use crate::aiplan4rust::ir::task::Task;
+use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
+use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
+use crate::aiplan4rust::lir::lifted::LiftedAction;
+use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 
@@ -30,8 +28,8 @@ impl IRBuilder {
     pub fn build(
         &mut self,
         context: &LinkedSemanticContext
-    ) -> Result<PlanningProblem, ParserInternalError> {
-        let mut ir = PlanningProblem::new();
+    ) -> Result<LiftedProblem, ParserInternalError> {
+        let mut ir = LiftedProblem::new();
 
         let domain = context.domain();
         for node in domain.preorder() {
@@ -58,10 +56,10 @@ impl IRBuilder {
                     ir.set_constraints(Expr::from_ast(node, domain)?);
                 }
                 AstKind::TaskDef => {
-                    ir.add_task(Task::from_ast(node, domain)?);
+                    ir.add_task(TaskDef::from_ast(node, domain)?);
                 }
                 AstKind::ActionDef => {
-                    ir.add_action(Action::from_ast(node, domain)?);
+                    ir.add_action(LiftedAction::from_ast(node, domain)?);
                 }
 
                 _ => {
@@ -85,15 +83,15 @@ fn build_requirements_from(
 fn build_predicates_from(
     predicates_def_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
-) -> Result<HashSet<Predicate>, ParserInternalError> {
-    build_set_from_children(predicates_def_node, ast, Predicate::from_ast)
+) -> Result<HashSet<PredicateDef>, ParserInternalError> {
+    build_set_from_children(predicates_def_node, ast, PredicateDef::from_ast)
 }
 
 fn build_functions_from(
     functions_def_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
-) -> Result<HashSet<Function>, ParserInternalError> {
-    build_set_from_children(functions_def_node, ast, Function::from_ast)
+) -> Result<HashSet<FunctionDef>, ParserInternalError> {
+    build_set_from_children(functions_def_node, ast, FunctionDef::from_ast)
 }
 
 fn build_types_from(
