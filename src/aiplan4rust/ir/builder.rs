@@ -1,9 +1,11 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::ir::action::Action;
+use crate::aiplan4rust::ir::atomic_skeleton::Predicate;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::tree::TreeNode;
 use crate::aiplan4rust::ir::planning_problem::PlanningProblem;
+use crate::aiplan4rust::ir::atomic_skeleton::Function;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 
 #[derive(Debug)]
@@ -33,8 +35,14 @@ impl IRBuilder {
                 AstKind::DomainName => {
                     ir.set_domain_name(node.try_ident()?);
                 }
-                AstKind::PredicatesDef => {
-                    
+                AstKind::Requirement => {
+                    ir.add_requirement(node.try_requirement()?);
+                }
+                AstKind::AtomicFormulaSkeleton => {
+                    ir.add_predicate(Predicate::from_ast(node, domain)?);
+                }
+                AstKind::AtomicFunctionSkeleton => {
+                    ir.add_function(Function::from_ast(node, domain)?);
                 }
                 AstKind::ActionDef => {
                     let action = Action::from_ast(node, domain)?;

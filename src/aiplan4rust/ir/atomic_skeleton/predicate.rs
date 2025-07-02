@@ -39,12 +39,12 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`Skeleton`] transparently.
 /// - Supports pretty-printing with or without an interner.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PredicateSkeleton {
+pub struct Predicate {
     /// Underlying skeleton holding the identifier and parameters.
     skeleton: Skeleton,
 }
 
-impl PredicateSkeleton {
+impl Predicate {
     /// Creates a new predicate signature from a name and parameter types.
     ///
     /// # Parameters
@@ -60,7 +60,7 @@ impl PredicateSkeleton {
 }
 
 // Allow direct access to Skeleton methods
-impl Deref for PredicateSkeleton {
+impl Deref for Predicate {
     type Target = Skeleton;
 
     fn deref(&self) -> &Self::Target {
@@ -68,13 +68,13 @@ impl Deref for PredicateSkeleton {
     }
 }
 
-impl DerefMut for PredicateSkeleton {
+impl DerefMut for Predicate {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.skeleton
     }
 }
 
-impl FromAst for PredicateSkeleton {
+impl FromAst for Predicate {
     /// Parses a `PredicateSkeleton` from the AST.
     ///
     /// Expects a node structure where:
@@ -89,21 +89,21 @@ impl FromAst for PredicateSkeleton {
         let parameters_node = ast.try_node(parameters_id)?;
         let parameters = TypedList::from_ast(parameters_node, ast)?;
 
-        Ok(PredicateSkeleton::new(predicate, parameters))
+        Ok(Predicate::new(predicate, parameters))
     }
 }
 
 /// Displays the predicate in a human-readable form.
 ///
 /// Delegates formatting to the underlying `Skeleton`.
-impl fmt::Display for PredicateSkeleton {
+impl fmt::Display for Predicate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.skeleton.fmt(f)
     }
 }
 
 /// Displays the predicate using the provided interner to resolve identifiers.
-impl DisplayWithInterner for PredicateSkeleton {
+impl DisplayWithInterner for Predicate {
     fn fmt_with(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -114,7 +114,7 @@ impl DisplayWithInterner for PredicateSkeleton {
 }
 
 /// Displays the predicate in a syntax-oriented format.
-impl DisplaySyntax for PredicateSkeleton {
+impl DisplaySyntax for Predicate {
     fn fmt_syntax(
         &self,
         f: &mut fmt::Formatter<'_>,

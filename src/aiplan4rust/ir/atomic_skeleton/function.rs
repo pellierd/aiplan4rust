@@ -34,14 +34,14 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 ///   methods like `name()` or `parameters()`.
 /// - Can be created from an AST using [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct FunctionSkeleton {
+pub struct Function {
     /// The skeleton holding the name and parameters.
     skeleton: Skeleton,
     /// The return type of the function.
     ty: Type,
 }
 
-impl FunctionSkeleton {
+impl Function {
     /// Creates a new function signature with a name, a list of parameters, and a return type.
     ///
     /// # Parameters
@@ -61,7 +61,7 @@ impl FunctionSkeleton {
 }
 
 // Enable treating FunctionSkeleton as a Skeleton directly.
-impl Deref for FunctionSkeleton {
+impl Deref for Function {
     type Target = Skeleton;
 
     fn deref(&self) -> &Self::Target {
@@ -69,14 +69,14 @@ impl Deref for FunctionSkeleton {
     }
 }
 
-impl DerefMut for FunctionSkeleton {
+impl DerefMut for Function {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.skeleton
     }
 }
 
 // Conversion from AST.
-impl FromAst for FunctionSkeleton {
+impl FromAst for Function {
     /// Builds a `FunctionSkeleton` from an AST node.
     ///
     /// Expects a tree whose children are:
@@ -96,19 +96,19 @@ impl FromAst for FunctionSkeleton {
         let ty_node = ast.try_node(ty_id)?;
         let ty = Type::from_ast(ty_node, ast)?;
 
-        Ok(FunctionSkeleton::new(func_ident, parameters, ty))
+        Ok(Function::new(func_ident, parameters, ty))
     }
 }
 
 /// Simple display: `name(params) -> return_type`.
-impl fmt::Display for FunctionSkeleton {
+impl fmt::Display for Function {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} -> {}", self.skeleton, self.ty)
     }
 }
 
 /// Display with interner support to resolve identifiers to strings.
-impl DisplayWithInterner for FunctionSkeleton {
+impl DisplayWithInterner for Function {
     fn fmt_with(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -124,7 +124,7 @@ impl DisplayWithInterner for FunctionSkeleton {
 }
 
 /// Syntax display (currently identical to `fmt_with`).
-impl DisplaySyntax for FunctionSkeleton {
+impl DisplaySyntax for Function {
     fn fmt_syntax(
         &self,
         f: &mut fmt::Formatter<'_>,

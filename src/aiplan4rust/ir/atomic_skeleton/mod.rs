@@ -4,5 +4,5 @@ mod function;
 mod predicate;
 
 pub(crate) use skeleton::Skeleton;
-pub use predicate::PredicateSkeleton;
-pub use function::FunctionSkeleton;
+pub use predicate::Predicate;
+pub use function::Function;
