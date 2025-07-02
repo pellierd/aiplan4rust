@@ -5,6 +5,7 @@ pub mod expr;
 pub mod planning_problem;
 
 mod atomic_skeleton;
+mod method;
 
 pub use builder::IRBuilder;
 

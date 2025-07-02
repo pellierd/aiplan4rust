@@ -1563,7 +1563,7 @@ pub SubtaskDef : Box<AstNode> = {
     },
 }
 
-pub TaskNetworkdSubtaskDef: Box<AstNode> = {
+pub TaskNetworkSubtaskDef: Box<AstNode> = {
     <start:@L> ":ordered-tasks" <subtasks:SubtaskDef> <end:@R> => {
         let mut children = Vec::new();
         children.push(subtasks);
@@ -1666,7 +1666,7 @@ pub TaskNetworkLogicalConstraintDef : Box<AstNode> = {
 
 pub TaskNetworkDef : Box<AstNode> = {
     <start:@L>
-        <subtasks:TaskNetworkdSubtaskDef?>
+        <subtasks:TaskNetworkSubtaskDef?>
         <ordering_constraints:TaskNetworkOrderingConstraintDef?>
         <logical_constraints:TaskNetworkLogicalConstraintDef?>
     <end:@R> => {
