@@ -30,6 +30,12 @@ impl IRBuilder {
 
         for node in domain.preorder() {
             match node.kind() {
+                AstKind::DomainName => {
+                    ir.set_domain_name(node.try_ident()?);
+                }
+                AstKind::PredicatesDef => {
+                    
+                }
                 AstKind::ActionDef => {
                     let action = Action::from_ast(node, domain)?;
                     println!("{}", action.to_string_with_interner(context.interner()));

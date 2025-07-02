@@ -190,7 +190,7 @@ impl Type {
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_atomic_type() {
-            write!(f, "t{}", self.members[0])
+            write!(f, "{}", self.members[0])
         } else {
             write!(f, "either(")?;
             for (i, id) in self.members.iter().enumerate() {
