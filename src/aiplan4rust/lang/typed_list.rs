@@ -1,9 +1,12 @@
+use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
+use crate::aiplan4rust::syntax::DisplaySyntax;
 use crate::aiplan4rust::tree::TreeArena;
 
 /// A list of `TypedSymbol` items.
@@ -130,5 +133,42 @@ impl FromAst for TypedList {
             typed_list.push(ty);
         }
         Ok(typed_list)
+    }
+}
+
+impl fmt::Display for TypedList {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "(")?;
+        let mut first = true;
+        for sym in &self.symbols {
+            if !first {
+                write!(f, " ")?;
+            }
+            write!(f, "{sym}")?;
+            first = false;
+        }
+        write!(f, ")")
+    }
+}
+
+impl DisplayWithInterner for TypedList {
+    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        write!(f, "(")?;
+        let mut first = true;
+        for sym in &self.symbols {
+            if !first {
+                write!(f, " ")?;
+            }
+            sym.fmt_with(f, interner)?;
+            first = false;
+        }
+        write!(f, ")")
+    }
+}
+
+
+impl DisplaySyntax for TypedList {
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        self.fmt_with(f, interner)
     }
 }

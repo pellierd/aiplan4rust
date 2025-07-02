@@ -1,84 +1,135 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::lang::{Ident, Type};
-use crate::aiplan4rust::ir::atomic_skeleton::{Skeleton, Signature};
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use serde::{Serialize, Deserialize};
 
-/// Represents a function declaration skeleton in PDDL.
+use crate::aiplan4rust::lang::{Ident, Type, TypedList};
+use crate::aiplan4rust::ir::atomic_skeleton::Skeleton;
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::FromAst;
+use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+
+/// Represents the signature of a PDDL function (name, typed parameters, return type).
 ///
-/// Wraps an `AbstractSkeleton` which contains the name and signature (parameters + return type).
-/// Provides convenient constructors and can be extended with function-specific methods.
+/// This type encapsulates a [`Skeleton`] to factor out the name and parameters,
+/// and explicitly adds the return type.
 ///
-/// # Examples
+/// # Example
 ///
 /// ```
-/// let func = FunctionSkeleton::new_function(
-///     Ident::new("my_function"),
-///     vec![Type::Object, Type::Integer],
-///     Type::Bool,
+/// let func = FunctionSkeleton::new(
+///     Ident::new("distance"),
+///     TypedList::from(vec![Type::Location, Type::Location]),
+///     Type::Number,
 /// );
-/// assert_eq!(func.name(), "my_function");
-/// assert_eq!(func.arity(), 2);
-/// assert_eq!(func.return_type(), Some(&Type::Bool));
+/// assert_eq!(func.return_type(), &Type::Number);
+/// assert_eq!(func.parameters().len(), 2);
 /// ```
+///
+/// # Details
+///
+/// - Implements [`Deref`] and [`DerefMut`] to [`Skeleton`] so you can directly access
+///   methods like `name()` or `parameters()`.
+/// - Can be created from an AST using [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct FunctionSkeleton {
-    /// Inner abstract skeleton (name + signature)
-    abstract_skeleton: Skeleton,
+    /// The skeleton holding the name and parameters.
+    skeleton: Skeleton,
+    /// The return type of the function.
+    ty: Type,
 }
 
 impl FunctionSkeleton {
+    /// Creates a new function signature with a name, a list of parameters, and a return type.
+    ///
+    /// # Parameters
+    ///
+    /// * `name` - The function identifier.
+    /// * `parameters` - The typed list of parameters.
+    /// * `ty` - The return type.
+    pub fn new(name: Ident, parameters: TypedList, ty: Type) -> Self {
+        let skeleton = Skeleton::new(name, parameters);
+        Self { skeleton, ty }
+    }
 
-    /// Creates a new `FunctionSkeleton` with the given name, parameter types and return type.
-    pub fn new(name: Ident, parameters: Vec<Type>, return_type: Type) -> Self {
-        let mut signature = Signature::new(parameters, Some(return_type));
-        let abstract_skeleton = Skeleton::new(name, signature);
-        Self { abstract_skeleton }
+    /// Returns a reference to the return type.
+    pub fn return_type(&self) -> &Type {
+        &self.ty
     }
 }
 
-// Deref to AbstractSkeleton to access name and signature methods transparently
+// Enable treating FunctionSkeleton as a Skeleton directly.
 impl Deref for FunctionSkeleton {
     type Target = Skeleton;
 
     fn deref(&self) -> &Self::Target {
-        &self.abstract_skeleton
+        &self.skeleton
     }
 }
 
 impl DerefMut for FunctionSkeleton {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.abstract_skeleton
+        &mut self.skeleton
     }
 }
 
-/// Delegate Display to Skeleton
+// Conversion from AST.
+impl FromAst for FunctionSkeleton {
+    /// Builds a `FunctionSkeleton` from an AST node.
+    ///
+    /// Expects a tree whose children are:
+    /// 0 - the function name (Ident)
+    /// 1 - the typed parameter list
+    /// 2 - the return type
+    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+        let func_id = node.try_child(0)?;
+        let func_node = ast.try_node(func_id)?;
+        let func_ident = func_node.try_ident()?;
+
+        let params_id = node.try_child(1)?;
+        let params_node = ast.try_node(params_id)?;
+        let parameters = TypedList::from_ast(params_node, ast)?;
+
+        let ty_id = node.try_child(2)?;
+        let ty_node = ast.try_node(ty_id)?;
+        let ty = Type::from_ast(ty_node, ast)?;
+
+        Ok(FunctionSkeleton::new(func_ident, parameters, ty))
+    }
+}
+
+/// Simple display: `name(params) -> return_type`.
 impl fmt::Display for FunctionSkeleton {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.abstract_skeleton.fmt(f)
+        write!(f, "{} -> {}", self.skeleton, self.ty)
     }
 }
 
-/// Delegate DisplayWithInterner to Skeleton
+/// Display with interner support to resolve identifiers to strings.
 impl DisplayWithInterner for FunctionSkeleton {
     fn fmt_with(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.abstract_skeleton.fmt_with(f, interner)
+        write!(
+            f,
+            "{} -> {:?}",
+            self.skeleton.to_string_with_interner(interner),
+            self.ty.to_string_with_interner(interner)
+        )
     }
 }
 
-/// Delegate DisplaySyntax to Skeleton
+/// Syntax display (currently identical to `fmt_with`).
 impl DisplaySyntax for FunctionSkeleton {
     fn fmt_syntax(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.abstract_skeleton.fmt_syntax(f, interner)
+        self.fmt_with(f, interner)
     }
 }

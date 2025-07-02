@@ -1,7 +1,8 @@
-pub mod signature;
+
 mod skeleton;
 mod function;
 mod predicate;
 
-pub use signature::Signature;
-pub use skeleton::Skeleton;
+pub(crate) use skeleton::Skeleton;
+pub use predicate::PredicateSkeleton;
+pub use function::FunctionSkeleton;

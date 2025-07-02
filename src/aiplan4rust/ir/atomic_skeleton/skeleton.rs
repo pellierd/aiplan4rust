@@ -1,6 +1,9 @@
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::ir::atomic_skeleton::Signature;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::lang::{Ident, TypedList};
+use crate::aiplan4rust::syntax::DisplaySyntax;
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
 ///
@@ -16,15 +19,15 @@ use crate::aiplan4rust::ir::atomic_skeleton::Signature;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Skeleton {
     /// Name of the predicate or function.
-    pub name: Ident,
+    name: Ident,
     /// Signature describing parameter types and optional return type.
-    pub signature: Signature,
+    parameters: TypedList,
 }
 
 impl Skeleton {
-    /// Creates a new skeleton with a name and a signature.
-    pub fn new(name: Ident, signature: Signature) -> Self {
-        Self { name, signature }
+    /// Creates a new skeleton with a name and a list of parameters.
+    pub fn new(name: Ident, parameters: TypedList) -> Self {
+        Self { name, parameters }
     }
 
     /// Returns the name.
@@ -33,43 +36,39 @@ impl Skeleton {
     }
 
     /// Returns the signature.
-    pub fn signature(&self) -> &Signature {
-        &self.signature
+    pub fn parameters(&self) -> &TypedList {
+        &self.parameters
     }
 
     /// Returns a mutable reference to the signature.
-    pub fn signature_mut(&mut self) -> &mut Signature {
-        &mut self.signature
+    pub fn parameters_mut(&mut self) -> &mut TypedList {
+        &mut self.parameters
     }
 }
 
-use std::fmt::{Display, Formatter, Result as FmtResult};
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::ir::atomic_skeleton::Signature;
-use crate::aiplan4rust::interner::{StringInterner, DisplayWithInterner, DisplaySyntax};
-use crate::aiplan4rust::syntax::DisplaySyntax;
 
 impl Display for Skeleton {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "Skeleton {{ name: {}, ", self.name)?;
-        write!(f, "signature: {} }}", self.signature)
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "[name: ")?;
+        self.name.fmt(f)?;
+        write!(f, ", parameters: ")?;
+        self.parameters.fmt(f)?;
+        write!(f, "]")
     }
 }
 
 impl DisplayWithInterner for Skeleton {
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> FmtResult {
-        write!(
-            f,
-            "Skeleton {{ name: {}, signature: ",
-            self.name.to_string_with_interner(interner)
-        )?;
-        self.signature.fmt_with(f, interner)?;
-        write!(f, " }}")
+    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        write!(f, "[name: ")?;
+        self.name.fmt_with(f, interner)?;
+        write!(f, ", parameters: ")?;
+        self.parameters.fmt_with(f, interner)?;
+        write!(f, "]")
     }
 }
 
 impl DisplaySyntax for Skeleton {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> FmtResult {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }
 }
