@@ -40,6 +40,13 @@ impl Expr {
         empty_or.add(root);
         empty_or
     }
+
+    pub fn empty_and() -> Self {
+        let mut empty_and = Expr::new();
+        let root = ExprNode::new(ExprKind::And, ExprContent::None, None);
+        empty_and.add(root);
+        empty_and
+    }
 }
 
 /// Implements the `FromAst` trait for `Expr`.

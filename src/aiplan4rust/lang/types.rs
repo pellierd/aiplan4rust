@@ -6,7 +6,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{NodeContent, TreeArena, TreeNode};
 
 /// Represents a type in a planning problem IR.
 ///
@@ -257,8 +257,9 @@ impl FromAst for Type {
         let mut ty = Type::new();
         for ty_id in node.children() {
             let child_node = ast.try_node(*ty_id)?;
-            let ident: Ident = child_node.try_ident()?;
-            ty.add_type(ident);
+            if !child_node.content().is_none() {
+                ty.add_type(child_node.try_ident()?);
+            }
         }
         Ok(ty)
     }

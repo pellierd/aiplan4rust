@@ -132,7 +132,7 @@ impl FromAst for TypedSymbol {
         } else {
             Type::new()
         };
-
+        println!("----> {}", symbol_node.to_string());
         Ok(TypedSymbol::new(symbol_node.try_ident()?, ty))
     }
 }

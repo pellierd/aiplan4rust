@@ -81,6 +81,7 @@ impl FromAst for Predicate {
     /// - Child 0 is the predicate identifier.
     /// - Child 1 is the typed parameter list.
     fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+        println!("@@@@@@{}", node);
         let predicate_id = node.try_child(0)?;
         let predicate_node = ast.try_node(predicate_id)?;
         let predicate = predicate_node.try_ident()?;
