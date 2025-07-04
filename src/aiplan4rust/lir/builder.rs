@@ -26,9 +26,26 @@ impl IRBuilder {
 
 impl IRBuilder {
 
+    /// Construit un LiftedProblem à partir du contexte sémantique complet
     pub fn build(
         &mut self,
-        context: &LinkedSemanticContext
+        context: &LinkedSemanticContext,
+    ) -> Result<LiftedProblem, ParserInternalError> {
+        let mut ir = LiftedProblem::new();
+
+        // Extraire d'abord les données du domaine
+        self.extract_ir_from_domain(context, &mut ir)?;
+
+        // Puis extraire les données du problème
+        self.extract_ir_from_problem(context, &mut ir)?;
+
+        Ok(ir)
+    }
+
+    pub fn extract_ir_from_domain(
+        &mut self,
+        context: &LinkedSemanticContext,
+        ir: &mut LiftedProblem
     ) -> Result<LiftedProblem, ParserInternalError> {
         let mut ir = LiftedProblem::new();
 
@@ -65,7 +82,6 @@ impl IRBuilder {
                 AstKind::MethodDef => {
                     ir.add_method(LiftedMethod::from_ast(node, domain)?);
                 }
-
                 _ => {
                     // For now, ignore other kinds.
                     // You can add handling for MethodDef, FunctionDef, etc. here.
@@ -74,6 +90,38 @@ impl IRBuilder {
         }
 
         Ok(ir)
+    }
+
+    /// Extraction des informations du problème vers IR
+    fn extract_ir_from_problem(
+        &self,
+        context: &LinkedSemanticContext,
+        ir: &mut LiftedProblem,
+    ) -> Result<(), ParserInternalError> {
+
+        let problem = context.problem();
+
+        for node in problem.preorder() {
+            match node.kind() {
+                AstKind::ProblemName => {
+                    ir.set_problem_name(node.try_ident()?);
+                }
+                /*AstKind::InitDef => {
+                    ir.set_init_state(build_init_state_from(node, problem)?);
+                }
+                AstKind::GoalDef => {
+                    ir.set_goal(Expr::from_ast(node, problem)?);
+                }
+                AstKind::MetricDef => {
+                    ir.set_metric(build_metric_from(node, problem)?);
+                }*/
+                // Ajoute d'autres kinds si nécessaire pour le problème
+                _ => {
+                    // Ignorer les autres pour l'instant
+                }
+            }
+        }
+        Ok(())
     }
 }
 
