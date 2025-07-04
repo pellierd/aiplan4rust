@@ -38,6 +38,21 @@ impl TypedList {
     pub fn new() -> Self {
         Self { symbols: Vec::new() }
     }
+
+    /// Returns an empty instance of the type.
+    ///
+    /// This is a convenience method that creates a default (empty) value.
+    /// It relies on the `Default` trait implementation for this type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let empty_list = TypedList::empty();
+    /// assert!(empty_list.is_empty()); // supposant que is_empty() est défini
+    /// ```
+    pub fn empty() -> Self {
+        Self::default()
+    }
 }
 
 impl Deref for TypedList {

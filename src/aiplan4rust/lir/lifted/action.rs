@@ -148,14 +148,14 @@ impl fmt::Display for Action {
             .collect::<Vec<_>>()
             .join(", ");
 
-        writeln!(f, "########################################")?;
-        writeln!(f, "### ACTION [{}]", self.name())?;
-        writeln!(f, "### PARAMETERS [{}]", params)?;
-        writeln!(f, "### PRECONDITION")?;
+        writeln!(f, "################# ACTION ##################")?;
+        writeln!(f, "NAME [{}]", self.name())?;
+        writeln!(f, "PARAMETERS [{}]", params)?;
+        writeln!(f, "PRECONDITION")?;
         writeln!(f, "{}", self.precondition)?;
-        writeln!(f, "### EFFECT")?;
+        writeln!(f, "EFFECT")?;
         writeln!(f, "{}", self.effect)?;
-        writeln!(f, "########################################")
+        Ok(())
     }
 }
 
@@ -172,20 +172,18 @@ impl DisplayWithInterner for Action {
             .collect::<Vec<_>>()
             .join(", ");
 
-        writeln!(f, "########################################")?;
+        writeln!(f, "################# ACTION ##################")?;
         writeln!(
             f,
-            "### ACTION [{}]",
+            "NAME [{}]",
             self.name().to_string_with_interner(interner)
         )?;
-        writeln!(f, "### PARAMETERS [{}]", params)?;
-        writeln!(f, "########################################")?;
-        writeln!(f, "### PRECONDITION")?;
+        writeln!(f, "PARAMETERS [{}]", params)?;
+        writeln!(f, "PRECONDITION")?;
         self.precondition.fmt_with(f, interner)?;
-        writeln!(f, "########################################")?;
-        writeln!(f, "### EFFECT")?;
+        writeln!(f, " EFFECT")?;
         self.effect.fmt_with(f, interner)?;
-        writeln!(f, "########################################")
+        Ok(())
     }
 }
 

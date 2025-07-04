@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lir::lifted::{LiftedAction, LiftedMethod};
+use crate::aiplan4rust::lir::lifted::{InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
@@ -59,22 +59,25 @@ pub struct Problem {
     /// The set of objects defined in this planning problem.
     objects: HashSet<TypedSymbol>,
 
-    /// The initial state of the problem
+    /// The initial state of the problem.
     init: Expr,
 
-    /// The goal of the problem
+    /// The goal of the problem.
     goal: Expr,
 
-    /// The constraints defined in the problem, i.e., the constraints specific to an instance
+    /// The constraints defined in the problem, i.e., the constraints specific to an instance.
     /// No constraints are represented by an empty and `Expr'.
     problem_constraints: Expr,
 
-    /// The metric specification of the problem
+    /// The metric specification of the problem.
     metric_spec: Expr,
 
-    /// The length specification of the problem
+    /// The length specification of the problem.
     /// The length-spec is deprecated since PDDL 2.1.
     length_spec: Expr,
+
+    /// The initial task network of the problem.
+    initial_task_network: InitialTaskNetwork,
 
 }
 #[allow(dead_code)]
@@ -107,7 +110,8 @@ impl Problem {
             goal: Expr::empty_or(),
             problem_constraints: Expr::empty_or(),
             metric_spec: Expr::metric_none(),
-            length_spec: Expr::empty_length_spec()
+            length_spec: Expr::empty_length_spec(),
+            initial_task_network: InitialTaskNetwork::default(), // Add for HDDL
         }
     }
 
@@ -500,4 +504,22 @@ impl Problem {
     pub fn set_length_spec(&mut self, length_spec: Expr) {
         self.length_spec = length_spec;
     }
+
+    // === Initial Task Network ===
+
+    /// Returns a reference to the initial task network.
+    pub fn initial_task_network(&self) -> &InitialTaskNetwork {
+        &self.initial_task_network
+    }
+
+    /// Returns a mutable reference to the initial task network.
+    pub fn initial_task_network_mut(&mut self) -> &mut InitialTaskNetwork {
+        &mut self.initial_task_network
+    }
+
+    /// Sets the initial task network.
+    pub fn set_initial_task_network(&mut self, initial_task_network: InitialTaskNetwork) {
+        self.initial_task_network = initial_task_network;
+    }
+
 }

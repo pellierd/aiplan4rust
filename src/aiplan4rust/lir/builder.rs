@@ -6,7 +6,7 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
-use crate::aiplan4rust::lir::lifted::{LiftedAction, LiftedMethod};
+use crate::aiplan4rust::lir::lifted::{LiftedAction, LiftedMethod, InitialTaskNetwork};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
@@ -80,11 +80,14 @@ impl IRBuilder {
                     ir.add_action(LiftedAction::from_ast(node, domain)?);
                 }
                 AstKind::MethodDef => {
-                    ir.add_method(LiftedMethod::from_ast(node, domain)?);
+                    println!("{}",node.to_string_with_interner(domain, context.interner()));
+                    let method = LiftedMethod::from_ast(node, domain)?;
+                    println!("{}",method.to_string_with_interner(context.interner()));
+                    ir.add_method(method);
+
                 }
                 _ => {
                     // For now, ignore other kinds.
-                    // You can add handling for MethodDef, FunctionDef, etc. here.
                 }
             }
         }
@@ -127,6 +130,11 @@ impl IRBuilder {
                 AstKind::Length => {
                     ir.set_length_spec(Expr::from_ast(node, problem)?);
                 }
+                AstKind::InitialTaskNetwork => {
+                    ir.set_initial_task_network(InitialTaskNetwork::from_ast(node, problem)?);
+
+                }
+
                 // Ajoute d'autres kinds si nécessaire pour le problème
                 _ => {
                     // Ignorer les autres pour l'instant

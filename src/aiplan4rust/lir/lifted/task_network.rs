@@ -161,9 +161,9 @@ impl Display for TaskNetwork {
 
 impl DisplayWithInterner for TaskNetwork {
     fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
-        writeln!(f, "Tasks: {:?}", self.tasks.to_string_with_interner(interner))?;
-        writeln!(f, "Ordering: {}", self.ordering_constraints.to_string_with_interner(interner))?;
-        writeln!(f, "Constraints: {}", self.logical_constraints.to_string_with_interner(interner))
+        write!(f, "TASKS\n{}", self.tasks.to_string_with_interner(interner))?;
+        write!(f, "ORDERING\n{}", self.ordering_constraints.to_string_with_interner(interner))?;
+        write!(f, "CONSTRAINTS\n{}", self.logical_constraints.to_string_with_interner(interner))
     }
 }
 

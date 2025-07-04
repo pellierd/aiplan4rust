@@ -103,46 +103,38 @@ impl FromAst for Expr {
 ///
 /// This function builds the entire Expr arena starting from the given node reference,
 /// avoiding recursion by using an explicit stack.
-fn wrap(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Expr, ParserInternalError> {
-    let mut expr = Expr::default();
-
-    // Stack entries keep track of (AST node, ExprNodeId parent, index of next child to process)
-    // For root node, parent is None.
+fn wrap(
+    node: &AstArenaNode,
+    ast: &TreeArena<AstArenaNode>
+) -> Result<Expr, ParserInternalError> {
+    let mut expr = Expr::new();
     let mut stack = Vec::new();
 
-    // Push root node with no parent, and child index 0
-    stack.push((node, None, 0));
+    // (AST node, parent ExprNodeId)
+    stack.push((node, None));
 
-    while let Some((current_ast_node, parent_expr_id_opt, mut child_idx)) = stack.pop() {
-        // Create the ExprNode for current AST node
+    while let Some((current_ast_node, parent_expr_id_opt)) = stack.pop() {
+        // Create ExprNode
         let kind = ExprKind::try_from(current_ast_node.kind())?;
         let content = ExprContent::try_from(current_ast_node.content())?;
         let expr_node = ExprNode::new(kind, content, parent_expr_id_opt);
         let expr_node_id = expr.add(expr_node);
 
-        // Attach to parent if exists
+        // Attach to parent if needed
         if let Some(parent_id) = parent_expr_id_opt {
             expr.try_node_mut(parent_id)?.add_child(expr_node_id);
         }
 
-        let children = current_ast_node.children();
-
-        // If this node has children, push it back with incremented child index
-        // and push first child to process next
-        if !children.is_empty() {
-            if child_idx < children.len() {
-                // Push current node back with next child index
-                stack.push((current_ast_node, parent_expr_id_opt, child_idx + 1));
-
-                // Push child node to process
-                let child_node = ast.try_node(children[child_idx])?;
-                stack.push((child_node, Some(expr_node_id), 0));
-            }
+        // Push children in reverse to preserve left-to-right order
+        for &child_id in current_ast_node.children().iter().rev() {
+            let child_node = ast.try_node(child_id)?;
+            stack.push((child_node, Some(expr_node_id)));
         }
     }
 
     Ok(expr)
 }
+
 
 impl Deref for Expr {
     type Target = TreeArena<ExprNode>;

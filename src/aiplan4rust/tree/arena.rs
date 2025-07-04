@@ -264,7 +264,7 @@ where
 {
     fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(root) = self.root_node() {
-            writeln!(f, "Root\n{}\n", root.to_string_with_interner(self, interner))
+            writeln!(f, "{}", root.to_string_with_interner(self, interner))
         } else {
             writeln!(f, "<empty>")
         }

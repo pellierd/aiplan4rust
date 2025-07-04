@@ -123,14 +123,13 @@ impl fmt::Display for Method {
             .collect::<Vec<_>>()
             .join(", ");
 
-        writeln!(f, "########################################")?;
-        writeln!(f, "### METHOD [{}]", self.header.name())?;
-        writeln!(f, "### PARAMETERS [{}]", params)?;
-        writeln!(f, "### PRECONDITION")?;
+        writeln!(f, "################# METHOD ##################")?;
+        writeln!(f, "NAME [{}]", self.header.name())?;
+        writeln!(f, "PARAMETERS [{}]", params)?;
+        writeln!(f, "PRECONDITION")?;
         writeln!(f, "{}", self.precondition)?;
-        writeln!(f, "### TASK NETWORK")?;
         writeln!(f, "{}", self.task_network)?;
-        writeln!(f, "########################################")
+        Ok(())
     }
 }
 
@@ -147,20 +146,17 @@ impl DisplayWithInterner for Method {
             .collect::<Vec<_>>()
             .join(", ");
 
-        writeln!(f, "########################################")?;
+        writeln!(f, "################# METHOD ##################")?;
         writeln!(
             f,
-            "### METHOD [{}]",
+            "NAME [{}]",
             self.header.name().to_string_with_interner(interner)
         )?;
-        writeln!(f, "### PARAMETERS [{}]", params)?;
-        writeln!(f, "########################################")?;
-        writeln!(f, "### PRECONDITION")?;
+        writeln!(f, "PARAMETERS [{}]", params)?;
+        writeln!(f, "PRECONDITIONS")?;
         self.precondition.fmt_with(f, interner)?;
-        writeln!(f, "########################################")?;
-        writeln!(f, "### TASK NETWORK")?;
         self.task_network.fmt_with(f, interner)?;
-        writeln!(f, "########################################")
+        Ok(())
     }
 }
 
