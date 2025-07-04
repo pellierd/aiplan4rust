@@ -6,10 +6,12 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
+use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::fmt::Formatter;
+use crate::aiplan4rust::syntax::DisplaySyntax;
 
 /// Represents an instantaneous action with always-present (possibly empty) precondition and effect.
 ///
@@ -99,36 +101,43 @@ impl FromAst for Action {
         node: &AstArenaNode,
         ast: &TreeArena<AstArenaNode>,
     ) -> Result<Self, ParserInternalError> {
-        // Retrieve the action signature from the first two children of the node
         let signature = NamedTypedList::from_ast(node, ast)?;
-
-        // Retrieve the definition body node
         let def_body_node = ast.try_node(node.try_child(2)?)?;
 
-        // Retrieve the precondition if it exists; otherwise use an empty expression
-        let precondition = if let Some(pre_def_id) = def_body_node.try_child(0).ok() {
-            let pre_def = ast.try_node(pre_def_id)?;
-            let pre_id = pre_def.try_child(0)?;
-            let pre = ast.try_node(pre_id)?;
-            Expr::from_ast(pre, ast)?
-        } else {
-            Expr::empty_or()
-        };
+        let mut precondition = Expr::empty_or();
+        let mut effect = Expr::empty_or();
 
-        // Retrieve the effect if it exists; otherwise use an empty expression
-        let effect = if let Some(effect_def_id) = def_body_node.try_child(1).ok() {
-            let eff_def = ast.try_node(effect_def_id)?;
-            let eff_id = eff_def.try_child(0)?;
-            let eff = ast.try_node(eff_id)?;
-            Expr::from_ast(eff, ast)?
-        } else {
-            Expr::empty_or()
-        };
+        for &child_id in def_body_node.children() {
+            let child_node = ast.try_node(child_id)?;
+            match child_node.kind() {
+                AstKind::PreconditionDef => {
+                    let pre_node_id = child_node.try_child(0)?;
+                    let pre_node = ast.try_node(pre_node_id)?;
+                    precondition = Expr::from_ast(pre_node, ast)?;
+                }
+                AstKind::EffectDef => {
+                    let eff_node_id = child_node.try_child(0)?;
+                    let eff_node = ast.try_node(eff_node_id)?;
+                    effect = Expr::from_ast(eff_node, ast)?;
+                }
+                _ => {
+                    return Err(ParserInternalError::new(format!(
+                        "Unexpected node in Action body: {:?}",
+                        child_node.kind()
+                    )));
+                }
+            }
+        }
 
-        Ok(Action { header: signature, precondition, effect} )
+        Ok(Action {
+            header: signature,
+            precondition,
+            effect,
+        })
     }
-}
 
+}
+#[allow(dead_code)]
 impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let params = self
@@ -176,5 +185,11 @@ impl DisplayWithInterner for Action {
         writeln!(f, "### EFFECT")?;
         self.effect.fmt_with(f, interner)?;
         writeln!(f, "########################################")
+    }
+}
+
+impl DisplaySyntax for Action {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        self.fmt_with(f, interner)
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lir::lifted::LiftedAction;
+use crate::aiplan4rust::lir::lifted::{LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
@@ -52,6 +52,9 @@ pub struct Problem {
 
     /// The list of actions defined in this planning problem.
     actions: Vec<LiftedAction>,
+
+    /// The list of methods defined in this planning problem.
+    methods: Vec<LiftedMethod>,
 }
 
 impl Problem {
@@ -77,6 +80,7 @@ impl Problem {
             constraints: Expr::empty_and(),
             tasks: Vec::new(),
             actions: Vec::new(),
+            methods: Vec::new(),
         }
     }
 
@@ -331,4 +335,30 @@ impl Problem {
     {
         self.actions.extend(iter);
     }
+
+    // === Methods ===
+
+    /// Returns a reference to the list of methods.
+    pub fn methods(&self) -> &Vec<LiftedMethod> {
+        &self.methods
+    }
+
+    /// Returns a mutable reference to the list of methods.
+    pub fn methods_mut(&mut self) -> &mut Vec<LiftedMethod> {
+        &mut self.methods
+    }
+
+    /// Adds a single method.
+    pub fn add_method(&mut self, method: LiftedMethod) {
+        self.methods.push(method);
+    }
+
+    /// Adds multiple methods.
+    pub fn add_methods<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = LiftedMethod>,
+    {
+        self.methods.extend(iter);
+    }
+
 }

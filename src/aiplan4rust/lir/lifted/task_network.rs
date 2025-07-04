@@ -1,6 +1,12 @@
+use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
-
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///
@@ -18,6 +24,7 @@ pub struct TaskNetwork {
     logical_constraints: Expr,
 }
 
+#[allow(dead_code)]
 impl TaskNetwork {
     /// Creates a new `TaskNetwork` with the given tasks, ordering constraints, and logical constraints.
     ///
@@ -93,5 +100,75 @@ impl TaskNetwork {
     /// - `logical_constraints`: The new logical constraints expression to set.
     pub fn set_logical_constraints(&mut self, logical_constraints: Expr) {
         self.logical_constraints = logical_constraints;
+    }
+}
+
+impl FromAst for TaskNetwork {
+    fn from_ast(
+        node: &AstArenaNode,
+        ast: &TreeArena<AstArenaNode>,
+    ) -> Result<Self, ParserInternalError> {
+        let children = node.children();
+
+        // Initialise avec des valeurs par défaut
+        let mut tasks = Expr::empty_and();
+        let mut ordering = Expr::empty_and();
+        let mut constraints = Expr::empty_and();
+
+        for child_id in children {
+            let child_node = ast.try_node(*child_id)?;
+            match child_node.kind() {
+                AstKind::PartiallyOrderedSubtaskDef
+                | AstKind::OrderedSubtaskDef => {
+                    let tasks_node_id = child_node.try_child(0)?;
+                    let tasks_node = ast.try_node(tasks_node_id)?;
+                    tasks = Expr::from_ast(tasks_node, ast)?;
+                }
+                AstKind::TaskOrderingConstraintDef => {
+                    let ordering_node_id = child_node.try_child(0)?;
+                    let ordering_node = ast.try_node(ordering_node_id)?;
+                    ordering = Expr::from_ast(ordering_node, ast)?;
+                }
+                AstKind::TaskLogicalConstraintDef => {
+                    let logical_node_id = child_node.try_child(0)?;
+                    let logical_node = ast.try_node(logical_node_id)?;
+                    constraints = Expr::from_ast(logical_node, ast)?;
+                }
+                _ => {
+                    return Err(ParserInternalError::new(format!(
+                        "Unexpected node kind in TaskNetwork: {}",
+                        child_node.kind(),
+                    )));
+                }
+            }
+        }
+
+        Ok(TaskNetwork::new(
+            tasks,
+            ordering,
+            constraints,
+        ))
+    }
+}
+
+impl Display for TaskNetwork {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "Tasks: {}", self.tasks)?;
+        writeln!(f, "Ordering: {}", self.ordering_constraints)?;
+        writeln!(f, "Constraints: {}", self.logical_constraints)
+    }
+}
+
+impl DisplayWithInterner for TaskNetwork {
+    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
+        writeln!(f, "Tasks: {:?}", self.tasks.to_string_with_interner(interner))?;
+        writeln!(f, "Ordering: {}", self.ordering_constraints.to_string_with_interner(interner))?;
+        writeln!(f, "Constraints: {}", self.logical_constraints.to_string_with_interner(interner))
+    }
+}
+
+impl DisplaySyntax for TaskNetwork {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
+        self.fmt_with(f, interner)
     }
 }

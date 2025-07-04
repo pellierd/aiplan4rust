@@ -32,7 +32,6 @@ pub enum Kind {
     FComp,
     Assign,
     Operation,
-    Constraints,
     AtStart,
     AtEnd,
     Overall,
@@ -54,6 +53,8 @@ pub enum Kind {
     Parallel,
     Task,
     TaskID,
+    TaggedTask, // check
+    TaskOrderingConstraint, // check
 }
 impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -84,7 +85,6 @@ impl fmt::Display for Kind {
             Kind::FComp => "FComp",
             Kind::Assign => "Assign",
             Kind::Operation => "Operation",
-            Kind::Constraints => "Constraints",
             Kind::AtStart => "AtStart",
             Kind::AtEnd => "AtEnd",
             Kind::Overall => "Overall",
@@ -105,7 +105,9 @@ impl fmt::Display for Kind {
             Kind::Serial => "Serial",
             Kind::Parallel => "Parallel",
             Kind::Task => "Task",
-            Kind::TaskID => "Task",
+            Kind::TaskID => "TaskID",
+            Kind::TaggedTask => "TaggedTask",
+            Kind::TaskOrderingConstraint => "TaskOrderingConstraint",
         };
         write!(f, "{}", s)
     }
@@ -153,12 +155,15 @@ impl TryFrom<AstKind> for Kind {
             AstKind::Serial => Ok(Kind::Serial),
             AstKind::Parallel => Ok(Kind::Parallel),
             AstKind::Task => Ok(Kind::Task),
+            AstKind::TaskID => Ok(Kind::TaskID),
+            AstKind::TaggedTask => Ok(Kind::TaggedTask),
             AstKind::Type => Ok(Kind::Type),
             AstKind::PrimitiveType => Ok(Kind::PrimitiveType),
             AstKind::TypedList => Ok(Kind::TypedList),
             AstKind::TypedItem => Ok(Kind::TypedSymbol),
+            AstKind::TaskOrderingConstraint => Ok(Kind::TaskOrderingConstraint),
             other => Err(ParserInternalError::new(format!(
-                "Conversion non supportée de AstKind vers ExprKind : {other:?}"
+                "Unsupported conversion from AstKind to ExprKind: {other:?}"
             ))),
         }
     }

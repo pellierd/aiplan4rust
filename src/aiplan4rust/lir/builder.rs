@@ -1,11 +1,12 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
-use crate::aiplan4rust::lir::lifted::LiftedAction;
+use crate::aiplan4rust::lir::lifted::{LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
@@ -60,6 +61,9 @@ impl IRBuilder {
                 }
                 AstKind::ActionDef => {
                     ir.add_action(LiftedAction::from_ast(node, domain)?);
+                }
+                AstKind::MethodDef => {
+                    ir.add_method(LiftedMethod::from_ast(node, domain)?);
                 }
 
                 _ => {

@@ -1,11 +1,17 @@
-
-use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
-use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lir::NamedTypedList;
+use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::lifted::LiftedTaskNetwork;
+use crate::aiplan4rust::lir::NamedTypedList;
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Method {
@@ -17,6 +23,7 @@ pub struct Method {
     task_network: LiftedTaskNetwork
 }
 
+#[allow(dead_code)]
 impl Method {
     /// The precondition and effect default to an empty `Or` expression.
     pub fn new(name: Ident, parameters: TypedList, precondition: Expr, task_network: LiftedTaskNetwork) -> Self {
@@ -57,5 +64,108 @@ impl Method {
     pub fn set_precondition(&mut self, pre: Expr) {
         self.precondition = pre;
     }
+}
 
+impl FromAst for Method {
+
+    fn from_ast(
+        node: &AstArenaNode,
+        ast: &TreeArena<AstArenaNode>,
+    ) -> Result<Self, ParserInternalError> {
+        // 1. Parse the header (NamedTypedList) from the top-level node
+        let header = NamedTypedList::from_ast(node, ast)?;
+
+        // 2. Get the node representing the method body (children container)
+        let def_body_node = ast.try_node(node.try_child(2)?)?;
+        let children = def_body_node.children();
+
+        // 3. Initialize index to track which child we're processing
+        let mut child_index = 0;
+
+        // 4. The first child node is always the task expression
+        let task = Expr::from_ast(ast.try_node(children[child_index])?, ast)?;
+        child_index += 1;
+
+        // 5. Next, determine if the second child is a precondition
+        let pre_node_def = ast.try_node(children[child_index])?;
+        let precondition = match pre_node_def.kind() {
+            // 5a.️ If it's a PreconditionDef, parse the contained expression
+            AstKind::MethodPreconditionDef => {
+                let pre_node_id = pre_node_def.try_child(0)?;
+                let pre_node = ast.try_node(pre_node_id)?;
+                child_index += 1; // Advance because we consumed this node
+                Expr::from_ast(pre_node, ast)?
+            }
+            // 5b. Otherwise, no precondition was specified
+            _ => Expr::empty_or(),
+        };
+
+        // 6. The next child must be the task network definition
+        let tw_node_def = ast.try_node(children[child_index])?;
+        let task_network = LiftedTaskNetwork::from_ast(tw_node_def, ast)?;
+
+        // 7/ Build and return the Method object
+        Ok(Method {
+            header,
+            precondition,
+            task_network,
+        })
+    }
+
+}
+
+impl fmt::Display for Method {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let params = self
+            .header.parameters()
+            .iter()
+            .map(|p| p.to_string())
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        writeln!(f, "########################################")?;
+        writeln!(f, "### METHOD [{}]", self.header.name())?;
+        writeln!(f, "### PARAMETERS [{}]", params)?;
+        writeln!(f, "### PRECONDITION")?;
+        writeln!(f, "{}", self.precondition)?;
+        writeln!(f, "### TASK NETWORK")?;
+        writeln!(f, "{}", self.task_network)?;
+        writeln!(f, "########################################")
+    }
+}
+
+impl DisplayWithInterner for Method {
+    fn fmt_with(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        let params = self
+            .header.parameters()
+            .iter()
+            .map(|p| p.to_string_with_interner(interner))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        writeln!(f, "########################################")?;
+        writeln!(
+            f,
+            "### METHOD [{}]",
+            self.header.name().to_string_with_interner(interner)
+        )?;
+        writeln!(f, "### PARAMETERS [{}]", params)?;
+        writeln!(f, "########################################")?;
+        writeln!(f, "### PRECONDITION")?;
+        self.precondition.fmt_with(f, interner)?;
+        writeln!(f, "########################################")?;
+        writeln!(f, "### TASK NETWORK")?;
+        self.task_network.fmt_with(f, interner)?;
+        writeln!(f, "########################################")
+    }
+}
+
+impl DisplaySyntax for Method {
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        self.fmt_with(f, interner)
+    }
 }

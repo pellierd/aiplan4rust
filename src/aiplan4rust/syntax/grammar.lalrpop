@@ -1525,6 +1525,10 @@ pub Subtask: Box<AstNode> = {
                         children.extend(rest);
                         Box::new(AstNode::new(AstKind::Task, AstContent::None, children, start_name, end_rest))
                     },
+                     None => {
+                            let task_symbol = Box::new(AstNode::new(AstKind::TaskSymbol, name_value, Vec::new(), start_name, end_name));
+                            Box::new(AstNode::new(AstKind::Task, AstContent::None, vec![task_symbol], start_name, end_rest))
+                        }
                     _ => {
                         Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start_name, end_name))
                     }
