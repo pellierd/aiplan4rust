@@ -1,3 +1,23 @@
+//! Function Signature Representation (`AtomicFunctionSkeleton`)
+//!
+//! This module defines the [`Function`] struct, which represents the signature of a PDDL function.
+//! Functions have a name, typed parameters, and a return type.
+//!
+//! This structure is re-exported as [`AtomicFunctionSkeleton`] from the parent module.
+//!
+//! # Example Use
+//!
+//! ```rust
+//! use aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
+//! use aiplan4rust::lang::{Ident, TypedList, Type};
+//!
+//! let func = AtomicFunctionSkeleton::new(
+//!     Ident::new("distance"),
+//!     TypedList::empty(),
+//!     Type::Number
+//! );
+//! ```
+
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Serialize, Deserialize};
@@ -11,47 +31,65 @@ use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::DisplaySyntax;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
-/// Represents the signature of a PDDL function (name, typed parameters, return type).
+/// Represents the signature of an atomic function in a PDDL-like domain.
 ///
-/// This type encapsulates a [`NamedTypedList`] to factor out the name and parameters,
-/// and explicitly adds the return type.
+/// A `Function` is defined by:
+/// - An identifier (its name),
+/// - A list of typed parameters (its arguments),
+/// - A return type (e.g., `Number`, `Object`, etc.).
+///
+/// This structure is the functional counterpart to [`Formula`] (which represents predicates),
+/// except that it carries a return type instead of being implicitly Boolean.
+///
+/// Internally, it reuses [`NamedTypedList`] to encapsulate the name and arguments.
 ///
 /// # Example
 ///
 /// ```
-/// let func = FunctionSkeleton::new(
+/// use aiplan4rust::lang::{Ident, Type, TypedList};
+/// use aiplan4rust::lir::atomic_skeleton::function::Function;
+///
+/// let func = Function::new(
 ///     Ident::new("distance"),
 ///     TypedList::from(vec![Type::Location, Type::Location]),
 ///     Type::Number,
 /// );
+///
 /// assert_eq!(func.return_type(), &Type::Number);
-/// assert_eq!(func.parameters().len(), 2);
+/// assert_eq!(func.arity(), 2);
 /// ```
 ///
-/// # Details
+/// # Notes
 ///
-/// - Implements [`Deref`] and [`DerefMut`] to [`NamedTypedList`] so you can directly access
-///   methods like `name()` or `parameters()`.
-/// - Can be created from an AST using [`FromAst`].
+/// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] directly.
+/// - Can be constructed from an AST node with [`FromAst`].
+/// - Supports pretty-printing and interner-aware rendering.
+///
+/// # Display
+///
+/// Default formatting prints:
+/// ```text
+/// (distance ?from - location ?to - location) -> number
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Function {
-    /// The skeleton holding the name and parameters.
+    /// The internal signature: name and parameters.
     header: NamedTypedList,
+
     /// The return type of the function.
     ty: Type,
 }
 
 impl Function {
-    /// Creates a new function signature with a name, a list of parameters, and a return type.
+    /// Creates a new `Function` from name, parameters, and return type.
     ///
     /// # Parameters
-    ///
-    /// * `name` - The function identifier.
-    /// * `parameters` - The typed list of parameters.
-    /// * `ty` - The return type.
+    /// - `name`: The function identifier.
+    /// - `parameters`: A typed list of the function’s parameters.
+    /// - `ty`: The return type of the function.
     pub fn new(name: Ident, parameters: TypedList, ty: Type) -> Self {
-        let skeleton = NamedTypedList::new(name, parameters);
-        Self { header: skeleton, ty }
+        let signature = NamedTypedList::new(name, parameters);
+        Self { header: signature, ty }
     }
 
     /// Returns a reference to the return type.
@@ -60,7 +98,7 @@ impl Function {
     }
 }
 
-// Enable treating FunctionSkeleton as a Skeleton directly.
+// Allow transparent access to the underlying NamedTypedList (e.g., name, parameters).
 impl Deref for Function {
     type Target = NamedTypedList;
 
@@ -75,15 +113,22 @@ impl DerefMut for Function {
     }
 }
 
-// Conversion from AST.
 impl FromAst for Function {
-    /// Builds a `FunctionSkeleton` from an AST node.
+    /// Builds a [`Function`] from an AST node.
     ///
-    /// Expects a tree whose children are:
-    /// 0 - the function name (Ident)
-    /// 1 - the typed parameter list
-    /// 2 - the return type
-    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+    /// The AST node is expected to have the following children:
+    /// - Child 0: Function identifier (`Ident`)
+    /// - Child 1: Typed parameter list
+    /// - Child 2: Return type
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`ParserInternalError`] if any required child is missing
+    /// or if type parsing fails.
+    fn from_ast(
+        node: &AstArenaNode,
+        ast: &TreeArena<AstArenaNode>,
+    ) -> Result<Self, ParserInternalError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
 
         let ty_id = node.try_child(2)?;
@@ -94,15 +139,15 @@ impl FromAst for Function {
     }
 }
 
-/// Simple display: `name(params) -> return_type`.
 impl fmt::Display for Function {
+    /// Displays the function as: `(name params) -> return_type`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} -> {}", self.header, self.ty)
     }
 }
 
-/// Display with interner support to resolve identifiers to strings.
 impl DisplayWithInterner for Function {
+    /// Displays the function using interned identifiers.
     fn fmt_with(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -110,15 +155,15 @@ impl DisplayWithInterner for Function {
     ) -> fmt::Result {
         write!(
             f,
-            "{} -> {:?}",
+            "{} -> {}",
             self.header.to_string_with_interner(interner),
             self.ty.to_string_with_interner(interner)
         )
     }
 }
 
-/// Syntax display (currently identical to `fmt_with`).
 impl DisplaySyntax for Function {
+    /// Displays the function in a syntax-oriented form (e.g., PDDL-style).
     fn fmt_syntax(
         &self,
         f: &mut fmt::Formatter<'_>,

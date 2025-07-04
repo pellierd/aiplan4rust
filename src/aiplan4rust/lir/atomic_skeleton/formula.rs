@@ -1,3 +1,19 @@
+//! Predicate Signature Representation (`AtomicFormulaSkeleton`)
+//!
+//! This module defines the [`Formula`] struct, which represents the signature of a PDDL predicate.
+//! Predicates have a name and typed parameters, and always return a boolean value (implicitly).
+//!
+//! This structure is re-exported as [`AtomicFormulaSkeleton`] from the parent module.
+//!
+//! # Example Use
+//!
+//! ```rust
+//! use aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
+//! use aiplan4rust::lang::{Ident, TypedList};
+//!
+//! let pred = AtomicFormulaSkeleton::new(Ident::new("at"), TypedList::empty());
+//! ```
+
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
@@ -11,33 +27,38 @@ use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::DisplaySyntax;
 use crate::aiplan4rust::tree::TreeArena;
 
-/// Represents the signature of a PDDL predicate.
+/// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///
-/// A `PredicateSkeleton` stores the predicate name and the types of its parameters.
-/// Unlike functions, predicates always return a Boolean value, so their return type
-/// is implicitly `None`.
+/// A `Formula` stores:
+/// - The identifier (name) of the predicate.
+/// - The list of typed parameters (its arguments).
+///
+/// Unlike functions, predicates always return a Boolean value (implicitly true or false),
+/// so their return type is always `None`.
 ///
 /// This type internally uses [`NamedTypedList`] to factor out the shared representation
-/// of the identifier and parameters.
+/// of the identifier and its parameters.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```
 /// use aiplan4rust::lang::{Ident, Type, TypedList};
-/// use aiplan4rust::ir::atomic_skeleton::predicate::PredicateSkeleton;
+/// use aiplan4rust::lir::atomic_skeleton::formula::Formula;
 ///
-/// let pred = PredicateSkeleton::new(
+/// let formula = Formula::new(
 ///     Ident::new("at"),
 ///     TypedList::from(vec![Type::Object, Type::Location]),
 /// );
-/// assert_eq!(pred.signature().return_type(), None);
-/// assert_eq!(pred.signature().arity(), 2);
+///
+/// assert_eq!(formula.signature().arity(), 2);
+/// assert_eq!(formula.signature().return_type(), None);
 /// ```
 ///
-/// # Notes
+/// # Implementation Notes
 ///
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] transparently.
-/// - Supports pretty-printing with or without an interner.
+/// - Supports pretty-printing with or without an interner (see [`DisplayWithInterner`] and [`DisplaySyntax`]).
+/// - Can be constructed directly or parsed from an AST node via [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formula {
     /// Underlying skeleton holding the identifier and parameters.
@@ -45,21 +66,23 @@ pub struct Formula {
 }
 
 impl Formula {
-    /// Creates a new predicate signature from a name and parameter types.
+    /// Creates a new `Formula` (predicate signature) from a name and parameter list.
     ///
-    /// # Parameters
+    /// # Arguments
     ///
-    /// - `name`: The identifier of the predicate.
-    /// - `parameters`: The list of typed parameters.
+    /// * `name` - The identifier of the predicate.
+    /// * `parameters` - The list of typed parameters.
     ///
-    /// The return type is always set to `None`.
+    /// # Returns
+    ///
+    /// A `Formula` instance whose return type is always `None`.
     pub fn new(name: Ident, parameters: TypedList) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature }
     }
 }
 
-// Allow direct access to Skeleton methods
+// Allow direct access to NamedTypedList methods.
 impl Deref for Formula {
     type Target = NamedTypedList;
 
@@ -75,28 +98,33 @@ impl DerefMut for Formula {
 }
 
 impl FromAst for Formula {
-    /// Parses a `PredicateSkeleton` from the AST.
+    /// Parses a `Formula` from an AST node.
     ///
-    /// Expects a node structure where:
-    /// - Child 0 is the predicate identifier.
-    /// - Child 1 is the typed parameter list.
-    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+    /// The expected AST node structure:
+    /// - Child 0: The identifier.
+    /// - Child 1: The typed parameter list.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`ParserInternalError`] if the node does not have the expected structure.
+    fn from_ast(
+        node: &AstArenaNode,
+        ast: &TreeArena<AstArenaNode>,
+    ) -> Result<Self, ParserInternalError> {
         let header = NamedTypedList::from_ast(node, ast)?;
         Ok(Formula { header })
     }
 }
 
-/// Displays the predicate in a human-readable form.
-///
-/// Delegates formatting to the underlying `Skeleton`.
 impl fmt::Display for Formula {
+    /// Formats the formula in a human-readable form.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.header.fmt(f)
     }
 }
 
-/// Displays the predicate using the provided interner to resolve identifiers.
 impl DisplayWithInterner for Formula {
+    /// Formats the formula using the provided interner to resolve identifiers.
     fn fmt_with(
         &self,
         f: &mut fmt::Formatter<'_>,
@@ -106,8 +134,8 @@ impl DisplayWithInterner for Formula {
     }
 }
 
-/// Displays the predicate in a syntax-oriented format.
 impl DisplaySyntax for Formula {
+    /// Formats the formula in a syntax-oriented form (e.g., PDDL representation).
     fn fmt_syntax(
         &self,
         f: &mut fmt::Formatter<'_>,
