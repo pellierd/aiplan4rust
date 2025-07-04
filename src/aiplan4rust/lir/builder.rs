@@ -112,6 +112,9 @@ impl IRBuilder {
                 AstKind::ObjectsDef => {
                     ir.add_objects(build_constants_from(node, problem)?);
                 }
+                AstKind::Init => {
+                    ir.set_init(build_init_from(node, problem)?);
+                }
                 /*AstKind::GoalDef => {
                     ir.set_goal(Expr::from_ast(node, problem)?);
                 }
@@ -161,6 +164,15 @@ fn build_constants_from(
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
     build_set_from_first_child_children(constants_def_node, ast, TypedSymbol::from_ast)
+}
+
+fn build_init_from(
+    init_node: &AstArenaNode,
+    ast: &TreeArena<AstArenaNode>,
+) -> Result<Expr, ParserInternalError> {
+    let and_node_id = init_node.try_child(0)?;
+    let and_node = ast.try_node(and_node_id)?;
+    Expr::from_ast(and_node, ast)
 }
 
 /// Parcourt les enfants directs du noeud `node` et construit un HashSet<T>

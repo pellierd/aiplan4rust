@@ -59,6 +59,8 @@ pub struct Problem {
     /// The set of objects defined in this planning problem.
     objects: HashSet<TypedSymbol>,
 
+    // The initial state of the problem
+    init: Expr
 }
 #[allow(dead_code)]
 impl Problem {
@@ -82,10 +84,11 @@ impl Problem {
             predicates: Vec::new(),
             functions: Vec::new(),
             constraints: Expr::empty_and(),
-            tasks: Vec::new(),
+            tasks: Vec::new(), // Add for HDDL
             actions: Vec::new(),
-            methods: Vec::new(),
+            methods: Vec::new(), // Add for HDDL
             objects: HashSet::new(),
+            init: Expr::empty_and(),
         }
     }
 
@@ -276,12 +279,12 @@ impl Problem {
 
     // === Constraints ===
 
-    /// Returns a reference to the constraints expression.
+    /// Returns a reference to the constraints' expression.
     pub fn constraints(&self) -> &Expr {
         &self.constraints
     }
 
-    /// Returns a mutable reference to the constraints expression.
+    /// Returns a mutable reference to the constraints' expression.
     pub fn constraints_mut(&mut self) -> &mut Expr {
         &mut self.constraints
     }
@@ -389,6 +392,33 @@ impl Problem {
         I: IntoIterator<Item = TypedSymbol>,
     {
         self.objects.extend(iter);
+    }
+
+    // === Objects ===
+
+    /// Returns the initial state expression.
+    ///
+    /// Typically, an `Expr::And(...)` representing a conjunction of initial facts.
+    pub fn init(&self) -> &Expr {
+        &self.init
+    }
+
+    /// Returns a mutable reference to the initial state expression.
+    pub fn init_mut(&mut self) -> &mut Expr {
+        &mut self.init
+    }
+
+    /// Sets the initial state expression.
+    ///
+    /// # Example
+    /// ```
+    /// problem.set_init(Expr::And(vec![
+    ///     Expr::atom("at", vec!["truck1", "city1"]),
+    ///     Expr::eq("fuel", vec!["truck1", "0"]),
+    /// ]));
+    /// ```
+    pub fn set_init(&mut self, init_expr: Expr) {
+        self.init = init_expr;
     }
 
 }

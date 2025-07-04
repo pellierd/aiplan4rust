@@ -1315,9 +1315,8 @@ pub InitEl : Box<AstNode> = {
 
 pub Init : Box<AstNode> = {
     <start:@L> "(" ":init" <init_els:InitEl*> ")" <end:@R> => {
-        let mut children = Vec::new();
-        children.extend(init_els);
-        Box::new(AstNode::new(AstKind::Init, AstContent::None, children , start, end))
+        let and_node = Box::new(AstNode::new(AstKind::And, AstContent::None, init_els, start, end));
+        Box::new(AstNode::new(AstKind::Init, AstContent::None, vec![and_node], start, end))
     },
 }
 
