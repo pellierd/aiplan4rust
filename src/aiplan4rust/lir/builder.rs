@@ -109,10 +109,10 @@ impl IRBuilder {
                 AstKind::RequireDef => {
                     ir.add_requirements(build_requirements_from(node, problem)?);
                 }
-                /*AstKind::InitDef => {
-                    ir.set_init_state(build_init_state_from(node, problem)?);
+                AstKind::ObjectsDef => {
+                    ir.add_objects(build_constants_from(node, problem)?);
                 }
-                AstKind::GoalDef => {
+                /*AstKind::GoalDef => {
                     ir.set_goal(Expr::from_ast(node, problem)?);
                 }
                 AstKind::MetricDef => {

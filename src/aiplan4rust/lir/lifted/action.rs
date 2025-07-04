@@ -27,6 +27,7 @@ pub struct Action {
     effect: Expr,
 }
 
+#[allow(dead_code)]
 impl Action {
     /// Create a new `Action` with the given name and parameters.
     ///

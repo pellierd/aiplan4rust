@@ -55,6 +55,10 @@ pub struct Problem {
 
     /// The list of methods defined in this planning problem.
     methods: Vec<LiftedMethod>,
+
+    /// The set of objects defined in this planning problem.
+    objects: HashSet<TypedSymbol>,
+
 }
 #[allow(dead_code)]
 impl Problem {
@@ -81,6 +85,7 @@ impl Problem {
             tasks: Vec::new(),
             actions: Vec::new(),
             methods: Vec::new(),
+            objects: HashSet::new(),
         }
     }
 
@@ -359,6 +364,31 @@ impl Problem {
         I: IntoIterator<Item = LiftedMethod>,
     {
         self.methods.extend(iter);
+    }
+
+    // === Objects ===
+
+    /// Returns a reference to the set of objects.
+    pub fn objects(&self) -> &HashSet<TypedSymbol> {
+        &self.objects
+    }
+
+    /// Returns a mutable reference to the set of objects.
+    pub fn objects_mut(&mut self) -> &mut HashSet<TypedSymbol> {
+        &mut self.objects
+    }
+
+    /// Adds a single object.
+    pub fn add_object(&mut self, object: TypedSymbol) {
+        self.objects.insert(object);
+    }
+
+    /// Adds multiple objects.
+    pub fn add_objects<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = TypedSymbol>,
+    {
+        self.objects.extend(iter);
     }
 
 }
