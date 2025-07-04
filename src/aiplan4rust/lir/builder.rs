@@ -121,9 +121,9 @@ impl IRBuilder {
                 AstKind::Constraints => {
                     ir.set_problem_constraints(Expr::from_ast(node, problem)?);
                 }
-                /*AstKind::MetricDef => {
-                    ir.set_metric(build_metric_from(node, problem)?);
-                }*/
+                AstKind::Metric => {
+                    ir.set_metric_spec(Expr::from_ast(node, problem)?);
+                }
                 // Ajoute d'autres kinds si nécessaire pour le problème
                 _ => {
                     // Ignorer les autres pour l'instant

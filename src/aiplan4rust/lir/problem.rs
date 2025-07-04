@@ -69,6 +69,9 @@ pub struct Problem {
     /// No constraints are represented by an empty and `Expr'.
     problem_constraints: Expr,
 
+    /// The metric specification of the problem
+    metric_spec: Expr,
+
 }
 #[allow(dead_code)]
 impl Problem {
@@ -91,14 +94,15 @@ impl Problem {
             constants: HashSet::new(),
             predicates: Vec::new(),
             functions: Vec::new(),
-            domain_constraints: Expr::empty_and(),
+            domain_constraints: Expr::empty_or(),
             tasks: Vec::new(), // Add for HDDL
             actions: Vec::new(),
             methods: Vec::new(), // Add for HDDL
             objects: HashSet::new(),
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
-            problem_constraints: Expr::empty_and(),
+            problem_constraints: Expr::empty_or(),
+            metric_spec: Expr::metric_none(),
         }
     }
 
@@ -457,5 +461,22 @@ impl Problem {
     /// Sets the problem constraints expression.
     pub fn set_problem_constraints(&mut self, constraints: Expr) {
         self.problem_constraints = constraints;
+    }
+
+    // === Metric Specification ===
+
+    /// Returns a reference to the metric specification expression.
+    pub fn metric_spec(&self) -> &Expr {
+        &self.metric_spec
+    }
+
+    /// Returns a mutable reference to the metric specification expression.
+    pub fn metric_spec_mut(&mut self) -> &mut Expr {
+        &mut self.metric_spec
+    }
+
+    /// Sets the metric specification expression.
+    pub fn set_metric_spec(&mut self, metric: Expr) {
+        self.metric_spec = metric;
     }
 }

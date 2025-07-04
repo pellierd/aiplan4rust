@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::lang::Optimization;
 
 /// Wrapper struct around `TreeArena<ExprNode>` representing an expression tree.
 ///
@@ -46,6 +47,17 @@ impl Expr {
         let root = ExprNode::new(ExprKind::And, ExprContent::None, None);
         empty_and.add(root);
         empty_and
+    }
+
+    pub fn metric_none() -> Self {
+        let mut expr = Expr::new();
+        let root = ExprNode::new(
+            ExprKind::Metric,
+            ExprContent::Optimization(Optimization::None),
+            None,
+        );
+        expr.add(root);
+        expr
     }
 }
 

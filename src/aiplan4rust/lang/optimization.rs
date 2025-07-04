@@ -20,10 +20,15 @@ use std::fmt::Formatter;
 /// - `Serialize` and `Deserialize`: Allow the enum to be serialized and deserialized, facilitating
 ///     storage or transmission in formats like JSON.
 ///
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Optimization {
+    /// No optimization specified (default value).
+    #[default]
+    None,
+
     /// Seeks to minimize the objective function.
     Minimize,
+
     /// Seeks to maximize the objective function.
     Maximize,
 }
@@ -43,6 +48,7 @@ impl fmt::Display for Optimization {
         match self {
             Optimization::Minimize => write!(f, "{}", MINIMIZE),
             Optimization::Maximize => write!(f, "{}", MAXIMIZE),
+            Optimization::None => write!(f, "{}", "NONE"),
         }
     }
 }
