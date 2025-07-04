@@ -56,19 +56,19 @@ impl IRBuilder {
                     ir.set_domain_name(node.try_ident()?);
                 }
                 AstKind::RequireDef => {
-                    ir.add_requirements(build_requirements_from(node, domain)?);
+                    ir.add_requirements(extract_requirements_from(node, domain)?);
                 }
                 AstKind::TypesDef => {
-                    ir.add_types(build_types_from(node, domain)?);
+                    ir.add_types(extract_types_from(node, domain)?);
                 }
                 AstKind::ConstantsDef => {
-                    ir.add_constants(build_constants_from(node, domain)?);
+                    ir.add_constants(extract_constants_from(node, domain)?);
                 }
                 AstKind::PredicatesDef => {
-                    ir.add_predicates(build_predicates_from(node, domain)?);
+                    ir.add_predicates(extract_predicates_from(node, domain)?);
                 }
                 AstKind::FunctionsDef => {
-                    ir.add_functions(build_functions_from(node, domain)?);
+                    ir.add_functions(extract_functions_from(node, domain)?);
                 }
                 AstKind::Constraints => {
                     ir.set_domain_constraints(Expr::from_ast(node, domain)?);
@@ -107,10 +107,10 @@ impl IRBuilder {
                     ir.set_problem_name(node.try_ident()?);
                 }
                 AstKind::RequireDef => {
-                    ir.add_requirements(build_requirements_from(node, problem)?);
+                    ir.add_requirements(extract_requirements_from(node, problem)?);
                 }
                 AstKind::ObjectsDef => {
-                    ir.add_objects(build_constants_from(node, problem)?);
+                    ir.add_objects(extract_constants_from(node, problem)?);
                 }
                 AstKind::Init => {
                     ir.set_init(extract_init_from(node, problem)?);
@@ -125,7 +125,7 @@ impl IRBuilder {
                     ir.set_metric_spec(Expr::from_ast(node, problem)?);
                 }
                 AstKind::Length => {
-                    ir.set_lenght_spec(Expr::from_ast(node, problem)?);
+                    ir.set_length_spec(Expr::from_ast(node, problem)?);
                 }
                 // Ajoute d'autres kinds si nécessaire pour le problème
                 _ => {
@@ -137,56 +137,56 @@ impl IRBuilder {
     }
 }
 
-fn build_requirements_from(
+fn extract_requirements_from(
     require_def_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<Requirement>, ParserInternalError> {
-    build_set_from_children(require_def_node, ast, |node, _ast| node.try_requirement())
+    extract_set_from_children(require_def_node, ast, |node, _ast| node.try_requirement())
 }
 
-fn build_predicates_from(
+fn extract_predicates_from(
     predicates_def_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<PredicateDef>, ParserInternalError> {
-    build_set_from_children(predicates_def_node, ast, PredicateDef::from_ast)
+    extract_set_from_children(predicates_def_node, ast, PredicateDef::from_ast)
 }
 
-fn build_functions_from(
+fn extract_functions_from(
     functions_def_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<FunctionDef>, ParserInternalError> {
-    build_set_from_children(functions_def_node, ast, FunctionDef::from_ast)
+    extract_set_from_children(functions_def_node, ast, FunctionDef::from_ast)
 }
 
-fn build_types_from(
+fn extract_types_from(
     types_def_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
-    build_set_from_first_child_children(types_def_node, ast, TypedSymbol::from_ast)
+    extract_set_from_first_child_children(types_def_node, ast, TypedSymbol::from_ast)
 }
 
-fn build_constants_from(
+fn extract_constants_from(
     constants_def_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
-    build_set_from_first_child_children(constants_def_node, ast, TypedSymbol::from_ast)
+    extract_set_from_first_child_children(constants_def_node, ast, TypedSymbol::from_ast)
 }
 
 fn extract_init_from(
     init_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<Expr, ParserInternalError> {
-    build_expr_from_first_child(init_node, ast)
+    extract_expr_from_first_child(init_node, ast)
 }
 
 fn extract_goal_from(
     goal_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<Expr, ParserInternalError> {
-    build_expr_from_first_child(goal_node, ast)
+    extract_expr_from_first_child(goal_node, ast)
 }
 
-fn build_expr_from_first_child(
+fn extract_expr_from_first_child(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<Expr, ParserInternalError> {
@@ -197,7 +197,7 @@ fn build_expr_from_first_child(
 
 /// Parcourt les enfants directs du noeud `node` et construit un HashSet<T>
 /// avec `extract_fn` appliqué à chaque enfant.
-fn build_set_from_children<T, F>(
+fn extract_set_from_children<T, F>(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
     extract_fn: F,
@@ -217,7 +217,7 @@ where
 
 /// Parcourt les enfants du premier enfant du noeud `node` et construit un HashSet<T>
 /// avec `extract_fn` appliqué à chaque enfant.
-fn build_set_from_first_child_children<T, F>(
+fn extract_set_from_first_child_children<T, F>(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
     extract_fn: F,
@@ -229,5 +229,5 @@ where
     let first_child_id = node.try_child(0)?;
     let first_child_node = ast.try_node(first_child_id)?;
 
-    build_set_from_children(first_child_node, ast, extract_fn)
+    extract_set_from_children(first_child_node, ast, extract_fn)
 }
