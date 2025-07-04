@@ -43,9 +43,9 @@ pub struct Problem {
     /// The list of functions in the planning problem.
     functions: Vec<FunctionDef>,
 
-    /// The constraints for this planning problem,
+    /// The constraints defined in the domain, i.e., the global constraints
     /// No constraints are represented by an empty and `Expr'.
-    constraints: Expr,
+    domain_constraints: Expr,
 
     /// The list of tasks defined in this planning problem.
     tasks: Vec<TaskDef>,
@@ -63,7 +63,12 @@ pub struct Problem {
     init: Expr,
 
     /// The goal of the problem
-    goal: Expr
+    goal: Expr,
+
+    /// The constraints defined in the problem, i.e., the constraints specific to an instance
+    /// No constraints are represented by an empty and `Expr'.
+    problem_constraints: Expr,
+
 }
 #[allow(dead_code)]
 impl Problem {
@@ -86,13 +91,14 @@ impl Problem {
             constants: HashSet::new(),
             predicates: Vec::new(),
             functions: Vec::new(),
-            constraints: Expr::empty_and(),
+            domain_constraints: Expr::empty_and(),
             tasks: Vec::new(), // Add for HDDL
             actions: Vec::new(),
             methods: Vec::new(), // Add for HDDL
             objects: HashSet::new(),
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
+            problem_constraints: Expr::empty_and(),
         }
     }
 
@@ -281,21 +287,21 @@ impl Problem {
         self.functions.extend(iter);
     }
 
-    // === Constraints ===
+    // === Domain Constraints ===
 
-    /// Returns a reference to the constraints' expression.
-    pub fn constraints(&self) -> &Expr {
-        &self.constraints
+    /// Returns a reference to the domain constraints' expression.
+    pub fn domain_constraints(&self) -> &Expr {
+        &self.domain_constraints
     }
 
-    /// Returns a mutable reference to the constraints' expression.
-    pub fn constraints_mut(&mut self) -> &mut Expr {
-        &mut self.constraints
+    /// Returns a mutable reference to the domain constraints' expression.
+    pub fn domain_constraints_mut(&mut self) -> &mut Expr {
+        &mut self.domain_constraints
     }
 
-    /// Sets the constraints expression.
-    pub fn set_constraints(&mut self, constraints: Expr) {
-        self.constraints = constraints;
+    /// Sets the domain constraints expression.
+    pub fn set_domain_constraints(&mut self, constraints: Expr) {
+        self.domain_constraints = constraints;
     }
 
     // === Tasks ===
@@ -436,4 +442,20 @@ impl Problem {
         self.goal = goal_expr;
     }
 
+    // === Problem Constraints ===
+
+    /// Returns a reference to the problem constraints' expression.
+    pub fn problem_constraints(&self) -> &Expr {
+        &self.problem_constraints
+    }
+
+    /// Returns a mutable reference to the problem constraints' expression.
+    pub fn problem_constraints_mut(&mut self) -> &mut Expr {
+        &mut self.problem_constraints
+    }
+
+    /// Sets the problem constraints expression.
+    pub fn set_problem_constraints(&mut self, constraints: Expr) {
+        self.problem_constraints = constraints;
+    }
 }

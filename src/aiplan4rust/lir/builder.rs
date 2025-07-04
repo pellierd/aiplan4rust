@@ -71,7 +71,7 @@ impl IRBuilder {
                     ir.add_functions(build_functions_from(node, domain)?);
                 }
                 AstKind::Constraints => {
-                    ir.set_constraints(Expr::from_ast(node, domain)?);
+                    ir.set_domain_constraints(Expr::from_ast(node, domain)?);
                 }
                 AstKind::TaskDef => {
                     ir.add_task(TaskDef::from_ast(node, domain)?);
@@ -117,6 +117,9 @@ impl IRBuilder {
                 }
                 AstKind::Goal => {
                     ir.set_goal(extract_goal_from(node, problem)?);
+                }
+                AstKind::Constraints => {
+                    ir.set_problem_constraints(Expr::from_ast(node, problem)?);
                 }
                 /*AstKind::MetricDef => {
                     ir.set_metric(build_metric_from(node, problem)?);
