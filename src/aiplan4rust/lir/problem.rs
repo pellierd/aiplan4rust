@@ -59,8 +59,11 @@ pub struct Problem {
     /// The set of objects defined in this planning problem.
     objects: HashSet<TypedSymbol>,
 
-    // The initial state of the problem
-    init: Expr
+    /// The initial state of the problem
+    init: Expr,
+
+    /// The goal of the problem
+    goal: Expr
 }
 #[allow(dead_code)]
 impl Problem {
@@ -89,6 +92,7 @@ impl Problem {
             methods: Vec::new(), // Add for HDDL
             objects: HashSet::new(),
             init: Expr::empty_and(),
+            goal: Expr::empty_or(),
         }
     }
 
@@ -394,7 +398,7 @@ impl Problem {
         self.objects.extend(iter);
     }
 
-    // === Objects ===
+    // === Init ===
 
     /// Returns the initial state expression.
     ///
@@ -409,16 +413,27 @@ impl Problem {
     }
 
     /// Sets the initial state expression.
-    ///
-    /// # Example
-    /// ```
-    /// problem.set_init(Expr::And(vec![
-    ///     Expr::atom("at", vec!["truck1", "city1"]),
-    ///     Expr::eq("fuel", vec!["truck1", "0"]),
-    /// ]));
-    /// ```
     pub fn set_init(&mut self, init_expr: Expr) {
         self.init = init_expr;
+    }
+
+    // === Goal ===
+
+    /// Returns the goal state expression.
+    ///
+    /// Typically, an `Expr::And(...)` representing a conjunction of goal conditions.
+    pub fn goal(&self) -> &Expr {
+        &self.goal
+    }
+
+    /// Returns a mutable reference to the goal state expression.
+    pub fn goal_mut(&mut self) -> &mut Expr {
+        &mut self.goal
+    }
+
+    /// Sets the goal state expression.
+    pub fn set_goal(&mut self, goal_expr: Expr) {
+        self.goal = goal_expr;
     }
 
 }

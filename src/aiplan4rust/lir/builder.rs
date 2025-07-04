@@ -113,12 +113,12 @@ impl IRBuilder {
                     ir.add_objects(build_constants_from(node, problem)?);
                 }
                 AstKind::Init => {
-                    ir.set_init(build_init_from(node, problem)?);
+                    ir.set_init(extract_init_from(node, problem)?);
                 }
-                /*AstKind::GoalDef => {
-                    ir.set_goal(Expr::from_ast(node, problem)?);
+                AstKind::Goal => {
+                    ir.set_goal(extract_goal_from(node, problem)?);
                 }
-                AstKind::MetricDef => {
+                /*AstKind::MetricDef => {
                     ir.set_metric(build_metric_from(node, problem)?);
                 }*/
                 // Ajoute d'autres kinds si nécessaire pour le problème
@@ -166,13 +166,27 @@ fn build_constants_from(
     build_set_from_first_child_children(constants_def_node, ast, TypedSymbol::from_ast)
 }
 
-fn build_init_from(
+fn extract_init_from(
     init_node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<Expr, ParserInternalError> {
-    let and_node_id = init_node.try_child(0)?;
-    let and_node = ast.try_node(and_node_id)?;
-    Expr::from_ast(and_node, ast)
+    build_expr_from_first_child(init_node, ast)
+}
+
+fn extract_goal_from(
+    goal_node: &AstArenaNode,
+    ast: &TreeArena<AstArenaNode>,
+) -> Result<Expr, ParserInternalError> {
+    build_expr_from_first_child(goal_node, ast)
+}
+
+fn build_expr_from_first_child(
+    node: &AstArenaNode,
+    ast: &TreeArena<AstArenaNode>,
+) -> Result<Expr, ParserInternalError> {
+    let first_child_id = node.try_child(0)?;
+    let first_child_node = ast.try_node(first_child_id)?;
+    Expr::from_ast(first_child_node, ast)
 }
 
 /// Parcourt les enfants directs du noeud `node` et construit un HashSet<T>
