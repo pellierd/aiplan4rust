@@ -1,10 +1,8 @@
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::syntax::DisplaySyntax;
-
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Represents a unique identifier as an unsigned integer.
 ///
@@ -40,7 +38,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[serde(transparent)]
 pub struct Ident {
     /// The integer value representing the identifier.
-    pub value: usize,
+    value: usize,
 }
 
 impl Default for Ident {

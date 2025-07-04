@@ -215,7 +215,7 @@ where
             writeln!(f, "Node #{}: {}", node_index, node)?;
 
             let children = node.children();
-            for (i, child_idx) in children.iter().enumerate() {
+            for child_idx in children.iter() {
                 let child = arena.get_node(*child_idx).expect("Child not found");
                 fmt_node(
                     arena,

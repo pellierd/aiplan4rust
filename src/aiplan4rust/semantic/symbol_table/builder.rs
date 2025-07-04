@@ -986,8 +986,8 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstArenaNode>,
         ast: &TreeArena<AstArenaNode>,
         scope: Scope,
-        valid_kinds: &[AstKind],
-        expected_children: usize,
+        _valid_kinds: &[AstKind],
+        _expected_children: usize,
         has_body: bool,
     ) -> Result<(), ParserInternalError> {
         // Ensure the AST node is of the correct kind
@@ -1403,8 +1403,6 @@ impl SymbolTableBuilder {
         // Register each type as a symbol usage in the given scope
         for ty in type_ref.node().children() {
             let ty_ref = ast.try_node_ref(*ty)?;
-            let ty_node = ty_ref.node();
-            //Self::assert_ast_kind(ty_node, &[AstKind::PrimitiveType])?;
             self.add_symbol_usage(&ty_ref, ast, scope.clone())?;
         }
 

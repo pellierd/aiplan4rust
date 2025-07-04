@@ -81,8 +81,8 @@ impl FromAst for Predicate {
     /// - Child 0 is the predicate identifier.
     /// - Child 1 is the typed parameter list.
     fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
-        let signature = NamedTypedList::from_ast(node, ast)?;
-        Ok(Predicate { header: signature })
+        let header = NamedTypedList::from_ast(node, ast)?;
+        Ok(Predicate { header })
     }
 }
 

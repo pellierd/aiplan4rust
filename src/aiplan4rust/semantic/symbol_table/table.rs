@@ -1,23 +1,20 @@
-
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
-
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::tree::{NodeId, TreeArena};
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
-use std::fmt;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Display;
-use crate::aiplan4rust::semantic::AstArenaNode;
+use std::fmt;
 
 /// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///

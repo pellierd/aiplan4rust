@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::DisplaySyntax;
-use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use crate::aiplan4rust::tree::TreeArena;
 
 /// Represents a planning task in HDDL.
 ///

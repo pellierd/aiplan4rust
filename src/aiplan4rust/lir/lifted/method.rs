@@ -17,6 +17,8 @@ use std::fmt;
 pub struct Method {
     header: NamedTypedList,
 
+    task: Expr,
+
     /// Precondition expression (never `None`; defaults to empty `Or`).
     precondition: Expr,
 
@@ -26,9 +28,10 @@ pub struct Method {
 #[allow(dead_code)]
 impl Method {
     /// The precondition and effect default to an empty `Or` expression.
-    pub fn new(name: Ident, parameters: TypedList, precondition: Expr, task_network: LiftedTaskNetwork) -> Self {
+    pub fn new(name: Ident, parameters: TypedList, task: Expr, precondition: Expr, task_network: LiftedTaskNetwork) -> Self {
         Self {
             header: NamedTypedList::new(name, parameters),
+            task,
             precondition,
             task_network,
 
@@ -55,6 +58,21 @@ impl Method {
         self.header.set_parameters(parameters);
     }
 
+    /// Sets the `task` expression.
+    pub fn set_task(&mut self, task: Expr) {
+        self.task = task;
+    }
+
+    /// Returns an immutable reference to the `task` expression.
+    pub fn task(&self) -> &Expr {
+        &self.task
+    }
+
+    /// Returns a mutable reference to the `task` expression.
+    pub fn task_mut(&mut self) -> &mut Expr {
+        &mut self.task
+    }
+
     /// Returns a reference to the precondition expression.
     pub fn precondition(&self) -> &Expr {
         &self.precondition
@@ -63,6 +81,21 @@ impl Method {
     /// Replaces the precondition expression.
     pub fn set_precondition(&mut self, pre: Expr) {
         self.precondition = pre;
+    }
+
+    /// Sets the `task_network`.
+    pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
+        self.task_network = task_network;
+    }
+
+    /// Returns an immutable reference to the `task_network`.
+    pub fn task_network(&self) -> &LiftedTaskNetwork {
+        &self.task_network
+    }
+
+    /// Returns a mutable reference to the `task_network`.
+    pub fn task_network_mut(&mut self) -> &mut LiftedTaskNetwork {
+        &mut self.task_network
     }
 }
 
@@ -107,6 +140,7 @@ impl FromAst for Method {
         // 7/ Build and return the Method object
         Ok(Method {
             header,
+            task,
             precondition,
             task_network,
         })
@@ -117,18 +151,19 @@ impl FromAst for Method {
 impl fmt::Display for Method {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let params = self
-            .header.parameters()
+            .parameters()
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(", ");
 
         writeln!(f, "################# METHOD ##################")?;
-        writeln!(f, "NAME [{}]", self.header.name())?;
+        writeln!(f, "NAME [{}]", self.name())?;
         writeln!(f, "PARAMETERS [{}]", params)?;
+        writeln!(f, "TASK [{}]", self.task() )?;
         writeln!(f, "PRECONDITION")?;
-        writeln!(f, "{}", self.precondition)?;
-        writeln!(f, "{}", self.task_network)?;
+        writeln!(f, "{}", self.precondition())?;
+        writeln!(f, "{}", self.task_network())?;
         Ok(())
     }
 }
@@ -140,7 +175,7 @@ impl DisplayWithInterner for Method {
         interner: &StringInterner,
     ) -> fmt::Result {
         let params = self
-            .header.parameters()
+            .parameters()
             .iter()
             .map(|p| p.to_string_with_interner(interner))
             .collect::<Vec<_>>()
@@ -150,12 +185,13 @@ impl DisplayWithInterner for Method {
         writeln!(
             f,
             "NAME [{}]",
-            self.header.name().to_string_with_interner(interner)
+            self.name().to_string_with_interner(interner)
         )?;
         writeln!(f, "PARAMETERS [{}]", params)?;
+        writeln!(f, "TASK [{}]", self.task() )?;
         writeln!(f, "PRECONDITIONS")?;
-        self.precondition.fmt_with(f, interner)?;
-        self.task_network.fmt_with(f, interner)?;
+        self.precondition().fmt_with(f, interner)?;
+        self.task_network().fmt_with(f, interner)?;
         Ok(())
     }
 }

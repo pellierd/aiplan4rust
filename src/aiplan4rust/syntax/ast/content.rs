@@ -31,19 +31,17 @@
 //! assert_eq!(content.display_with_context(&interner), "move");
 //! ```
 
-use std::collections::HashMap;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, Ident, Requirement};
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
+use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
+use crate::aiplan4rust::syntax::DisplaySyntax;
 use crate::aiplan4rust::tree::NodeContent;
-use crate::aiplan4rust::serialization::{serialize_ordered_float, deserialize_ordered_float};
-
+use ordered_float::OrderedFloat;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use ordered_float::OrderedFloat;
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::Visitor;
-use crate::aiplan4rust::syntax::DisplaySyntax;
 
 /// Represents semantic content associated with an AST node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]

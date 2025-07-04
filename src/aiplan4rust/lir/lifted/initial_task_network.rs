@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-use std::fmt;
-use std::fmt::{Display, Formatter};
-use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
@@ -10,6 +6,9 @@ use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::DisplaySyntax;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct InitialTaskNetwork {
@@ -60,9 +59,7 @@ impl FromAst for InitialTaskNetwork {
         node: &AstArenaNode,
         ast: &TreeArena<AstArenaNode>,
     ) -> Result<Self, ParserInternalError> {
-        let children = node.children();
         let mut child_index = 0;
-
 
         let param_node_id = node.try_child(child_index)?;
         let param_node = ast.try_node(param_node_id)?;

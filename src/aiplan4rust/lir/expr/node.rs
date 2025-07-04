@@ -1,16 +1,15 @@
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
+use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
+use crate::aiplan4rust::tree::{AbstractNode, NodeId, TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
-
-use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
-use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::tree::{AbstractNode, NodeContent, NodeId, TreeArena, TreeNode};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {

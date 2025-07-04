@@ -81,7 +81,7 @@ fn apply_demorgan(kind: ExprKind, negated: bool) -> ExprKind {
 fn wrap_not(id: ExprId, expr: &mut Expr) -> Result<ExprId, ParserInternalError> {
     let not_node = ExprNode::new(ExprKind::Not, ExprContent::None, None);
     let not_id = expr.add(not_node);
-    let mut not_node_mut = expr.try_node_mut(not_id)?;
+    let not_node_mut = expr.try_node_mut(not_id)?;
     not_node_mut.add_child(id);
     Ok(not_id)
 }
