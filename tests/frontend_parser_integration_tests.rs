@@ -67,13 +67,13 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
             .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
 
         match result {
-            Ok(linker_result) => {
+            Ok(builder_result) => {
                 let mut buffer = Vec::new();
-                Renderer::write_to(linker_result.diagnostic_manager(), &mut buffer, false)
+                Renderer::write_to(builder_result.diagnostic_manager(), &mut buffer, false)
                     .expect("Failed to write diagnostics");
                 diag_file.write_all(&buffer).expect("Failed to write to diag file");
 
-                if linker_result.linked_semantic_context().is_none() {
+                if builder_result.lifted_problem().is_none() {
                     eprintln!(
                         "\x1b[1;36m===> Failure:\x1b[0m {}",
                         diag_path.display()

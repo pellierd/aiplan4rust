@@ -37,13 +37,15 @@
 //! ```
 
 use std::collections::HashSet;
+use std::mem::take;
 
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork};
+use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
@@ -51,7 +53,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
 
-/// This module defines the `IRBuilder`, which transforms a parsed and linked
+/// This module defines the `LIRBuilder`, which transforms a parsed and linked
 /// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).
 ///
 /// # What does it do?
@@ -78,33 +80,60 @@ use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
 /// It only prepares data for later use.
 /// The input has already been verified to be semantically correct.
 #[derive(Debug, Default)]
-pub struct IRBuilder;
+pub struct LIRBuilder {
+    diagnostic_manager: DiagnosticManager,
+}
 
-impl IRBuilder {
+impl LIRBuilder {
 
     /// Creates a new instance of IRBuilder.
     pub fn new() -> Self {
-        IRBuilder
+        LIRBuilder {
+            diagnostic_manager: DiagnosticManager::new(),
+        }
     }
 
-    /// Entry point for generating a LiftedProblem IR from a LinkedSemanticContext.
+
+    /// Returns an immutable reference to the internal `DiagnosticManager`,
+    /// which contains diagnostics collected during the LIR building process.
+    pub fn diagnostic_manager(&self) -> &DiagnosticManager {
+        &self.diagnostic_manager
+    }
+
+    /// Entry point for generating a `LiftedProblem` IR from a `LinkedSemanticContext`.
+    ///
+    /// This function performs the extraction of both the domain and problem parts
+    /// from the linked semantic context and constructs the corresponding IR representation.
     ///
     /// # Arguments
-    /// - `context`: contains the parsed and linked domain/problem trees.
+    /// - `context`: Reference to the `LinkedSemanticContext` which contains
+    ///   the parsed and linked domain and problem semantic trees.
     ///
     /// # Returns
-    /// - `Ok(LiftedProblem)` if extraction succeeds.
-    /// - `Err(ParserInternalError)` if something goes wrong during extraction.
+    /// - `Ok(LIRBuilderResult)` containing the constructed `LiftedProblem` IR
+    ///   and accumulated diagnostics if extraction succeeds.
+    /// - `Err(ParserInternalError)` if an error occurs during extraction.
+    ///
+    /// # Errors
+    /// This function propagates errors encountered during domain or problem extraction.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// let mut builder = IRBuilder::new();
+    /// let result = builder.build(&linked_context)?;
+    /// if let Some(ir) = result.lifted_problem() {
+    ///     // Use the IR here
+    /// }
+    /// ```
     pub fn build(
         &mut self,
         context: &LinkedSemanticContext,
-    ) -> Result<LiftedProblem, ParserInternalError> {
-        let mut ir = LiftedProblem::new();
+    ) -> Result<LIRBuilderResult, ParserInternalError> {
+        let mut lir = LiftedProblem::new();
 
-        self.extract_domain(context, &mut ir)?;
-        self.extract_problem(context, &mut ir)?;
-
-        Ok(ir)
+        self.extract_domain(context, &mut lir)?;
+        self.extract_problem(context, &mut lir)?;
+        Ok(LIRBuilderResult::new(Some(lir), take(&mut self.diagnostic_manager)))
     }
 
     /// Extracts all domain-level elements (types, predicates, actions, etc.)

@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::Read;
 
 use std::string::String;
-use crate::aiplan4rust::lir::IRBuilder;
+use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -49,7 +49,7 @@ impl Frontend {
         domain_path: &str,
         problem_path: &str,
         language: &Language,
-    ) -> Result<LinkerResult, ParserInternalError> {
+    ) -> Result<LIRBuilderResult, ParserInternalError> {
         let mut diagnostic_manager = DiagnosticManager::new();
 
         // Parse the domain file
@@ -69,14 +69,11 @@ impl Frontend {
                     .diagnostic_manager_mut()
                     .add_diagnostic_from(&diagnostic_manager);
 
-                println!("Bannanenene");
-                let mut ir_builder = IRBuilder::new();
-                ir_builder.build(linker_result.linked_semantic_context().unwrap())?;
-                println!("Bannanenene");
-
-                Ok(linker_result)
+                let mut ir_builder = LIRBuilder::new();
+                let builder_result = ir_builder.build(linker_result.linked_semantic_context().unwrap())?;
+                Ok(builder_result)
             }
-            _ => Ok(LinkerResult::new(None, diagnostic_manager)),
+            _ => Ok(LIRBuilderResult::new(None, diagnostic_manager)),
         }
     }
 
@@ -220,7 +217,7 @@ impl Frontend {
     }
 
     // Désérialise un LiftedPlanningTask depuis un fichier en détectant le format
-    pub fn deserialize_planning_task_from_file(
+    pub fn deserialize_linked_semantic_context_from_file(
         &self,
         file: &str,
     ) -> Result<LinkedSemanticContext, ParserInternalError> {
@@ -249,7 +246,7 @@ impl Frontend {
     }
 
     // Sérialise un LiftedPlanningTask en chaîne JSON ou YAML
-    pub fn serialize_planning_task_to_string(
+    pub fn serialize_linked_semantic_context_to_string(
         &self,
         task: &LinkedSemanticContext,
         format: &FileFormat,
@@ -263,13 +260,40 @@ impl Frontend {
     }
 
     // Sérialise un LiftedPlanningTask dans un fichier JSON ou YAML
-    pub fn serialize_planning_task_to_file(
+    pub fn serialize_linked_semantic_context_to_file(
         &self,
         task: &LinkedSemanticContext,
         format: &FileFormat,
         output_file: &str,
     ) -> Result<(), ParserInternalError> {
-        let serialized_data = self.serialize_planning_task_to_string(task, format)?;
+        let serialized_data = self.serialize_linked_semantic_context_to_string(task, format)?;
+        std::fs::write(output_file, serialized_data)
+            .map_err(|e| ParserInternalError::new(format!("Unable to write file: {}", e)))?;
+        Ok(())
+    }
+
+    /// Sérialise un LiftedPlanningProblem en chaîne JSON ou YAML
+    pub fn serialize_lifted_problem_to_string(
+        &self,
+        problem: &LiftedProblem,
+        format: &FileFormat,
+    ) -> Result<String, ParserInternalError> {
+        match format {
+            FileFormat::Json => serde_json::to_string_pretty(problem)
+                .map_err(|e| ParserInternalError::new(format!("Error serializing to JSON: {}", e))),
+            FileFormat::Yaml => serde_yaml::to_string(problem)
+                .map_err(|e| ParserInternalError::new(format!("Error serializing to YAML: {}", e))),
+        }
+    }
+
+    /// Sérialise un LiftedPlanningProblem dans un fichier JSON ou YAML
+    pub fn serialize_lifted_problem_to_file(
+        &self,
+        problem: &LiftedProblem,
+        format: &FileFormat,
+        output_file: &str,
+    ) -> Result<(), ParserInternalError> {
+        let serialized_data = self.serialize_lifted_problem_to_string(problem, format)?;
         std::fs::write(output_file, serialized_data)
             .map_err(|e| ParserInternalError::new(format!("Unable to write file: {}", e)))?;
         Ok(())
