@@ -5,11 +5,13 @@ use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
-use crate::aiplan4rust::lir::lifted::{LiftedAction, LiftedMethod, InitialTaskNetwork};
+use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
+use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
 
 /// This module defines the `IRBuilder`, which transforms a parsed and linked
 /// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).
@@ -88,12 +90,12 @@ impl IRBuilder {
                 AstKind::RequireDef => ir.add_requirements(extract_requirements(node, domain)?),
                 AstKind::TypesDef => ir.add_types(extract_types(node, domain)?),
                 AstKind::ConstantsDef => ir.add_constants(extract_constants(node, domain)?),
-                AstKind::PredicatesDef => ir.add_predicates(extract_predicates(node, domain)?),
-                AstKind::FunctionsDef => ir.add_functions(extract_functions(node, domain)?),
+                AstKind::PredicatesDef => ir.add_predicates(extract_atomic_formula_skeleton(node, domain)?),
+                AstKind::FunctionsDef => ir.add_functions(extract_atomic_function_skeleton(node, domain)?),
                 AstKind::Constraints => {
                     ir.set_domain_constraints(Expr::from_ast(node, domain)?)
                 }
-                AstKind::TaskDef => ir.add_task(TaskDef::from_ast(node, domain)?),
+                AstKind::TaskDef => ir.add_task(AtomicTaskSkeleton::from_ast(node, domain)?),
                 AstKind::ActionDef => ir.add_action(LiftedAction::from_ast(node, domain)?),
                 AstKind::MethodDef => ir.add_method(LiftedMethod::from_ast(node, domain)?),
                 _ => {}
@@ -153,19 +155,19 @@ fn extract_requirements(
 }
 
 /// Extracts predicates from a `PredicatesDef` node.
-fn extract_predicates(
+fn extract_atomic_formula_skeleton(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
-) -> Result<HashSet<PredicateDef>, ParserInternalError> {
-    extract_set(node, ast, PredicateDef::from_ast)
+) -> Result<HashSet<AtomicFormulaSkeleton>, ParserInternalError> {
+    extract_set(node, ast, AtomicFormulaSkeleton::from_ast)
 }
 
 /// Extracts functions from a `FunctionsDef` node.
-fn extract_functions(
+fn extract_atomic_function_skeleton(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
-) -> Result<HashSet<FunctionDef>, ParserInternalError> {
-    extract_set(node, ast, FunctionDef::from_ast)
+) -> Result<HashSet<AtomicFunctionSkeleton>, ParserInternalError> {
+    extract_set(node, ast, AtomicFunctionSkeleton::from_ast)
 }
 
 /// Extracts types from a `TypesDef` node.

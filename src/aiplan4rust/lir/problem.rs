@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lir::lifted::{InitialTaskNetwork, LiftedAction, LiftedMethod};
-use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
+use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
+use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 
 /// Represents a planning problem within a domain.
 ///
@@ -38,17 +38,17 @@ pub struct Problem {
     constants: HashSet<TypedSymbol>,
 
     /// The list of predicates in the planning problem.
-    predicates: Vec<PredicateDef>,
+    predicates: Vec<AtomicFormulaSkeleton>,
 
     /// The list of functions in the planning problem.
-    functions: Vec<FunctionDef>,
+    functions: Vec<AtomicFunctionSkeleton>,
 
     /// The constraints defined in the domain, i.e., the global constraints
     /// No constraints are represented by an empty and `Expr'.
     domain_constraints: Expr,
 
     /// The list of tasks defined in this planning problem.
-    tasks: Vec<TaskDef>,
+    tasks: Vec<AtomicTaskSkeleton>,
 
     /// The list of actions defined in this planning problem.
     actions: Vec<LiftedAction>,
@@ -253,24 +253,24 @@ impl Problem {
     // === Predicates ===
 
     /// Returns a reference to the list of predicates.
-    pub fn predicates(&self) -> &Vec<PredicateDef> {
+    pub fn predicates(&self) -> &Vec<AtomicFormulaSkeleton> {
         &self.predicates
     }
 
     /// Returns a mutable reference to the list of predicates.
-    pub fn predicates_mut(&mut self) -> &mut Vec<PredicateDef> {
+    pub fn predicates_mut(&mut self) -> &mut Vec<AtomicFormulaSkeleton> {
         &mut self.predicates
     }
 
     /// Adds a single predicate.
-    pub fn add_predicate(&mut self, predicate: PredicateDef) {
+    pub fn add_predicate(&mut self, predicate: AtomicFormulaSkeleton) {
         self.predicates.push(predicate);
     }
 
     /// Adds multiple predicates.
     pub fn add_predicates<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item =PredicateDef>,
+        I: IntoIterator<Item =AtomicFormulaSkeleton>,
     {
         self.predicates.extend(iter);
     }
@@ -278,24 +278,24 @@ impl Problem {
     // === Functions ===
 
     /// Returns a reference to the list of functions.
-    pub fn functions(&self) -> &Vec<FunctionDef> {
+    pub fn functions(&self) -> &Vec<AtomicFunctionSkeleton> {
         &self.functions
     }
 
     /// Returns a mutable reference to the list of functions.
-    pub fn functions_mut(&mut self) -> &mut Vec<FunctionDef> {
+    pub fn functions_mut(&mut self) -> &mut Vec<AtomicFunctionSkeleton> {
         &mut self.functions
     }
 
     /// Adds a single function.
-    pub fn add_function(&mut self, function: FunctionDef) {
+    pub fn add_function(&mut self, function: AtomicFunctionSkeleton) {
         self.functions.push(function);
     }
 
     /// Adds multiple functions.
     pub fn add_functions<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item =FunctionDef>,
+        I: IntoIterator<Item =AtomicFunctionSkeleton>,
     {
         self.functions.extend(iter);
     }
@@ -320,24 +320,24 @@ impl Problem {
     // === Tasks ===
 
     /// Returns a reference to the list of tasks.
-    pub fn tasks(&self) -> &Vec<TaskDef> {
+    pub fn tasks(&self) -> &Vec<AtomicTaskSkeleton> {
         &self.tasks
     }
 
     /// Returns a mutable reference to the list of tasks.
-    pub fn tasks_mut(&mut self) -> &mut Vec<TaskDef> {
+    pub fn tasks_mut(&mut self) -> &mut Vec<AtomicTaskSkeleton> {
         &mut self.tasks
     }
 
     /// Adds a single task.
-    pub fn add_task(&mut self, task: TaskDef) {
+    pub fn add_task(&mut self, task: AtomicTaskSkeleton) {
         self.tasks.push(task);
     }
 
     /// Adds multiple tasks.
     pub fn add_tasks<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item =TaskDef>,
+        I: IntoIterator<Item =AtomicTaskSkeleton>,
     {
         self.tasks.extend(iter);
     }

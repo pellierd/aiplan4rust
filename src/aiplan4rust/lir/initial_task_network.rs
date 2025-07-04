@@ -1,7 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lir::lifted::LiftedTaskNetwork;
+use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::DisplaySyntax;

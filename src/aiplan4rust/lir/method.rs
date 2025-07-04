@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::lifted::LiftedTaskNetwork;
+use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::lir::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
