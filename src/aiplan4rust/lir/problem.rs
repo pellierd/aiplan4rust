@@ -56,7 +56,7 @@ pub struct Problem {
     /// The list of methods defined in this planning problem.
     methods: Vec<LiftedMethod>,
 }
-
+#[allow(dead_code)]
 impl Problem {
     /// Creates a new empty `PlanningProblem` with default identifiers
     /// and no requirements, types, constants, predicates, functions, or actions.

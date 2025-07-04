@@ -106,6 +106,9 @@ impl IRBuilder {
                 AstKind::ProblemName => {
                     ir.set_problem_name(node.try_ident()?);
                 }
+                AstKind::RequireDef => {
+                    ir.add_requirements(build_requirements_from(node, problem)?);
+                }
                 /*AstKind::InitDef => {
                     ir.set_init_state(build_init_state_from(node, problem)?);
                 }
