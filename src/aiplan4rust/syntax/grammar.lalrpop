@@ -1385,7 +1385,7 @@ pub MetricSpec : Box<AstNode> = {
     },
 }
 
-pub Length : Box<AstNode> = {
+pub LengthSpec : Box<AstNode> = {
     <start:@L>
         "(" ":length"
             <start_serial:@L> "(" ":serial" <serial_value:"number"?> ")" <end_serial:@R>
@@ -1413,7 +1413,7 @@ pub Problem : Box<AstNode> = {
         <goal:Goal>
         <constraints:Constraints?>
         <metric_spec:MetricSpec?>
-        <length_spec:Length?>
+        <length_spec:LengthSpec?>
         ")"
     <end:@R> => {
         let mut children = Vec::new();

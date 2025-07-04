@@ -8,7 +8,6 @@ pub mod assign_op;
 pub mod binary_comp;
 pub mod optimization;
 
-
 pub use types::Type;
 pub use typed_symbol::TypedSymbol;
 pub use typed_list::TypedList;

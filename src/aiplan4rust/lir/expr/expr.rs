@@ -59,6 +59,17 @@ impl Expr {
         expr.add(root);
         expr
     }
+
+    pub fn empty_length_spec() -> Self {
+        let mut expr = Expr::new();
+        let root = ExprNode::new(
+            ExprKind::Length,
+            ExprContent::None,
+            None,
+        );
+        expr.add(root);
+        expr
+    }
 }
 
 /// Implements the `FromAst` trait for `Expr`.

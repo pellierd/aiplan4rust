@@ -124,6 +124,9 @@ impl IRBuilder {
                 AstKind::Metric => {
                     ir.set_metric_spec(Expr::from_ast(node, problem)?);
                 }
+                AstKind::Length => {
+                    ir.set_lenght_spec(Expr::from_ast(node, problem)?);
+                }
                 // Ajoute d'autres kinds si nécessaire pour le problème
                 _ => {
                     // Ignorer les autres pour l'instant

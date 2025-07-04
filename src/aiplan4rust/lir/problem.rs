@@ -72,6 +72,10 @@ pub struct Problem {
     /// The metric specification of the problem
     metric_spec: Expr,
 
+    /// The length specification of the problem
+    /// The length-spec is deprecated since PDDL 2.1.
+    length_spec: Expr,
+
 }
 #[allow(dead_code)]
 impl Problem {
@@ -103,6 +107,7 @@ impl Problem {
             goal: Expr::empty_or(),
             problem_constraints: Expr::empty_or(),
             metric_spec: Expr::metric_none(),
+            length_spec: Expr::empty_length_spec()
         }
     }
 
@@ -478,5 +483,21 @@ impl Problem {
     /// Sets the metric specification expression.
     pub fn set_metric_spec(&mut self, metric: Expr) {
         self.metric_spec = metric;
+    }
+    // === Length Specification ===
+
+    /// Returns a reference to the length specification.
+    pub fn length_spec(&self) -> &Expr {
+        &self.length_spec
+    }
+
+    /// Returns a mutable reference to the length specification.
+    pub fn length_spec_mut(&mut self) -> &mut Expr {
+        &mut self.length_spec
+    }
+
+    /// Sets the length specification.
+    pub fn set_length_spec(&mut self, length_spec: Expr) {
+        self.length_spec = length_spec;
     }
 }
