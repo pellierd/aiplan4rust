@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
-use crate::aiplan4rust::lir::NamedTypedList;
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::DisplaySyntax;
@@ -77,8 +77,8 @@ impl Formula {
     ///
     /// A `Formula` instance whose return type is always `None`.
     pub fn new(name: Ident, parameters: TypedList) -> Self {
-        let signature = NamedTypedList::new(name, parameters);
-        Self { header: signature }
+        let header = NamedTypedList::new(name, parameters);
+        Self { header }
     }
 }
 

@@ -1,5 +1,43 @@
+//! Task Network Representation
+//!
+//! This module defines the [`TaskNetwork`] struct used in hierarchical planning.
+//! A task network specifies a partially ordered set of tasks to execute, and may
+//! include additional ordering and logical constraints that influence execution.
+//!
+//! This structure is fundamental to HDDL-like planning languages, where a method
+//! decomposes a high-level task into a network of subtasks.
+//!
+//! # Structure
+//!
+//! A `TaskNetwork` contains:
+//!
+//! - `tasks`: an [`Expr`] representing the subtask set (possibly partially ordered).
+//! - `ordering_constraints`: an [`Expr`] describing the order relationships between tasks.
+//! - `logical_constraints`: an [`Expr`] encoding additional logical conditions on the task execution.
+//!
+//! # Construction Example
+//!
+//! ```rust
+//! use aiplan4rust::lir::task_network::TaskNetwork;
+//! use aiplan4rust::lir::expr::Expr;
+//!
+//! let network = TaskNetwork::new(
+//!     Expr::empty_and(),
+//!     Expr::empty_and(),
+//!     Expr::empty_and(),
+//! );
+//! ```
+//!
+//! # Usage
+//! Task networks are commonly used inside method definitions to describe how
+//! an abstract task is decomposed into a set of executable or further abstract tasks.
+//!
+//! The expressions used are built from the [`Expr`] representation, which supports
+//! logical combinations, references to task calls, and symbolic constructs parsed from ASTs.
+
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
+
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
@@ -26,17 +64,17 @@ pub struct TaskNetwork {
 
 #[allow(dead_code)]
 impl TaskNetwork {
-    /// Creates a new `TaskNetwork` with the given tasks, ordering constraints, and logical constraints.
+    /// Creates a new `TaskNetwork` with the specified tasks and constraints.
     ///
     /// # Parameters
     ///
-    /// - `tasks`: Expression representing the tasks involved in the network.
-    /// - `ordering_constraints`: Expression representing ordering constraints between tasks.
-    /// - `logical_constraints`: Expression representing logical constraints among tasks.
+    /// - `tasks`: An [`Expr`] representing the tasks included in the network.
+    /// - `ordering_constraints`: An [`Expr`] specifying the ordering between tasks.
+    /// - `logical_constraints`: An [`Expr`] specifying additional logical constraints among the tasks.
     ///
     /// # Returns
     ///
-    /// A new instance of `TaskNetwork`.
+    /// A new [`TaskNetwork`] instance.
     pub fn new(tasks: Expr, ordering_constraints: Expr, logical_constraints: Expr) -> Self {
         Self {
             tasks,
@@ -45,12 +83,22 @@ impl TaskNetwork {
         }
     }
 
-    /// Returns a reference to the tasks expression.
+    /// Returns an immutable reference to the tasks expression.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`Expr`] representing the tasks.
     pub fn tasks(&self) -> &Expr {
         &self.tasks
     }
 
     /// Returns a mutable reference to the tasks expression.
+    ///
+    /// This allows modifying the tasks contained in the network.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`Expr`] representing the tasks.
     pub fn tasks_mut(&mut self) -> &mut Expr {
         &mut self.tasks
     }
@@ -59,17 +107,27 @@ impl TaskNetwork {
     ///
     /// # Parameters
     ///
-    /// - `tasks`: The new tasks expression to set.
+    /// - `tasks`: The new [`Expr`] representing the tasks to replace the current one.
     pub fn set_tasks(&mut self, tasks: Expr) {
         self.tasks = tasks;
     }
 
-    /// Returns a reference to the ordering constraints expression.
+    /// Returns an immutable reference to the ordering constraints expression.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`Expr`] representing the ordering constraints.
     pub fn ordering_constraints(&self) -> &Expr {
         &self.ordering_constraints
     }
 
     /// Returns a mutable reference to the ordering constraints expression.
+    ///
+    /// This allows modifying the ordering constraints.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`Expr`] representing the ordering constraints.
     pub fn ordering_constraints_mut(&mut self) -> &mut Expr {
         &mut self.ordering_constraints
     }
@@ -78,17 +136,27 @@ impl TaskNetwork {
     ///
     /// # Parameters
     ///
-    /// - `ordering_constraints`: The new ordering constraints expression to set.
+    /// - `ordering_constraints`: The new [`Expr`] representing the ordering constraints.
     pub fn set_ordering_constraints(&mut self, ordering_constraints: Expr) {
         self.ordering_constraints = ordering_constraints;
     }
 
-    /// Returns a reference to the logical constraints expression.
+    /// Returns an immutable reference to the logical constraints expression.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`Expr`] representing the logical constraints.
     pub fn logical_constraints(&self) -> &Expr {
         &self.logical_constraints
     }
 
     /// Returns a mutable reference to the logical constraints expression.
+    ///
+    /// This allows modifying the logical constraints.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`Expr`] representing the logical constraints.
     pub fn logical_constraints_mut(&mut self) -> &mut Expr {
         &mut self.logical_constraints
     }
@@ -97,20 +165,29 @@ impl TaskNetwork {
     ///
     /// # Parameters
     ///
-    /// - `logical_constraints`: The new logical constraints expression to set.
+    /// - `logical_constraints`: The new [`Expr`] representing the logical constraints.
     pub fn set_logical_constraints(&mut self, logical_constraints: Expr) {
         self.logical_constraints = logical_constraints;
     }
 }
 
 impl FromAst for TaskNetwork {
+    /// Builds a [`TaskNetwork`] instance from the AST representation.
+    ///
+    /// This method expects a node containing children corresponding to:
+    /// - A subtask definition (`PartiallyOrderedSubtaskDef` or `OrderedSubtaskDef`).
+    /// - Optionally, a task ordering constraint.
+    /// - Optionally, a task logical constraint.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ParserInternalError`] if the node is malformed or has unexpected children.
     fn from_ast(
         node: &AstArenaNode,
         ast: &TreeArena<AstArenaNode>,
     ) -> Result<Self, ParserInternalError> {
         let children = node.children();
 
-        // Initialise avec des valeurs par défaut
         let mut tasks = Expr::empty_and();
         let mut ordering = Expr::empty_and();
         let mut constraints = Expr::empty_and();
@@ -143,15 +220,14 @@ impl FromAst for TaskNetwork {
             }
         }
 
-        Ok(TaskNetwork::new(
-            tasks,
-            ordering,
-            constraints,
-        ))
+        Ok(TaskNetwork::new(tasks, ordering, constraints))
     }
 }
 
 impl Display for TaskNetwork {
+    /// Formats the `TaskNetwork` as a human-readable string.
+    ///
+    /// This representation displays the tasks, ordering constraints, and logical constraints.
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Tasks: {}", self.tasks)?;
         writeln!(f, "Ordering: {}", self.ordering_constraints)?;
@@ -160,6 +236,9 @@ impl Display for TaskNetwork {
 }
 
 impl DisplayWithInterner for TaskNetwork {
+    /// Formats the `TaskNetwork` using the provided [`StringInterner`] to resolve identifiers.
+    ///
+    /// This representation is useful for reconstructing meaningful names in debug output.
     fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
         write!(f, "TASKS\n{}", self.tasks.to_string_with_interner(interner))?;
         write!(f, "ORDERING\n{}", self.ordering_constraints.to_string_with_interner(interner))?;
@@ -168,6 +247,9 @@ impl DisplayWithInterner for TaskNetwork {
 }
 
 impl DisplaySyntax for TaskNetwork {
+    /// Formats the `TaskNetwork` in a syntax-oriented form using the provided [`StringInterner`].
+    ///
+    /// This representation can be used to regenerate source-like output.
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
         self.fmt_with(f, interner)
     }

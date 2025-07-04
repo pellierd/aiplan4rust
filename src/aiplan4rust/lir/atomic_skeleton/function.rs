@@ -23,7 +23,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Serialize, Deserialize};
 
 use crate::aiplan4rust::lang::{Ident, Type, TypedList};
-use crate::aiplan4rust::lir::NamedTypedList;
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;

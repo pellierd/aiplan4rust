@@ -1,37 +1,83 @@
+//! Module defining the `Action` struct, representing an instantaneous action in the planning domain.
+//!
+//! An `Action` includes a name, parameters, a precondition, and an effect expression.
+//! Both precondition and effect are always present, defaulting to an empty expression if unspecified.
+//!
+//! This module provides:
+//! - Construction of actions from parsed AST nodes.
+//! - Accessors and mutators for the action's signature, precondition, and effect.
+//! - Display implementations for debugging and formatted output.
+//!
+//! # Usage example
+//!
+//! ```rust
+//! # use aiplan4rust::lir::Action;
+//! # use aiplan4rust::lang::{Ident, TypedList};
+//! # use aiplan4rust::lir::expr::Expr;
+//! let action = Action::new(
+//!     Ident::new("move"),
+//!     TypedList::empty(),
+//!     Expr::empty_or(),
+//!     Expr::empty_or(),
+//! );
+//! println!("Action name: {}", action.name());
+//! ```
+
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::NamedTypedList;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::DisplaySyntax;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::syntax::DisplaySyntax;
 
-/// Represents an instantaneous action with always-present (possibly empty) precondition and effect.
+/// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
-/// By convention, an “empty” expression is represented as an `Or` node with no children.
+/// The precondition and effect are always present and default to empty expressions (an `Or` node with no children).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Action {
     header: NamedTypedList,
 
-    /// Precondition expression (never `None`; defaults to empty `Or`).
+    /// The precondition expression (never `None`; defaults to empty `Or`).
     precondition: Expr,
 
-    /// Effect expression (never `None`; defaults to empty `Or`).
+    /// The effect expression (never `None`; defaults to empty `Or`).
     effect: Expr,
 }
 
 #[allow(dead_code)]
 impl Action {
-    /// Create a new `Action` with the given name and parameters.
+    /// Creates a new `Action` with the given name, parameters, precondition, and effect.
     ///
-    /// The precondition and effect default to an empty `Or` expression.
+    /// # Arguments
+    /// * `name` - The identifier/name of the action.
+    /// * `parameters` - Typed list of parameters for the action.
+    /// * `precondition` - Expression representing the precondition.
+    /// * `effect` - Expression representing the effect.
+    ///
+    /// # Returns
+    /// A new `Action` instance.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use aiplan4rust::lir::Action;
+    /// # use aiplan4rust::lang::{Ident, TypedList};
+    /// # use aiplan4rust::lir::expr::Expr;
+    /// let a = Action::new(
+    ///     Ident::new("test_action"),
+    ///     TypedList::empty(),
+    ///     Expr::empty_or(),
+    ///     Expr::empty_or(),
+    /// );
+    /// ```
     pub fn new(name: Ident, parameters: TypedList, precondition: Expr, effect: Expr) -> Self {
         Self {
             header: NamedTypedList::new(name, parameters),
@@ -40,26 +86,33 @@ impl Action {
         }
     }
 
+    /// Returns a reference to the full signature (name + parameters).
     pub fn signature(&self) -> &NamedTypedList {
         &self.header
     }
 
-    /// Returns the action’s name.
+    /// Returns the name of the action.
     pub fn name(&self) -> Ident {
         self.header.name()
     }
 
-    /// Sets the action’s name.
+    /// Sets the name of the action.
+    ///
+    /// # Arguments
+    /// * `name` - The new identifier to assign.
     pub fn set_name(&mut self, name: Ident) {
         self.header.set_name(name);
     }
 
-    /// Returns a slice of the action’s parameters.
+    /// Returns a slice of the action's parameters.
     pub fn parameters(&self) -> &[TypedSymbol] {
         &self.header.parameters()
     }
 
-    /// Sets the action’s parameters.
+    /// Sets the action's parameters.
+    ///
+    /// # Arguments
+    /// * `parameters` - The new list of typed parameters.
     pub fn set_parameters(&mut self, parameters: TypedList) {
         self.header.set_parameters(parameters);
     }
@@ -70,6 +123,9 @@ impl Action {
     }
 
     /// Replaces the precondition expression.
+    ///
+    /// # Arguments
+    /// * `pre` - The new precondition expression.
     pub fn set_precondition(&mut self, pre: Expr) {
         self.precondition = pre;
     }
@@ -80,6 +136,9 @@ impl Action {
     }
 
     /// Replaces the effect expression.
+    ///
+    /// # Arguments
+    /// * `eff` - The new effect expression.
     pub fn set_effect(&mut self, eff: Expr) {
         self.effect = eff;
     }
@@ -89,15 +148,15 @@ impl FromAst for Action {
     /// Constructs an `Action` from an AST node.
     ///
     /// # Expected AST structure
+    /// The node should have:
+    /// - The first child: the action name identifier.
+    /// - The second child: parameters as a typed list.
+    /// - The third child: the body containing optional precondition and effect nodes.
     ///
-    /// The input `node` should represent an `Action` with exactly three children:
-    /// 1. The first child is the name node (identifier).
-    /// 2. The second child is the parameters node, which contains a typed list.
-    /// 3. The third child is the definition body node, which can have up to two children:
-    ///     - The first child (optional) represents the precondition.
-    ///     - The second child (optional) represents the effect.
+    /// If the precondition or effect are missing, they default to empty expressions.
     ///
-    /// If the precondition or effect nodes are missing, an empty expression (`Expr::empty_or()`) is used.
+    /// # Errors
+    /// Returns `ParserInternalError` if the AST structure is unexpected or parsing fails.
     fn from_ast(
         node: &AstArenaNode,
         ast: &TreeArena<AstArenaNode>,
@@ -136,10 +195,12 @@ impl FromAst for Action {
             effect,
         })
     }
-
 }
-#[allow(dead_code)]
+
 impl fmt::Display for Action {
+    /// Formats the `Action` for display purposes.
+    ///
+    /// Prints the name, parameters, precondition, and effect in a human-readable way.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let params = self
             .parameters()
@@ -154,12 +215,14 @@ impl fmt::Display for Action {
         writeln!(f, "PRECONDITION")?;
         writeln!(f, "{}", self.precondition)?;
         writeln!(f, "EFFECT")?;
-        writeln!(f, "{}", self.effect)?;
-        Ok(())
+        writeln!(f, "{}", self.effect)
     }
 }
 
 impl DisplayWithInterner for Action {
+    /// Formats the `Action` using a string interner for symbol resolution.
+    ///
+    /// This is useful for pretty-printing names and parameters with interning.
     fn fmt_with(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -182,12 +245,12 @@ impl DisplayWithInterner for Action {
         writeln!(f, "PRECONDITION")?;
         self.precondition.fmt_with(f, interner)?;
         writeln!(f, " EFFECT")?;
-        self.effect.fmt_with(f, interner)?;
-        Ok(())
+        self.effect.fmt_with(f, interner)
     }
 }
 
 impl DisplaySyntax for Action {
+    /// Formats the `Action` syntax for display, delegating to `fmt_with`.
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

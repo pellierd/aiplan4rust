@@ -1,11 +1,38 @@
+//! This module defines the `Method` struct, representing a lifted method in a hierarchical task network (HTN) planning domain.
+//!
+//! A `Method` describes how a complex task can be decomposed into subtasks under certain preconditions,
+//! encapsulating the method's name, parameters, the task it refines, its preconditions, and the resulting task network.
+//!
+//! This is a core abstraction for expressing domain methods in HTN planning.
+//!
+//! # Overview
+//! - `header`: The method’s name and typed parameters (via `NamedTypedList`).
+//! - `task`: The task expression that the method refines.
+//! - `precondition`: Preconditions required for the method to apply (defaults to empty `Or`).
+//! - `task_network`: The lifted task network decomposing the task.
+//!
+//! # Example
+//! ```rust
+//! # use crate::aiplan4rust::lang::{Ident, TypedList};
+//! # use crate::aiplan4rust::lir::{Method, Expr, LiftedTaskNetwork};
+//! let method = Method::new(
+//!     Ident::new("example_method"),
+//!     TypedList::new(vec![]),
+//!     Expr::empty_or(),
+//!     Expr::empty_or(),
+//!     LiftedTaskNetwork::default(),
+//! );
+//! println!("Method name: {}", method.name());
+//! ```
+
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
-use crate::aiplan4rust::lir::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::DisplaySyntax;
@@ -15,129 +42,151 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Method {
+    /// The method's header, containing its name and parameters.
     header: NamedTypedList,
 
+    /// The task expression this method decomposes.
     task: Expr,
 
-    /// Precondition expression (never `None`; defaults to empty `Or`).
+    /// The precondition expression required for the method to be applicable.
+    /// This is never `None` and defaults to an empty `Or` expression.
     precondition: Expr,
 
-    task_network: LiftedTaskNetwork
+    /// The lifted task network describing the subtasks for decomposition.
+    task_network: LiftedTaskNetwork,
 }
 
 #[allow(dead_code)]
 impl Method {
-    /// The precondition and effect default to an empty `Or` expression.
-    pub fn new(name: Ident, parameters: TypedList, task: Expr, precondition: Expr, task_network: LiftedTaskNetwork) -> Self {
+    /// Constructs a new `Method` with the specified name, parameters, task, precondition, and task network.
+    ///
+    /// # Parameters
+    /// - `name`: The method’s identifier.
+    /// - `parameters`: Typed list of parameters for the method.
+    /// - `task`: The task expression refined or decomposed by this method.
+    /// - `precondition`: Preconditions for method applicability.
+    /// - `task_network`: The task network describing subtasks and constraints.
+    ///
+    /// # Returns
+    /// A new `Method` instance.
+    pub fn new(
+        name: Ident,
+        parameters: TypedList,
+        task: Expr,
+        precondition: Expr,
+        task_network: LiftedTaskNetwork,
+    ) -> Self {
         Self {
             header: NamedTypedList::new(name, parameters),
             task,
             precondition,
             task_network,
-
         }
     }
 
-    /// Returns the action’s name.
+    /// Returns the method's name as an identifier.
     pub fn name(&self) -> Ident {
         self.header.name()
     }
 
-    /// Sets the action’s name.
+    /// Sets the method's name.
     pub fn set_name(&mut self, name: Ident) {
         self.header.set_name(name);
     }
 
-    /// Returns a slice of the action’s parameters.
+    /// Returns a slice of the method's parameters.
     pub fn parameters(&self) -> &[TypedSymbol] {
         &self.header.parameters()
     }
 
-    /// Sets the action’s parameters.
+    /// Sets the method's parameters.
     pub fn set_parameters(&mut self, parameters: TypedList) {
         self.header.set_parameters(parameters);
     }
 
-    /// Sets the `task` expression.
+    /// Sets the task expression that this method refines.
     pub fn set_task(&mut self, task: Expr) {
         self.task = task;
     }
 
-    /// Returns an immutable reference to the `task` expression.
+    /// Returns an immutable reference to the task expression.
     pub fn task(&self) -> &Expr {
         &self.task
     }
 
-    /// Returns a mutable reference to the `task` expression.
+    /// Returns a mutable reference to the task expression.
     pub fn task_mut(&mut self) -> &mut Expr {
         &mut self.task
     }
 
-    /// Returns a reference to the precondition expression.
+    /// Returns a reference to the method's precondition expression.
     pub fn precondition(&self) -> &Expr {
         &self.precondition
     }
 
-    /// Replaces the precondition expression.
+    /// Replaces the method's precondition expression.
     pub fn set_precondition(&mut self, pre: Expr) {
         self.precondition = pre;
     }
 
-    /// Sets the `task_network`.
+    /// Sets the task network representing subtasks and constraints.
     pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
         self.task_network = task_network;
     }
 
-    /// Returns an immutable reference to the `task_network`.
+    /// Returns an immutable reference to the task network.
     pub fn task_network(&self) -> &LiftedTaskNetwork {
         &self.task_network
     }
 
-    /// Returns a mutable reference to the `task_network`.
+    /// Returns a mutable reference to the task network.
     pub fn task_network_mut(&mut self) -> &mut LiftedTaskNetwork {
         &mut self.task_network
     }
 }
 
 impl FromAst for Method {
-
+    /// Parses a `Method` from its AST representation.
+    ///
+    /// # Parameters
+    /// - `node`: The AST node representing the method.
+    /// - `ast`: The arena of AST nodes.
+    ///
+    /// # Returns
+    /// Returns a `Method` instance or a `ParserInternalError` if parsing fails.
     fn from_ast(
         node: &AstArenaNode,
         ast: &TreeArena<AstArenaNode>,
     ) -> Result<Self, ParserInternalError> {
-        // 1. Parse the header (NamedTypedList) from the top-level node
+        // Parse header (name + parameters)
         let header = NamedTypedList::from_ast(node, ast)?;
 
-        // 2. Get the node representing the method body (children container)
+        // Parse method body children container
         let def_body_node = ast.try_node(node.try_child(2)?)?;
         let children = def_body_node.children();
 
-        // 3. Initialize index to track which child we're processing
         let mut child_index = 0;
 
-        // 4. The first child node is always the task expression
+        // Parse the task expression (first child)
         let task = Expr::from_ast(ast.try_node(children[child_index])?, ast)?;
         child_index += 1;
 
-        // 5. Next, determine if the second child is a precondition
+        // Parse optional precondition (second child, if present)
         let pre_node_def = ast.try_node(children[child_index])?;
         let precondition = match pre_node_def.kind() {
-            // 5a.️ If it's a PreconditionDef, parse the contained expression
             AstKind::MethodPreconditionDef => {
                 let pre_node_id = pre_node_def.try_child(0)?;
                 let pre_node = ast.try_node(pre_node_id)?;
-                child_index += 1; // Advance because we consumed this node
+                child_index += 1;
                 Expr::from_ast(pre_node, ast)?
             }
-            // 5b. Otherwise, no precondition was specified
             _ => Expr::empty_or(),
         };
 
-        // 6. The next child must be the task network definition
+        // Parse task network (next child)
         let tw_node_def = ast.try_node(children[child_index])?;
         let task_network = LiftedTaskNetwork::from_ast(tw_node_def, ast)?;
 
-        // 7/ Build and return the Method object
         Ok(Method {
             header,
             task,
@@ -145,13 +194,12 @@ impl FromAst for Method {
             task_network,
         })
     }
-
 }
 
 impl fmt::Display for Method {
+    /// Formats the `Method` for human-readable output.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params = self
-            .parameters()
+        let params = self.parameters()
             .iter()
             .map(|p| p.to_string())
             .collect::<Vec<_>>()
@@ -160,7 +208,7 @@ impl fmt::Display for Method {
         writeln!(f, "################# METHOD ##################")?;
         writeln!(f, "NAME [{}]", self.name())?;
         writeln!(f, "PARAMETERS [{}]", params)?;
-        writeln!(f, "TASK [{}]", self.task() )?;
+        writeln!(f, "TASK [{}]", self.task())?;
         writeln!(f, "PRECONDITION")?;
         writeln!(f, "{}", self.precondition())?;
         writeln!(f, "{}", self.task_network())?;
@@ -169,26 +217,22 @@ impl fmt::Display for Method {
 }
 
 impl DisplayWithInterner for Method {
+    /// Formats the `Method` using a string interner for name resolution.
     fn fmt_with(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        let params = self
-            .parameters()
+        let params = self.parameters()
             .iter()
             .map(|p| p.to_string_with_interner(interner))
             .collect::<Vec<_>>()
             .join(", ");
 
         writeln!(f, "################# METHOD ##################")?;
-        writeln!(
-            f,
-            "NAME [{}]",
-            self.name().to_string_with_interner(interner)
-        )?;
+        writeln!(f, "NAME [{}]", self.name().to_string_with_interner(interner))?;
         writeln!(f, "PARAMETERS [{}]", params)?;
-        writeln!(f, "TASK [{}]", self.task() )?;
+        writeln!(f, "TASK [{}]", self.task())?;
         writeln!(f, "PRECONDITIONS")?;
         self.precondition().fmt_with(f, interner)?;
         self.task_network().fmt_with(f, interner)?;
@@ -197,6 +241,7 @@ impl DisplayWithInterner for Method {
 }
 
 impl DisplaySyntax for Method {
+    /// Formats the `Method` syntax with a string interner.
     fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

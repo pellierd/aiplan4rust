@@ -1,3 +1,41 @@
+//! This module defines the `IRBuilder` struct and associated functions to
+//! transform a linked and semantically verified planning domain and problem
+//! into a lifted intermediate representation (`LiftedProblem`).
+//!
+//! # Overview
+//! The `IRBuilder` processes a `LinkedSemanticContext` containing:
+//! - The domain and problem abstract syntax trees (ASTs) with all references
+//!   resolved and semantic checks passed.
+//! - Extracts domain elements such as types, predicates, functions, actions,
+//!   and methods.
+//! - Extracts problem elements such as objects, initial state, goals, and metrics.
+//!
+//! The resulting `LiftedProblem`:
+//! - Is a structured, reusable, and symbolic representation of the planning problem.
+//! - Remains "lifted", i.e., it uses symbolic references rather than grounded
+//!   enumerations of instances.
+//!
+//! # Purpose
+//! This IR is a crucial intermediate step for:
+//! - Subsequent compiler passes or transformations.
+//! - Planning solvers that instantiate and search for plans.
+//! - Frontends for visualization or debugging.
+//!
+//! # Important Notes
+//! - This module does not perform planning or solving itself.
+//! - The input semantic context must already be validated and linked.
+//!
+//! # Main Components
+//! - `IRBuilder`: the main struct performing extraction and building the IR.
+//! - `build()`: entry point to produce the `LiftedProblem` from a semantic context.
+//! - Helper functions for extracting domain and problem elements.
+//!
+//! # Example
+//! ```ignore
+//! let mut builder = IRBuilder::new();
+//! let lifted_problem = builder.build(&linked_context)?;
+//! ```
+
 use std::collections::HashSet;
 
 use crate::aiplan4rust::frontend::ParserInternalError;

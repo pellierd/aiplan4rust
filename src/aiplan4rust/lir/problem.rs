@@ -1,3 +1,45 @@
+//! This module defines the core data structures for representing **lifted** planning problems
+//! in hierarchical task network (HTN) and classical planning domains.
+//!
+//! The primary struct [`Problem`] models a **lifted planning problem**, meaning
+//! that actions, methods, predicates, and tasks are represented with parameters (variables)
+//! rather than fully instantiated ground elements.
+//!
+//! It captures all components necessary to specify a planning problem instance at
+//! the lifted level:
+//!
+//! - The **domain and problem identifiers** (`Ident`).
+//! - The set of **requirements** (features used in the domain).
+//! - The **types**, **constants**, and **objects** defining the domain vocabulary.
+//! - The **lifted predicates** and **functions**, expressed as atomic formula skeletons.
+//! - The **lifted actions** and **methods**, representing parametrized operators and HTN methods.
+//! - The **lifted tasks**, forming the task skeletons for hierarchical planning.
+//! - The **initial state** and **goal conditions** expressed as symbolic expressions (`Expr`).
+//! - The **global domain constraints** and **problem-specific constraints**.
+//! - The **metric and length specifications** for optimization and bounding.
+//! - The **initial task network**, describing the starting point of hierarchical tasks.
+//!
+//! This lifted representation enables symbolic reasoning and efficient planning
+//! by deferring grounding (instantiation) to a later phase.
+//!
+//! The module supports serialization/deserialization with `serde` for persistence and interoperability.
+//!
+//! # Example
+//! ```
+//! use aiplan4rust::lir::problem::Problem;
+//! use aiplan4rust::lang::Ident;
+//!
+//! let mut problem = Problem::default();
+//! problem.set_domain_name(Ident::new("blocksworld"));
+//! problem.set_problem_name(Ident::new("tower"));
+//!
+//! assert_eq!(problem.domain_name().as_str(), "blocksworld");
+//! assert_eq!(problem.problem_name().as_str(), "tower");
+//! ```
+//!
+//! This module is essential for representing lifted HTN and classical planning problems
+//! before grounding and solving.
+
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedMethod};
@@ -80,6 +122,7 @@ pub struct Problem {
     initial_task_network: InitialTaskNetwork,
 
 }
+
 #[allow(dead_code)]
 impl Problem {
     /// Creates a new empty `PlanningProblem` with default identifiers

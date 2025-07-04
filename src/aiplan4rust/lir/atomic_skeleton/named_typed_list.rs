@@ -1,6 +1,28 @@
+//! Module defining abstract skeletons shared by predicates and functions in PDDL.
+//!
+//! This module provides the `NamedTypedList` struct, which encapsulates the common
+//! structure of predicates and functions, including their name and parameter signature.
+//!
+//! These skeletons serve as a base for more specific constructs by factorizing
+//! shared fields and behaviors, allowing for code reuse and clearer abstractions.
+//!
+//! # Overview
+//! - `NamedTypedList`: Represents a named typed list, used as a base for predicates and functions.
+//!
+//! # Example
+//! ```
+//! use crate::aiplan4rust::lang::Ident;
+//! use crate::aiplan4rust::lang::TypedList;
+//! use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+//!
+//! let pred = NamedTypedList::new(Ident::new("at"), TypedList::new(vec![]));
+//! println!("Predicate name: {}", pred.name());
+//! ```
+
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
+
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
@@ -18,7 +40,7 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 ///
 /// ```
 /// let pred = Skeleton::new(Ident::new("at"), Signature::new(vec![Type::Object]));
-/// println!("Name: {}", pred.name);
+/// println!("Name: {}", pred.name());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct NamedTypedList {
@@ -29,35 +51,79 @@ pub struct NamedTypedList {
 }
 
 impl NamedTypedList {
-    /// Creates a new skeleton with a name and a list of parameters.
+    /// Creates a new `NamedTypedList` with the given name and parameters.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: The identifier representing the name of the predicate or function.
+    /// - `parameters`: The list of typed parameters (signature).
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `NamedTypedList`.
     pub fn new(name: Ident, parameters: TypedList) -> Self {
         Self { name, parameters }
     }
 
-    /// Returns the name.
+    /// Returns the name of the predicate or function.
+    ///
+    /// # Returns
+    ///
+    /// The `Ident` representing the name.
     pub fn name(&self) -> Ident {
         self.name
     }
 
+    /// Sets the name of the predicate or function.
+    ///
+    /// # Parameters
+    ///
+    /// - `name`: The new name to set.
     pub fn set_name(&mut self, name: Ident) {
         self.name = name;
     }
 
-    /// Returns the signature.
+    /// Returns a reference to the parameters (signature).
+    ///
+    /// # Returns
+    ///
+    /// A reference to the `TypedList` representing the parameters.
     pub fn parameters(&self) -> &TypedList {
         &self.parameters
     }
 
-    /// Returns a mutable reference to the signature.
+    /// Returns a mutable reference to the parameters.
+    ///
+    /// This allows modifying the parameter list directly.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `TypedList`.
     pub fn parameters_mut(&mut self) -> &mut TypedList {
         &mut self.parameters
     }
+
+    /// Sets the parameters (signature) of the predicate or function.
+    ///
+    /// # Parameters
+    ///
+    /// - `parameters`: The new `TypedList` to set as the parameters.
     pub fn set_parameters(&mut self, parameters: TypedList) {
         self.parameters = parameters;
     }
 }
 
 impl FromAst for NamedTypedList {
+    /// Constructs a `NamedTypedList` from an AST node.
+    ///
+    /// # Parameters
+    ///
+    /// - `node`: The AST node to parse.
+    /// - `ast`: The AST arena providing node access.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(NamedTypedList)` if parsing succeeds, or `ParserInternalError` on failure.
     fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
         let name_id = node.try_child(0)?;
         let name_node = ast.try_node(name_id)?;
@@ -72,6 +138,9 @@ impl FromAst for NamedTypedList {
 }
 
 impl Display for NamedTypedList {
+    /// Formats the `NamedTypedList` as a string for display purposes.
+    ///
+    /// Output format: `[name: <name>, parameters: <parameters>]`
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[name: ")?;
         self.name.fmt(f)?;
@@ -82,6 +151,7 @@ impl Display for NamedTypedList {
 }
 
 impl DisplayWithInterner for NamedTypedList {
+    /// Formats the `NamedTypedList` with a string interner, used for pretty printing.
     fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         write!(f, "[name: ")?;
         self.name.fmt_with(f, interner)?;
@@ -92,6 +162,7 @@ impl DisplayWithInterner for NamedTypedList {
 }
 
 impl DisplaySyntax for NamedTypedList {
+    /// Formats the syntax representation of the `NamedTypedList` using an interner.
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }
