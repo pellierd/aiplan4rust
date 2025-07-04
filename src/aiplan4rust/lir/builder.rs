@@ -1,241 +1,249 @@
 use std::collections::HashSet;
+
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::DisplayWithInterner;
+use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::def::{FunctionDef, PredicateDef, TaskDef};
 use crate::aiplan4rust::lir::lifted::{LiftedAction, LiftedMethod, InitialTaskNetwork};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 
-#[derive(Debug)]
-pub struct IRBuilder {
-    name : String
-}
+/// This module defines the `IRBuilder`, which transforms a parsed and linked
+/// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).
+///
+/// # What does it do?
+/// - It takes as input a `LinkedSemanticContext`, which contains:
+///   - The domain and problem ASTs.
+///   - All references resolved (names linked to definitions).
+///   - Semantic checks already passed (the input is guaranteed to be consistent).
+/// - It extracts:
+///   - Types, constants, predicates, functions, actions, and methods (from the domain).
+///   - Objects, initial state, goals, and metrics (from the problem).
+/// - It builds a structured, reusable representation of the problem.
+///   - This representation is "lifted", meaning:
+///     - It keeps symbolic references (e.g., variable names, types).
+///     - It is not grounded yet (no enumeration of all possible substitutions).
+///
+/// # Why is this useful?
+/// - This lifted problem can then be used by:
+///   - Other compiler passes or transformations.
+///   - A solver to instantiate and search for plans.
+///   - A visualization frontend.
+///
+/// # Note
+/// This module **does not** perform any planning by itself.
+/// It only prepares data for later use.
+/// The input has already been verified to be semantically correct.
+#[derive(Debug, Default)]
+pub struct IRBuilder;
 
 impl IRBuilder {
+
+    /// Creates a new instance of IRBuilder.
     pub fn new() -> Self {
-        IRBuilder {
-            name: "IRBuilder".to_string(),
-        }
+        IRBuilder
     }
-}
 
-impl IRBuilder {
-
-    /// Construit un LiftedProblem à partir du contexte sémantique complet
+    /// Entry point for generating a LiftedProblem IR from a LinkedSemanticContext.
+    ///
+    /// # Arguments
+    /// - `context`: contains the parsed and linked domain/problem trees.
+    ///
+    /// # Returns
+    /// - `Ok(LiftedProblem)` if extraction succeeds.
+    /// - `Err(ParserInternalError)` if something goes wrong during extraction.
     pub fn build(
         &mut self,
         context: &LinkedSemanticContext,
     ) -> Result<LiftedProblem, ParserInternalError> {
         let mut ir = LiftedProblem::new();
 
-        // Extraire d'abord les données du domaine
-        self.extract_ir_from_domain(context, &mut ir)?;
-
-        // Puis extraire les données du problème
-        self.extract_ir_from_problem(context, &mut ir)?;
+        self.extract_domain(context, &mut ir)?;
+        self.extract_problem(context, &mut ir)?;
 
         Ok(ir)
     }
 
-    pub fn extract_ir_from_domain(
+    /// Extracts all domain-level elements (types, predicates, actions, etc.)
+    ///
+    /// # Arguments
+    /// - `context`: the full semantic context.
+    /// - `ir`: the LiftedProblem to fill in.
+    ///
+    /// # Returns
+    /// - A Result containing the updated IR or an error.
+    pub fn extract_domain(
         &mut self,
         context: &LinkedSemanticContext,
-        ir: &mut LiftedProblem
-    ) -> Result<LiftedProblem, ParserInternalError> {
-        let mut ir = LiftedProblem::new();
-
+        ir: &mut LiftedProblem,
+    ) -> Result<(), ParserInternalError> {
         let domain = context.domain();
+
         for node in domain.preorder() {
             match node.kind() {
-                AstKind::DomainName => {
-                    ir.set_domain_name(node.try_ident()?);
-                }
-                AstKind::RequireDef => {
-                    ir.add_requirements(extract_requirements_from(node, domain)?);
-                }
-                AstKind::TypesDef => {
-                    ir.add_types(extract_types_from(node, domain)?);
-                }
-                AstKind::ConstantsDef => {
-                    ir.add_constants(extract_constants_from(node, domain)?);
-                }
-                AstKind::PredicatesDef => {
-                    ir.add_predicates(extract_predicates_from(node, domain)?);
-                }
-                AstKind::FunctionsDef => {
-                    ir.add_functions(extract_functions_from(node, domain)?);
-                }
+                AstKind::DomainName => ir.set_domain_name(node.try_ident()?),
+                AstKind::RequireDef => ir.add_requirements(extract_requirements(node, domain)?),
+                AstKind::TypesDef => ir.add_types(extract_types(node, domain)?),
+                AstKind::ConstantsDef => ir.add_constants(extract_constants(node, domain)?),
+                AstKind::PredicatesDef => ir.add_predicates(extract_predicates(node, domain)?),
+                AstKind::FunctionsDef => ir.add_functions(extract_functions(node, domain)?),
                 AstKind::Constraints => {
-                    ir.set_domain_constraints(Expr::from_ast(node, domain)?);
+                    ir.set_domain_constraints(Expr::from_ast(node, domain)?)
                 }
-                AstKind::TaskDef => {
-                    ir.add_task(TaskDef::from_ast(node, domain)?);
-                }
-                AstKind::ActionDef => {
-                    ir.add_action(LiftedAction::from_ast(node, domain)?);
-                }
-                AstKind::MethodDef => {
-                    println!("{}",node.to_string_with_interner(domain, context.interner()));
-                    let method = LiftedMethod::from_ast(node, domain)?;
-                    println!("{}",method.to_string_with_interner(context.interner()));
-                    ir.add_method(method);
-
-                }
-                _ => {
-                    // For now, ignore other kinds.
-                }
+                AstKind::TaskDef => ir.add_task(TaskDef::from_ast(node, domain)?),
+                AstKind::ActionDef => ir.add_action(LiftedAction::from_ast(node, domain)?),
+                AstKind::MethodDef => ir.add_method(LiftedMethod::from_ast(node, domain)?),
+                _ => {}
             }
         }
 
-        Ok(ir)
+        Ok(())
     }
 
-    /// Extraction des informations du problème vers IR
-    fn extract_ir_from_problem(
+    /// Extracts all problem-level elements (initial state, goal, metric, etc.)
+    ///
+    /// # Arguments
+    /// - `context`: the semantic context including the problem tree.
+    /// - `ir`: the LiftedProblem to fill in.
+    ///
+    /// # Returns
+    /// - `Ok(())` if everything went fine.
+    /// - `Err` otherwise.
+    fn extract_problem(
         &self,
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
     ) -> Result<(), ParserInternalError> {
-
         let problem = context.problem();
 
         for node in problem.preorder() {
             match node.kind() {
-                AstKind::ProblemName => {
-                    ir.set_problem_name(node.try_ident()?);
-                }
-                AstKind::RequireDef => {
-                    ir.add_requirements(extract_requirements_from(node, problem)?);
-                }
-                AstKind::ObjectsDef => {
-                    ir.add_objects(extract_constants_from(node, problem)?);
-                }
-                AstKind::Init => {
-                    ir.set_init(extract_init_from(node, problem)?);
-                }
-                AstKind::Goal => {
-                    ir.set_goal(extract_goal_from(node, problem)?);
-                }
+                AstKind::ProblemName => ir.set_problem_name(node.try_ident()?),
+                AstKind::RequireDef => ir.add_requirements(extract_requirements(node, problem)?),
+                AstKind::ObjectsDef => ir.add_objects(extract_constants(node, problem)?),
+                AstKind::Init => ir.set_init(extract_init(node, problem)?),
+                AstKind::Goal => ir.set_goal(extract_goal(node, problem)?),
                 AstKind::Constraints => {
-                    ir.set_problem_constraints(Expr::from_ast(node, problem)?);
+                    ir.set_problem_constraints(Expr::from_ast(node, problem)?)
                 }
-                AstKind::Metric => {
-                    ir.set_metric_spec(Expr::from_ast(node, problem)?);
-                }
-                AstKind::Length => {
-                    ir.set_length_spec(Expr::from_ast(node, problem)?);
-                }
+                AstKind::Metric => ir.set_metric_spec(Expr::from_ast(node, problem)?),
+                AstKind::Length => ir.set_length_spec(Expr::from_ast(node, problem)?),
                 AstKind::InitialTaskNetwork => {
-                    ir.set_initial_task_network(InitialTaskNetwork::from_ast(node, problem)?);
-
+                    ir.set_initial_task_network(InitialTaskNetwork::from_ast(node, problem)?)
                 }
-
-                // Ajoute d'autres kinds si nécessaire pour le problème
-                _ => {
-                    // Ignorer les autres pour l'instant
-                }
+                _ => {}
             }
         }
+
         Ok(())
     }
 }
 
-fn extract_requirements_from(
-    require_def_node: &AstArenaNode,
+// ---------- Extraction Helpers ---------- //
+
+/// Extracts a set of requirements from a `RequireDef` node.
+fn extract_requirements(
+    node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<Requirement>, ParserInternalError> {
-    extract_set_from_children(require_def_node, ast, |node, _ast| node.try_requirement())
+    extract_set(node, ast, |n, _| n.try_requirement())
 }
 
-fn extract_predicates_from(
-    predicates_def_node: &AstArenaNode,
+/// Extracts predicates from a `PredicatesDef` node.
+fn extract_predicates(
+    node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<PredicateDef>, ParserInternalError> {
-    extract_set_from_children(predicates_def_node, ast, PredicateDef::from_ast)
+    extract_set(node, ast, PredicateDef::from_ast)
 }
 
-fn extract_functions_from(
-    functions_def_node: &AstArenaNode,
+/// Extracts functions from a `FunctionsDef` node.
+fn extract_functions(
+    node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<FunctionDef>, ParserInternalError> {
-    extract_set_from_children(functions_def_node, ast, FunctionDef::from_ast)
+    extract_set(node, ast, FunctionDef::from_ast)
 }
 
-fn extract_types_from(
-    types_def_node: &AstArenaNode,
+/// Extracts types from a `TypesDef` node.
+fn extract_types(
+    node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
-    extract_set_from_first_child_children(types_def_node, ast, TypedSymbol::from_ast)
+    extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
 
-fn extract_constants_from(
-    constants_def_node: &AstArenaNode,
+/// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` node.
+fn extract_constants(
+    node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
-    extract_set_from_first_child_children(constants_def_node, ast, TypedSymbol::from_ast)
+    extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
 
-fn extract_init_from(
-    init_node: &AstArenaNode,
-    ast: &TreeArena<AstArenaNode>,
-) -> Result<Expr, ParserInternalError> {
-    extract_expr_from_first_child(init_node, ast)
-}
-
-fn extract_goal_from(
-    goal_node: &AstArenaNode,
-    ast: &TreeArena<AstArenaNode>,
-) -> Result<Expr, ParserInternalError> {
-    extract_expr_from_first_child(goal_node, ast)
-}
-
-fn extract_expr_from_first_child(
+/// Extracts an expression from the first child of an `Init` node.
+fn extract_init(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
 ) -> Result<Expr, ParserInternalError> {
-    let first_child_id = node.try_child(0)?;
-    let first_child_node = ast.try_node(first_child_id)?;
-    Expr::from_ast(first_child_node, ast)
+    extract_expr_first_child(node, ast)
 }
 
-/// Parcourt les enfants directs du noeud `node` et construit un HashSet<T>
-/// avec `extract_fn` appliqué à chaque enfant.
-fn extract_set_from_children<T, F>(
+/// Extracts the goal expression from a `Goal` node.
+fn extract_goal(
+    node: &AstArenaNode,
+    ast: &TreeArena<AstArenaNode>,
+) -> Result<Expr, ParserInternalError> {
+    extract_expr_first_child(node, ast)
+}
+
+/// Extracts an expression from the first child node.
+/// Used for `Init`, `Goal`, `Metric`, etc.
+fn extract_expr_first_child(
+    node: &AstArenaNode,
+    ast: &TreeArena<AstArenaNode>,
+) -> Result<Expr, ParserInternalError> {
+    let child_id = node.try_child(0)?;
+    let child_node = ast.try_node(child_id)?;
+    Expr::from_ast(child_node, ast)
+}
+
+/// Generic helper to extract a set of elements from direct children of a node.
+/// Used for predicates, functions, requirements, etc.
+fn extract_set<T, F>(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, ParserInternalError>
 where
-    T: std::hash::Hash + Eq,
+    T: Eq + std::hash::Hash,
     F: Fn(&AstArenaNode, &TreeArena<AstArenaNode>) -> Result<T, ParserInternalError>,
 {
     let mut set = HashSet::new();
     for child_id in node.children() {
         let child_node = ast.try_node(*child_id)?;
-        let item = extract_fn(child_node, ast)?;
-        set.insert(item);
+        let value = extract_fn(child_node, ast)?;
+        set.insert(value);
     }
     Ok(set)
 }
 
-/// Parcourt les enfants du premier enfant du noeud `node` et construit un HashSet<T>
-/// avec `extract_fn` appliqué à chaque enfant.
-fn extract_set_from_first_child_children<T, F>(
+/// Similar to `extract_set`, but applies the extraction function to the grandchildren
+/// of the first child of the node (used for types, constants).
+fn extract_set_from_first_child<T, F>(
     node: &AstArenaNode,
     ast: &TreeArena<AstArenaNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, ParserInternalError>
 where
-    T: std::hash::Hash + Eq,
+    T: Eq + std::hash::Hash,
     F: Fn(&AstArenaNode, &TreeArena<AstArenaNode>) -> Result<T, ParserInternalError>,
 {
     let first_child_id = node.try_child(0)?;
     let first_child_node = ast.try_node(first_child_id)?;
 
-    extract_set_from_children(first_child_node, ast, extract_fn)
+    extract_set(first_child_node, ast, extract_fn)
 }

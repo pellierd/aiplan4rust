@@ -17,6 +17,7 @@ pub struct InitialTaskNetwork {
     task_network: LiftedTaskNetwork,
 }
 
+#[allow(dead_code)]
 impl InitialTaskNetwork {
     /// Crée un nouveau `InitialTaskNetwork`.
     pub fn new(parameters: TypedList, task_network: LiftedTaskNetwork) -> Self {

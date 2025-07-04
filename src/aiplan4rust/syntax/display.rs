@@ -1,8 +1,8 @@
 //! Defines the `DisplaySyntax` trait for formatting values in user-facing syntax,
 //! potentially using an interner to resolve identifiers.
 
-use std::fmt::{self, Formatter, Write};
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use std::fmt::{self, Write};
+use crate::aiplan4rust::interner::StringInterner;
 
 /// A trait for displaying a value in its concrete syntax,
 /// resolving any interned identifiers as needed.
