@@ -7,7 +7,7 @@ use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::FileFormat;
+use crate::aiplan4rust::serialization::Format;
 
 use serde::Deserialize;
 use std::backtrace::Backtrace;
@@ -196,11 +196,11 @@ impl Frontend {
     // Fonction générique pour essayer de syntax en JSON ou YAML
     fn try_parse_pddl_file<T: for<'de> Deserialize<'de>>(
         content: &str,
-        format: FileFormat,
+        format: Format,
     ) -> Result<T, Box<dyn std::error::Error>> {
         match format {
-            FileFormat::Json => serde_json::from_str(content).map_err(Into::into),
-            FileFormat::Yaml => serde_yaml::from_str(content).map_err(Into::into),
+            Format::Json => serde_json::from_str(content).map_err(Into::into),
+            Format::Yaml => serde_yaml::from_str(content).map_err(Into::into),
         }
     }
 
@@ -233,9 +233,9 @@ impl Frontend {
         let content = self.read_file(file)?;
 
         // Try parsing as JSON first
-        match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Json) {
+        match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Json) {
             Ok(domain) => Ok(domain),
-            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Yaml) {
+            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Yaml) {
                 Ok(domain) => Ok(domain),
                 Err(_) => Err(ParserInternalError::new(
                     "Failed to parse the domain file! The content is neither valid JSON nor YAML."
@@ -249,12 +249,12 @@ impl Frontend {
     pub fn serialize_linked_semantic_context_to_string(
         &self,
         task: &LinkedSemanticContext,
-        format: &FileFormat,
+        format: &Format,
     ) -> Result<String, ParserInternalError> {
         match format {
-            FileFormat::Json => serde_json::to_string_pretty(task)
+            Format::Json => serde_json::to_string_pretty(task)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to JSON: {}", e))),
-            FileFormat::Yaml => serde_yaml::to_string(task)
+            Format::Yaml => serde_yaml::to_string(task)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to YAML: {}", e))),
         }
     }
@@ -263,7 +263,7 @@ impl Frontend {
     pub fn serialize_linked_semantic_context_to_file(
         &self,
         task: &LinkedSemanticContext,
-        format: &FileFormat,
+        format: &Format,
         output_file: &str,
     ) -> Result<(), ParserInternalError> {
         let serialized_data = self.serialize_linked_semantic_context_to_string(task, format)?;
@@ -276,12 +276,12 @@ impl Frontend {
     pub fn serialize_lifted_problem_to_string(
         &self,
         problem: &LiftedProblem,
-        format: &FileFormat,
+        format: &Format,
     ) -> Result<String, ParserInternalError> {
         match format {
-            FileFormat::Json => serde_json::to_string_pretty(problem)
+            Format::Json => serde_json::to_string_pretty(problem)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to JSON: {}", e))),
-            FileFormat::Yaml => serde_yaml::to_string(problem)
+            Format::Yaml => serde_yaml::to_string(problem)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to YAML: {}", e))),
         }
     }
@@ -290,7 +290,7 @@ impl Frontend {
     pub fn serialize_lifted_problem_to_file(
         &self,
         problem: &LiftedProblem,
-        format: &FileFormat,
+        format: &Format,
         output_file: &str,
     ) -> Result<(), ParserInternalError> {
         let serialized_data = self.serialize_lifted_problem_to_string(problem, format)?;
@@ -307,9 +307,9 @@ impl Frontend {
         let content = self.read_file(file)?;
 
         // Try parsing as JSON first
-        match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Json) {
+        match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Json) {
             Ok(problem) => Ok(problem),
-            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, FileFormat::Yaml) {
+            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Yaml) {
                 Ok(problem) => Ok(problem),
                 Err(_) => Err(ParserInternalError::new(
                     "Failed to parse the problem file! The content is neither valid JSON nor YAML."
@@ -323,12 +323,12 @@ impl Frontend {
     pub fn serialize_to_string(
         &self,
         data: &SemanticContext,
-        format: &FileFormat,
+        format: &Format,
     ) -> Result<String, ParserInternalError> {
         match format {
-            FileFormat::Json => serde_json::to_string_pretty(data)
+            Format::Json => serde_json::to_string_pretty(data)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to JSON: {}", e))),
-            FileFormat::Yaml => serde_yaml::to_string(data)
+            Format::Yaml => serde_yaml::to_string(data)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to YAML: {}", e))),
         }
     }
@@ -337,7 +337,7 @@ impl Frontend {
     pub fn serialize_to_file(
         &self,
         data: &SemanticContext,
-        format: &FileFormat,
+        format: &Format,
         output_file: &str,
     ) -> Result<(), ParserInternalError> {
         let serialized_data = self.serialize_to_string(data, format)?;

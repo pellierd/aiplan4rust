@@ -43,11 +43,12 @@
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
+use crate::aiplan4rust::serialization::Serializable;
 
 /// Represents a planning problem within a domain.
 ///
@@ -593,3 +594,5 @@ impl Display for Problem {
         writeln!(f, "}}")
     }
 }
+
+impl Serializable for Problem {}

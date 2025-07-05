@@ -2,7 +2,7 @@ use aiplan4rust::aiplan4rust::cli::aiplan_cli::{
     build_cli, FILES_ARG, FORMAT_ARG, LANGUAGE_ARG, LINK_SUBCOMMAND, OUTPUT_ARG, PARSE_SUBCOMMAND,
 };
 use aiplan4rust::aiplan4rust::syntax::Language;
-use aiplan4rust::aiplan4rust::FileFormat;
+use aiplan4rust::aiplan4rust::serialization::{Extension, Format};
 use aiplan4rust::aiplan4rust::Frontend;
 use aiplan4rust::aiplan4rust::diagnostic::{Renderer, Severity};
 
@@ -10,6 +10,7 @@ use clap::ArgMatches;
 use std::path::Path;
 use std::time::Instant;
 use colored::Colorize;
+use aiplan4rust::aiplan4rust::serialization::Serializable;
 
 /// Handles the `link` command logic.
 ///
@@ -24,7 +25,7 @@ fn handle_link_command(matches: &ArgMatches) {
         let files_vec: Vec<String> = files.cloned().collect();
         if files_vec.len() == 2 {
             let output = matches.get_one::<String>(OUTPUT_ARG).unwrap();
-            let format = matches.get_one::<FileFormat>(FORMAT_ARG).unwrap();
+            let format = matches.get_one::<Format>(FORMAT_ARG).unwrap();
             link(&files_vec[0], &files_vec[1], format, output);
         } else {
             eprintln!("Error: You must provide exactly two files (domain and problem).")
@@ -48,7 +49,7 @@ fn handle_parse_command(matches: &ArgMatches) {
 
     if let Some(files) = matches.get_many::<String>(FILES_ARG) {
         let files_vec: Vec<String> = files.cloned().collect();
-        let format = matches.get_one::<FileFormat>(FORMAT_ARG).unwrap();
+        let format = matches.get_one::<Format>(FORMAT_ARG).unwrap();
 
         match files_vec.len() {
             1 => {
@@ -94,7 +95,7 @@ fn main() {
     }
 }
 
-fn link(domain_file: &str, problem_file: &str, format: &FileFormat, output: &str) {
+fn link(domain_file: &str, problem_file: &str, format: &Format, output: &str) {
     let frontend = Frontend::new();
 
     // Appel de la méthode link sur frontend
@@ -124,7 +125,7 @@ pub fn parse(
     domain_file: &str,
     problem_file: &str,
     language: &Language,
-    format: &FileFormat,
+    format: &Format,
     output: &str,
 ) {
     let start_time = Instant::now();
@@ -165,7 +166,8 @@ pub fn parse(
                 );
             } else if let Some(lifted_problem) = result.lifted_problem() {
                 if let Err(e) =
-                    frontend.serialize_lifted_problem_to_file(&lifted_problem, format, output)
+                    lifted_problem.serialize_to_file(*format, output)
+                    //frontend.serialize_lifted_problem_to_file(&lifted_problem, format, output)
                 {
                     eprintln!("Error saving file: {}", e);
                 } else {
@@ -183,7 +185,7 @@ pub fn parse(
     }
 }
 
-pub fn parse_file(input_file: &str, language: &Language, format: &FileFormat, output: &str) {
+pub fn parse_file(input_file: &str, language: &Language, format: &Format, output: &str) {
     let start_time = Instant::now(); // Démarre le chronomètre
 
     let full_path = Path::new(input_file)
@@ -269,13 +271,13 @@ pub fn parse_file(input_file: &str, language: &Language, format: &FileFormat, ou
 ///
 /// # Notes
 /// If the input file doesn't have an extension, it will be used as is as the base name.
-fn generate_lifted_domain_or_problem_filename(input_file: &str, format: &FileFormat) -> String {
+fn generate_lifted_domain_or_problem_filename(input_file: &str, format: &Format) -> String {
     let base_name = input_file
         .rsplit_once('.')
         .map(|(name, _ext)| name)
         .unwrap_or(input_file);
-
-    format!("{}.{}", base_name, format.extension())
+    let extension = Extension::from(*format).as_str();
+    format!("{}.{}", base_name, extension)
 }
 
 /// Generates an output file name based on the domain and problem file names and the specified format.
@@ -283,7 +285,7 @@ fn generate_lifted_domain_or_problem_filename(input_file: &str, format: &FileFor
 /// # Parameters
 /// - `domain_file`: A string slice representing the domain file path.
 /// - `problem_file`: A string slice representing the problem file path.
-/// - `format`: A reference to a `FileFormat` enumeration that specifies the desired output file format.
+/// - `format`: A reference to a `Format` enumeration that specifies the desired output file format.
 ///
 /// # Returns
 /// A string representing the output file name, which is a combination of the base names of the
@@ -292,7 +294,7 @@ fn generate_lifted_domain_or_problem_filename(input_file: &str, format: &FileFor
 ///
 /// # Example
 /// ```rust
-/// let filename = generate_lifted_planning_task_filename("domain.pddl", "problem.pddl", &FileFormat::Xml);
+/// let filename = generate_lifted_planning_task_filename("domain.pddl", "problem.pddl", &Format::Xml);
 /// assert_eq!(filename, "problem_domain.xml");
 /// ```
 ///
@@ -302,7 +304,7 @@ fn generate_lifted_domain_or_problem_filename(input_file: &str, format: &FileFor
 fn generate_lifted_planning_task_filename(
     domain_file: &str,
     problem_file: &str,
-    format: &FileFormat,
+    format: &Format,
 ) -> String {
     let domain_stem = Path::new(domain_file)
         .file_stem()
@@ -313,6 +315,6 @@ fn generate_lifted_planning_task_filename(
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("unknown_problem");
-
-    format!("{}_{}.{}", problem_stem, domain_stem, format.extension())
+    let extension = Extension::from(*format).as_str();
+    format!("{}_{}.{}", problem_stem, domain_stem, extension)
 }
