@@ -24,7 +24,7 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::TreeArena;
 
 /// Represents a planning task declaration in HDDL.
@@ -127,15 +127,15 @@ impl DisplayWithInterner for Task {
     }
 }
 
-impl PlanningDisplay for Task {
+impl PlanningSyntaxDisplay for Task {
     /// Formats the task in a syntax-oriented representation.
     ///
     /// This can be used to reconstruct or pretty-print the original declaration.
-    fn fmt_syntax(
+    fn fmt_planning(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.header.fmt_syntax(f, interner)
+        self.header.fmt_planning(f, interner)
     }
 }

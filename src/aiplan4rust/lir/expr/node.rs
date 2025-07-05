@@ -178,7 +178,7 @@ impl TreeNode for ExprNode {
         fmt_node(self, f, arena, interner, "", true)
     }
 
-    fn fmt_syntax(
+    fn fmt_planning(
         &self,
         f: &mut Formatter<'_>,
         arena: &TreeArena<Self>,

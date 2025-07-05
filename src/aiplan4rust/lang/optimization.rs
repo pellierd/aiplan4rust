@@ -1,6 +1,6 @@
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -33,17 +33,40 @@ pub enum Optimization {
     Maximize,
 }
 
+/// Implements the `fmt::Display` trait for the `Optimization` enum.
+///
+/// This allows an `Optimization` value to be formatted as a user-friendly string,
+/// suitable for printing or logging.
+///
+/// # Arguments
+///
+/// * `f` - A mutable reference to a `fmt::Formatter` used to write the output.
+///
+/// # Returns
+///
+/// A `fmt::Result` indicating whether the formatting succeeded.
+///
+/// # Examples
+///
+/// ```
+/// let opt = Optimization::Minimize;
+/// assert_eq!(format!("{}", opt), "minimize");
+/// ```
 impl fmt::Display for Optimization {
-    /// This method implements the `fmt::Display` trait for the `Optimization` enum.
-    /// It allows an instance of `Optimization` to be formatted as a string for printing or logging
-    /// purposes.
+    /// Formats the `Optimization` as a string representation.
+    ///
+    /// Matches each variant to its corresponding string:
+    /// - `Minimize` => "minimize"
+    /// - `Maximize` => "maximize"
+    /// - `None` => "NONE"
     ///
     /// # Arguments
-    /// - `f`: A mutable reference to a `fmt::Formatter` that will be used to format the output
-    ///     string.
+    ///
+    /// * `f` - The formatter to write to.
     ///
     /// # Returns
-    /// - Returns a `fmt::Result`, which indicates whether the formatting operation was successful.
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Optimization::Minimize => write!(f, "{}", MINIMIZE),
@@ -52,11 +75,13 @@ impl fmt::Display for Optimization {
         }
     }
 }
+
+
 /// Implements the `DisplayWithInterner` trait for `Optimization`.
 ///
-/// This implementation formats the `Optimization` value by
-/// delegating to the standard `Display` trait, as it doesn't
-/// require interner-based resolution.
+/// This implementation formats an `Optimization` value by
+/// delegating to its standard `Display` trait, since it does not
+/// require interner-based symbol resolution.
 ///
 /// The `interner` parameter is unused.
 ///
@@ -68,17 +93,30 @@ impl fmt::Display for Optimization {
 /// assert_eq!(s, "Enabled");
 /// ```
 impl DisplayWithInterner for Optimization {
+    /// Formats the `Optimization` using the given formatter and interner.
+    ///
+    /// # Parameters
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `_interner` - The string interner (unused).
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-/// Implements the `DisplaySyntax` trait for `Optimization`.
+
+/// Implements the `PlanningSyntaxDisplay` trait for `Optimization`.
 ///
-/// This trait formats the value for user-facing syntax display.
+/// This trait provides user-facing syntax formatting for `Optimization` values.
 ///
-/// By default, it calls `DisplayWithInterner::fmt_with`,
-/// providing consistent formatting across both traits.
+/// The implementation simply delegates to the standard `Display` trait,
+/// ensuring consistent output across both traits.
+///
+/// The `interner` parameter is unused in this implementation.
 ///
 /// # Example
 ///
@@ -87,8 +125,20 @@ impl DisplayWithInterner for Optimization {
 /// let s = opt.to_string_syntax(&interner);
 /// assert_eq!(s, "Enabled");
 /// ```
-impl PlanningDisplay for Optimization {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        self.fmt_with(f, interner)
+impl PlanningSyntaxDisplay for Optimization {
+    /// Formats the `Optimization` for planning syntax display.
+    ///
+    /// Delegates to the `Display` trait implementation.
+    ///
+    /// # Parameters
+    ///
+    /// * `f` - The formatter to write output to.
+    /// * `_interner` - Unused interner parameter.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
+    fn fmt_planning(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }

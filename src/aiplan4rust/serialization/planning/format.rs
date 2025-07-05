@@ -81,7 +81,6 @@ impl From<PlanningExtension> for Format {
             PlanningExtension::Hddl => Format::Hddl,
             PlanningExtension::Pddl => Format::Pddl,
             // Add more extensions here if necessary
-            _ => Format::Hddl, // Or handle unknown extension differently if preferred
         }
     }
 }

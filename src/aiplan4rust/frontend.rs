@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::linking::LinkerResult;
-use crate::aiplan4rust::syntax::Language;
+use crate::aiplan4rust::syntax::{Language, PlanningSyntaxDisplay};
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
@@ -71,9 +71,18 @@ impl Frontend {
                     .diagnostic_manager_mut()
                     .add_diagnostic_from(&diagnostic_manager);
 
-                let mut ir_builder = LIRBuilder::new();
-                let builder_result = ir_builder.build(linker_result.linked_semantic_context().unwrap())?;
-                Ok(builder_result)
+                match linker_result.linked_semantic_context() {
+                    Some(linked_semantic_context) => {
+                        println!("Linking successful, building LIR...");
+                        println!("{}", linked_semantic_context.domain().to_planning_string(linked_semantic_context.interner()));
+                        let mut ir_builder = LIRBuilder::new();
+                        let builder_result = ir_builder.build(linked_semantic_context)?;
+                        Ok(builder_result)
+                    }
+                    None => {
+                        Ok(LIRBuilderResult::new(None, diagnostic_manager))
+                    }
+                }
             }
             _ => Ok(LIRBuilderResult::new(None, diagnostic_manager)),
         }

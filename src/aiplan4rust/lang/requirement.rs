@@ -20,7 +20,7 @@ use crate::aiplan4rust::syntax::lexer::token::STRIPS;
 use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
 use crate::aiplan4rust::syntax::lexer::token::TYPING;
 use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -152,29 +152,44 @@ impl Requirement {
     }
 }
 
+/// Implements the `Display` trait for `Requirement`.
+///
+/// This implementation formats a `Requirement` value by
+/// converting it to its corresponding lexeme string,
+/// as defined by the PDDL specification.
+///
+/// # Example
+///
+/// ```
+/// let req = Requirement::Mandatory;
+/// assert_eq!(req.to_string(), "Mandatory");
+/// ```
 impl fmt::Display for Requirement {
     /// Formats the `Requirement` as its corresponding lexeme string.
     ///
-    /// This implementation converts each variant of the `Requirement` enum into
-    /// its predefined string representation, typically used in PDDL files.
+    /// Writes the string representation of the `Requirement` variant
+    /// to the given formatter.
     ///
     /// # Parameters
-    /// - `f`: The formatter used to output the formatted string.
+    ///
+    /// * `f` - The formatter used to output the formatted string.
     ///
     /// # Returns
-    /// - `fmt::Result`: The result of writing the formatted output.
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
 
+
 /// Implements the `DisplayWithInterner` trait for `Requirement`.
 ///
-/// This implementation formats the `Requirement` value by
-/// delegating to the standard `Display` trait, as it doesn't
-/// require interner-based resolution.
+/// This implementation formats a `Requirement` value by
+/// delegating to its standard `Display` implementation,
+/// since no interner-based resolution is needed.
 ///
-/// The `interner` parameter is unused.
+/// The `interner` parameter is not used.
 ///
 /// # Example
 ///
@@ -184,17 +199,27 @@ impl fmt::Display for Requirement {
 /// assert_eq!(s, "Mandatory");
 /// ```
 impl DisplayWithInterner for Requirement {
+    /// Formats the `Requirement` using the given formatter.
+    ///
+    /// Delegates directly to the standard `Display` implementation,
+    /// ignoring the `interner` parameter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter.
+    /// * `_interner` - The interner, unused in this implementation.
     fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
 
-/// Implements the `DisplaySyntax` trait for `Requirement`.
+
+/// Implements the `PlanningSyntaxDisplay` trait for `Requirement`.
 ///
-/// This trait formats the value for user-facing syntax display.
+/// This implementation provides user-facing syntax formatting for `Requirement` values.
 ///
-/// By default, it calls `DisplayWithInterner::fmt_with`,
-/// providing consistent formatting across both traits.
+/// The `fmt_planning` method simply delegates to the standard `Display` implementation,
+/// ensuring consistent formatting across different display traits.
 ///
 /// # Example
 ///
@@ -203,8 +228,16 @@ impl DisplayWithInterner for Requirement {
 /// let s = req.to_string_syntax(&interner);
 /// assert_eq!(s, "Mandatory");
 /// ```
-impl PlanningDisplay for Requirement {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        self.fmt_with(f, interner)
+impl PlanningSyntaxDisplay for Requirement {
+    /// Formats the `Requirement` for planning syntax display.
+    ///
+    /// Delegates the formatting to the `Display` trait implementation.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output to.
+    /// * `_interner` - The string interner (unused in this implementation).
+    fn fmt_planning(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }

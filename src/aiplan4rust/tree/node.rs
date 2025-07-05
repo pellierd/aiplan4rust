@@ -334,7 +334,7 @@ pub trait TreeNode {
     /// # Errors
     ///
     /// Returns an error if writing fails.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
+    fn fmt_planning(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
     where Self: Sized;
 
     /// Converts the node to a string using `fmt_with`.
@@ -380,21 +380,21 @@ pub trait TreeNode {
     /// let s = node.to_string_syntax(&arena, &interner);
     /// println!("{}", s);
     /// ```
-    fn to_string_syntax(&self, arena: &TreeArena<Self>, interner: &StringInterner) -> String
+    fn to_planning_syntax(&self, arena: &TreeArena<Self>, interner: &StringInterner) -> String
     where Self: Sized {
-        struct SyntaxDisplayWrapper<'a, T: TreeNode> {
+        struct PlanningSyntaxDisplayWrapper<'a, T: TreeNode> {
             node: &'a T,
             arena: &'a TreeArena<T>,
             interner: &'a StringInterner,
         }
 
-        impl<'a, T: TreeNode> fmt::Display for SyntaxDisplayWrapper<'a, T> {
+        impl<'a, T: TreeNode> fmt::Display for PlanningSyntaxDisplayWrapper<'a, T> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result  {
-                self.node.fmt_syntax(f, self.arena, self.interner)
+                self.node.fmt_planning(f, self.arena, self.interner)
             }
         }
 
-        format!("{}", SyntaxDisplayWrapper { node: self, arena, interner })
+        format!("{}", PlanningSyntaxDisplayWrapper { node: self, arena, interner })
     }
 
 }

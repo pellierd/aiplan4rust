@@ -5,7 +5,7 @@ use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::{PlanningSyntaxDisplay, Span};
 use crate::aiplan4rust::tree::{AbstractNode, NodeId, TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -291,15 +291,174 @@ impl TreeNode for AstArenaNode {
         fmt_node(self, f, arena, interner, "", true)
     }
 
+    fn fmt_planning(
+        &self,
+        f: &mut Formatter<'_>,
+        arena: &TreeArena<Self>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        match self.kind() {
+            // Kinds simples où on affiche juste le contenu (pas d’enfants)
+            AstKind::Constant
+            | AstKind::Variable
+            | AstKind::FunctionSymbol
+            | AstKind::PrimitiveType
+            | AstKind::DomainName
+            | AstKind::ProblemName
+            | AstKind::Number
+            | AstKind::Type
+            | AstKind::Predicate
+            | AstKind::ActionSymbol
+            | AstKind::TaskSymbol
+            | AstKind::PrefName
+            | AstKind::Requirement
+            | AstKind::Error => {
+                self.content().fmt_planning(f, interner)
+            }
 
+            // Kinds représentant des listes d’éléments typés
+            AstKind::TypedList | AstKind::TypedItemElements | AstKind::TypedItem => {
+                for (i, child_id) in self.children().iter().enumerate() {
+                    if i > 0 {
+                        write!(f, " ")?;
+                    }
+                    if let Some(child_node) = arena.get_node(*child_id) {
+                        child_node.fmt_planning(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid_node>")?;
+                    }
+                }
+                Ok(())
+            }
 
+            // Kinds avec syntaxe PDDL entre parenthèses et enfants espacés
+            AstKind::Domain
+            | AstKind::Problem
+            | AstKind::PredicatesDef
+            | AstKind::ConstantsDef
+            | AstKind::ObjectsDef
+            | AstKind::FunctionsDef
+            | AstKind::ActionDef
+            | AstKind::DurativeActionDef
+            | AstKind::ActionDefBody
+            | AstKind::PreconditionDef
+            | AstKind::EffectDef
+            | AstKind::DADefBody
+            | AstKind::DerivedDef
+            | AstKind::AtomicFormula
+            | AstKind::AtomicFormulaSkeleton
+            | AstKind::FunctionTerm
+            | AstKind::AtomicFunctionSkeleton
+            | AstKind::TaskDef
+            | AstKind::MethodDef
+            | AstKind::MethodDefBody
+            | AstKind::OrderedSubtaskDef
+            | AstKind::PartiallyOrderedSubtaskDef
+            | AstKind::TaskOrderingConstraintDef
+            | AstKind::TaskLogicalConstraintDef
+            | AstKind::TaskNetworkDef
+            | AstKind::InitialTaskNetwork => {
+                write!(f, "(")?;
+                self.content().fmt_planning(f, interner)?;
+                for child_id in self.children() {
+                    write!(f, " ")?;
+                    if let Some(child_node) = arena.get_node(*child_id) {
+                        child_node.fmt_planning(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid_node>")?;
+                    }
+                }
+                write!(f, ")")
+            }
 
+            // Kinds logiques (And, Or, Not, Imply, Forall, Exists, Preference, When)
+            AstKind::And
+            | AstKind::Or
+            | AstKind::Not
+            | AstKind::Imply
+            | AstKind::Forall
+            | AstKind::Exists
+            | AstKind::Preference
+            | AstKind::When => {
+                write!(f, "(")?;
+                write!(f, "{}", self.kind())?;
+                for child_id in self.children() {
+                    write!(f, " ")?;
+                    if let Some(child_node) = arena.get_node(*child_id) {
+                        child_node.fmt_planning(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid_node>")?;
+                    }
+                }
+                write!(f, ")")
+            }
 
+            // Comparaison, assignation, opérations arithmétiques ou logiques
+            AstKind::FComp | AstKind::Assign | AstKind::Operation => {
+                write!(f, "(")?;
+                self.content().fmt_planning(f, interner)?;
+                for child_id in self.children() {
+                    write!(f, " ")?;
+                    if let Some(child_node) = arena.get_node(*child_id) {
+                        child_node.fmt_planning(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid_node>")?;
+                    }
+                }
+                write!(f, ")")
+            }
 
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
-    where
-        Self: Sized
-    {
-        self.fmt_with(f, arena, interner)
+            // Conditions temporelles, contraintes, etc. entre parenthèses
+            AstKind::Constraints
+            | AstKind::AtStart
+            | AstKind::AtEnd
+            | AstKind::Overall
+            | AstKind::Always
+            | AstKind::Sometime
+            | AstKind::Within
+            | AstKind::AtMostOnce
+            | AstKind::SometimeAfter
+            | AstKind::SometimeBefore
+            | AstKind::AlwaysWithin
+            | AstKind::HoldDuring
+            | AstKind::HoldAfter
+            | AstKind::Init
+            | AstKind::TimedInitialLiteral
+            | AstKind::Goal
+            | AstKind::Metric
+            | AstKind::TotalTime
+            | AstKind::IsViolated
+            | AstKind::Length
+            | AstKind::Serial
+            | AstKind::Parallel => {
+                write!(f, "(")?;
+                self.content().fmt_planning(f, interner)?;
+                for child_id in self.children() {
+                    write!(f, " ")?;
+                    if let Some(child_node) = arena.get_node(*child_id) {
+                        child_node.fmt_planning(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid_node>")?;
+                    }
+                }
+                write!(f, ")")
+            }
+
+            // Cas par défaut : affiche contenu + enfants en liste séparée par espace
+            _ => {
+                self.content().fmt_planning(f, interner)?;
+                for child_id in self.children() {
+                    write!(f, " ")?;
+                    if let Some(child_node) = arena.get_node(*child_id) {
+                        child_node.fmt_planning(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid_node>")?;
+                    }
+                }
+                Ok(())
+            }
+        }
     }
+
+
 }

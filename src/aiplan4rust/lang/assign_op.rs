@@ -3,7 +3,7 @@ use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_DOWN;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_UP;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -30,13 +30,36 @@ pub enum AssignOp {
     Decrease,
 }
 
+/// Implements the `fmt::Display` trait for the `AssignOp` enum.
+///
+/// This implementation provides a user-friendly string representation
+/// for each variant of `AssignOp`. It allows the enum to be formatted
+/// as readable text when printed or logged, which is helpful for
+/// debugging and displaying the operator in planning syntax.
+///
+/// Each variant is mapped to a corresponding constant string:
+/// - `AssignOp::Assign` -> `ASSIGN`
+/// - `AssignOp::ScaleUp` -> `SCALE_UP`
+/// - `AssignOp::ScaleDown` -> `SCALE_DOWN`
+/// - `AssignOp::Increase` -> `INCREASE`
+/// - `AssignOp::Decrease` -> `DECREASE`
+///
+/// # Example
+///
+/// ```
+/// let op = AssignOp::Increase;
+/// assert_eq!(format!("{}", op), ":increase");
+/// ```
 impl fmt::Display for AssignOp {
-    /// Formats the `AssignOp` enum as a string representation for display purposes.
+    /// Formats the `AssignOp` enum as its string representation.
     ///
-    /// This implementation of the `fmt::Display` trait enables the `AssignOp` enum to be
-    /// formatted into a user-friendly string representation for displaying to the user.
-    /// Each variant of the `AssignOp` enum is mapped to a corresponding string to provide
-    /// a clear and readable output when the enum is printed or logged.
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output to.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             AssignOp::Assign => write!(f, "{}", ASSIGN),
@@ -48,9 +71,10 @@ impl fmt::Display for AssignOp {
     }
 }
 
+
 /// Implements the `DisplayWithInterner` trait for `AssignOp`.
 ///
-/// Since `AssignOp` can be directly formatted via the standard
+/// Since `AssignOp` can be formatted directly using the standard
 /// `Display` trait, this implementation simply delegates to it.
 ///
 /// The `interner` parameter is unused because `AssignOp` does not
@@ -63,26 +87,51 @@ impl fmt::Display for AssignOp {
 /// let s = format!("{}", op); // Using Display implementation
 /// ```
 impl DisplayWithInterner for AssignOp {
+    /// Formats the `AssignOp` using the provided formatter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `_interner` - The string interner (unused).
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating the result of the formatting operation.
     fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
         // Delegate to the standard Display implementation.
         fmt::Display::fmt(self, f)
     }
 }
 
-/// Implements the `DisplaySyntax` trait for `AssignOp`.
+
+/// Implements the `PlanningSyntaxDisplay` trait for `AssignOp`.
 ///
-/// This implementation relies on the blanket implementation of
-/// `DisplaySyntax` for all types that implement `DisplayWithInterner`,
-/// so it is left empty.
+/// This implementation formats the `AssignOp` by delegating
+/// to the standard `Display` trait, relying on the blanket
+/// implementation of `DisplaySyntax` for types implementing
+/// `DisplayWithInterner`.
+///
+/// The `_interner` parameter is unused.
 ///
 /// # Example
 ///
 /// ```
 /// let op = AssignOp::Assign;
-/// let s = op.to_string_with_interner(&interner); // Uses DisplayWithInterner under the hood
+/// let s = op.to_string_with_interner(&interner);
+/// assert_eq!(s, ":assign");
 /// ```
-impl PlanningDisplay for AssignOp {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        self.fmt_with(f, interner)
+impl PlanningSyntaxDisplay for AssignOp {
+    /// Formats the `AssignOp` using the given formatter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `_interner` - Unused string interner parameter.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
+    fn fmt_planning(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }

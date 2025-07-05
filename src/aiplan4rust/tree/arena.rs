@@ -11,7 +11,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::{AstArenaNode, symbol::SymbolRef};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::lang::Ident;
 
 /// A flat arena-based tree structure for storing nodes of type `T`.
@@ -271,13 +271,13 @@ where
     }
 }
 
-impl<T> PlanningDisplay for TreeArena<T>
+impl<T> PlanningSyntaxDisplay for TreeArena<T>
 where
     T: TreeNode,
 {
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(root) = self.root_node() {
-            writeln!(f, "{}", root.to_string_syntax(self, interner))
+            writeln!(f, "{}", root.to_planning_syntax(self, interner))
         } else {
             writeln!(f, "")
         }

@@ -3,7 +3,7 @@ use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
 use crate::aiplan4rust::syntax::lexer::token::LESS;
 use crate::aiplan4rust::syntax::lexer::token::LESS_EQ;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -36,17 +36,34 @@ pub enum BinaryComp {
     LessEq,
 }
 
+/// Implements the `Display` trait for `BinaryComp`.
+///
+/// This allows `BinaryComp` variants to be formatted as their
+/// conventional mathematical operator strings (`>`, `<`, `=`, `>=`, `<=`).
+///
+/// # Example
+///
+/// ```
+/// let comp = BinaryComp::GreaterEq;
+/// assert_eq!(comp.to_string(), ">=");
+/// ```
 impl fmt::Display for BinaryComp {
-    /// Formats the binary comparison operator as its standard string representation.
+    /// Formats the `BinaryComp` as a string representing the operator.
     ///
-    /// This implementation ensures that the operator is displayed using its conventional
-    /// mathematical notation (`>`, `<`, `=`, `>=`, `<=`).
+    /// Converts the variant into its corresponding symbol:
+    /// - `Greater` => `">"`
+    /// - `Less` => `"<"`
+    /// - `Equal` => `"="`
+    /// - `GreaterEq` => `">="`
+    /// - `LessEq` => `"<="`
     ///
-    /// # Parameters
-    /// - `f`: The formatter used to output the formatted string.
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output string.
     ///
     /// # Returns
-    /// - `fmt::Result`: The result of writing the formatted output.
+    ///
+    /// A `fmt::Result` indicating success or failure of the formatting operation.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             BinaryComp::Greater => write!(f, "{}", GREATER),
@@ -58,41 +75,62 @@ impl fmt::Display for BinaryComp {
     }
 }
 
+
 /// Implements the `DisplayWithInterner` trait for `BinaryComp`.
 ///
-/// Since `BinaryComp` can be directly formatted via the standard
+/// Since `BinaryComp` can be formatted directly using the standard
 /// `Display` trait, this implementation simply delegates to it.
 ///
 /// The `interner` parameter is unused because `BinaryComp` does not
-/// require any interner-based resolution.
+/// require interner-based resolution.
 ///
 /// # Example
 ///
 /// ```
 /// let comp = BinaryComp::Eq;
-/// let s = format!("{}", comp); // Using Display implementation
+/// let s = format!("{}", comp); // Uses the Display implementation
 /// ```
 impl DisplayWithInterner for BinaryComp {
+    /// Formats the `BinaryComp` using the given formatter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `_interner` - The interner, unused in this implementation.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
-        // Delegate to the standard Display implementation.
         fmt::Display::fmt(self, f)
     }
 }
 
-/// Implements the `DisplaySyntax` trait for `BinaryComp`.
+/// Implements the `PlanningSyntaxDisplay` trait for `BinaryComp`.
 ///
-/// This implementation relies on the blanket implementation of
-/// `DisplaySyntax` for all types that implement `DisplayWithInterner`,
-/// so it is left empty.
+/// This implementation formats `BinaryComp` by delegating to its standard
+/// `Display` implementation, as no interner-based resolution is needed.
+///
+/// The `_interner` parameter is unused.
 ///
 /// # Example
 ///
 /// ```
 /// let comp = BinaryComp::Eq;
-/// let s = comp.to_string_with_interner(&interner); // Uses DisplayWithInterner under the hood
+/// let s = comp.to_string_with_interner(&interner); // Delegates to Display
 /// ```
-impl PlanningDisplay for BinaryComp {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        self.fmt_with(f, interner)
+impl PlanningSyntaxDisplay for BinaryComp {
+    /// Formats the `BinaryComp` using the provided formatter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `_interner` - The string interner, unused here.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
+    fn fmt_planning(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }

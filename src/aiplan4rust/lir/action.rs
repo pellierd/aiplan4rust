@@ -32,7 +32,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -249,9 +249,9 @@ impl DisplayWithInterner for Action {
     }
 }
 
-impl PlanningDisplay for Action {
+impl PlanningSyntaxDisplay for Action {
     /// Formats the `Action` syntax for display, delegating to `fmt_with`.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }
 }

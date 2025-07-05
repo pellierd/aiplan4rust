@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
@@ -92,18 +92,28 @@ impl Ident {
     }
 }
 
+/// Implements the standard `Display` trait for `Ident`.
+///
+/// This implementation formats the `Ident` by displaying its internal numeric
+/// `value` prefixed with a `#` symbol. This representation is mainly for debugging
+/// or simple identification purposes.
+///
+/// # Example
+///
+/// ```
+/// let ident = Ident { value: 42 };
+/// assert_eq!(format!("{}", ident), "#42");
+/// ```
 impl std::fmt::Display for Ident {
-    /// Formats the identifier for display.
+    /// Formats the identifier as `#<value>`.
     ///
-    /// This implementation shows the identifier as `#<value>`,
-    /// where `<value>` is the internal numeric representation.
+    /// # Arguments
     ///
-    /// # Example
+    /// * `f` - The formatter to write the output to.
     ///
-    /// ```
-    /// let ident = Ident { value: 42 };
-    /// assert_eq!(format!("{}", ident), "#42");
-    /// ```
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "#{}", self.value)
     }
@@ -126,6 +136,16 @@ impl std::fmt::Display for Ident {
 /// let s = ident.to_string_with_interner(&interner);
 /// ```
 impl DisplayWithInterner for Ident {
+    /// Formats the `Ident` by resolving its interned string using the given `StringInterner`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `interner` - The string interner to resolve the identifier.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(name) = interner.resolve(*self) {
             write!(f, "{}", name)
@@ -135,26 +155,37 @@ impl DisplayWithInterner for Ident {
     }
 }
 
-/// Implements the `DisplaySyntax` trait for `Ident`.
+
+/// Implements the `PlanningSyntaxDisplay` trait for `Ident`.
 ///
-/// This uses the provided `StringInterner` to resolve the interned string
-/// corresponding to the identifier's `value`.
+/// This implementation formats the `Ident` by using the provided
+/// `StringInterner` to resolve the interned string associated with its `value`.
 ///
-/// If the interner cannot resolve the value, it falls back to displaying
-/// the raw `usize` value.
+/// If the interner cannot resolve the identifier, it writes a placeholder string
+/// in the format `<uninterned:{value}>` instead.
 ///
 /// # Example
 ///
 /// ```
 /// let ident = Ident { value: 42 };
-/// let s = ident.fmt_syntax(&mut formatter, &interner)?;
+/// let s = ident.fmt_planning(&mut formatter, &interner)?;
 /// ```
-impl PlanningDisplay for Ident {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+impl PlanningSyntaxDisplay for Ident {
+    /// Formats the `Ident` using the given formatter and interner.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `interner` - The string interner used for resolving the identifier.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
+    fn fmt_planning(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(name) = interner.resolve(*self) {
             write!(f, "{}", name)
         } else {
-            write!(f, "{}", StringInterner::UNKNOWN_INTERNED_STRING)
+            write!(f, "<uninterned:{}>", *self)
         }
     }
 }

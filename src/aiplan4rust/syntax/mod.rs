@@ -87,5 +87,5 @@ pub use language::Language;
 pub use parser::Parser;
 pub use parser_result::ParserResult;
 pub use span::Span;
-pub use display::PlanningDisplay;
+pub use display::PlanningSyntaxDisplay;
 pub use fast_line_table::FastLineTable;

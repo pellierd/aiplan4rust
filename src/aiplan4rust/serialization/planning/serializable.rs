@@ -2,7 +2,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::serialization::planning::PlanningFormat;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 
 /// Trait for serializing and deserializing syntax structures that require an [`Interner`].
 ///
@@ -17,7 +17,7 @@ use crate::aiplan4rust::syntax::PlanningDisplay;
 /// - MessagePack
 ///
 /// Errors are returned as [`ParserInternalError`].
-pub trait Serializable: PlanningDisplay {
+pub trait Serializable: PlanningSyntaxDisplay {
     /// Serializes the object into a string in the specified format.
     ///
     /// # Arguments

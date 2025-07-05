@@ -8,6 +8,7 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 
 /// Represents a symbol identified by `Ident` with associated types,
 /// also identified by `Ident`.
@@ -104,6 +105,42 @@ impl DisplayWithInterner for TypedSymbol {
         if !self.ty.is_empty() {
             write!(w, " - ")?;
             self.ty.fmt_with(w, interner)?;
+        }
+
+        Ok(())
+    }
+}
+
+/// Displays a `TypedSymbol` in PDDL syntax.
+///
+/// A `TypedSymbol` represents a named variable or constant optionally associated with a type.
+/// The output follows this format:
+/// - If the type is empty: just the symbol name.
+/// - If the type is present: `symbol - type`.
+/// - If the type has multiple members: `symbol - (either t1 t2 ...)`.
+///
+/// # Example
+/// ```text
+/// x
+/// y - location
+/// z - (either robot vehicle)
+/// ```
+impl PlanningSyntaxDisplay for TypedSymbol {
+    fn fmt_planning(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> std::fmt::Result {
+        // Print the name of the symbol
+        match interner.resolve(self.symbol) {
+            Some(name) => write!(f, "{}", name)?,
+            None => write!(f, "<uninterned:{}>", self.symbol)?,
+        }
+
+        // If the type is not empty, print " - " followed by the type
+        if !self.ty.is_empty() {
+            write!(f, " - ")?;
+            self.ty.fmt_planning(f, interner)?;
         }
 
         Ok(())

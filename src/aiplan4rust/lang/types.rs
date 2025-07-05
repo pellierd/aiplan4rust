@@ -1,11 +1,13 @@
 use std::fmt;
+use std::fmt::Formatter;
 use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, Requirement};
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{NodeContent, TreeArena, TreeNode};
 
 /// Represents a type in a planning problem IR.
@@ -250,6 +252,72 @@ impl DisplayWithInterner for Type {
         }
     }
 }
+
+/// Implements the `PlanningSyntaxDisplay` trait for `Type`.
+///
+/// This trait formats a `Type` for PDDL-like syntax display.
+///
+/// - If the type has no members, it produces no output.
+/// - If the type has a single member, it prints the member name.
+/// - If the type has multiple members, it prints `(either t1 t2 ...)`.
+///
+/// # Examples
+///
+/// ```
+/// # use your_crate::{Type, StringInterner, PlanningDisplay};
+/// # use std::fmt::Write;
+///
+/// let interner = StringInterner::new();
+/// let mut t = Type::default();
+///
+/// // Example 1: empty
+/// let mut s = String::new();
+/// t.fmt_planning(&mut s, &interner).unwrap();
+/// assert_eq!(s, "");
+///
+/// // Example 2: single type
+/// let id = interner.get_or_intern("robot");
+/// t.members.push(id);
+/// let mut s = String::new();
+/// t.fmt_planning(&mut s, &interner).unwrap();
+/// assert_eq!(s, "robot");
+///
+/// // Example 3: multiple types
+/// t.members.push(interner.get_or_intern("vehicle"));
+/// let mut s = String::new();
+/// t.fmt_planning(&mut s, &interner).unwrap();
+/// assert_eq!(s, "(either robot vehicle)");
+/// ```
+impl PlanningSyntaxDisplay for Type {
+    fn fmt_planning(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        match self.members.len() {
+            0 => Ok(()), // empty: nothing
+            1 => {
+                let ty = self.members[0];
+                match interner.resolve(ty) {
+                    Some(type_name) => write!(f, "{}", type_name),
+                    None => write!(f, "<uninterned:{}>", ty),
+                }
+            }
+            _ => {
+                write!(f, "(either")?;
+                for ty in &self.members {
+                    write!(f, " ")?;
+                    match interner.resolve(*ty) {
+                        Some(type_name) => write!(f, "{}", type_name)?,
+                        None => write!(f, "<uninterned:{}>", ty)?,
+                    }
+                }
+                write!(f, ")")
+            }
+        }
+    }
+}
+
 
 impl FromAst for Type {
     /// Constructs a [`Type`] from an [`AstArenaNode`] representing a collection of type identifiers.

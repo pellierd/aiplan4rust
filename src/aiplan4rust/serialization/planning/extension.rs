@@ -92,11 +92,17 @@ impl FromStr for Extension {
     }
 }
 
-/// Implements `Display` for `Extension`.
-///
-/// Formats the extension as a lowercase string without a leading dot.
-///
-/// # Examples
-///
-/// ```
-//
+/// Allows displaying the extension as a string.
+impl Display for Extension {
+    /// Formats the extension for display (without leading dot).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let s = Extension::Yaml.to_string();
+    /// assert_eq!(s, "yaml");
+    /// ```
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
+}

@@ -6,7 +6,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::TreeArena;
 
 /// A list of `TypedSymbol` items.
@@ -151,7 +151,34 @@ impl FromAst for TypedList {
     }
 }
 
+/// Implements `Display` for `TypedList`.
+///
+/// This implementation formats the `TypedList` as a space-separated list of symbols
+/// enclosed in parentheses.
+///
+/// Each symbol is displayed using its own `Display` implementation, without
+/// any additional processing or name resolution.
+///
+/// # Example
+///
+/// ```text
+/// (sym1 sym2 sym3)
+/// ```
+///
+/// # Behavior
+///
+/// - Starts by writing an opening parenthesis `(`.
+/// - Iterates over all symbols in the list.
+/// - Writes each symbol separated by a space.
+/// - Ends with a closing parenthesis `)`.
 impl fmt::Display for TypedList {
+    /// Formats the `TypedList` for display.
+    ///
+    /// Writes the list of symbols in parentheses, separated by spaces.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output to.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "(")?;
         let mut first = true;
@@ -166,7 +193,30 @@ impl fmt::Display for TypedList {
     }
 }
 
+/// Implements `DisplayWithInterner` for `TypedList`.
+///
+/// A `TypedList` is a collection of `TypedSymbol`s, each potentially associated
+/// with a type. The output is a parenthesized, space-separated list of symbols
+/// with their types, suitable for debugging or display.
+///
+/// # Example
+///
+/// ```text
+/// (?x - location ?y - (either robot vehicle))
+/// ```
 impl DisplayWithInterner for TypedList {
+    /// Formats the `TypedList` using the provided `StringInterner`.
+    ///
+    /// This writes the list in PDDL-style syntax:
+    /// - Starts with an opening parenthesis `(`.
+    /// - Symbols are separated by spaces.
+    /// - Each symbol is formatted via `TypedSymbol::fmt_with`.
+    /// - Ends with a closing parenthesis `)`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter.
+    /// * `interner` - The interner to resolve symbol names.
     fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         write!(f, "(")?;
         let mut first = true;
@@ -181,9 +231,55 @@ impl DisplayWithInterner for TypedList {
     }
 }
 
-
-impl PlanningDisplay for TypedList {
-    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        self.fmt_with(f, interner)
+/// Displays a `TypedList` in PDDL syntax.
+///
+/// A `TypedList` is a list of `TypedSymbol`s, each with optional types.
+/// The output is formatted as a parenthesized, space-separated list of typed symbols.
+///
+/// This implementation is intended for generating PDDL-compatible representations
+/// of variables or objects with their declared types.
+///
+/// # Example
+///
+/// ```text
+/// (?x - location ?y - (either robot vehicle))
+/// ```
+impl PlanningSyntaxDisplay for TypedList {
+    /// Formats the `TypedList` in PDDL syntax.
+    ///
+    /// This function writes:
+    /// - An opening parenthesis `(`.
+    /// - Each `TypedSymbol`, separated by spaces.
+    /// - A closing parenthesis `)`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write into.
+    /// * `interner` - The `StringInterner` used to resolve symbol and type names.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating whether formatting succeeded.
+    ///
+    /// # Example Output
+    ///
+    /// ```text
+    /// (?x - location ?y - robot)
+    /// ```
+    fn fmt_planning(
+        &self,
+        f: &mut std::fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> std::fmt::Result {
+        write!(f, "(")?;
+        let mut first = true;
+        for sym in &self.symbols {
+            if !first {
+                write!(f, " ")?;
+            }
+            sym.fmt_planning(f, interner)?;
+            first = false;
+        }
+        write!(f, ")")
     }
 }

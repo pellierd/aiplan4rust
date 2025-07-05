@@ -2,7 +2,7 @@ use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;
 use crate::aiplan4rust::syntax::lexer::token::SUB;
-use crate::aiplan4rust::syntax::PlanningDisplay;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -29,18 +29,29 @@ pub enum ArithmeticOp {
     Mul,
 }
 
+/// Implements the `fmt::Display` trait for the `ArithmeticOp` enum.
+///
+/// This implementation enables `ArithmeticOp` values to be formatted as strings
+/// using Rust’s formatting macros (e.g., `println!`, `format!`). It provides
+/// a human-readable representation of the arithmetic operation symbols, which
+/// is useful for displaying and debugging arithmetic expressions.
+///
+/// # Example
+///
+/// ```
+/// let op = ArithmeticOp::Add;
+/// println!("{}", op); // prints "+"
+/// ```
 impl fmt::Display for ArithmeticOp {
-    /// Implements the `fmt::Display` trait for the `ArithmeticOp` enum.
-    ///
-    /// This method allows `ArithmeticOp` to be formatted as a string when printed
-    /// using formatting macros such as `println!`. It provides a string representation
-    /// of the arithmetic operation, making it easier to display and debug arithmetic expr.
+    /// Formats the `ArithmeticOp` as its corresponding symbol.
     ///
     /// # Arguments
-    /// - `f`: A mutable reference to the formatter, which is used to build the output string.
+    ///
+    /// * `f` - A mutable reference to the formatter used to build the output string.
     ///
     /// # Returns
-    /// - A `fmt::Result` indicating the success or failure of the formatting operation.
+    ///
+    /// A `fmt::Result` indicating whether the formatting succeeded or failed.
     ///
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -52,42 +63,67 @@ impl fmt::Display for ArithmeticOp {
     }
 }
 
+
 /// Implements the `DisplayWithInterner` trait for `ArithmeticOp`.
 ///
-/// Since `ArithmeticOp` can be directly formatted via the standard
-/// `Display` trait, this implementation simply delegates to it.
+/// This implementation formats the `ArithmeticOp` by delegating
+/// to the standard `Display` trait, as no interner-based resolution
+/// is needed.
 ///
-/// The `interner` parameter is unused because `ArithmeticOp` does not
-/// require any interner-based resolution.
+/// The `interner` parameter is unused.
 ///
 /// # Example
 ///
 /// ```
 /// let op = ArithmeticOp::Add;
-/// let s = format!("{}", op); // Using standard Display implementation
+/// let s = format!("{}", op); // Uses the standard Display trait.
 /// ```
 impl DisplayWithInterner for ArithmeticOp {
+    /// Formats the `ArithmeticOp` using the given formatter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `_interner` - The string interner (unused).
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or failure.
     fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
-        // Delegate to the standard Display implementation.
         fmt::Display::fmt(self, f)
     }
 }
 
-/// Implements the `DisplaySyntax` trait for `ArithmeticOp`.
+
+/// Implements the `PlanningSyntaxDisplay` trait for `ArithmeticOp`.
 ///
-/// This implementation relies on the blanket implementation of
-/// `DisplaySyntax` for all types that implement `DisplayWithInterner`,
-/// so it is left empty.
+/// This implementation provides formatting for `ArithmeticOp` by
+/// delegating to the standard `Display` trait. It leverages the
+/// blanket implementation of `DisplaySyntax` for types implementing
+/// `DisplayWithInterner`.
+///
+/// Since `ArithmeticOp` does not require interner-based resolution,
+/// the `_interner` parameter is unused.
 ///
 /// # Example
 ///
 /// ```
 /// let op = ArithmeticOp::Add;
-/// // Uses DisplayWithInterner under the hood via DisplaySyntax
-/// let s = op.to_string_with_interner(&interner);
+/// let s = op.fmt_planning(&mut formatter, &interner)?;
+/// // Output uses the standard Display implementation.
 /// ```
-impl PlanningDisplay for ArithmeticOp {
-    fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        self.fmt_with(f, interner)
+impl PlanningSyntaxDisplay for ArithmeticOp {
+    /// Formats the `ArithmeticOp` using the given formatter.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output to.
+    /// * `_interner` - The string interner, unused for this type.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating whether formatting succeeded or failed.
+    fn fmt_planning(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        fmt::Display::fmt(self, f)
     }
 }
