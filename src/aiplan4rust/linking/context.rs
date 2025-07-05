@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::tree::TreeArena;
 use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
+use crate::aiplan4rust::serialization::Serializable;
 
 /// Represents a linked semantic context combining a domain and a problem.
 ///
@@ -153,9 +154,11 @@ impl fmt::Display for LinkedSemanticContext {
         writeln!(f, "  Domain source: {}", self.domain_source())?;
         writeln!(f, "  Problem source: {}", self.problem_source())?;
         writeln!(f, "  Generated at: {:?}", self.generated_at())?;
-        writeln!(f, "  Domain AST nodes:\n{:?}", self.domain())?;
-        writeln!(f, "  Problem AST nodes:\n{:?}", self.problem())?;
+        writeln!(f, "  Domain AST nodes:\n{}", self.domain())?;
+        writeln!(f, "  Problem AST nodes:\n{}", self.problem())?;
         writeln!(f, "  Symbol table entries:\n{}", self.symbol_table())?;
         Ok(())
     }
 }
+
+impl Serializable for LinkedSemanticContext {}
