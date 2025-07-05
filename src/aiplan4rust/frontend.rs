@@ -14,8 +14,10 @@ use std::backtrace::Backtrace;
 use std::fmt;
 use std::fs::File;
 use std::io::Read;
-
+use std::path::Path;
 use std::string::String;
+use base64::Engine;
+use base64::engine::general_purpose;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
 
 #[derive(Debug)]
@@ -201,6 +203,17 @@ impl Frontend {
         match format {
             Format::Json => serde_json::from_str(content).map_err(Into::into),
             Format::Yaml => serde_yaml::from_str(content).map_err(Into::into),
+            Format::Toml => toml::from_str(content).map_err(Into::into),
+            Format::Cbor => {
+                let bytes = general_purpose::STANDARD.decode(content)?;
+                let obj = serde_cbor::from_slice(&bytes)?;
+                Ok(obj)
+            }
+            Format::MessagePack => {
+                let bytes = general_purpose::STANDARD.decode(content)?;
+                let obj = rmp_serde::from_slice(&bytes)?;
+                Ok(obj)
+            }
         }
     }
 
@@ -216,33 +229,34 @@ impl Frontend {
             ))
     }
 
-    // Désérialise un LiftedPlanningTask depuis un fichier en détectant le format
-    pub fn deserialize_linked_semantic_context_from_file(
-        &self,
-        file: &str,
-    ) -> Result<LinkedSemanticContext, ParserInternalError> {
-        let content = self.read_file(file)?;
-        Self::try_parse_lifted_task(&content)
+    /// Détecte le format à partir du chemin (extension).
+    fn format_from_path(path: &str) -> Result<Format, ParserInternalError> {
+        let ext = Path::new(path)
+            .extension()
+            .and_then(|e| e.to_str())
+            .ok_or_else(|| ParserInternalError::new("File has no extension".to_string()))?;
+
+        ext.parse::<Format>() // Utilise ton FromStr pour Format
     }
 
-    // Deserialize a domain from a file, detecting format automatically
     pub fn deserialize_domain_from_file(
         &self,
         file: &str,
     ) -> Result<SemanticContext, ParserInternalError> {
+        let format = Self::format_from_path(file)?;
         let content = self.read_file(file)?;
+        Self::try_parse_pddl_file::<SemanticContext>(&content, format)
+            .map_err(|e| ParserInternalError::new(format!("Failed to parse domain file as {}: {}", format, e)))
+    }
 
-        // Try parsing as JSON first
-        match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Json) {
-            Ok(domain) => Ok(domain),
-            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Yaml) {
-                Ok(domain) => Ok(domain),
-                Err(_) => Err(ParserInternalError::new(
-                    "Failed to parse the domain file! The content is neither valid JSON nor YAML."
-                        .to_string(),
-                )),
-            },
-        }
+    pub fn deserialize_linked_semantic_context_from_file(
+        &self,
+        file: &str,
+    ) -> Result<LinkedSemanticContext, ParserInternalError> {
+        let format = Self::format_from_path(file)?;
+        let content = self.read_file(file)?;
+        Self::try_parse_pddl_file::<LinkedSemanticContext>(&content, format)
+            .map_err(|e| ParserInternalError::new(format!("Failed to parse linked semantic context file as {}: {}", format, e)))
     }
 
     // Sérialise un LiftedPlanningTask en chaîne JSON ou YAML
@@ -256,6 +270,18 @@ impl Frontend {
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to JSON: {}", e))),
             Format::Yaml => serde_yaml::to_string(task)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to YAML: {}", e))),
+            Format::Toml => toml::to_string(task)
+                .map_err(|e| ParserInternalError::new(format!("Error serializing to TOML: {}", e))),
+            Format::Cbor => {
+                let bytes = serde_cbor::to_vec(task)
+                    .map_err(|e| ParserInternalError::new(format!("Error serializing to CBOR: {}", e)))?;
+                Ok(general_purpose::STANDARD.encode(&bytes))
+            }
+            Format::MessagePack => {
+                let bytes = rmp_serde::to_vec(task)
+                    .map_err(|e| ParserInternalError::new(format!("Error serializing to MessagePack: {}", e)))?;
+                Ok(general_purpose::STANDARD.encode(&bytes))
+            }
         }
     }
 
@@ -283,6 +309,18 @@ impl Frontend {
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to JSON: {}", e))),
             Format::Yaml => serde_yaml::to_string(problem)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to YAML: {}", e))),
+            Format::Toml => toml::to_string(problem)
+                .map_err(|e| ParserInternalError::new(format!("Error serializing to TOML: {}", e))),
+            Format::Cbor => {
+                let bytes = serde_cbor::to_vec(problem)
+                    .map_err(|e| ParserInternalError::new(format!("Error serializing to CBOR: {}", e)))?;
+                Ok(general_purpose::STANDARD.encode(&bytes))
+            }
+            Format::MessagePack => {
+                let bytes = rmp_serde::to_vec(problem)
+                    .map_err(|e| ParserInternalError::new(format!("Error serializing to MessagePack: {}", e)))?;
+                Ok(general_purpose::STANDARD.encode(&bytes))
+            }
         }
     }
 
@@ -304,19 +342,10 @@ impl Frontend {
         &self,
         file: &str,
     ) -> Result<SemanticContext, ParserInternalError> {
+        let format = Self::format_from_path(file)?;
         let content = self.read_file(file)?;
-
-        // Try parsing as JSON first
-        match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Json) {
-            Ok(problem) => Ok(problem),
-            Err(_) => match Self::try_parse_pddl_file::<SemanticContext>(&content, Format::Yaml) {
-                Ok(problem) => Ok(problem),
-                Err(_) => Err(ParserInternalError::new(
-                    "Failed to parse the problem file! The content is neither valid JSON nor YAML."
-                        .to_string(),
-                )),
-            },
-        }
+        Self::try_parse_pddl_file::<SemanticContext>(&content, format)
+            .map_err(|e| ParserInternalError::new(format!("Failed to parse the problem file as {}: {}", format, e)))
     }
 
     /// Serialize the AnnotatedSyntaxTree to a string in the specified format
@@ -330,6 +359,18 @@ impl Frontend {
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to JSON: {}", e))),
             Format::Yaml => serde_yaml::to_string(data)
                 .map_err(|e| ParserInternalError::new(format!("Error serializing to YAML: {}", e))),
+            Format::Toml => toml::to_string(data)
+                .map_err(|e| ParserInternalError::new(format!("Error serializing to TOML: {}", e))),
+            Format::Cbor => {
+                let bytes = serde_cbor::to_vec(data)
+                    .map_err(|e| ParserInternalError::new(format!("Error serializing to CBOR: {}", e)))?;
+                Ok(general_purpose::STANDARD.encode(&bytes))
+            }
+            Format::MessagePack => {
+                let bytes = rmp_serde::to_vec(data)
+                    .map_err(|e| ParserInternalError::new(format!("Error serializing to MessagePack: {}", e)))?;
+                Ok(general_purpose::STANDARD.encode(&bytes))
+            }
         }
     }
 

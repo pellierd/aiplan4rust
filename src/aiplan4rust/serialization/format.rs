@@ -1,4 +1,4 @@
-use std::fmt::{self, Display};
+use std::fmt;
 use std::str::FromStr;
 
 use crate::aiplan4rust::frontend::ParserInternalError;
@@ -7,17 +7,24 @@ use crate::aiplan4rust::serialization::Extension;
 /// Represents supported serialization formats (JSON, YAML).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Format {
-    /// JSON format
+    /// JSON format (default)
     #[default]
     Json,
     /// YAML format
     Yaml,
+    /// TOML format
+    Toml,
+    /// CBOR format (binary, encoded as hex string for textual representation)
+    Cbor,
+    /// MessagePack format (binary, encoded as hex string for textual representation)
+    MessagePack,
 }
 
 impl Format {
-    /// Returns the format name as a string (e.g., `"json"`).
+    /// Returns the format name as a lowercase string (e.g., `"json"`).
     ///
     /// # Examples
+    ///
     /// ```
     /// assert_eq!(Format::Yaml.as_str(), "yaml");
     /// ```
@@ -25,15 +32,19 @@ impl Format {
         match self {
             Format::Json => "json",
             Format::Yaml => "yaml",
+            Format::Toml => "toml",
+            Format::Cbor => "cbor",
+            Format::MessagePack => "messagepack",
         }
     }
 }
 
-/// Converts an `Extension` into a `Format`.
+/// Converts a file extension into a `Format`.
 impl From<Extension> for Format {
-    /// Maps file extensions directly to formats.
+    /// Maps common file extensions to serialization formats.
     ///
     /// # Examples
+    ///
     /// ```
     /// let format: Format = Extension::Json.into();
     /// ```
@@ -41,38 +52,49 @@ impl From<Extension> for Format {
         match ext {
             Extension::Json => Format::Json,
             Extension::Yaml => Format::Yaml,
+            Extension::Toml => Format::Toml,
+            Extension::Cbor => Format::Cbor,
+            Extension::MessagePack => Format::MessagePack,
+            // Add other extensions if needed
         }
     }
 }
 
-/// Parses a `Format` from a string like `"json"`, `"yaml"` (with or without dot).
+/// Parses a `Format` from a string (case-insensitive, with or without leading dot).
 impl FromStr for Format {
     type Err = ParserInternalError;
 
-    /// Converts a string (like `"json"` or `".yaml"`) to a `Format`.
+    /// Parses a string into a `Format`.
     ///
     /// # Errors
-    /// Returns an error if the format is unknown.
+    ///
+    /// Returns an error if the format string is unknown.
     ///
     /// # Examples
+    ///
     /// ```
     /// let fmt = Format::from_str("yaml")?;
+    /// let fmt_dot = Format::from_str(".json")?;
     /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let normalized = s.trim_start_matches('.');
-        match normalized {
+        let normalized = s.trim_start_matches('.').to_ascii_lowercase();
+        match normalized.as_str() {
             "json" => Ok(Format::Json),
             "yaml" | "yml" => Ok(Format::Yaml),
+            "toml" => Ok(Format::Toml),
+            "cbor" => Ok(Format::Cbor),
+            "messagepack" | "msgpack" => Ok(Format::MessagePack),
             other => Err(ParserInternalError::new(format!("Unknown format: {}", other))),
         }
     }
 }
 
-/// Display implementation for `Format`, returns the format name (e.g. `"json"`).
-impl Display for Format {
+/// Implements Display for `Format`, returns the format name as string.
+impl fmt::Display for Format {
     /// Formats the `Format` as a lowercase string.
     ///
     /// # Examples
+    ///
     /// ```
     /// let s = Format::Json.to_string();
     /// assert_eq!(s, "json");
