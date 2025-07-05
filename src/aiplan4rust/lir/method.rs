@@ -35,7 +35,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -240,7 +240,7 @@ impl DisplayWithInterner for Method {
     }
 }
 
-impl DisplaySyntax for Method {
+impl PlanningDisplay for Method {
     /// Formats the `Method` syntax with a string interner.
     fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)

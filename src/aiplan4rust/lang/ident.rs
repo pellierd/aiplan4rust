@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
@@ -149,7 +149,7 @@ impl DisplayWithInterner for Ident {
 /// let ident = Ident { value: 42 };
 /// let s = ident.fmt_syntax(&mut formatter, &interner)?;
 /// ```
-impl DisplaySyntax for Ident {
+impl PlanningDisplay for Ident {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(name) = interner.resolve(*self) {
             write!(f, "{}", name)

@@ -6,7 +6,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::TreeArena;
 
 /// A list of `TypedSymbol` items.
@@ -182,7 +182,7 @@ impl DisplayWithInterner for TypedList {
 }
 
 
-impl DisplaySyntax for TypedList {
+impl PlanningDisplay for TypedList {
     fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

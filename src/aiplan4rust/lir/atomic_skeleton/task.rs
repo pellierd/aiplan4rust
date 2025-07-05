@@ -24,7 +24,7 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::TreeArena;
 
 /// Represents a planning task declaration in HDDL.
@@ -127,7 +127,7 @@ impl DisplayWithInterner for Task {
     }
 }
 
-impl DisplaySyntax for Task {
+impl PlanningDisplay for Task {
     /// Formats the task in a syntax-oriented representation.
     ///
     /// This can be used to reconstruct or pretty-print the original declaration.

@@ -3,7 +3,7 @@ use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
 use crate::aiplan4rust::syntax::lexer::token::LESS;
 use crate::aiplan4rust::syntax::lexer::token::LESS_EQ;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -91,7 +91,7 @@ impl DisplayWithInterner for BinaryComp {
 /// let comp = BinaryComp::Eq;
 /// let s = comp.to_string_with_interner(&interner); // Uses DisplayWithInterner under the hood
 /// ```
-impl DisplaySyntax for BinaryComp {
+impl PlanningDisplay for BinaryComp {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

@@ -2,7 +2,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::serialization::Extension;
+use crate::aiplan4rust::serialization::serde::SerdeExtension;
 
 /// Represents supported serialization formats (JSON, YAML).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -40,7 +40,7 @@ impl Format {
 }
 
 /// Converts a file extension into a `Format`.
-impl From<Extension> for Format {
+impl From<SerdeExtension> for Format {
     /// Maps common file extensions to serialization formats.
     ///
     /// # Examples
@@ -48,13 +48,13 @@ impl From<Extension> for Format {
     /// ```
     /// let format: Format = Extension::Json.into();
     /// ```
-    fn from(ext: Extension) -> Self {
+    fn from(ext: SerdeExtension) -> Self {
         match ext {
-            Extension::Json => Format::Json,
-            Extension::Yaml => Format::Yaml,
-            Extension::Toml => Format::Toml,
-            Extension::Cbor => Format::Cbor,
-            Extension::MessagePack => Format::MessagePack,
+            SerdeExtension::Json => Format::Json,
+            SerdeExtension::Yaml => Format::Yaml,
+            SerdeExtension::Toml => Format::Toml,
+            SerdeExtension::Cbor => Format::Cbor,
+            SerdeExtension::MessagePack => Format::MessagePack,
             // Add other extensions if needed
         }
     }

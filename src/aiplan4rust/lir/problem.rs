@@ -48,7 +48,7 @@ use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
-use crate::aiplan4rust::serialization::Serializable;
+use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
 /// Represents a planning problem within a domain.
 ///
@@ -595,4 +595,4 @@ impl Display for Problem {
     }
 }
 
-impl Serializable for Problem {}
+impl SerdeSerializable for Problem {}

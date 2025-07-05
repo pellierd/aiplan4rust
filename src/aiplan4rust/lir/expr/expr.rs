@@ -3,7 +3,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::TreeArena;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -167,7 +167,7 @@ impl DisplayWithInterner for Expr {
     }
 }
 
-impl DisplaySyntax for Expr {
+impl PlanningDisplay for Expr {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.tree.fmt_with(f, interner)
     }

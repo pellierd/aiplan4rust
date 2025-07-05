@@ -7,7 +7,7 @@ use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::serialization::{Format, Serializable};
+use crate::aiplan4rust::serialization::serde::{SerdeFormat, SerdeSerializable};
 
 use serde::Deserialize;
 use std::backtrace::Backtrace;

@@ -11,7 +11,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::{AstArenaNode, symbol::SymbolRef};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::lang::Ident;
 
 /// A flat arena-based tree structure for storing nodes of type `T`.
@@ -271,7 +271,7 @@ where
     }
 }
 
-impl<T> DisplaySyntax for TreeArena<T>
+impl<T> PlanningDisplay for TreeArena<T>
 where
     T: TreeNode,
 {

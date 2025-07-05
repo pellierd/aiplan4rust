@@ -1,6 +1,6 @@
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -87,7 +87,7 @@ impl DisplayWithInterner for Optimization {
 /// let s = opt.to_string_syntax(&interner);
 /// assert_eq!(s, "Enabled");
 /// ```
-impl DisplaySyntax for Optimization {
+impl PlanningDisplay for Optimization {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

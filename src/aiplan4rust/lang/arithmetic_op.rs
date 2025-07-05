@@ -2,7 +2,7 @@ use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;
 use crate::aiplan4rust::syntax::lexer::token::SUB;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -86,7 +86,7 @@ impl DisplayWithInterner for ArithmeticOp {
 /// // Uses DisplayWithInterner under the hood via DisplaySyntax
 /// let s = op.to_string_with_interner(&interner);
 /// ```
-impl DisplaySyntax for ArithmeticOp {
+impl PlanningDisplay for ArithmeticOp {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

@@ -2,7 +2,7 @@ use crate::aiplan4rust::syntax::Language;
 
 use clap::Arg;
 use clap::Command;
-use crate::aiplan4rust::serialization::Format;
+use crate::aiplan4rust::serialization::serde::SerdeFormat;
 
 /// Constants for command names and other strings
 pub const VERSION: &str = "1.0";
@@ -67,7 +67,7 @@ pub fn build_link_subcommand() -> Command {
                 .short(FORMAT_SHORT)
                 .long(FORMAT_LONG)
                 .help("Defines the output format (json or yaml)")
-                .value_parser(clap::value_parser!(Format))
+                .value_parser(clap::value_parser!(SerdeFormat))
                 .default_value(JSON),
         )
         .arg(
@@ -111,7 +111,7 @@ pub fn build_parse_subcommand() -> Command {
                 .short(FORMAT_SHORT)
                 .long(FORMAT_LONG)
                 .help("Defines the output format (json or yaml)")
-                .value_parser(clap::value_parser!(Format))
+                .value_parser(clap::value_parser!(SerdeFormat))
                 .default_value(JSON),
         )
         .arg(

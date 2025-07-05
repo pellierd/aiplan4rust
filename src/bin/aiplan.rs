@@ -2,15 +2,16 @@ use aiplan4rust::aiplan4rust::cli::aiplan_cli::{
     build_cli, FILES_ARG, FORMAT_ARG, LANGUAGE_ARG, LINK_SUBCOMMAND, OUTPUT_ARG, PARSE_SUBCOMMAND,
 };
 use aiplan4rust::aiplan4rust::syntax::Language;
-use aiplan4rust::aiplan4rust::serialization::{Extension, Format};
+use aiplan4rust::aiplan4rust::serialization::serde::{SerdeExtension, SerdeFormat};
 use aiplan4rust::aiplan4rust::Frontend;
 use aiplan4rust::aiplan4rust::diagnostic::{Renderer, Severity};
+use aiplan4rust::aiplan4rust::serialization::serde::SerdeSerializable;
 
 use clap::ArgMatches;
 use std::path::Path;
 use std::time::Instant;
 use colored::Colorize;
-use aiplan4rust::aiplan4rust::serialization::Serializable;
+
 
 /// Handles the `link` command logic.
 ///
@@ -25,7 +26,7 @@ fn handle_link_command(matches: &ArgMatches) {
         let files_vec: Vec<String> = files.cloned().collect();
         if files_vec.len() == 2 {
             let output = matches.get_one::<String>(OUTPUT_ARG).unwrap();
-            let format = matches.get_one::<Format>(FORMAT_ARG).unwrap();
+            let format = matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
             link(&files_vec[0], &files_vec[1], *format, output);
         } else {
             eprintln!("Error: You must provide exactly two files (domain and problem).")
@@ -49,7 +50,7 @@ fn handle_parse_command(matches: &ArgMatches) {
 
     if let Some(files) = matches.get_many::<String>(FILES_ARG) {
         let files_vec: Vec<String> = files.cloned().collect();
-        let format = *matches.get_one::<Format>(FORMAT_ARG).unwrap();
+        let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
 
         match files_vec.len() {
             1 => {
@@ -95,7 +96,7 @@ fn main() {
     }
 }
 
-fn link(domain_file: &str, problem_file: &str, format: Format, output: &str) {
+fn link(domain_file: &str, problem_file: &str, format: SerdeFormat, output: &str) {
     let frontend = Frontend::new();
 
     // Appel de la méthode link sur frontend
@@ -125,7 +126,7 @@ pub fn parse(
     domain_file: &str,
     problem_file: &str,
     language: &Language,
-    format: Format,
+    format: SerdeFormat,
     output: &str,
 ) {
     let start_time = Instant::now();
@@ -184,7 +185,7 @@ pub fn parse(
     }
 }
 
-pub fn parse_file(input_file: &str, language: &Language, format: Format, output: &str) {
+pub fn parse_file(input_file: &str, language: &Language, format: SerdeFormat, output: &str) {
     let start_time = Instant::now(); // Démarre le chronomètre
 
     let full_path = Path::new(input_file)
@@ -270,12 +271,12 @@ pub fn parse_file(input_file: &str, language: &Language, format: Format, output:
 ///
 /// # Notes
 /// If the input file doesn't have an extension, it will be used as is as the base name.
-fn generate_lifted_domain_or_problem_filename(input_file: &str, format: Format) -> String {
+fn generate_lifted_domain_or_problem_filename(input_file: &str, format: SerdeFormat) -> String {
     let base_name = input_file
         .rsplit_once('.')
         .map(|(name, _ext)| name)
         .unwrap_or(input_file);
-    let extension = Extension::from(format).as_str();
+    let extension = SerdeExtension::from(format).as_str();
     format!("{}.{}", base_name, extension)
 }
 
@@ -303,7 +304,7 @@ fn generate_lifted_domain_or_problem_filename(input_file: &str, format: Format) 
 fn generate_lifted_planning_task_filename(
     domain_file: &str,
     problem_file: &str,
-    format: Format,
+    format: SerdeFormat,
 ) -> String {
     let domain_stem = Path::new(domain_file)
         .file_stem()
@@ -314,6 +315,6 @@ fn generate_lifted_planning_task_filename(
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("unknown_problem");
-    let extension = Extension::from(format).as_str();
+    let extension = SerdeExtension::from(format).as_str();
     format!("{}_{}.{}", problem_stem, domain_stem, extension)
 }

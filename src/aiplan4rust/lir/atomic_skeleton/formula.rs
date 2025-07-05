@@ -24,7 +24,7 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::TreeArena;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
@@ -57,7 +57,7 @@ use crate::aiplan4rust::tree::TreeArena;
 /// # Implementation Notes
 ///
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] transparently.
-/// - Supports pretty-printing with or without an interner (see [`DisplayWithInterner`] and [`DisplaySyntax`]).
+/// - Supports pretty-printing with or without an interner (see [`DisplayWithInterner`] and [`PlanningDisplay`]).
 /// - Can be constructed directly or parsed from an AST node via [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formula {
@@ -134,7 +134,7 @@ impl DisplayWithInterner for Formula {
     }
 }
 
-impl DisplaySyntax for Formula {
+impl PlanningDisplay for Formula {
     /// Formats the formula in a syntax-oriented form (e.g., PDDL representation).
     fn fmt_syntax(
         &self,

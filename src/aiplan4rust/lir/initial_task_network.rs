@@ -10,7 +10,7 @@ use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -126,7 +126,7 @@ impl DisplayWithInterner for InitialTaskNetwork {
     }
 }
 
-impl DisplaySyntax for InitialTaskNetwork {
+impl PlanningDisplay for InitialTaskNetwork {
     /// Formats the initial task network syntax using a string interner.
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)

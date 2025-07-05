@@ -8,7 +8,7 @@ use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::serialization::Serializable;
+use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
 /// Represents the semantic context resulting from the semantic analysis phase.
 ///
@@ -271,4 +271,4 @@ impl fmt::Display for Context {
     }
 }
 
-impl Serializable for Context {}
+impl SerdeSerializable for Context {}

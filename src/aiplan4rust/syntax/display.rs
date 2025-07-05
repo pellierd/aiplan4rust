@@ -6,7 +6,7 @@ use crate::aiplan4rust::interner::StringInterner;
 
 /// A trait for displaying a value in its concrete syntax,
 /// resolving any interned identifiers as needed.
-pub trait DisplaySyntax {
+pub trait PlanningDisplay {
     /// Formats the value using the given [`StringInterner`] and the provided formatter.
     fn fmt_syntax(
         &self,
@@ -57,13 +57,13 @@ pub trait DisplaySyntax {
     }
 }
 
-/// A wrapper used to implement [`std::fmt::Display`] by delegating to [`DisplaySyntax`].
+/// A wrapper used to implement [`std::fmt::Display`] by delegating to [`PlanningDisplay`].
 pub struct DisplaySyntaxWrapper<'a, T: ?Sized> {
     pub value: &'a T,
     pub interner: &'a StringInterner,
 }
 
-impl<'a, T: DisplaySyntax + ?Sized> fmt::Display
+impl<'a, T: PlanningDisplay + ?Sized> fmt::Display
 for DisplaySyntaxWrapper<'a, T>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

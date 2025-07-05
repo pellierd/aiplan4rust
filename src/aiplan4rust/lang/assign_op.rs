@@ -3,7 +3,7 @@ use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_DOWN;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_UP;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 
 use serde::Deserialize;
@@ -81,7 +81,7 @@ impl DisplayWithInterner for AssignOp {
 /// let op = AssignOp::Assign;
 /// let s = op.to_string_with_interner(&interner); // Uses DisplayWithInterner under the hood
 /// ```
-impl DisplaySyntax for AssignOp {
+impl PlanningDisplay for AssignOp {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)
     }

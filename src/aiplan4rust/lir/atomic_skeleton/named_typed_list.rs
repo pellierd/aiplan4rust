@@ -28,7 +28,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
@@ -161,7 +161,7 @@ impl DisplayWithInterner for NamedTypedList {
     }
 }
 
-impl DisplaySyntax for NamedTypedList {
+impl PlanningDisplay for NamedTypedList {
     /// Formats the syntax representation of the `NamedTypedList` using an interner.
     fn fmt_syntax(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.fmt_with(f, interner)

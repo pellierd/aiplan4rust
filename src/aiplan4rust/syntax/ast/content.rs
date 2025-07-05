@@ -35,7 +35,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::NodeContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
@@ -160,7 +160,7 @@ impl DisplayWithInterner for Content {
     }
 }
 
-impl DisplaySyntax for Content {
+impl PlanningDisplay for Content {
     /// Formats the `Content` enum for syntax display, which is very similar
     /// to `DisplayWithInterner`.
     ///

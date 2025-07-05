@@ -43,7 +43,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
 /// Represents a network of tasks along with their ordering and logical constraints.
@@ -246,7 +246,7 @@ impl DisplayWithInterner for TaskNetwork {
     }
 }
 
-impl DisplaySyntax for TaskNetwork {
+impl PlanningDisplay for TaskNetwork {
     /// Formats the `TaskNetwork` in a syntax-oriented form using the provided [`StringInterner`].
     ///
     /// This representation can be used to regenerate source-like output.

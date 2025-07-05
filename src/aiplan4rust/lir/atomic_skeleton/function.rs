@@ -28,7 +28,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::DisplaySyntax;
+use crate::aiplan4rust::syntax::PlanningDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
@@ -162,7 +162,7 @@ impl DisplayWithInterner for Function {
     }
 }
 
-impl DisplaySyntax for Function {
+impl PlanningDisplay for Function {
     /// Displays the function in a syntax-oriented form (e.g., PDDL-style).
     fn fmt_syntax(
         &self,
