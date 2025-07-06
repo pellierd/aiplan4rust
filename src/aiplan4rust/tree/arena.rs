@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
+use std::process::id;
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::tree::{TreeNode, NodeId};
@@ -196,19 +197,19 @@ impl<T: TreeNode> TreeArena<T> {
     }
 }
 
-impl<T> std::fmt::Display for TreeArena<T>
+impl<T> fmt::Display for TreeArena<T>
 where
-    T: TreeNode + std::fmt::Display,
+    T: TreeNode + fmt::Display,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        fn fmt_node<T: TreeNode + std::fmt::Display>(
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fn fmt_node<T: TreeNode + fmt::Display>(
             arena: &TreeArena<T>,
-            f: &mut std::fmt::Formatter<'_>,
+            f: &mut fmt::Formatter<'_>,
             node: &T,
             node_index: usize,
             indent: usize,
             is_last: bool,
-        ) -> std::fmt::Result {
+        ) -> fmt::Result {
             for _ in 0..indent {
                 write!(f, "  ")?;
             }
@@ -275,15 +276,19 @@ impl<T> PlanningSyntaxDisplay for TreeArena<T>
 where
     T: TreeNode,
 {
-    fn fmt_planning(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
         if let Some(root) = self.root_node() {
-            write!(f, "{}", root.to_planning_syntax(self, interner))
+            root.fmt_planning_syntax_with_indent(f, self, interner, indent)
         } else {
-            write!(f, "")
+            Ok(())
         }
     }
 }
-
 
 
 

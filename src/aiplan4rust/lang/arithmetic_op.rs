@@ -123,7 +123,9 @@ impl PlanningSyntaxDisplay for ArithmeticOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting succeeded or failed.
-    fn fmt_planning(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)
     }
 }

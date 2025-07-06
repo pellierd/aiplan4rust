@@ -178,11 +178,12 @@ impl TreeNode for ExprNode {
         fmt_node(self, f, arena, interner, "", true)
     }
 
-    fn fmt_planning(
+    fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         arena: &TreeArena<Self>,
         interner: &StringInterner,
+        indent: usize,
     ) -> fmt::Result
     where
         Self: Sized,

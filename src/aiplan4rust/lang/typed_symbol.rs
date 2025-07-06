@@ -126,11 +126,15 @@ impl DisplayWithInterner for TypedSymbol {
 /// z - (either robot vehicle)
 /// ```
 impl PlanningSyntaxDisplay for TypedSymbol {
-    fn fmt_planning(
+    fn fmt_planning_syntax_with_indent(
         &self,
-        f: &mut std::fmt::Formatter<'_>,
+        f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
-    ) -> std::fmt::Result {
+        indent: usize,
+    ) -> fmt::Result {
+
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         // Print the name of the symbol
         match interner.resolve(self.symbol) {
             Some(name) => write!(f, "{}", name)?,
@@ -139,8 +143,8 @@ impl PlanningSyntaxDisplay for TypedSymbol {
 
         // If the type is not empty, print " - " followed by the type
         if !self.ty.is_empty() {
-            write!(f, " {}- ", self.ty.len())?;
-            self.ty.fmt_planning(f, interner)?;
+            write!(f, " - ")?;
+            self.ty.fmt_planning_syntax(f, interner)?;
         }
 
         Ok(())

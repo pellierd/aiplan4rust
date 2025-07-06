@@ -131,11 +131,12 @@ impl PlanningSyntaxDisplay for Task {
     /// Formats the task in a syntax-oriented representation.
     ///
     /// This can be used to reconstruct or pretty-print the original declaration.
-    fn fmt_planning(
+    fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
+        indent: usize,
     ) -> fmt::Result {
-        self.header.fmt_planning(f, interner)
+        self.header.fmt_planning_syntax_with_indent(f, interner, indent)
     }
 }

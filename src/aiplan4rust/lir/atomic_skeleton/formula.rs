@@ -136,11 +136,12 @@ impl DisplayWithInterner for Formula {
 
 impl PlanningSyntaxDisplay for Formula {
     /// Formats the formula in a syntax-oriented form (e.g., PDDL representation).
-    fn fmt_planning(
+    fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
+        indent: usize,
     ) -> fmt::Result {
-        self.header.fmt_planning(f, interner)
+        self.header.fmt_planning_syntax_with_indent(f, interner, indent)
     }
 }

@@ -266,17 +266,20 @@ impl PlanningSyntaxDisplay for TypedList {
     /// ```text
     /// (?x - location ?y - robot)
     /// ```
-    fn fmt_planning(
+    fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
+        indent: usize
     ) -> std::fmt::Result {
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         let mut first = true;
         for sym in &self.symbols {
             if !first {
                 write!(f, " ")?;
             }
-            sym.fmt_planning(f, interner)?;
+            sym.fmt_planning_syntax(f, interner)?;
             first = false;
         }
         Ok(())

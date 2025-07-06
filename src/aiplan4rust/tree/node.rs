@@ -7,6 +7,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 
 /// A generic trait representing a node in a tree stored within an `Arena`.
 ///
@@ -320,23 +321,7 @@ pub trait TreeNode {
     /// Returns an error if writing fails.
     fn fmt_with(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
     where Self: Sized;
-
-    /// Formats the node using a specific syntax style.
-    ///
-    /// Similar to `fmt_with` but formats according to a specific grammar or style.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write to.
-    /// * `arena` - Reference to the arena containing all nodes.
-    /// * `interner` - Reference to the interner for resolving identifiers.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if writing fails.
-    fn fmt_planning(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
-    where Self: Sized;
-
+    
     /// Converts the node to a string using `fmt_with`.
     ///
     /// # Arguments
@@ -367,34 +352,161 @@ pub trait TreeNode {
         format!("{}", DisplayWrapper { node: self, arena, interner })
     }
 
-    /// Converts the node to a string using the specific syntax formatting.
+
+    /// Number of characters per indentation level.
+    fn indent_width() -> usize {
+        2
+    }
+
+    /// Character used for indentation.
+    fn indent_char() -> char {
+        ' '
+    }
+
+    /// Builds the indentation string for a given level.
+    fn make_indent(level: usize) -> String {
+        let total = level * Self::indent_width();
+        std::iter::repeat(Self::indent_char())
+            .take(total)
+            .collect()
+    }
+
+    /// Formats the node using a specific planning syntax style,
+    /// applying the given indentation level.
+    ///
+    /// This method is similar to `fmt_with`, but formats the node
+    /// according to a custom grammar or syntax conventions (for example,
+    /// PDDL-like syntax). Implementors should respect the provided
+    /// `indent` level when producing their output.
     ///
     /// # Arguments
     ///
-    /// * `arena` - Reference to the arena to fetch other nodes if needed.
+    /// * `f` - The formatter to write to.
+    /// * `arena` - A reference to the arena containing all nodes.
+    /// * `interner` - A reference to the `StringInterner` for resolving identifiers.
+    /// * `indent` - The indentation level (number of indent units).
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`fmt::Error`] if writing to the formatter fails.
+    fn fmt_planning_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        arena: &TreeArena<Self>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result
+    where
+        Self: Sized;
+
+    /// Formats the node using a specific planning syntax style with no indentation.
+    ///
+    /// This is a convenience method that simply calls
+    /// [`fmt_planning_syntax_with_indent`] with an indent level of 0.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write to.
+    /// * `arena` - A reference to the arena containing all nodes.
+    /// * `interner` - A reference to the `StringInterner` for resolving identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`fmt::Error`] if writing to the formatter fails.
+    fn fmt_planning_syntax(
+        &self,
+        f: &mut Formatter<'_>,
+        arena: &TreeArena<Self>,
+        interner: &StringInterner,
+    ) -> fmt::Result
+    where
+        Self: Sized,
+    {
+        self.fmt_planning_syntax_with_indent(f, arena, interner, 0)
+    }
+
+
+    /// Converts the node to a string using a specific planning syntax format,
+    /// applying the given indentation level.
+    ///
+    /// This method wraps the node in a temporary formatter to produce
+    /// a syntax-oriented string representation using `fmt_planning`.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - A reference to the arena containing the tree of nodes.
+    /// * `interner` - A reference to the `StringInterner` used to resolve identifiers.
+    /// * `indent` - The indentation level (number of indent units to apply).
+    ///
+    /// # Returns
+    ///
+    /// A `String` containing the formatted syntax representation of the node.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let s = node.to_planning_syntax_with_indent(&arena, &interner, 2);
+    /// println!("{}", s);
+    /// ```
+    fn to_planning_syntax_with_indent(
+        &self,
+        arena: &TreeArena<Self>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> String
+    where
+        Self: Sized,
+    {
+        struct PlanningSyntaxDisplayWrapper<'a, T: TreeNode> {
+            node: &'a T,
+            arena: &'a TreeArena<T>,
+            interner: &'a StringInterner,
+            indent: usize,
+        }
+
+        impl<'a, T: TreeNode> fmt::Display
+        for PlanningSyntaxDisplayWrapper<'a, T>
+        {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                self.node.fmt_planning_syntax_with_indent(f, self.arena, self.interner, self.indent)
+            }
+        }
+
+        format!(
+            "{}",
+            PlanningSyntaxDisplayWrapper {
+                node: self,
+                arena,
+                interner,
+                indent
+            }
+        )
+    }
+
+
+    /// Converts the node to a string using the specific syntax formatting without indentation.
+    ///
+    /// This simply calls `to_planning_syntax_with_indent` with an indent level of 0.
+    ///
+    /// # Arguments
+    ///
+    /// * `arena` - Reference to the arena containing the nodes.
     /// * `interner` - Reference to the interner for resolving identifiers.
     ///
     /// # Example
     ///
     /// ```rust
-    /// let s = node.to_string_syntax(&arena, &interner);
+    /// let s = node.to_planning_syntax(&arena, &interner);
     /// println!("{}", s);
     /// ```
-    fn to_planning_syntax(&self, arena: &TreeArena<Self>, interner: &StringInterner) -> String
-    where Self: Sized {
-        struct PlanningSyntaxDisplayWrapper<'a, T: TreeNode> {
-            node: &'a T,
-            arena: &'a TreeArena<T>,
-            interner: &'a StringInterner,
-        }
-
-        impl<'a, T: TreeNode> fmt::Display for PlanningSyntaxDisplayWrapper<'a, T> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result  {
-                self.node.fmt_planning(f, self.arena, self.interner)
-            }
-        }
-
-        format!("{}", PlanningSyntaxDisplayWrapper { node: self, arena, interner })
+    fn to_planning_syntax(
+        &self,
+        arena: &TreeArena<Self>,
+        interner: &StringInterner,
+    ) -> String
+    where
+        Self: Sized,
+    {
+        self.to_planning_syntax_with_indent(arena, interner, 0)
     }
-
 }

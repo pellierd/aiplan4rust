@@ -128,7 +128,10 @@ impl DisplayWithInterner for InitialTaskNetwork {
 
 impl PlanningSyntaxDisplay for InitialTaskNetwork {
     /// Formats the initial task network syntax using a string interner.
-    fn fmt_planning(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+        // Write the indentation prefix
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         self.fmt_with(f, interner)
     }
 }

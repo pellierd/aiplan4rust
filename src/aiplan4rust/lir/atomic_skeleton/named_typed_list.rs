@@ -163,7 +163,9 @@ impl DisplayWithInterner for NamedTypedList {
 
 impl PlanningSyntaxDisplay for NamedTypedList {
     /// Formats the syntax representation of the `NamedTypedList` using an interner.
-    fn fmt_planning(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         self.fmt_with(f, interner)
     }
 }

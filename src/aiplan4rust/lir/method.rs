@@ -242,7 +242,10 @@ impl DisplayWithInterner for Method {
 
 impl PlanningSyntaxDisplay for Method {
     /// Formats the `Method` syntax with a string interner.
-    fn fmt_planning(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+        // Write the indentation prefix
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         self.fmt_with(f, interner)
     }
 }

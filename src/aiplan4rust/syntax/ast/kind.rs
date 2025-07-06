@@ -3,7 +3,7 @@ use std::fmt;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::AstKind::Constraints;
 use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::lexer::token::{ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS, CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL, HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METHOD_PRECONDITIONS, METRIC, NOT, OBJECTS, OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVERALL, PARALLEL, PRECONDITION, PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER, SOMETIME_BEFORE, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN};
+use crate::aiplan4rust::syntax::lexer::token::{ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS, CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL, HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METHOD_PRECONDITIONS, METRIC, NOT, OBJECTS, OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVERALL, PARALLEL, PRECONDITION, PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER, SOMETIME_BEFORE, SUBTASKS, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN};
 use crate::aiplan4rust::syntax::lexer::Token::Effect;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 
@@ -392,7 +392,9 @@ impl fmt::Display for Kind {
 }
 
 impl PlanningSyntaxDisplay for Kind {
-    fn fmt_planning(&self, f: &mut fmt::Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(&self, f: &mut fmt::Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         let s = match self {
             Kind::None => "none",
             Kind::Constant => "",
@@ -472,8 +474,8 @@ impl PlanningSyntaxDisplay for Kind {
             Kind::MethodDefBody => "",
             Kind::MethodSymbol => "",
             Kind::MethodPreconditionDef => METHOD_PRECONDITIONS,
-            Kind::OrderedSubtaskDef => ORDERED_TASKS,
-            Kind::PartiallyOrderedSubtaskDef => TASK,
+            Kind::OrderedSubtaskDef => ORDERED_SUBTASKS,
+            Kind::PartiallyOrderedSubtaskDef => SUBTASKS,
             Kind::TaskID => "",
             Kind::TaskOrderingConstraintDef => ORDERED_TASKS,
             Kind::TaskOrderingConstraint => TASK,

@@ -289,11 +289,14 @@ impl DisplayWithInterner for Type {
 /// assert_eq!(s, "(either robot vehicle)");
 /// ```
 impl PlanningSyntaxDisplay for Type {
-    fn fmt_planning(
+    fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,
+        indent: usize,
     ) -> fmt::Result {
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         match self.members.len() {
             0 => write!(f, "object"), // Pas de .to_string()
             1 => {

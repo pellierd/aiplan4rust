@@ -250,7 +250,9 @@ impl PlanningSyntaxDisplay for TaskNetwork {
     /// Formats the `TaskNetwork` in a syntax-oriented form using the provided [`StringInterner`].
     ///
     /// This representation can be used to regenerate source-like output.
-    fn fmt_planning(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
+    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> std::fmt::Result {
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
         self.fmt_with(f, interner)
     }
 }

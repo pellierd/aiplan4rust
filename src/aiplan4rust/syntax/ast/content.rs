@@ -206,28 +206,42 @@ impl DisplayWithInterner for Content {
 ///
 /// ```
 /// let content = Content::Ident(idx);
-/// content.fmt_planning(&mut formatter, &interner)?;
+/// content.fmt_planning(&mut formatter, &interner, 0)?;
 /// ```
 impl PlanningSyntaxDisplay for Content {
-    /// Formats the `Content` value using the provided formatter and string interner.
+    /// Formats the `Content` value using the provided formatter and string interner,
+    /// applying indentation according to `indent`.
     ///
     /// # Arguments
     ///
     /// * `f` - The formatter to write output to.
     /// * `interner` - The interner used to resolve interned strings.
+    /// * `indent` - The indentation level (number of indent units).
     ///
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting succeeded.
-    fn fmt_planning(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        // Write the indentation prefix
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
+
         match self {
             Content::Ident(idx) => {
-                idx.fmt_planning(f, interner)
-            },
-            _ => fmt::Display::fmt(self, f),
+                idx.fmt_planning_syntax_with_indent(f, interner, indent)
+            }
+            _ => {
+                fmt::Display::fmt(self, f)
+            }
         }
     }
 }
+
 
 impl NodeContent for Content {
     /// Returns the identifier if this content is an `Ident`.

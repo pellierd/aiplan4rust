@@ -155,7 +155,6 @@ impl DisplayWithInterner for Ident {
     }
 }
 
-
 /// Implements the `PlanningSyntaxDisplay` trait for `Ident`.
 ///
 /// This implementation formats the `Ident` by using the provided
@@ -168,20 +167,30 @@ impl DisplayWithInterner for Ident {
 ///
 /// ```
 /// let ident = Ident { value: 42 };
-/// let s = ident.fmt_planning(&mut formatter, &interner)?;
+/// ident.fmt_planning(&mut formatter, &interner, 1)?;
 /// ```
 impl PlanningSyntaxDisplay for Ident {
-    /// Formats the `Ident` using the given formatter and interner.
+    /// Formats the `Ident` using the given formatter and interner,
+    /// applying indentation according to the `indent` level.
     ///
     /// # Arguments
     ///
     /// * `f` - The formatter to write to.
     /// * `interner` - The string interner used for resolving the identifier.
+    /// * `indent` - The indentation level.
     ///
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_planning(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
+
         if let Some(name) = interner.resolve(*self) {
             write!(f, "{}", name)
         } else {
@@ -189,6 +198,8 @@ impl PlanningSyntaxDisplay for Ident {
         }
     }
 }
+
+
 
 impl From<usize> for Ident {
     /// Converts a `usize` into an `Ident`.

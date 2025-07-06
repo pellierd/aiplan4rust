@@ -19,6 +19,7 @@
 //! ```
 
 use std::fmt;
+use std::fmt::write;
 use std::ops::{Deref, DerefMut};
 use serde::{Serialize, Deserialize};
 
@@ -164,11 +165,22 @@ impl DisplayWithInterner for Function {
 
 impl PlanningSyntaxDisplay for Function {
     /// Displays the function in a syntax-oriented form (e.g., PDDL-style).
-    fn fmt_planning(
+    fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
+        indent: usize,
     ) -> fmt::Result {
-        self.fmt_with(f, interner)
+        // Write the header with indentation
+        self.header.fmt_planning_syntax_with_indent(f, interner, indent)?;
+
+        // Write the separator " - "
+        write!(f, " - ")?;
+
+        // Write the type by converting it to string and then writing to formatter
+        let ty_str = self.ty.to_planning_string(interner);
+        write!(f, "{}", ty_str)?;
+
+        Ok(())
     }
 }
