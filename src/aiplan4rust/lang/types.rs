@@ -295,7 +295,7 @@ impl PlanningSyntaxDisplay for Type {
         interner: &StringInterner,
     ) -> fmt::Result {
         match self.members.len() {
-            0 => Ok(()), // empty: nothing
+            0 => write!(f, "object"), // Pas de .to_string()
             1 => {
                 let ty = self.members[0];
                 match interner.resolve(ty) {

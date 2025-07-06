@@ -1,5 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::syntax::ast::AstKind::Constraints;
+use crate::aiplan4rust::syntax::lexer::Token;
+use crate::aiplan4rust::syntax::lexer::token::{ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS, CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL, HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METHOD_PRECONDITIONS, METRIC, NOT, OBJECTS, OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVERALL, PARALLEL, PRECONDITION, PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER, SOMETIME_BEFORE, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN};
+use crate::aiplan4rust::syntax::lexer::Token::Effect;
+use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 
 /// Represents the different kinds of nodes in an Abstract Syntax Tree (AST).
 ///
@@ -380,6 +386,100 @@ impl fmt::Display for Kind {
             Kind::TaskLogicalConstraintDef => "TaskLogicalConstraintDef",
             Kind::TaskNetworkDef => "TaskNetworkDef",
             Kind::InitialTaskNetwork => "InitialTaskNetwork",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl PlanningSyntaxDisplay for Kind {
+    fn fmt_planning(&self, f: &mut fmt::Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+        let s = match self {
+            Kind::None => "none",
+            Kind::Constant => "",
+            Kind::Variable => "",
+            Kind::FunctionSymbol => "",
+            Kind::PrimitiveType => "",
+            Kind::DomainName => "",
+            Kind::ProblemName => "",
+            Kind::Predicate => "",
+            Kind::ActionSymbol => "",
+            Kind::DASymbol => "",
+            Kind::TaskSymbol => "",
+            Kind::PrefName => "",
+            Kind::RequireDef => REQUIREMENTS,
+            Kind::Requirement => "",
+            Kind::Type => "",
+            Kind::TypedList => "",
+            Kind::TypedItem => "",
+            Kind::TypedItemElements => "",
+            Kind::TypesDef => TYPES,
+            Kind::ConstantsDef => CONSTANTS,
+            Kind::ObjectsDef => OBJECTS,
+            Kind::Domain => DOMAIN_DEF,
+            Kind::Problem => PROBLEM,
+            Kind::PredicatesDef => PREDICATES,
+            Kind::AtomicFormulaSkeleton => "",
+            Kind::FunctionsDef => FUNCTIONS,
+            Kind::FunctionTerm => "",
+            Kind::AtomicFunctionSkeleton => "",
+            Kind::Number => "",
+            Kind::ActionDef => ACTION,
+            Kind::DurativeActionDef => DURATIVE_ACTION,
+            Kind::ActionDefBody => "",
+            Kind::PreconditionDef => PRECONDITION,
+            Kind::EffectDef => EFFECT,
+            Kind::DADefBody => "",
+            Kind::DerivedDef => DERIVED,
+            Kind::AtomicFormula => "",
+            Kind::And => AND,
+            Kind::Or => OR,
+            Kind::Not => NOT,
+            Kind::Imply => IMPLY,
+            Kind::Forall => FORALL,
+            Kind::Exists => EXISTS,
+            Kind::Preference => PREFERENCE,
+            Kind::When => WHEN,
+            Kind::FComp => "",
+            Kind::Assign => ASSIGN,
+            Kind::Operation => "",
+            Kind::Constraints => CONSTRAINTS,
+            Kind::AtStart => AT_START,
+            Kind::AtEnd => AT_END,
+            Kind::Overall => OVERALL,
+            Kind::Always => ALWAYS,
+            Kind::Sometime => SOMETIME,
+            Kind::Within => WITHIN,
+            Kind::AtMostOnce => AT_MOST_ONCE,
+            Kind::SometimeAfter => SOMETIME_AFTER,
+            Kind::SometimeBefore => SOMETIME_BEFORE,
+            Kind::AlwaysWithin => ALWAYS_WITHIN,
+            Kind::HoldDuring => HOLD_DURING,
+            Kind::HoldAfter => HOLD_AFTER,
+            Kind::Init => INIT,
+            Kind::TimedInitialLiteral => "",
+            Kind::Goal => GOAL,
+            Kind::Metric => METRIC,
+            Kind::TotalTime => TOTAL_TIME,
+            Kind::IsViolated => IS_VIOLATED,
+            Kind::Length => LENGTH,
+            Kind::Serial => SERIAL,
+            Kind::Parallel => PARALLEL,
+            Kind::Error => "Error",
+            Kind::Task => "",
+            Kind::TaskDef => TASK,
+            Kind::TaggedTask => "",
+            Kind::MethodDef => METHOD,
+            Kind::MethodDefBody => "",
+            Kind::MethodSymbol => "",
+            Kind::MethodPreconditionDef => METHOD_PRECONDITIONS,
+            Kind::OrderedSubtaskDef => ORDERED_TASKS,
+            Kind::PartiallyOrderedSubtaskDef => TASK,
+            Kind::TaskID => "",
+            Kind::TaskOrderingConstraintDef => ORDERED_TASKS,
+            Kind::TaskOrderingConstraint => TASK,
+            Kind::TaskLogicalConstraintDef => CONSTRAINTS,
+            Kind::TaskNetworkDef => "",
+            Kind::InitialTaskNetwork => HTN,
         };
         write!(f, "{}", s)
     }

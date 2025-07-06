@@ -271,7 +271,6 @@ impl PlanningSyntaxDisplay for TypedList {
         f: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> std::fmt::Result {
-        write!(f, "(")?;
         let mut first = true;
         for sym in &self.symbols {
             if !first {
@@ -280,6 +279,6 @@ impl PlanningSyntaxDisplay for TypedList {
             sym.fmt_planning(f, interner)?;
             first = false;
         }
-        write!(f, ")")
+        Ok(())
     }
 }

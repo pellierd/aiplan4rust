@@ -44,6 +44,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
@@ -594,5 +595,31 @@ impl Display for Problem {
         writeln!(f, "}}")
     }
 }
+
+impl DisplayWithInterner for Problem {
+    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        writeln!(f, "Problem {{")?;
+        writeln!(f, "  domain_name: {}", self.domain_name)?;
+        writeln!(f, "  problem_name: {}", self.problem_name)?;
+        writeln!(f, "  requirements: {:?}", self.requirements)?;
+        writeln!(f, "  types: {:?}", self.types)?;
+        writeln!(f, "  constants: {:?}", self.constants)?;
+        writeln!(f, "  predicates: {:?}", self.predicates)?;
+        writeln!(f, "  functions: {:?}", self.functions)?;
+        writeln!(f, "  domain_constraints: {}", self.domain_constraints)?;
+        writeln!(f, "  tasks: {:?}", self.tasks)?;
+        writeln!(f, "  actions: {:?}", self.actions)?;
+        writeln!(f, "  methods: {:?}", self.methods)?;
+        writeln!(f, "  objects: {:?}", self.objects)?;
+        writeln!(f, "  init: {}", self.init)?;
+        writeln!(f, "  goal: {}", self.goal)?;
+        writeln!(f, "  problem_constraints: {}", self.problem_constraints)?;
+        writeln!(f, "  metric_spec: {}", self.metric_spec)?;
+        writeln!(f, "  length_spec: {}", self.length_spec)?;
+        writeln!(f, "  initial_task_network: {:?}", self.initial_task_network)?;
+        writeln!(f, "}}")
+    }
+}
+
 
 impl SerdeSerializable for Problem {}

@@ -139,7 +139,7 @@ impl PlanningSyntaxDisplay for TypedSymbol {
 
         // If the type is not empty, print " - " followed by the type
         if !self.ty.is_empty() {
-            write!(f, " - ")?;
+            write!(f, " {}- ", self.ty.len())?;
             self.ty.fmt_planning(f, interner)?;
         }
 

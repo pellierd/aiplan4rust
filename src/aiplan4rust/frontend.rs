@@ -18,6 +18,7 @@ use std::path::Path;
 use std::string::String;
 use base64::Engine;
 use base64::engine::general_purpose;
+use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
 
 #[derive(Debug)]
@@ -64,6 +65,7 @@ impl Frontend {
 
         match (domain.into_semantic_context(), problem.into_semantic_context()) {
             (Some(domain_tree), Some(problem_tree)) => {
+
                 let mut linker = Linker::new();
                 let mut linker_result = linker.link(domain_tree, problem_tree)?;
 
@@ -71,12 +73,16 @@ impl Frontend {
                     .diagnostic_manager_mut()
                     .add_diagnostic_from(&diagnostic_manager);
 
+
                 match linker_result.linked_semantic_context() {
                     Some(linked_semantic_context) => {
-                        println!("Linking successful, building LIR...");
+                        let interner = linked_semantic_context.interner();
+                        //println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
+                        //println!("Linking successful, building LIR...");
                         println!("{}", linked_semantic_context.domain().to_planning_string(linked_semantic_context.interner()));
                         let mut ir_builder = LIRBuilder::new();
                         let builder_result = ir_builder.build(linked_semantic_context)?;
+                        //println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
                         Ok(builder_result)
                     }
                     None => {
@@ -151,6 +157,7 @@ impl Frontend {
 
                 match normalizer_result.take_ast() {
                     Some(mut normalized_ast) => {
+
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                         // Analyze the normalized AST with the diagnostics.

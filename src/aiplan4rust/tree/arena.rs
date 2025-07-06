@@ -264,9 +264,9 @@ where
 {
     fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(root) = self.root_node() {
-            writeln!(f, "{}", root.to_string_with_interner(self, interner))
+            write!(f, "{}", root.to_string_with_interner(self, interner))
         } else {
-            writeln!(f, "<empty>")
+            write!(f, "<empty>")
         }
     }
 }
@@ -277,9 +277,9 @@ where
 {
     fn fmt_planning(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(root) = self.root_node() {
-            writeln!(f, "{}", root.to_planning_syntax(self, interner))
+            write!(f, "{}", root.to_planning_syntax(self, interner))
         } else {
-            writeln!(f, "")
+            write!(f, "")
         }
     }
 }
