@@ -1379,6 +1379,54 @@ impl TreeNode for AstArenaNode {
                 write!(f, "{})", indent_str)
             }
 
+            AstKind::InitialTaskNetwork => {
+                let indent_str = Self::make_indent(indent);
+                let child_indent_str = Self::make_indent(indent + 1);
+                let children = self.children();
+
+                writeln!(f, "{}(:htn", indent_str)?;
+
+                // Si on a au moins deux enfants : premier = paramètres, deuxième = task network
+                // Si un seul enfant : task network seulement
+                // Si aucun : erreur
+
+                let (param_opt, tn_opt) = match children.len() {
+                    0 => (None, None),
+                    1 => (None, Some(children[0])),
+                    _ => (Some(children[0]), Some(children[1])),
+                };
+
+                // Paramètres (s'il y en a)
+                if let Some(param_id) = param_opt {
+                    match arena.get_node(param_id) {
+                        Some(param_node) => {
+                            write!(f, "{}:parameters ", child_indent_str)?;
+                            param_node.fmt_typed_list(f, arena, interner, false, indent + 2)?;
+                            writeln!(f)?;
+                        }
+                        None => {
+                            writeln!(f, "{}<invalid-parameters>", child_indent_str)?;
+                        }
+                    }
+                }
+
+                // Task network
+                if let Some(tn_id) = tn_opt {
+                    match arena.get_node(tn_id) {
+                        Some(tn_node) => {
+                            tn_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        }
+                        None => {
+                            writeln!(f, "{}<invalid-task-network>", child_indent_str)?;
+                        }
+                    }
+                } else {
+                    writeln!(f, "{}<missing-task-network>", child_indent_str)?;
+                }
+
+                write!(f, "\n{})", indent_str)
+            }
+
 
 
             AstKind::Goal => {
