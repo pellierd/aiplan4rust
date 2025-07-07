@@ -777,8 +777,10 @@ impl TreeNode for AstArenaNode {
 
             AstKind::PreconditionDef
             | AstKind::EffectDef
-            | AstKind::MethodPreconditionDef => {
+            | AstKind::MethodPreconditionDef
+            | AstKind::TaskLogicalConstraintDef => {
                 // Write the kind label
+                write!(f, "{}", indent_str)?;
                 self.kind().fmt_planning_syntax(f, interner)?;
 
                 // Newline after the label
@@ -800,8 +802,7 @@ impl TreeNode for AstArenaNode {
                     // No children: print <no-children>
                     write!(f, "<no-children>")?;
                 }
-
-                writeln!(f)
+                Ok(())
             }
 
 
@@ -829,15 +830,36 @@ impl TreeNode for AstArenaNode {
                 write!(f, ")")
             }
 
+
+            AstKind::Assign
+            | AstKind::FComp => {
+                // Write the opening parenthesis with current indentation
+                write!(f, "{}(", indent_str)?;
+
+                // Write the operator keyword using planning syntax formatting
+                write!(f, "{}", self.content().to_string())?;
+
+                // Format each child node, separated by spaces
+                for child_id in self.children() {
+                    write!(f, " ")?;
+                    if let Some(child_node) = arena.get_node(*child_id) {
+                        child_node.fmt_planning_syntax(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid>")?;
+                    }
+                }
+
+                // Write the closing parenthesis
+                write!(f, ")")
+            }
+
             AstKind::And
             | AstKind::Or
             | AstKind::Not
             | AstKind::Imply
             | AstKind::AtStart
             | AstKind::AtEnd
-            | AstKind::Overall
-            | AstKind::Assign
-            | AstKind::FComp => {
+            | AstKind::Overall => {
                 // Write the opening parenthesis with current indentation
                 write!(f, "{}(", indent_str)?;
 
@@ -859,39 +881,47 @@ impl TreeNode for AstArenaNode {
             }
 
 
+
             AstKind::TaskNetworkDef => {
                 let children = self.children();
-                let mut idx = 0;
 
-                // Subtasks (optional)
-                if let Some(&subtasks_id) = children.get(idx) {
-                    if let Some(subtasks_node) = arena.get_node(subtasks_id) {
-                        subtasks_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
-                        writeln!(f)?;
-                    }
-                    idx += 1;
-                }
+                for (i, &child_id) in children.iter().enumerate() {
+                    let is_last = i == children.len() - 1;
 
-                // Ordering constraints (optional)
-                if let Some(&ordering_id) = children.get(idx) {
-                    if let Some(ordering_node) = arena.get_node(ordering_id) {
-                        ordering_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
-                        writeln!(f)?;
+                    if let Some(child_node) = arena.get_node(child_id) {
+                        match child_node.kind() {
+                            AstKind::OrderedSubtaskDef
+                            | AstKind::PartiallyOrderedSubtaskDef => {
+                                child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                if !is_last {
+                                    writeln!(f)?;
+                                }
+                            }
+                            AstKind::TaskOrderingConstraintDef => {
+                                child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                if !is_last {
+                                    writeln!(f)?;
+                                }
+                            }
+                            AstKind::TaskLogicalConstraintDef => {
+                                child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                if !is_last {
+                                    writeln!(f)?;
+                                }
+                            }
+                            _ => {
+                                writeln!(f, "{}<unexpected-child-kind>", indent_str)?;
+                            }
+                        }
+                    } else {
+                        writeln!(f, "{}<invalid-child-node>", indent_str)?;
                     }
-                    idx += 1;
-                }
-
-                // Logical constraints (optional)
-                if let Some(&logical_id) = children.get(idx) {
-                    if let Some(logical_node) = arena.get_node(logical_id) {
-                        logical_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
-                        writeln!(f)?;
-                    }
-                    idx += 1;
                 }
 
                 Ok(())
             }
+
+
 
             AstKind::OrderedSubtaskDef
             | AstKind::PartiallyOrderedSubtaskDef => {
@@ -1066,35 +1096,35 @@ impl TreeNode for AstArenaNode {
 
             AstKind::MethodDefBody => {
                 let children = self.children();
-                let mut idx = 0;
 
-                // 1. Task (mandatory)
-                if let Some(&task_id) = children.get(idx) {
+                // Task (toujours présent en premier)
+                if let Some(&task_id) = children.get(0) {
                     write!(f, "{}", indent_str)?;
                     if let Some(task_node) = arena.get_node(task_id) {
                         task_node.fmt_task(f, arena, interner, true, 0)?;
                     } else {
-                        write!(f, "<invalid>")?;
+                        write!(f, "<invalid-task>")?;
                     }
                 } else {
                     writeln!(f)?;
                     write!(f, "{}<missing-task>", indent_str)?;
                 }
-                idx += 1;
 
-                // 2. Preconditions (optional)
-                if let Some(&precond_id) = children.get(idx) {
-                    write!(f, "{}", indent_str)?;
-                    if let Some(precond_node) = arena.get_node(precond_id) {
-                        precond_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                // Preconditions (optionnel, uniquement s'il y a 3 enfants)
+                if children.len() == 3 {
+                    if let Some(&precond_id) = children.get(1) {
+                        if let Some(precond_node) = arena.get_node(precond_id) {
+                            precond_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                            writeln!(f)?;
+                        }
                     }
-                    idx += 1;
                 }
 
-                // 3. Task Network (mandatory)
-                if let Some(&task_network_id) = children.get(idx) {
+                // Task Network (toujours le dernier enfant)
+                if let Some(&task_network_id) = children.last() {
                     if let Some(task_network_node) = arena.get_node(task_network_id) {
                         task_network_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                        writeln!(f)?;
                     } else {
                         write!(f, "<invalid-task-network>")?;
                     }
@@ -1105,6 +1135,7 @@ impl TreeNode for AstArenaNode {
 
                 Ok(())
             }
+
 
             AstKind::ActionDef => {
                 let children = self.children();
@@ -1147,9 +1178,11 @@ impl TreeNode for AstArenaNode {
                     writeln!(f)?;
                     if let Some(body_node) = arena.get_node(body_id) {
                         body_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        writeln!(f)?;
                     } else {
                         let indent_body = Self::make_indent(indent + 1);
                         write!(f, "{}<invalid-action-body>", indent_body)?;
+                        writeln!(f)?;
                     }
                 } else {
                     writeln!(f)?;
@@ -1172,9 +1205,10 @@ impl TreeNode for AstArenaNode {
                 // 1. PreconditionDef (optional)
                 if let Some(&child_id) = children.get(idx) {
                     if let Some(child_node) = arena.get_node(child_id) {
-                        write!(f, "{}", indent_child)?;
                         child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                        writeln!(f)?;
                     } else {
+                        writeln!(f)?;
                         write!(f, "{}<invalid-precondition>", indent_child)?;
                     }
                     idx += 1;
@@ -1183,7 +1217,6 @@ impl TreeNode for AstArenaNode {
                 // 2. EffectDef (optional)
                 if let Some(&child_id) = children.get(idx) {
                     if let Some(child_node) = arena.get_node(child_id) {
-                        write!(f, "{}", indent_child)?;
                         child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                     } else {
                         write!(f, "{}<invalid-effect>", indent_child)?;
