@@ -13,9 +13,10 @@ use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstContent;
+use crate::aiplan4rust::syntax::ParseContext;
 
 
-grammar<'ctx, 'err>(context: &'ctx mut StringInterner, errors: &'err mut Vec<ErrorRecovery<usize, Token, LexicalError>>);
+grammar<'ctx>(context: &'ctx ParseContext);
 
 extern {
 
@@ -171,14 +172,14 @@ AstContent, ()> = {
                 expected : vec!["\"id\"".to_string()],
             };
            let error_recovery = ErrorRecovery { error: parse_error, dropped_tokens: Vec::new() };
-           errors.push(error_recovery);
+           context.push(error_recovery);
            Err(())
         } else {
             Ok(AstContent::Ident(context.intern(name.to_string())))
         }
     },
     <start:@L> <error:!> <end:@R>  => {
-        errors.push(error);
+        context.push(error);
         Err(())
     },
     // Addition to allow the use of special symbols as ordinary symbols. The verification will be performed during
@@ -197,14 +198,14 @@ AstContent, ()> = {
                 expected : vec!["\"?id\"".to_string()],
             };
            let error_recovery = ErrorRecovery { error: parse_error, dropped_tokens: Vec::new() };
-           errors.push(error_recovery);
+           context.push(error_recovery);
            Err(())
         } else {
             Ok(AstContent::Ident(context.intern(name.to_string())))
         }
     },
     <start:@L> <error:!> <end:@R>  => {
-        errors.push(error);
+        context.push(error);
         Err(())
     },
 }
@@ -373,7 +374,7 @@ pub Requirement : Box<AstNode> = {
         Box::new(AstNode::new(AstKind::Requirement, AstContent::Requirement(Requirement::ActionCosts), Vec::new(), start, end))
     },
     <start:@L> <error:!> <end:@R>  => {
-        errors.push(error);
+        context.push(error);
         Box::new(AstNode::new(AstKind::Error, AstContent::None, Vec::new(), start, end))
     },
 }

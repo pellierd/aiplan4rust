@@ -11,8 +11,10 @@ use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::parser_result::ParserResult;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
-use crate::aiplan4rust::syntax::{FastLineTable, Language};
+use crate::aiplan4rust::syntax::{FastLineTable, Language, ParseContext};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::tree::TreeArena;
 
 use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
@@ -124,28 +126,29 @@ impl<'a> Parser<'a> {
         // Store temporary references to the filename and source for later use
         self.source_name = Some(source_name);
         self.source = Some(source);
+        self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
 
         // Initialize a vector to store LALRPOP errors that may occur during parsing
-        let mut larlpop_errors = Vec::new();
-
+        let mut errors = Vec::new();
         // Create a lexer from the provided source code
         let lexer = Lexer::new(source);
 
-        self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
-
-        let mut interner = StringInterner::new();
+//        let mut interner = StringInterner::new();
+//        let mut ast = TreeArena::<AstArenaNode>::new();
+        let mut context = ParseContext::new();
 
         // Attempt to parse the source code according to the language specified
         let parse_result = match language {
-            Language::PDDL => PDDLParser::new().parse(&mut interner, &mut larlpop_errors, lexer),
-            Language::HDDL => HDDLParser::new().parse(&mut interner, &mut larlpop_errors, lexer),
+            Language::PDDL => PDDLParser::new().parse(&context, lexer),
+            Language::HDDL => HDDLParser::new().parse(&context, lexer),
         };
 
+        let interner = context.take_interner();
         // Create a `FastLineTable` with an interval for coarse indexing.
         self.fast_line_table = FastLineTable::new(source);
 
         // Handle any syntax errors that were collected during parsing
-        self.handle_syntax_errors(&larlpop_errors);
+        self.handle_syntax_errors(&errors);
 
         if self
             .diagnostic_manager()
