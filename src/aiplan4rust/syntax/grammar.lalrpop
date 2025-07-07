@@ -584,7 +584,7 @@ pub PreconditionDef : Box<AstNode> = {
 
 pub EffectDef : Box<AstNode> = {
     <start:@L>
-        ":effect" <effect:EmptyOr<Effect>>
+        ":effect" <effect:EmptyAnd<Effect>>
     <end:@R>  => {
         let mut children = Vec::new();
         children.push(effect);
@@ -597,9 +597,16 @@ EmptyOr<T> : Box<AstNode> = {
         Box::new(AstNode::new(AstKind::Or, AstContent::None, Vec::new(), start, end))
     },
     <start:@L> <element:T> <end:@R> => {
-        let mut children = Vec::new();
-        children.push(element);
-        Box::new(AstNode::new(AstKind::Or, AstContent::None, children, start, end))
+        element
+    },
+}
+
+EmptyAnd<T> : Box<AstNode> = {
+    <start:@L> "(" ")" <end:@R> => {
+        Box::new(AstNode::new(AstKind::And, AstContent::None, Vec::new(), start, end))
+    },
+    <start:@L> <element:T> <end:@R> => {
+        element
     },
 }
 
@@ -1052,7 +1059,7 @@ pub DADefBody : Box<AstNode> = {
     <start:@L>
         ":duration" <constraint:DurationConstraint>
         ":condition" <condition:EmptyOr<DAGD>>
-        ":effect" <effect:EmptyOr<DAEffect>>
+        ":effect" <effect:EmptyAnd<DAEffect>>
     <end:@R> => {
         let mut children = Vec::new();
         children.push(constraint);

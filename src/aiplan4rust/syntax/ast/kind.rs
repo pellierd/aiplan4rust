@@ -473,7 +473,7 @@ impl PlanningSyntaxDisplay for Kind {
             Kind::MethodDef => METHOD,
             Kind::MethodDefBody => "",
             Kind::MethodSymbol => "",
-            Kind::MethodPreconditionDef => METHOD_PRECONDITIONS,
+            Kind::MethodPreconditionDef => PRECONDITION,
             Kind::OrderedSubtaskDef => ORDERED_SUBTASKS,
             Kind::PartiallyOrderedSubtaskDef => SUBTASKS,
             Kind::TaskID => "",

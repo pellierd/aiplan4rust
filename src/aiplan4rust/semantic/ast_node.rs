@@ -13,6 +13,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::syntax::lexer::Token;
+use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 
 /// Represents a node in an Abstract Syntax Tree (AST) tree.
 ///
@@ -1018,9 +1019,7 @@ impl TreeNode for AstArenaNode {
 
             AstKind::TaskOrderingConstraintDef => {
                 // Write the kind line with current indentation
-                write!(f, "{}", indent_str)?;
-                self.kind().fmt_planning_syntax(f, interner)?;
-                writeln!(f)?;
+                writeln!(f, "{}{}", indent_str, ORDER)?;
 
                 let mut children = self.children().iter();
 
@@ -1311,6 +1310,7 @@ impl TreeNode for AstArenaNode {
             | AstKind::Number
             | AstKind::Predicate
             | AstKind::ActionSymbol
+            | AstKind::DASymbol
             | AstKind::MethodSymbol
             | AstKind::TaskSymbol
             | AstKind::PrefName
@@ -1318,6 +1318,10 @@ impl TreeNode for AstArenaNode {
             | AstKind::TaskID => {
                 write!(f, "{}", indent_str)?;
                 self.content().fmt_planning_syntax_with_indent(f, interner, indent)
+            }
+
+            | AstKind::TotalTime => {
+                write!(f, "{}{}", indent_str, TOTAL_TIME)?;
             }
 
             | AstKind::Error => {
