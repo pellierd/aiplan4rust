@@ -79,7 +79,7 @@ impl Frontend {
                         let interner = linked_semantic_context.interner();
                         //println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
                         //println!("Linking successful, building LIR...");
-                        println!("{}", linked_semantic_context.problem().to_planning_string(linked_semantic_context.interner()));
+                        //println!("{}", linked_semantic_context.problem().to_planning_string(linked_semantic_context.interner()));
                         let mut ir_builder = LIRBuilder::new();
                         let builder_result = ir_builder.build(linked_semantic_context)?;
                         //println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
