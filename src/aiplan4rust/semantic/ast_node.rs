@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::syntax::ast::kind::Kind;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 
@@ -881,6 +882,79 @@ impl TreeNode for AstArenaNode {
                 write!(f, ")")
             }
 
+            AstKind::Forall | AstKind::Exists => {
+                let children = self.children();
+
+                // 1. (forall / (exists + début ligne
+                write!(f, "{}(", indent_str)?;
+                self.kind().fmt_planning_syntax(f, interner)?;
+                write!(f, " ")?;
+
+                // 2. Variables quantifiées (sur la même ligne)
+                if let Some(&vars_id) = children.get(0) {
+                    if let Some(vars_node) = arena.get_node(vars_id) {
+                        write!(f, "(")?;
+                        vars_node.fmt_planning_syntax(f, arena, interner)?;
+                        write!(f, ")")?;
+                    } else {
+                        write!(f, "<invalid-variables>")?;
+                    }
+                } else {
+                    write!(f, "<missing-variables>")?;
+                }
+
+                // 3. Expression (indentée d’un cran)
+                if let Some(&expr_id) = children.get(1) {
+                    if let Some(expr_node) = arena.get_node(expr_id) {
+                        expr_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                    } else {
+                        writeln!(f, "{}<invalid-expression>", indent_str)?;
+                    }
+                } else {
+                    writeln!(f, "{}<missing-expression>", indent_str)?;
+                }
+                write!(f, "{})", indent_str)?; // fermeture
+
+                Ok(())
+            }
+
+            AstKind::When => {
+                let children = self.children();
+
+                // 1. (when + début ligne
+                write!(f, "{}(", indent_str)?;
+                self.kind().fmt_planning_syntax(f, interner)?;
+                write!(f, " ")?;
+
+                // 2. Condition sur la même ligne
+                if let Some(&cond_id) = children.get(0) {
+                    if let Some(cond_node) = arena.get_node(cond_id) {
+                        cond_node.fmt_planning_syntax(f, arena, interner)?;
+                    } else {
+                        write!(f, "<invalid-condition>")?;
+                    }
+                } else {
+                    write!(f, "<missing-condition>")?;
+                }
+
+                writeln!(f)?; // retour à la ligne après la condition
+
+                // 3. Effet indenté
+                if let Some(&effect_id) = children.get(1) {
+                    if let Some(effect_node) = arena.get_node(effect_id) {
+                        effect_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                    } else {
+                        writeln!(f, "{}<invalid-effect>", indent_str)?;
+                    }
+                } else {
+                    writeln!(f, "{}<missing-effect>", indent_str)?;
+                }
+
+                // 4. Fermeture sans retour ligne après
+                write!(f, "{})", indent_str)?;
+
+                Ok(())
+            }
 
 
             AstKind::TaskNetworkDef => {
@@ -1199,28 +1273,25 @@ impl TreeNode for AstArenaNode {
                 let children = self.children();
                 let indent_child = Self::make_indent(indent);
 
-                let mut idx = 0;
+                let mut wrote_something = false;
 
-                // 1. PreconditionDef (optional)
-                if let Some(&child_id) = children.get(idx) {
-                    if let Some(child_node) = arena.get_node(child_id) {
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                for (i, &child_id) in children.iter().enumerate() {
+                    // Si ce n’est pas le premier élément écrit, on insère un saut de ligne avant
+                    if wrote_something {
                         writeln!(f)?;
-                    } else {
-                        writeln!(f)?;
-                        write!(f, "{}<invalid-precondition>", indent_child)?;
                     }
-                    idx += 1;
-                }
 
-                // 2. EffectDef (optional)
-                if let Some(&child_id) = children.get(idx) {
                     if let Some(child_node) = arena.get_node(child_id) {
                         child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                     } else {
-                        write!(f, "{}<invalid-effect>", indent_child)?;
+                        match i {
+                            0 => write!(f, "{}<invalid-precondition>", indent_child)?,
+                            1 => write!(f, "{}<invalid-effect>", indent_child)?,
+                            _ => write!(f, "{}<unexpected-child>", indent_child)?,
+                        }
                     }
-                    idx += 1;
+
+                    wrote_something = true;
                 }
 
                 Ok(())
@@ -1321,7 +1392,7 @@ impl TreeNode for AstArenaNode {
             }
 
             | AstKind::TotalTime => {
-                write!(f, "{}{}", indent_str, TOTAL_TIME)?;
+                write!(f, "{}{}", indent_str, TOTAL_TIME)
             }
 
             | AstKind::Error => {
@@ -1338,7 +1409,29 @@ impl TreeNode for AstArenaNode {
                     }
                 }
                 write!(f, ")")
-            }
+            /*Kind::None => {}
+            Kind::DurativeActionDef => {}
+            Kind::DADefBody => {}
+            Kind::DerivedDef => {}
+            Kind::Preference => {}
+            Kind::Operation => {}
+            Kind::Constraints => {}
+            Kind::Always => {}
+            Kind::Sometime => {}
+            Kind::Within => {}
+            Kind::AtMostOnce => {}
+            Kind::SometimeAfter => {}
+            Kind::SometimeBefore => {}
+            Kind::AlwaysWithin => {}
+            Kind::HoldDuring => {}
+            Kind::HoldAfter => {}
+            Kind::TimedInitialLiteral => {}
+            Kind::IsViolated => {}
+            Kind::Length => {}
+            Kind::Serial => {}
+            Kind::Parallel => {}
+            Kind::InitialTaskNetwork => {}*/
+        }
         }
     }
 
