@@ -416,11 +416,13 @@ impl TreeNode for AstArenaNode {
             }
 
             AstKind::Problem => {
+                let children = self.children();
+
                 // Opening line with base indentation
                 write!(f, "{}(define (problem ", indent_str)?;
 
                 // Problem name (mandatory)
-                if let Some(name_id) = self.children().get(0) {
+                if let Some(name_id) = children.get(0) {
                     if let Some(name_node) = arena.get_node(*name_id) {
                         name_node.fmt_planning_syntax(f, arena, interner)?;
                     } else {
@@ -429,25 +431,46 @@ impl TreeNode for AstArenaNode {
                 } else {
                     write!(f, "<missing-problem-name>")?;
                 }
-
                 write!(f, ")")?;
 
-                // Iterate over children starting from the second (index 1)
-                for child_id in self.children().iter().skip(1) {
-                    if let Some(child_node) = arena.get_node(*child_id) {
+                // Domain name (second child)
+                if let Some(domain_id) = children.get(1) {
+                    if let Some(domain_node) = arena.get_node(*domain_id) {
+                        // On met le :domain à la ligne suivante
                         writeln!(f)?;
                         let child_indent = Self::make_indent(indent + 1);
-                        write!(f, "{}", child_indent)?;
+                        write!(f, "{}(:domain ", child_indent)?;
+                        domain_node.fmt_planning_syntax(f, arena, interner)?;
+                        write!(f, ")")?;
+                    } else {
+                        writeln!(f)?;
+                        let child_indent = Self::make_indent(indent + 1);
+                        write!(f, "{}<invalid-domain-name>", child_indent)?;
+                    }
+                } else {
+                    writeln!(f)?;
+                    let child_indent = Self::make_indent(indent + 1);
+                    write!(f, "{}<missing-domain-name>", child_indent)?;
+                }
+
+                // Remaining children (index >=2)
+                for child_id in children.iter().skip(2) {
+                    writeln!(f)?;
+                    let child_indent = Self::make_indent(indent + 1);
+                    if let Some(child_node) = arena.get_node(*child_id) {
                         child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                    } else {
+                        write!(f, "<invalid-child-node>")?;
                     }
                 }
 
-                // Closing line with base indentation
+                // Closing line
                 writeln!(f)?;
-                write!(f, "{})\n", indent_str)?;
+                write!(f, "{})", indent_str)?;
 
                 Ok(())
             }
+
 
 
             AstKind::RequireDef => {
@@ -1298,21 +1321,28 @@ impl TreeNode for AstArenaNode {
             }
 
             AstKind::ObjectsDef => {
-                // Write the opening line with current indentation
-                write!(f, "{}(:objects", Self::make_indent(indent))?;
+                let indent_str = Self::make_indent(indent);
 
-                // Print children separated by spaces
-                for child_id in self.children() {
-                    write!(f, " ")?;
+                // Opening line
+                write!(f, "{}(", indent_str)?;
+                self.kind().fmt_planning_syntax(f, interner)?;
+                writeln!(f)?;
+
+                // Children on their own line(s), indented
+                if let Some(child_id) = self.children().first() {
                     if let Some(child_node) = arena.get_node(*child_id) {
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
-                    } else {
-                        write!(f, "<invalid>")?;
+                        // On peut appeler fmt_typed_list si c’est une liste typée, sinon fmt_planning_syntax_with_indent
+                        child_node.fmt_typed_list(f, arena, interner, true, indent + 1)?;
                     }
+                } else {
+                    let empty_indent = Self::make_indent(indent + 1);
+                    writeln!(f, "{}; <missing-objects>", empty_indent)?;
                 }
 
-                // Close with current indentation (same line)
-                write!(f, ")")
+                // Closing line
+                write!(f, "{})", indent_str)?;
+
+                Ok(())
             }
 
             AstKind::Init => { // indentation pour la ligne (:init
