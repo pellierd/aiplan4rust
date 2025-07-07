@@ -3,7 +3,9 @@ use lalrpop_util::ErrorRecovery;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
+use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::{NodeId, TreeArena};
 
 pub struct ParseContext {
@@ -19,6 +21,35 @@ impl ParseContext {
             arena: RefCell::new(TreeArena::new()),
             errors: RefCell::new(Vec::new()),
         }
+    }
+
+    pub fn new_node(
+        &self,
+        kind: AstKind,
+        content: AstContent,
+        children: Vec<NodeId>,
+        start: usize,
+        end: usize,
+        parent: Option<NodeId>,
+    ) -> NodeId {
+        let span = Span::new(start, end);
+
+        // 1) Alloue le nœud avec la liste des enfants
+        let node = AstArenaNode::new(kind, content, children.clone(), span, parent);
+
+        let mut arena = self.arena.borrow_mut();
+
+        // 2) Alloue le nœud dans l'arène -> on obtient le NodeId du parent
+        let node_id = arena.alloc(node);
+
+        // 3) Met à jour les parents des enfants
+        for child_id in &children {
+            if let Some(child_node) = arena.get_node_mut(*child_id) {
+                child_node.set_parent(Some(node_id));
+            }
+        }
+
+        node_id
     }
 
     /// Accès mutable au StringInterner

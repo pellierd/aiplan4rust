@@ -60,7 +60,7 @@ impl AstArenaNode {
     /// Creates a new `AstArenaNode` with the given kind, content, span, and optional parent.
     ///
     /// The node is initialized without children.
-    pub fn new(kind: AstKind, content: AstContent, span: Span, parent: Option<NodeId>) -> Self {
+    pub fn new(kind: AstKind, content: AstContent, children: Vec<NodeId>, span: Span, parent: Option<NodeId>) -> Self {
         let data = AbstractNode::new(kind, content, parent);
         AstArenaNode { data, span }
     }

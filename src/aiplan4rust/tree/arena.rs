@@ -321,6 +321,7 @@ impl TreeArena<AstArenaNode> {
             let arena_node = AstArenaNode::new(
                 node.kind().clone(),
                 node.content().clone(),
+                Vec::new(),
                 node.span().clone(),
                 parent,
             );
