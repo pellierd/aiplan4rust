@@ -82,6 +82,7 @@ pub mod span;
 pub mod ast;
 pub mod display;
 pub mod fast_line_table;
+pub mod context;
 
 pub use language::Language;
 pub use parser::Parser;
@@ -89,3 +90,4 @@ pub use parser_result::ParserResult;
 pub use span::Span;
 pub use display::PlanningSyntaxDisplay;
 pub use fast_line_table::FastLineTable;
+pub use context::ParseContext;
