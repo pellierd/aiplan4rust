@@ -1345,24 +1345,41 @@ impl TreeNode for AstArenaNode {
                 Ok(())
             }
 
-            AstKind::Init => { // indentation pour la ligne (:init
-                let child_indent_str = Self::make_indent(indent + 1); // indentation pour les enfants
+            AstKind::Init => {
+                let indent_str = Self::make_indent(indent);
+                let child_indent_str = Self::make_indent(indent + 1);
 
-                // Write the opening line for the init section with proper indent
+                // Opening line: (:init
                 writeln!(f, "{}(:init", indent_str)?;
 
-                // Iterate over all children and format them with increased indentation
-                for child_id in self.children() {
-                    write!(f, "{}", child_indent_str)?; // indentation enfant
-                    if let Some(child_node) = arena.get_node(*child_id) {
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
-                        writeln!(f)?; // newline after each child
+                // Init should have exactly 1 child: the root AND node
+                if let Some(and_node_id) = self.children().first() {
+                    if let Some(and_node) = arena.get_node(*and_node_id) {
+                        // Instead of formatting the AND itself, iterate over its children
+                        for grandchild_id in and_node.children() {
+                            if let Some(grandchild_node) = arena.get_node(*grandchild_id) {
+                                // Child node already indents itself
+                                grandchild_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                            } else {
+                                // Manually indent the error line
+                                write!(f, "{}<invalid-init-child>", child_indent_str)?;
+                            }
+                            writeln!(f)?;
+                        }
+                    } else {
+                        // Invalid AND node
+                        writeln!(f, "{}<invalid-init-node>", child_indent_str)?;
                     }
+                } else {
+                    // Missing AND node
+                    writeln!(f, "{}<missing-init-expression>", child_indent_str)?;
                 }
 
-                // Write the closing parenthesis with base indentation
-                writeln!(f, "{})", indent_str)
+                // Closing parenthesis
+                write!(f, "{})", indent_str)
             }
+
+
 
             AstKind::Goal => {
                 let child_indent_str = Self::make_indent(indent + 1); // indentation pour les enfants
