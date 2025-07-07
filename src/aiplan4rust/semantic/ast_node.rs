@@ -1430,22 +1430,27 @@ impl TreeNode for AstArenaNode {
 
 
             AstKind::Goal => {
-                let child_indent_str = Self::make_indent(indent + 1); // indentation pour les enfants
-
-                // Write the opening line for the goal section with proper indentation
+                // Write the opening line with indentation
                 writeln!(f, "{}(:goal", indent_str)?;
 
-                // Iterate over all children and format them with increased indentation
-                for child_id in self.children() {
-                    write!(f, "{}", child_indent_str)?;
-                    if let Some(child_node) = arena.get_node(*child_id) {
+                // Expect exactly one child node (the goal expression)
+                if let Some(&child_id) = self.children().get(0) {
+                    if let Some(child_node) = arena.get_node(child_id) {
+                        // Format the child node with increased indentation
                         child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
-                        writeln!(f)?; // newline after each child
+                    } else {
+                        // Child node is invalid, print placeholder with indentation
+                        let child_indent = Self::make_indent(indent + 1);
+                        writeln!(f, "{}<invalid-goal>", child_indent)?;
                     }
+                } else {
+                    // Missing child node, print placeholder with indentation
+                    let child_indent = Self::make_indent(indent + 1);
+                    writeln!(f, "{}<missing-goal>", child_indent)?;
                 }
 
-                // Write the closing parenthesis with base indentation
-                writeln!(f, "{})", indent_str)
+                // Write the closing parenthesis aligned with the opening indentation
+                write!(f, "\n{})", indent_str)
             }
 
 

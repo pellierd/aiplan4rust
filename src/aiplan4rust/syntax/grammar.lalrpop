@@ -1826,8 +1826,8 @@ pub HDDLProblem : Box<AstNode> = {
         if let Some(objects_def) = objects_def {
            children.push(objects_def);
         }
-        children.push(init);
         children.push(task_network);
+        children.push(init);
         if let Some(goal) = goal {
             children.push(goal);
         }
