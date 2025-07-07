@@ -33,7 +33,7 @@ fn transform_node(
 
             // Create new node with the new kind
             let new_node = ExprNode::new(new_kind, ExprContent::None, parent);
-            let new_id = expr.add(new_node);
+            let new_id = expr.alloc(new_node);
 
             // Recursively transform each child with the current negation state
             for &child_id in &children {
@@ -80,7 +80,7 @@ fn apply_demorgan(kind: ExprKind, negated: bool) -> ExprKind {
 /// Wraps the given node in a Not node.
 fn wrap_not(id: ExprId, expr: &mut Expr) -> Result<ExprId, ParserInternalError> {
     let not_node = ExprNode::new(ExprKind::Not, ExprContent::None, None);
-    let not_id = expr.add(not_node);
+    let not_id = expr.alloc(not_node);
     let not_node_mut = expr.try_node_mut(not_id)?;
     not_node_mut.add_child(id);
     Ok(not_id)

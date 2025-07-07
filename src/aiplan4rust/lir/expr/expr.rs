@@ -38,14 +38,14 @@ impl Expr {
     pub fn empty_or() -> Self {
         let mut empty_or = Expr::new();
         let root = ExprNode::new(ExprKind::Or, ExprContent::None, None);
-        empty_or.add(root);
+        empty_or.alloc(root);
         empty_or
     }
 
     pub fn empty_and() -> Self {
         let mut empty_and = Expr::new();
         let root = ExprNode::new(ExprKind::And, ExprContent::None, None);
-        empty_and.add(root);
+        empty_and.alloc(root);
         empty_and
     }
 
@@ -56,7 +56,7 @@ impl Expr {
             ExprContent::Optimization(Optimization::None),
             None,
         );
-        expr.add(root);
+        expr.alloc(root);
         expr
     }
 
@@ -67,7 +67,7 @@ impl Expr {
             ExprContent::None,
             None,
         );
-        expr.add(root);
+        expr.alloc(root);
         expr
     }
 }
@@ -118,7 +118,7 @@ fn wrap(
         let kind = ExprKind::try_from(current_ast_node.kind())?;
         let content = ExprContent::try_from(current_ast_node.content())?;
         let expr_node = ExprNode::new(kind, content, parent_expr_id_opt);
-        let expr_node_id = expr.add(expr_node);
+        let expr_node_id = expr.alloc(expr_node);
 
         // Attach to parent if needed
         if let Some(parent_id) = parent_expr_id_opt {

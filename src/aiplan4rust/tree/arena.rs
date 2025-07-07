@@ -32,7 +32,7 @@ impl<T: TreeNode> TreeArena<T> {
     }
 
     /// Adds a node into the arena and returns its `NodeId`.
-    pub fn add(&mut self, node: T) -> NodeId {
+    pub fn alloc(&mut self, node: T) -> NodeId {
         let id = NodeId::new(self.nodes.len());
         self.nodes.push(node);
         id
@@ -325,7 +325,7 @@ impl TreeArena<AstArenaNode> {
                 parent,
             );
 
-            let node_id = arena.add(arena_node);
+            let node_id = arena.alloc(arena_node);
             node_ids.insert(node as *const AstNode, node_id);
 
             if let Some(pid) = parent {
