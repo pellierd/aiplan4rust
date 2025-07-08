@@ -40,6 +40,13 @@ impl<'a, T: TreeNode> PreorderIter<'a, T> {
             stack: vec![root],
         }
     }
+
+    pub fn empty(arena: &'a TreeArena<T>) -> Self {
+        PreorderIter {
+            arena,
+            stack: Vec::new(),
+        }
+    }
 }
 
 impl<'a, T: TreeNode> Iterator for PreorderIter<'a, T> {

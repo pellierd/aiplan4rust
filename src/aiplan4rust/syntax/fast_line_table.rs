@@ -95,8 +95,8 @@ impl FastLineTable {
         let (el, ec) = self.get_position(end);
 
         let mut span = Span::new(start, end);
-        span.set_begin_line(sl);
-        span.set_begin_column(sc);
+        span.set_start_line(sl);
+        span.set_start_column(sc);
         span.set_end_line(el);
         span.set_end_column(ec);
 

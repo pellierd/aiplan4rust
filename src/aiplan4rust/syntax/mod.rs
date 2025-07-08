@@ -83,6 +83,8 @@ pub mod ast;
 pub mod display;
 pub mod fast_line_table;
 pub mod context;
+pub mod arena_parser_result;
+pub mod lalrpop;
 
 pub use language::Language;
 pub use parser::Parser;
@@ -91,3 +93,7 @@ pub use span::Span;
 pub use display::PlanningSyntaxDisplay;
 pub use fast_line_table::FastLineTable;
 pub use context::ParseContext;
+pub use arena_parser_result::ArenaParserResult;
+
+pub use lalrpop::parse_hddl;
+pub use lalrpop::parse_pddl;

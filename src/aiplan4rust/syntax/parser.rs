@@ -4,17 +4,14 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::lexer::LexicalError;
-use crate::aiplan4rust::syntax::parser_result::ParserResult;
-use crate::aiplan4rust::syntax::grammar::HDDLParser;
-use crate::aiplan4rust::syntax::grammar::PDDLParser;
-use crate::aiplan4rust::syntax::{FastLineTable, Language, ParseContext};
-use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
+use crate::aiplan4rust::syntax::{ArenaParserResult, FastLineTable, Language, ParseContext};
+use crate::aiplan4rust::syntax::ast::{Ast, AstArena, AstNode};
 use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::tree::{NodeId, TreeArena};
+use crate::aiplan4rust::syntax::lalrpop;
 
 use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
@@ -122,7 +119,7 @@ impl<'a> Parser<'a> {
         source_name: &'a str,
         source: &'a str,
         language: &Language,
-    ) -> Result<ParserResult, ParserInternalError> {
+    ) -> Result<ArenaParserResult, ParserInternalError> {
         // Store temporary references to the filename and source for later use
         self.source_name = Some(source_name);
         self.source = Some(source);
@@ -139,8 +136,8 @@ impl<'a> Parser<'a> {
 
         // Attempt to parse the source code according to the language specified
         let parse_result = match language {
-            Language::PDDL => PDDLParser::new().parse(&context, lexer),
-            Language::HDDL => HDDLParser::new().parse(&context, lexer),
+            Language::PDDL => lalrpop::parse_pddl(&mut context, lexer),
+            Language::HDDL => lalrpop::parse_hddl(&mut context, lexer),
         };
 
         let interner = context.take_interner();
@@ -154,20 +151,21 @@ impl<'a> Parser<'a> {
             .diagnostic_manager()
             .has_diagnotics_of_severity(Severity::Error)
         {
-            Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+            Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
         } else {
             match parse_result {
-                Ok(mut root) => {
+                Ok(mut root_node_id) => {
                     if self
                         .diagnostic_manager()
                         .has_diagnotics_of_severity(Severity::Error)
                     {
-                        Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+                        Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                     } else {
-                        self.init_ast_span(&mut root);
+                        let mut arena = context.take_arena();
+                        self.init_ast_span(&mut arena, root_node_id)?;
                         let ast =
-                            Ast::new(root, interner, source_name.to_string(), SystemTime::now());
-                        Ok(ParserResult::new(
+                            AstArena::new(arena, interner, source_name.to_string(), SystemTime::now());
+                        Ok(ArenaParserResult::new(
                             Some(ast),
                             mem::take(&mut self.diagnostic_manager),
                         ))
@@ -179,7 +177,7 @@ impl<'a> Parser<'a> {
                         Some(source_name),
                     );
                     self.diagnostic_manager.add_diagnostic(error);
-                    Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+                    Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                 },
             }
         }
@@ -206,19 +204,34 @@ impl<'a> Parser<'a> {
     ///
     /// # Arguments
     /// - `ast_old`: A mutable reference to an AST node.
-    fn init_ast_span(&self, ast: &mut AstNode) {
-        // Compute and set the start position of the current AST node
-        let (line, column) = self.fast_line_table.get_position(ast.start_offset());
-        ast.set_start_position(line, column);
+    fn init_ast_span(
+        &mut self,
+        arena: &mut TreeArena<AstArenaNode>,
+        root: NodeId,
+    ) -> Result<(), ParserInternalError> {
+        let mut stack = vec![root];
 
-        // Compute and set the end position of the current AST node
-        let (line, column) = self.fast_line_table.get_position(ast.end_offset());
-        ast.set_end_position(line, column);
+        while let Some(node_id) = stack.pop() {
+            // Récupère un mutable ref sur le noeud actuel
+            let node = arena.try_node_mut(node_id)?;
 
-        // Recursively process all child nodes of the current AST node
-        for child in ast.children_mut() {
-            self.init_ast_span(child);
+            // Initialise start/end positions pour ce noeud
+            let (line_start, col_start) = self.fast_line_table.get_position(node.span().start());
+            node.span_mut().set_start_line(line_start);
+            node.span_mut().set_start_column(col_start);
+
+            let (line_end, col_end) = self.fast_line_table.get_position(node.span().end());
+            node.span_mut().set_end_line(line_end);
+            node.span_mut().set_end_column(col_end);
+
+            // Empile les enfants sur la pile pour parcours préordre
+            // Attention à empiler dans l’ordre inverse
+            for &child_id in node.children().iter().rev() {
+                stack.push(child_id);
+            }
         }
+
+        Ok(())
     }
 
     /// Finds the line and column of a character position in a string.

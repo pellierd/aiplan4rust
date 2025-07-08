@@ -34,11 +34,11 @@ impl<K: Copy, C: NodeContent> AbstractNode<K, C> {
     ///
     /// # Returns
     /// A new `AbstractNode` instance.
-    pub fn new(kind: K, content: C, parent: Option<NodeId>) -> Self {
+    pub fn new(kind: K, content: C, children: Vec<NodeId>, parent: Option<NodeId>) -> Self {
         Self {
             kind,
             content,
-            children: Vec::new(),
+            children,
             parent,
         }
     }

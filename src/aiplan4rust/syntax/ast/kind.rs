@@ -114,6 +114,9 @@ pub enum Kind {
     /// Definition of an action.
     ActionDef,
 
+    // Definition of parameters
+    ParametersDef,
+
     /// Definition of a durative action (actions with duration).
     DurativeActionDef,
 
@@ -386,6 +389,7 @@ impl fmt::Display for Kind {
             Kind::TaskLogicalConstraintDef => "TaskLogicalConstraintDef",
             Kind::TaskNetworkDef => "TaskNetworkDef",
             Kind::InitialTaskNetwork => "InitialTaskNetwork",
+            Kind::ParametersDef => "ParametersDef",
         };
         write!(f, "{}", s)
     }
@@ -482,6 +486,7 @@ impl PlanningSyntaxDisplay for Kind {
             Kind::TaskLogicalConstraintDef => CONSTRAINTS,
             Kind::TaskNetworkDef => "",
             Kind::InitialTaskNetwork => HTN,
+            Kind::ParametersDef => ":parameters",
         };
         write!(f, "{}", s)
     }

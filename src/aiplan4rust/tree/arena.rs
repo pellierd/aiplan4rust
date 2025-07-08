@@ -4,9 +4,7 @@ use std::process::id;
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::tree::{TreeNode, NodeId};
-use crate::aiplan4rust::tree::iter::{
-    PostorderIter, PostorderIterWithIndex, PreorderIter, PreorderIterWithIndex,
-};
+use crate::aiplan4rust::tree::iter::{PostorderIter, PostorderIterWithIndex, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
 use crate::aiplan4rust::tree::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
@@ -22,13 +20,28 @@ use crate::aiplan4rust::lang::Ident;
 /// with abstract syntax trees and similar structures.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct TreeArena<T: TreeNode> {
-    nodes: Vec<T>,
+    pub nodes: Vec<T>,
+    root_id: Option<NodeId>,
 }
 
 impl<T: TreeNode> TreeArena<T> {
     /// Creates a new, empty tree arena.
     pub fn new() -> Self {
-        TreeArena { nodes: Vec::new() }
+        TreeArena {
+            nodes: Vec::new(),
+            root_id: Some(NodeId::ROOT_ID)
+        }
+    }
+
+    pub fn empty() -> Self {
+        TreeArena {
+            nodes: Vec::new(),
+            root_id: None,
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.root_id.is_none()
     }
 
     /// Adds a node into the arena and returns its `NodeId`.
@@ -40,12 +53,31 @@ impl<T: TreeNode> TreeArena<T> {
 
     /// Returns a reference to the root node, if it exists.
     pub fn root_node(&self) -> Option<&T> {
-        self.get_node(NodeId::ROOT_ID)
+        match self.root_id {
+            Some(root_id) => self.get_node(root_id),
+            None => None,
+        }
     }
 
     /// Returns an immutable `NodeRef` to the root node, if it exists.
     pub fn root_node_ref(&self) -> Option<NodeRef<'_, T>> {
-        self.get_node_ref(NodeId::ROOT_ID)
+        match self.root_id {
+            Some(root_id) => self.get_node_ref(root_id),
+            None => None,
+        }
+    }
+
+    pub fn root_id(&self) -> Option<NodeId> {
+        self.root_id
+    }
+
+    pub fn set_root_id(&mut self, id: NodeId) -> Result<(), ParserInternalError> {
+        if id.as_usize() < self.nodes.len() {
+            self.root_id = Some(id);
+            Ok(())
+        } else {
+            Err(ParserInternalError::new("out of bound root id".to_string()))
+        }
     }
 
     /// Returns the parent node of a given node ID, if available.
@@ -114,7 +146,10 @@ impl<T: TreeNode> TreeArena<T> {
 
     /// Returns a preorder iterator starting from the root.
     pub fn preorder(&self) -> PreorderIter<'_, T> {
-        PreorderIter::new(self, NodeId::ROOT_ID)
+        match self.root_id {
+            Some(root) => PreorderIter::new(self, root),
+            None => PreorderIter::empty(self),
+        }
     }
 
     /// Returns a preorder iterator from a specific node.
@@ -124,12 +159,26 @@ impl<T: TreeNode> TreeArena<T> {
 
     /// Returns a preorder iterator with indices from the root.
     pub fn preorder_with_index(&self) -> PreorderIterWithIndex<'_, T> {
-        PreorderIterWithIndex::new(self, NodeId::ROOT_ID)
+        match self.root_id {
+            Some(root) => PreorderIterWithIndex::new(self, root),
+            None => PreorderIterWithIndex::empty(self),
+        }
+    }
+
+    /// Returns a preorder iterator with depth from the root.
+    pub fn preorder_with_depth(&self) -> PreorderIterWithDepth<'_, T> {
+        match self.root_id {
+            Some(root) => PreorderIterWithDepth::new(self, root),
+            None => PreorderIterWithDepth::empty(self),
+        }
     }
 
     /// Returns a postorder iterator from the root.
     pub fn postorder(&self) -> PostorderIter<'_, T> {
-        PostorderIter::new(self, NodeId::ROOT_ID)
+        match self.root_id {
+            Some(root) => PostorderIter::new(self, root),
+            None => PostorderIter::empty(self),
+        }
     }
 
     /// Returns a postorder iterator from a specific node.
@@ -139,12 +188,16 @@ impl<T: TreeNode> TreeArena<T> {
 
     /// Returns a postorder iterator with indices from the root.
     pub fn postorder_with_index(&self) -> PostorderIterWithIndex<'_, T> {
-        PostorderIterWithIndex::new(self, NodeId::ROOT_ID)
+        match self.root_id {
+            Some(root) => PostorderIterWithIndex::new(self, root),
+            None => PostorderIterWithIndex::empty(self),
+        }
     }
 
-    /// Remaps identifiers in all nodes starting from the root.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.remap_idents_from(NodeId::ROOT_ID, map);
+        if !self.is_empty() {
+            self.remap_idents_from(self.root_id.unwrap(), map);
+        }
     }
 
     /// Remaps identifiers starting from a specific node (subtree).
@@ -224,7 +277,7 @@ where
                     child,
                     child_idx.as_usize(),
                     indent + 1,
-                    false, // les enfants ne sont pas le dernier noeud global
+                    false,
                 )?;
             }
 
@@ -233,30 +286,21 @@ where
             }
 
             if is_last {
-                // Dernier nœud global -> pas de \n final
                 write!(f, "End Node #{}", node_index)
             } else {
                 writeln!(f, "End Node #{}", node_index)
             }
         }
 
-        if let Some(root) = self.root_node() {
-            fmt_node(
-                self,
-                f,
-                root,
-                NodeId::ROOT_ID.as_usize(),
-                0,
-                true, // la racine est le dernier nœud global
-            )
-        } else {
+        if self.is_empty() {
             write!(f, "<empty>")
+        } else {
+            let root = self.root_node().expect("root_node should exist if not empty");
+            let root_index = self.root_id.expect("root_id should exist if not empty").as_usize();
+            fmt_node(self, f, root, root_index, 0, true)
         }
     }
 }
-
-
-
 
 
 impl<T> DisplayWithInterner for TreeArena<T>
@@ -264,14 +308,14 @@ where
     T: TreeNode,
 {
     fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        if let Some(root) = self.root_node() {
-            write!(f, "{}", root.to_string_with_interner(self, interner))
-        } else {
+        if self.is_empty() {
             write!(f, "<empty>")
+        } else {
+            let root = self.root_node().expect("root_node should exist if not empty");
+            write!(f, "{}", root.to_string_with_interner(self, interner))
         }
     }
 }
-
 impl<T> PlanningSyntaxDisplay for TreeArena<T>
 where
     T: TreeNode,
@@ -282,15 +326,17 @@ where
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        if let Some(root) = self.root_node() {
+        if self.is_empty() {
+            // Arène vide, rien à afficher
+            Ok(())
+        } else if let Some(root) = self.root_node() {
             root.fmt_planning_syntax_with_indent(f, self, interner, indent)
         } else {
+            // Si jamais root_id est Some mais le noeud n'existe pas (cas improbable)
             Ok(())
         }
     }
 }
-
-
 
 
 

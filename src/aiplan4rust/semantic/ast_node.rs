@@ -61,13 +61,18 @@ impl AstArenaNode {
     ///
     /// The node is initialized without children.
     pub fn new(kind: AstKind, content: AstContent, children: Vec<NodeId>, span: Span, parent: Option<NodeId>) -> Self {
-        let data = AbstractNode::new(kind, content, parent);
+        let data = AbstractNode::new(kind, content, children, parent);
         AstArenaNode { data, span }
     }
 
     /// Returns a reference to the source code span of this node.
     pub fn span(&self) -> &Span {
         &self.span
+    }
+
+    /// Returns a reference to the source code span of this node.
+    pub fn span_mut(&mut self) -> &mut Span {
+        &mut self.span
     }
 
     /// Returns the requirement flag if this content is a `Requirement`.

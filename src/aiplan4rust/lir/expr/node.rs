@@ -19,7 +19,7 @@ pub struct ExprNode {
 impl ExprNode {
     pub fn new(kind: ExprKind, content: ExprContent, parent: Option<NodeId>) -> Self {
         ExprNode {
-            data: AbstractNode::new(kind, content, parent),
+            data: AbstractNode::new(kind, content, Vec::new(), parent),
         }
     }
 }

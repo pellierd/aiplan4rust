@@ -106,7 +106,7 @@ impl Span {
     ///
     /// # Parameters
     /// - `begin_line`: The new line number where the span starts.
-    pub fn set_begin_line(&mut self, begin_line: usize) {
+    pub fn set_start_line(&mut self, begin_line: usize) {
         self.begin_line = begin_line;
     }
 
@@ -114,7 +114,7 @@ impl Span {
     ///
     /// # Parameters
     /// - `begin_column`: The new column number where the span starts.
-    pub fn set_begin_column(&mut self, begin_column: usize) {
+    pub fn set_start_column(&mut self, begin_column: usize) {
         self.begin_column = begin_column;
     }
 

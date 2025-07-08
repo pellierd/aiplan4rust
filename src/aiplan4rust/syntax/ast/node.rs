@@ -230,8 +230,8 @@ impl Node {
     /// * `line` - The starting line number.
     /// * `column` - The starting column number.
     pub fn set_start_position(&mut self, line: usize, column: usize) {
-        self.span.set_begin_line(line);
-        self.span.set_begin_column(column);
+        self.span.set_start_line(line);
+        self.span.set_start_column(column);
     }
 
     /// Returns the identifier if this content is an `Ident`.

@@ -35,6 +35,11 @@ impl<'a, T: TreeNode> PostorderIter<'a, T> {
     pub fn new(arena: &'a TreeArena<T>, root: NodeId) -> Self {
         PostorderIter { arena, stack: vec![(root, 0)] }
     }
+
+    /// Creates an empty postorder iterator with no nodes.
+    pub fn empty(arena: &'a TreeArena<T>) -> Self {
+        PostorderIter { arena, stack: Vec::new() }
+    }
 }
 
 impl<'a, T: TreeNode> Iterator for PostorderIter<'a, T> {

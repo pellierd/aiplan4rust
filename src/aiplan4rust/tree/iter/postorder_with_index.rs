@@ -38,6 +38,14 @@ impl<'a, T: TreeNode> PostorderIterWithIndex<'a, T> {
             stack: vec![(root, false)],
         }
     }
+
+    /// Creates an empty postorder iterator with no nodes.
+    pub fn empty(arena: &'a TreeArena<T>) -> Self {
+        Self {
+            arena,
+            stack: Vec::new(),
+        }
+    }
 }
 
 impl<'a, T: TreeNode> Iterator for PostorderIterWithIndex<'a, T> {

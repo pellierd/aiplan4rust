@@ -36,6 +36,14 @@ impl<'a, T: TreeNode> PreorderIterWithIndex<'a, T> {
             stack: vec![root],
         }
     }
+
+    /// Creates an empty preorder iterator with no nodes.
+    pub fn empty(arena: &'a TreeArena<T>) -> Self {
+        Self {
+            arena,
+            stack: Vec::new(),
+        }
+    }
 }
 
 impl<'a, T: TreeNode> Iterator for PreorderIterWithIndex<'a, T> {

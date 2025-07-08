@@ -149,9 +149,9 @@ impl Frontend {
             Some(raw_ast) => {
                 // Take diagnostics from parser result.
                 let diagnostic_manager = parser_result.take_diagnostic_manager();
-
+                println!("{}", raw_ast);
                 // Normalize the AST while merging diagnostics.
-                let mut normalizer = Normalizer::new();
+                /*let mut normalizer = Normalizer::new();
                 let mut normalizer_result =
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
 
@@ -169,7 +169,8 @@ impl Frontend {
                         Ok(analysis_result)
                     }
                     None => Self::create_error_result(normalizer_result.diagnostic_manager_mut()),
-                }
+                }*/
+                Self::create_error_result(parser_result.diagnostic_manager_mut()) // TO remove with incomment
             }
             //None => Self::create_error_result(parser_result.diagnostic_manager_mut()),
             None => Self::create_error_result(parser_result.diagnostic_manager_mut())
