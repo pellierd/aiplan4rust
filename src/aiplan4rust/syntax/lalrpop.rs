@@ -1,5 +1,6 @@
 use lalrpop_util::ParseError;
-use crate::aiplan4rust::syntax::ParseContext;
+use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::syntax::{ParseContext, ParserError};
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
@@ -41,12 +42,17 @@ use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError, Token};
 /// ```
 pub fn parse_pddl(
     ctx: &mut ParseContext,
-    lexer: Lexer
-) -> Result<NodeId, ParseError<usize, Token, LexicalError>> {
-    // Create a new instance of the PDDL parser
+    lexer: Lexer,
+) -> Result<NodeId, ParserError> {
     let parser = PDDLParser::new();
-    let root_id = parser.parse(ctx, lexer)?;
+
+    // parser.parse retourne Result<Result<NodeId, ParserInternalError>, ParseError<...>>
+    let inner_result = parser.parse(ctx, lexer)?; // <- ici ParseError est converti en ParserError via `From`
+
+    let root_id = inner_result?; // <- ici ParserInternalError est converti en ParserError via `From`
+
     ctx.set_root_id(root_id);
+
     Ok(root_id)
 }
 
@@ -86,10 +92,18 @@ pub fn parse_pddl(
 /// ```
 pub fn parse_hddl(
     ctx: &mut ParseContext,
-    lexer: Lexer
-) -> Result<NodeId, ParseError<usize, Token, LexicalError>> {
+    lexer: Lexer,
+) -> Result<NodeId, ParserError> {
     let parser = HDDLParser::new();
-    let root_id = parser.parse(ctx, lexer)?;
+
+    // parser.parse retourne Result<Result<NodeId, ParserInternalError>, ParseError<...>>
+    let inner_result = parser.parse(ctx, lexer)?; // <- ici ParseError est converti en ParserError via `From`
+
+    let root_id = inner_result?; // <- ici ParserInternalError est converti en ParserError via `From`
+
     ctx.set_root_id(root_id);
+
     Ok(root_id)
 }
+
+//Result<Result<NodeId, ParserInternalError>, ParseError<usize, Token, LexicalError>>

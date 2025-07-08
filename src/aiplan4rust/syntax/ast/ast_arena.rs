@@ -61,8 +61,8 @@ use crate::aiplan4rust::syntax::ast::{AstNode, iterators::{PreorderIter, Postord
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::syntax::{FastLineTable, PlanningSyntaxDisplay};
+use crate::aiplan4rust::tree::{NodeId, TreeArena};
 
 /// A complete abstract syntax tree and its associated context.
 ///
@@ -196,6 +196,46 @@ impl AstArena {
     pub fn try_resolve(&self, ident: Ident) -> Result<&str, ParserInternalError> {
         self.interner.try_resolve(ident)
     }
+
+    /// Recursively sets the start and end positions (line and column) for each AST node.
+    ///
+    /// This function traverses the AST in a pre-order fashion, updating each node's span information
+    /// with precise line and column numbers obtained from the provided `FastLineTable`.
+    ///
+    /// # Arguments
+    /// * `fast_line_table` - A reference to a `FastLineTable` used to convert byte offsets to line and column positions.
+    ///
+    /// # Errors
+    /// Returns a `ParserInternalError` if any node cannot be accessed mutably.
+    pub fn init_span(
+        &mut self,
+        fast_line_table: &FastLineTable,
+    ) -> Result<(), ParserInternalError> {
+
+        if !self.arena().is_empty() {
+            let mut stack = vec![self.arena().try_root_id()?];
+            while let Some(node_id) = stack.pop() {
+                // Get a mutable reference to the current node
+                let node = self.arena_mut().try_node_mut(node_id)?;
+
+                // Initialize start position (line, column) using the fast_line_table
+                let (line_start, col_start) = fast_line_table.get_position(node.span().start());
+                node.span_mut().set_start_line(line_start);
+                node.span_mut().set_start_column(col_start);
+
+                // Initialize end position (line, column) using the fast_line_table
+                let (line_end, col_end) = fast_line_table.get_position(node.span().end());
+                node.span_mut().set_end_line(line_end);
+                node.span_mut().set_end_column(col_end);
+
+                // Push the children onto the stack in reverse order for pre-order traversal
+                for &child_id in node.children().iter().rev() {
+                    stack.push(child_id);
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 impl fmt::Display for AstArena {
@@ -203,7 +243,6 @@ impl fmt::Display for AstArena {
         writeln!(f, "Abstract Syntax Tree:")?;
         writeln!(f, " - Source: {}", self.source_name)?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
-        writeln!(f, " - Nodes:")?;
         writeln!(f, " - Nodes:")?;
         self.arena().fmt_planning_syntax(f, self.interner())?;
 

@@ -33,7 +33,7 @@ impl ParseContext {
         start: usize,
         end: usize,
         parent: Option<NodeId>,
-    ) -> NodeId {
+    ) -> Result<NodeId, ParserInternalError> {
         let span = Span::new(start, end);
 
         // 1) Alloue le nœud avec la liste des enfants
@@ -47,8 +47,7 @@ impl ParseContext {
         // 3) Clone la liste des enfants avant de relâcher l'emprunt
         let children_ids: Vec<NodeId> = {
             let stored_node = arena
-                .get_node(node_id)
-                .unwrap(); // ne peut pas échouer juste après alloc
+                .try_node(node_id)?;
             stored_node.children().to_vec()
         };
 
@@ -59,7 +58,7 @@ impl ParseContext {
             }
         }
 
-        node_id
+        Ok(node_id)
     }
 
     pub fn set_root_id(&self, root_id: NodeId) {
@@ -103,6 +102,11 @@ impl ParseContext {
     /// Accès mutable aux erreurs
     pub fn errors(&self) -> std::cell::RefMut<'_, Vec<ErrorRecovery<usize, Token, LexicalError>>> {
         self.errors.borrow_mut()
+    }
+
+    /// Retourne true s'il y a au moins une erreur enregistrée.
+    pub fn has_errors(&self) -> bool {
+        !self.errors.borrow().is_empty()
     }
 
     // Prend les erreurs et remplace par vide
@@ -151,7 +155,7 @@ impl ParseContext {
     ///
     /// This function consumes the children of `next` only if the condition is satisfied,
     /// thus mutating the internal state of the involved nodes.
-   pub fn merge_typed_list(
+   /*pub fn merge_typed_list(
         &mut self,
         typed_list: NodeId,
         next: NodeId,
@@ -176,13 +180,13 @@ impl ParseContext {
             let typed_list_node = arena.get_node_mut(typed_list).unwrap();
             typed_list_node.children_mut().extend(drained_children);
         }
-    }
+    }*/
 
-    /*pub fn merge_typed_list(
+    pub fn merge_typed_list(
         &mut self,
         typed_list: NodeId,
         next: NodeId,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<NodeId, ParserInternalError> {
         let should_merge = {
             let arena = self.arena();
             let next_node = arena.try_node(next)?;
@@ -203,6 +207,6 @@ impl ParseContext {
             let typed_list_node = arena.try_node_mut(typed_list)?;
             typed_list_node.children_mut().extend(drained_children);
         }
-        Ok(())
-    }*/
+        Ok(typed_list)
+    }
 }

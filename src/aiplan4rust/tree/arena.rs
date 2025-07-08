@@ -71,6 +71,13 @@ impl<T: TreeNode> TreeArena<T> {
         self.root_id
     }
 
+    pub fn try_root_id(&self) -> Result<NodeId, ParserInternalError> {
+        match self.root_id {
+            Some(id) => Ok(id),
+            None => Err(ParserInternalError::new("Root Id missing".to_string())),
+        }
+    }
+
     pub fn set_root_id(&mut self, id: NodeId) -> Result<(), ParserInternalError> {
         if id.as_usize() < self.nodes.len() {
             self.root_id = Some(id);

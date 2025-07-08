@@ -7,7 +7,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::lexer::LexicalError;
-use crate::aiplan4rust::syntax::{ArenaParserResult, FastLineTable, Language, ParseContext};
+use crate::aiplan4rust::syntax::{ArenaParserResult, FastLineTable, Language, ParseContext, ParserError};
 use crate::aiplan4rust::syntax::ast::{Ast, AstArena, AstNode};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::tree::{NodeId, TreeArena};
@@ -49,20 +49,20 @@ use std::time::SystemTime;
 pub struct Parser<'a> {
     source_name: Option<&'a str>,
     source: Option<&'a str>,
-    fast_line_table: FastLineTable,
     diagnostic_manager: DiagnosticManager,
 }
 
 impl<'a> Parser<'a> {
-    /// Creates a new `Parser` instance.
+    /// Creates a new `Parser` instance with empty source and diagnostics.
+    ///
+    /// Initializes the parser with no source code loaded and a fresh diagnostic manager.
     ///
     /// # Returns
-    /// Returns a new instance of `Parser`.
+    /// A new instance of `Parser` ready to parse source code.
     pub fn new() -> Self {
         Self {
             source_name: None,
             source: None,
-            fast_line_table: FastLineTable::default(),
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
@@ -120,260 +120,107 @@ impl<'a> Parser<'a> {
         source: &'a str,
         language: &Language,
     ) -> Result<ArenaParserResult, ParserInternalError> {
-        // Store temporary references to the filename and source for later use
+
+        // 1. Store temporary references to the filename and source code
+        //    These will be used later for generating diagnostics with context.
         self.source_name = Some(source_name);
         self.source = Some(source);
         self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
 
-        // Initialize a vector to store LALRPOP errors that may occur during parsing
+        // 2. Initialize a vector to collect any error recovery issues from LALRPOP.
+        //    You plan to collect these errors during parsing.
         let mut errors = Vec::new();
-        // Create a lexer from the provided source code
+
+        // 3. Create a lexer from the source code to tokenize the input.
         let lexer = Lexer::new(source);
 
-//        let mut interner = StringInterner::new();
-//        let mut ast = TreeArena::<AstArenaNode>::new();
+        // 4. Create a parsing context which holds parser state and memory during parsing.
         let mut context = ParseContext::new();
 
-        // Attempt to parse the source code according to the language specified
+        // 5. Run the parser depending on the specified language (PDDL or HDDL).
+        //    The parser returns either Ok(root_id) representing the AST root,
+        //    or an error.
         let parse_result = match language {
             Language::PDDL => lalrpop::parse_pddl(&mut context, lexer),
             Language::HDDL => lalrpop::parse_hddl(&mut context, lexer),
         };
 
+        // 6. Extract the string interner from the context.
+        //    It manages deduplicated string storage, etc.
         let interner = context.take_interner();
-        // Create a `FastLineTable` with an interval for coarse indexing.
-        self.fast_line_table = FastLineTable::new(source);
 
-        // Handle any syntax errors that were collected during parsing
-        self.handle_syntax_errors(&errors);
+        // 7. Build a fast line table for quick line and column lookups.
+        let fast_line_table = FastLineTable::new(source);
 
-        if self
-            .diagnostic_manager()
-            .has_diagnotics_of_severity(Severity::Error)
-        {
-            Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
-        } else {
-            match parse_result {
-                Ok(mut root_node_id) => {
-                    if self
-                        .diagnostic_manager()
-                        .has_diagnotics_of_severity(Severity::Error)
-                    {
-                        Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
-                    } else {
-                        let mut arena = context.take_arena();
-                        self.init_ast_span(&mut arena, root_node_id)?;
-                        let ast =
-                            AstArena::new(arena, interner, source_name.to_string(), SystemTime::now());
-                        Ok(ArenaParserResult::new(
-                            Some(ast),
-                            mem::take(&mut self.diagnostic_manager),
-                        ))
-                    }
-                }
-                Err(e) => {
-                    let error = self.to_parser_error(
-                        &e,
-                        Some(source_name),
-                    );
-                    self.diagnostic_manager.add_diagnostic(error);
+        // 8. Handle any syntax errors collected and convert them into diagnostics.
+        self.handle_syntax_diagnostics(&errors, &fast_line_table);
+
+        // 9. If any diagnostics of severity Error exist, return early with no AST.
+        if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
+            return Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)));
+        }
+
+        // 10. Analyze the parser result.
+        match parse_result {
+            // Success: we have a root AST node.
+            Ok(root_id) => {
+                // Check again for errors in diagnostics after parsing.
+                if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
                     Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
-                },
+                } else {
+                    // Otherwise, take the arena and create the AST.
+                    let mut arena = context.take_arena();
+                    let mut ast = AstArena::new(
+                        arena,
+                        interner,
+                        source_name.to_string(),
+                        SystemTime::now(),
+                    );
+                    // Initialize line and column spans on each AST node.
+                    ast.init_span(&fast_line_table)?;
+                    // Return the AST with the diagnostics.
+                    Ok(ArenaParserResult::new(Some(ast), mem::take(&mut self.diagnostic_manager)))
+                }
             }
+            // Parsing error occurred.
+            Err(e) => match e {
+                // Normal parse error: convert it to a diagnostic.
+                ParserError::ParseError(err) => {
+                    let diagnostic = Diagnostic::from_parse_error(&err, Some(source_name), &fast_line_table);
+                    self.diagnostic_manager.add_diagnostic(diagnostic);
+                    // Return no AST but updated diagnostics.
+                    Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+                }
+                // Internal error: escalate it as a fatal error.
+                ParserError::InternalError(err) => {
+                    Err(err.into())
+                }
+            },
         }
     }
 
-    /// Handles the syntax errors produced by the LALRPOP aiplan4rust.
-    /// For each error, a `ParserError` is created and added to the error manager.
+
+    /// Handles syntax errors produced by the LALRPOP parser by converting them into diagnostics.
+    ///
+    /// For each LALRPOP error, this function creates a corresponding `Diagnostic` and adds it
+    /// to the diagnostic manager for reporting.
     ///
     /// # Arguments
-    /// * `larlpop_errors`: A list of errors produced by the LALRPOP aiplan4rust.
-    /// * `source`: The source code to reference when generating error messages.
-    fn handle_syntax_errors(
+    /// * `lalrpop_errors` - Slice of errors produced by the LALRPOP parser.
+    /// * `fast_line_table` - A reference to a `FastLineTable` used to map byte positions to line/column.
+    ///
+    /// # Behavior
+    /// This function iterates over all parsing errors, converts each to a diagnostic message
+    /// with source location info, and records them in the diagnostic manager.
+    fn handle_syntax_diagnostics(
         &mut self,
-        larlpop_errors: &[ErrorRecovery<usize, Token, LexicalError>],
+        lalrpop_errors: &[ErrorRecovery<usize, Token, LexicalError>],
+        fast_line_table: &FastLineTable,
     ) {
-        for larlpop_error in larlpop_errors {
-            // Convert each LALRPOP error into a ParserError and add it to the error manager
-            let parser_error = self.to_parser_error(&larlpop_error.error, self.source_name);
-            self.diagnostic_manager.add_diagnostic(parser_error);
+        for error_recovery in lalrpop_errors {
+            let diagnostic = Diagnostic::from_parse_error(&error_recovery.error, self.source_name, fast_line_table);
+            self.diagnostic_manager.add_diagnostic(diagnostic);
         }
     }
 
-    /// Recursively sets the start and end positions (line, column) for each AST node.
-    ///
-    /// # Arguments
-    /// - `ast_old`: A mutable reference to an AST node.
-    fn init_ast_span(
-        &mut self,
-        arena: &mut TreeArena<AstArenaNode>,
-        root: NodeId,
-    ) -> Result<(), ParserInternalError> {
-        let mut stack = vec![root];
-
-        while let Some(node_id) = stack.pop() {
-            // Récupère un mutable ref sur le noeud actuel
-            let node = arena.try_node_mut(node_id)?;
-
-            // Initialise start/end positions pour ce noeud
-            let (line_start, col_start) = self.fast_line_table.get_position(node.span().start());
-            node.span_mut().set_start_line(line_start);
-            node.span_mut().set_start_column(col_start);
-
-            let (line_end, col_end) = self.fast_line_table.get_position(node.span().end());
-            node.span_mut().set_end_line(line_end);
-            node.span_mut().set_end_column(col_end);
-
-            // Empile les enfants sur la pile pour parcours préordre
-            // Attention à empiler dans l’ordre inverse
-            for &child_id in node.children().iter().rev() {
-                stack.push(child_id);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Finds the line and column of a character position in a string.
-    ///
-    /// This function computes the line and column numbers corresponding to a specific
-    /// character position (`position`) within the provided `input` string. It assumes
-    /// that lines are separated by newline characters (`\n`), with line and column
-    /// numbering starting at 1.
-    ///
-    /// # Parameters
-    /// - `offset`: The zero-based index of the character in the string whose line and column are to
-    ///     be determined.
-    /// - `source`: A reference to the input string where the character position is located.
-    ///
-    /// # Returns
-    /// A tuple `(usize, usize)` where:
-    /// - The first element is the line number (starting from 1).
-    /// - The second element is the column number (starting from 1).
-    ///
-    /// # Example
-    /// ```rust
-    /// let input = "Hello\nRustaceans!";
-    /// let offset = 8; // The character 'R' in "Rustaceans!"
-    /// let (line, column) = get_position(offset, input);
-    /// assert_eq!((line, column), (2, 1)); // 'R' is on line 2, column 1
-    /// ```
-    ///
-    /// # Notes
-    /// - If `offset` is greater than the length of the string, the function
-    ///   will return the line and column corresponding to the end of the string.
-    /// - The function handles multiline input and correctly resets the column
-    ///   count after encountering a newline.
-    ///
-    /// # Panics
-    /// This function does not explicitly panic but assumes that the `offset` is within
-    /// the range of valid indices for the string. Out-of-range values may result in unexpected
-    /// behavior.
-    #[allow(dead_code)]
-    fn get_position(&self, offset: usize, source: &str) -> (usize, usize) {
-        let mut line = 1;
-        let mut column = 1;
-        for (index, ch) in source.chars().enumerate() {
-            if index == offset {
-                break;
-            }
-            match ch {
-                '\n' => {
-                    line += 1;
-                    column = 1;
-                }
-                _ => {
-                    column += 1;
-                }
-            }
-        }
-        (line, column)
-    }
-
-    /// Converts a `ParseError` into a `ParsingError`.
-    ///
-    /// This function takes a `ParseError` and converts it into a `ParsingError`, which can be used
-    /// for logging or error reporting. It formats the error message based on the type of `ParseError`
-    /// encountered (e.g., unrecognized token, invalid token, etc.) and includes the source location and
-    /// file path (if available).
-    ///
-    /// # Arguments
-    /// * `error` - The `ParseError` to be converted, containing the error details.
-    /// * `source` - The source code as a string, used to get the position of the error.
-    /// * `file_path` - An optional `PathBuf` representing the file path of the source.
-    ///
-    /// # Returns
-    /// A `ParsingError` with the formatted error message, type, and location.
-    ///
-    /// # Example
-    /// ```
-    /// let parser_error = self.to_parser_error(&parse_error, &source_code, Some(file_path));
-    /// ```
-    fn to_parser_error(
-        &self,
-        error: &ParseError<usize, Token, LexicalError>,
-        file_path: Option<&str>,
-    ) -> Diagnostic {
-        let file_path = file_path.unwrap().to_string();
-        match error {
-            ParseError::UnrecognizedToken {
-                token: (start, t, end),
-                expected,
-            } => {
-                let clean_expected= Self::clean_expected(expected);
-                Diagnostic::new(
-                    DiagnosticKind::UnexpectedToken {
-                        token: t.to_string(),
-                        expected:  clean_expected},
-                    Provider::Lexer,
-                    file_path,
-                    self.fast_line_table.get_span(*start, *end),
-                )
-            }
-            ParseError::InvalidToken { location } => {
-                Diagnostic::new(
-                    DiagnosticKind::InvalidToken,
-                    Provider::Lexer,
-                    file_path,
-                    self.fast_line_table.get_span(*location, *location),
-                )
-            }
-            ParseError::User { error } => {
-                let content = error.to_string();
-                Diagnostic::new(
-                    DiagnosticKind::CustomError(content),
-                    Provider::Lexer,
-                    file_path,
-                    self.fast_line_table.get_span(0, 0),
-                )
-            }
-            ParseError::UnrecognizedEof { location, expected } => {
-                let clean_expected= Self::clean_expected(expected);
-                Diagnostic::new(
-                    DiagnosticKind::UnexpectedEof {
-                        expected:  clean_expected},
-                    Provider::Lexer,
-                    file_path,
-                    self.fast_line_table.get_span(*location, *location),
-                )
-            }
-            ParseError::ExtraToken {
-                token: (start, t, end),
-            } => {
-                Diagnostic::new(
-                    DiagnosticKind::ExtraToken {
-                        token:  t.to_string(),
-                    },
-                    Provider::Lexer,
-                    file_path,
-                    self.fast_line_table.get_span(*start, *end),
-                )
-            }
-        }
-    }
-    fn clean_expected(expected: &[String]) -> Vec<String> {
-        expected.iter()
-            .map(|s| s.replace('"', ""))
-            .collect()
-    }
 }

@@ -1,7 +1,9 @@
 use std::fmt;
+use lalrpop_util::ParseError;
 use crate::aiplan4rust::diagnostic::kind::Kind;
-use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::diagnostic::{DiagnosticKind, Provider};
+use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
+use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
 /// Represents a diagnostic generated during parsing, validation, or compilation.
 ///
@@ -84,6 +86,89 @@ impl Diagnostic {
     /// Sets the span for this diagnostic.
     pub fn set_span(&mut self, span: Span) {
         self.span = span;
+    }
+}
+
+impl Diagnostic {
+    /// Converts a `ParseError` into a `Diagnostic`.
+    ///
+    /// Formats the error message based on the type of `ParseError` encountered (e.g., unrecognized token, invalid token, etc.)
+    /// and includes the source location and file path (if available).
+    ///
+    /// # Arguments
+    /// * `error` - The `ParseError` to be converted, containing the error details.
+    /// * `file_path` - Optional path to the source file as a string slice.
+    /// * `fast_line_table` - A `FastLineTable` instance for span calculation.
+    ///
+    /// # Returns
+    /// A `Diagnostic` representing the parse error.
+    pub fn from_parse_error(
+        error: &ParseError<usize, Token, LexicalError>,
+        file_path: Option<&str>,
+        fast_line_table: &FastLineTable,
+    ) -> Self {
+        let file_path = file_path.unwrap_or("").to_string();
+
+        match error {
+            ParseError::UnrecognizedToken {
+                token: (start, t, end),
+                expected,
+            } => {
+                let clean_expected = Self::clean_expected(expected);
+                Diagnostic::new(
+                    DiagnosticKind::UnexpectedToken {
+                        token: t.to_string(),
+                        expected: clean_expected,
+                    },
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(*start, *end),
+                )
+            }
+            ParseError::InvalidToken { location } => {
+                Diagnostic::new(
+                    DiagnosticKind::InvalidToken,
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(*location, *location),
+                )
+            }
+            ParseError::User { error } => {
+                let content = error.to_string();
+                Diagnostic::new(
+                    DiagnosticKind::CustomError(content),
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(0, 0),
+                )
+            }
+            ParseError::UnrecognizedEof { location, expected } => {
+                let clean_expected = Self::clean_expected(expected);
+                Diagnostic::new(
+                    DiagnosticKind::UnexpectedEof { expected: clean_expected },
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(*location, *location),
+                )
+            }
+            ParseError::ExtraToken {
+                token: (start, t, end),
+            } => {
+                Diagnostic::new(
+                    DiagnosticKind::ExtraToken {
+                        token: t.to_string(),
+                    },
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(*start, *end),
+                )
+            }
+        }
+    }
+
+    /// Cleans the expected tokens list by removing quotes.
+    fn clean_expected(expected: &[String]) -> Vec<String> {
+        expected.iter().map(|s| s.replace('"', "")).collect()
     }
 }
 
