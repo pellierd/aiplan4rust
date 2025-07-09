@@ -1,225 +1,334 @@
 use std::collections::HashSet;
-
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
+use crate::aiplan4rust::syntax::ast::{AstArena, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::tree::TreeArena;
 
-/// Normalizes all `Type` nodes in the given AST by removing duplicate `PrimitiveType` children.
+/// Normalizes all `Type` nodes in the AST by detecting and removing duplicate `PrimitiveType` children.
 ///
-/// This function starts from the root node and recursively normalizes the entire syntax tree.
-/// It delegates the actual work to `normalize_typed_list_node`.
+/// This function performs two main steps:
+/// 1. It traverses the AST to detect and immediately report any duplicate `PrimitiveType` identifiers
+///    found within `Type` nodes via the provided `diagnostic_manager`.
+/// 2. It then removes those duplicate `PrimitiveType` nodes from the AST, modifying it in place.
+///
+/// This helps ensure that `Type` nodes do not contain redundant type specifications (e.g., `(either t1 t1)`).
 ///
 /// # Parameters
 ///
-/// - `ast`: A mutable reference to the `Ast` to normalize.
+/// - `ast`: A mutable reference to the `AstArena` representing the abstract syntax tree to normalize.
+/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` used to collect and report
+///   warnings about duplicate types.
 ///
 /// # Returns
 ///
-/// - `Ok(true)` if any duplicates were removed and the AST was modified.
-/// - `Ok(false)` if no modifications were necessary.
-/// - `Err(_)` if a validation error occurred during normalization.
+/// - `Ok(true)` if any duplicates were found and removed (i.e., the AST was modified).
+/// - `Ok(false)` if no duplicates were found and no modifications were needed.
+/// - `Err(ParserInternalError)` if an error occurred while traversing or modifying the AST.
+///
+/// # Behavior
+///
+/// - Duplicate detection reports warnings immediately, but does not modify the AST.
+/// - Duplicate removal happens after reporting and modifies the AST by removing redundant nodes.
+/// - The function relies on correct AST and arena implementations to safely access and mutate nodes.
 ///
 /// # Example
 ///
 /// ```rust
-/// use crate::aiplan4rust::syntax::ast::Ast;
+/// use crate::aiplan4rust::normalization::passes::either_type::normalize_either_type;
+/// use crate::aiplan4rust::syntax::ast::AstArena;
+/// use crate::aiplan4rust::diagnostic::DiagnosticManager;
 /// use crate::aiplan4rust::parser::ParserInternalError;
 ///
-/// let mut ast = Ast::new(...);
-/// match normalize_typed_list(&mut ast) {
+/// let mut ast = AstArena::new(...);
+/// let mut diagnostic_manager = DiagnosticManager::new();
+///
+/// match normalize_either_type(&mut ast, &mut diagnostic_manager) {
 ///     Ok(modified) => {
 ///         if modified {
-///             println!("AST was normalized and modified.");
+///             println!("AST was normalized and duplicates removed.");
 ///         } else {
-///             println!("No changes were necessary.");
+///             println!("No duplicates found; AST unchanged.");
 ///         }
 ///     }
-///     Err(e) => eprintln!("Normalization error: {}", e),
+///     Err(e) => eprintln!("Error during normalization: {:?}", e),
 /// }
 /// ```
+///
 pub fn normalize_either_type(
-    ast: &mut Ast,
+    ast: &mut AstArena,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    let root = ast.root_mut();        // emprunt mutable ici
-     // emprunt immuable sur context seulement
+    let arena = ast.arena();
+    // Step 1: Detect and report duplicate type warnings without modifying the AST
+    report_either_type_duplicate_warnings(arena, ast, diagnostic_manager)?;
 
-    let (modified, warnings) = collect_either_type_info(root)?;
-
-    report_either_type_duplicates(warnings, ast, diagnostic_manager)?;
+    // Step 2: Mutably borrow arena to remove duplicates and track if modifications were made
+    let arena = ast.arena_mut();
+    let modified = remove_either_type_duplicates(arena)?;
 
     Ok(modified)
 }
 
-fn collect_either_type_info(
-    root: &mut AstNode,
-) -> Result<(bool, Vec<(Vec<Ident>, Span)>), ParserInternalError> {
-    let mut modified = false;
-    let mut warnings = Vec::new();
-    let mut stack = vec![root];
-
-    while let Some(node) = stack.pop() {
-        assert_either_type_validity(node)?;
-
-        if let AstKind::Type = node.kind() {
-            let mut seen = HashSet::new();
-            let mut dups = Vec::new();
-
-            node.children_mut().retain(|child| {
-                if let AstKind::PrimitiveType = child.kind() {
-                    if let AstContent::Ident(id) = child.content() {
-                        if seen.insert(*id) {
-                            true
-                        } else {
-                            dups.push(*id);
-                            modified = true;
-                            false
-                        }
-                    } else {
-                        true
-                    }
-                } else {
-                    true
-                }
-            });
-
-            if !dups.is_empty() {
-                warnings.push((dups, node.span().clone()));
-            }
-        }
-
-        for child in node.children_mut() {
-            stack.push(child);
-        }
-    }
-
-    Ok((modified, warnings))
-}
-
-/// Reports warnings for duplicate "either type" identifiers found in the AST.
+/// Removes duplicate `PrimitiveType` children within `Type` nodes in the AST.
 ///
-/// This function processes a list of warnings, where each warning consists of a vector of
-/// duplicated identifiers (`Ident`) along with the source code span where the duplication occurs.
-/// It converts each identifier into its string representation using `ast.expect_str`, reporting
-/// an error if the conversion fails.
-///
-/// For each group of duplicates, a diagnostic warning is emitted via
-/// `report_duplicate_either_type_warning`.
-///
-/// # Arguments
-///
-/// * `warnings` - A vector of tuples, each containing:
-///     - A vector of `Ident` representing duplicated identifiers.
-///     - A `Span` indicating the source location of the duplicates.
-/// * `ast` - Reference to the AST, used to resolve `Ident` to string slices.
-/// * `diagnostic_manager` - The diagnostic manager used to emit warnings.
-///
-/// # Errors
-///
-/// Returns a `ParserInternalError` if any identifier cannot be resolved to a string slice.
-///
-/// # Examples
-///
-/// ```ignore
-/// let warnings = vec![
-///     (vec![id1, id2], span),
-///     (vec![id3, id4], span2),
-/// ];
-/// report_either_type_duplicates(warnings, &ast, &mut diag_manager)?;
-/// ```
-pub fn report_either_type_duplicates(
-    warnings: Vec<(Vec<Ident>, Span)>,
-    ast: &Ast,
-    diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), ParserInternalError> {
-    let source_name = ast.source_name();
-
-    for (duplicate_ids, span) in warnings {
-        let duplicates: Vec<String> = duplicate_ids
-            .into_iter()
-            .map(|id| ast.try_resolve(id).map(str::to_string))
-            .collect::<Result<_, _>>()?;
-
-        report_duplicate_either_type_warning(duplicates, source_name, &span, diagnostic_manager);
-    }
-
-    Ok(())
-}
-
-/// Reports a diagnostic warning when duplicate types are found in a typed list declaration.
-///
-/// This function is called during normalization to notify the user that a declaration contained
-/// repeated types (e.g., `x y - (either t1 t1)`), which were automatically removed.
+/// This function traverses the AST starting from the root node in a depth-first manner,
+/// visiting every node. For each node of kind `Type`, it inspects its immediate children
+/// and removes duplicates among those children whose kind is `PrimitiveType` and which
+/// share the same identifier (`Ident`). Only the first occurrence of each identifier is kept.
 ///
 /// # Parameters
 ///
-/// - `declaration`: The `Declaration` node where duplicate types were found and removed.
-/// - `duplicates`: A vector of duplicate type names that were removed.
-/// - `source`: The filename or source identifier where the declaration originated.
-/// - `diagnostic_manager`: A mutable reference to the diagnostic manager responsible for tracking
-///   diagnostics.
-fn report_duplicate_either_type_warning(
-    duplicates: Vec<String>,
+/// - `arena`: A mutable reference to the tree arena containing `AstArenaNode` nodes. This is
+///   the data structure representing the AST.
+///
+/// # Returns
+///
+/// - `Ok(true)` if any duplicates were removed (i.e., the AST was modified).
+/// - `Ok(false)` if no duplicates were found and the AST remains unchanged.
+/// - `Err(ParserInternalError)` if an error occurs while accessing nodes in the arena.
+///
+/// # Behavior
+///
+/// - Traverses the AST iteratively using a stack to avoid recursion.
+/// - Collects children IDs immutably before mutating the node to avoid borrowing conflicts.
+/// - Uses a hash set to track seen identifiers and detect duplicates efficiently.
+/// - Updates the children list of `Type` nodes to exclude duplicates.
+///
+/// # Example
+///
+/// ```ignore
+/// let modified = remove_either_type_duplicates(&mut arena)?;
+/// if modified {
+///     println!("Duplicates removed from the AST.");
+/// } else {
+///     println!("No duplicates found.");
+/// }
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if any node cannot be accessed or mutated properly during traversal.
+///
+/// # Notes
+///
+/// - This function only removes duplicate `PrimitiveType` children inside `Type` nodes.
+/// - The ordering of children is preserved except duplicates are removed.
+///
+/// # See also
+///
+/// - `normalize_either_type` – calls this function as part of its normalization pipeline.
+fn remove_either_type_duplicates(
+    arena: &mut TreeArena<AstArenaNode>,
+) -> Result<bool, ParserInternalError> {
+    let mut modified = false;
+    let mut stack = vec![arena.try_root_id()?];
+
+    while let Some(node_id) = stack.pop() {
+        // Obtain an immutable reference to the current node for reading
+        let node = arena.try_node(node_id)?;
+        // Clone the children IDs to avoid borrowing issues when mutating later
+        let children_ids = node.children().to_vec();
+        // Cache the node kind for quick checks
+        let node_kind = node.kind();
+
+        // Process only nodes of kind 'Type' to remove duplicate PrimitiveType children
+        if node_kind == AstKind::Type {
+            let mut seen = HashSet::new();  // Track seen identifiers to detect duplicates
+            // Pre-allocate vector to hold filtered children with capacity = current children count
+            let mut retained = Vec::with_capacity(children_ids.len());
+
+            // Iterate over all children to filter out duplicate PrimitiveType identifiers
+            for &child_id in &children_ids {
+                let child = arena.try_node(child_id)?;
+                match child.kind() {
+                    AstKind::PrimitiveType => {
+                        if let AstContent::Ident(id) = child.content() {
+                            // Insert returns false if id was already present (duplicate)
+                            if seen.insert(*id) {
+                                retained.push(child_id); // Keep first occurrence
+                            } else {
+                                modified = true; // Mark that modification occurred by removing duplicate
+                            }
+                        } else {
+                            // If PrimitiveType without Ident content, just keep it
+                            retained.push(child_id);
+                        }
+                    }
+                    // For other child kinds, keep them unchanged
+                    _ => retained.push(child_id),
+                }
+            }
+
+            // After reading and processing children, obtain mutable reference to update node
+            let node_mut = arena.try_node_mut(node_id)?;
+            node_mut.set_children(retained);
+        }
+
+        // Push all children onto the stack to continue depth-first traversal
+        for child_id in children_ids {
+            stack.push(child_id);
+        }
+    }
+
+    // Return whether the AST was modified by removing duplicates
+    Ok(modified)
+}
+
+
+/// Traverses the AST to detect and report duplicate identifiers within 'Type' nodes.
+///
+/// This function performs a preorder traversal over the AST nodes contained in the provided `arena`.
+/// For each node of kind `Type`, it inspects its immediate children to identify duplicates among
+/// `PrimitiveType` children, specifically by checking their identifier (`Ident`) content. If duplicates
+/// are found, it reports these as warnings through the provided `diagnostic_manager`.
+///
+/// The function uses `ast` to resolve identifiers to their string representations for meaningful diagnostics.
+///
+/// # Parameters
+///
+/// - `arena`: Reference to the tree arena containing `AstArenaNode` nodes. This is the structure
+///   holding the AST nodes to traverse.
+/// - `ast`: Reference to the AST arena, used to resolve `Ident` to human-readable strings.
+/// - `diagnostic_manager`: Mutable reference to the diagnostic manager, used to emit warnings about duplicates.
+///
+/// # Returns
+///
+/// - `Ok(())` if traversal and reporting complete successfully.
+/// - `Err(ParserInternalError)` if any node or identifier resolution fails during traversal.
+///
+/// # Behavior
+///
+/// - Traverses the AST in preorder to ensure parent nodes are processed before children.
+/// - For each `Type` node, collects identifiers of its `PrimitiveType` children.
+/// - Detects duplicates among these identifiers and collects them.
+/// - Calls `report_duplicate_either_type_warning_bis` to report warnings for duplicates found.
+///
+/// # Example
+///
+/// ```ignore
+/// let result = report_either_type_duplicate_warnings(&arena, &ast, &mut diagnostic_manager);
+/// if let Err(e) = result {
+///     eprintln!("Error during duplicate detection: {:?}", e);
+/// }
+/// ```
+///
+/// # Notes
+///
+/// - This function does **not** modify the AST; it only detects and reports duplicates.
+/// - It relies on correct implementations of `try_node` and `try_resolve` for safe access.
+///
+/// # See Also
+///
+/// - `report_duplicate_either_type_warning_bis` – helper function that actually formats and sends diagnostics.
+fn report_either_type_duplicate_warnings(
+    arena: &TreeArena<AstArenaNode>,
+    ast: &AstArena,
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<(), ParserInternalError> {
+    // Retrieve the source name from the AST, used for diagnostics reporting
+    let source_name = ast.source_name();
+
+    // Traverse all nodes in the AST in preorder (parent before children)
+    for node in arena.preorder() {
+        // Skip nodes that are not of kind Type, since duplicates only matter there
+        if node.kind() != AstKind::Type {
+            continue;
+        }
+
+        // HashSet to track which identifiers have already been seen in this Type node
+        let mut seen = HashSet::new();
+        // Vector to collect identifiers detected as duplicates
+        let mut duplicates = Vec::new();
+
+        // Iterate over immediate children of the current Type node
+        for &child_id in node.children() {
+            // Get an immutable reference to the child node
+            let child = arena.try_node(child_id)?;
+
+            // Check if the child node is a PrimitiveType (the relevant node kind for IDs)
+            if child.kind() == AstKind::PrimitiveType {
+                // Extract the identifier content from the node
+                if let AstContent::Ident(id) = child.content() {
+                    // If this identifier was already seen, record it as a duplicate
+                    if !seen.insert(*id) {
+                        duplicates.push(*id);
+                    }
+                }
+            }
+        }
+
+        // If any duplicates were found, create and add a diagnostic warning
+        if !duplicates.is_empty() {
+            // Construct a diagnostic warning for these duplicates
+            let warning = new_duplicate_either_type_warning(
+                duplicates,
+                ast,
+                source_name,
+                &node.span(),
+            )?;
+            // Add the diagnostic to the diagnostic manager for reporting
+            diagnostic_manager.add_diagnostic(warning);
+        }
+    }
+
+    // Indicate successful completion without errors
+    Ok(())
+}
+/// Creates a diagnostic warning for duplicate identifiers found within a 'Type' node.
+///
+/// Given a vector of duplicate identifier (`Ident`) values, this function resolves each identifier
+/// to its string representation using the provided `ast`. It then constructs a `Diagnostic`
+/// object containing the duplicates and associated source information.
+///
+/// # Parameters
+///
+/// - `duplicate_ids`: Vector of `Ident` representing the duplicate identifiers detected.
+/// - `ast`: Reference to the AST arena for resolving identifiers.
+/// - `source`: Source filename or identifier where the duplicates were found.
+/// - `span`: The source code span indicating the location of the duplicate identifiers.
+///
+/// # Returns
+///
+/// - `Ok(Diagnostic)` containing the formatted warning ready to be emitted.
+/// - `Err(ParserInternalError)` if any identifier resolution fails.
+///
+/// # Example
+///
+/// ```ignore
+/// let diagnostic = create_duplicate_either_type_warning(duplicate_ids, &ast, source, &span)?;
+/// diagnostic_manager.add_diagnostic(diagnostic);
+/// ```
+///
+/// # Notes
+///
+/// - This function only creates and returns the diagnostic; it does **not** report it.
+/// - The caller is responsible for submitting the diagnostic to the diagnostic manager.
+fn new_duplicate_either_type_warning(
+    duplicate_ids: Vec<Ident>,
+    ast: &AstArena,
     source: &str,
     span: &Span,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-    // Construct the diagnostic warning with detailed metadata
+) -> Result<Diagnostic, ParserInternalError> {
+    // Resolve identifiers to strings
+    let duplicates: Vec<String> = duplicate_ids
+        .into_iter()
+        .map(|id| ast.try_resolve(id).map(str::to_string))
+        .collect::<Result<_, _>>()?;
+
+    // Build diagnostic warning
     let diagnostic = Diagnostic::new(
-        DiagnosticKind::DuplicateEitherTypeWarning {
-            duplicate_types: duplicates,
-        },
+        DiagnosticKind::DuplicateEitherTypeWarning { duplicate_types: duplicates },
         Provider::Normalizer,
         source.to_string(),
         span.clone(),
     );
 
-    // Submit the warning to the diagnostic manager
-    diagnostic_manager.add_diagnostic(diagnostic);
-}
-
-/// Asserts that all children of a `Type` node are `PrimitiveType` nodes.
-///
-/// This function checks that every child node of the given AST node, if it is of kind `Type`,
-/// is a `PrimitiveType`. If any child is not a `PrimitiveType`, the function returns a
-/// `ParserInternalError`.
-///
-/// # Parameters
-///
-/// - `node`: A reference to the AST node to validate.
-///
-/// # Errors
-///
-/// Returns a `ParserInternalError` if any child of the `Type` node is not a `PrimitiveType`.
-///
-/// # Example
-///
-/// ```rust
-/// use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-/// use crate::aiplan4rust::syntax::parser::ParserInternalError;
-///
-/// // Assume `node` is an AstNode
-/// if let Err(e) = assert_either_type_validity(&node) {
-///     eprintln!("Validation error: {}", e);
-/// }
-/// ```
-pub fn assert_either_type_validity(node: &AstNode) -> Result<(), ParserInternalError> {
-    if let AstKind::Type = node.kind() {
-        for child in node.children() {
-            if !matches!(child.kind(), AstKind::PrimitiveType) {
-                return Err(ParserInternalError::new(format!(
-                    "Expected only PrimitiveType in Type node, found: {:?}",
-                    child.kind()
-                )));
-            }
-        }
-    }
-    Ok(())
+    Ok(diagnostic)
 }

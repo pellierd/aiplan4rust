@@ -281,6 +281,10 @@ impl TreeNode for AstArenaNode {
         self.data.children()
     }
 
+    fn set_children(&mut self, children: Vec<NodeId>) {
+        self.data.set_children(children)
+    }
+
     fn add_child(&mut self, child: NodeId) {
         self.data.add_child(child)
     }

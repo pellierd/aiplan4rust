@@ -153,6 +153,21 @@ pub trait TreeNode {
     /// A slice of `NodeId` elements corresponding to the children.
     fn children(&self) -> &[NodeId];
 
+    /// Sets the immediate children of this node to the given list of node IDs.
+    ///
+    /// This replaces the current children with the provided list.
+    ///
+    /// # Parameters
+    ///
+    /// - `children`: A vector of `NodeId` that will replace the current children.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// node.set_children(vec![child1, child2]);
+    /// ```
+    fn set_children(&mut self, children: Vec<NodeId>);
+
     /// Adds a child node to this node.
     ///
     /// # Arguments

@@ -84,6 +84,23 @@ impl<K: Copy, C: NodeContent> AbstractNode<K, C> {
         &mut self.children
     }
 
+    /// Sets the immediate children of this node to the given list of node IDs.
+    ///
+    /// This replaces the current children with the provided list.
+    ///
+    /// # Parameters
+    ///
+    /// - `children`: A vector of `NodeId` that will replace the current children.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// node.set_children(vec![child1, child2]);
+    /// ```
+    pub fn set_children(&mut self, children: Vec<NodeId>) {
+        self.children = children;
+    }
+
     /// Returns the parent node ID, if available.
     pub fn parent(&self) -> Option<NodeId> {
         self.parent
