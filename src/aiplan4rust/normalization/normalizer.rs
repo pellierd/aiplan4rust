@@ -130,7 +130,9 @@ impl Normalizer {
         &mut self,
         mut ast: AstArena,
     ) -> Result<NormalizerResult, ParserInternalError> {
-        //passes::normalize_typed_list(&mut ast)?;
+        print!("************* AVANT *********** \n{}", ast);
+        passes::normalize_typed_list(&mut ast)?;
+        print!("************* APRES *********** \n{}", ast);
         //passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
         //passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
         //passes::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;

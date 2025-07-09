@@ -59,6 +59,28 @@ impl<T: TreeNode> TreeArena<T> {
         }
     }
 
+    pub fn try_root(&self) -> Result<&T, ParserInternalError> {
+        match self.root_id {
+            Some(id) => self.try_node(id),
+            None => Err(ParserInternalError::new("Root ID is missing".to_string())),
+        }
+    }
+
+    pub fn try_root_mut(&mut self) -> Result<&mut T, ParserInternalError> {
+        match self.root_id {
+            Some(id) => self.try_node_mut(id),
+            None => Err(ParserInternalError::new("Root ID is missing".to_string())),
+        }
+    }
+
+    /// Returns a reference to the root node, if it exists.
+    pub fn root_mut(&mut self) -> Option<&mut T> {
+        match self.root_id {
+            Some(root_id) => self.get_node_mut(root_id),
+            None => None,
+        }
+    }
+
     /// Returns an immutable `NodeRef` to the root node, if it exists.
     pub fn root_node_ref(&self) -> Option<NodeRef<'_, T>> {
         match self.root_id {

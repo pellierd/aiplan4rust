@@ -188,6 +188,21 @@ pub trait TreeNode {
             )))
     }
 
+    /// Returns the `NodeId` of the child at the given index, or `None` if out of bounds.
+    ///
+    /// # Arguments
+    /// * `index` - The zero-based position of the child to retrieve.
+    ///
+    /// # Example
+    /// ```rust
+    /// if let Some(child_id) = node.get_child_opt(0) {
+    ///     let child_node = arena.try_node(child_id)?;
+    /// }
+    /// ```
+    fn get_child(&self, index: usize) -> Option<NodeId> {
+        self.children().get(index).copied()
+    }
+
     /// Remaps identifiers inside the node’s content according to the given map.
     ///
     /// This is useful for operations like renaming or merging scopes.
