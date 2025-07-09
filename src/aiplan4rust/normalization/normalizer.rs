@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ast::{Ast, AstArena};
 
 /// The `Normalizer` struct provides functionality to transform an Abstract Syntax Tree (AST)
 /// into a standardized, normalized form suitable for further processing or compilation.
@@ -81,7 +81,7 @@ impl Normalizer {
     /// # Errors
     ///
     /// Errors returned are typically internal logic errors detected during normalization.
-    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, ParserInternalError> {
+    pub fn normalize(&mut self, ast: AstArena) -> Result<NormalizerResult, ParserInternalError> {
         self.perform_normalization(ast)
     }
 
@@ -101,7 +101,7 @@ impl Normalizer {
     /// - `Err(ParserInternalError)` if an error occurs during normalization.
     pub fn normalize_with_diagnostic_manager(
         &mut self,
-        ast: Ast,
+        ast: AstArena,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<NormalizerResult, ParserInternalError> {
         self.diagnostic_manager = diagnostic_manager;
@@ -128,12 +128,12 @@ impl Normalizer {
     /// - `Err(ParserInternalError)` if any pass fails.
     fn perform_normalization(
         &mut self,
-        mut ast: Ast,
+        mut ast: AstArena,
     ) -> Result<NormalizerResult, ParserInternalError> {
-        passes::normalize_typed_list(&mut ast)?;
-        passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
-        passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
-        passes::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;
+        //passes::normalize_typed_list(&mut ast)?;
+        //passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
+        //passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
+        //passes::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;
         Ok(NormalizerResult::new(Some(ast), std::mem::take(&mut self.diagnostic_manager)))
     }
 

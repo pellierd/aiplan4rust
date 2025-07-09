@@ -151,11 +151,11 @@ impl Frontend {
                 let diagnostic_manager = parser_result.take_diagnostic_manager();
                 println!("{}", raw_ast);
                 // Normalize the AST while merging diagnostics.
-                /*let mut normalizer = Normalizer::new();
+                let mut normalizer = Normalizer::new();
                 let mut normalizer_result =
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
 
-                match normalizer_result.take_ast() {
+                /*match normalizer_result.take_ast() {
                     Some(mut normalized_ast) => {
 
                         // Retrieve diagnostics accumulated during normalization.
