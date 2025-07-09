@@ -1,3 +1,62 @@
+//! Module for normalization pass to detect and remove duplicate `PrimitiveType` children within `Type` nodes in the AST.
+//!
+//! This module provides functionality to:
+//! - Traverse the abstract syntax tree (AST) and detect duplicate type identifiers inside `Type` nodes.
+//! - Emit diagnostic warnings immediately upon detecting duplicates.
+//! - Remove duplicate `PrimitiveType` children from `Type` nodes to normalize the AST.
+//!
+//! The main entry point is [`normalize_either_type`], which performs the detection (with diagnostics)
+//! and the removal in two separate steps.
+//!
+//! # Overview
+//!
+//! In the domain-specific language AST, `Type` nodes can have children that represent primitive types.
+//! It is invalid or redundant for a `Type` node to contain duplicate primitive type identifiers
+//! (e.g., `(either t1 t1)`).
+//!
+//! This module ensures the AST is normalized by:
+//! 1. Reporting duplicate identifiers with detailed diagnostics including source spans.
+//! 2. Removing duplicate `PrimitiveType` children, keeping only the first occurrence.
+//!
+//! # Provided Functions
+//!
+//! - `normalize_either_type` — Main function that runs detection and removal steps.
+//! - `report_either_type_duplicate_warnings` — Detects and reports duplicates via diagnostics.
+//! - `new_duplicate_either_type_warning` — Helper to build diagnostic warnings for duplicates.
+//! - `remove_either_type_duplicates` — Removes duplicate `PrimitiveType` children in-place.
+//!
+//! # Errors
+//!
+//! These functions may return `ParserInternalError` if any AST node access or mutation fails,
+//! or if identifier resolution for diagnostics encounters errors.
+//!
+//! # Usage Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::normalization::passes::either_type::normalize_either_type;
+//! use crate::aiplan4rust::syntax::ast::AstArena;
+//! use crate::aiplan4rust::diagnostic::DiagnosticManager;
+//!
+//! let mut ast = AstArena::new(...);
+//! let mut diagnostic_manager = DiagnosticManager::new();
+//!
+//! match normalize_either_type(&mut ast, &mut diagnostic_manager) {
+//!     Ok(modified) if modified => println!("AST normalized, duplicates removed."),
+//!     Ok(_) => println!("No duplicates found; AST unchanged."),
+//!     Err(e) => eprintln!("Normalization error: {:?}", e),
+//! }
+//! ```
+//!
+//! # Imports
+//!
+//! The module depends on:
+//! - Standard collections (`HashSet`) for duplicate detection.
+//! - AST structures and kinds for node manipulation.
+//! - Diagnostic management for warnings.
+//! - Error types for parser internal errors.
+//!
+//! See individual function docs for detailed behavior and examples.
+
 use std::collections::HashSet;
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
@@ -75,112 +134,6 @@ pub fn normalize_either_type(
 
     Ok(modified)
 }
-
-/// Removes duplicate `PrimitiveType` children within `Type` nodes in the AST.
-///
-/// This function traverses the AST starting from the root node in a depth-first manner,
-/// visiting every node. For each node of kind `Type`, it inspects its immediate children
-/// and removes duplicates among those children whose kind is `PrimitiveType` and which
-/// share the same identifier (`Ident`). Only the first occurrence of each identifier is kept.
-///
-/// # Parameters
-///
-/// - `arena`: A mutable reference to the tree arena containing `AstArenaNode` nodes. This is
-///   the data structure representing the AST.
-///
-/// # Returns
-///
-/// - `Ok(true)` if any duplicates were removed (i.e., the AST was modified).
-/// - `Ok(false)` if no duplicates were found and the AST remains unchanged.
-/// - `Err(ParserInternalError)` if an error occurs while accessing nodes in the arena.
-///
-/// # Behavior
-///
-/// - Traverses the AST iteratively using a stack to avoid recursion.
-/// - Collects children IDs immutably before mutating the node to avoid borrowing conflicts.
-/// - Uses a hash set to track seen identifiers and detect duplicates efficiently.
-/// - Updates the children list of `Type` nodes to exclude duplicates.
-///
-/// # Example
-///
-/// ```ignore
-/// let modified = remove_either_type_duplicates(&mut arena)?;
-/// if modified {
-///     println!("Duplicates removed from the AST.");
-/// } else {
-///     println!("No duplicates found.");
-/// }
-/// ```
-///
-/// # Errors
-///
-/// Returns an error if any node cannot be accessed or mutated properly during traversal.
-///
-/// # Notes
-///
-/// - This function only removes duplicate `PrimitiveType` children inside `Type` nodes.
-/// - The ordering of children is preserved except duplicates are removed.
-///
-/// # See also
-///
-/// - `normalize_either_type` – calls this function as part of its normalization pipeline.
-fn remove_either_type_duplicates(
-    arena: &mut TreeArena<AstArenaNode>,
-) -> Result<bool, ParserInternalError> {
-    let mut modified = false;
-    let mut stack = vec![arena.try_root_id()?];
-
-    while let Some(node_id) = stack.pop() {
-        // Obtain an immutable reference to the current node for reading
-        let node = arena.try_node(node_id)?;
-        // Clone the children IDs to avoid borrowing issues when mutating later
-        let children_ids = node.children().to_vec();
-        // Cache the node kind for quick checks
-        let node_kind = node.kind();
-
-        // Process only nodes of kind 'Type' to remove duplicate PrimitiveType children
-        if node_kind == AstKind::Type {
-            let mut seen = HashSet::new();  // Track seen identifiers to detect duplicates
-            // Pre-allocate vector to hold filtered children with capacity = current children count
-            let mut retained = Vec::with_capacity(children_ids.len());
-
-            // Iterate over all children to filter out duplicate PrimitiveType identifiers
-            for &child_id in &children_ids {
-                let child = arena.try_node(child_id)?;
-                match child.kind() {
-                    AstKind::PrimitiveType => {
-                        if let AstContent::Ident(id) = child.content() {
-                            // Insert returns false if id was already present (duplicate)
-                            if seen.insert(*id) {
-                                retained.push(child_id); // Keep first occurrence
-                            } else {
-                                modified = true; // Mark that modification occurred by removing duplicate
-                            }
-                        } else {
-                            // If PrimitiveType without Ident content, just keep it
-                            retained.push(child_id);
-                        }
-                    }
-                    // For other child kinds, keep them unchanged
-                    _ => retained.push(child_id),
-                }
-            }
-
-            // After reading and processing children, obtain mutable reference to update node
-            let node_mut = arena.try_node_mut(node_id)?;
-            node_mut.set_children(retained);
-        }
-
-        // Push all children onto the stack to continue depth-first traversal
-        for child_id in children_ids {
-            stack.push(child_id);
-        }
-    }
-
-    // Return whether the AST was modified by removing duplicates
-    Ok(modified)
-}
-
 
 /// Traverses the AST to detect and report duplicate identifiers within 'Type' nodes.
 ///
@@ -331,4 +284,109 @@ fn new_duplicate_either_type_warning(
     );
 
     Ok(diagnostic)
+}
+
+/// Removes duplicate `PrimitiveType` children within `Type` nodes in the AST.
+///
+/// This function traverses the AST starting from the root node in a depth-first manner,
+/// visiting every node. For each node of kind `Type`, it inspects its immediate children
+/// and removes duplicates among those children whose kind is `PrimitiveType` and which
+/// share the same identifier (`Ident`). Only the first occurrence of each identifier is kept.
+///
+/// # Parameters
+///
+/// - `arena`: A mutable reference to the tree arena containing `AstArenaNode` nodes. This is
+///   the data structure representing the AST.
+///
+/// # Returns
+///
+/// - `Ok(true)` if any duplicates were removed (i.e., the AST was modified).
+/// - `Ok(false)` if no duplicates were found and the AST remains unchanged.
+/// - `Err(ParserInternalError)` if an error occurs while accessing nodes in the arena.
+///
+/// # Behavior
+///
+/// - Traverses the AST iteratively using a stack to avoid recursion.
+/// - Collects children IDs immutably before mutating the node to avoid borrowing conflicts.
+/// - Uses a hash set to track seen identifiers and detect duplicates efficiently.
+/// - Updates the children list of `Type` nodes to exclude duplicates.
+///
+/// # Example
+///
+/// ```ignore
+/// let modified = remove_either_type_duplicates(&mut arena)?;
+/// if modified {
+///     println!("Duplicates removed from the AST.");
+/// } else {
+///     println!("No duplicates found.");
+/// }
+/// ```
+///
+/// # Errors
+///
+/// Returns an error if any node cannot be accessed or mutated properly during traversal.
+///
+/// # Notes
+///
+/// - This function only removes duplicate `PrimitiveType` children inside `Type` nodes.
+/// - The ordering of children is preserved except duplicates are removed.
+///
+/// # See also
+///
+/// - `normalize_either_type` – calls this function as part of its normalization pipeline.
+fn remove_either_type_duplicates(
+    arena: &mut TreeArena<AstArenaNode>,
+) -> Result<bool, ParserInternalError> {
+    let mut modified = false;
+    let mut stack = vec![arena.try_root_id()?];
+
+    while let Some(node_id) = stack.pop() {
+        // Obtain an immutable reference to the current node for reading
+        let node = arena.try_node(node_id)?;
+        // Clone the children IDs to avoid borrowing issues when mutating later
+        let children_ids = node.children().to_vec();
+        // Cache the node kind for quick checks
+        let node_kind = node.kind();
+
+        // Process only nodes of kind 'Type' to remove duplicate PrimitiveType children
+        if node_kind == AstKind::Type {
+            let mut seen = HashSet::new();  // Track seen identifiers to detect duplicates
+            // Pre-allocate vector to hold filtered children with capacity = current children count
+            let mut retained = Vec::with_capacity(children_ids.len());
+
+            // Iterate over all children to filter out duplicate PrimitiveType identifiers
+            for &child_id in &children_ids {
+                let child = arena.try_node(child_id)?;
+                match child.kind() {
+                    AstKind::PrimitiveType => {
+                        if let AstContent::Ident(id) = child.content() {
+                            // Insert returns false if id was already present (duplicate)
+                            if seen.insert(*id) {
+                                retained.push(child_id); // Keep first occurrence
+                            } else {
+                                modified = true; // Mark that modification occurred by removing duplicate
+                            }
+                        } else {
+                            // If PrimitiveType without Ident content, just keep it
+                            retained.push(child_id);
+                        }
+                    }
+                    // For other child kinds, keep them unchanged
+                    _ => retained.push(child_id),
+                }
+            }
+
+            // After reading and processing children, obtain mutable reference to update node
+            let node_mut = arena.try_node_mut(node_id)?;
+            node_mut.set_children(retained);
+        }
+
+        // Push all children onto the stack to continue depth-first traversal
+        for child_id in children_ids {
+            stack.push(child_id);
+        }
+    }
+
+    // Return whether the AST was modified by removing duplicates
+    Ok(modified)
 }

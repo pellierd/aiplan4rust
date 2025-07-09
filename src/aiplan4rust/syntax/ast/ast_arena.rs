@@ -62,7 +62,8 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::{FastLineTable, PlanningSyntaxDisplay};
-use crate::aiplan4rust::tree::{NodeId, TreeArena};
+use crate::aiplan4rust::syntax::ast::node::Node;
+use crate::aiplan4rust::tree::{NodeId, NodeRef, TreeArena};
 
 /// A complete abstract syntax tree and its associated context.
 ///
@@ -195,6 +196,41 @@ impl AstArena {
     /// ```
     pub fn try_resolve(&self, ident: Ident) -> Result<&str, ParserInternalError> {
         self.interner.try_resolve(ident)
+    }
+
+
+    /// Finds the first node ID of the specified kind in the subtree rooted at `node_id`.
+    ///
+    /// # Arguments
+    /// * `node_id` - The root node ID of the subtree to search.
+    /// * `kind` - The `AstKind` to find.
+    ///
+    /// # Returns
+    /// * `Some(NodeId)` if a matching node is found.
+    /// * `None` otherwise.
+    pub fn find_node_id_of_kind_from(
+        &self,
+        node_id: NodeId,
+        kind: AstKind,
+    ) -> Option<NodeId> {
+        for id in self.arena.preorder_ids_from(node_id) {
+            let node = self.arena.get_node(id)?;
+            if node.kind() == kind {
+                return Some(id);
+            }
+        }
+        None
+    }
+
+    /// Finds the first node ID of the specified kind in the entire AST.
+    ///
+    /// # Returns
+    /// * `Some(NodeId)` if a matching node is found.
+    /// * `None` otherwise.
+    pub fn find_node_id_of_kind(&self, kind: AstKind) -> Option<NodeId> {
+        self.arena.root_id().and_then(|root_id| {
+            self.find_node_id_of_kind_from(root_id, kind)
+        })
     }
 
     /// Recursively sets the start and end positions (line and column) for each AST node.

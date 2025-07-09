@@ -4,7 +4,7 @@ use std::process::id;
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::tree::{TreeNode, NodeId};
-use crate::aiplan4rust::tree::iter::{PostorderIter, PostorderIterWithIndex, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
+use crate::aiplan4rust::tree::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
 use crate::aiplan4rust::tree::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
@@ -179,6 +179,29 @@ impl<T: TreeNode> TreeArena<T> {
             Some(root) => PreorderIter::new(self, root),
             None => PreorderIter::empty(self),
         }
+    }
+
+    /// Returns a preorder iterator over `NodeId`s starting from the root.
+    ///
+    /// This allows iteration where mutable or indexed access to the nodes is needed.
+    ///
+    /// # Example
+    /// ```rust
+    /// for node_id in arena.preorder_ids() {
+    ///     let node = arena.get_node(node_id).unwrap();
+    ///     // process node
+    /// }
+    /// ```
+    pub fn preorder_ids(&self) -> PreorderIdIter<'_, T> {
+        match self.root_id {
+            Some(root) => PreorderIdIter::new(self, root),
+            None => PreorderIdIter::empty(self),
+        }
+    }
+
+    /// Returns a preorder iterator over `NodeId`s starting from the given node.
+    pub fn preorder_ids_from(&self, root: NodeId) -> PreorderIdIter<'_, T> {
+        PreorderIdIter::new(self, root)
     }
 
     /// Returns a preorder iterator from a specific node.

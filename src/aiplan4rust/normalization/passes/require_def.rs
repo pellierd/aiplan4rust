@@ -1,35 +1,72 @@
-use std::collections::HashSet;
+//! Module `require_def`
+//!
+//! This module provides functions to normalize `RequireDef` declarations within an AST,
+//! specifically to detect and remove duplicate `Requirement` nodes.
+//!
+//! # Key Features
+//!
+//! - Locate the `RequireDef` node in the AST.
+//! - Detect duplicate `Requirement` children.
+//! - Emit diagnostic warnings for detected duplicates.
+//! - Safely remove duplicate requirements from the `RequireDef` node.
+//!
+//! # Usage
+//!
+//! The primary function exposed is `normalize_require_def`, which performs a full pass on the `RequireDef` node:
+//! - Finds the node in the AST.
+//! - Reports duplicates through a diagnostic manager.
+//! - Removes duplicate requirements.
+//!
+//! # Example
+//!
+//! ```rust
+//! use crate::require_def::normalize_require_def;
+//! use crate::diagnostics::DiagnosticManager;
+//!
+//! let mut ast = parse_source_code(source)?;
+//! let mut diagnostics = DiagnosticManager::new();
+//! let changed = normalize_require_def(&mut ast, &mut diagnostics)?;
+//! if changed {
+//!     println!("Duplicate requirements have been removed.");
+//! }
+//! ```
+//!
+//! # Notes
+//!
+//! This module assumes that the AST is valid and structurally sound.
+//! Any inconsistency in node structure may cause errors or panics.
+//!
+//! The normalization pass is standalone and can be run independently at any point.
 
+use std::collections::HashSet;
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstArena;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::tree::{NodeId, TreeArena};
 
 /// Normalizes the requirement declarations by removing duplicates from the `RequireDef` node.
 ///
-/// This function assumes that the input AST is already **valid** and structurally correct.
-/// Specifically, the `RequireDef` node—if present—must only contain well-formed `Requirement` nodes
-/// as children.
+/// This function assumes the input AST is **valid** and structurally correct.
+/// Specifically, if a `RequireDef` node is present, it should contain only well-formed `Requirement` nodes as children.
 ///
-/// The normalization does not traverse the full AST. Instead, it directly locates the `RequireDef`
-/// node (if any), which is expected to contain all `:requirement` declarations. It removes duplicate
-/// requirements (i.e., those with the same key) and emits a diagnostic warning for each duplicate
-/// found and removed.
+/// The normalization process does not traverse the entire AST. Instead, it directly locates the `RequireDef`
+/// node (if any), which is expected to hold all `:requirement` declarations. It removes duplicate
+/// requirements (i.e., those with identical keys) and emits a diagnostic warning for each duplicate found and removed.
 ///
-/// This pass is **self-contained** and **stateless**—it does not depend on any other normalization
-/// pass and does not affect or rely on their outcomes. It can safely be run independently at any
-/// point, provided the AST is valid.
+/// This pass is **self-contained** and **stateless**—it does not depend on or affect any other normalization passes,
+/// and can safely be run independently at any point, provided the AST is valid.
 ///
 /// # Arguments
 ///
-/// * `ast_old` - A mutable reference to the AST that may contain a `RequireDef`.
-/// * `diagnostic_manager` - A manager used to report warnings when duplicate requirements are found.
+/// * `ast` - A mutable reference to the AST that may contain a `RequireDef` node.
+/// * `diagnostic_manager` - A manager used to report warnings when duplicate requirements are detected.
 ///
 /// # Returns
 ///
@@ -39,7 +76,7 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// # Assumptions
 ///
-/// * The AST must be valid (i.e., conforming to the grammar and invariants expected by the parser).
+/// * The AST must be valid and conform to the parser's grammar and invariants.
 /// * The `RequireDef` node—if present—must contain only `Requirement` children.
 /// * No other normalization passes are required before or after this one.
 /// * This function is deterministic and has no side effects outside its scope.
@@ -47,102 +84,115 @@ use crate::aiplan4rust::syntax::Span;
 /// # Panics
 ///
 /// This function may panic if the `RequireDef` node contains unexpected children (e.g., non-`Requirement` nodes),
-/// which is considered a violation of AST validity and a programming error.
+/// which indicates a violation of AST validity and a programming error.
 ///
 /// # Example
 ///
 /// ```rust
-/// let mut ast_old = parse_source_code(source)?;
+/// let mut ast = parse_source_code(source)?;
 /// let mut diagnostics = DiagnosticManager::new();
-/// let changed = normalize_require_def(&mut ast_old, &mut diagnostics)?;
+/// let changed = normalize_require_def(&mut ast, &mut diagnostics)?;
 /// if changed {
 ///     println!("Duplicate requirements were removed.");
 /// }
 /// ```
 pub fn normalize_require_def(
-    ast: &mut Ast,
+    ast: &mut AstArena,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Get the filename or default to "unknown"
-    let source_name = ast.source_name().clone();
-
-    // Track whether any duplicates were removed
-    let mut modified = false;
-
-    // Find and validate the RequireDef node in the AST
-    let require_def = match find_require_def(ast)? {
-        Some(node) => node,
-        None => return Ok(false), // No RequireDef node found, nothing to normalize
+    // Early exit if no RequireDef node is found
+    let require_def_id = match ast.find_node_id_of_kind(AstKind::RequireDef) {
+        Some(id) => id,
+        None => return Ok(false),
     };
 
-    // Set to track seen requirements to detect duplicates
-    let mut seen = HashSet::new();
-    let mut duplicates = Vec::new();
+    // Report duplicate requirement warnings (immutable borrow)
+    report_duplicate_requirements_warnings(
+        ast.arena(),
+        require_def_id,
+        ast.source_name(),
+        diagnostic_manager,
+    )?;
 
-    // Retain only unique Requirement nodes, remove duplicates and report warnings
-    require_def.children_mut().retain(|child| {
-        match child.try_requirement() {
-            Ok(r) if seen.insert(r) => true,
-            Ok(r) => {
-                duplicates.push(r);
-                modified = true;
-                false
-            }
-            Err(_) => true,
-        }
-    });
+    // Remove duplicate requirements (mutable borrow)
+    let modified = remove_requirement_duplicates(ast.arena_mut(), require_def_id)?;
 
-    if !duplicates.is_empty() {
-        report_duplicate_requirement_warning(
-            duplicates,
-            require_def.span(),
-            &source_name,
-            diagnostic_manager);
-    }
-    // Return whether any duplicates were removed
     Ok(modified)
 }
 
-/// Searches the AST for a `RequireDef` node and validates that all its children are `Requirement`
-/// nodes.
+/// Scans the children of a `RequireDef` node in the AST to detect duplicate `:requirement` entries,
+/// and reports a diagnostic warning if duplicates are found.
 ///
-/// This function traverses the root children of the AST looking for the first node of kind
-/// `RequireDef`. If found, it asserts that every child of this node is a `Requirement`.
+/// This function iterates over the children of the specified `RequireDef` node, collects duplicate
+/// requirements, and generates a diagnostic warning which is added to the given diagnostic manager.
 ///
 /// # Arguments
 ///
-/// * `ast_old` - A mutable reference to the AST to search.
+/// * `arena` - Reference to the AST arena containing the nodes.
+/// * `require_def_id` - The `NodeId` of the `RequireDef` node to inspect.
+/// * `source_name` - The name of the source file (used for context in diagnostics).
+/// * `diagnostic_manager` - Mutable reference to the diagnostic manager where warnings are added.
 ///
 /// # Returns
 ///
-/// * `Ok(Some(&mut AstNode))` if a valid `RequireDef` node is found and all its children are valid.
-/// * `Ok(None)` if no `RequireDef` node is present in the AST.
-/// * `Err(ParserInternalError)` if any child of the `RequireDef` node is not a `Requirement`.
+/// * `Ok(())` on success.
+/// * `Err(ParserInternalError)` if the `RequireDef` node cannot be found or accessed.
 ///
-/// # Errors
+/// # Example
 ///
-/// Returns a `ParserInternalError` if an invalid child node is found within the `RequireDef`.
-fn find_require_def(
-    ast: &mut Ast,
-) -> Result<Option<&mut AstNode>, ParserInternalError> {
-    if let Some(require_def_node) = ast.find_node_of_kind_mut(AstKind::RequireDef) {
-        for child in require_def_node.children() {
-            if !matches!(child.kind(), AstKind::Requirement) {
-                return Err(ParserInternalError::new(format!(
-                    "Invalid child node in RequireDef: expected Requirement, found {:?}",
-                    child.kind()
-                )));
+/// ```rust
+/// report_duplicate_requirements_warnings(
+///     &ast.arena(),
+///     require_def_id,
+///     "domain.pddl",
+///     &mut diagnostic_manager,
+/// )?;
+/// ```
+pub fn report_duplicate_requirements_warnings(
+    arena: &TreeArena<AstArenaNode>,
+    require_def_id: NodeId,
+    source_name: &str,
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<(), ParserInternalError> {
+    // Try to get the RequireDef node by its ID. Return error if not found.
+    let require_def_node = arena.try_node(require_def_id)?;
+
+    // Create a HashSet to track seen requirements and a Vec to collect duplicates.
+    let mut seen = HashSet::new();
+    let mut duplicates = Vec::new();
+
+    // Iterate over all children of the RequireDef node.
+    for &child_id in require_def_node.children() {
+        // Get the child node reference by its ID.
+        let child = arena.get_node(child_id).unwrap();
+
+        // Attempt to parse the child node as a requirement.
+        if let Ok(req) = child.try_requirement() {
+            // If this requirement was already seen, add it to duplicates.
+            if !seen.insert(req) {
+                duplicates.push(req);
             }
         }
-        Ok(Some(require_def_node))
-    } else {
-        Ok(None)
     }
+
+    // If duplicates were found, create a diagnostic warning and add it to the manager.
+    if !duplicates.is_empty() {
+        let warning = new_duplicate_requirement_warning(
+            duplicates,
+            require_def_node.span(),
+            source_name,
+        );
+        diagnostic_manager.add_diagnostic(warning);
+    }
+
+    // Return Ok if everything went fine.
+    Ok(())
 }
 
-/// Reports a warning diagnostic when one or more duplicate requirement declarations are encountered.
+
+/// Creates a diagnostic warning for one or more duplicate requirement declarations.
 ///
-/// This function creates and submits a diagnostic warning indicating that one or more
+/// This function generates a diagnostic warning indicating that one or more
 /// `:requirement` entries were declared multiple times in a PDDL domain definition. The warning
 /// includes the names of the duplicated requirements, the source span (location) where the duplication
 /// was detected, and the filename for context.
@@ -152,34 +202,77 @@ fn find_require_def(
 /// * `duplicate_requirements` - A vector of duplicated requirements detected in the domain.
 /// * `span` - The source span (location) of the duplicated requirement(s).
 /// * `source` - The name of the source file being analyzed.
-/// * `diagnostic_manager` - The diagnostic manager used to record and report the warning.
+///
+/// # Returns
+///
+/// * A `Diagnostic` instance representing the duplicate requirement warning, ready to be
+///   submitted to a diagnostic manager.
 ///
 /// # Example
 ///
 /// ```rust
-/// report_duplicate_requirement_declaration_warning(
+/// let diagnostic = new_duplicate_requirement_warning(
 ///     vec![requirement1.clone(), requirement2.clone()],
 ///     &span,
 ///     "domain.pddl",
-///     &mut diagnostic_manager,
 /// );
+/// diagnostic_manager.add_diagnostic(diagnostic);
 /// ```
-pub fn report_duplicate_requirement_warning(
+pub fn new_duplicate_requirement_warning(
     duplicate_requirements: Vec<Requirement>,
     span: &Span,
     source: &str,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-    // Construct a diagnostic warning with details about the duplicate requirements
-    let diagnostic = Diagnostic::new(
+) -> Diagnostic {
+    Diagnostic::new(
         DiagnosticKind::DuplicateRequirementWarning {
-            duplicate_requirements
+            duplicate_requirements,
         },
-        Provider::Normalizer,      // The source of this diagnostic
-        source.to_string(),        // Filename for context in the message
-        span.clone(),             // Location in source code of duplicate(s)
-    );
+        Provider::Normalizer,
+        source.to_string(),
+        span.clone(),
+    )
+}
 
-    // Add the diagnostic warning to the manager to report it later
-    diagnostic_manager.add_diagnostic(diagnostic);
+/// Removes duplicate requirement children from the `RequireDef` node in the arena.
+///
+/// Returns `Ok(true)` if any duplicates were removed, otherwise `Ok(false)`.
+///
+/// # Arguments
+/// * `arena_mut` - Mutable reference to the arena containing the AST nodes.
+/// * `require_def_id` - The `NodeId` of the `RequireDef` node.
+///
+/// # Errors
+/// Returns an error if the node with `require_def_id` or its children cannot be accessed mutably.
+pub fn remove_requirement_duplicates(
+    arena_mut: &mut TreeArena<AstArenaNode>,
+    require_def_id: NodeId,
+) -> Result<bool, ParserInternalError> {
+    // Get mutable reference to RequireDef node
+    let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
+
+    // Copy the children IDs to avoid mutable borrow conflicts
+    let old_children = require_def_node_mut.children().to_vec();
+
+    // Prepare new children vector and a set to track seen requirements
+    let mut seen = HashSet::new();
+    let mut new_children = Vec::with_capacity(old_children.len());
+
+    // Track whether any duplicates were removed
+    let mut modified = false;
+
+    // Iterate over children and keep only unique requirements
+    for &child_id in &old_children {
+        let child = arena_mut.try_node_mut(child_id)?;
+        match child.try_requirement() {
+            Ok(req) if seen.insert(req) => new_children.push(child_id),
+            Ok(_) => modified = true, // duplicate found and skipped
+            Err(_) => new_children.push(child_id), // not a requirement, keep it
+        }
+    }
+
+    // Re-borrow RequireDef node mutably to set filtered children
+    let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
+    require_def_node_mut.set_children(new_children);
+
+    Ok(modified)
 }
