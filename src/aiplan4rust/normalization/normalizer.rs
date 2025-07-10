@@ -132,10 +132,10 @@ impl Normalizer {
     ) -> Result<NormalizerResult, ParserInternalError> {
         passes::normalize_typed_list(&mut ast)?;
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
-        print!("************* AVANT *********** \n{}", ast);
         passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
+        print!("************* AVANT *********** \n{}", ast);
+        passes::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;
         print!("************* APRES *********** \n{}", ast);
-        //passes::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;
         Ok(NormalizerResult::new(Some(ast), std::mem::take(&mut self.diagnostic_manager)))
     }
 

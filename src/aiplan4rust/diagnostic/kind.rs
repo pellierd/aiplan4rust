@@ -91,8 +91,6 @@ pub enum Kind {
     },
     ImplicitEitherTypeDeclarationWarning {
         ty: String,
-        types: Vec<String>,
-        spans: Vec<Span>
     },
     CyclicTypeDeclarationError {
        cycle: Vec<Declaration>
@@ -476,12 +474,10 @@ impl Kind {
                     Self::format_symbol_kinds(&domain_kinds),
                 ))
             }
-            Kind::ImplicitEitherTypeDeclarationWarning { ty, types, .. } => {
+            Kind::ImplicitEitherTypeDeclarationWarning { ty, .. } => {
                 Some(format!(
-                    "The type `{}` was declared multiple times with different types: {}. \
-                     These were merged into an implicit either-type declaration.",
+                    "The type `{}` was declared more than once with different parent types. These conflicting declarations were automatically merged into an implicit `(either ...)` type declaration.",
                     ty,
-                    Self::format_types(types),
                 ))
             }
             Kind::DuplicateRequirementWarning { duplicate_requirements} => {
