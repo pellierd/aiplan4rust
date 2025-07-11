@@ -176,6 +176,10 @@ impl Declaration {
         self.origin = origin;
     }
 
+    pub fn set_scope(&mut self, scope: Scope) {
+        self.scope = scope;
+    }
+
     /// Remaps all [`Ident`] values in this declaration using the provided mapping.
     ///
     /// This updates:

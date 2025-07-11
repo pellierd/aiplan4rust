@@ -27,7 +27,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
+use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 
@@ -129,10 +129,19 @@ impl FromAst for NamedTypedList {
         let name_node = ast.try_node(name_id)?;
         let name = name_node.try_ident()?;
 
-        let params_id = node.try_child(1)?;
-        let params_node = ast.try_node(params_id)?;
-        let parameters = TypedList::from_ast(params_node, ast)?;
+        let second_child_id = node.try_child(1)?;
+        let second_child_node = ast.try_node(second_child_id)?;
 
+        let parameters = match second_child_node.kind() {
+            AstKind::ParametersDef => {
+                let parameters_id = second_child_node.try_child(0)?;
+                let parameters_node = ast.try_node(parameters_id)?;
+                TypedList::from_ast(parameters_node, ast)?
+            },
+            _ => {
+                TypedList::from_ast(second_child_node, ast)?
+            }
+        };
         Ok(NamedTypedList::new(name, parameters))
     }
 }

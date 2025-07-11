@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprContent, ExprKind, ExprI
 /// Applies negation pushing transformation starting from the root node.
 /// Returns the ExprId of the transformed node.
 pub fn push_negations(expr: &mut Expr) -> Result<ExprId, ParserInternalError> {
-    transform_node(ExprId::ROOT_ID, expr, false)
+    transform_node(expr.try_root_id()?, expr, false)
 }
 
 /// Recursively transforms a node according to the accumulated negation state.

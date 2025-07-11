@@ -1449,7 +1449,7 @@ pub HDDLDomain: Result<NodeId, ParserInternalError> = {
     },
 }
 
-pub HDDLProblem: Result<NodeId, ParserInternalError> = {
+pub HDDLProblem : Result<NodeId, ParserInternalError> = {
     <start:@L>
         "(" "define" "(" "problem" <problem_name:ProblemName> ")"
         "(" ":domain" <domain_name:DomainName> ")"
@@ -1464,10 +1464,10 @@ pub HDDLProblem: Result<NodeId, ParserInternalError> = {
         children.push(problem_name?);
         children.push(domain_name?);
         if let Some(require_def) = require_def {
-            children.push(require_def?);
+           children.push(require_def?);
         }
         if let Some(objects_def) = objects_def {
-            children.push(objects_def?);
+           children.push(objects_def?);
         }
         children.push(task_network?);
         children.push(init?);

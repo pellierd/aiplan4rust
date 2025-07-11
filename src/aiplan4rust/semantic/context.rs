@@ -3,10 +3,10 @@ use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
-use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use crate::aiplan4rust::syntax::ast::{Ast, AstArena, AstKind};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
@@ -73,11 +73,12 @@ impl Context {
     ///
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
-    pub fn from(ast: &mut Ast) -> Result<Self, ParserInternalError> {
-        let arena = TreeArena::from_ast(ast);
+    pub fn from(ast: &mut AstArena) -> Result<Self, ParserInternalError> {
+
+        let symbol_table = SymbolTable::from_ast(ast)?;
+        let arena = ast.take_arena();
         let requirements = Self::extract_requirements(&arena)?;
         let interner = ast.take_interner();
-        let symbol_table = SymbolTable::from_ast(&arena)?;
 
         Ok(Context::new(
             arena,

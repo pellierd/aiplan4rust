@@ -15,6 +15,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use crate::aiplan4rust::syntax::ast::AstArena;
 
 /// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///
@@ -37,6 +38,7 @@ use std::fmt;
 pub struct Table {
     symbols: LinkedHashMap<Ident, SymbolEntry>,
     origin: SymbolTableOrigin,
+    root_id: NodeId,
 }
 
 impl Default for Table {
@@ -54,6 +56,7 @@ impl Default for Table {
         Table {
             symbols: LinkedHashMap::new(),
             origin: SymbolTableOrigin::default(),
+            root_id: NodeId::default(),
         }
     }
 }
@@ -67,11 +70,8 @@ impl Table {
     ///
     /// # Returns
     /// A new `SymbolTable` instance with no symbols and the specified origin.
-    pub fn new(origin: SymbolTableOrigin) -> Self {
-        Table {
-            symbols: LinkedHashMap::new(),
-            origin,
-        }
+    pub fn new() -> Self {
+        Table::default()
     }
 
     /// Returns the origin metadata of the symbol table.
@@ -96,6 +96,13 @@ impl Table {
         self.origin = origin;
     }
 
+    pub fn root_scope(&self) -> Scope {
+        Scope::new(self.root_id, None)
+    }
+
+    pub fn set_root_id(&mut self, root_id: NodeId) {
+        self.root_id = root_id;
+    }
 
     /// Returns an iterator over the symbol table's entries as immutable references.
     ///
@@ -941,7 +948,8 @@ impl Table {
     /// ```
     ///
     pub fn merge(domain: Table, problem: Table) -> Result<Table, ParserInternalError> {
-        let mut merged = Table::new(SymbolTableOrigin::Merged);
+        let mut merged = Table::new();
+        merged.set_origin(SymbolTableOrigin::Merged);
 
         // Insert symbols from the domain table
         for (ident, symbol) in domain.into_iter() {
@@ -985,7 +993,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns `ParserInternalError` if semantic errors or other parsing issues are detected during building.
-    pub fn from_ast(ast: &TreeArena<AstArenaNode>) -> Result<Table, ParserInternalError> {
+    pub fn from_ast(ast: &AstArena) -> Result<Table, ParserInternalError> {
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(ast)?;
         Ok(symbol_table)

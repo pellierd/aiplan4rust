@@ -61,8 +61,8 @@ impl ParseContext {
         Ok(node_id)
     }
 
-    pub fn set_root_id(&self, root_id: NodeId) {
-        self.arena.borrow_mut().set_root_id(root_id).expect("REASON");
+    pub fn set_root_id(&self, root_id: NodeId) -> Result<(), ParserInternalError> {
+        self.arena.borrow_mut().set_root_id(root_id)
     }
 
     pub fn root_id(&self) -> Option<NodeId> {

@@ -70,14 +70,14 @@ impl Scope {
     /// ```rust
     /// let root = Scope::root();
     /// ```
-    pub fn root() -> &'static Scope {
+    /*pub fn root() -> &'static Scope {
         static ROOT: Lazy<Scope> = Lazy::new(|| {
             Scope {
                 stack: vec![NodeId::ROOT_ID], // définition directe ici
             }
         });
         &ROOT
-    }
+    }*/
 
     /// Checks if `self` scope starts with the given `prefix` scope.
     ///

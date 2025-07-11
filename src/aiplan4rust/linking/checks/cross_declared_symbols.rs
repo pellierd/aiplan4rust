@@ -152,7 +152,7 @@ fn has_relevant_domain_declarations(
     symbol_name: Ident,
 ) -> bool {
         domain_symbol_table
-            .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
+            .collect_declarations(Some(&symbol_name), None, Some(&&domain_symbol_table.root_scope()))
             .into_iter()
             .any(|d| !is_declaration_exempt_from_conflict_check(&d))
 
@@ -189,7 +189,7 @@ fn get_relevant_domain_kinds(
     symbol_name: Ident,
 ) -> Vec<SymbolKind> {
         domain_symbol_table
-            .collect_declarations(Some(&symbol_name), None, Some(&Scope::root()))
+            .collect_declarations(Some(&symbol_name), None, Some(&&domain_symbol_table.root_scope()))
             .into_iter()
             .filter(|d| !is_declaration_exempt_from_conflict_check(d))
             .map(|d| d.symbol_kind().clone())

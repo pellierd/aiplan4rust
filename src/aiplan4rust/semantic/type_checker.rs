@@ -328,7 +328,7 @@ impl<'a> TypeChecker<'a> {
             let declaration = self.domain_symbol_table.resolve_declaration(
                 &current_type,
                 &SymbolKind::PrimitiveType,
-                &Scope::root(),
+                &self.domain_symbol_table.root_scope(),
             )?;
 
             match declaration {

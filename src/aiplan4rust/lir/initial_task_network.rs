@@ -91,10 +91,12 @@ impl FromAst for InitialTaskNetwork {
         let mut child_index = 0;
 
         // Try to parse parameters if present, otherwise use empty parameters
-        let param_node_id = node.try_child(child_index)?;
-        let param_node = ast.try_node(param_node_id)?;
-        let parameters = match param_node.kind() {
-            AstKind::TypedList => {
+        let parameters_def_id = node.try_child(child_index)?;
+        let parameters_def_node = ast.try_node(parameters_def_id)?;
+        let parameters = match parameters_def_node.kind() {
+            AstKind::ParametersDef => {
+                let param_node_id = parameters_def_node.try_child(0)?;
+                let param_node = ast.try_node(param_node_id)?;
                 child_index += 1;
                 TypedList::from_ast(param_node, ast)?
             }

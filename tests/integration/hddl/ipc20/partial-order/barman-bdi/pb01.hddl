@@ -15,7 +15,7 @@
 		(AchieveContainsShotCocktail shot2 cocktail1)
 	)
 )
-(:init 
+(:init
 	(ontable shaker1)
 	(ontable shot1)
 	(ontable shot2)

@@ -1,24 +1,18 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Severity;
-use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::{ArenaParserResult, FastLineTable, Language, ParseContext, ParserError};
-use crate::aiplan4rust::syntax::ast::{Ast, AstArena, AstNode};
-use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::tree::{NodeId, TreeArena};
+use crate::aiplan4rust::syntax::ast::AstArena;
 use crate::aiplan4rust::syntax::lalrpop;
 
 use lalrpop_util::ErrorRecovery;
-use lalrpop_util::ParseError;
 
 use std::mem;
 use std::time::SystemTime;
-
 
 #[derive(Debug)]
 /// A structure for analyzing the syntax of PDDL expr.

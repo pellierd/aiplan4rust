@@ -1,5 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::{Scope, SymbolKind};
@@ -65,7 +66,7 @@ pub fn check_domain_name(
         match problem.symbol_table().resolve_declaration(
             &referenced.name(),
             &SymbolKind::DomainName,
-            &Scope::root(),
+            &problem.symbol_table().root_scope(),
         )? {
             Some(domain_name_declaration) => {
 

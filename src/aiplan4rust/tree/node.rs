@@ -85,7 +85,7 @@ use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 /// - [`ParserInternalError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
 ///
-pub trait TreeNode {
+pub trait TreeNode: Clone {
     /// The type used to represent the node's kind.
     type Kind: std::fmt::Display;
 

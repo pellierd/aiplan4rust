@@ -9,6 +9,7 @@ use crate::aiplan4rust::lang::Requirement::Adl;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Requirement::Typing;
+use crate::aiplan4rust::semantic::checks::context::Context;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
@@ -71,7 +72,7 @@ pub fn check_undeclared_symbols(
             }
 
             // Check if the declaration for the symbol was found.
-            if !is_declaration_found(symbol, usage) {
+            if !is_declaration_found(symbol, usage, context) {
                 checked = false;
                 report_undeclared_symbol_error(
                     usage,
@@ -161,7 +162,7 @@ fn should_skip_symbol(
 /// let declaration_found = is_declaration_found(&symbol, &usage);
 /// assert_eq!(declaration_found, true);  // Assuming a matching declaration was found.
 /// ```
-fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage) -> bool {
+fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckContext) -> bool {
     let usage_scope = usage.scope();
 
     // Common closure to check declarations for the given kind and scope
@@ -176,7 +177,8 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage) -> bool {
     // the right side of type declarations in PDDL.For example, types like "car" or "vehicle"
     // might not be explicitly declared but are understood in the domain context.
     let check_usages_at_root_scope = |usage: &Usage| {
-        let root_scope = Scope::root();
+        let root_id = context.ast().try_root_id().unwrap();
+        let root_scope = Scope::new(root_id, None);
         symbol
             .usages()
             .iter()

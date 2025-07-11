@@ -1,11 +1,13 @@
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use crate::aiplan4rust::syntax::ast::{Ast, AstArena, AstKind};
+use crate::aiplan4rust::tree::TreeNode;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -68,7 +70,7 @@ impl Analyzer {
     /// # Note
     /// Because the AST is passed as mutable, this function can efficiently
     /// consume parts of the AST (such as the interner) to avoid duplication.
-    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, ParserInternalError> {
+    pub fn analyze(&mut self, ast: &mut AstArena) -> Result<AnalyzerResult, ParserInternalError> {
         self.perform_analysis(ast)
     }
 
@@ -91,7 +93,7 @@ impl Analyzer {
     /// diagnostic manager with the provided one.
     pub fn analyze_with_diagnostic_manager(
         &mut self,
-        ast: &mut Ast,
+        ast: &mut AstArena,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<AnalyzerResult, ParserInternalError> {
         self.diagnostic_manager = diagnostic_manager;
@@ -121,14 +123,15 @@ impl Analyzer {
     /// Returns a `ParserInternalError` if the AST's root node kind is unexpected.
     fn perform_analysis(
         &mut self,
-        ast: &mut Ast,
+        ast: &mut AstArena,
     ) -> Result<AnalyzerResult, ParserInternalError> {
 
         let context = SemanticContext::from(ast)?;
         let check_ctx = CheckContext::from_semantic_context(&context);
 
         // Step 2: Determine kind and apply semantic checks
-        match ast.root().kind() {
+        let root =  context.ast().try_root()?;
+        match root.kind() {
             AstKind::Domain => {
                 Self::check_domain(&check_ctx, &mut self.diagnostic_manager)?;
             }
@@ -138,7 +141,7 @@ impl Analyzer {
             _ => {
                 return Err(ParserInternalError::new(format!(
                     "Unexpected AST node kind found: {}",
-                    ast.root().kind()
+                    root.kind()
                 )));
             }
         }

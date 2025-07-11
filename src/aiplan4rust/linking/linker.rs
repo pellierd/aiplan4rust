@@ -4,13 +4,15 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::interner::{DisplayWithInterner, InternerMergeResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolOrigin, Usage};
 use crate::aiplan4rust::lang::Ident;
 
 use std::collections::HashMap;
 use std::mem::take;
+use crate::aiplan4rust::tree::TreeNode;
+use crate::Renderer;
 
 /// The `Linker` is responsible for performing the linking phase
 /// of the AIPlan4Rust compilation pipeline.
@@ -80,20 +82,33 @@ impl Linker {
         mut domain: SemanticContext,
         mut problem: SemanticContext,
     ) -> Result<LinkerResult, ParserInternalError> {
+        /*println!("DOMAIN ****************************$");
+        println!("{}", domain.interner());
+        println!("PROBLEM ****************************$");
+        println!("{}", problem.interner());*/
+
         // Step 1: Merge the string interners from domain and problem to form a global interner
         let mut result = InternerMergeResult::from_domain_and_problem(
             domain.interner(),
             problem.interner(),
         );
         let global_interner = result.take_interner();
-
+        /*println!("GLOBAL ****************************$");
+        println!("{}", global_interner);*/
         // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
         let problem_ident_map = result.take_problem_ident_map();
 
+
         remap_problem_idents(&mut problem, &problem_ident_map);
+
+        println!("AVANNT ****************************$");
+        println!("{}", problem.symbol_table().to_string_with_interner(&global_interner));
 
         // Step 3: Resolve external references in the problem with respect to the domain
         resolve_external_references(&domain, &mut problem)?;
+
+        println!("APRES ****************************$");
+        println!("{}", problem.symbol_table().to_string_with_interner(&global_interner));
 
         // Step 4: Create a check context for the problem using the global interner
         // and perform semantic and structural linking checks on the problem
@@ -116,6 +131,7 @@ impl Linker {
         let problem_table = problem.take_symbol_table();
         let global_table = SymbolTable::merge(domain_table, problem_table)?;
 
+        println!("Symbol Tabl:\n{}", global_table.to_string_with_interner(&global_interner));
         // Step 7: Extract other data for the linked context and Construct the final linked
         // semantic context
         let domain_ast = domain.take_ast();
@@ -384,13 +400,15 @@ fn collect_declared_and_undeclared_symbols<'a>(
                 let domain_declaration_option = domain_symbol_table.resolve_declaration(
                     &symbol.name(),
                     &usage.symbol_kind(),
-                    &Scope::root(),
+                    &domain_symbol_table.root_scope(),
                 )?;
 
                 if let Some(domain_declaration) = domain_declaration_option {
                     let mut domain_declaration = domain_declaration.clone();
                     domain_declaration.set_origin(SymbolOrigin::Domain);
+                    domain_declaration.set_scope(problem.symbol_table().root_scope().clone());
                     declared.push((symbol.name(), domain_declaration));
+
                 } else {
                     undeclared.push((symbol.name(), usage));
                     all_resolved = false;

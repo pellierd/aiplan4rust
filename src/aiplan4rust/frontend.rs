@@ -20,6 +20,7 @@ use base64::Engine;
 use base64::engine::general_purpose;
 use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
+use crate::aiplan4rust::tree::TreeNode;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -69,23 +70,22 @@ impl Frontend {
                 let mut linker = Linker::new();
                 let mut linker_result = linker.link(domain_tree, problem_tree)?;
 
-                linker_result
-                    .diagnostic_manager_mut()
-                    .add_diagnostic_from(&diagnostic_manager);
-
+                diagnostic_manager.add_diagnostic_from(linker_result
+                    .diagnostic_manager());
 
                 match linker_result.linked_semantic_context() {
                     Some(linked_semantic_context) => {
                         let interner = linked_semantic_context.interner();
-                        //println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
+                        println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
                         //println!("Linking successful, building LIR...");
                         //println!("{}", linked_semantic_context.problem().to_planning_string(linked_semantic_context.interner()));
                         let mut ir_builder = LIRBuilder::new();
                         let builder_result = ir_builder.build(linked_semantic_context)?;
-                        //println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
+                        println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
                         Ok(builder_result)
                     }
                     None => {
+                        println!("5");
                         Ok(LIRBuilderResult::new(None, diagnostic_manager))
                     }
                 }
@@ -147,17 +147,18 @@ impl Frontend {
         // Match on the AST extracted from parsing.
         match parser_result.take_ast() {
             Some(raw_ast) => {
+
                 // Take diagnostics from parser result.
                 let diagnostic_manager = parser_result.take_diagnostic_manager();
-                println!("{}", raw_ast);
+
                 // Normalize the AST while merging diagnostics.
                 let mut normalizer = Normalizer::new();
                 let mut normalizer_result =
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
 
-                /*match normalizer_result.take_ast() {
+                match normalizer_result.take_ast() {
                     Some(mut normalized_ast) => {
-
+                        let interner = normalized_ast.interner();
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                         // Analyze the normalized AST with the diagnostics.
@@ -169,8 +170,7 @@ impl Frontend {
                         Ok(analysis_result)
                     }
                     None => Self::create_error_result(normalizer_result.diagnostic_manager_mut()),
-                }*/
-                Self::create_error_result(parser_result.diagnostic_manager_mut()) // TO remove with incomment
+                }
             }
             //None => Self::create_error_result(parser_result.diagnostic_manager_mut()),
             None => Self::create_error_result(parser_result.diagnostic_manager_mut())

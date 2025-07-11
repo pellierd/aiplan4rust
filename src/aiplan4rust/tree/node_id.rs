@@ -47,7 +47,7 @@ impl NodeId {
     ///
     /// This constant represents the ID of the root node, which is always zero.
     /// It is used to access the root node within the tree.
-    pub const ROOT_ID: NodeId = NodeId::new(0);
+    //pub const ROOT_ID: NodeId = NodeId::new(0);
 
     /// Creates a new `NodeId` from a `usize` value.
     ///

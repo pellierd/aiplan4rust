@@ -71,7 +71,7 @@ pub fn check_type_hierarchy(
         .collect_declarations(
             None,
             Some(&SymbolKind::PrimitiveType),
-            Some(&Scope::root()),
+            Some(&context.symbol_table().root_scope()),
         );
 
     // Step 2: Build a bidirectional mapping between type names and unique numeric indices
