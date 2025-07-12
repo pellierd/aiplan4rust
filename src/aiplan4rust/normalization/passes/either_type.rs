@@ -1,7 +1,7 @@
 //! Module for normalization pass to detect and remove duplicate `PrimitiveType` children within `Type` nodes in the AST.
 //!
 //! This module provides functionality to:
-//! - Traverse the abstract syntax tree (AST) and detect duplicate type identifiers inside `Type` nodes.
+//! - Traverse the abstract syntax arena (AST) and detect duplicate type identifiers inside `Type` nodes.
 //! - Emit diagnostic warnings immediately upon detecting duplicates.
 //! - Remove duplicate `PrimitiveType` children from `Type` nodes to normalize the AST.
 //!
@@ -67,7 +67,7 @@ use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::Arena;
+use crate::aiplan4rust::arena::Arena;
 
 /// Normalizes all `Type` nodes in the AST by detecting and removing duplicate `PrimitiveType` children.
 ///
@@ -80,7 +80,7 @@ use crate::aiplan4rust::tree::Arena;
 ///
 /// # Parameters
 ///
-/// - `ast`: A mutable reference to the `AstArena` representing the abstract syntax tree to normalize.
+/// - `ast`: A mutable reference to the `AstArena` representing the abstract syntax arena to normalize.
 /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` used to collect and report
 ///   warnings about duplicate types.
 ///
@@ -145,7 +145,7 @@ pub fn normalize_either_type(
 ///
 /// # Parameters
 ///
-/// - `arena`: Reference to the tree arena containing `AstArenaNode` nodes. This is the structure
+/// - `arena`: Reference to the arena arena containing `AstArenaNode` nodes. This is the structure
 ///   holding the AST nodes to traverse.
 /// - `ast`: Reference to the AST arena, used to resolve `Ident` to human-readable strings.
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager, used to emit warnings about duplicates.
@@ -294,7 +294,7 @@ fn new_duplicate_either_type_warning(
 ///
 /// # Parameters
 ///
-/// - `arena`: A mutable reference to the tree arena containing `AstArenaNode` nodes. This is
+/// - `arena`: A mutable reference to the arena arena containing `AstArenaNode` nodes. This is
 ///   the data structure representing the AST.
 ///
 /// # Returns

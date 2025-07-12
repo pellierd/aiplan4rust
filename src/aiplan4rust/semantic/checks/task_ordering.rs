@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::tree::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
@@ -8,10 +8,10 @@ use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::Ident;
 
-/// Checks the task ordering constraints in the provided annotated syntax tree and detects any
+/// Checks the task ordering constraints in the provided annotated syntax arena and detects any
 /// cyclic dependencies.
 ///
-/// This function analyzes the annotated syntax tree to find task ordering constraints defined
+/// This function analyzes the annotated syntax arena to find task ordering constraints defined
 /// within it. It constructs a matrix representing direct task orderings, computes the transitive
 /// closure to reveal indirect orderings, and detects cycles in these constraints. If any cyclic
 /// dependencies are found, diagnostics are emitted to the `DiagnosticManager`.
@@ -19,7 +19,7 @@ use crate::aiplan4rust::lang::Ident;
 /// # Parameters
 ///
 /// - `ast_old`: A reference to the `AnnotatedSyntaxTree` containing the AST and symbol table.
-///   The function traverses this tree to locate task ordering constraints
+///   The function traverses this arena to locate task ordering constraints
 ///   (`TaskOrderingConstraintDef`).
 /// - `source`: The `DiagnosticSource` identifying the context or phase where this check is
 ///   performed.
@@ -37,7 +37,7 @@ use crate::aiplan4rust::lang::Ident;
 /// # Behavior
 ///
 /// The function performs the following steps:
-/// 1. Traverse all nodes in the syntax tree looking for `TaskOrderingConstraintDef`.
+/// 1. Traverse all nodes in the syntax arena looking for `TaskOrderingConstraintDef`.
 /// 2. Extract involved task IDs from each constraint node.
 /// 3. Build a matrix representing direct ordering relations among tasks.
 /// 4. Compute the transitive closure of this matrix to reveal indirect orderings.
@@ -132,9 +132,9 @@ fn report_cyclic_task_ordering_error(
     diagnostic_manager.add_diagnostic(error);
 }
 
-/// Extracts all TaskID values from the given syntax tree node and its children.
+/// Extracts all TaskID values from the given syntax arena node and its children.
 ///
-/// This function traverses the syntax tree starting from the provided node, recursively extracting
+/// This function traverses the syntax arena starting from the provided node, recursively extracting
 /// all TaskID values found within it. The function searches for nodes of type `TaskID` and adds the
 /// associated string identifiers to a vector. If a node does not contain a `TaskID`, the function
 /// recursively searches its children.
@@ -143,23 +143,23 @@ fn report_cyclic_task_ordering_error(
 ///
 /// * `node` - A reference to the `AstEntry` node from which the extraction starts. This node may
 ///   have child nodes containing `TaskID` values.
-/// * `tree` - A reference to the `AstTable` that stores the entire syntax tree. The function will
+/// * `arena` - A reference to the `AstTable` that stores the entire syntax arena. The function will
 ///   use this to retrieve child nodes and access their information.
 ///
 /// # Returns
 ///
 /// The function returns a `Result`:
 /// - `Ok(Vec<&'a String>)`: A vector of references to the `String` identifiers of the `TaskID`
-///   nodes found within the tree. These are ordered as they appear in the tree.
-/// - `Err(ParserInternalError)`: If a child node cannot be found in the tree or if an error occurs
+///   nodes found within the arena. These are ordered as they appear in the arena.
+/// - `Err(ParserInternalError)`: If a child node cannot be found in the arena or if an error occurs
 ///   during extraction, an error is returned with a message describing the issue.
 ///
 /// # Example
 ///
 /// ```rust
-/// let node = ...;  // An AstEntry node in the syntax tree
-/// let tree = ...;  // An AstTable containing the entire syntax tree
-/// let result = extract_task_ids(node, tree);
+/// let node = ...;  // An AstEntry node in the syntax arena
+/// let arena = ...;  // An AstTable containing the entire syntax arena
+/// let result = extract_task_ids(node, arena);
 ///
 /// match result {
 ///     Ok(task_ids) => {
@@ -175,8 +175,8 @@ fn report_cyclic_task_ordering_error(
 ///
 /// # Notes
 ///
-/// - The function performs a depth-first traversal of the tree, so the task IDs will be extracted
-///   in the order they appear in the tree, from top to bottom.
+/// - The function performs a depth-first traversal of the arena, so the task IDs will be extracted
+///   in the order they appear in the arena, from top to bottom.
 /// - If a node does not directly contain a `TaskID`, the function will recursively search through
 ///   its child nodes.
 fn extract_task_ids(

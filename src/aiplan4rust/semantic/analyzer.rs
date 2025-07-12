@@ -6,12 +6,12 @@ use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
-use crate::aiplan4rust::tree::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
 /// It manages the detection and collection of errors encountered during the analysis process.
-/// The `error_manager` field stores any errors found while analyzing the syntax tree.
+/// The `error_manager` field stores any errors found while analyzing the syntax arena.
 #[derive(Debug)]
 pub struct Analyzer {
     /// Manages and tracks parsing and semantic errors encountered during analysis.
@@ -159,17 +159,17 @@ impl Analyzer {
         }
     }
 
-    /// Checks the domain-related syntax tree and performs the relevant checks.
+    /// Checks the domain-related syntax arena and performs the relevant checks.
     ///
-    /// This function performs several checks specific to the domain section of the syntax tree:
+    /// This function performs several checks specific to the domain section of the syntax arena:
     /// 1. It first checks the declared symbols against the given exclusions for unused symbols.
     /// 2. If the symbol check passes, it proceeds to check for atomic formula correctness.
     /// 3. Then, it checks the functional expr correctness using the type information from the
     ///   symbol table.
     ///
     /// # Parameters
-    /// - `annotated_syntax_tree`: The annotated syntax tree that contains the domain-related AST.
-    ///    This tree includes the structure of the domain and the associated symbol table.
+    /// - `annotated_syntax_tree`: The annotated syntax arena that contains the domain-related AST.
+    ///    This arena includes the structure of the domain and the associated symbol table.
     ///
     /// # Returns
     /// Returns a `Result<bool, ParserInternalError>`.
@@ -212,7 +212,7 @@ impl Analyzer {
         if checked {
 
 
-            // Create a type checker using the symbol table from the annotated syntax tree
+            // Create a type checker using the symbol table from the annotated syntax arena
             let type_checker = TypeChecker::new(context.symbol_table());
 
             // Check atomic formulas in the domain using the type checker
@@ -247,9 +247,9 @@ impl Analyzer {
         Ok(checked)
     }
 
-    /// Analyzes the problem-related syntax tree and performs relevant checks.
+    /// Analyzes the problem-related syntax arena and performs relevant checks.
     ///
-    /// This method checks for any symbol-related issues in the provided annotated syntax tree,
+    /// This method checks for any symbol-related issues in the provided annotated syntax arena,
     /// excluding certain types of symbols (like primitive types, constants, predicates, functions, and tasks).
     /// Errors encountered during the check are recorded in the `error_manager`.
     ///
@@ -291,7 +291,7 @@ impl Analyzer {
         Ok(checked)
     }
 
-    /// Checks the symbols in the given annotated syntax tree for various types of symbol-related
+    /// Checks the symbols in the given annotated syntax arena for various types of symbol-related
     /// errors.
     ///
     /// This function performs the following checks:
@@ -336,12 +336,12 @@ impl Analyzer {
     ) -> Result<bool, ParserInternalError> {
         let mut checked = true;
 
-        // Check declared symbols in the annotated syntax tree
+        // Check declared symbols in the annotated syntax arena
         // This check ensures that declared symbols follow the correct syntax and declarations
         checked &= semantic::checks::check_declared_symbols(context, diagnostic_manager)?;
 
         // Check for undeclared symbols, skipping specific types of symbols
-        // This ensures that all symbols used in the tree are declared, except for those types in
+        // This ensures that all symbols used in the arena are declared, except for those types in
         // `skip_types_undeclared`
         checked &= semantic::checks::check_undeclared_symbols(
             context,

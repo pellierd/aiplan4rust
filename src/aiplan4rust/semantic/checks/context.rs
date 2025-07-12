@@ -1,7 +1,7 @@
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use crate::aiplan4rust::tree::Arena;
+use crate::aiplan4rust::arena::Arena;
 
 use std::collections::HashSet;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -41,7 +41,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 /// ```
 ///
 /// # Fields
-/// - `ast`: The abstract syntax tree for the context.
+/// - `ast`: The abstract syntax arena for the context.
 /// - `symbols`: The symbol table used during resolution.
 /// - `interner`: The global string interner for identifiers.
 /// - `source_name`: The name of the source file (used for diagnostics).

@@ -13,7 +13,7 @@ use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstContent;
 use crate::aiplan4rust::syntax::ParseContext;
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::arena::NodeId;
 
 grammar<'ctx>(context: &'ctx mut ParseContext);
 

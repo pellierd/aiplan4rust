@@ -4,7 +4,7 @@
 //! associated with an AST (Abstract Syntax Tree) node.
 //!
 //! Each variant of [`Content`] corresponds to a specific type of content that can be
-//! attached to a node in the tree, such as an identifier, a floating-point literal,
+//! attached to a node in the arena, such as an identifier, a floating-point literal,
 //! or various language-specific operators.
 //!
 //! [`Content`] is a leaf element in the AST, meaning it contains data but no child nodes.
@@ -51,7 +51,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::AstContent;
-use crate::aiplan4rust::tree::NodeContent;
+use crate::aiplan4rust::arena::NodeContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

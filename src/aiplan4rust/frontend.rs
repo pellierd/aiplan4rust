@@ -20,7 +20,7 @@ use base64::Engine;
 use base64::engine::general_purpose;
 use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
-use crate::aiplan4rust::tree::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -46,7 +46,7 @@ impl Frontend {
     /// - `Err(ParserInternalError)` if any errors occurred during parsing or linking.
     ///
     /// # Errors
-    /// - If the syntax tree of the domain or problem is `None`, an error is returned.
+    /// - If the syntax arena of the domain or problem is `None`, an error is returned.
     /// - If the linking process fails, the error is returned.
     pub fn parse(
         &self,
@@ -95,7 +95,7 @@ impl Frontend {
     }
 
     /// Parses the source file at the given path and performs semantic analysis on the parsed syntax
-    /// tree.
+    /// arena.
     ///
     /// This function performs the following steps:
     /// 1. Reads the content of the source file specified by `source_path`.
@@ -106,7 +106,7 @@ impl Frontend {
     ///    `ErrorManager`.
     /// 5. Displays all errors encountered during parsing and analysis.
     ///
-    /// If no `SyntaxTree` is produced, it returns an `AnalyzerResult` with no syntax tree and the
+    /// If no `SyntaxTree` is produced, it returns an `AnalyzerResult` with no syntax arena and the
     /// errors from the syntax.
     ///
     /// # Arguments

@@ -3,11 +3,11 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::tree::{NodeContent, NodeId};
+use crate::aiplan4rust::arena::{NodeContent, NodeId};
 
-/// A generic tree node used in arena-based trees.
+/// A generic arena node used in arena-based trees.
 ///
-/// `AbstractNode` represents a single node in a tree and stores its kind, content,
+/// `AbstractNode` represents a single node in a arena and stores its kind, content,
 /// list of child nodes, and an optional parent reference.
 ///
 /// This structure is useful for building abstract syntax trees (ASTs),

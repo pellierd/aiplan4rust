@@ -7,7 +7,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::Arena;
+use crate::aiplan4rust::arena::Arena;
 
 /// A list of `TypedSymbol` items.
 ///

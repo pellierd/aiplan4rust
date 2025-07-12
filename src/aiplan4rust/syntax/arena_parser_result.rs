@@ -6,7 +6,7 @@ use std::fmt;
 /// Represents the outcome of a parsing operation in the PDDL syntax.
 ///
 /// This structure encapsulates two core elements:
-/// - An optional [`Ast`] containing the parsed abstract syntax tree if parsing succeeded.
+/// - An optional [`Ast`] containing the parsed abstract syntax arena if parsing succeeded.
 /// - A [`DiagnosticManager`] storing all diagnostics (errors, warnings, etc.) generated during parsing.
 ///
 /// `ParserResult` serves as a unified return type for the parsing phase,

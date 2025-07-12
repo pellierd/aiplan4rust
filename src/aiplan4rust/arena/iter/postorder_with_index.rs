@@ -1,8 +1,8 @@
-use crate::aiplan4rust::tree::{Arena, NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{Arena, NodeId, ArenaNode};
 
 /// A postorder iterator over nodes in an `Arena`, yielding `(NodeId, &T)` pairs.
 ///
-/// This iterator traverses the tree in postorder, meaning it visits all children of a node
+/// This iterator traverses the arena in postorder, meaning it visits all children of a node
 /// before the node itself. Each iteration returns the unique node identifier along with
 /// a reference to the node.
 ///
@@ -26,12 +26,12 @@ impl<'a, T: ArenaNode> PostorderIterWithIndex<'a, T> {
     ///
     /// # Parameters
     ///
-    /// * `tree` - Reference to the tree containing the tree nodes.
+    /// * `arena` - Reference to the arena containing the arena nodes.
     /// * `root` - The root node ID from which to start traversal.
     ///
     /// # Returns
     ///
-    /// A `PostorderIterWithIndex` ready to traverse the tree in postorder.
+    /// A `PostorderIterWithIndex` ready to traverse the arena in postorder.
     pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
         Self {
             arena,

@@ -36,7 +36,7 @@ use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

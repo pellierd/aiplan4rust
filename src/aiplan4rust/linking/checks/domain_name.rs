@@ -16,8 +16,8 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 /// 4. If any expected declaration or AST entry is missing, a `ParserInternalError` is returned.
 ///
 /// # Arguments
-/// * `domain` - The annotated syntax tree representing the domain file.
-/// * `problem` - The annotated syntax tree representing the problem file.
+/// * `domain` - The annotated syntax arena representing the domain file.
+/// * `problem` - The annotated syntax arena representing the problem file.
 ///
 /// # Returns
 /// * `Ok(true)` if the check completes successfully (whether or not names match).

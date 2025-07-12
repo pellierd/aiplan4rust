@@ -1,6 +1,6 @@
 //! Module responsible for normalizing and merging type declarations in the AST.
 //!
-//! This module provides functions to process and clean up the abstract syntax tree (AST)
+//! This module provides functions to process and clean up the abstract syntax arena (AST)
 //! related to type declarations. Its main purpose is to:
 //!
 //! - Detect and warn about implicit "either" type declarations, which may indicate ambiguous or overlapping type definitions.
@@ -42,7 +42,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManag
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 
 /// Normalizes type declarations in the AST by merging all `TypedItem` nodes
 /// that share the same `PrimitiveType` key.

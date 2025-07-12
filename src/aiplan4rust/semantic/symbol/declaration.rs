@@ -3,7 +3,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::Type;
@@ -13,7 +13,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
-/// Represents a declaration of a symbol in the abstract syntax tree (AST).
+/// Represents a declaration of a symbol in the abstract syntax arena (AST).
 ///
 /// This struct captures detailed information about a symbol's declaration within
 /// the program, including its identity, scope, origin, associated types, parameters,

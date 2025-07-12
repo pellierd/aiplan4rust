@@ -1,7 +1,7 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::tree::Arena;
+use crate::aiplan4rust::arena::Arena;
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -14,8 +14,8 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 ///
 /// # Fields
 ///
-/// * `domain` - The AST tree representing the domain context.
-/// * `problem` - The AST tree representing the problem context after linking.
+/// * `domain` - The AST arena representing the domain context.
+/// * `problem` - The AST arena representing the problem context after linking.
 /// * `symbol_table` - The combined symbol table reflecting all linked symbols.
 /// * `interner` - The unified string interner used for identifiers across domain and problem.
 /// * `domain_source` - The source file or identifier for the domain.
@@ -54,8 +54,8 @@ impl LinkedSemanticContext {
     ///
     /// # Arguments
     ///
-    /// * `domain` - The AST tree representing the domain context.
-    /// * `problem` - The AST tree representing the problem context.
+    /// * `domain` - The AST arena representing the domain context.
+    /// * `problem` - The AST arena representing the problem context.
     /// * `symbol_table` - The combined symbol table after linking domain and problem.
     /// * `interner` - The unified string interner used for identifiers.
     /// * `domain_source` - The source (e.g. filename) of the domain.
@@ -83,22 +83,22 @@ impl LinkedSemanticContext {
         }
     }
 
-    /// Returns an immutable reference to the domain AST tree.
+    /// Returns an immutable reference to the domain AST arena.
     pub fn domain(&self) -> &Arena<AstNode> {
         &self.domain
     }
 
-    /// Returns a mutable reference to the domain AST tree.
+    /// Returns a mutable reference to the domain AST arena.
     pub fn domain_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.domain
     }
 
-    /// Returns an immutable reference to the problem AST tree.
+    /// Returns an immutable reference to the problem AST arena.
     pub fn problem(&self) -> &Arena<AstNode> {
         &self.problem
     }
 
-    /// Returns a mutable reference to the problem AST tree.
+    /// Returns a mutable reference to the problem AST arena.
     pub fn problem_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.problem
     }

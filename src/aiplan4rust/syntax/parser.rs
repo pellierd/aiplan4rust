@@ -101,7 +101,7 @@ impl<'a> Parser<'a> {
     /// let result = parser.parse("example.pddl", source_code, Language::PDDL);
     /// match result {
     ///     Ok(parser_result) => {
-    ///         // Process the resulting syntax tree
+    ///         // Process the resulting syntax arena
     ///     },
     ///     Err(error) => {
     ///         // Handle internal parsing error

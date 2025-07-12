@@ -4,7 +4,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 
-/// Trait representing the semantic content stored within a tree node.
+/// Trait representing the semantic content stored within a arena node.
 ///
 /// This trait abstracts over the possible types of content a node can carry,
 /// such as identifiers, numeric literals, operators, and optimization directives.
@@ -27,7 +27,7 @@ use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimi
 /// # Typical Usage
 ///
 /// Implementors of this trait represent concrete node content types in the
-/// syntax tree. Parsing or semantic analysis code can use `try_*` methods to
+/// syntax arena. Parsing or semantic analysis code can use `try_*` methods to
 /// safely extract strongly typed information from nodes, handling errors gracefully.
 ///
 /// # Example

@@ -1,10 +1,10 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
 
-/// A unique identifier for nodes in an tree.
+/// A unique identifier for nodes in an arena.
 ///
 /// This struct wraps a `usize` that serves as a unique index or ID for nodes
-/// in a tree or tree structure. It provides type safety and utility methods
+/// in a arena or arena structure. It provides type safety and utility methods
 /// to work with node identifiers.
 ///
 /// # Sentinel value
@@ -43,10 +43,10 @@ impl Default for NodeId {
 }
 
 impl NodeId {
-    /// The constant identifier for the root node in the tree.
+    /// The constant identifier for the root node in the arena.
     ///
     /// This constant represents the ID of the root node, which is always zero.
-    /// It is used to access the root node within the tree.
+    /// It is used to access the root node within the arena.
     //pub const ROOT_ID: NodeId = NodeId::new(0);
 
     /// Creates a new `NodeId` from a `usize` value.

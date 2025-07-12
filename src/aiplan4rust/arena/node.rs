@@ -2,18 +2,18 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::tree::{Arena, NodeId, NodeContent};
+use crate::aiplan4rust::arena::{Arena, NodeId, NodeContent};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 
-/// A generic trait representing a node in a tree stored within an `Arena`.
+/// A generic trait representing a node in a arena stored within an `Arena`.
 ///
 /// This trait defines the minimal interface that any node type must implement to
-/// be used in a tree structure managed by a `TreeArena`. It provides methods to
-/// navigate parent-child relationships, modify the tree, work with node content,
+/// be used in a arena structure managed by a `TreeArena`. It provides methods to
+/// navigate parent-child relationships, modify the arena, work with node content,
 /// and extract semantic information like identifiers and symbols.
 ///
 /// # Trait Type Parameters
@@ -24,16 +24,16 @@ use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 /// # Core Responsibilities
 ///
 /// - Access and modify the node's kind and content.
-/// - Navigate the tree structure: get parent and children, add children.
+/// - Navigate the arena structure: get parent and children, add children.
 /// - Remap identifiers within the node's content using a mapping table.
 /// - Query node properties such as leaf/root status and arity (number of children).
-/// - Attempt to extract a symbol reference from the node within a tree arena.
+/// - Attempt to extract a symbol reference from the node within a arena arena.
 ///
 /// # Example
 ///
 /// ```rust
 /// use std::collections::HashMap;
-/// use crate::aiplan4rust::tree::{TreeNode, NodeId};
+/// use crate::aiplan4rust::arena::{TreeNode, NodeId};
 /// use crate::aiplan4rust::syntax::elements::Ident;
 ///
 /// struct MyNode {
@@ -116,7 +116,7 @@ pub trait ArenaNode: Clone {
     /// # Returns
     ///
     /// - `Some(NodeId)` if the node has a parent.
-    /// - `None` if this node is the root of the tree.
+    /// - `None` if this node is the root of the arena.
     fn parent(&self) -> Option<NodeId>;
 
     /// Returns the `NodeId` of the parent of this node, or an error if there is no parent.
@@ -254,7 +254,7 @@ pub trait ArenaNode: Clone {
         self.children().len()
     }
 
-    /// Returns `true` if this node is the root of the tree (has no parent).
+    /// Returns `true` if this node is the root of the arena (has no parent).
     ///
     /// # Returns
     ///
@@ -464,7 +464,7 @@ pub trait ArenaNode: Clone {
     ///
     /// # Arguments
     ///
-    /// * `arena` - A reference to the arena containing the tree of nodes.
+    /// * `arena` - A reference to the arena containing the arena of nodes.
     /// * `interner` - A reference to the `StringInterner` used to resolve identifiers.
     /// * `indent` - The indentation level (number of indent units to apply).
     ///

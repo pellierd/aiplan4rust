@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::tree::{BaseNode, NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::arena::{BaseNode, NodeId, Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -123,7 +123,7 @@ impl ArenaNode for ExprNode {
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
 
-    /// Recursively pretty-prints this node and its children as a tree.
+    /// Recursively pretty-prints this node and its children as a arena.
     fn fmt_with(
         &self,
         f: &mut Formatter<'_>,

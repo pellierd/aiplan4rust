@@ -20,8 +20,8 @@ use crate::aiplan4rust::lang::Ident;
 ///
 /// # Parameters
 ///
-/// - `domain`: Reference to the domain's annotated syntax tree, containing its symbol table.
-/// - `problem`: Reference to the problem's annotated syntax tree, containing its symbol table.
+/// - `domain`: Reference to the domain's annotated syntax arena, containing its symbol table.
+/// - `problem`: Reference to the problem's annotated syntax arena, containing its symbol table.
 /// - `source`: The `DiagnosticSource` identifying the analysis phase producing diagnostics.
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager where conflict diagnostics
 ///   are recorded.
@@ -195,8 +195,8 @@ fn get_relevant_domain_kinds(
             .collect()
 }
 
-/// Reports a conflict error when a symbol declared in the problem syntax tree
-/// conflicts with existing declarations in the domain syntax tree.
+/// Reports a conflict error when a symbol declared in the problem syntax arena
+/// conflicts with existing declarations in the domain syntax arena.
 ///
 /// This function creates and records a diagnostic error indicating that the
 /// symbol from the problem declaration conflicts with one or more declarations
@@ -207,10 +207,10 @@ fn get_relevant_domain_kinds(
 /// problem declaration and provided filename.
 ///
 /// # Parameters
-/// - `problem_declaration`: The `Declaration` in the problem syntax tree that
+/// - `problem_declaration`: The `Declaration` in the problem syntax arena that
 ///   conflicts with existing domain declarations.
 /// - `domain_kinds`: A vector of `SymbolKind` representing the conflicting
-///   declaration kinds found in the domain syntax tree.
+///   declaration kinds found in the domain syntax arena.
 /// - `filename`: The name of the source file containing the problem declaration.
 /// - `source`: The `DiagnosticSource` identifying the analysis phase producing this diagnostic.
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager where the

@@ -18,7 +18,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.
 ///
-/// This function iterates over all symbol declarations in the annotated syntax tree and verifies
+/// This function iterates over all symbol declarations in the annotated syntax arena and verifies
 /// whether each declaration has at least one usage within its scope or any parent scope. It skips
 /// checking for symbols of kinds specified in `skip_symbols` or those determined to be skipped by
 /// domain-specific rules.

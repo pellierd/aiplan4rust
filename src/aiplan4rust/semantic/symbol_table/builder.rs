@@ -1,6 +1,6 @@
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::tree::{NodeRef, ArenaNode};
+use crate::aiplan4rust::arena::{NodeRef, ArenaNode};
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry,Usage};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
@@ -44,10 +44,10 @@ enum Comparator {
     GreaterEq, // Greater than or equal
 }
 
-/// A builder for constructing a [`Table`] from an abstract syntax tree (AST).
+/// A builder for constructing a [`Table`] from an abstract syntax arena (AST).
 ///
 /// `SymbolTableBuilder` encapsulates the logic for traversing an [`ArenaAst`]
-/// and populating a `SymbolTable` with symbols extracted from the tree. It
+/// and populating a `SymbolTable` with symbols extracted from the arena. It
 /// identifies the root node type (e.g., Domain or Problem), determines the source
 /// of the symbol table, and initializes it accordingly.
 ///
@@ -89,7 +89,7 @@ impl SymbolTableBuilder {
         &mut self.table
     }
 
-    /// Builds a complete [`Table`] from the given abstract syntax tree.
+    /// Builds a complete [`Table`] from the given abstract syntax arena.
     ///
     /// This method:
     /// - Retrieves the root node of the AST.
@@ -99,7 +99,7 @@ impl SymbolTableBuilder {
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to the [`ArenaAst`] representing the parsed syntax tree.
+    /// * `ast` - A reference to the [`ArenaAst`] representing the parsed syntax arena.
     ///
     /// # Errors
     ///
@@ -189,7 +189,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `node_ref` - The reference to the AST node currently being processed.
-    /// * `ast` - The full abstract syntax tree (`ArenaAst`) that contains the node.
+    /// * `ast` - The full abstract syntax arena (`ArenaAst`) that contains the node.
     /// * `scope` - The current scope, which manages symbol visibility and hierarchical
     ///   structure within the AST.
     ///
@@ -324,7 +324,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `node_ref` - A reference to the AST node representing the symbol declaration.
-    /// * `ast` - The abstract syntax tree (`ArenaAst`) containing the node.
+    /// * `ast` - The abstract syntax arena (`ArenaAst`) containing the node.
     /// * `scope` - The current scope in which the symbol is declared, affecting visibility.
     /// * `types` - Optional vector of identifier types associated with the symbol declaration.
     /// * `arguments` - Optional vector of typed symbols representing the symbol's arguments.
@@ -412,7 +412,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `node_ref` - A reference to the AST node representing the symbol usage.
-    /// * `ast` - The full abstract syntax tree (`ArenaAst`) containing the node.
+    /// * `ast` - The full abstract syntax arena (`ArenaAst`) containing the node.
     /// * `scope` - The scope context in which the symbol is used, which controls visibility.
     ///
     /// # Returns
@@ -500,7 +500,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `node_ref` - A reference to the `TypedList` AST node to process.
-    /// * `ast` - The full abstract syntax tree (`ArenaAst`) containing the node.
+    /// * `ast` - The full abstract syntax arena (`ArenaAst`) containing the node.
     /// * `scope` - The current scope within which the symbols are being initialized.
     ///
     /// # Returns
@@ -552,7 +552,7 @@ impl SymbolTableBuilder {
     /// # Parameters
     ///
     /// - `node_ref`: A reference to the `TypedItem` AST node to process.
-    /// - `ast`: The full abstract syntax tree (`ArenaAst`) containing the node.
+    /// - `ast`: The full abstract syntax arena (`ArenaAst`) containing the node.
     /// - `scope`: The current scope in which the symbols are declared. This is cloned as needed
     ///   to maintain correct scoping during recursive calls.
     ///
@@ -619,7 +619,7 @@ impl SymbolTableBuilder {
     ///
     /// - `node_ref`: The AST node representing the element to process. This node is expected
     ///   to be one of the accepted kinds (e.g., `PrimitiveType`, `Constant`, `Variable`, or `AtomicFunctionSkeleton`).
-    /// - `ast`: The full abstract syntax tree (`ArenaAst`) that contains the node.
+    /// - `ast`: The full abstract syntax arena (`ArenaAst`) that contains the node.
     /// - `scope`: The current scope in which the symbol is being declared or used.
     /// - `types`: A vector of type identifiers associated with the element.
     ///
@@ -957,7 +957,7 @@ impl SymbolTableBuilder {
     ///
     /// # Parameters
     /// - `node_ref`: Reference to the AST node representing the definition.
-    /// - `ast`: The AST tree containing all nodes.
+    /// - `ast`: The AST arena containing all nodes.
     /// - `scope`: The current symbol table scope for resolving symbols and declarations.
     /// - `valid_kinds`: Slice of valid AST kinds that this function can process.
     /// - `expected_children`: The exact number of child nodes expected (2 for tasks, 3 for actions/methods).
@@ -1046,7 +1046,7 @@ impl SymbolTableBuilder {
     ///
     /// # Parameters
     /// - `node_ref`: Reference to the AST node representing the atomic formula or function term.
-    /// - `ast`: The AST tree containing all nodes.
+    /// - `ast`: The AST arena containing all nodes.
     /// - `scope`: The current scope used for symbol resolution and symbol usage registration.
     ///
     /// # Returns
@@ -1105,7 +1105,7 @@ impl SymbolTableBuilder {
     ///
     /// # Parameters
     /// - `node_ref`: Reference to the AST node representing the quantified expr.
-    /// - `ast`: The AST tree containing all nodes.
+    /// - `ast`: The AST arena containing all nodes.
     /// - `scope`: The current scope in which the quantified expr resides.
     ///
     /// # Returns
@@ -1173,7 +1173,7 @@ impl SymbolTableBuilder {
     ///
     /// # Parameters
     /// - `node_ref`: A reference to the AST node representing the atomic formula skeleton.
-    /// - `ast`: The tree containing all AST nodes.
+    /// - `ast`: The arena containing all AST nodes.
     /// - `scope`: The current scope for symbol resolution.
     ///
     /// # Returns
@@ -1233,7 +1233,7 @@ impl SymbolTableBuilder {
     ///
     /// # Parameters
     /// - `node_ref`: The AST node representing a `TypedList`.
-    /// - `ast`: The tree containing all AST nodes.
+    /// - `ast`: The arena containing all AST nodes.
     ///
     /// # Returns
     /// - `Ok(Vec<TypedSymbol>)`: A vector of typed symbols extracted from the list.
@@ -1341,7 +1341,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `type_ref` - A reference to an AST node expected to be of kind `Type`.
-    /// * `ast` - The AST tree containing all nodes.
+    /// * `ast` - The AST arena containing all nodes.
     ///
     /// # Returns
     ///
@@ -1388,7 +1388,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `type_ref` - A reference to an AST node expected to be of kind `Type`.
-    /// * `ast` - The AST tree containing all nodes.
+    /// * `ast` - The AST arena containing all nodes.
     /// * `scope` - The scope in which the type symbols are used.
     ///
     /// # Returns
@@ -1427,7 +1427,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `node_ref` - A reference to the AST node representing the tagged task.
-    /// * `ast` - The AST tree containing all nodes.
+    /// * `ast` - The AST arena containing all nodes.
     /// * `scope` - The current scope where the symbol declarations and usages apply.
     ///
     /// # Returns
@@ -1474,7 +1474,7 @@ impl SymbolTableBuilder {
     /// # Arguments
     ///
     /// * `node_ref` - A reference to the AST node representing the task ordering constraint.
-    /// * `ast` - The AST tree containing all nodes.
+    /// * `ast` - The AST arena containing all nodes.
     /// * `scope` - The current scope used for symbol tracking.
     ///
     /// # Returns

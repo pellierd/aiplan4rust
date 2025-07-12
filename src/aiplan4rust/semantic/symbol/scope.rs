@@ -1,4 +1,4 @@
-use crate::aiplan4rust::tree::{Arena, NodeId};
+use crate::aiplan4rust::arena::{Arena, NodeId};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::frontend::ParserInternalError;
 
@@ -126,7 +126,7 @@ impl Scope {
     ///
     /// # Parameters
     /// - `kind`: The kind of AST node to search for.
-    /// - `ast`: Reference to the AST tree containing all nodes.
+    /// - `ast`: Reference to the AST arena containing all nodes.
     ///
     /// # Returns
     /// - `Ok(true)` if any node in the scope's stack has the specified kind.

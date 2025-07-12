@@ -1,7 +1,7 @@
 //! High-Level Abstract Syntax Tree (AST) Representation for `aiplan4rust`
 //!
 //! This module defines the [`Ast`] type, a container that encapsulates the core components
-//! of an abstract syntax tree (AST) generated during the parsing phase of PDDL or HDDL documents.
+//! of an abstract syntax arena (AST) generated during the parsing phase of PDDL or HDDL documents.
 //! It centralizes both syntactic structure and parsing metadata for downstream tasks
 //! such as analysis, transformation, code generation, or pretty-printing.
 //!
@@ -9,14 +9,14 @@
 //!
 //! The [`Ast`] holds the following components:
 //!
-//! - A [`Box<AstNode>`] representing the root of the syntax tree.
+//! - A [`Box<AstNode>`] representing the root of the syntax arena.
 //! - A [`StringInterner`] used during parsing for deduplicating string content such as symbols.
 //! - A human-readable [`source_name`] (e.g., a filename or label).
 //! - A [`SystemTime`] timestamp recording when the AST was created.
 //!
 //! # Traversal
 //!
-//! The tree can be traversed using built-in iter:
+//! The arena can be traversed using built-in iter:
 //!
 //! - [`Ast::preorder()`] — depth-first traversal where the parent is visited before its children.
 //! - [`Ast::postorder()`] — depth-first traversal where the children are visited before the parent.
@@ -49,7 +49,7 @@
 //!
 //! # See Also
 //!
-//! - [`AstNode`] for details about individual tree nodes.
+//! - [`AstNode`] for details about individual arena nodes.
 //! - [`AstKind`] for node classification.
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
@@ -62,11 +62,11 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, PlanningSyntaxDisplay};
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::tree::{NodeId, Arena};
+use crate::aiplan4rust::arena::{NodeId, Arena};
 
-/// A complete abstract syntax tree and its associated context.
+/// A complete abstract syntax arena and its associated context.
 ///
-/// This struct owns the entire syntax tree, the string interner used to deduplicate
+/// This struct owns the entire syntax arena, the string interner used to deduplicate
 /// symbolic strings, and metadata such as source origin and generation timestamp.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ast {

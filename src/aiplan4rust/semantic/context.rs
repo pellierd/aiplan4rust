@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::tree::{Arena, NodeId};
+use crate::aiplan4rust::arena::{Arena, NodeId};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
@@ -12,7 +12,7 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
 /// Represents the semantic context resulting from the semantic analysis phase.
 ///
-/// This structure contains the semantically enriched abstract syntax tree (AST),
+/// This structure contains the semantically enriched abstract syntax arena (AST),
 /// a symbol table, semantic requirements, and metadata such as the source name
 /// and generation timestamp.
 ///
@@ -20,7 +20,7 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 /// between parsing and later phases such as type checking, optimization, or code generation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
-    /// The AST stored in an tree for efficient indexing and traversal.
+    /// The AST stored in an arena for efficient indexing and traversal.
     ast: Arena<AstNode>,
 
     /// The set of semantic requirements (e.g., domain-specific constraints or planner capabilities).
@@ -42,7 +42,7 @@ impl Context {
     /// Constructs a new `SemanticContext` from its components.
     ///
     /// # Arguments
-    /// * `ast` - The tree-based abstract syntax tree.
+    /// * `ast` - The arena-based abstract syntax arena.
     /// * `source_name` - The name of the input source file.
     /// * `requirements` - A set of extracted semantic requirements.
     /// * `symbol_table` - The resulting symbol table from analysis.
@@ -69,7 +69,7 @@ impl Context {
     /// Creates a new `AnnotatedSyntaxTree` from a `SyntaxTree`.
     ///
     /// # Arguments
-    /// * `ast_old` - The original syntax tree to be annotated.
+    /// * `ast_old` - The original syntax arena to be annotated.
     ///
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
@@ -90,15 +90,15 @@ impl Context {
         ))
     }
 
-    /// Extracts all implied `Requirement` instances from an tree-based syntax tree,
+    /// Extracts all implied `Requirement` instances from an arena-based syntax arena,
     /// assuming all requirements are declared under a single parent node.
     ///
-    /// Traverses the tree to find the first node of kind `Requirement`,
+    /// Traverses the arena to find the first node of kind `Requirement`,
     /// collects it and all its children, then stops.
     ///
     /// # Arguments
     ///
-    /// * `tree` - A reference to the tree-based syntax tree.
+    /// * `arena` - A reference to the arena-based syntax arena.
     ///
     /// # Returns
     ///
@@ -130,7 +130,7 @@ impl Context {
         Ok(requirements)
     }
 
-    /// Checks whether a specific `Requirement` is declared in the syntax tree.
+    /// Checks whether a specific `Requirement` is declared in the syntax arena.
     ///
     /// This method returns `true` if the given `requirement` is present in the
     /// set of declared requirements, meaning the corresponding feature is enabled
@@ -164,7 +164,7 @@ impl Context {
         self.ast.try_node(id)
     }
 
-    /// Returns a reference to the internal AST tree.
+    /// Returns a reference to the internal AST arena.
     pub fn ast(&self) -> &Arena<AstNode> {
         &self.ast
     }
@@ -229,7 +229,7 @@ impl fmt::Display for Context {
     /// Formats the semantic context for display.
     ///
     /// The output includes metadata (timestamp and source), semantic requirements,
-    /// the tree-based AST, and the symbol table.
+    /// the arena-based AST, and the symbol table.
     ///
     /// # Example
     /// ```text

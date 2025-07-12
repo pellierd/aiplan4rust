@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::{PlanningSyntaxDisplay, Span};
-use crate::aiplan4rust::tree::{BaseNode, NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::arena::{BaseNode, NodeId, Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -17,13 +17,13 @@ use crate::aiplan4rust::syntax::ast::kind::Kind;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 
-/// Represents a node in an Abstract Syntax Tree (AST) tree.
+/// Represents a node in an Abstract Syntax Tree (AST) arena.
 ///
 /// Each `Node` holds information about its kind (syntax type), the source
 /// code span it covers, its children nodes (by indices), and optionally
 /// its parent node index.
 ///
-/// This structure is designed for tree-based AST storage, where nodes
+/// This structure is designed for arena-based AST storage, where nodes
 /// reference each other by indices rather than pointers.
 ///
 /// # Fields
@@ -37,7 +37,7 @@ use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 ///
 /// ```rust
 /// use crate::aiplan4rust::syntax::{AstKind, Span};
-/// use crate::aiplan4rust::semantic::tree::Node;
+/// use crate::aiplan4rust::semantic::arena::Node;
 ///
 /// let kind = AstKind::Expr; // example variant
 /// let span = Span::default();
@@ -326,7 +326,7 @@ impl ArenaNode for AstNode {
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
 
-    /// Recursively pretty-prints this node and its children as a tree.
+    /// Recursively pretty-prints this node and its children as a arena.
     fn fmt_with(
         &self,
         f: &mut Formatter<'_>,

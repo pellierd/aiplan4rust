@@ -11,12 +11,12 @@ use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeContent, NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{NodeContent, NodeId, ArenaNode};
 
-/// Checks the type correctness of typed expr in the syntax tree, including comparisons,
+/// Checks the type correctness of typed expr in the syntax arena, including comparisons,
 /// assignments, and arithmetic operations.
 ///
-/// This function traverses the annotated syntax tree to verify that expr have compatible
+/// This function traverses the annotated syntax arena to verify that expr have compatible
 /// types according to their operation kind. It supports:
 /// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type compatibility.
 /// - Other comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, `*=`, `/=`),
@@ -26,7 +26,7 @@ use crate::aiplan4rust::tree::{NodeContent, NodeId, ArenaNode};
 /// `check_numeric_expression`) and detailed errors are reported through the diagnostic manager.
 ///
 /// # Parameters
-/// - `ast_old`: The annotated syntax tree containing AST nodes and symbol information.
+/// - `ast_old`: The annotated syntax arena containing AST nodes and symbol information.
 /// - `type_checker`: A `TypeChecker` instance used for type resolution and compatibility validation.
 /// - `source`: The diagnostic source context, indicating where diagnostics originate.
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
@@ -121,7 +121,7 @@ fn is_numeric_expression(node: &AstNode) -> bool {
 /// an error is reported through the `DiagnosticManager`.
 ///
 /// # Parameters
-/// - `annotated_syntax_tree`: The annotated syntax tree containing the AST and symbol information.
+/// - `annotated_syntax_tree`: The annotated syntax arena containing the AST and symbol information.
 /// - `type_checker`: The type checker used to validate type compatibility.
 /// - `node`: The syntax node representing the equality or assignment operation.
 /// - `ty1`: The type(s) of the left-hand side operand.
@@ -231,7 +231,7 @@ fn report_type_mismatch_in_expression(
 /// type mismatch error.
 ///
 /// # Parameters
-/// - `annotated_syntax_tree`: The annotated syntax tree containing the AST and metadata.
+/// - `annotated_syntax_tree`: The annotated syntax arena containing the AST and metadata.
 /// - `node`: The syntax node representing the numeric expr.
 /// - `ty1`: A reference to a vector of strings representing the type of the left operand.
 /// - `ty2`: A reference to a vector of strings representing the type of the right operand.
@@ -329,11 +329,11 @@ fn report_invalid_types_in_numeric_expression(
 ///
 /// This function ensures that the given syntax node represents a binary operation
 /// with exactly two children. It then looks up the types of both operand nodes
-/// using the annotated syntax tree and associated symbol table.
+/// using the annotated syntax arena and associated symbol table.
 ///
 /// # Parameters
 /// - `node`: The syntax node representing the binary operation.
-/// - `annotated_syntax_tree`: The annotated syntax tree containing the full AST and symbol
+/// - `annotated_syntax_tree`: The annotated syntax arena containing the full AST and symbol
 ///   information.
 ///
 /// # Returns
@@ -344,7 +344,7 @@ fn report_invalid_types_in_numeric_expression(
 /// # Errors
 /// This function returns a `ParserInternalError` in the following cases:
 /// - The node does not have exactly two children (binary operations must have two).
-/// - One of the children is missing in the syntax tree.
+/// - One of the children is missing in the syntax arena.
 /// - One of the operands has no associated type in the symbol table.
 ///
 /// # Example
@@ -387,9 +387,9 @@ fn get_binary_operation_types(
 /// the declared or inferred type of an expr or symbol.
 ///
 /// # Parameters
-/// - `index`: The index of the current node in the syntax tree.
+/// - `index`: The index of the current node in the syntax arena.
 /// - `node`: A reference to the `HeapSyntaxNode` representing the AST node to analyze.
-/// - `annotated_syntax_tree`: A reference to the annotated syntax tree that provides access
+/// - `annotated_syntax_tree`: A reference to the annotated syntax arena that provides access
 ///   to both the symbol table and the full syntax structure.
 ///
 /// # Returns
@@ -463,7 +463,7 @@ fn get_number_type() -> Result<Option<Type>, ParserInternalError> {
 /// # Parameters
 /// - `index`: The index of the AST node, used for error tracking.
 /// - `symbol`: The name of the variable (e.g., `"?x"`).
-/// - `annotated_syntax_tree`: A reference to the annotated syntax tree containing the
+/// - `annotated_syntax_tree`: A reference to the annotated syntax arena containing the
 ///   symbol table and domain requirements.
 ///
 /// # Returns
@@ -501,7 +501,7 @@ fn get_variable_type(
 /// # Parameters
 /// - `index`: The index of the AST node, used for error reporting.
 /// - `symbol`: The name of the constant (e.g., `"loc1"`).
-/// - `annotated_syntax_tree`: A reference to the annotated syntax tree containing the
+/// - `annotated_syntax_tree`: A reference to the annotated syntax arena containing the
 ///   symbol table and other context.
 ///
 /// # Returns
@@ -530,7 +530,7 @@ fn get_constant_type(
 /// declaration is found for the usage, it returns `Ok(None)`.
 ///
 /// # Parameters
-/// - `index`: The AST index representing the usage of the symbol in the syntax tree.
+/// - `index`: The AST index representing the usage of the symbol in the syntax arena.
 /// - `symbol_table`: A reference to the symbol table containing symbol declarations and usages.
 ///
 /// # Returns
@@ -570,8 +570,8 @@ fn get_declaration_type(
 /// # Parameters
 /// - `index`: The index of the symbol in the symbol table. This is used for symbol lookup.
 /// - `node`: A reference to the AST entry representing the function term to analyze.
-/// - `annotated_syntax_tree`: A reference to the annotated syntax tree, providing access to the
-///   syntax tree and symbol table.
+/// - `annotated_syntax_tree`: A reference to the annotated syntax arena, providing access to the
+///   syntax arena and symbol table.
 ///
 /// # Returns
 /// This function returns a `Result` containing:

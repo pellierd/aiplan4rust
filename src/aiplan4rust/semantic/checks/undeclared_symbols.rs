@@ -15,7 +15,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 
-/// Checks if there are any undeclared symbols used in the given syntax tree.
+/// Checks if there are any undeclared symbols used in the given syntax arena.
 ///
 /// This function scans all symbol usages in the provided `AnnotatedSyntaxTree`
 /// and verifies that each usage has at least one valid declaration. If any usage
@@ -221,7 +221,7 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
 ///
 /// # Arguments
 /// - `symbol`: The symbol to check. This symbol will be matched against predefined PDDL symbols.
-/// - `annotated_syntax_tree`: The annotated syntax tree, which contains information about the
+/// - `annotated_syntax_tree`: The annotated syntax arena, which contains information about the
 ///   enabled requirements in the PDDL problem. This is used to determine if a given symbol
 ///   is predefined based on the current problem's requirements.
 ///

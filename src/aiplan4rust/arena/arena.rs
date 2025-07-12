@@ -2,16 +2,16 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::tree::{ArenaNode, NodeId};
-use crate::aiplan4rust::tree::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
-use crate::aiplan4rust::tree::node_ref::{NodeRef, NodeRefMut};
+use crate::aiplan4rust::arena::{ArenaNode, NodeId};
+use crate::aiplan4rust::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
+use crate::aiplan4rust::arena::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::lang::Ident;
 
-/// A flat arena-based tree structure for storing nodes of type `T`.
+/// A flat arena-based arena structure for storing nodes of type `T`.
 ///
 /// The nodes are stored in a `Vec<T>`, and each node must implement the [`ArenaNode`] trait
 /// which enables parent/child relationships through indices. This is useful for working
@@ -25,7 +25,7 @@ pub struct Arena<T: ArenaNode> {
 impl<T: ArenaNode> Arena<T> {
     const DEFAULT_ROOT_ID: usize = 0;
 
-    /// Creates a new, empty tree arena.
+    /// Creates a new, empty arena arena.
     pub fn new() -> Self {
         Arena {
             nodes: Vec::new(),

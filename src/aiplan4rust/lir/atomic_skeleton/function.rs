@@ -30,7 +30,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::{Arena, ArenaNode};
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
 ///

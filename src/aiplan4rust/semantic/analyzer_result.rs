@@ -5,7 +5,7 @@ use std::fmt;
 
 
 /// `AnalyzerResult` represents the result of a semantic analysis, which contains
-/// an annotated syntax tree and an associated error manager.
+/// an annotated syntax arena and an associated error manager.
 ///
 /// This structure is used to store the result of the analysis, whether it's successful
 /// or contains errors that need to be handled.
@@ -19,15 +19,15 @@ use std::fmt;
 ///
 /// # Methods
 /// - `new`: Creates a new instance of `AnalyzerResult` with an optional annotated
-///   syntax tree and an error manager.
-/// - `annotated_syntax_tree`: Returns an immutable reference to the annotated syntax tree,
-///   or `None` if the tree is unavailable.
-/// - `annotated_syntax_tree_mut`: Returns a mutable reference to the annotated syntax tree,
-///   or `None` if the tree is unavailable.
+///   syntax arena and an error manager.
+/// - `annotated_syntax_tree`: Returns an immutable reference to the annotated syntax arena,
+///   or `None` if the arena is unavailable.
+/// - `annotated_syntax_tree_mut`: Returns a mutable reference to the annotated syntax arena,
+///   or `None` if the arena is unavailable.
 /// - `error_manager`: Returns an immutable reference to the error manager.
 /// - `error_manager_mut`: Returns a mutable reference to the error manager.
-/// - `is_some`: Checks whether an annotated syntax tree is present.
-/// - `is_none`: Checks whether an annotated syntax tree is absent.
+/// - `is_some`: Checks whether an annotated syntax arena is present.
+/// - `is_none`: Checks whether an annotated syntax arena is absent.
 
 #[derive(Debug, Clone)]
 pub struct AnalyzerResult {
@@ -36,10 +36,10 @@ pub struct AnalyzerResult {
 }
 
 impl AnalyzerResult {
-    /// Creates a new `AnalyzerResult` with an optional annotated syntax tree and an error manager.
+    /// Creates a new `AnalyzerResult` with an optional annotated syntax arena and an error manager.
     ///
     /// # Arguments
-    /// - `annotated_syntax_tree`: The annotated syntax tree associated with this analysis result.
+    /// - `annotated_syntax_tree`: The annotated syntax arena associated with this analysis result.
     /// - `error_manager`: The error manager that collects all errors encountered during the analysis.
     ///
     /// # Returns
@@ -54,31 +54,31 @@ impl AnalyzerResult {
         }
     }
 
-    /// Returns an immutable reference to the annotated syntax tree.
+    /// Returns an immutable reference to the annotated syntax arena.
     ///
     /// # Returns
-    /// `Some(&AnnotatedSyntaxTree)` if the tree exists, otherwise `None`.
+    /// `Some(&AnnotatedSyntaxTree)` if the arena exists, otherwise `None`.
     pub fn semantic_context(&self) -> Option<&SemanticContext> {
         self.context.as_ref()
     }
 
-    /// Consumes the current instance and returns the annotated syntax tree if present.
+    /// Consumes the current instance and returns the annotated syntax arena if present.
     ///
     /// This function takes ownership of `self` and extracts the `AnnotatedSyntaxTree`
-    /// from it, if it exists. This is useful when you need to move the syntax tree
+    /// from it, if it exists. This is useful when you need to move the syntax arena
     /// out of the structure rather than borrowing it.
     ///
     /// # Returns
     ///
-    /// `Some(AnnotatedSyntaxTree)` if the syntax tree exists, or `None` otherwise.
+    /// `Some(AnnotatedSyntaxTree)` if the syntax arena exists, or `None` otherwise.
     pub fn into_semantic_context(self) -> Option<SemanticContext> {
         self.context
     }
 
-    /// Returns a mutable reference to the annotated syntax tree.
+    /// Returns a mutable reference to the annotated syntax arena.
     ///
     /// # Returns
-    /// `Some(&mut AnnotatedSyntaxTree)` if the tree exists, otherwise `None`.
+    /// `Some(&mut AnnotatedSyntaxTree)` if the arena exists, otherwise `None`.
     pub fn semantic_context_mut(&mut self) -> Option<&mut SemanticContext> {
         self.context.as_mut()
     }
@@ -99,18 +99,18 @@ impl AnalyzerResult {
         &mut self.diagnostic_manager
     }
 
-    /// Checks whether an annotated syntax tree is present.
+    /// Checks whether an annotated syntax arena is present.
     ///
     /// # Returns
-    /// `true` if the annotated syntax tree exists, `false` otherwise.
+    /// `true` if the annotated syntax arena exists, `false` otherwise.
     pub fn is_some(&self) -> bool {
         self.context.is_some()
     }
 
-    /// Checks whether an annotated syntax tree is absent.
+    /// Checks whether an annotated syntax arena is absent.
     ///
     /// # Returns
-    /// `true` if the annotated syntax tree is absent, `false` otherwise.
+    /// `true` if the annotated syntax arena is absent, `false` otherwise.
     pub fn is_none(&self) -> bool {
         self.context.is_none()
     }
@@ -120,7 +120,7 @@ impl fmt::Display for AnalyzerResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.context {
             Some(context) => {
-                // If the annotated syntax tree exists, display the tree and any errors.
+                // If the annotated syntax arena exists, display the arena and any errors.
                 write!(f, "Semantic analysis successful:\n{}", context)?;
 
                 // Check if there are any errors in the error manager.
@@ -134,7 +134,7 @@ impl fmt::Display for AnalyzerResult {
                 }
             }
             None => {
-                // If no annotated syntax tree is available, display analysis failure and errors.
+                // If no annotated syntax arena is available, display analysis failure and errors.
                 write!(f, "Semantic analysis failed:\n")?;
                 for diagnostic in self.diagnostic_manager().diagnostics() {
                     write!(f, "{}\n", diagnostic)?;

@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::arena::NodeId;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
@@ -803,7 +803,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns an error when multiple `DomainName` symbols are found, indicating
-    /// that the annotated syntax tree (AST) is structurally invalid.
+    /// that the annotated syntax arena (AST) is structurally invalid.
     pub fn resolve_domain_name_declaration(&self) -> Result<Option<&SymbolEntry>, ParserInternalError> {
         self.resolve_unique_declaration(SymbolKind::DomainName)
     }
@@ -822,7 +822,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns an error when multiple `ProblemName` symbols are found, indicating
-    /// that the annotated syntax tree (AST) is structurally invalid.
+    /// that the annotated syntax arena (AST) is structurally invalid.
     pub fn resolve_problem_name_declaration(&self) -> Result<Option<&SymbolEntry>, ParserInternalError> {
         self.resolve_unique_declaration(SymbolKind::ProblemName)
     }
@@ -830,7 +830,7 @@ impl Table {
     /// Resolves a unique symbol of a specific kind assumed to be singular in the AST.
     ///
     /// This internal utility function is designed to resolve symbols that are expected
-    /// to appear only once per annotated syntax tree, such as `DomainName` or `ProblemName`.
+    /// to appear only once per annotated syntax arena, such as `DomainName` or `ProblemName`.
     /// It collects all symbols of the specified kind and returns:
     /// - The symbol if exactly one is found.
     /// - `None` if no symbol is found.
@@ -846,7 +846,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns an error if multiple declarations of the same `SymbolKind` are found,
-    /// indicating a semantic or structural error in the annotated syntax tree.
+    /// indicating a semantic or structural error in the annotated syntax arena.
     fn resolve_unique_declaration(
         &self,
         kind: SymbolKind,
@@ -975,7 +975,7 @@ impl Table {
     /// Creates a new `SymbolTable` by building it from the given AST.
     ///
     /// This function serves as a convenient entry point to construct
-    /// a symbol table based on the provided abstract syntax tree (`ArenaAst`).
+    /// a symbol table based on the provided abstract syntax arena (`ArenaAst`).
     /// Internally, it uses `SymbolTableBuilder` to perform the construction.
     ///
     /// # Parameters

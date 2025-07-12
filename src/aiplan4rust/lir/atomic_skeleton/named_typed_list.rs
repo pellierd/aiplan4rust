@@ -29,7 +29,7 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::{Arena, ArenaNode};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
 ///

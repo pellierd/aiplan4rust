@@ -1,6 +1,6 @@
-use crate::aiplan4rust::tree::{NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
 
-/// An iterator for traversing a tree in preorder, yielding only `NodeId`s.
+/// An iterator for traversing a arena in preorder, yielding only `NodeId`s.
 ///
 /// This is useful when you want to perform both immutable and mutable access
 /// using `NodeId` later.

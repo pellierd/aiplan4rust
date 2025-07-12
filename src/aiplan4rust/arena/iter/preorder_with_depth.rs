@@ -1,4 +1,4 @@
-use crate::aiplan4rust::tree::{NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
 
 /// Preorder iterator yielding (NodeId, &T, depth)
 pub struct PreorderIterWithDepth<'a, T: ArenaNode> {

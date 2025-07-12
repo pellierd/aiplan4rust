@@ -3,7 +3,7 @@
 //! # Overview
 //! This crate enables the reading, parsing, and structured error reporting of PDDL and HDDL files,
 //! commonly used in AI planning. It provides high-level abstractions over the parser pipeline,
-//! lexical analysis, abstract syntax tree (AST) representations, and diagnostic rendering.
+//! lexical analysis, abstract syntax arena (AST) representations, and diagnostic rendering.
 //!
 //! # Features
 //! - Support for both PDDL and HDDL syntax
@@ -58,7 +58,7 @@
 //! - [`parser`] – Entrypoint to the parsing pipeline
 //! - [`parser_result`] – Wrapper for the output of the parsing process
 //! - [`grammar`] – Grammar-specific logic
-//! - [`ast`] – Abstract syntax tree definitions
+//! - [`ast`] – Abstract syntax arena definitions
 //! - [`display`] – Provides the `SyntaxDisplay` trait
 //! - [`span`] – Source position tracking with spans
 //! - [`fast_line_table`] – Maps file offsets to line/column

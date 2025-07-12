@@ -1,12 +1,12 @@
 use std::fmt;
-use crate::aiplan4rust::tree::{NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 
-/// A lightweight, non-owning reference to a node in an tree.
+/// A lightweight, non-owning reference to a node in an arena.
 ///
 /// `NodeRef` associates a node's unique identifier (`NodeId`) with
 /// a reference to the node data itself (`&T`). This allows ergonomic
 /// access to both the node and its ID without taking ownership,
-/// enabling safe, efficient traversal and inspection of nodes in an tree.
+/// enabling safe, efficient traversal and inspection of nodes in an arena.
 ///
 /// The lifetime `'a` ties the `NodeRef` to the lifetime of the referenced node,
 /// preventing dangling references.
@@ -30,7 +30,7 @@ impl<'a, T: ArenaNode + ?Sized> NodeRef<'a, T> {
     /// # Parameters
     ///
     /// * `id` - The unique identifier of the node.
-    /// * `node` - A reference to the node instance in the tree.
+    /// * `node` - A reference to the node instance in the arena.
     ///
     /// # Returns
     ///
@@ -64,12 +64,12 @@ impl<'a, T: ArenaNode + fmt::Display + ?Sized> fmt::Display for NodeRef<'a, T> {
     }
 }
 
-/// A mutable, lightweight reference to a node in an tree.
+/// A mutable, lightweight reference to a node in an arena.
 ///
 /// Similar to `NodeRef`, but allows mutable access to the node.
 /// Useful for traversing and modifying nodes safely without taking ownership.
 ///
-/// The lifetime `'a` ensures the mutable reference is valid as long as the tree node exists.
+/// The lifetime `'a` ensures the mutable reference is valid as long as the arena node exists.
 #[derive(Debug)]
 pub struct NodeRefMut<'a, T: ArenaNode + ?Sized> {
     id: NodeId,

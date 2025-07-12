@@ -1,4 +1,4 @@
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::arena::NodeId;
 
 pub mod content;
 

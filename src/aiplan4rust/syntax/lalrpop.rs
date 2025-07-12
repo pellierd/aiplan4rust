@@ -1,7 +1,7 @@
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::{ParseContext, ParserError};
-use crate::aiplan4rust::tree::{NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError, Token};
@@ -10,7 +10,7 @@ use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError, Token};
 ///
 /// This function invokes the PDDL parser to process the token stream from the lexer.
 /// If parsing succeeds and produces a root node, the root node ID is set in the context.
-/// If parsing succeeds but results in an empty tree (no root), it returns `Ok(None)`.
+/// If parsing succeeds but results in an empty arena (no root), it returns `Ok(None)`.
 /// If parsing fails, it returns a `ParseError`.
 ///
 /// # Arguments
@@ -21,7 +21,7 @@ use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError, Token};
 /// # Returns
 ///
 /// * `Ok(Some(root_id))` if parsing succeeds and a root node is found.
-/// * `Ok(None)` if parsing succeeds but produces an empty tree (no root).
+/// * `Ok(None)` if parsing succeeds but produces an empty arena (no root).
 /// * `Err(ParseError)` if parsing fails.
 ///
 /// # Errors
@@ -37,7 +37,7 @@ use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError, Token};
 ///
 /// match result {
 ///     Some(root_id) => println!("Parsed root node ID: {:?}", root_id),
-///     None => println!("Parsed successfully but tree is empty."),
+///     None => println!("Parsed successfully but arena is empty."),
 /// }
 /// ```
 pub fn parse_pddl(
@@ -61,7 +61,7 @@ pub fn parse_pddl(
 ///
 /// This function invokes the HDDL parser to process the token stream from the lexer.
 /// If parsing succeeds and produces a root node, the root node ID is set in the context.
-/// If parsing succeeds but results in an empty tree (no root), it returns `Ok(None)`.
+/// If parsing succeeds but results in an empty arena (no root), it returns `Ok(None)`.
 /// If parsing fails, it returns a `ParseError`.
 ///
 /// # Arguments
@@ -72,7 +72,7 @@ pub fn parse_pddl(
 /// # Returns
 ///
 /// * `Ok(Some(root_id))` if parsing succeeds and a root node is found.
-/// * `Ok(None)` if parsing succeeds but produces an empty tree (no root).
+/// * `Ok(None)` if parsing succeeds but produces an empty arena (no root).
 /// * `Err(ParseError)` if parsing fails.
 ///
 /// # Errors
@@ -88,7 +88,7 @@ pub fn parse_pddl(
 ///
 /// match result {
 ///     Some(root_id) => println!("Parsed root node ID: {:?}", root_id),
-///     None => println!("Parsed successfully but tree is empty."),
+///     None => println!("Parsed successfully but arena is empty."),
 /// }
 /// ```
 pub fn parse_hddl(

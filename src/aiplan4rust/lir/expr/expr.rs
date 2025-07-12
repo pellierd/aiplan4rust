@@ -4,14 +4,14 @@ use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::Arena;
+use crate::aiplan4rust::arena::Arena;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lang::Optimization;
 
-/// Wrapper struct around `TreeArena<ExprNode>` representing an expression tree.
+/// Wrapper struct around `TreeArena<ExprNode>` representing an expression arena.
 ///
 /// This struct provides a dedicated type for expressions, allowing
 /// to add custom methods on top of the underlying `TreeArena`.
@@ -21,7 +21,7 @@ pub struct Expr {
 }
 
 impl Expr {
-    /// Creates a new, empty expression tree.
+    /// Creates a new, empty expression arena.
     ///
     /// # Examples
     ///
@@ -74,7 +74,7 @@ impl Expr {
 
 /// Implements the `FromAst` trait for `Expr`.
 ///
-/// This allows constructing an `Expr` (expression tree) from an AST node subtree.
+/// This allows constructing an `Expr` (expression arena) from an AST node subtree.
 ///
 /// # Expected AST structure
 ///

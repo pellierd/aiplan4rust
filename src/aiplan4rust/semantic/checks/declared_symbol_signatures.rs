@@ -5,20 +5,20 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::tree::{NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 
-/// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
+/// Checks for errors in the symbol declarations and their usages in the given annotated syntax arena.
 ///
-/// This function scans through the `symbol_table` of the provided `tree` to match each symbol's
-/// declarations and usages. It ensures that symbols used in the tree are correctly declared and
+/// This function scans through the `symbol_table` of the provided `arena` to match each symbol's
+/// declarations and usages. It ensures that symbols used in the arena are correctly declared and
 /// that their types match the expected types. Errors are added to the provided `ErrorManager`
 /// during the process.
 ///
 /// # Arguments
 ///
-/// * `tree` - An `AnnotatedSyntaxTree` that contains the symbols to check.
+/// * `arena` - An `AnnotatedSyntaxTree` that contains the symbols to check.
 /// * `type_checker` - A `TypeChecker` used to validate types during the check.
 /// * `errors` - A mutable reference to an `ErrorManager` where any errors found during the check
 ///   will be added.
@@ -34,7 +34,7 @@ use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 ///
 /// ```rust
 /// let mut errors = ErrorManager::new();
-/// if atomic_formula_checker::check(&tree, &type_checker, &mut errors).is_ok() {
+/// if atomic_formula_checker::check(&arena, &type_checker, &mut errors).is_ok() {
 ///     // Handle no errors
 /// } else {
 ///     // Handle errors
@@ -203,7 +203,7 @@ fn match_argument(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Retrieve the symbol name associated with the argument from the annotated syntax tree
+    // Retrieve the symbol name associated with the argument from the annotated syntax arena
     let name = context.ast().try_node(NodeId::new(argument_index))?.try_ident()?;
 
     // Look up the corresponding declaration in the symbol table,

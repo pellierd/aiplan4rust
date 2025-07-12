@@ -25,7 +25,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::Arena;
+use crate::aiplan4rust::arena::Arena;
 
 /// Represents a planning task declaration in HDDL.
 ///
@@ -87,7 +87,7 @@ impl DerefMut for Task {
 }
 
 impl FromAst for Task {
-    /// Builds a `Task` from an abstract syntax tree node.
+    /// Builds a `Task` from an abstract syntax arena node.
     ///
     /// The node is expected to have:
     /// - Child 0: The identifier (name).

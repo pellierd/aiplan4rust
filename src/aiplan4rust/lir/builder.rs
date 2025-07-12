@@ -43,7 +43,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::tree::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
 use crate::aiplan4rust::lir::LiftedProblem;
@@ -175,7 +175,7 @@ impl LIRBuilder {
     /// Extracts all problem-level elements (initial state, goal, metric, etc.)
     ///
     /// # Arguments
-    /// - `context`: the semantic context including the problem tree.
+    /// - `context`: the semantic context including the problem arena.
     /// - `ir`: the LiftedProblem to fill in.
     ///
     /// # Returns

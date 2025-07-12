@@ -4,7 +4,7 @@
 //! to an AST node. Each variant represents a concrete payload, such as an identifier,
 //! floating-point value, or PDDL-specific operator (e.g., comparison or assignment).
 //!
-//! `Content` is a leaf element in the AST: it holds data but no tree structure.
+//! `Content` is a leaf element in the AST: it holds data but no arena structure.
 //!
 //! # Example
 //!
@@ -36,7 +36,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::NodeContent;
+use crate::aiplan4rust::arena::NodeContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

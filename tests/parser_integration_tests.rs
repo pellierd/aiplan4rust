@@ -93,7 +93,7 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
         match parse_result {
             Ok(parser_result) => {
                 if parser_result.ast().is_none() {
-                    eprintln!("Parsing failed (no syntax tree) for file {}", file_path.display());
+                    eprintln!("Parsing failed (no syntax arena) for file {}", file_path.display());
                     success = false;
                 }
             }

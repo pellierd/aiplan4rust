@@ -1,8 +1,8 @@
-use crate::aiplan4rust::tree::{Arena, NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{Arena, NodeId, ArenaNode};
 
 /// A preorder iterator over an `Arena` that yields node IDs along with references to the nodes.
 ///
-/// This iterator traverses the tree starting from a given root node,
+/// This iterator traverses the arena starting from a given root node,
 /// visiting each node before its children (preorder traversal).
 /// It returns a tuple containing the `NodeId` and a reference to the node itself.
 ///
@@ -24,12 +24,12 @@ impl<'a, T: ArenaNode> PreorderIterWithIndex<'a, T> {
     ///
     /// # Parameters
     ///
-    /// * `tree` - Reference to the tree containing the nodes.
+    /// * `arena` - Reference to the arena containing the nodes.
     /// * `root` - The root node ID where traversal begins.
     ///
     /// # Returns
     ///
-    /// A `PreorderIterWithIndex` instance ready to traverse the tree.
+    /// A `PreorderIterWithIndex` instance ready to traverse the arena.
     pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
         Self {
             arena,
