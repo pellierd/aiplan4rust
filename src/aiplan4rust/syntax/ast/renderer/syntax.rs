@@ -6,7 +6,7 @@ use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
-pub fn render_node(
+pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
     arena: &Arena<AstNode>,

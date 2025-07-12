@@ -1,12 +1,11 @@
 use crate::aiplan4rust::arena::{Arena, ArenaNode, BaseNode, NodeId};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstKind};
-use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
-use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
+use crate::aiplan4rust::syntax::Span;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -96,17 +95,6 @@ impl AstNode {
     pub fn try_requirement(&self) -> Result<Requirement, ParserInternalError> {
         self.content().try_requirement()
     }
-
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        match self.content_mut() {
-            AstContent::Ident(id) => {
-                if let Some(&new_id) = map.get(id) {
-                    *id = new_id;
-                }
-            }
-            _ => {}
-        }
-    }
 }
 
 impl Deref for AstNode {
@@ -139,35 +127,7 @@ impl fmt::Display for AstNode {
     /// // Node[kind=PrimitiveType("t1"), content=..., span=..., parent=none, children=[1, 2]]
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let children = self
-            .children()
-            .iter()
-            .map(|idx| idx.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let parent = self
-            .parent()
-            .map_or("none".to_string(), |idx| idx.to_string());
-
-        let span = self.span();
-        let span_str = format!(
-            "[l{}:c{}-l{}:c{}]",
-            span.begin_line(),
-            span.begin_column(),
-            span.end_line(),
-            span.end_column()
-        );
-
-        write!(
-            f,
-            "[kind={}, content={}, span={} parent={}, children=[{}]]",
-            self.kind(),
-            self.content(),
-            span_str,
-            parent,
-            children,
-        )
+        renderer::default::render(self, f)
     }
 }
 
@@ -212,7 +172,14 @@ impl ArenaNode for AstNode {
     }
 
     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.remap_idents(map)
+        match self.content_mut() {
+            AstContent::Ident(id) => {
+                if let Some(&new_id) = map.get(id) {
+                    *id = new_id;
+                }
+            }
+            _ => {}
+        }
     }
 
     fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, ParserInternalError> {
@@ -244,68 +211,7 @@ impl ArenaNode for AstNode {
         arena: &Arena<Self>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        fn fmt_node(
-            node: &AstNode,
-            f: &mut Formatter<'_>,
-            arena: &Arena<AstNode>,
-            interner: &StringInterner,
-            prefix: &str,
-            last: bool,
-        ) -> fmt::Result {
-            let branch = if last { "└─" } else { "├─" };
-
-            let content_str = match node.content() {
-                AstContent::None => String::new(),
-                AstContent::Ident(id) => format!(" [{}]", id.to_string_with_interner(interner)),
-                other => format!(" [{}]", other),
-            };
-
-            let (line, column) = node.span().start_position();
-            let span_str = format!(" (l{}:c{})", line, column);
-
-            // On différencie si c'est la racine ultime ou pas
-            let children = node.children();
-            let len = children.len();
-
-            // Écrire la ligne courante
-            write!(
-                f,
-                "{}{}{}{}{}",
-                prefix,
-                branch,
-                node.kind(),
-                content_str,
-                span_str
-            )?;
-
-            // Si ce nœud a des enfants, on passe à la ligne
-            if !children.is_empty() {
-                writeln!(f)?;
-            }
-
-            let new_prefix = if last {
-                format!("{}   ", prefix)
-            } else {
-                format!("{}│  ", prefix)
-            };
-
-            // Parcourir les enfants
-            for (i, child_idx) in children.iter().enumerate() {
-                let child = arena
-                    .get_node(*child_idx)
-                    .expect("Child not found in arena");
-                fmt_node(child, f, arena, interner, &new_prefix, i == len - 1)?;
-
-                // Si ce n'est pas le dernier enfant, retour à la ligne après chaque sous-arbre
-                if i < len - 1 {
-                    writeln!(f)?;
-                }
-            }
-
-            Ok(())
-        }
-
-        fmt_node(self, f, arena, interner, "", true)
+        renderer::tree::render(self, f, arena, interner)
     }
 
     fn fmt_planning_syntax_with_indent(
@@ -316,7 +222,7 @@ impl ArenaNode for AstNode {
         indent: usize,
     ) -> fmt::Result {
 
-        renderer::render_node(self, f, arena, interner, indent)?;
+        renderer::syntax::render(self, f, arena, interner, indent)?;
         Ok(())
     }
 }
