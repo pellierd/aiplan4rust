@@ -62,8 +62,7 @@
 //! The main entry point is [`normalize_typed_list`], which normalizes all `TypedList` nodes.
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::syntax::ast::{AstArena, AstContent};
+use crate::aiplan4rust::syntax::ast::{AstArena, AstArenaNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};

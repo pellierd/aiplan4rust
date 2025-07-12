@@ -8,8 +8,8 @@ use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::{AstArenaNode, TypeChecker};
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::semantic::TypeChecker;
+use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstKind};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
 

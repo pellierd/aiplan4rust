@@ -6,8 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
-use once_cell::sync::Lazy;
-use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstArenaNode;
 
 /// Represents a lexical or semantic scope within the AST.
 ///

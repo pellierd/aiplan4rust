@@ -8,8 +8,8 @@ use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
-use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::tree::{NodeId, TreeArena};
+use crate::aiplan4rust::tree::NodeId;
+
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;

@@ -9,9 +9,8 @@ use crate::aiplan4rust::lang::BinaryComp;
 use crate::aiplan4rust::lang::Requirement;
 
 use std::collections::HashSet;
-use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstKind};
 use crate::aiplan4rust::tree::TreeNode;
 
 pub fn check_requirement_violations(

@@ -2,7 +2,8 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::tree::TreeArena;
-use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
+use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::syntax::ast::AstArenaNode;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
 /// Represents a linked semantic context combining a domain and a problem.

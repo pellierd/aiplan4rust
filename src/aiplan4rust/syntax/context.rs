@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use lalrpop_util::ErrorRecovery;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::Span;

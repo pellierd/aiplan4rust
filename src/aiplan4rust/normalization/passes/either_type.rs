@@ -63,10 +63,9 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{AstArena, AstContent};
+use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstArena, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::TreeArena;
 

@@ -3,9 +3,8 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
-use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::Span;
 use std::fmt;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)

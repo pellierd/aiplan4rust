@@ -4,9 +4,8 @@ use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
-use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstKind};
 use crate::aiplan4rust::lang::Ident;
 
 /// Checks the task ordering constraints in the provided annotated syntax tree and detects any

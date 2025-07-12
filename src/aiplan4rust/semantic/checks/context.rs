@@ -1,10 +1,10 @@
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::semantic::{AstArenaNode, SemanticContext, SymbolTable};
+use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::tree::TreeArena;
 
 use std::collections::HashSet;
-
+use crate::aiplan4rust::syntax::ast::AstArenaNode;
 
 /// A lightweight wrapper to pass semantic context components to verification functions.
 ///

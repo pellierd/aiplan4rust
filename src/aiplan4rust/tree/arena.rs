@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::process::id;
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::tree::{TreeNode, NodeId};
@@ -8,7 +7,7 @@ use crate::aiplan4rust::tree::iter::{PostorderIter, PostorderIterWithIndex, Preo
 use crate::aiplan4rust::tree::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::semantic::{AstArenaNode, symbol::SymbolRef};
+use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::lang::Ident;
 

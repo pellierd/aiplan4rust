@@ -59,7 +59,7 @@ use std::time::SystemTime;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstArenaNode;
 use crate::aiplan4rust::syntax::{FastLineTable, PlanningSyntaxDisplay};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::tree::{NodeId, TreeArena};

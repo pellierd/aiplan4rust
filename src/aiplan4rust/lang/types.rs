@@ -4,9 +4,8 @@ use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::semantic::AstArenaNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::lang::{Ident, Requirement};
+use crate::aiplan4rust::syntax::ast::{AstArenaNode, FromAst};
+use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{NodeContent, TreeArena, TreeNode};
 

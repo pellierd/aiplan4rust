@@ -52,8 +52,11 @@ pub mod kind;
 pub mod from_ast;
 pub mod ast_arena;
 
+pub mod ast_node;
+
 // Public re-exports
 pub use kind::Kind as AstKind;
 pub use content::Content as AstContent;
 pub use from_ast::FromAst;
 pub use ast_arena::AstArena;
+pub use ast_node::AstArenaNode;
