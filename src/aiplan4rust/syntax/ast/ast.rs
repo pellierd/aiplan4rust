@@ -62,7 +62,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, PlanningSyntaxDisplay};
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::tree::{NodeId, TreeArena};
+use crate::aiplan4rust::tree::{NodeId, Arena};
 
 /// A complete abstract syntax tree and its associated context.
 ///
@@ -72,7 +72,7 @@ use crate::aiplan4rust::tree::{NodeId, TreeArena};
 pub struct Ast {
 
     /// Root node of the AST.
-    arena: TreeArena<AstNode>,
+    arena: Arena<AstNode>,
 
     /// String interner used during parsing.
     interner: StringInterner,
@@ -94,7 +94,7 @@ impl Ast {
     /// - `source_name`: A human-readable label for the origin of the AST.
     /// - `generated_at`: A [`SystemTime`] indicating when the AST was built.
     pub fn new(
-        arena: TreeArena<AstNode>,
+        arena: Arena<AstNode>,
         interner: StringInterner,
         source_name: String,
         generated_at: SystemTime,
@@ -108,7 +108,7 @@ impl Ast {
     }
     pub fn default() -> Self {
         Ast {
-            arena: TreeArena::<AstNode>::new(),         // suppose que AstNode impl Default
+            arena: Arena::<AstNode>::new(),         // suppose que AstNode impl Default
             interner: StringInterner::new(),             // interner vide
             source_name: String::new(),                  // chaîne vide par défaut
             generated_at: SystemTime::now(),             // horodatage actuel
@@ -116,17 +116,17 @@ impl Ast {
     }
 
     /// Returns a reference to the AST root node.
-    pub fn arena(&self) -> &TreeArena<AstNode> {
+    pub fn arena(&self) -> &Arena<AstNode> {
         &self.arena
     }
 
     /// Returns a mutable reference to the AST root node.
-    pub fn arena_mut(&mut self) -> &mut TreeArena<AstNode> {
+    pub fn arena_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.arena
     }
 
     /// Consumes and returns the root AST node.
-    pub fn take_arena(&mut self) -> TreeArena<AstNode> {
+    pub fn take_arena(&mut self) -> Arena<AstNode> {
         std::mem::take(&mut self.arena)
     }
 

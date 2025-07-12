@@ -17,24 +17,24 @@ use crate::aiplan4rust::lang::Ident;
 /// which enables parent/child relationships through indices. This is useful for working
 /// with abstract syntax trees and similar structures.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct TreeArena<T: ArenaNode> {
+pub struct Arena<T: ArenaNode> {
     pub nodes: Vec<T>,
     root_id: Option<NodeId>,
 }
 
-impl<T: ArenaNode> TreeArena<T> {
+impl<T: ArenaNode> Arena<T> {
     const DEFAULT_ROOT_ID: usize = 0;
 
     /// Creates a new, empty tree arena.
     pub fn new() -> Self {
-        TreeArena {
+        Arena {
             nodes: Vec::new(),
             root_id: Some(NodeId::new(Self::DEFAULT_ROOT_ID)),
         }
     }
 
     pub fn empty() -> Self {
-        TreeArena {
+        Arena {
             nodes: Vec::new(),
             root_id: None,
         }
@@ -44,7 +44,7 @@ impl<T: ArenaNode> TreeArena<T> {
         pub fn compact_from_preorder(&mut self) {
             let preorder_iter = self.preorder_ids();
 
-            let mut new_arena = TreeArena {
+            let mut new_arena = Arena {
                 nodes: Vec::with_capacity(self.nodes.len()),
                 root_id: None,
             };
@@ -341,13 +341,13 @@ impl<T: ArenaNode> TreeArena<T> {
     }
 }
 
-impl<T> fmt::Display for TreeArena<T>
+impl<T> fmt::Display for Arena<T>
 where
     T: ArenaNode + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn fmt_node<T: ArenaNode + fmt::Display>(
-            arena: &TreeArena<T>,
+            arena: &Arena<T>,
             f: &mut fmt::Formatter<'_>,
             node: &T,
             node_index: usize,
@@ -394,7 +394,7 @@ where
 }
 
 
-impl<T> DisplayWithInterner for TreeArena<T>
+impl<T> DisplayWithInterner for Arena<T>
 where
     T: ArenaNode,
 {
@@ -407,7 +407,7 @@ where
         }
     }
 }
-impl<T> PlanningSyntaxDisplay for TreeArena<T>
+impl<T> PlanningSyntaxDisplay for Arena<T>
 where
     T: ArenaNode,
 {

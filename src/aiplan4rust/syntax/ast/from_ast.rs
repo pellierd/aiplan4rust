@@ -1,6 +1,6 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::tree::Arena;
 
 /// Trait for constructing an instance of a type from an AST node.
 ///
@@ -35,7 +35,7 @@ use crate::aiplan4rust::tree::TreeArena;
 pub trait FromAst {
     fn from_ast(
         node: &AstNode,
-        ast: &TreeArena<AstNode>,
+        ast: &Arena<AstNode>,
     ) -> Result<Self, ParserInternalError>
     where
         Self: Sized;

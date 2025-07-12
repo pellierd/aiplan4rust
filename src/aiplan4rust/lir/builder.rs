@@ -43,7 +43,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{Arena, ArenaNode};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
 use crate::aiplan4rust::lir::LiftedProblem;
@@ -216,7 +216,7 @@ impl LIRBuilder {
 /// Extracts a set of requirements from a `RequireDef` node.
 fn extract_requirements(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<HashSet<Requirement>, ParserInternalError> {
     extract_set(node, ast, |n, _| n.try_requirement())
 }
@@ -224,7 +224,7 @@ fn extract_requirements(
 /// Extracts predicates from a `PredicatesDef` node.
 fn extract_atomic_formula_skeleton(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<HashSet<AtomicFormulaSkeleton>, ParserInternalError> {
     extract_set(node, ast, AtomicFormulaSkeleton::from_ast)
 }
@@ -232,7 +232,7 @@ fn extract_atomic_formula_skeleton(
 /// Extracts functions from a `FunctionsDef` node.
 fn extract_atomic_function_skeleton(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<HashSet<AtomicFunctionSkeleton>, ParserInternalError> {
     extract_set(node, ast, AtomicFunctionSkeleton::from_ast)
 }
@@ -240,7 +240,7 @@ fn extract_atomic_function_skeleton(
 /// Extracts types from a `TypesDef` node.
 fn extract_types(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
@@ -248,7 +248,7 @@ fn extract_types(
 /// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` node.
 fn extract_constants(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
@@ -256,7 +256,7 @@ fn extract_constants(
 /// Extracts an expression from the first child of an `Init` node.
 fn extract_init(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<Expr, ParserInternalError> {
     extract_expr_first_child(node, ast)
 }
@@ -264,7 +264,7 @@ fn extract_init(
 /// Extracts the goal expression from a `Goal` node.
 fn extract_goal(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<Expr, ParserInternalError> {
     extract_expr_first_child(node, ast)
 }
@@ -273,7 +273,7 @@ fn extract_goal(
 /// Used for `Init`, `Goal`, `Metric`, etc.
 fn extract_expr_first_child(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
 ) -> Result<Expr, ParserInternalError> {
     let child_id = node.try_child(0)?;
     let child_node = ast.try_node(child_id)?;
@@ -284,12 +284,12 @@ fn extract_expr_first_child(
 /// Used for predicates, functions, requirements, etc.
 fn extract_set<T, F>(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, ParserInternalError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &TreeArena<AstNode>) -> Result<T, ParserInternalError>,
+    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, ParserInternalError>,
 {
     let mut set = HashSet::new();
     for child_id in node.children() {
@@ -304,12 +304,12 @@ where
 /// of the first child of the node (used for types, constants).
 fn extract_set_from_first_child<T, F>(
     node: &AstNode,
-    ast: &TreeArena<AstNode>,
+    ast: &Arena<AstNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, ParserInternalError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &TreeArena<AstNode>) -> Result<T, ParserInternalError>,
+    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, ParserInternalError>,
 {
     let first_child_id = node.try_child(0)?;
     let first_child_node = ast.try_node(first_child_id)?;

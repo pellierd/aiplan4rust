@@ -1,7 +1,7 @@
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::tree::Arena;
 
 use std::collections::HashSet;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -48,7 +48,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 /// - `requirements`: Active requirements (e.g., :typing, :durative-actions).
 #[derive(Clone)]
 pub struct Context<'a> {
-    ast:         &'a TreeArena<AstNode>,
+    ast:         &'a Arena<AstNode>,
     symbols:     &'a SymbolTable,
     interner:    &'a StringInterner,
     source_name: &'a str,
@@ -58,7 +58,7 @@ pub struct Context<'a> {
 impl<'a> Context<'a> {
     /// Creates a new `Context` from individual components.
     pub fn new(
-        ast: &'a TreeArena<AstNode>,
+        ast: &'a Arena<AstNode>,
         symbols: &'a SymbolTable,
         interner: &'a StringInterner,
         source_name: &'a str,
@@ -79,7 +79,7 @@ impl<'a> Context<'a> {
     }
 
     /// Returns the AST.
-    pub fn ast(&self) -> &'a TreeArena<AstNode> {
+    pub fn ast(&self) -> &'a Arena<AstNode> {
         self.ast
     }
 

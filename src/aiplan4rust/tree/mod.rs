@@ -7,7 +7,7 @@ pub mod base_node;
 pub mod content;
 
 pub use node_id::NodeId;
-pub use arena::TreeArena;
+pub use arena::Arena;
 pub use node::ArenaNode;
 pub use node_ref::NodeRef;
 pub use base_node::BaseNode;

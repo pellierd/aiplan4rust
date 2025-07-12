@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{Arena, ArenaNode};
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
@@ -181,7 +181,7 @@ fn report_cyclic_task_ordering_error(
 ///   its child nodes.
 fn extract_task_ids(
     node: &AstNode,
-    tree: &TreeArena<AstNode>,
+    tree: &Arena<AstNode>,
 ) -> Result<Vec<Ident>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {

@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::tree::Arena;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
@@ -17,7 +17,7 @@ use crate::aiplan4rust::lang::Optimization;
 /// to add custom methods on top of the underlying `TreeArena`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Expr {
-    tree: TreeArena<ExprNode>,
+    tree: Arena<ExprNode>,
 }
 
 impl Expr {
@@ -31,7 +31,7 @@ impl Expr {
     /// ```
     pub fn new() -> Self {
         Self {
-            tree: TreeArena::<ExprNode>::new(),
+            tree: Arena::<ExprNode>::new(),
         }
     }
 
@@ -94,7 +94,7 @@ impl Expr {
 /// let expr = Expr::from_ast(ast_root_node, &arena)?;
 /// ```
 impl FromAst for Expr {
-    fn from_ast(node: &AstNode, ast: &TreeArena<AstNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, ParserInternalError> {
         wrap(node, ast)
     }
 }
@@ -105,7 +105,7 @@ impl FromAst for Expr {
 /// avoiding recursion by using an explicit stack.
 fn wrap(
     node: &AstNode,
-    ast: &TreeArena<AstNode>
+    ast: &Arena<AstNode>
 ) -> Result<Expr, ParserInternalError> {
     let mut expr = Expr::new();
     let mut stack = Vec::new();
@@ -137,7 +137,7 @@ fn wrap(
 
 
 impl Deref for Expr {
-    type Target = TreeArena<ExprNode>;
+    type Target = Arena<ExprNode>;
 
     /// Dereferences the `Expr` to the underlying `TreeArena<ExprNode>`.
     ///

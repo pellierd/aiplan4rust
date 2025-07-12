@@ -1,7 +1,7 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::tree::Arena;
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -40,8 +40,8 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 /// including source information, timestamps, and counts of AST nodes and symbol table entries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkedSemanticContext {
-    domain: TreeArena<AstNode>,
-    problem: TreeArena<AstNode>,
+    domain: Arena<AstNode>,
+    problem: Arena<AstNode>,
     symbol_table: SymbolTable,
     interner: StringInterner,
     domain_source: String,
@@ -65,8 +65,8 @@ impl LinkedSemanticContext {
     ///
     /// A new `LinkedSemanticContext` instance with the current system time as the generation timestamp.
     pub fn new(
-        domain: TreeArena<AstNode>,
-        problem: TreeArena<AstNode>,
+        domain: Arena<AstNode>,
+        problem: Arena<AstNode>,
         symbol_table: SymbolTable,
         interner: StringInterner,
         domain_source: String,
@@ -84,22 +84,22 @@ impl LinkedSemanticContext {
     }
 
     /// Returns an immutable reference to the domain AST tree.
-    pub fn domain(&self) -> &TreeArena<AstNode> {
+    pub fn domain(&self) -> &Arena<AstNode> {
         &self.domain
     }
 
     /// Returns a mutable reference to the domain AST tree.
-    pub fn domain_mut(&mut self) -> &mut TreeArena<AstNode> {
+    pub fn domain_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.domain
     }
 
     /// Returns an immutable reference to the problem AST tree.
-    pub fn problem(&self) -> &TreeArena<AstNode> {
+    pub fn problem(&self) -> &Arena<AstNode> {
         &self.problem
     }
 
     /// Returns a mutable reference to the problem AST tree.
-    pub fn problem_mut(&mut self) -> &mut TreeArena<AstNode> {
+    pub fn problem_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.problem
     }
 

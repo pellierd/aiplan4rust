@@ -30,7 +30,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{Arena, ArenaNode};
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
 ///
@@ -128,7 +128,7 @@ impl FromAst for Function {
     /// or if type parsing fails.
     fn from_ast(
         node: &AstNode,
-        ast: &TreeArena<AstNode>,
+        ast: &Arena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
 

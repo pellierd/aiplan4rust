@@ -44,7 +44,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{Arena, ArenaNode};
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///
@@ -184,7 +184,7 @@ impl FromAst for TaskNetwork {
     /// Returns [`ParserInternalError`] if the node is malformed or has unexpected children.
     fn from_ast(
         node: &AstNode,
-        ast: &TreeArena<AstNode>,
+        ast: &Arena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let children = node.children();
 

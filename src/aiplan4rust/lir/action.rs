@@ -33,7 +33,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
@@ -159,7 +159,7 @@ impl FromAst for Action {
     /// Returns `ParserInternalError` if the AST structure is unexpected or parsing fails.
     fn from_ast(
         node: &AstNode,
-        ast: &TreeArena<AstNode>,
+        ast: &Arena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
         let def_body_node = ast.try_node(node.try_child(2)?)?;

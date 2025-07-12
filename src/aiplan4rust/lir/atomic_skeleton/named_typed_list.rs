@@ -29,7 +29,7 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{Arena, ArenaNode};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
 ///
@@ -124,7 +124,7 @@ impl FromAst for NamedTypedList {
     /// # Returns
     ///
     /// `Ok(NamedTypedList)` if parsing succeeds, or `ParserInternalError` on failure.
-    fn from_ast(node: &AstNode, ast: &TreeArena<AstNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, ParserInternalError> {
         let name_id = node.try_child(0)?;
         let name_node = ast.try_node(name_id)?;
         let name = name_node.try_ident()?;

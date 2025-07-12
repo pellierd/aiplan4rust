@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::tree::{TreeArena, NodeId, NodeContent};
+use crate::aiplan4rust::tree::{Arena, NodeId, NodeContent};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
@@ -80,7 +80,7 @@ use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 ///
 /// # See Also
 ///
-/// - [`TreeArena`] for managing trees of nodes implementing this trait.
+/// - [`Arena`] for managing trees of nodes implementing this trait.
 /// - [`NodeContent`] for content types that hold semantic node data.
 /// - [`ParserInternalError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
@@ -349,7 +349,7 @@ pub trait ArenaNode: Clone {
     /// # Errors
     ///
     /// Returns an error if writing fails.
-    fn fmt_with(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner) -> fmt::Result
+    fn fmt_with(&self, f: &mut Formatter<'_>, arena: &Arena<Self>, interner: &StringInterner) -> fmt::Result
     where Self: Sized;
     
     /// Converts the node to a string using `fmt_with`.
@@ -365,11 +365,11 @@ pub trait ArenaNode: Clone {
     /// let s = node.to_string_with_interner(&arena, &interner);
     /// println!("{}", s);
     /// ```
-    fn to_string_with_interner(&self, arena: &TreeArena<Self>, interner: &StringInterner) -> String
+    fn to_string_with_interner(&self, arena: &Arena<Self>, interner: &StringInterner) -> String
     where Self: Sized {
         struct DisplayWrapper<'a, T: ArenaNode> {
             node: &'a T,
-            arena: &'a TreeArena<T>,
+            arena: &'a Arena<T>,
             interner: &'a StringInterner,
         }
 
@@ -422,7 +422,7 @@ pub trait ArenaNode: Clone {
     fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result
@@ -446,7 +446,7 @@ pub trait ArenaNode: Clone {
     fn fmt_planning_syntax(
         &self,
         f: &mut Formatter<'_>,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
     ) -> fmt::Result
     where
@@ -480,7 +480,7 @@ pub trait ArenaNode: Clone {
     /// ```
     fn to_planning_syntax_with_indent(
         &self,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
         indent: usize,
     ) -> String
@@ -489,7 +489,7 @@ pub trait ArenaNode: Clone {
     {
         struct PlanningSyntaxDisplayWrapper<'a, T: ArenaNode> {
             node: &'a T,
-            arena: &'a TreeArena<T>,
+            arena: &'a Arena<T>,
             interner: &'a StringInterner,
             indent: usize,
         }
@@ -531,7 +531,7 @@ pub trait ArenaNode: Clone {
     /// ```
     fn to_planning_syntax(
         &self,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
     ) -> String
     where

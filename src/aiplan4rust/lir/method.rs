@@ -36,7 +36,7 @@ use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -156,7 +156,7 @@ impl FromAst for Method {
     /// Returns a `Method` instance or a `ParserInternalError` if parsing fails.
     fn from_ast(
         node: &AstNode,
-        ast: &TreeArena<AstNode>,
+        ast: &Arena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         // Parse header (name + parameters)
         let header = NamedTypedList::from_ast(node, ast)?;

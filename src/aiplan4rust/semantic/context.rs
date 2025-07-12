@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::tree::{TreeArena, NodeId};
+use crate::aiplan4rust::tree::{Arena, NodeId};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
@@ -21,7 +21,7 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     /// The AST stored in an tree for efficient indexing and traversal.
-    ast: TreeArena<AstNode>,
+    ast: Arena<AstNode>,
 
     /// The set of semantic requirements (e.g., domain-specific constraints or planner capabilities).
     requirements: HashSet<Requirement>,
@@ -49,7 +49,7 @@ impl Context {
     /// * `interner` - The string interner used for symbol resolution and deduplication.
     /// * `generated_at` - The timestamp marking when the context was built.
     pub fn new(
-        ast: TreeArena<AstNode>,
+        ast: Arena<AstNode>,
         source_name: String,
         requirements: HashSet<Requirement>,
         symbol_table: SymbolTable,
@@ -103,7 +103,7 @@ impl Context {
     /// # Returns
     ///
     /// A `HashSet` of all declared and implied `Requirement` instances.
-    fn extract_requirements(arena: &TreeArena<AstNode>) -> Result<HashSet<Requirement>, ParserInternalError> {
+    fn extract_requirements(arena: &Arena<AstNode>) -> Result<HashSet<Requirement>, ParserInternalError> {
         let mut requirements = HashSet::new();
 
         // Step 1: Find the first `RequireDef` node in the AST
@@ -165,15 +165,15 @@ impl Context {
     }
 
     /// Returns a reference to the internal AST tree.
-    pub fn ast(&self) -> &TreeArena<AstNode> {
+    pub fn ast(&self) -> &Arena<AstNode> {
         &self.ast
     }
 
-    pub fn ast_mut(&mut self) -> &mut TreeArena<AstNode> {
+    pub fn ast_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.ast
     }
 
-    pub fn take_ast(&mut self) -> TreeArena<AstNode> {
+    pub fn take_ast(&mut self) -> Arena<AstNode> {
         std::mem::take(&mut self.ast)
     }
 

@@ -7,7 +7,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::TreeArena;
+use crate::aiplan4rust::tree::Arena;
 
 /// A list of `TypedSymbol` items.
 ///
@@ -139,7 +139,7 @@ impl FromAst for TypedList {
     /// - `Err(ParserInternalError)` if any child node fails to convert.
     fn from_ast(
         node: &AstNode,
-        ast: &TreeArena<AstNode>
+        ast: &Arena<AstNode>
     ) -> Result<Self, ParserInternalError> {
         let mut typed_list = TypedList::new();
         for id in node.children() {

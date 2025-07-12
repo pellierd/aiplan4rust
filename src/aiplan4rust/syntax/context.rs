@@ -7,11 +7,11 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{NodeId, Arena, ArenaNode};
 
 pub struct ParseContext {
     interner: RefCell<StringInterner>,
-    arena: RefCell<TreeArena<AstNode>>,
+    arena: RefCell<Arena<AstNode>>,
     errors: RefCell<Vec<ErrorRecovery<usize, Token, LexicalError>>>,
 }
 
@@ -19,7 +19,7 @@ impl ParseContext {
     pub fn new() -> Self {
         Self {
             interner: RefCell::new(StringInterner::new()),
-            arena: RefCell::new(TreeArena::empty()),
+            arena: RefCell::new(Arena::empty()),
             errors: RefCell::new(Vec::new()),
         }
     }
@@ -85,12 +85,12 @@ impl ParseContext {
     }
 
     /// Accès mutable à l'arène
-    pub fn arena(&self) -> std::cell::RefMut<'_, TreeArena<AstNode>> {
+    pub fn arena(&self) -> std::cell::RefMut<'_, Arena<AstNode>> {
         self.arena.borrow_mut()
     }
 
     // Prend l'arene et la remplace par une neuve
-    pub fn take_arena(&self) -> TreeArena<AstNode> {
+    pub fn take_arena(&self) -> Arena<AstNode> {
         std::mem::take(&mut *self.arena.borrow_mut())
     }
 

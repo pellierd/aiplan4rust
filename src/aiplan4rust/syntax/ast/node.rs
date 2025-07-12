@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::{PlanningSyntaxDisplay, Span};
-use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{BaseNode, NodeId, Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -109,7 +109,7 @@ impl AstNode {
     fn fmt_typed_list(
         &self,
         f: &mut Formatter<'_>,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
         multiline: bool,
         indent: usize,
@@ -148,7 +148,7 @@ impl AstNode {
     fn fmt_task(
         &self,
         f: &mut Formatter<'_>,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
         with_prefix: bool,
         indent: usize,
@@ -330,13 +330,13 @@ impl ArenaNode for AstNode {
     fn fmt_with(
         &self,
         f: &mut Formatter<'_>,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
     ) -> fmt::Result {
         fn fmt_node(
             node: &AstNode,
             f: &mut Formatter<'_>,
-            arena: &TreeArena<AstNode>,
+            arena: &Arena<AstNode>,
             interner: &StringInterner,
             prefix: &str,
             last: bool,
@@ -397,7 +397,7 @@ impl ArenaNode for AstNode {
         fmt_node(self, f, arena, interner, "", true)
     }
 
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, arena: &Arena<Self>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         match self.kind() {
             AstKind::Domain => {

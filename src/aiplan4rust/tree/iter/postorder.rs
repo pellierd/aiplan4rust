@@ -1,4 +1,4 @@
-use crate::aiplan4rust::tree::arena::TreeArena;
+use crate::aiplan4rust::tree::arena::Arena;
 use crate::aiplan4rust::tree::node::ArenaNode;
 use crate::aiplan4rust::tree::NodeId;
 
@@ -17,7 +17,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// }
 /// ```
 pub struct PostorderIter<'a, T: ArenaNode> {
-    arena: &'a TreeArena<T>,
+    arena: &'a Arena<T>,
     stack: Vec<(NodeId, usize)>,
 }
 
@@ -32,12 +32,12 @@ impl<'a, T: ArenaNode> PostorderIter<'a, T> {
     /// # Returns
     ///
     /// A `PostorderIter` instance that will traverse the tree rooted at `root`.
-    pub fn new(arena: &'a TreeArena<T>, root: NodeId) -> Self {
+    pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
         PostorderIter { arena, stack: vec![(root, 0)] }
     }
 
     /// Creates an empty postorder iterator with no nodes.
-    pub fn empty(arena: &'a TreeArena<T>) -> Self {
+    pub fn empty(arena: &'a Arena<T>) -> Self {
         PostorderIter { arena, stack: Vec::new() }
     }
 }

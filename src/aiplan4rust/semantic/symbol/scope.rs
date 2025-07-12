@@ -1,4 +1,4 @@
-use crate::aiplan4rust::tree::{TreeArena, NodeId};
+use crate::aiplan4rust::tree::{Arena, NodeId};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::frontend::ParserInternalError;
 
@@ -145,7 +145,7 @@ impl Scope {
     pub fn contains_node_of_kind(
         &self,
         kind: AstKind,
-        ast: &TreeArena<AstNode>,
+        ast: &Arena<AstNode>,
     ) -> Result<bool, ParserInternalError> {
         for &id in self.iter() {
             let node = ast.try_node(id)?;

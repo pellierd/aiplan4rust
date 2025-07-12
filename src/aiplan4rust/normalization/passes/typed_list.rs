@@ -65,7 +65,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{NodeId, Arena, ArenaNode};
 
 /// Recursively normalizes all `TypedList` nodes in the given AST subtree.
 ///
@@ -245,7 +245,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), ParserInternalError> {
 /// normalize_typed_list_node_children(arena, typed_list_node_id)?;
 /// ```
 fn normalize_typed_list_node_children(
-    arena: &mut TreeArena<AstNode>,
+    arena: &mut Arena<AstNode>,
     node_id: NodeId,
 ) -> Result<(), ParserInternalError> {
     // 1. Retrieve and clear the current children of the TypedList node.
@@ -309,7 +309,7 @@ fn normalize_typed_list_node_children(
 /// }
 /// ```
 fn is_typed_list_node(
-    arena: &mut TreeArena<AstNode>,
+    arena: &mut Arena<AstNode>,
     node_id: NodeId,
 ) -> Result<bool, ParserInternalError> {
     let node = arena.try_node(node_id)?;
@@ -349,7 +349,7 @@ fn is_typed_list_node(
 /// let (element_ids, type_id, span) = extract_typed_item_data(arena, typed_item_id)?;
 /// ```
 fn extract_typed_item_data(
-    arena: &TreeArena<AstNode>,
+    arena: &Arena<AstNode>,
     typed_item_id: NodeId,
 ) -> Result<(Vec<NodeId>, Option<NodeId>, Span), ParserInternalError> {
     // Retrieve the TypedItem node

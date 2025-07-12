@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, ArenaNode};
+use crate::aiplan4rust::tree::{BaseNode, NodeId, Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -127,13 +127,13 @@ impl ArenaNode for ExprNode {
     fn fmt_with(
         &self,
         f: &mut Formatter<'_>,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
     ) -> fmt::Result {
         fn fmt_node(
             node: &ExprNode,
             f: &mut Formatter<'_>,
-            arena: &TreeArena<ExprNode>,
+            arena: &Arena<ExprNode>,
             interner: &StringInterner,
             prefix: &str,
             last: bool,
@@ -185,7 +185,7 @@ impl ArenaNode for ExprNode {
     fn fmt_planning_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
-        arena: &TreeArena<Self>,
+        arena: &Arena<Self>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result
