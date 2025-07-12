@@ -19,12 +19,12 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::Arena;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
@@ -57,7 +57,7 @@ use crate::aiplan4rust::arena::Arena;
 /// # Implementation Notes
 ///
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] transparently.
-/// - Supports pretty-printing with or without an interner (see [`DisplayWithInterner`] and [`PlanningSyntaxDisplay`]).
+/// - Supports pretty-printing with or without an interner (see [`InternerDisplay`] and [`SyntaxDisplay`]).
 /// - Can be constructed directly or parsed from an AST node via [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formula {
@@ -123,25 +123,25 @@ impl fmt::Display for Formula {
     }
 }
 
-impl DisplayWithInterner for Formula {
+impl InternerDisplay for Formula {
     /// Formats the formula using the provided interner to resolve identifiers.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.header.fmt_with(f, interner)
+        self.header.fmt_with_interner(f, interner)
     }
 }
 
-impl PlanningSyntaxDisplay for Formula {
+impl SyntaxDisplay for Formula {
     /// Formats the formula in a syntax-oriented form (e.g., PDDL representation).
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        self.header.fmt_planning_syntax_with_indent(f, interner, indent)
+        self.header.fmt_syntax_with_indent(f, interner, indent)
     }
 }

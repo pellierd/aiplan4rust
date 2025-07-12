@@ -19,12 +19,12 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::Arena;
 
 /// Represents a planning task declaration in HDDL.
@@ -114,29 +114,29 @@ impl fmt::Display for Task {
     }
 }
 
-impl DisplayWithInterner for Task {
+impl InternerDisplay for Task {
     /// Formats the task using the provided interner to resolve identifier names.
     ///
     /// This allows rendering identifiers as their original strings instead of numeric IDs.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.header.fmt_with(f, interner)
+        self.header.fmt_with_interner(f, interner)
     }
 }
 
-impl PlanningSyntaxDisplay for Task {
+impl SyntaxDisplay for Task {
     /// Formats the task in a syntax-oriented representation.
     ///
     /// This can be used to reconstruct or pretty-print the original declaration.
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        self.header.fmt_planning_syntax_with_indent(f, interner, indent)
+        self.header.fmt_syntax_with_indent(f, interner, indent)
     }
 }

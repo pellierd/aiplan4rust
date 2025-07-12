@@ -1,9 +1,9 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::Arena;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -161,16 +161,16 @@ impl fmt::Display for Expr {
     }
 }
 
-impl DisplayWithInterner for Expr {
-    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        self.tree.fmt_with(f, interner)
+impl InternerDisplay for Expr {
+    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        self.tree.fmt_with_interner(f, interner)
     }
 }
 
-impl PlanningSyntaxDisplay for Expr {
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+impl SyntaxDisplay for Expr {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.tree.fmt_with(f, interner)
+        self.tree.fmt_with_interner(f, interner)
     }
 }

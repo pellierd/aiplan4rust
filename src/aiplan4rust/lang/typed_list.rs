@@ -2,11 +2,11 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::Arena;
 
 /// A list of `TypedSymbol` items.
@@ -204,7 +204,7 @@ impl fmt::Display for TypedList {
 /// ```text
 /// (?x - location ?y - (either robot vehicle))
 /// ```
-impl DisplayWithInterner for TypedList {
+impl InternerDisplay for TypedList {
     /// Formats the `TypedList` using the provided `StringInterner`.
     ///
     /// This writes the list in PDDL-style syntax:
@@ -217,14 +217,14 @@ impl DisplayWithInterner for TypedList {
     ///
     /// * `f` - The formatter.
     /// * `interner` - The interner to resolve symbol names.
-    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         write!(f, "(")?;
         let mut first = true;
         for sym in &self.symbols {
             if !first {
                 write!(f, " ")?;
             }
-            sym.fmt_with(f, interner)?;
+            sym.fmt_with_interner(f, interner)?;
             first = false;
         }
         write!(f, ")")
@@ -244,7 +244,7 @@ impl DisplayWithInterner for TypedList {
 /// ```text
 /// (?x - location ?y - (either robot vehicle))
 /// ```
-impl PlanningSyntaxDisplay for TypedList {
+impl SyntaxDisplay for TypedList {
     /// Formats the `TypedList` in PDDL syntax.
     ///
     /// This function writes:
@@ -266,7 +266,7 @@ impl PlanningSyntaxDisplay for TypedList {
     /// ```text
     /// (?x - location ?y - robot)
     /// ```
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -279,7 +279,7 @@ impl PlanningSyntaxDisplay for TypedList {
             if !first {
                 write!(f, " ")?;
             }
-            sym.fmt_planning_syntax(f, interner)?;
+            sym.fmt_syntax(f, interner)?;
             first = false;
         }
         Ok(())

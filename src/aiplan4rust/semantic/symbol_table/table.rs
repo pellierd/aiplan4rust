@@ -1,5 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
@@ -1025,8 +1025,8 @@ impl fmt::Display for Table {
     }
 }
 
-impl DisplayWithInterner for Table {
-    fn fmt_with(
+impl InternerDisplay for Table {
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -1034,7 +1034,7 @@ impl DisplayWithInterner for Table {
         // Parcourt tous les symboles dans la table
         for symbol in self.symbols.values() {
             // Utilise la méthode fmt_with_interner de chaque symbole, en passant l'interner
-            symbol.fmt_with(f, interner)?;
+            symbol.fmt_with_interner(f, interner)?;
             writeln!(f)?; // Ajoute un saut de ligne après chaque symbole
         }
         Ok(())

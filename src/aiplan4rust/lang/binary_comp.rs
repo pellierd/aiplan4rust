@@ -3,8 +3,8 @@ use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
 use crate::aiplan4rust::syntax::lexer::token::LESS;
 use crate::aiplan4rust::syntax::lexer::token::LESS_EQ;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -90,7 +90,7 @@ impl fmt::Display for BinaryComp {
 /// let comp = BinaryComp::Eq;
 /// let s = format!("{}", comp); // Uses the Display implementation
 /// ```
-impl DisplayWithInterner for BinaryComp {
+impl InternerDisplay for BinaryComp {
     /// Formats the `BinaryComp` using the given formatter.
     ///
     /// # Arguments
@@ -101,7 +101,7 @@ impl DisplayWithInterner for BinaryComp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
@@ -119,7 +119,7 @@ impl DisplayWithInterner for BinaryComp {
 /// let comp = BinaryComp::Eq;
 /// let s = comp.to_string_with_interner(&interner); // Delegates to Display
 /// ```
-impl PlanningSyntaxDisplay for BinaryComp {
+impl SyntaxDisplay for BinaryComp {
     /// Formats the `BinaryComp` using the provided formatter.
     ///
     /// # Arguments
@@ -130,7 +130,7 @@ impl PlanningSyntaxDisplay for BinaryComp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)

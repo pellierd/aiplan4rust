@@ -6,9 +6,9 @@ use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
 use crate::aiplan4rust::arena::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::lang::Ident;
 
 /// A flat arena-based arena structure for storing nodes of type `T`.
@@ -394,11 +394,11 @@ where
 }
 
 
-impl<T> DisplayWithInterner for Arena<T>
+impl<T> InternerDisplay for Arena<T>
 where
     T: ArenaNode,
 {
-    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if self.is_empty() {
             write!(f, "<empty>")
         } else {
@@ -407,11 +407,11 @@ where
         }
     }
 }
-impl<T> PlanningSyntaxDisplay for Arena<T>
+impl<T> SyntaxDisplay for Arena<T>
 where
     T: ArenaNode,
 {
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,

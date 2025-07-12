@@ -1,5 +1,5 @@
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -381,7 +381,7 @@ impl Declaration {
                 if i > 0 {
                     write!(w, " ")?;
                 }
-                typed_symbol.fmt_with(w, interner)?;
+                typed_symbol.fmt_with_interner(w, interner)?;
             }
 
             write!(w, ")")?;
@@ -428,8 +428,8 @@ impl fmt::Display for Declaration {
     }
 }
 
-impl DisplayWithInterner for Declaration {
-    fn fmt_with(
+impl InternerDisplay for Declaration {
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,

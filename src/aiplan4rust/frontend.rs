@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::linking::LinkerResult;
-use crate::aiplan4rust::syntax::{Language, PlanningSyntaxDisplay};
+use crate::aiplan4rust::syntax::{Language, SyntaxDisplay};
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
@@ -18,7 +18,7 @@ use std::path::Path;
 use std::string::String;
 use base64::Engine;
 use base64::engine::general_purpose;
-use crate::aiplan4rust::interner::DisplayWithInterner;
+use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
 use crate::aiplan4rust::arena::ArenaNode;
 

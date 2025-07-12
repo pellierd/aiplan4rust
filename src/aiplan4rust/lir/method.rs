@@ -26,7 +26,7 @@
 //! ```
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
@@ -35,7 +35,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -216,9 +216,9 @@ impl fmt::Display for Method {
     }
 }
 
-impl DisplayWithInterner for Method {
+impl InternerDisplay for Method {
     /// Formats the `Method` using a string interner for name resolution.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -234,18 +234,18 @@ impl DisplayWithInterner for Method {
         writeln!(f, "PARAMETERS [{}]", params)?;
         writeln!(f, "TASK [{}]", self.task())?;
         writeln!(f, "PRECONDITIONS")?;
-        self.precondition().fmt_with(f, interner)?;
-        self.task_network().fmt_with(f, interner)?;
+        self.precondition().fmt_with_interner(f, interner)?;
+        self.task_network().fmt_with_interner(f, interner)?;
         Ok(())
     }
 }
 
-impl PlanningSyntaxDisplay for Method {
+impl SyntaxDisplay for Method {
     /// Formats the `Method` syntax with a string interner.
-    fn fmt_planning_syntax_with_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         // Write the indentation prefix
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.fmt_with(f, interner)
+        self.fmt_with_interner(f, interner)
     }
 }

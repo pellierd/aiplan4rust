@@ -39,11 +39,11 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 
 /// Represents a network of tasks along with their ordering and logical constraints.
@@ -235,24 +235,24 @@ impl Display for TaskNetwork {
     }
 }
 
-impl DisplayWithInterner for TaskNetwork {
+impl InternerDisplay for TaskNetwork {
     /// Formats the `TaskNetwork` using the provided [`StringInterner`] to resolve identifiers.
     ///
     /// This representation is useful for reconstructing meaningful names in debug output.
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
         write!(f, "TASKS\n{}", self.tasks.to_string_with_interner(interner))?;
         write!(f, "ORDERING\n{}", self.ordering_constraints.to_string_with_interner(interner))?;
         write!(f, "CONSTRAINTS\n{}", self.logical_constraints.to_string_with_interner(interner))
     }
 }
 
-impl PlanningSyntaxDisplay for TaskNetwork {
+impl SyntaxDisplay for TaskNetwork {
     /// Formats the `TaskNetwork` in a syntax-oriented form using the provided [`StringInterner`].
     ///
     /// This representation can be used to regenerate source-like output.
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> std::fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> std::fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.fmt_with(f, interner)
+        self.fmt_with_interner(f, interner)
     }
 }

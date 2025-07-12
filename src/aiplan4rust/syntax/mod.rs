@@ -89,7 +89,7 @@ pub mod parser_error;
 pub use language::Language;
 pub use parser::Parser;
 pub use span::Span;
-pub use display::PlanningSyntaxDisplay;
+pub use display::SyntaxDisplay;
 pub use fast_line_table::FastLineTable;
 pub use parse_context::ParseContext;
 pub use parser_result::ParserResult;

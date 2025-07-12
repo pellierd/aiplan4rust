@@ -1,5 +1,5 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -8,7 +8,7 @@ use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents a symbol identified by `Ident` with associated types,
 /// also identified by `Ident`.
@@ -81,7 +81,7 @@ impl fmt::Display for TypedSymbol {
     }
 }
 
-impl DisplayWithInterner for TypedSymbol {
+impl InternerDisplay for TypedSymbol {
     /// Formats the symbol and its associated type using the string interner.
     ///
     /// # Arguments
@@ -90,7 +90,7 @@ impl DisplayWithInterner for TypedSymbol {
     ///
     /// # Returns
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         w: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -104,7 +104,7 @@ impl DisplayWithInterner for TypedSymbol {
         // If type is not empty, format it after a separator
         if !self.ty.is_empty() {
             write!(w, " - ")?;
-            self.ty.fmt_with(w, interner)?;
+            self.ty.fmt_with_interner(w, interner)?;
         }
 
         Ok(())
@@ -125,8 +125,8 @@ impl DisplayWithInterner for TypedSymbol {
 /// y - location
 /// z - (either robot vehicle)
 /// ```
-impl PlanningSyntaxDisplay for TypedSymbol {
-    fn fmt_planning_syntax_with_indent(
+impl SyntaxDisplay for TypedSymbol {
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -144,7 +144,7 @@ impl PlanningSyntaxDisplay for TypedSymbol {
         // If the type is not empty, print " - " followed by the type
         if !self.ty.is_empty() {
             write!(f, " - ")?;
-            self.ty.fmt_planning_syntax(f, interner)?;
+            self.ty.fmt_syntax(f, interner)?;
         }
 
         Ok(())

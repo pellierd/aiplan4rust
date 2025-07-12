@@ -60,7 +60,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::{FastLineTable, PlanningSyntaxDisplay};
+use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::arena::{NodeId, Arena};
 
@@ -279,7 +279,7 @@ impl fmt::Display for Ast {
         writeln!(f, " - Source: {}", self.source_name)?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
         writeln!(f, " - Nodes:")?;
-        self.arena().fmt_planning_syntax(f, self.interner())?;
+        self.arena().fmt_syntax(f, self.interner())?;
 
 
 

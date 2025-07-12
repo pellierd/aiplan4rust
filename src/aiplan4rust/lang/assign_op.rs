@@ -3,8 +3,8 @@ use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_DOWN;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_UP;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -86,7 +86,7 @@ impl fmt::Display for AssignOp {
 /// let op = AssignOp::Assign;
 /// let s = format!("{}", op); // Using Display implementation
 /// ```
-impl DisplayWithInterner for AssignOp {
+impl InternerDisplay for AssignOp {
     /// Formats the `AssignOp` using the provided formatter.
     ///
     /// # Arguments
@@ -97,7 +97,7 @@ impl DisplayWithInterner for AssignOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating the result of the formatting operation.
-    fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
         // Delegate to the standard Display implementation.
         fmt::Display::fmt(self, f)
     }
@@ -120,7 +120,7 @@ impl DisplayWithInterner for AssignOp {
 /// let s = op.to_string_with_interner(&interner);
 /// assert_eq!(s, ":assign");
 /// ```
-impl PlanningSyntaxDisplay for AssignOp {
+impl SyntaxDisplay for AssignOp {
     /// Formats the `AssignOp` using the given formatter.
     ///
     /// # Arguments
@@ -131,7 +131,7 @@ impl PlanningSyntaxDisplay for AssignOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)

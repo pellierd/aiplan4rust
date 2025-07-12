@@ -5,12 +5,12 @@
 //! a lifted task network describing the tasks and their relationships.
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -120,20 +120,20 @@ impl Display for InitialTaskNetwork {
     }
 }
 
-impl DisplayWithInterner for InitialTaskNetwork {
+impl InternerDisplay for InitialTaskNetwork {
     /// Formats the initial task network using a string interner for symbol resolution.
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         writeln!(f, "Parameters: {}", self.parameters.to_string_with_interner(interner))?;
         writeln!(f, "Task Network: {}", self.task_network.to_string_with_interner(interner))
     }
 }
 
-impl PlanningSyntaxDisplay for InitialTaskNetwork {
+impl SyntaxDisplay for InitialTaskNetwork {
     /// Formats the initial task network syntax using a string interner.
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         // Write the indentation prefix
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.fmt_with(f, interner)
+        self.fmt_with_interner(f, interner)
     }
 }

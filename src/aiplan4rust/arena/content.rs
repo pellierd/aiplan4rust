@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::DisplayWithInterner;
+use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 
 /// Trait representing the semantic content stored within a arena node.
@@ -71,7 +71,7 @@ use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimi
 /// - [`Ident`], [`ArithmeticOp`], [`AssignOp`], [`BinaryComp`], [`Optimization`] types
 ///   representing common semantic elements.
 ///
-pub trait NodeContent : DisplayWithInterner {
+pub trait NodeContent : InternerDisplay {
     /// Returns the content as an identifier if available.
     fn as_ident(&self) -> Option<Ident>;
 

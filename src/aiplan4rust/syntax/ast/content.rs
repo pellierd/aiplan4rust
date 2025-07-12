@@ -32,10 +32,10 @@
 //! ```
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::NodeContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
@@ -165,7 +165,7 @@ impl fmt::Display for Content {
 /// let ident = Content::Ident(some_idx);
 /// let s = ident.to_string_with_interner(&interner);
 /// ```
-impl DisplayWithInterner for Content {
+impl InternerDisplay for Content {
     /// Formats the `Content` value using the given formatter and interner.
     ///
     /// # Arguments
@@ -176,7 +176,7 @@ impl DisplayWithInterner for Content {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         match self {
             Content::Ident(idx) => {
                 // Resolve the interned string or fallback to a placeholder.
@@ -208,7 +208,7 @@ impl DisplayWithInterner for Content {
 /// let content = Content::Ident(idx);
 /// content.fmt_planning(&mut formatter, &interner, 0)?;
 /// ```
-impl PlanningSyntaxDisplay for Content {
+impl SyntaxDisplay for Content {
     /// Formats the `Content` value using the provided formatter and string interner,
     /// applying indentation according to `indent`.
     ///
@@ -221,7 +221,7 @@ impl PlanningSyntaxDisplay for Content {
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting succeeded.
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,
@@ -233,7 +233,7 @@ impl PlanningSyntaxDisplay for Content {
 
         match self {
             Content::Ident(idx) => {
-                idx.fmt_planning_syntax_with_indent(f, interner, indent)
+                idx.fmt_syntax_with_indent(f, interner, indent)
             }
             _ => {
                 fmt::Display::fmt(self, f)

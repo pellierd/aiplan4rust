@@ -26,10 +26,10 @@ use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::lang::{Ident, Type, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
@@ -147,9 +147,9 @@ impl fmt::Display for Function {
     }
 }
 
-impl DisplayWithInterner for Function {
+impl InternerDisplay for Function {
     /// Displays the function using interned identifiers.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -163,22 +163,22 @@ impl DisplayWithInterner for Function {
     }
 }
 
-impl PlanningSyntaxDisplay for Function {
+impl SyntaxDisplay for Function {
     /// Displays the function in a syntax-oriented form (e.g., PDDL-style).
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
         // Write the header with indentation
-        self.header.fmt_planning_syntax_with_indent(f, interner, indent)?;
+        self.header.fmt_syntax_with_indent(f, interner, indent)?;
 
         // Write the separator " - "
         write!(f, " - ")?;
 
         // Write the type by converting it to string and then writing to formatter
-        let ty_str = self.ty.to_planning_string(interner);
+        let ty_str = self.ty.to_syntax_string(interner);
         write!(f, "{}", ty_str)?;
 
         Ok(())

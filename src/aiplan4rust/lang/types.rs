@@ -3,10 +3,10 @@ use std::fmt::Formatter;
 use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::{AstNode, FromAst};
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::{NodeContent, Arena, ArenaNode};
 
 /// Represents a type in a planning problem IR.
@@ -220,7 +220,7 @@ impl fmt::Display for Type {
     }
 }
 
-impl DisplayWithInterner for Type {
+impl InternerDisplay for Type {
     /// Formats the type by resolving its member identifiers using the string interner.
     ///
     /// # Arguments
@@ -229,7 +229,7 @@ impl DisplayWithInterner for Type {
     ///
     /// # Returns
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         w: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -287,8 +287,8 @@ impl DisplayWithInterner for Type {
 /// t.fmt_planning(&mut s, &interner).unwrap();
 /// assert_eq!(s, "(either robot vehicle)");
 /// ```
-impl PlanningSyntaxDisplay for Type {
-    fn fmt_planning_syntax_with_indent(
+impl SyntaxDisplay for Type {
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,

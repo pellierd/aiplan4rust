@@ -4,7 +4,7 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::{DisplayWithInterner, InternerMergeResult};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
 use crate::aiplan4rust::lang::Ident;

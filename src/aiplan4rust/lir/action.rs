@@ -24,7 +24,7 @@
 //! ```
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
@@ -32,7 +32,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -219,11 +219,11 @@ impl fmt::Display for Action {
     }
 }
 
-impl DisplayWithInterner for Action {
+impl InternerDisplay for Action {
     /// Formats the `Action` using a string interner for symbol resolution.
     ///
     /// This is useful for pretty-printing names and parameters with interning.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -243,17 +243,17 @@ impl DisplayWithInterner for Action {
         )?;
         writeln!(f, "PARAMETERS [{}]", params)?;
         writeln!(f, "PRECONDITION")?;
-        self.precondition.fmt_with(f, interner)?;
+        self.precondition.fmt_with_interner(f, interner)?;
         writeln!(f, " EFFECT")?;
-        self.effect.fmt_with(f, interner)
+        self.effect.fmt_with_interner(f, interner)
     }
 }
 
-impl PlanningSyntaxDisplay for Action {
+impl SyntaxDisplay for Action {
     /// Formats the `Action` syntax for display, delegating to `fmt_with`.
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.fmt_with(f, interner)
+        self.fmt_with_interner(f, interner)
     }
 }

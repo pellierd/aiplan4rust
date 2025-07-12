@@ -20,8 +20,8 @@ use crate::aiplan4rust::syntax::lexer::token::STRIPS;
 use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
 use crate::aiplan4rust::syntax::lexer::token::TYPING;
 use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -198,7 +198,7 @@ impl fmt::Display for Requirement {
 /// let s = req.to_string_with_interner(&interner);
 /// assert_eq!(s, "Mandatory");
 /// ```
-impl DisplayWithInterner for Requirement {
+impl InternerDisplay for Requirement {
     /// Formats the `Requirement` using the given formatter.
     ///
     /// Delegates directly to the standard `Display` implementation,
@@ -208,7 +208,7 @@ impl DisplayWithInterner for Requirement {
     ///
     /// * `f` - The formatter.
     /// * `_interner` - The interner, unused in this implementation.
-    fn fmt_with(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
@@ -228,7 +228,7 @@ impl DisplayWithInterner for Requirement {
 /// let s = req.to_string_syntax(&interner);
 /// assert_eq!(s, "Mandatory");
 /// ```
-impl PlanningSyntaxDisplay for Requirement {
+impl SyntaxDisplay for Requirement {
     /// Formats the `Requirement` for planning syntax display.
     ///
     /// Delegates the formatting to the `Display` trait implementation.
@@ -237,7 +237,7 @@ impl PlanningSyntaxDisplay for Requirement {
     ///
     /// * `f` - The formatter to write the output to.
     /// * `_interner` - The string interner (unused in this implementation).
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)

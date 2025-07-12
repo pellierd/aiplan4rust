@@ -1,4 +1,4 @@
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -186,7 +186,7 @@ impl fmt::Display for Usage {
     }
 }
 
-impl DisplayWithInterner for Usage {
+impl InternerDisplay for Usage {
 
     /// Formats the usage into the given writer, resolving interned strings via the interner.
     ///
@@ -201,7 +201,7 @@ impl DisplayWithInterner for Usage {
     /// # Returns
     ///
     /// Returns a `fmt::Result` indicating success or failure of the write operation.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,

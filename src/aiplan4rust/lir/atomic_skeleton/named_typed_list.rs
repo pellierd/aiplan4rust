@@ -24,11 +24,11 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
@@ -159,22 +159,22 @@ impl Display for NamedTypedList {
     }
 }
 
-impl DisplayWithInterner for NamedTypedList {
+impl InternerDisplay for NamedTypedList {
     /// Formats the `NamedTypedList` with a string interner, used for pretty printing.
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         write!(f, "[name: ")?;
-        self.name.fmt_with(f, interner)?;
+        self.name.fmt_with_interner(f, interner)?;
         write!(f, ", parameters: ")?;
-        self.parameters.fmt_with(f, interner)?;
+        self.parameters.fmt_with_interner(f, interner)?;
         write!(f, "]")
     }
 }
 
-impl PlanningSyntaxDisplay for NamedTypedList {
+impl SyntaxDisplay for NamedTypedList {
     /// Formats the syntax representation of the `NamedTypedList` using an interner.
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.fmt_with(f, interner)
+        self.fmt_with_interner(f, interner)
     }
 }

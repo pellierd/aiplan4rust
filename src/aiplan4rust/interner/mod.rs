@@ -4,4 +4,4 @@ pub mod display;
 
 pub use string::StringInterner;
 pub use merged_result::InternerMergeResult;
-pub use display::DisplayWithInterner;
+pub use display::InternerDisplay;

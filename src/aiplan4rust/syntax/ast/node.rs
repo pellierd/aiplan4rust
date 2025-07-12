@@ -1,11 +1,11 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
-use crate::aiplan4rust::syntax::{PlanningSyntaxDisplay, Span};
+use crate::aiplan4rust::syntax::{SyntaxDisplay, Span};
 use crate::aiplan4rust::arena::{BaseNode, NodeId, Arena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -511,7 +511,7 @@ impl ArenaNode for AstNode {
             AstKind::TypesDef => {
                 f.write_str(&indent_str)?;
                 write!(f, "(")?;
-                self.kind().fmt_planning_syntax(f, interner)?;
+                self.kind().fmt_syntax(f, interner)?;
                 writeln!(f)?;
 
                 if let Some(child_id) = self.children().first() {
@@ -548,7 +548,7 @@ impl ArenaNode for AstNode {
                     if let Some(child_node) = arena.get_node(*child_id) {
                         child_node
                             .content()
-                            .fmt_planning_syntax_with_indent(f, interner, indent)?;
+                            .fmt_syntax_with_indent(f, interner, indent)?;
                     } else {
                         write!(f, "<invalid_node>")?;
                     }
@@ -594,7 +594,7 @@ impl ArenaNode for AstNode {
                             // Write indentation before the single type
                             write!(f, "{}", indent_str)?;
                             // Recursively format the type content with the current indentation
-                            ty_node.content().fmt_planning_syntax_with_indent(f, interner, indent)
+                            ty_node.content().fmt_syntax_with_indent(f, interner, indent)
                         } else {
                             write!(f, "{}<invalid_node>", indent_str)
                         }
@@ -608,7 +608,7 @@ impl ArenaNode for AstNode {
                             write!(f, " ")?;
                             if let Some(ty_node) = arena.get_node(*child_id) {
                                 // Format each type content recursively, no extra indent here since on the same line
-                                ty_node.content().fmt_planning_syntax_with_indent(f, interner, indent)?;
+                                ty_node.content().fmt_syntax_with_indent(f, interner, indent)?;
                             } else {
                                 write!(f, "<invalid_node>")?;
                             }
@@ -825,7 +825,7 @@ impl ArenaNode for AstNode {
             | AstKind::TaskLogicalConstraintDef => {
                 // Write the kind label
                 write!(f, "{}", indent_str)?;
-                self.kind().fmt_planning_syntax(f, interner)?;
+                self.kind().fmt_syntax(f, interner)?;
 
                 // Newline after the label
                 writeln!(f)?;
@@ -908,7 +908,7 @@ impl ArenaNode for AstNode {
                 write!(f, "{}(", indent_str)?;
 
                 // Write the operator keyword using planning syntax formatting
-                self.kind().fmt_planning_syntax(f, interner)?;
+                self.kind().fmt_syntax(f, interner)?;
 
                 // Format each child node, separated by spaces
                 for child_id in self.children() {
@@ -929,7 +929,7 @@ impl ArenaNode for AstNode {
 
                 // 1. (forall / (exists + début ligne
                 write!(f, "{}(", indent_str)?;
-                self.kind().fmt_planning_syntax(f, interner)?;
+                self.kind().fmt_syntax(f, interner)?;
                 write!(f, " ")?;
 
                 // 2. Variables quantifiées (sur la même ligne)
@@ -965,7 +965,7 @@ impl ArenaNode for AstNode {
 
                 // 1. (when + début ligne
                 write!(f, "{}(", indent_str)?;
-                self.kind().fmt_planning_syntax(f, interner)?;
+                self.kind().fmt_syntax(f, interner)?;
                 write!(f, " ")?;
 
                 // 2. Condition sur la même ligne
@@ -1044,7 +1044,7 @@ impl ArenaNode for AstNode {
             | AstKind::PartiallyOrderedSubtaskDef => {
                 // Write the type of subtask with current indentation
                 write!(f, "{}", indent_str)?;
-                self.kind().fmt_planning_syntax(f, interner)?;
+                self.kind().fmt_syntax(f, interner)?;
                 writeln!(f)?;
 
                 let mut children = self.children().iter();
@@ -1056,7 +1056,7 @@ impl ArenaNode for AstNode {
 
                         // Begin the clause with increased indentation: (and
                         write!(f, "{}(", Self::make_indent(indent + 1))?;
-                        and_node.kind().fmt_planning_syntax(f, interner)?; // prints "and"
+                        and_node.kind().fmt_syntax(f, interner)?; // prints "and"
 
                         if and_children.is_empty() {
                             // Empty case, close the clause on the same line
@@ -1145,7 +1145,7 @@ impl ArenaNode for AstNode {
 
                         // Write opening line for the 'and' clause with increased indentation
                         write!(f, "{}(", Self::make_indent(indent + 1))?;
-                        and_node.kind().fmt_planning_syntax(f, interner)?; // prints "and"
+                        and_node.kind().fmt_syntax(f, interner)?; // prints "and"
 
                         if and_children.is_empty() {
                             write!(f, ")")?;
@@ -1181,7 +1181,7 @@ impl ArenaNode for AstNode {
                 write!(f, "{}(", indent_str)?;
 
                 // Print the content (e.g., "<")
-                self.content().fmt_planning_syntax(f, interner)?;
+                self.content().fmt_syntax(f, interner)?;
 
                 let children = self.children();
                 if children.len() == 2 {
@@ -1344,7 +1344,7 @@ impl ArenaNode for AstNode {
 
                 // Opening line
                 write!(f, "{}(", indent_str)?;
-                self.kind().fmt_planning_syntax(f, interner)?;
+                self.kind().fmt_syntax(f, interner)?;
                 writeln!(f)?;
 
                 // Children on their own line(s), indented
@@ -1507,7 +1507,7 @@ impl ArenaNode for AstNode {
             | AstKind::Requirement
             | AstKind::TaskID => {
                 write!(f, "{}", indent_str)?;
-                self.content().fmt_planning_syntax_with_indent(f, interner, indent)
+                self.content().fmt_syntax_with_indent(f, interner, indent)
             }
 
             | AstKind::TotalTime => {

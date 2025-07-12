@@ -44,7 +44,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
@@ -596,8 +596,8 @@ impl Display for Problem {
     }
 }
 
-impl DisplayWithInterner for Problem {
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+impl InternerDisplay for Problem {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         writeln!(f, "Problem {{")?;
         writeln!(f, "  domain_name: {}", self.domain_name)?;
         writeln!(f, "  problem_name: {}", self.problem_name)?;

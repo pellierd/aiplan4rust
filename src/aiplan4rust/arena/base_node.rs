@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::arena::{NodeContent, NodeId};
 
@@ -133,12 +133,12 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
     }
 }
 
-impl<K, C> DisplayWithInterner for BaseNode<K, C>
+impl<K, C> InternerDisplay for BaseNode<K, C>
 where
     K: Copy + fmt::Display,
-    C: NodeContent + DisplayWithInterner,
+    C: NodeContent + InternerDisplay,
 {
-    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         // Affiche `kind` avec Debug et `content` avec DisplayWithInterner
         write!(
             f,
@@ -146,7 +146,7 @@ where
             self.kind
         )?;
 
-        self.content.fmt_with(f, interner)?;
+        self.content.fmt_with_interner(f, interner)?;
 
         write!(
             f,

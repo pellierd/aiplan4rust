@@ -1,7 +1,7 @@
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -199,7 +199,7 @@ impl fmt::Display for SymbolEntry {
     }
 }
 
-impl DisplayWithInterner for SymbolEntry {
+impl InternerDisplay for SymbolEntry {
     /// Formats the symbol information along with its declarations and usages,
     /// resolving interned identifiers via the provided `StringInterner`.
     ///
@@ -223,7 +223,7 @@ impl DisplayWithInterner for SymbolEntry {
     ///    - Usage details here...
     ///    - Usage details here...
     /// ```
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         w: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -238,7 +238,7 @@ impl DisplayWithInterner for SymbolEntry {
         writeln!(w, " - Declarations ({}):", self.declarations.len())?;
         for decl in &self.declarations {
             write!(w, "   - ")?;
-            decl.fmt_with(w, interner)?; // Appel direct à la méthode qui écrit dans `f`
+            decl.fmt_with_interner(w, interner)?; // Appel direct à la méthode qui écrit dans `f`
             writeln!(w)?; // fin de ligne
         }
 
@@ -246,7 +246,7 @@ impl DisplayWithInterner for SymbolEntry {
         writeln!(w, " - Usages ({}):", self.usages.len())?;
         for usage in &self.usages {
             write!(w, "   - ")?;
-            usage.fmt_with(w, interner)?;
+            usage.fmt_with_interner(w, interner)?;
             writeln!(w)?;
         }
 

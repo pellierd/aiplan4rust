@@ -1,5 +1,5 @@
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
@@ -135,7 +135,7 @@ impl std::fmt::Display for Ident {
 /// // Assuming interner has some strings interned
 /// let s = ident.to_string_with_interner(&interner);
 /// ```
-impl DisplayWithInterner for Ident {
+impl InternerDisplay for Ident {
     /// Formats the `Ident` by resolving its interned string using the given `StringInterner`.
     ///
     /// # Arguments
@@ -146,7 +146,7 @@ impl DisplayWithInterner for Ident {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_with(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(name) = interner.resolve(*self) {
             write!(f, "{}", name)
         } else {
@@ -169,7 +169,7 @@ impl DisplayWithInterner for Ident {
 /// let ident = Ident { value: 42 };
 /// ident.fmt_planning(&mut formatter, &interner, 1)?;
 /// ```
-impl PlanningSyntaxDisplay for Ident {
+impl SyntaxDisplay for Ident {
     /// Formats the `Ident` using the given formatter and interner,
     /// applying indentation according to the `indent` level.
     ///
@@ -182,7 +182,7 @@ impl PlanningSyntaxDisplay for Ident {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,

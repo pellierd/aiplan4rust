@@ -46,7 +46,7 @@
 //!
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
@@ -106,8 +106,8 @@ impl fmt::Display for Content {
     }
 }
 
-impl DisplayWithInterner for Content {
-    fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+impl InternerDisplay for Content {
+    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         match self {
             Content::Ident(idx) => {
                 let resolved = interner.resolve(*idx).unwrap_or("(unknown)");

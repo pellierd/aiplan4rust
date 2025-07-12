@@ -19,9 +19,9 @@ use crate::aiplan4rust::interner::StringInterner;
 ///     }
 /// }
 /// ```
-pub trait DisplayWithInterner {
+pub trait InternerDisplay {
     /// Formats the value using the given [`StringInterner`] and the provided formatter.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -47,7 +47,7 @@ pub trait DisplayWithInterner {
         write!(
             &mut s,
             "{}",
-            DisplayWithInternerWrapper {
+            InternerDisplayWrapper {
                 value: self,
                 interner
             }
@@ -82,16 +82,16 @@ pub trait DisplayWithInterner {
     }
 }
 
-/// Wrapper used to implement [`std::fmt::Display`] by delegating to [`DisplayWithInterner`].
-pub struct DisplayWithInternerWrapper<'a, T: ?Sized> {
+/// Wrapper used to implement [`std::fmt::Display`] by delegating to [`InternerDisplay`].
+pub struct InternerDisplayWrapper<'a, T: ?Sized> {
     pub value: &'a T,
     pub interner: &'a StringInterner,
 }
 
-impl<'a, T: DisplayWithInterner + ?Sized> fmt::Display
-for DisplayWithInternerWrapper<'a, T>
+impl<'a, T: InternerDisplay + ?Sized> fmt::Display
+for InternerDisplayWrapper<'a, T>
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt_with(f, self.interner)
+        self.value.fmt_with_interner(f, self.interner)
     }
 }
