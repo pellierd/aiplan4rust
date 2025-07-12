@@ -30,7 +30,7 @@ use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
@@ -158,8 +158,8 @@ impl FromAst for Action {
     /// # Errors
     /// Returns `ParserInternalError` if the AST structure is unexpected or parsing fails.
     fn from_ast(
-        node: &AstArenaNode,
-        ast: &TreeArena<AstArenaNode>,
+        node: &AstNode,
+        ast: &TreeArena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
         let def_body_node = ast.try_node(node.try_child(2)?)?;

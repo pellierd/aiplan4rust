@@ -2,7 +2,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
@@ -163,7 +163,7 @@ impl FromAst for TypedSymbol {
     ///
     /// # Errors
     /// Returns a `ParserInternalError` if accessing the children or parsing fails.
-    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &TreeArena<AstNode>) -> Result<Self, ParserInternalError> {
         let children = node.children();
         let symbol_node = ast.try_node(children[0])?;
 

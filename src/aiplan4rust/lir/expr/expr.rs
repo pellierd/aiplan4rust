@@ -1,7 +1,7 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::TreeArena;
@@ -94,7 +94,7 @@ impl Expr {
 /// let expr = Expr::from_ast(ast_root_node, &arena)?;
 /// ```
 impl FromAst for Expr {
-    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &TreeArena<AstNode>) -> Result<Self, ParserInternalError> {
         wrap(node, ast)
     }
 }
@@ -104,8 +104,8 @@ impl FromAst for Expr {
 /// This function builds the entire Expr arena starting from the given node reference,
 /// avoiding recursion by using an explicit stack.
 fn wrap(
-    node: &AstArenaNode,
-    ast: &TreeArena<AstArenaNode>
+    node: &AstNode,
+    ast: &TreeArena<AstNode>
 ) -> Result<Expr, ParserInternalError> {
     let mut expr = Expr::new();
     let mut stack = Vec::new();

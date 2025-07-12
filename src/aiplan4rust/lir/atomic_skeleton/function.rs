@@ -27,7 +27,7 @@ use crate::aiplan4rust::lang::{Ident, Type, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
@@ -127,8 +127,8 @@ impl FromAst for Function {
     /// Returns a [`ParserInternalError`] if any required child is missing
     /// or if type parsing fails.
     fn from_ast(
-        node: &AstArenaNode,
-        ast: &TreeArena<AstArenaNode>,
+        node: &AstNode,
+        ast: &TreeArena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
 

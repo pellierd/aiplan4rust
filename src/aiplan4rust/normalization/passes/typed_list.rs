@@ -62,7 +62,7 @@
 //! The main entry point is [`normalize_typed_list`], which normalizes all `TypedList` nodes.
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{AstArena, AstArenaNode, AstContent};
+use crate::aiplan4rust::syntax::ast::{AstArena, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
@@ -245,7 +245,7 @@ fn normalize_typed_list_node(ast: &mut AstArena) -> Result<(), ParserInternalErr
 /// normalize_typed_list_node_children(arena, typed_list_node_id)?;
 /// ```
 fn normalize_typed_list_node_children(
-    arena: &mut TreeArena<AstArenaNode>,
+    arena: &mut TreeArena<AstNode>,
     node_id: NodeId,
 ) -> Result<(), ParserInternalError> {
     // 1. Retrieve and clear the current children of the TypedList node.
@@ -309,7 +309,7 @@ fn normalize_typed_list_node_children(
 /// }
 /// ```
 fn is_typed_list_node(
-    arena: &mut TreeArena<AstArenaNode>,
+    arena: &mut TreeArena<AstNode>,
     node_id: NodeId,
 ) -> Result<bool, ParserInternalError> {
     let node = arena.try_node(node_id)?;
@@ -349,7 +349,7 @@ fn is_typed_list_node(
 /// let (element_ids, type_id, span) = extract_typed_item_data(arena, typed_item_id)?;
 /// ```
 fn extract_typed_item_data(
-    arena: &TreeArena<AstArenaNode>,
+    arena: &TreeArena<AstNode>,
     typed_item_id: NodeId,
 ) -> Result<(Vec<NodeId>, Option<NodeId>, Span), ParserInternalError> {
     // Retrieve the TypedItem node
@@ -394,7 +394,7 @@ fn create_typed_item_node(
     type_id_opt: Option<NodeId>,
     span: Span,
     parent_id: NodeId,
-) -> AstArenaNode {
+) -> AstNode {
     // Initialize children with the mandatory element node
     let mut children = vec![element_id];
 
@@ -405,7 +405,7 @@ fn create_typed_item_node(
 
     // Create the new TypedItem node with no content,
     // storing the span and parent information
-    AstArenaNode::new(
+    AstNode::new(
         AstKind::TypedItem,
         AstContent::None,
         children,

@@ -3,7 +3,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
@@ -138,8 +138,8 @@ impl FromAst for TypedList {
     /// - `Ok(TypedList)` containing all parsed `TypedSymbol` instances from the children.
     /// - `Err(ParserInternalError)` if any child node fails to convert.
     fn from_ast(
-        node: &AstArenaNode,
-        ast: &TreeArena<AstArenaNode>
+        node: &AstNode,
+        ast: &TreeArena<AstNode>
     ) -> Result<Self, ParserInternalError> {
         let mut typed_list = TypedList::new();
         for id in node.children() {

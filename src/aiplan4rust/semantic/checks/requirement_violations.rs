@@ -10,7 +10,7 @@ use crate::aiplan4rust::lang::Requirement;
 
 use std::collections::HashSet;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::tree::TreeNode;
 
 pub fn check_requirement_violations(
@@ -191,7 +191,7 @@ pub fn check_requirement_violations(
     Ok(checked)
 }
 fn report_requirement_violation(
-    node: &AstArenaNode,
+    node: &AstNode,
     requirements: &HashSet<Requirement>,
     filename: &str,
     source: Provider,

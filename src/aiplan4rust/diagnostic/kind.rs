@@ -3,7 +3,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use std::fmt;
 
@@ -55,7 +55,7 @@ pub enum Kind {
         symbol: String,
         declaration1: Declaration,
         declaration2: Declaration,
-        scope: AstArenaNode,
+        scope: AstNode,
     },
     CyclicTaskOrderingError,
     UndeclaredSymbolError {

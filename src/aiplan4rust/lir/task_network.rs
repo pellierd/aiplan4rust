@@ -41,7 +41,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
@@ -183,8 +183,8 @@ impl FromAst for TaskNetwork {
     ///
     /// Returns [`ParserInternalError`] if the node is malformed or has unexpected children.
     fn from_ast(
-        node: &AstArenaNode,
-        ast: &TreeArena<AstArenaNode>,
+        node: &AstNode,
+        ast: &TreeArena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let children = node.children();
 

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 
 /// Represents a lexical or semantic scope within the AST.
 ///
@@ -145,7 +145,7 @@ impl Scope {
     pub fn contains_node_of_kind(
         &self,
         kind: AstKind,
-        ast: &TreeArena<AstArenaNode>,
+        ast: &TreeArena<AstNode>,
     ) -> Result<bool, ParserInternalError> {
         for &id in self.iter() {
             let node = ast.try_node(id)?;

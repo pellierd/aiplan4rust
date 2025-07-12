@@ -8,7 +8,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
@@ -85,8 +85,8 @@ impl FromAst for InitialTaskNetwork {
     /// - `Ok(InitialTaskNetwork)` if parsing succeeds.
     /// - `Err(ParserInternalError)` if parsing fails.
     fn from_ast(
-        node: &AstArenaNode,
-        ast: &TreeArena<AstArenaNode>,
+        node: &AstNode,
+        ast: &TreeArena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let mut child_index = 0;
 

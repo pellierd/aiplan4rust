@@ -9,7 +9,7 @@ use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::{NodeContent, NodeId, TreeNode};
 
@@ -77,12 +77,12 @@ pub fn check_typed_expressions(
 }
 
 /// Returns `true` if the node represents an equality binary comparison (`BinaryComp::Equal`).
-fn is_equal_binary_comp(node: &AstArenaNode) -> bool {
+fn is_equal_binary_comp(node: &AstNode) -> bool {
     matches!(node.kind(), AstKind::FComp) && node.as_binary_comp() == Some(BinaryComp::Equal)
 }
 
 /// Returns `true` if the node represents a simple assignment (`AssignOp::Assign`).
-fn is_assign(node: &AstArenaNode) -> bool {
+fn is_assign(node: &AstNode) -> bool {
     matches!(node.kind(), AstKind::Assign) && node.as_assign_op() == Some(AssignOp::Assign)
 }
 
@@ -91,7 +91,7 @@ fn is_assign(node: &AstArenaNode) -> bool {
 /// This includes:
 /// - Comparison operators: `Greater`, `GreaterEq`, `Less`, `LessEq`.
 /// - Assignment operators: `ScaleUp`, `ScaleDown`, `Increase`, `Decrease`.
-fn is_numeric_expression(node: &AstArenaNode) -> bool {
+fn is_numeric_expression(node: &AstNode) -> bool {
     matches!(node.kind(), AstKind::FComp)
         && matches!(
             node.as_binary_comp(),
@@ -151,7 +151,7 @@ fn is_numeric_expression(node: &AstArenaNode) -> bool {
 fn check_equal_and_assignment_expression(
     context: &CheckContext,
     type_checker: &TypeChecker,
-    node: &AstArenaNode,
+    node: &AstNode,
     ty1: &Type,
     ty2: &Type,
     source: Provider,
@@ -258,7 +258,7 @@ fn report_type_mismatch_in_expression(
 /// ```
 fn check_numeric_expression(
     context: &CheckContext,
-    node: &AstArenaNode,
+    node: &AstNode,
     ty1: &Type,
     ty2: &Type,
     source: Provider,
@@ -352,7 +352,7 @@ fn report_invalid_types_in_numeric_expression(
 /// let (ty1, ty2) = get_binary_operation_types(&node, &annotated_syntax_tree)?;
 /// ```
 fn get_binary_operation_types(
-    node: &AstArenaNode,
+    node: &AstNode,
     context: &CheckContext,
 ) -> Result<(Type, Type), ParserInternalError> {
     // Validate that there are exactly 2 children
@@ -408,7 +408,7 @@ fn get_binary_operation_types(
 /// ```
 pub fn get_type(
     index: NodeId,
-    node: &AstArenaNode,
+    node: &AstNode,
     context: &CheckContext
 ) -> Result<Option<Type>, ParserInternalError> {
     match node.kind() {
@@ -586,7 +586,7 @@ fn get_declaration_type(
 /// ```
 fn get_function_term_type(
     index: NodeId,
-    node: &AstArenaNode,
+    node: &AstNode,
     context: &CheckContext
 ) -> Result<Option<Type>, ParserInternalError> {
     let children = node.children();

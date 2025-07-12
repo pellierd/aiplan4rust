@@ -6,7 +6,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::SymbolTable;
-use crate::aiplan4rust::syntax::ast::{AstArena, AstArenaNode, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstArena, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
@@ -21,7 +21,7 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     /// The AST stored in an tree for efficient indexing and traversal.
-    ast: TreeArena<AstArenaNode>,
+    ast: TreeArena<AstNode>,
 
     /// The set of semantic requirements (e.g., domain-specific constraints or planner capabilities).
     requirements: HashSet<Requirement>,
@@ -49,7 +49,7 @@ impl Context {
     /// * `interner` - The string interner used for symbol resolution and deduplication.
     /// * `generated_at` - The timestamp marking when the context was built.
     pub fn new(
-        ast: TreeArena<AstArenaNode>,
+        ast: TreeArena<AstNode>,
         source_name: String,
         requirements: HashSet<Requirement>,
         symbol_table: SymbolTable,
@@ -103,7 +103,7 @@ impl Context {
     /// # Returns
     ///
     /// A `HashSet` of all declared and implied `Requirement` instances.
-    fn extract_requirements(arena: &TreeArena<AstArenaNode>) -> Result<HashSet<Requirement>, ParserInternalError> {
+    fn extract_requirements(arena: &TreeArena<AstNode>) -> Result<HashSet<Requirement>, ParserInternalError> {
         let mut requirements = HashSet::new();
 
         // Step 1: Find the first `RequireDef` node in the AST
@@ -156,24 +156,24 @@ impl Context {
     }
 
     /// Returns a reference to a node by its index, if it exists.
-    pub fn get_node(&self, id: NodeId) -> Option<&AstArenaNode> {
+    pub fn get_node(&self, id: NodeId) -> Option<&AstNode> {
         self.ast.get_node(id)
     }
 
-    pub fn try_node(&self, id: NodeId) -> Result<&AstArenaNode, ParserInternalError> {
+    pub fn try_node(&self, id: NodeId) -> Result<&AstNode, ParserInternalError> {
         self.ast.try_node(id)
     }
 
     /// Returns a reference to the internal AST tree.
-    pub fn ast(&self) -> &TreeArena<AstArenaNode> {
+    pub fn ast(&self) -> &TreeArena<AstNode> {
         &self.ast
     }
 
-    pub fn ast_mut(&mut self) -> &mut TreeArena<AstArenaNode> {
+    pub fn ast_mut(&mut self) -> &mut TreeArena<AstNode> {
         &mut self.ast
     }
 
-    pub fn take_ast(&mut self) -> TreeArena<AstArenaNode> {
+    pub fn take_ast(&mut self) -> TreeArena<AstNode> {
         std::mem::take(&mut self.ast)
     }
 

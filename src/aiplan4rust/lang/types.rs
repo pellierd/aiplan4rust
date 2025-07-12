@@ -4,7 +4,7 @@ use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
-use crate::aiplan4rust::syntax::ast::{AstArenaNode, FromAst};
+use crate::aiplan4rust::syntax::ast::{AstNode, FromAst};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{NodeContent, TreeArena, TreeNode};
@@ -322,7 +322,7 @@ impl PlanningSyntaxDisplay for Type {
 
 
 impl FromAst for Type {
-    /// Constructs a [`Type`] from an [`AstArenaNode`] representing a collection of type identifiers.
+    /// Constructs a [`Type`] from an [`AstNode`] representing a collection of type identifiers.
     ///
     /// This implementation iterates over the children of the given AST node,
     /// retrieves each child node's identifier, and adds it to the list of type members.
@@ -338,7 +338,7 @@ impl FromAst for Type {
     /// # Errors
     ///
     /// Returns a [`ParserInternalError`] if any of the child nodes cannot be retrieved.
-    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &TreeArena<AstNode>) -> Result<Self, ParserInternalError> {
         let mut ty = Type::new();
         for ty_id in node.children() {
             let child_node = ast.try_node(*ty_id)?;

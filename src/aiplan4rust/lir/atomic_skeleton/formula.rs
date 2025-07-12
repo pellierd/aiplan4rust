@@ -22,7 +22,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::TreeArena;
@@ -108,8 +108,8 @@ impl FromAst for Formula {
     ///
     /// Returns a [`ParserInternalError`] if the node does not have the expected structure.
     fn from_ast(
-        node: &AstArenaNode,
-        ast: &TreeArena<AstArenaNode>,
+        node: &AstNode,
+        ast: &TreeArena<AstNode>,
     ) -> Result<Self, ParserInternalError> {
         let header = NamedTypedList::from_ast(node, ast)?;
         Ok(Formula { header })

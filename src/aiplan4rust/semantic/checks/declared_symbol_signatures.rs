@@ -7,7 +7,7 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::tree::{NodeId, TreeNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax tree.
 ///
@@ -196,7 +196,7 @@ fn match_argument(
     usage: &Usage,
     symbol_table: &SymbolTable,
     context: &CheckContext,
-    argument: &AstArenaNode,
+    argument: &AstNode,
     argument_index: usize,
     kind: SymbolKind,
     index: usize,

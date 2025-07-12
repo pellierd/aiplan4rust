@@ -5,7 +5,7 @@ use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::Ident;
 
 /// Checks the task ordering constraints in the provided annotated syntax tree and detects any
@@ -180,8 +180,8 @@ fn report_cyclic_task_ordering_error(
 /// - If a node does not directly contain a `TaskID`, the function will recursively search through
 ///   its child nodes.
 fn extract_task_ids(
-    node: &AstArenaNode,
-    tree: &TreeArena<AstArenaNode>,
+    node: &AstNode,
+    tree: &TreeArena<AstNode>,
 ) -> Result<Vec<Ident>, ParserInternalError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {

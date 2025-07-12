@@ -52,18 +52,18 @@ use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 /// node.set_span(Span::new(10, 20));
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct AstArenaNode {
+pub struct AstNode {
     data: AbstractNode<AstKind, AstContent>,
     span: Span,
 }
 
-impl AstArenaNode {
+impl AstNode {
     /// Creates a new `AstArenaNode` with the given kind, content, span, and optional parent.
     ///
     /// The node is initialized without children.
     pub fn new(kind: AstKind, content: AstContent, children: Vec<NodeId>, span: Span, parent: Option<NodeId>) -> Self {
         let data = AbstractNode::new(kind, content, children, parent);
-        AstArenaNode { data, span }
+        AstNode { data, span }
     }
 
     /// Returns a reference to the source code span of this node.
@@ -200,7 +200,7 @@ impl AstArenaNode {
 
 }
 
-impl Deref for AstArenaNode {
+impl Deref for AstNode {
     type Target = AbstractNode<AstKind, AstContent>;
 
     fn deref(&self) -> &Self::Target {
@@ -208,13 +208,13 @@ impl Deref for AstArenaNode {
     }
 }
 
-impl DerefMut for AstArenaNode {
+impl DerefMut for AstNode {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
     }
 }
 
-impl fmt::Display for AstArenaNode {
+impl fmt::Display for AstNode {
     /// Affiche un résumé complet du nœud, utile pour le debug ou logs.
     ///
     /// Affiche :
@@ -260,7 +260,7 @@ impl fmt::Display for AstArenaNode {
     }
 }
 
-impl TreeNode for AstArenaNode {
+impl TreeNode for AstNode {
     type Kind = AstKind;
     type Content = AstContent;
 
@@ -334,9 +334,9 @@ impl TreeNode for AstArenaNode {
         interner: &StringInterner,
     ) -> fmt::Result {
         fn fmt_node(
-            node: &AstArenaNode,
+            node: &AstNode,
             f: &mut Formatter<'_>,
-            arena: &TreeArena<AstArenaNode>,
+            arena: &TreeArena<AstNode>,
             interner: &StringInterner,
             prefix: &str,
             last: bool,

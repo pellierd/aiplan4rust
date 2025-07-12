@@ -3,7 +3,7 @@ use lalrpop_util::ErrorRecovery;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::Span;
@@ -11,7 +11,7 @@ use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
 
 pub struct ParseContext {
     interner: RefCell<StringInterner>,
-    arena: RefCell<TreeArena<AstArenaNode>>,
+    arena: RefCell<TreeArena<AstNode>>,
     errors: RefCell<Vec<ErrorRecovery<usize, Token, LexicalError>>>,
 }
 
@@ -36,7 +36,7 @@ impl ParseContext {
         let span = Span::new(start, end);
 
         // 1) Alloue le nœud avec la liste des enfants
-        let node = AstArenaNode::new(kind, content, children, span, parent);
+        let node = AstNode::new(kind, content, children, span, parent);
 
         let mut arena = self.arena.borrow_mut();
 
@@ -85,17 +85,17 @@ impl ParseContext {
     }
 
     /// Accès mutable à l'arène
-    pub fn arena(&self) -> std::cell::RefMut<'_, TreeArena<AstArenaNode>> {
+    pub fn arena(&self) -> std::cell::RefMut<'_, TreeArena<AstNode>> {
         self.arena.borrow_mut()
     }
 
     // Prend l'arene et la remplace par une neuve
-    pub fn take_arena(&self) -> TreeArena<AstArenaNode> {
+    pub fn take_arena(&self) -> TreeArena<AstNode> {
         std::mem::take(&mut *self.arena.borrow_mut())
     }
 
     /// Alloue un noeud dans l'arène et retourne son NodeId
-    pub fn alloc(&self, node: AstArenaNode) -> NodeId {
+    pub fn alloc(&self, node: AstNode) -> NodeId {
         self.arena.borrow_mut().alloc(node)
     }
 

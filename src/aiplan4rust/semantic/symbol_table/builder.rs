@@ -5,7 +5,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry,Usage};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
 use crate::aiplan4rust::semantic::SymbolTable;
-use crate::aiplan4rust::syntax::ast::{AstArenaNode, AstArena, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstNode, AstArena, AstKind};
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lang::TypedList;
@@ -171,7 +171,7 @@ impl SymbolTableBuilder {
     /// ```
     fn initialize_from_ast(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
     ) -> Result<(), ParserInternalError> {
         let scope = Scope::new(node_ref.id(), None);
@@ -224,7 +224,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -349,7 +349,7 @@ impl SymbolTableBuilder {
     /// ```
     fn add_declaration_symbol(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
         types: Option<Type>,
@@ -435,7 +435,7 @@ impl SymbolTableBuilder {
     /// ```
     fn add_symbol_usage(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -522,7 +522,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_typed_list(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -584,7 +584,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_typed_item(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -637,7 +637,7 @@ impl SymbolTableBuilder {
     /// - Returns an error if the AST node kind is invalid or any symbol table operation fails.
     fn init_from_typed_item_elements(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
         types: Type,
@@ -719,7 +719,7 @@ impl SymbolTableBuilder {
     ///   within the symbol table system.
     fn init_from_atomic_function_skeleton(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
         types: Type,
@@ -796,7 +796,7 @@ impl SymbolTableBuilder {
     /// expected number of children, and a flag indicating the presence of a body.
     fn init_from_action_def(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -844,7 +844,7 @@ impl SymbolTableBuilder {
     /// This function delegates the main processing to `init_from_def`.
     fn init_from_method_def(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -888,7 +888,7 @@ impl SymbolTableBuilder {
     /// This function delegates the main processing to `init_from_def`.
     fn init_from_durative_action_def(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -931,7 +931,7 @@ impl SymbolTableBuilder {
     /// This function delegates the main processing to `init_from_def`.
     fn init_from_task_def(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -986,7 +986,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_def(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
         _valid_kinds: &[AstKind],
@@ -1065,7 +1065,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_atomic_formula(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -1129,7 +1129,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_quantified_expression(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -1190,7 +1190,7 @@ impl SymbolTableBuilder {
     /// ```
     fn init_from_atomic_formula_skeleton(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -1254,7 +1254,7 @@ impl SymbolTableBuilder {
     /// ```
     fn extract_arguments_from_typed_list(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
     ) -> Result<TypedList, ParserInternalError> {
         // Ensure the AST node is of kind TypedList
@@ -1293,7 +1293,7 @@ impl SymbolTableBuilder {
     /// ```
     fn extract_arguments_from_typed_item(
         &mut self,
-        typed_item_ref: &NodeRef<AstArenaNode>,
+        typed_item_ref: &NodeRef<AstNode>,
         ast: &AstArena,
     ) -> Result<TypedList, ParserInternalError> {
         // Ensure the node is of the correct kind
@@ -1353,7 +1353,7 @@ impl SymbolTableBuilder {
     /// Returns an error if the node is not of kind `Type` or if any child node is not of kind `PrimitiveType`.
     fn extract_type(
         &mut self,
-        type_ref: &NodeRef<AstArenaNode>,
+        type_ref: &NodeRef<AstNode>,
         ast: &AstArena,
     ) -> Result<Type, ParserInternalError> {
         // Ensure the provided AST node is of kind `Type`
@@ -1402,7 +1402,7 @@ impl SymbolTableBuilder {
     /// `PrimitiveType`.
     fn init_from_type(
         &mut self,
-        type_ref: &NodeRef<AstArenaNode>,
+        type_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<Type, ParserInternalError> {
@@ -1441,7 +1441,7 @@ impl SymbolTableBuilder {
     /// or if the children are not of expected kinds (`TaskID` for the first and `Task` for the second).
     fn init_from_tagged_task(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -1489,7 +1489,7 @@ impl SymbolTableBuilder {
     /// or if either child is not of kind `TaskID`.
     fn init_from_task_ordering_constraint(
         &mut self,
-        node_ref: &NodeRef<AstArenaNode>,
+        node_ref: &NodeRef<AstNode>,
         ast: &AstArena,
         scope: Scope,
     ) -> Result<(), ParserInternalError> {
@@ -1537,7 +1537,7 @@ impl SymbolTableBuilder {
     /// }
     /// ```
     fn assert_ast_kind(
-        node: &AstArenaNode,
+        node: &AstNode,
         valid_kinds: &[AstKind],
     ) -> Result<(), ParserInternalError> {
         match node.kind() {
@@ -1614,7 +1614,7 @@ impl SymbolTableBuilder {
     /// Self::assert_ast_children_number(&node, 2, Comparator::Equal).unwrap_err(); // fails if node doesn't have exactly 2 children
     /// ```
     fn assert_ast_children_number(
-        node: &AstArenaNode,
+        node: &AstNode,
         expected_len: usize,
         comparator: Comparator,
     ) -> Result<(), ParserInternalError> {

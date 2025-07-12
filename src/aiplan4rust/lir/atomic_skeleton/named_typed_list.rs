@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
-use crate::aiplan4rust::syntax::ast::AstArenaNode;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::tree::{TreeArena, TreeNode};
@@ -124,7 +124,7 @@ impl FromAst for NamedTypedList {
     /// # Returns
     ///
     /// `Ok(NamedTypedList)` if parsing succeeds, or `ParserInternalError` on failure.
-    fn from_ast(node: &AstArenaNode, ast: &TreeArena<AstArenaNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &TreeArena<AstNode>) -> Result<Self, ParserInternalError> {
         let name_id = node.try_child(0)?;
         let name_node = ast.try_node(name_id)?;
         let name = name_node.try_ident()?;
