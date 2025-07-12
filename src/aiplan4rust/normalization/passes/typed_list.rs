@@ -62,7 +62,7 @@
 //! The main entry point is [`normalize_typed_list`], which normalizes all `TypedList` nodes.
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{AstArena, AstNode, AstContent};
+use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
@@ -135,7 +135,7 @@ use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
 /// This function uses an explicit stack to avoid deep recursion and possible stack overflow
 /// on very large ASTs. It is typically the first normalization step before semantic analysis,
 /// type inference, or code generation.
-pub fn normalize_typed_list(ast: &mut AstArena) -> Result<(), ParserInternalError> {
+pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), ParserInternalError> {
     if !ast.arena().is_empty() {
         normalize_typed_list_node(ast)?
     }
@@ -189,7 +189,7 @@ pub fn normalize_typed_list(ast: &mut AstArena) -> Result<(), ParserInternalErro
 /// This normalization step is important to simplify downstream processing,
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
 /// type checking and code generation phases.
-fn normalize_typed_list_node(ast: &mut AstArena) -> Result<(), ParserInternalError> {
+fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), ParserInternalError> {
     let root_id = ast.arena().try_root_id()?;
     let arena = ast.arena_mut();
     let mut stack = vec![root_id];

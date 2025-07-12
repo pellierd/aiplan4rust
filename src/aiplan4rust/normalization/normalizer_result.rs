@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::syntax::ast::AstArena;
+use crate::aiplan4rust::syntax::ast::Ast;
 use std::fmt;
 
 /// Represents the result of the AST normalization phase.
@@ -34,7 +34,7 @@ use std::fmt;
 /// ```
 #[derive(Debug)]
 pub struct NormalizerResult {
-    ast: Option<AstArena>,
+    ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -50,7 +50,7 @@ impl NormalizerResult {
     /// # Returns
     ///
     /// A new instance of `NormalizerResult`.
-    pub fn new(ast: Option<AstArena>, diagnostic_manager: DiagnosticManager) -> Self {
+    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
         Self { ast, diagnostic_manager }
     }
 
@@ -60,7 +60,7 @@ impl NormalizerResult {
     ///
     /// A reference to the optional normalized AST. If normalization failed,
     /// this will be `None`.
-    pub fn ast(&self) -> &Option<AstArena> {
+    pub fn ast(&self) -> &Option<Ast> {
         &self.ast
     }
 
@@ -71,7 +71,7 @@ impl NormalizerResult {
     /// # Returns
     ///
     /// A mutable reference to the optional normalized AST.
-    pub fn ast_mut(&mut self) -> &mut Option<AstArena> {
+    pub fn ast_mut(&mut self) -> &mut Option<Ast> {
         &mut self.ast
     }
 
@@ -82,7 +82,7 @@ impl NormalizerResult {
     /// # Returns
     ///
     /// The normalized AST if present, or `None`.
-    pub fn take_ast(&mut self) -> Option<AstArena> {
+    pub fn take_ast(&mut self) -> Option<Ast> {
         self.ast.take()
     }
 

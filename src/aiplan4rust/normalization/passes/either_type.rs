@@ -63,7 +63,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{AstNode, AstArena, AstContent};
+use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::Span;
@@ -120,7 +120,7 @@ use crate::aiplan4rust::tree::TreeArena;
 /// ```
 ///
 pub fn normalize_either_type(
-    ast: &mut AstArena,
+    ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     let arena = ast.arena();
@@ -181,7 +181,7 @@ pub fn normalize_either_type(
 /// - `report_duplicate_either_type_warning_bis` – helper function that actually formats and sends diagnostics.
 fn report_either_type_duplicate_warnings(
     arena: &TreeArena<AstNode>,
-    ast: &AstArena,
+    ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), ParserInternalError> {
     // Retrieve the source name from the AST, used for diagnostics reporting
@@ -264,7 +264,7 @@ fn report_either_type_duplicate_warnings(
 /// - The caller is responsible for submitting the diagnostic to the diagnostic manager.
 fn new_duplicate_either_type_warning(
     duplicate_ids: Vec<Ident>,
-    ast: &AstArena,
+    ast: &Ast,
     source: &str,
     span: &Span,
 ) -> Result<Diagnostic, ParserInternalError> {

@@ -5,7 +5,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::{AstArena, AstKind};
+use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 use crate::aiplan4rust::tree::TreeNode;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
@@ -69,7 +69,7 @@ impl Analyzer {
     /// # Note
     /// Because the AST is passed as mutable, this function can efficiently
     /// consume parts of the AST (such as the interner) to avoid duplication.
-    pub fn analyze(&mut self, ast: &mut AstArena) -> Result<AnalyzerResult, ParserInternalError> {
+    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, ParserInternalError> {
         self.perform_analysis(ast)
     }
 
@@ -92,7 +92,7 @@ impl Analyzer {
     /// diagnostic manager with the provided one.
     pub fn analyze_with_diagnostic_manager(
         &mut self,
-        ast: &mut AstArena,
+        ast: &mut Ast,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<AnalyzerResult, ParserInternalError> {
         self.diagnostic_manager = diagnostic_manager;
@@ -122,7 +122,7 @@ impl Analyzer {
     /// Returns a `ParserInternalError` if the AST's root node kind is unexpected.
     fn perform_analysis(
         &mut self,
-        ast: &mut AstArena,
+        ast: &mut Ast,
     ) -> Result<AnalyzerResult, ParserInternalError> {
 
         let context = SemanticContext::from(ast)?;

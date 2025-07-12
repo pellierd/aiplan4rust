@@ -15,7 +15,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use crate::aiplan4rust::syntax::ast::AstArena;
+use crate::aiplan4rust::syntax::ast::Ast;
 
 /// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///
@@ -993,7 +993,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns `ParserInternalError` if semantic errors or other parsing issues are detected during building.
-    pub fn from_ast(ast: &AstArena) -> Result<Table, ParserInternalError> {
+    pub fn from_ast(ast: &Ast) -> Result<Table, ParserInternalError> {
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(ast)?;
         Ok(symbol_table)

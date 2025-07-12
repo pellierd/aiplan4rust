@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
-use crate::aiplan4rust::syntax::ast::AstArena;
+use crate::aiplan4rust::syntax::ast::Ast;
 
 /// The `Normalizer` struct provides functionality to transform an Abstract Syntax Tree (AST)
 /// into a standardized, normalized form suitable for further processing or compilation.
@@ -81,7 +81,7 @@ impl Normalizer {
     /// # Errors
     ///
     /// Errors returned are typically internal logic errors detected during normalization.
-    pub fn normalize(&mut self, ast: AstArena) -> Result<NormalizerResult, ParserInternalError> {
+    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, ParserInternalError> {
         self.perform_normalization(ast)
     }
 
@@ -101,7 +101,7 @@ impl Normalizer {
     /// - `Err(ParserInternalError)` if an error occurs during normalization.
     pub fn normalize_with_diagnostic_manager(
         &mut self,
-        ast: AstArena,
+        ast: Ast,
         diagnostic_manager: DiagnosticManager,
     ) -> Result<NormalizerResult, ParserInternalError> {
         self.diagnostic_manager = diagnostic_manager;
@@ -128,7 +128,7 @@ impl Normalizer {
     /// - `Err(ParserInternalError)` if any pass fails.
     fn perform_normalization(
         &mut self,
-        mut ast: AstArena,
+        mut ast: Ast,
     ) -> Result<NormalizerResult, ParserInternalError> {
         passes::normalize_typed_list(&mut ast)?;
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;

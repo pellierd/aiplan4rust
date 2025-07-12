@@ -6,7 +6,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::SymbolTable;
-use crate::aiplan4rust::syntax::ast::{AstArena, AstNode, AstKind};
+use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
@@ -73,7 +73,7 @@ impl Context {
     ///
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
-    pub fn from(ast: &mut AstArena) -> Result<Self, ParserInternalError> {
+    pub fn from(ast: &mut Ast) -> Result<Self, ParserInternalError> {
 
         let symbol_table = SymbolTable::from_ast(ast)?;
         let arena = ast.take_arena();

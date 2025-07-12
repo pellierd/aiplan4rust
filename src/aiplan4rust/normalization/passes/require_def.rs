@@ -45,7 +45,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::syntax::ast::AstArena;
+use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::Span;
@@ -97,7 +97,7 @@ use crate::aiplan4rust::tree::{NodeId, TreeArena};
 /// }
 /// ```
 pub fn normalize_require_def(
-    ast: &mut AstArena,
+    ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Early exit if no RequireDef node is found

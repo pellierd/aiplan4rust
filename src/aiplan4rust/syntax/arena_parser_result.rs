@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::syntax::ast::AstArena;
+use crate::aiplan4rust::syntax::ast::Ast;
 
 use std::fmt;
 
@@ -23,7 +23,7 @@ use std::fmt;
 /// ```
 #[derive(Debug, Clone)]
 pub struct ArenaParserResult {
-    ast: Option<AstArena>,
+    ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
 }
 
@@ -34,7 +34,7 @@ impl ArenaParserResult {
     ///
     /// * `ast_old` - The resulting AST from parsing, or `None` if parsing failed completely.
     /// * `diagnostic_manager` - Container for all diagnostics produced during parsing.
-    pub fn new(ast: Option<AstArena>, diagnostic_manager: DiagnosticManager) -> Self {
+    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
         ArenaParserResult {
             ast,
             diagnostic_manager,
@@ -47,14 +47,14 @@ impl ArenaParserResult {
     ///
     /// * `Some(&Ast)` if parsing succeeded.
     /// * `None` if parsing failed.
-    pub fn ast(&self) -> Option<&AstArena> {
+    pub fn ast(&self) -> Option<&Ast> {
         self.ast.as_ref()
     }
 
     /// Returns a mutable reference to the parsed AST if available.
     ///
     /// Allows modifying the AST after parsing.
-    pub fn ast_mut(&mut self) -> Option<&mut AstArena> {
+    pub fn ast_mut(&mut self) -> Option<&mut Ast> {
         self.ast.as_mut()
     }
 
@@ -73,7 +73,7 @@ impl ArenaParserResult {
     }
 
     /// Takes ownership of the AST, leaving `None` in its place.
-    pub fn take_ast(&mut self) -> Option<AstArena> {
+    pub fn take_ast(&mut self) -> Option<Ast> {
         self.ast.take()
     }
 

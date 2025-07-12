@@ -6,7 +6,7 @@ use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::{ArenaParserResult, FastLineTable, Language, ParseContext, ParserError};
-use crate::aiplan4rust::syntax::ast::AstArena;
+use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 
 use lalrpop_util::ErrorRecovery;
@@ -164,7 +164,7 @@ impl<'a> Parser<'a> {
                 } else {
                     // Otherwise, take the arena and create the AST.
                     let mut arena = context.take_arena();
-                    let mut ast = AstArena::new(
+                    let mut ast = Ast::new(
                         arena,
                         interner,
                         source_name.to_string(),

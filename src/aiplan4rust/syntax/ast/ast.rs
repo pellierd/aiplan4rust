@@ -69,7 +69,7 @@ use crate::aiplan4rust::tree::{NodeId, TreeArena};
 /// This struct owns the entire syntax tree, the string interner used to deduplicate
 /// symbolic strings, and metadata such as source origin and generation timestamp.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct AstArena {
+pub struct Ast {
 
     /// Root node of the AST.
     arena: TreeArena<AstNode>,
@@ -84,7 +84,7 @@ pub struct AstArena {
     generated_at: SystemTime,
 }
 
-impl AstArena {
+impl Ast {
     /// Creates a new [`Ast`] instance.
     ///
     /// # Arguments
@@ -107,7 +107,7 @@ impl AstArena {
         }
     }
     pub fn default() -> Self {
-        AstArena {
+        Ast {
             arena: TreeArena::<AstNode>::new(),         // suppose que AstNode impl Default
             interner: StringInterner::new(),             // interner vide
             source_name: String::new(),                  // chaîne vide par défaut
@@ -273,7 +273,7 @@ impl AstArena {
     }
 }
 
-impl fmt::Display for AstArena {
+impl fmt::Display for Ast {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Abstract Syntax Tree:")?;
         writeln!(f, " - Source: {}", self.source_name)?;

@@ -36,7 +36,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use crate::aiplan4rust::syntax::ast::AstArena;
+use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
@@ -103,7 +103,7 @@ use crate::aiplan4rust::tree::{NodeId, TreeNode};
 /// }
 /// ```
 pub fn normalize_type_def(
-    ast: &mut AstArena,
+    ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
     // Retrieve the node ID of the TypesDef node in the AST
@@ -141,7 +141,7 @@ pub fn normalize_type_def(
 /// it triggers a warning for implicit 'either' type declaration at that type's span.
 fn report_implicit_either_type_warning(
     types_def_id: NodeId,
-    ast: &AstArena,
+    ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), ParserInternalError> {
     // Get immutable access to the arena containing the AST nodes
@@ -217,7 +217,7 @@ fn report_implicit_either_type_warning(
 fn new_implicit_either_type_warning(
     type_ident: Ident,
     span: &Span,
-    ast: &AstArena,
+    ast: &Ast,
 ) -> Result<Diagnostic, ParserInternalError> {
 
     // Resolve the string name of the type identifier using the AST's interner
@@ -289,7 +289,7 @@ fn new_implicit_either_type_warning(
 /// ```
 pub fn merge_duplicate_type_declarations(
     types_def_id: NodeId,
-    ast: &mut AstArena,
+    ast: &mut Ast,
 ) -> Result<bool, ParserInternalError> {
     // Get mutable access to the arena holding all AST nodes
     let arena = ast.arena_mut();
