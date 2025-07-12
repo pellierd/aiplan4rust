@@ -100,8 +100,8 @@ impl fmt::Display for ParserResult {
     /// If parsing failed, displays all diagnostics related to the failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ast {
-            Some(tree) => {
-                write!(f, "Parsing successful:\n{}", tree)?;
+            Some(ast) => {
+                write!(f, "Parsing successful:\n{}", ast)?;
                 if !self.diagnostic_manager().is_empty() {
                     write!(f, "\nDiagnostics encountered during parsing:\n")?;
                     for diagnostic in self.diagnostic_manager().diagnostics() {

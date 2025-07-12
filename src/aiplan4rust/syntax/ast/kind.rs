@@ -9,7 +9,7 @@ use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 
 /// Represents the different kinds of nodes in an Abstract Syntax Tree (AST).
 ///
-/// This enum models various components found in domain or problem specifications
+/// This enum models various components found in do©main or problem specifications
 /// of planning problems, typically for domain-specific languages such as PDDL.
 ///
 /// Each variant corresponds to a specific syntactic or semantic element of a planning
