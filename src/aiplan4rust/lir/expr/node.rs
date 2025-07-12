@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::tree::{AbstractNode, NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -13,19 +13,19 @@ use std::ops::{Deref, DerefMut};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {
-    data: AbstractNode<ExprKind, ExprContent>,
+    data: BaseNode<ExprKind, ExprContent>,
 }
 
 impl ExprNode {
     pub fn new(kind: ExprKind, content: ExprContent, parent: Option<NodeId>) -> Self {
         ExprNode {
-            data: AbstractNode::new(kind, content, Vec::new(), parent),
+            data: BaseNode::new(kind, content, Vec::new(), parent),
         }
     }
 }
 
 impl Deref for ExprNode {
-    type Target = AbstractNode<ExprKind, ExprContent>;
+    type Target = BaseNode<ExprKind, ExprContent>;
 
     fn deref(&self) -> &Self::Target {
         &self.data

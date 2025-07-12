@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::{PlanningSyntaxDisplay, Span};
-use crate::aiplan4rust::tree::{AbstractNode, NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, TreeNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -53,7 +53,7 @@ use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct AstNode {
-    data: AbstractNode<AstKind, AstContent>,
+    data: BaseNode<AstKind, AstContent>,
     span: Span,
 }
 
@@ -62,7 +62,7 @@ impl AstNode {
     ///
     /// The node is initialized without children.
     pub fn new(kind: AstKind, content: AstContent, children: Vec<NodeId>, span: Span, parent: Option<NodeId>) -> Self {
-        let data = AbstractNode::new(kind, content, children, parent);
+        let data = BaseNode::new(kind, content, children, parent);
         AstNode { data, span }
     }
 
@@ -201,7 +201,7 @@ impl AstNode {
 }
 
 impl Deref for AstNode {
-    type Target = AbstractNode<AstKind, AstContent>;
+    type Target = BaseNode<AstKind, AstContent>;
 
     fn deref(&self) -> &Self::Target {
         &self.data

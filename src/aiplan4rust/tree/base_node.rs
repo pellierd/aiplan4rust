@@ -17,14 +17,14 @@ use crate::aiplan4rust::tree::{NodeContent, NodeId};
 /// - `K`: A `Copy` type representing the kind of the node (e.g., an enum of node types).
 /// - `C`: The content stored in the node. Must implement the [`NodeContent`] trait.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct AbstractNode<K: Copy, C: NodeContent> {
+pub struct BaseNode<K: Copy, C: NodeContent> {
     kind: K,
     content: C,
     children: Vec<NodeId>,
     parent: Option<NodeId>,
 }
 
-impl<K: Copy, C: NodeContent> AbstractNode<K, C> {
+impl<K: Copy, C: NodeContent> BaseNode<K, C> {
     /// Creates a new node with the given kind, content, and optional parent.
     ///
     /// # Arguments
@@ -133,7 +133,7 @@ impl<K: Copy, C: NodeContent> AbstractNode<K, C> {
     }
 }
 
-impl<K, C> DisplayWithInterner for AbstractNode<K, C>
+impl<K, C> DisplayWithInterner for BaseNode<K, C>
 where
     K: Copy + fmt::Display,
     C: NodeContent + DisplayWithInterner,
