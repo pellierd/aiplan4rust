@@ -1,21 +1,17 @@
+use crate::aiplan4rust::arena::{Arena, ArenaNode, BaseNode, NodeId};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
-use crate::aiplan4rust::syntax::{SyntaxDisplay, Span};
-use crate::aiplan4rust::arena::{BaseNode, NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
+use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
-use itertools::process_results;
-use crate::aiplan4rust::syntax::ast::kind::Kind;
-use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 
 /// Represents a node in an Abstract Syntax Tree (AST) arena.
 ///
@@ -61,7 +57,13 @@ impl AstNode {
     /// Creates a new `AstArenaNode` with the given kind, content, span, and optional parent.
     ///
     /// The node is initialized without children.
-    pub fn new(kind: AstKind, content: AstContent, children: Vec<NodeId>, span: Span, parent: Option<NodeId>) -> Self {
+    pub fn new(
+        kind: AstKind,
+        content: AstContent,
+        children: Vec<NodeId>,
+        span: Span,
+        parent: Option<NodeId>,
+    ) -> Self {
         let data = BaseNode::new(kind, content, children, parent);
         AstNode { data, span }
     }
@@ -144,7 +146,6 @@ impl AstNode {
         Ok(())
     }
 
-
     fn fmt_task(
         &self,
         f: &mut Formatter<'_>,
@@ -196,8 +197,6 @@ impl AstNode {
             Ok(())
         }
     }
-
-
 }
 
 impl Deref for AstNode {
@@ -230,13 +229,15 @@ impl fmt::Display for AstNode {
     /// // Node[kind=PrimitiveType("t1"), content=..., span=..., parent=none, children=[1, 2]]
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let children = self.children()
+        let children = self
+            .children()
             .iter()
             .map(|idx| idx.to_string())
             .collect::<Vec<_>>()
             .join(", ");
 
-        let parent = self.parent()
+        let parent = self
+            .parent()
             .map_or("none".to_string(), |idx| idx.to_string());
 
         let span = self.span();
@@ -344,8 +345,8 @@ impl ArenaNode for AstNode {
             let branch = if last { "└─" } else { "├─" };
 
             let content_str = match node.content() {
-                Content::None => String::new(),
-                Content::Ident(id) => format!(" [{}]", id.to_string_with_interner(interner)),
+                AstContent::None => String::new(),
+                AstContent::Ident(id) => format!(" [{}]", id.to_string_with_interner(interner)),
                 other => format!(" [{}]", other),
             };
 
@@ -397,7 +398,13 @@ impl ArenaNode for AstNode {
         fmt_node(self, f, arena, interner, "", true)
     }
 
-    fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, arena: &Arena<Self>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_planning_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        arena: &Arena<Self>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         match self.kind() {
             AstKind::Domain => {
@@ -422,7 +429,12 @@ impl ArenaNode for AstNode {
                     if let Some(child_node) = arena.get_node(*child_id) {
                         writeln!(f)?;
                         // Recurse with increased indentation
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        child_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                     }
                 }
 
@@ -476,7 +488,12 @@ impl ArenaNode for AstNode {
                     writeln!(f)?;
                     let child_indent = Self::make_indent(indent + 1);
                     if let Some(child_node) = arena.get_node(*child_id) {
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        child_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                     } else {
                         write!(f, "<invalid-child-node>")?;
                     }
@@ -488,8 +505,6 @@ impl ArenaNode for AstNode {
 
                 Ok(())
             }
-
-
 
             AstKind::RequireDef => {
                 // Indentation de la ligne d'ouverture
@@ -525,13 +540,11 @@ impl ArenaNode for AstNode {
                     writeln!(f, "{}; <missing-typed-list>", empty_indent)?;
                 }
 
-                f.write_str(&indent_str)?;  // root indentation for closing parenthesis
+                f.write_str(&indent_str)?; // root indentation for closing parenthesis
                 writeln!(f, ")")
             }
 
-            AstKind::TypedList => {
-                self.fmt_typed_list(f, arena, interner, false, indent)
-            }
+            AstKind::TypedList => self.fmt_typed_list(f, arena, interner, false, indent),
 
             AstKind::TypedItemElements => {
                 // Write the indentation once before the list of elements
@@ -558,13 +571,13 @@ impl ArenaNode for AstNode {
             }
 
             AstKind::TypedItem => {
-
                 let indent_str = Self::make_indent(indent);
 
                 // Handle first child (elements)
                 if let Some(first_child_id) = self.get_child(0) {
                     if let Some(first_child_node) = arena.get_node(first_child_id) {
-                        first_child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                        first_child_node
+                            .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                     } else {
                         write!(f, "{}<invalid_node>", indent_str)?;
                     }
@@ -584,7 +597,6 @@ impl ArenaNode for AstNode {
                 Ok(())
             }
 
-
             AstKind::Type => {
                 match self.children().len() {
                     0 => write!(f, ""),
@@ -594,7 +606,9 @@ impl ArenaNode for AstNode {
                             // Write indentation before the single type
                             write!(f, "{}", indent_str)?;
                             // Recursively format the type content with the current indentation
-                            ty_node.content().fmt_syntax_with_indent(f, interner, indent)
+                            ty_node
+                                .content()
+                                .fmt_syntax_with_indent(f, interner, indent)
                         } else {
                             write!(f, "{}<invalid_node>", indent_str)
                         }
@@ -608,7 +622,9 @@ impl ArenaNode for AstNode {
                             write!(f, " ")?;
                             if let Some(ty_node) = arena.get_node(*child_id) {
                                 // Format each type content recursively, no extra indent here since on the same line
-                                ty_node.content().fmt_syntax_with_indent(f, interner, indent)?;
+                                ty_node
+                                    .content()
+                                    .fmt_syntax_with_indent(f, interner, indent)?;
                             } else {
                                 write!(f, "<invalid_node>")?;
                             }
@@ -653,7 +669,6 @@ impl ArenaNode for AstNode {
                 writeln!(f, "{})", indent_str)
             }
 
-
             AstKind::FunctionsDef => {
                 // Write the opening line with current indentation
                 write!(f, "{}(:functions", indent_str)?;
@@ -670,8 +685,7 @@ impl ArenaNode for AstNode {
                 write!(f, ")")
             }
 
-            AstKind::AtomicFormulaSkeleton
-            | AstKind::AtomicFunctionSkeleton => {
+            AstKind::AtomicFormulaSkeleton | AstKind::AtomicFunctionSkeleton => {
                 // Write the opening parenthesis with the given indentation
                 write!(f, "{}(", indent_str)?;
 
@@ -700,7 +714,6 @@ impl ArenaNode for AstNode {
                 // Write the closing parenthesis without any extra space
                 write!(f, ")")
             }
-
 
             AstKind::TaskDef => {
                 // Write opening line with indentation
@@ -755,7 +768,6 @@ impl ArenaNode for AstNode {
                 writeln!(f, "\n{})", indent_str)
             }
 
-
             AstKind::MethodDef => {
                 let children = self.children();
 
@@ -796,7 +808,12 @@ impl ArenaNode for AstNode {
                 if let Some(&body_id) = children.get(2) {
                     writeln!(f)?;
                     if let Some(body_node) = arena.get_node(body_id) {
-                        body_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        body_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                     } else {
                         let indent_body = Self::make_indent(indent + 1);
                         write!(f, "{}<invalid-method-body>", indent_body)?;
@@ -817,7 +834,6 @@ impl ArenaNode for AstNode {
                 // Call fmt_task with increased indentation level for nested formatting
                 self.fmt_task(f, arena, interner, true, 0)
             }
-
 
             AstKind::PreconditionDef
             | AstKind::EffectDef
@@ -849,9 +865,7 @@ impl ArenaNode for AstNode {
                 Ok(())
             }
 
-
-            AstKind::AtomicFormula
-            | AstKind::FunctionTerm => {
+            AstKind::AtomicFormula | AstKind::FunctionTerm => {
                 // Write the opening parenthesis with current indentation
                 write!(f, "{}(", indent_str)?;
 
@@ -874,9 +888,7 @@ impl ArenaNode for AstNode {
                 write!(f, ")")
             }
 
-
-            AstKind::Assign
-            | AstKind::FComp => {
+            AstKind::Assign | AstKind::FComp => {
                 // Write the opening parenthesis with current indentation
                 write!(f, "{}(", indent_str)?;
 
@@ -948,7 +960,12 @@ impl ArenaNode for AstNode {
                 // 3. Expression (indentée d’un cran)
                 if let Some(&expr_id) = children.get(1) {
                     if let Some(expr_node) = arena.get_node(expr_id) {
-                        expr_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        expr_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                     } else {
                         writeln!(f, "{}<invalid-expression>", indent_str)?;
                     }
@@ -984,7 +1001,12 @@ impl ArenaNode for AstNode {
                 // 3. Effet indenté
                 if let Some(&effect_id) = children.get(1) {
                     if let Some(effect_node) = arena.get_node(effect_id) {
-                        effect_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        effect_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                     } else {
                         writeln!(f, "{}<invalid-effect>", indent_str)?;
                     }
@@ -998,7 +1020,6 @@ impl ArenaNode for AstNode {
                 Ok(())
             }
 
-
             AstKind::TaskNetworkDef => {
                 let children = self.children();
 
@@ -1007,21 +1028,23 @@ impl ArenaNode for AstNode {
 
                     if let Some(child_node) = arena.get_node(child_id) {
                         match child_node.kind() {
-                            AstKind::OrderedSubtaskDef
-                            | AstKind::PartiallyOrderedSubtaskDef => {
-                                child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                            AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
+                                child_node
+                                    .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                                 if !is_last {
                                     writeln!(f)?;
                                 }
                             }
                             AstKind::TaskOrderingConstraintDef => {
-                                child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                child_node
+                                    .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                                 if !is_last {
                                     writeln!(f)?;
                                 }
                             }
                             AstKind::TaskLogicalConstraintDef => {
-                                child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                child_node
+                                    .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                                 if !is_last {
                                     writeln!(f)?;
                                 }
@@ -1038,10 +1061,7 @@ impl ArenaNode for AstNode {
                 Ok(())
             }
 
-
-
-            AstKind::OrderedSubtaskDef
-            | AstKind::PartiallyOrderedSubtaskDef => {
+            AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
                 // Write the type of subtask with current indentation
                 write!(f, "{}", indent_str)?;
                 self.kind().fmt_syntax(f, interner)?;
@@ -1080,7 +1100,12 @@ impl ArenaNode for AstNode {
                                         }
                                         other => {
                                             // Unexpected node kind
-                                            writeln!(f, "{}<unexpected-{}>", Self::make_indent(indent + 2), other)?;
+                                            writeln!(
+                                                f,
+                                                "{}<unexpected-{}>",
+                                                Self::make_indent(indent + 2),
+                                                other
+                                            )?;
                                         }
                                     }
                                 } else {
@@ -1229,7 +1254,8 @@ impl ArenaNode for AstNode {
                 if children.len() == 3 {
                     if let Some(&precond_id) = children.get(1) {
                         if let Some(precond_node) = arena.get_node(precond_id) {
-                            precond_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                            precond_node
+                                .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                             writeln!(f)?;
                         }
                     }
@@ -1238,7 +1264,8 @@ impl ArenaNode for AstNode {
                 // Task Network (toujours le dernier enfant)
                 if let Some(&task_network_id) = children.last() {
                     if let Some(task_network_node) = arena.get_node(task_network_id) {
-                        task_network_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                        task_network_node
+                            .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                         writeln!(f)?;
                     } else {
                         write!(f, "<invalid-task-network>")?;
@@ -1250,7 +1277,6 @@ impl ArenaNode for AstNode {
 
                 Ok(())
             }
-
 
             AstKind::ActionDef => {
                 let children = self.children();
@@ -1292,7 +1318,12 @@ impl ArenaNode for AstNode {
                 if let Some(&body_id) = children.get(2) {
                     writeln!(f)?;
                     if let Some(body_node) = arena.get_node(body_id) {
-                        body_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        body_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                         writeln!(f)?;
                     } else {
                         let indent_body = Self::make_indent(indent + 1);
@@ -1378,7 +1409,12 @@ impl ArenaNode for AstNode {
                         for grandchild_id in and_node.children() {
                             if let Some(grandchild_node) = arena.get_node(*grandchild_id) {
                                 // Child node already indents itself
-                                grandchild_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                                grandchild_node.fmt_planning_syntax_with_indent(
+                                    f,
+                                    arena,
+                                    interner,
+                                    indent + 1,
+                                )?;
                             } else {
                                 // Manually indent the error line
                                 write!(f, "{}<invalid-init-child>", child_indent_str)?;
@@ -1433,7 +1469,12 @@ impl ArenaNode for AstNode {
                 if let Some(tn_id) = tn_opt {
                     match arena.get_node(tn_id) {
                         Some(tn_node) => {
-                            tn_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                            tn_node.fmt_planning_syntax_with_indent(
+                                f,
+                                arena,
+                                interner,
+                                indent + 1,
+                            )?;
                         }
                         None => {
                             writeln!(f, "{}<invalid-task-network>", child_indent_str)?;
@@ -1446,8 +1487,6 @@ impl ArenaNode for AstNode {
                 write!(f, "\n{})", indent_str)
             }
 
-
-
             AstKind::Goal => {
                 // Write the opening line with indentation
                 writeln!(f, "{}(:goal", indent_str)?;
@@ -1456,7 +1495,12 @@ impl ArenaNode for AstNode {
                 if let Some(&child_id) = self.children().get(0) {
                     if let Some(child_node) = arena.get_node(child_id) {
                         // Format the child node with increased indentation
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        child_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                     } else {
                         // Child node is invalid, print placeholder with indentation
                         let child_indent = Self::make_indent(indent + 1);
@@ -1472,9 +1516,7 @@ impl ArenaNode for AstNode {
                 write!(f, "\n{})", indent_str)
             }
 
-
             AstKind::Metric => {
-
                 // Write the opening line for the metric section with base indentation
                 write!(f, "{}(:metric", indent_str)?;
 
@@ -1482,14 +1524,18 @@ impl ArenaNode for AstNode {
                 for child_id in self.children() {
                     write!(f, " ")?; // space before each child
                     if let Some(child_node) = arena.get_node(*child_id) {
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent + 1)?;
+                        child_node.fmt_planning_syntax_with_indent(
+                            f,
+                            arena,
+                            interner,
+                            indent + 1,
+                        )?;
                     }
                 }
 
                 // Write the closing parenthesis with no extra indentation (same line)
                 write!(f, ")")
             }
-
 
             AstKind::Constant
             | AstKind::Variable
@@ -1510,16 +1556,15 @@ impl ArenaNode for AstNode {
                 self.content().fmt_syntax_with_indent(f, interner, indent)
             }
 
-            | AstKind::TotalTime => {
+            AstKind::TotalTime => {
                 write!(f, "{}{}", indent_str, TOTAL_TIME)
             }
 
-            | AstKind::Error => {
+            AstKind::Error => {
                 write!(f, "{}<error>", indent_str)
             }
 
-
-                _ => {
+            _ => {
                 write!(f, "(DEFAULT{}", self.kind())?;
                 for child_id in self.children() {
                     write!(f, " ")?;
@@ -1528,30 +1573,29 @@ impl ArenaNode for AstNode {
                     }
                 }
                 write!(f, ")")
-            /*Kind::None => {}
-            Kind::DurativeActionDef => {}
-            Kind::DADefBody => {}
-            Kind::DerivedDef => {}
-            Kind::Preference => {}
-            Kind::Operation => {}
-            Kind::Constraints => {}
-            Kind::Always => {}
-            Kind::Sometime => {}
-            Kind::Within => {}
-            Kind::AtMostOnce => {}
-            Kind::SometimeAfter => {}
-            Kind::SometimeBefore => {}
-            Kind::AlwaysWithin => {}
-            Kind::HoldDuring => {}
-            Kind::HoldAfter => {}
-            Kind::TimedInitialLiteral => {}
-            Kind::IsViolated => {}
-            Kind::Length => {}
-            Kind::Serial => {}
-            Kind::Parallel => {}
-            Kind::InitialTaskNetwork => {}*/
-        }
+                /*Kind::None => {}
+                Kind::DurativeActionDef => {}
+                Kind::DADefBody => {}
+                Kind::DerivedDef => {}
+                Kind::Preference => {}
+                Kind::Operation => {}
+                Kind::Constraints => {}
+                Kind::Always => {}
+                Kind::Sometime => {}
+                Kind::Within => {}
+                Kind::AtMostOnce => {}
+                Kind::SometimeAfter => {}
+                Kind::SometimeBefore => {}
+                Kind::AlwaysWithin => {}
+                Kind::HoldDuring => {}
+                Kind::HoldAfter => {}
+                Kind::TimedInitialLiteral => {}
+                Kind::IsViolated => {}
+                Kind::Length => {}
+                Kind::Serial => {}
+                Kind::Parallel => {}
+                Kind::InitialTaskNetwork => {}*/
+            }
         }
     }
-
 }

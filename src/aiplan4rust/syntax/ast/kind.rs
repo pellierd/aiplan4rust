@@ -1,11 +1,24 @@
+//! The `kind` module: defines the `Kind` enum representing node kinds
+//! used in the abstract syntax tree (AST) for planning domain/problem
+//! languages like PDDL and HDDL.
+//!
+//! This includes implementations of the standard `Display` trait and
+//! a custom `SyntaxDisplay` trait for language-specific formatted output,
+//! including indentation and keywords.
+//!
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::syntax::lexer::token::{
+    ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS,
+    CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL,
+    HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METRIC, NOT, OBJECTS,
+    OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVERALL, PARALLEL, PARAMETERS, PRECONDITION,
+    PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER,
+    SOMETIME_BEFORE, SUBTASKS, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN,
+};
+use crate::aiplan4rust::syntax::SyntaxDisplay;
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::syntax::ast::AstKind::Constraints;
-use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::lexer::token::{ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS, CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL, HOLD_AFTER, HOLD_DURING, HTN, IMPLY, INIT, IS_VIOLATED, LENGTH, METHOD, METHOD_PRECONDITIONS, METRIC, NOT, OBJECTS, OR, ORDERED_SUBTASKS, ORDERED_TASKS, OVERALL, PARALLEL, PRECONDITION, PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER, SOMETIME_BEFORE, SUBTASKS, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN};
-use crate::aiplan4rust::syntax::lexer::Token::Effect;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents the different kinds of nodes in an Abstract Syntax Tree (AST).
 ///
@@ -243,7 +256,6 @@ pub enum Kind {
     //
     // HDDL Dialect Extensions
     //
-
     /// Represents a task in HDDL.
     Task,
 
@@ -396,7 +408,37 @@ impl fmt::Display for Kind {
 }
 
 impl SyntaxDisplay for Kind {
-    fn fmt_syntax_with_indent(&self, f: &mut fmt::Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    /// Formats the `Kind` enum as a syntax keyword string with indentation.
+    ///
+    /// This method writes an appropriate keyword corresponding to the variant of
+    /// `Kind` to the given formatter `f`. The output includes indentation based on
+    /// the `indent` parameter (number of spaces).
+    ///
+    /// The `_interner` parameter is currently unused but may be used for
+    /// future implementations involving string interning or symbol resolution.
+    ///
+    /// # Parameters
+    /// - `f`: The formatter to write the output string.
+    /// - `_interner`: A reference to the string interner (unused).
+    /// - `indent`: The indentation level (number of spaces) to prefix the keyword.
+    ///
+    /// # Returns
+    /// A `fmt::Result` indicating success or failure during formatting.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use std::fmt::Write;
+    /// let kind = Kind::ActionDef;
+    /// let mut output = String::new();
+    /// kind.fmt_syntax_with_indent(&mut output, &interner, 4).unwrap();
+    /// assert_eq!(output, "    action");
+    /// ```
+    fn fmt_syntax_with_indent(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        _interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         let s = match self {
@@ -486,7 +528,7 @@ impl SyntaxDisplay for Kind {
             Kind::TaskLogicalConstraintDef => CONSTRAINTS,
             Kind::TaskNetworkDef => "",
             Kind::InitialTaskNetwork => HTN,
-            Kind::ParametersDef => ":parameters",
+            Kind::ParametersDef => PARAMETERS,
         };
         write!(f, "{}", s)
     }
