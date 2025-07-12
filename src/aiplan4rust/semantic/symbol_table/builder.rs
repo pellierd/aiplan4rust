@@ -383,13 +383,13 @@ impl SymbolTableBuilder {
         let origin = SymbolOrigin::from(self.table().origin());
         if let Some(symbol) = self.table_mut().get_symbol_mut(ident) {
             let declaration =
-                Declaration::new(symbol_ref, scope, origin, types, arguments, node_ref.node().span().clone(), node_ref.id());
+                Declaration::new(symbol_ref, scope, origin, types, arguments, node_ref.node().span().clone(), node_ref.id(), None);
             symbol.add_declaration(declaration);
         } else {
             // Create a new symbol and add the declaration to it
             let mut symbol = SymbolEntry::new(ident);
             let declaration =
-                Declaration::new(symbol_ref, scope, origin, types, arguments, node_ref.node().span().clone(), node_ref.id());
+                Declaration::new(symbol_ref, scope, origin, types, arguments, node_ref.node().span().clone(), node_ref.id(), None);
             symbol.add_declaration(declaration);
             self.table_mut().insert_symbol(ident, symbol); // Insert the new symbol into the table
         }

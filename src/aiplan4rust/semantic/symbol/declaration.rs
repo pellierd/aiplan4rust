@@ -46,26 +46,29 @@ use std::fmt;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
-    // Reference to the symbol declared.
+    /// Reference to the symbol declared.
     symbol: SymbolRef,
 
-    // The scope of the declaration.
+    /// The scope of the declaration.
     scope: Scope,
 
-    // The origin from which the declaration originates.
+    /// The origin from which the declaration originates.
     origin: SymbolOrigin,
 
-    // Optional list of types associated with the symbol.
+    /// Optional list of types associated with the symbol.
     types: Option<Type>,
 
-    // Optional list of argument types, grouped in parameter lists.
+    /// Optional list of argument types, grouped in parameter lists.
     arguments: Option<TypedList>,
 
-    // The span in source code where the declaration is located.
+    /// The span in source code where the declaration is located.
     span: Span,
 
-    // The AST syntax ID corresponding to this declaration.
+    /// The AST syntax ID corresponding to this declaration.
     node_id: NodeId,
+
+    /// Original scope if this declaration was imported, otherwise `None`.
+    imported_scope: Option<Scope>,
 }
 
 impl Declaration {
@@ -111,6 +114,7 @@ impl Declaration {
         arguments: Option<TypedList>,
         span: Span,
         node_id: NodeId,
+        imported_scope: Option<Scope>,
     ) -> Self {
         Declaration {
             symbol: symbol_ref,
@@ -120,6 +124,7 @@ impl Declaration {
             arguments,
             span,
             node_id,
+            imported_scope
         }
     }
 
@@ -142,6 +147,10 @@ impl Declaration {
     /// Returns a reference to the [`Scope`] in which the symbol is used.
     pub fn scope(&self) -> &Scope {
         &self.scope
+    }
+
+    pub fn set_scope(&mut self, scope: Scope) {
+        self.scope = scope;
     }
 
     /// Returns a reference to the [`SymbolOrigin`] indicating the origin of the symbol.
@@ -176,9 +185,16 @@ impl Declaration {
         self.origin = origin;
     }
 
-    pub fn set_scope(&mut self, scope: Scope) {
-        self.scope = scope;
+    /// Returns a reference to the imported scope if any.
+    pub fn imported_scope(&self) -> Option<&Scope> {
+        self.imported_scope.as_ref()
     }
+
+    /// Sets the imported scope.
+    pub fn set_imported_scope(&mut self, scope: Option<Scope>) {
+        self.imported_scope = scope;
+    }
+
 
     /// Remaps all [`Ident`] values in this declaration using the provided mapping.
     ///
@@ -415,7 +431,13 @@ impl fmt::Display for Declaration {
         write!(f, "[index: {}, kind: {}, ident: {}", self.node_id().as_usize(), self.symbol_kind(), self.symbol_ident())?;
 
         // Add scope and source at the end
-        write!(f, ", scope: {}, source: {}", self.scope(), self.origin())?;
+        write!(
+            f,
+            ", scope: {}, source: {}, imported: {}",
+            self.scope(),
+            self.origin(),
+            self.imported_scope().map_or("None".to_string(), |s| s.to_string())
+        )?;
 
         // Call the format_types function to format the types
         self.fmt_types(f)?;
@@ -447,7 +469,13 @@ impl InternerDisplay for Declaration {
             name_str
         )?;
 
-        write!(f, ", scope: {}, source: {}", self.scope(), self.origin())?;
+        write!(
+            f,
+            ", scope: {}, source: {}, imported: {}",
+            self.scope(),
+            self.origin(),
+            self.imported_scope().map_or("None".to_string(), |s| s.to_string())
+        )?;
 
         // Appelle les helpers définies dans ce même impl
         self.fmt_types_with(f, interner)?;
