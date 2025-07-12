@@ -109,8 +109,6 @@ impl<'a> Parser<'a> {
         // Register the source text with the diagnostic manager
         self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
 
-        // Initialize a vector to collect error recovery info from LALRPOP (currently unused)
-        let mut errors = Vec::new();
         // Create a new lexer instance from the source text to tokenize input
         let lexer = Lexer::new(source);
         // Initialize the parser context which holds parser state and memory allocations
@@ -129,7 +127,7 @@ impl<'a> Parser<'a> {
         let fast_line_table = FastLineTable::new(source);
 
         // Convert any collected LALRPOP errors into diagnostics and add them to the manager
-        self.handle_syntax_diagnostics(&errors, &fast_line_table);
+        self.handle_syntax_diagnostics(&context.borrow_errors_mut(), &fast_line_table);
 
         // If any error-level diagnostics were added, parsing failed—return no AST but diagnostics
         if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
@@ -138,7 +136,7 @@ impl<'a> Parser<'a> {
 
         // Process the result of the parsing operation
         match parse_result {
-            Ok(root_id) => {
+            Ok(_) => {
                 // Double-check if any errors were added during parsing
                 if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
                     // Return failure with diagnostics if errors are present

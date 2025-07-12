@@ -340,11 +340,11 @@ TypedList<T>: Result<NodeId, ParserInternalError> = {
         let typed_item = context.alloc_node(AstKind::TypedItem, AstContent::None, vec![typed_item_elt?], start, end);
         context.alloc_node(AstKind::TypedList, AstContent::None, vec![typed_item?], start, end)
     },
-    <start:@L> <elements:T+> <end_elements:@R> "-" <ty:Type> <end_typed_item:@R> <mut next:TypedList<T>> <end:@R> => {
+    <start:@L> <elements:T+> <end_elements:@R> "-" <ty:Type> <end_typed_item:@R> <next:TypedList<T>> <end:@R> => {
         let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
         let typed_item_elt = context.alloc_node(AstKind::TypedItemElements, AstContent::None, elements, start, end_elements);
         let typed_item = context.alloc_node(AstKind::TypedItem, AstContent::None, vec![typed_item_elt?, ty?], start, end_typed_item);
-        let mut typed_list = context.alloc_node(AstKind::TypedList, AstContent::None, vec![typed_item?], start, end);
+        let typed_list = context.alloc_node(AstKind::TypedList, AstContent::None, vec![typed_item?], start, end);
         context.merge_typed_list(typed_list?, next?)
     }
 }

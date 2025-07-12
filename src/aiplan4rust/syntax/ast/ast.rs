@@ -54,15 +54,16 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use std::fmt;
-use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::arena::{Arena, NodeId};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::arena::{NodeId, Arena};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::fmt::Debug;
+use std::time::SystemTime;
 
 /// A complete abstract syntax arena and its associated context.
 ///
@@ -203,11 +204,7 @@ impl Ast {
     ///
     /// * `Some(NodeId)` if a matching node is found.
     /// * `None` if no matching node is found.
-    pub fn find_node_id_of_kind_from(
-        &self,
-        node_id: NodeId,
-        kind: AstKind,
-    ) -> Option<NodeId> {
+    pub fn find_node_id_of_kind_from(&self, node_id: NodeId, kind: AstKind) -> Option<NodeId> {
         for id in self.arena.preorder_ids_from(node_id) {
             let node = self.arena.get_node(id)?;
             if node.kind() == kind {
@@ -228,9 +225,9 @@ impl Ast {
     /// * `Some(NodeId)` if a matching node is found.
     /// * `None` if no matching node is found.
     pub fn find_node_id_of_kind(&self, kind: AstKind) -> Option<NodeId> {
-        self.arena.root_id().and_then(|root_id| {
-            self.find_node_id_of_kind_from(root_id, kind)
-        })
+        self.arena
+            .root_id()
+            .and_then(|root_id| self.find_node_id_of_kind_from(root_id, kind))
     }
 
     /// Recursively initializes the span (start and end positions: line and column)
@@ -250,7 +247,6 @@ impl Ast {
         &mut self,
         fast_line_table: &FastLineTable,
     ) -> Result<(), ParserInternalError> {
-
         if !self.arena().is_empty() {
             let mut stack = vec![self.arena().try_root_id()?];
             while let Some(node_id) = stack.pop() {
@@ -275,6 +271,64 @@ impl Ast {
         }
         Ok(())
     }
+
+    /// Returns a string representation of the AST with symbols resolved
+    /// using the associated [`StringInterner`].
+    ///
+    /// This method prints the AST nodes in a detailed debug-like format,
+    /// showing node names along with their interned strings for clarity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let s = ast.to_string_with_interner();
+    /// println!("{}", s);
+    /// ```
+    pub fn to_string_with_interner(&self) -> String {
+        self.arena().to_string_with_interner(self.interner())
+    }
+
+    /// Returns a string representation of the AST formatted as PDDL syntax.
+    ///
+    /// This method produces a PDDL-compliant serialization of the AST,
+    /// suitable for outputting a valid PDDL domain or problem description.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let pddl = ast.to_syntax_string();
+    /// println!("{}", pddl);
+    /// ```
+    pub fn to_syntax_string(&self) -> String {
+        self.arena().to_syntax_string(self.interner())
+    }
+
+    /// Returns a string representing the AST formatted as PDDL syntax,
+    /// including metadata as PDDL-style comments.
+    ///
+    /// This string includes the source name and generation timestamp
+    /// as comments at the beginning of the output, followed by the
+    /// pretty-printed AST syntax.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let pddl_str = ast.to_syntax_string_with_comments();
+    /// println!("{}", pddl_str);
+    /// ```
+    ///
+    pub fn to_syntax_string_with_comments(&self) -> String {
+        let mut buf = String::new();
+
+        // Add metadata as PDDL-style comments
+        buf.push_str(&format!(";; Source: {}\n", self.source_name));
+        buf.push_str(&format!(";; Generated at: {:?}\n\n", self.generated_at));
+
+        // Append the PDDL syntax representation of the AST
+        buf.push_str(&self.arena().to_syntax_string(self.interner()));
+
+        buf
+    }
 }
 
 impl fmt::Display for Ast {
@@ -286,7 +340,7 @@ impl fmt::Display for Ast {
         writeln!(f, " - Source: {}", self.source_name)?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
         writeln!(f, " - Nodes:\n")?;
-        self.arena().fmt_syntax(f, self.interner())?;
+        self.arena().fmt_with_interner(f, self.interner())?;
         Ok(())
     }
 }
