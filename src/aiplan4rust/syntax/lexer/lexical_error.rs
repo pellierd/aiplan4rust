@@ -1,3 +1,17 @@
+//! This module defines the `LexicalError` enum, representing errors that may occur during lexical analysis
+//! and token parsing phases.
+//!
+//! The enum categorizes common lexical errors such as:
+//! - Invalid tokens encountered in the input stream.
+//! - Failures when parsing floating-point numbers (`ParseFloatError`).
+//!
+//! It provides conversion from `ParseFloatError` into `LexicalError` for seamless error handling,
+//! and implements the `fmt::Display` trait to format errors as human-readable messages suitable
+//! for debugging or user feedback.
+//!
+//! This error type is essential for robust lexers and parsers, enabling clear distinction and reporting
+//! of lexical issues encountered while processing input source code.
+
 use std::fmt;
 use std::num::ParseFloatError;
 

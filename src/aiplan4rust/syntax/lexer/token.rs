@@ -1,3 +1,30 @@
+//! This module defines lexical tokens and constants for parsing PDDL (Planning Domain Definition Language)
+//! and HDDL (Hierarchical Domain Definition Language) domain and problem specifications.
+//!
+//! It provides:
+//! - A comprehensive set of PDDL and HDDL keyword string constants used throughout the parser.
+//! - The `Token` enum, representing all possible lexical tokens encountered in domain/problem files,
+//!   including keywords, identifiers, numbers, operators, logical expressions, requirements, and comments.
+//! - Integration with the `logos` crate for efficient lexical analysis using regex-based token recognition.
+//! - Handling of lexical errors via the `LexicalError` type.
+//!
+//! The module supports parsing of complex PDDL features like durative actions, temporal constraints,
+//! and HTN-specific HDDL constructs.
+//!
+//! Example usage:
+//! ```rust
+//! use crate::aiplan4rust::syntax::lexer::Token;
+//! let input = "define problem";
+//! let lexer = Token::lexer(input);
+//! for token in lexer {
+//!     println!("{:?}", token);
+//! }
+//! ```
+//!
+//! This lexer is a fundamental component for building parsers and interpreters for automated planning
+//! domains and problems specified in PDDL/HDDL formats.
+//!
+
 use crate::aiplan4rust::syntax::lexer::LexicalError;
 
 use logos::Logos;

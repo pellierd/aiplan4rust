@@ -1,3 +1,21 @@
+//! This module defines a `Lexer` struct that tokenizes an input string using the `logos` crate,
+//! producing a stream of spanned tokens with lexical error handling.
+//!
+//! The `Spanned` type alias represents a `Result` containing a tuple with start and end locations
+//! alongside a token or a lexical error. This allows tracking the precise position of each token
+//! in the input text.
+//!
+//! The `Lexer` struct wraps a `logos::SpannedIter` over the `Token` enum, iterating over tokens
+//! and producing them with their span (start and end offsets).
+//!
+//! The `Iterator` implementation for `Lexer` handles token extraction:
+//! - Successfully parsed tokens are returned with their span.
+//! - Tokens representing lexing errors are wrapped in an `Error` token variant along with the problematic slice.
+//! - Debug logs are emitted for both normal tokens and errors, reporting token symbols and their spans.
+//!
+//! This lexer provides a foundation for lexical analysis with detailed error reporting and
+//! position tracking, useful in parsing and compiling source code.
+
 use logos::Logos;
 use logos::SpannedIter;
 use log::debug;
