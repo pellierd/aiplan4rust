@@ -44,7 +44,6 @@ use crate::aiplan4rust::syntax::ast::Ast;
 pub struct Normalizer {
     diagnostic_manager: DiagnosticManager,
 }
-
 impl Normalizer {
     /// Constructs a new `Normalizer` instance with an empty diagnostic manager.
     ///

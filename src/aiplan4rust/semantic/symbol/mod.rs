@@ -7,7 +7,7 @@ pub mod entry;
 pub mod kind;
 pub mod origin;
 pub mod symbol;
-
+mod scope_origine;
 
 pub use declaration::Declaration;
 pub use filterable::Filterable;
