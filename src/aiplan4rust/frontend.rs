@@ -1,4 +1,4 @@
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::linking::LinkerResult;
@@ -21,6 +21,7 @@ use base64::engine::general_purpose;
 use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::Renderer;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -73,15 +74,17 @@ impl Frontend {
                 diagnostic_manager.add_diagnostic_from(linker_result
                     .diagnostic_manager());
 
+
                 match linker_result.linked_semantic_context() {
                     Some(linked_semantic_context) => {
                         let interner = linked_semantic_context.interner();
-                        println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
+                        //println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
                         //println!("Linking successful, building LIR...");
                         //println!("{}", linked_semantic_context.problem().to_planning_string(linked_semantic_context.interner()));
                         let mut ir_builder = LIRBuilder::new();
-                        let builder_result = ir_builder.build(linked_semantic_context)?;
-                        println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
+                        let builder_result = ir_builder.build_with_diagnostic_manager(linked_semantic_context, diagnostic_manager)?;
+                        //println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
+ 
                         Ok(builder_result)
                     }
                     None => {
@@ -147,11 +150,11 @@ impl Frontend {
         // Match on the AST extracted from parsing.
         match parser_result.take_ast() {
             Some(raw_ast) => {
-                println!("********************** RAW AST *************************");
-                println!("{}", raw_ast.arena().try_root()?.to_string_with_interner(raw_ast.arena(), raw_ast.interner()));
+                //println!("********************** RAW AST *************************");
+                //println!("{}", raw_ast.arena().try_root()?.to_string_with_interner(raw_ast.arena(), raw_ast.interner()));
 
-                println!("********************** RAW AST *************************");
-                println!("{}", raw_ast.arena().try_root()?.to_syntax_string(raw_ast.arena(), raw_ast.interner()));
+                //println!("********************** RAW AST *************************");
+                //println!("{}", raw_ast.arena().try_root()?.to_syntax_string(raw_ast.arena(), raw_ast.interner()));
 
                 // Take diagnostics from parser result.
                 let diagnostic_manager = parser_result.take_diagnostic_manager();

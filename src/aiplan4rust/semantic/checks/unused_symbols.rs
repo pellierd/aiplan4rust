@@ -1,3 +1,4 @@
+use crate::aiplan4rust::arena::Arena;
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
@@ -10,9 +11,9 @@ use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Requirement::Typing;
-use crate::aiplan4rust::semantic::symbol::Declaration;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
@@ -198,18 +199,18 @@ fn skip_unused_symbol_declaration(
 
     // Skip if the declaration is a variable and its scope contains an atomic skeleton syntax.
     // Variables within such scopes are typically local and do not need to be checked for duplicates.
-    if matches!(declaration.symbol_kind(), SymbolKind::Variable)
-        && (declaration
-            .scope()
-            .contains_node_of_kind(AstKind::AtomicFormulaSkeleton, context.ast())?
-            || declaration.scope().contains_node_of_kind(
-        AstKind::AtomicFunctionSkeleton,
-        context.ast(),
-            )?
-            || declaration // Add for HDDL
-                .scope()
-                .contains_node_of_kind(AstKind::TaskDef, context.ast())?)
-    {
+    let scope = declaration.scope();
+
+    // Check if scope contains specific AST kinds
+    let contains_formula = scope_contains_node_of_kind(scope, AstKind::AtomicFormulaSkeleton, context.ast())?;
+    let contains_function = scope_contains_node_of_kind(scope, AstKind::AtomicFunctionSkeleton, context.ast())?;
+    let contains_task = scope_contains_node_of_kind(scope, AstKind::TaskDef, context.ast())?;
+
+    // Check if symbol is a variable
+    let is_variable = matches!(declaration.symbol_kind(), SymbolKind::Variable);
+
+    // Return true if variable and any AST kind is present
+    if is_variable && (contains_formula || contains_function || contains_task) {
         return Ok(true);
     }
 
@@ -408,4 +409,43 @@ fn report_symbol_declared_as_keyword_error(
         filename.to_string(),
         declaration.span().clone(),
     ));
+}
+
+
+/// Checks if the given `scope` contains at least one AST node of the specified `kind`.
+///
+/// This function iterates over all `NodeId`s in the scope's stack and attempts to
+/// retrieve the corresponding AST nodes from the provided AST arena. If any node
+/// matches the given `kind`, it returns `Ok(true)`. If no nodes match, it returns
+/// `Ok(false)`. If any node ID is invalid or cannot be found, it returns an error.
+///
+/// # Parameters
+/// - `scope`: Reference to the `Scope` to search within.
+/// - `kind`: The `AstKind` to look for in the scope.
+/// - `ast`: Reference to the AST arena containing all AST nodes.
+///
+/// # Returns
+/// - `Ok(true)` if at least one node of the specified kind is found in the scope.
+/// - `Ok(false)` if no matching nodes are found.
+/// - `Err(ParserInternalError)` if a node ID in the scope does not correspond to any AST node.
+///
+/// # Example
+/// ```
+/// let found = scope_contains_node_of_kind(&scope, AstKind::Function, &ast)?;
+/// if found {
+///     println!("Scope contains a function node");
+/// }
+/// ```
+fn scope_contains_node_of_kind(
+    scope: &Scope,
+    kind: AstKind,
+    ast: &Arena<AstNode>,
+) -> Result<bool, ParserInternalError> {
+    for &id in scope.iter() {
+        let node = ast.try_node(id)?;
+        if node.kind() == kind {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }

@@ -136,6 +136,15 @@ impl LIRBuilder {
         Ok(LIRBuilderResult::new(Some(lir), take(&mut self.diagnostic_manager)))
     }
 
+    pub fn build_with_diagnostic_manager(
+        &mut self,
+        context: &LinkedSemanticContext,
+        diagnostic_manager: DiagnosticManager
+    ) -> Result<LIRBuilderResult, ParserInternalError> {
+        self.diagnostic_manager = diagnostic_manager;
+        self.build(context)
+    }
+
     /// Extracts all domain-level elements (types, predicates, actions, etc.)
     ///
     /// # Arguments

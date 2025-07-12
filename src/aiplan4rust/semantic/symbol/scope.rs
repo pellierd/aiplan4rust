@@ -58,26 +58,6 @@ impl Scope {
         scope
     }
 
-    /// Returns a reference to the root `Scope`.
-    ///
-    /// The root scope contains only the root syntax ID (`NodeId::ROOT_NODE_ID`).
-    ///
-    /// # Returns
-    /// A static reference to the root `Scope`.
-    ///
-    /// # Example
-    /// ```rust
-    /// let root = Scope::root();
-    /// ```
-    /*pub fn root() -> &'static Scope {
-        static ROOT: Lazy<Scope> = Lazy::new(|| {
-            Scope {
-                stack: vec![NodeId::ROOT_ID], // définition directe ici
-            }
-        });
-        &ROOT
-    }*/
-
     /// Checks if `self` scope starts with the given `prefix` scope.
     ///
     /// This compares the internal `stack` vectors to see if `self` begins with
@@ -112,48 +92,6 @@ impl Scope {
     /// ```
     pub fn iter(&self) -> impl Iterator<Item = &NodeId> {
         self.stack.iter()
-    }
-
-    /// Checks if the scope contains at least one AST syntax of the specified kind.
-    ///
-    /// This function iterates over the syntax IDs stored in the scope's `stack` and
-    /// attempts to retrieve each corresponding AST syntax using `try_node`. If any
-    /// syntax is not found, it returns a `ParserInternalError`, indicating an internal
-    /// inconsistency.
-    ///
-    /// If at least one syntax matches the specified kind, the function returns `Ok(true)`.
-    /// If no nodes match, it returns `Ok(false)`.
-    ///
-    /// # Parameters
-    /// - `kind`: The kind of AST syntax to search for.
-    /// - `ast`: Reference to the AST arena containing all nodes.
-    ///
-    /// # Returns
-    /// - `Ok(true)` if any syntax in the scope's stack has the specified kind.
-    /// - `Ok(false)` if no syntax matches the specified kind.
-    /// - `Err(ParserInternalError)` if an expected syntax ID is not found.
-    ///
-    /// # Example
-    /// ```rust
-    /// let result = scope.contains_node_of_kind(AstKind::Function, &ast);
-    /// match result {
-    ///     Ok(true) => println!("Scope contains a function syntax."),
-    ///     Ok(false) => println!("Scope does not contain a function syntax."),
-    ///     Err(e) => eprintln!("Error: {}", e),
-    /// }
-    /// ```
-    pub fn contains_node_of_kind(
-        &self,
-        kind: AstKind,
-        ast: &Arena<AstNode>,
-    ) -> Result<bool, ParserInternalError> {
-        for &id in self.iter() {
-            let node = ast.try_node(id)?;
-            if node.kind() == kind {
-                return Ok(true);
-            }
-        }
-        Ok(false)
     }
 
 }
