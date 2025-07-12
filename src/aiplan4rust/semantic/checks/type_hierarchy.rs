@@ -199,11 +199,11 @@ fn report_cyclic_type_declaration_error(
 ///
 /// # Parameters
 /// - `graph`: A reference to a square boolean adjacency matrix where
-///   `graph[i][j] == true` indicates a directed edge from node `i` to node `j`.
+///   `graph[i][j] == true` indicates a directed edge from syntax `i` to syntax `j`.
 ///
 /// # Returns
-/// A vector of cycles. Each cycle is a vector of node indices representing the path.
-/// Each cycle starts and ends at the same node.
+/// A vector of cycles. Each cycle is a vector of syntax indices representing the path.
+/// Each cycle starts and ends at the same syntax.
 ///
 /// # Complexity
 /// Worst-case time complexity is exponential in the number of nodes, but Johnson's
@@ -226,16 +226,16 @@ fn johnson_find_cycles(graph: &[Vec<bool>]) -> Vec<Vec<usize>> {
     cycles
 }
 
-/// Recursive helper function that searches for all elementary cycles starting from node `s`.
+/// Recursive helper function that searches for all elementary cycles starting from syntax `s`.
 ///
-/// This function performs a depth-first search from the current node `v`, exploring all
+/// This function performs a depth-first search from the current syntax `v`, exploring all
 /// paths to find cycles that begin and end at `s`. It uses the "blocked" set and "block_map"
 /// to avoid unnecessary traversals of paths that cannot lead to new cycles, improving
 /// efficiency according to Johnson's algorithm.
 ///
 /// # Parameters
-/// - `v`: The current node being visited.
-/// - `s`: The start node of the cycle search (the "root" of the current search).
+/// - `v`: The current syntax being visited.
+/// - `s`: The start syntax of the cycle search (the "root" of the current search).
 /// - `graph`: The directed graph represented as an adjacency matrix.
 /// - `blocked`: A mutable boolean slice marking nodes that are temporarily blocked to prevent
 ///   revisiting.
@@ -244,13 +244,13 @@ fn johnson_find_cycles(graph: &[Vec<bool>]) -> Vec<Vec<usize>> {
 /// - `cycles`: The mutable collection where found cycles are appended.
 ///
 /// # Returns
-/// Returns `true` if at least one cycle involving node `s` was found during this search
+/// Returns `true` if at least one cycle involving syntax `s` was found during this search
 /// (including cycles passing through `v`), `false` otherwise.
 ///
 /// # Behavior
-/// - Marks node `v` as blocked to prevent revisiting in the current search branch.
+/// - Marks syntax `v` as blocked to prevent revisiting in the current search branch.
 /// - Explores all neighbors `w` of `v`.
-/// - If a neighbor `w` equals the start node `s`, a cycle is found and appended to `cycles`.
+/// - If a neighbor `w` equals the start syntax `s`, a cycle is found and appended to `cycles`.
 /// - Otherwise, recursively continues the search from unblocked neighbors.
 /// - If any cycle is found, calls `unblock` on `v` to allow revisits along other branches.
 /// - If no cycle found from `v`, updates `block_map` to keep track of dependencies causing
@@ -299,22 +299,22 @@ fn circuit(
     found_cycle
 }
 
-/// Unblocks node `u` and recursively unblocks all nodes that depend on it.
+/// Unblocks syntax `u` and recursively unblocks all nodes that depend on it.
 ///
 /// This function is part of Johnson's algorithm mechanism to manage the "blocked" set.
-/// When a cycle involving node `u` is found, this function removes the block on `u`
+/// When a cycle involving syntax `u` is found, this function removes the block on `u`
 /// and recursively unblocks all nodes in `block_map[u]` that were waiting on `u` to be
 /// unblocked, allowing those nodes to be explored in subsequent searches.
 ///
 /// # Parameters
-/// - `u`: The node to unblock.
-/// - `blocked`: Mutable boolean slice tracking the blocked status of each node.
+/// - `u`: The syntax to unblock.
+/// - `blocked`: Mutable boolean slice tracking the blocked status of each syntax.
 /// - `block_map`: Mutable structure mapping nodes to the list of nodes that caused their blockage.
 ///
 /// # Behavior
 /// - Sets `blocked[u]` to `false`.
 /// - Iteratively pops nodes from `block_map[u]`.
-/// - For each such node `w`, if it is still blocked, recursively unblocks `w`.
+/// - For each such syntax `w`, if it is still blocked, recursively unblocks `w`.
 /// - Clears `block_map[u]` in the process.
 fn unblock(u: usize, blocked: &mut [bool], block_map: &mut [Vec<usize>]) {
     blocked[u] = false;
@@ -330,7 +330,7 @@ fn unblock(u: usize, blocked: &mut [bool], block_map: &mut [Vec<usize>]) {
 /// 2. Duplicate cycles that are rotations of each other.
 ///
 /// # Arguments
-/// - `cycles`: A vector of cycles, each cycle is a vector of node indices.
+/// - `cycles`: A vector of cycles, each cycle is a vector of syntax indices.
 ///
 /// # Returns
 /// A filtered vector where self-loops and rotated duplicates are removed.
@@ -360,7 +360,7 @@ fn filter_cycles(cycles: Vec<Vec<usize>>) -> Vec<Vec<usize>> {
 /// This rotation serves as a canonical form to detect cycles that are rotations of each other.
 ///
 /// # Arguments
-/// - `arr`: Slice of node indices representing a cycle.
+/// - `arr`: Slice of syntax indices representing a cycle.
 ///
 /// # Returns
 /// The starting index of the minimal rotation.
@@ -425,7 +425,7 @@ fn canonical_cycle(cycle: &[usize]) -> Vec<usize> {
 /// Computes the transitive closure of a boolean adjacency matrix using the Floyd-Warshall algorithm.
 ///
 /// This function updates the given square matrix in place. After execution, `matrix[i][j]`
-/// will be `true` if there exists any path (direct or indirect) from node `i` to node `j`.
+/// will be `true` if there exists any path (direct or indirect) from syntax `i` to syntax `j`.
 ///
 /// This is useful in type systems to compute all inherited types (i.e., whether a type
 /// transitively inherits from another).

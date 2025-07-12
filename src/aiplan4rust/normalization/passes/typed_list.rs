@@ -1,12 +1,12 @@
 //! Module for normalizing `TypedList` nodes in the AST.
 //!
 //! This module provides functionality to recursively normalize all `TypedList` nodes
-//! within an AST subtree by transforming them so that each `TypedItem` node contains
+//! within an AST subtree by transforming them so that each `TypedItem` syntax contains
 //! exactly one element along with its optional type annotation.
 //!
 //! The normalization process involves a depth-first traversal starting from the root
-//! node of the AST. For each `TypedList` node encountered:
-//! - It verifies that each child is a `TypedItem` node containing at least one child.
+//! syntax of the AST. For each `TypedList` syntax encountered:
+//! - It verifies that each child is a `TypedItem` syntax containing at least one child.
 //! - Extracts the first child as the element (which must be a valid element kind).
 //! - Optionally clones the second child if present, representing the type annotation.
 //! - Rebuilds the `TypedItem` nodes so that each contains exactly one element plus an optional type.
@@ -44,7 +44,7 @@
 //!
 //! # Errors
 //!
-//! Returns `ParserInternalError` if structural inconsistencies or unexpected node kinds
+//! Returns `ParserInternalError` if structural inconsistencies or unexpected syntax kinds
 //! are encountered during normalization.
 //!
 //! # Usage example
@@ -69,14 +69,14 @@ use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
 
 /// Recursively normalizes all `TypedList` nodes in the given AST subtree.
 ///
-/// This function performs a **depth-first traversal** starting from the root node of the AST.
-/// For each `TypedList` node encountered, it:
-/// - Validates that each child is a `TypedItem` node with at least one child.
+/// This function performs a **depth-first traversal** starting from the root syntax of the AST.
+/// For each `TypedList` syntax encountered, it:
+/// - Validates that each child is a `TypedItem` syntax with at least one child.
 /// - Extracts the first child as the element (which must be one of the valid element kinds).
 /// - Optionally clones the second child if present, representing the type annotation.
-/// - Rebuilds each `TypedItem` node to contain exactly one element plus an optional type.
+/// - Rebuilds each `TypedItem` syntax to contain exactly one element plus an optional type.
 ///
-/// After normalizing a `TypedList` node, its children are pushed onto the stack to continue
+/// After normalizing a `TypedList` syntax, its children are pushed onto the stack to continue
 /// the normalization recursively.
 ///
 /// # Example of the transformation
@@ -110,8 +110,8 @@ use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
 /// # Errors
 ///
 /// Returns a `ParserInternalError` if:
-/// - Any `TypedItem` node is missing, malformed, or structurally invalid.
-/// - The element inside a `TypedItem` node is not one of the expected kinds:
+/// - Any `TypedItem` syntax is missing, malformed, or structurally invalid.
+/// - The element inside a `TypedItem` syntax is not one of the expected kinds:
 ///   `Constant`, `Variable`, `PrimitiveType`, or `AtomicFunctionSkeleton`.
 ///
 /// # Parameters
@@ -145,15 +145,15 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), ParserInternalError> {
 /// Normalizes all `TypedList` nodes within the given AST.
 ///
 /// This function performs an **explicit stack-based, non-recursive depth-first traversal**
-/// of the entire AST. Each time it encounters a `TypedList` node, it:
+/// of the entire AST. Each time it encounters a `TypedList` syntax, it:
 ///
 /// 1. Retrieves and clears its current children (`TypedItem` nodes).
 /// 2. For each `TypedItem`, extracts all contained elements along with the optional type annotation.
-/// 3. Creates a new `TypedItem` node for each individual element, preserving the original span and optional type annotation.
+/// 3. Creates a new `TypedItem` syntax for each individual element, preserving the original span and optional type annotation.
 /// 4. Replaces the original `TypedList` children with these normalized `TypedItem` nodes.
 ///
 /// The normalization guarantees that after processing:
-/// - Each `TypedItem` node contains **exactly one element**.
+/// - Each `TypedItem` syntax contains **exactly one element**.
 /// - Shared type annotations are duplicated appropriately for each element.
 ///
 /// # Arguments
@@ -163,7 +163,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), ParserInternalError> {
 /// # Returns
 ///
 /// * `Ok(())` if the normalization completes successfully.
-/// * `Err(ParserInternalError)` if the AST contains unexpected node kinds, invalid children indices,
+/// * `Err(ParserInternalError)` if the AST contains unexpected syntax kinds, invalid children indices,
 ///   or any structural inconsistencies encountered during traversal.
 ///
 /// # Panics
@@ -195,7 +195,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), ParserInternalError> {
     let mut stack = vec![root_id];
 
     while let Some(node_id) = stack.pop() {
-        // Check if the current node is a TypedList node and normalize its children if so.
+        // Check if the current syntax is a TypedList syntax and normalize its children if so.
         if is_typed_list_node(arena, node_id)? {
             normalize_typed_list_node_children(arena, node_id)?;
         }
@@ -211,8 +211,8 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), ParserInternalError> {
 }
 
 
-/// Normalizes the children of a `TypedList` node by expanding each `TypedItem`
-/// so that each new `TypedItem` node contains exactly one element and an optional type.
+/// Normalizes the children of a `TypedList` syntax by expanding each `TypedItem`
+/// so that each new `TypedItem` syntax contains exactly one element and an optional type.
 ///
 /// This function performs the core normalization step for `TypedList` nodes:
 /// - It extracts the existing children (which are `TypedItem` nodes that may contain multiple elements).
@@ -222,12 +222,12 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), ParserInternalError> {
 /// # Arguments
 ///
 /// * `arena` - Mutable reference to the AST arena containing the nodes.
-/// * `node_id` - The ID of the `TypedList` node whose children are to be normalized.
+/// * `node_id` - The ID of the `TypedList` syntax whose children are to be normalized.
 ///
 /// # Returns
 ///
 /// * `Ok(())` if the normalization completes successfully.
-/// * `Err(ParserInternalError)` if any node access or manipulation fails.
+/// * `Err(ParserInternalError)` if any syntax access or manipulation fails.
 ///
 /// # Errors
 ///
@@ -248,7 +248,7 @@ fn normalize_typed_list_node_children(
     arena: &mut Arena<AstNode>,
     node_id: NodeId,
 ) -> Result<(), ParserInternalError> {
-    // 1. Retrieve and clear the current children of the TypedList node.
+    // 1. Retrieve and clear the current children of the TypedList syntax.
     let old_typed_items = {
         let node = arena.try_node_mut(node_id)?;
         std::mem::take(node.children_mut())
@@ -282,7 +282,7 @@ fn normalize_typed_list_node_children(
     Ok(())
 }
 
-/// Checks whether a given node is a `TypedList` node.
+/// Checks whether a given syntax is a `TypedList` syntax.
 ///
 /// This function is used during AST normalization to identify nodes
 /// that represent a `TypedList`, which require special processing.
@@ -290,22 +290,22 @@ fn normalize_typed_list_node_children(
 /// # Arguments
 ///
 /// * `arena` - Mutable reference to the AST arena containing the nodes.
-/// * `node_id` - The ID of the node to check.
+/// * `node_id` - The ID of the syntax to check.
 ///
 /// # Returns
 ///
-/// * `Ok(true)` if the node kind is `TypedList`.
+/// * `Ok(true)` if the syntax kind is `TypedList`.
 /// * `Ok(false)` otherwise.
 ///
 /// # Errors
 ///
-/// Returns `ParserInternalError` if the node ID is invalid or cannot be found in the arena.
+/// Returns `ParserInternalError` if the syntax ID is invalid or cannot be found in the arena.
 ///
 /// # Example
 ///
 /// ```ignore
 /// if is_typed_list_node(arena, some_node_id)? {
-///     // handle TypedList node
+///     // handle TypedList syntax
 /// }
 /// ```
 fn is_typed_list_node(
@@ -316,32 +316,32 @@ fn is_typed_list_node(
     Ok(node.kind() == AstKind::TypedList)
 }
 
-/// Extracts the child element IDs, optional type ID, and span from a `TypedItem` node.
+/// Extracts the child element IDs, optional type ID, and span from a `TypedItem` syntax.
 ///
-/// This function is used during normalization to decompose a `TypedItem` node into:
+/// This function is used during normalization to decompose a `TypedItem` syntax into:
 /// - the IDs of its contained elements (which may be multiple before normalization),
-/// - an optional type node,
+/// - an optional type syntax,
 /// - and the span information.
 ///
 /// # Arguments
 ///
 /// * `arena` - Reference to the `TreeArena` containing the AST nodes.
-/// * `typed_item_id` - The node ID of the `TypedItem` to extract.
+/// * `typed_item_id` - The syntax ID of the `TypedItem` to extract.
 ///
 /// # Returns
 ///
 /// * `Ok((element_ids, type_id_opt, span))` -
 ///     - `element_ids`: A vector of the IDs of the element nodes contained in this `TypedItem`.
-///     - `type_id_opt`: An optional ID of the associated type node.
+///     - `type_id_opt`: An optional ID of the associated type syntax.
 ///     - `span`: The span information of the `TypedItem`.
 ///
-/// * `Err(ParserInternalError)` - If the node is missing expected children or is invalid.
+/// * `Err(ParserInternalError)` - If the syntax is missing expected children or is invalid.
 ///
 /// # Errors
 ///
 /// Returns an error if:
-/// - The `TypedItem` node does not have at least one child (the elements node).
-/// - The elements node cannot be retrieved.
+/// - The `TypedItem` syntax does not have at least one child (the elements syntax).
+/// - The elements syntax cannot be retrieved.
 ///
 /// # Example
 ///
@@ -352,10 +352,10 @@ fn extract_typed_item_data(
     arena: &Arena<AstNode>,
     typed_item_id: NodeId,
 ) -> Result<(Vec<NodeId>, Option<NodeId>, Span), ParserInternalError> {
-    // Retrieve the TypedItem node
+    // Retrieve the TypedItem syntax
     let typed_item_node = arena.try_node(typed_item_id)?;
 
-    // The first child must be the elements node
+    // The first child must be the elements syntax
     let elements_id = typed_item_node.try_child(0)?;
 
     // The second child, if it exists, is the optional type annotation
@@ -364,7 +364,7 @@ fn extract_typed_item_data(
     // Clone the span metadata
     let span = typed_item_node.span().clone();
 
-    // Retrieve the elements node, which contains multiple element children
+    // Retrieve the elements syntax, which contains multiple element children
     let elements_node = arena.try_node(elements_id)?;
 
     // Collect the IDs of all contained elements
@@ -374,17 +374,17 @@ fn extract_typed_item_data(
     Ok((element_ids, type_id_opt, span))
 }
 
-/// Creates a new `TypedItem` node containing exactly one element and optionally a type.
+/// Creates a new `TypedItem` syntax containing exactly one element and optionally a type.
 ///
 /// This function is used during normalization of `TypedList` nodes to reconstruct
 /// each `TypedItem` in a uniform structure.
 ///
 /// # Arguments
 ///
-/// * `element_id` - The node ID of the single element to include.
-/// * `type_id_opt` - An optional node ID representing the type annotation.
-/// * `span` - The source span associated with the new node.
-/// * `parent_id` - The parent node ID, typically referring to the `TypedList`.
+/// * `element_id` - The syntax ID of the single element to include.
+/// * `type_id_opt` - An optional syntax ID representing the type annotation.
+/// * `span` - The source span associated with the new syntax.
+/// * `parent_id` - The parent syntax ID, typically referring to the `TypedList`.
 ///
 /// # Returns
 ///
@@ -395,7 +395,7 @@ fn create_typed_item_node(
     span: Span,
     parent_id: NodeId,
 ) -> AstNode {
-    // Initialize children with the mandatory element node
+    // Initialize children with the mandatory element syntax
     let mut children = vec![element_id];
 
     // If a type is provided, append it as the second child
@@ -403,7 +403,7 @@ fn create_typed_item_node(
         children.push(type_id);
     }
 
-    // Create the new TypedItem node with no content,
+    // Create the new TypedItem syntax with no content,
     // storing the span and parent information
     AstNode::new(
         AstKind::TypedItem,

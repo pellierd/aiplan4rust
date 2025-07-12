@@ -53,18 +53,18 @@ use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 ///   meaning that each `TypedItem` contains exactly one element and an optional type.
 ///
 /// It performs the following operations:
-/// 1. Locates the `TypedList` node inside the `TypesDef` node of the AST.
+/// 1. Locates the `TypedList` syntax inside the `TypesDef` syntax of the AST.
 /// 2. Extracts all `TypedItem` nodes from the `TypedList`.
 /// 3. For each `TypedItem`, extracts:
 ///     - Its key (`PrimitiveType` string),
-///     - Its optional type annotation (`Type` node),
+///     - Its optional type annotation (`Type` syntax),
 ///     - The set of contained type names,
 ///     - Its source span (for diagnostics).
 /// 4. Tracks where each type was declared (to identify duplicates).
 /// 5. Merges `TypedItem`s that share the same key by:
-///     - Appending the contents of each `Type` node to the existing one if already present.
+///     - Appending the contents of each `Type` syntax to the existing one if already present.
 /// 6. Reports diagnostics if multiple declarations for the same key are detected.
-/// 7. Replaces the children of the `TypedList` node with the merged list.
+/// 7. Replaces the children of the `TypedList` syntax with the merged list.
 ///
 /// # Arguments
 ///
@@ -106,13 +106,13 @@ pub fn normalize_type_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Retrieve the node ID of the TypesDef node in the AST
+    // Retrieve the syntax ID of the TypesDef syntax in the AST
     let types_def_id = match ast.find_node_id_of_kind(AstKind::TypesDef) {
         Some(id) => id,
         None => return Ok(false),
     };
 
-    // Report warnings for implicit either type declarations in the TypesDef node
+    // Report warnings for implicit either type declarations in the TypesDef syntax
     report_implicit_either_type_warning(types_def_id, ast, diagnostic_manager)?;
 
     // Merge duplicate TypedItem declarations sharing the same PrimitiveType key
@@ -122,11 +122,11 @@ pub fn normalize_type_def(
 }
 
 
-/// Scans the type declarations under the given node and reports warnings
+/// Scans the type declarations under the given syntax and reports warnings
 /// for implicit 'either' type declarations detected.
 ///
 /// # Arguments
-/// * `types_def_id` - The NodeId of the type definitions node in the AST.
+/// * `types_def_id` - The NodeId of the type definitions syntax in the AST.
 /// * `ast` - Reference to the AST arena for accessing nodes and their data.
 /// * `diagnostic_manager` - Mutable reference to the diagnostic manager to record warnings.
 ///
@@ -135,7 +135,7 @@ pub fn normalize_type_def(
 /// * `Err(ParserInternalError)` if any AST access fails.
 ///
 /// # Behavior
-/// Iterates over all type declarations within the `types_def_id` node.
+/// Iterates over all type declarations within the `types_def_id` syntax.
 /// For each type, it collects the primitive type identifier and the set of
 /// super type identifiers. If a primitive type is encountered more than once,
 /// it triggers a warning for implicit 'either' type declaration at that type's span.
@@ -147,7 +147,7 @@ fn report_implicit_either_type_warning(
     // Get immutable access to the arena containing the AST nodes
     let arena = ast.arena();
 
-    // Retrieve the node representing the entire type definitions
+    // Retrieve the syntax representing the entire type definitions
     let typed_def_node = arena.try_node(types_def_id)?;
 
     // Get the first child which holds the list of typed declarations
@@ -161,13 +161,13 @@ fn report_implicit_either_type_warning(
     for typed_item_id in typed_list.children() {
         let type_item = arena.try_node(*typed_item_id)?;
 
-        // Extract the primitive type identifier node and get its Ident
+        // Extract the primitive type identifier syntax and get its Ident
         let primitive_type_id = type_item.try_child(0)?;
         let primitive_type = arena.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
 
 
-        // Extract the node containing super types of this primitive type if they exist
+        // Extract the syntax containing super types of this primitive type if they exist
         let super_type_idents = match type_item.get_child(1) {
             Some(ty_id) => {
                 let ty = arena.try_node(ty_id)?;
@@ -240,13 +240,13 @@ fn new_implicit_either_type_warning(
 
 /// Merges duplicate type declarations in the AST by combining their children.
 ///
-/// This function scans through a list of type declarations under a given node (`types_def_id`)
+/// This function scans through a list of type declarations under a given syntax (`types_def_id`)
 /// in the AST arena. If multiple declarations share the same primitive type identifier,
 /// their children nodes (super types) are merged into a single declaration,
 /// removing duplicates and preserving the order where possible.
 ///
 /// # Parameters
-/// - `types_def_id`: The `NodeId` of the parent node containing the type declarations list.
+/// - `types_def_id`: The `NodeId` of the parent syntax containing the type declarations list.
 /// - `ast`: A mutable reference to the `AstArena` containing the AST nodes.
 ///
 /// # Returns
@@ -258,7 +258,7 @@ fn new_implicit_either_type_warning(
 /// For each type declaration, the function extracts the primitive type identifier.
 /// If a previous declaration with the same identifier exists, it merges the children of the
 /// current declaration into the existing one, removing any duplicate children.
-/// The current duplicate declaration node is then removed from its parent's children list.
+/// The current duplicate declaration syntax is then removed from its parent's children list.
 ///
 /// # Example
 /// ```rust,no_run
@@ -275,11 +275,11 @@ fn new_implicit_either_type_warning(
 /// ```
 ///
 /// # Errors
-/// This function returns an error if any of the node retrievals or child accesses fail,
+/// This function returns an error if any of the syntax retrievals or child accesses fail,
 /// which usually indicates an inconsistent or malformed AST.
 ///
 /// # Notes
-/// - This function assumes the first child of the node with `types_def_id` is a list node
+/// - This function assumes the first child of the syntax with `types_def_id` is a list syntax
 ///   containing the individual type declarations.
 /// - The function operates in-place, mutating the provided AST arena.
 ///
@@ -294,10 +294,10 @@ pub fn merge_duplicate_type_declarations(
     // Get mutable access to the arena holding all AST nodes
     let arena = ast.arena_mut();
 
-    // Retrieve the node containing the types definitions
+    // Retrieve the syntax containing the types definitions
     let typed_def_node = arena.try_node(types_def_id)?;
 
-    // The first child of this node is assumed to be the list node holding all type declarations
+    // The first child of this syntax is assumed to be the list syntax holding all type declarations
     let typed_list_id = typed_def_node.try_child(0)?;
     let typed_list = arena.try_node_mut(typed_list_id)?;
 
@@ -314,15 +314,15 @@ pub fn merge_duplicate_type_declarations(
     let children_ids = typed_list.children().to_vec();
 
     for &typed_item_id in &children_ids {
-        // Skip any node already marked as duplicate to avoid redundant processing
+        // Skip any syntax already marked as duplicate to avoid redundant processing
         if duplicates_to_remove.contains(&typed_item_id) {
             continue;
         }
 
-        // Get the current type declaration node
+        // Get the current type declaration syntax
         let type_item = arena.try_node(typed_item_id)?;
 
-        // Extract the primitive type node and its identifier
+        // Extract the primitive type syntax and its identifier
         let primitive_type_id = type_item.try_child(0)?;
         let primitive_type = arena.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
@@ -330,11 +330,11 @@ pub fn merge_duplicate_type_declarations(
         if let Some(&existing_item_id) = seen.get(&primitive_type_ident) {
             // Duplicate found: merge this declaration's children into the existing one
 
-            // Get the existing declaration node and its "super type" children node
+            // Get the existing declaration syntax and its "super type" children syntax
             let existing_item = arena.try_node(existing_item_id)?;
             let existing_super_type_id = existing_item.try_child(1)?;
 
-            // Get the current duplicate's "super type" children node
+            // Get the current duplicate's "super type" children syntax
             let current_super_type_id = type_item.try_child(1)?;
 
             // Retrieve nodes representing the children lists
@@ -365,7 +365,7 @@ pub fn merge_duplicate_type_declarations(
             // Remember that we modified the AST
             modified = true;
         } else {
-            // First time seeing this primitive type; record its declaration node
+            // First time seeing this primitive type; record its declaration syntax
             seen.insert(primitive_type_ident, typed_item_id);
         }
     }

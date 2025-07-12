@@ -4,9 +4,9 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 
-/// Trait representing the semantic content stored within a arena node.
+/// Trait representing the semantic content stored within a arena syntax.
 ///
-/// This trait abstracts over the possible types of content a node can carry,
+/// This trait abstracts over the possible types of content a syntax can carry,
 /// such as identifiers, numeric literals, operators, and optimization directives.
 /// It provides methods to query the content as various expected types and
 /// convenience methods to attempt conversions with error handling.
@@ -26,7 +26,7 @@ use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimi
 ///
 /// # Typical Usage
 ///
-/// Implementors of this trait represent concrete node content types in the
+/// Implementors of this trait represent concrete syntax content types in the
 /// syntax arena. Parsing or semantic analysis code can use `try_*` methods to
 /// safely extract strongly typed information from nodes, handling errors gracefully.
 ///
@@ -95,7 +95,7 @@ pub trait NodeContent : InternerDisplay {
     /// Defaults to `false`. Can be overridden to signal absence of content.
     fn is_none(&self) -> bool { false }
 
-    /// Applies identifier remapping to the content of the node using the provided map.
+    /// Applies identifier remapping to the content of the syntax using the provided map.
     ///
     /// This is a generic wrapper that delegates to the content's own remap_idents method.
     ///

@@ -63,7 +63,7 @@ use crate::aiplan4rust::arena::{Arena, ArenaNode};
 /// # Notes
 ///
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] directly.
-/// - Can be constructed from an AST node with [`FromAst`].
+/// - Can be constructed from an AST syntax with [`FromAst`].
 /// - Supports pretty-printing and interner-aware rendering.
 ///
 /// # Display
@@ -115,9 +115,9 @@ impl DerefMut for Function {
 }
 
 impl FromAst for Function {
-    /// Builds a [`Function`] from an AST node.
+    /// Builds a [`Function`] from an AST syntax.
     ///
-    /// The AST node is expected to have the following children:
+    /// The AST syntax is expected to have the following children:
     /// - Child 0: Function identifier (`Ident`)
     /// - Child 1: Typed parameter list
     /// - Child 2: Return type

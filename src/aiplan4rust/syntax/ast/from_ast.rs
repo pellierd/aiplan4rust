@@ -2,18 +2,18 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::arena::Arena;
 
-/// Trait for constructing an instance of a type from an AST node.
+/// Trait for constructing an instance of a type from an AST syntax.
 ///
 /// # Overview
 /// Types implementing this trait define how to build themselves from
-/// an AST node (`AstArenaNode`) within a given AST context (`Ast`).
+/// an AST syntax (`AstArenaNode`) within a given AST context (`Ast`).
 ///
 /// This is typically used during semantic analysis or IR construction,
 /// where domain-specific structures are created by traversing and interpreting the AST.
 ///
 /// # Method
 /// - `from_ast` takes:
-///    - a reference to the AST node representing the element to construct,
+///    - a reference to the AST syntax representing the element to construct,
 ///    - a reference to the full AST context, which can be used to access
 ///      related nodes or additional information.
 ///
@@ -27,8 +27,8 @@ use crate::aiplan4rust::arena::Arena;
 /// # Example
 /// ```ignore
 /// impl FromAst for Action {
-///     fn from_ast(node: &AstArenaNode, ast: &Ast) -> Result<Self, ParserInternalError> {
-///         // Implementation to parse Action from AST node
+///     fn from_ast(syntax: &AstArenaNode, ast: &Ast) -> Result<Self, ParserInternalError> {
+///         // Implementation to parse Action from AST syntax
 ///     }
 /// }
 /// ```

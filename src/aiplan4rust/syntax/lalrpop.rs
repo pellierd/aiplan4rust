@@ -7,12 +7,12 @@
 //! # Overview
 //! - Wraps calls to LALRPOP parser instances (`PDDLParser`, `HDDLParser`).
 //! - Converts LALRPOP-specific errors into a unified `ParserError` type.
-//! - Manages the parse context, including the root node ID.
+//! - Manages the parse context, including the root syntax ID.
 //! - Simplifies higher-level usage by exposing straightforward parsing functions.
 //!
 //! # Usage
 //! Call `parse_pddl` or `parse_hddl` with a mutable `ParseContext` and a `Lexer`.
-//! The functions return a `Result` containing the root AST node ID or a parse error.
+//! The functions return a `Result` containing the root AST syntax ID or a parse error.
 //!
 //! These functions abstract away the nested `Result` types produced by LALRPOP,
 //! providing a cleaner and more ergonomic API for consumers of the parsing library.
@@ -32,7 +32,7 @@ use crate::aiplan4rust::syntax::grammar::{PDDLParser, HDDLParser};
 /// * `lexer` - The lexer providing tokenized input.
 ///
 /// # Returns
-/// * `Ok(NodeId)` - The root node ID of the parsed AST on success.
+/// * `Ok(NodeId)` - The root syntax ID of the parsed AST on success.
 /// * `Err(ParserError)` - An error encountered during parsing.
 pub fn parse_pddl(
     ctx: &mut ParseContext,
@@ -46,7 +46,7 @@ pub fn parse_pddl(
     // Convert ParserInternalError into ParserError and unwrap the root ID.
     let root_id = inner_result?;
 
-    // Save the root node ID into the parse context.
+    // Save the root syntax ID into the parse context.
     ctx.set_root_id(root_id)?;
 
     Ok(root_id)
@@ -62,7 +62,7 @@ pub fn parse_pddl(
 /// * `lexer` - The lexer providing tokenized input.
 ///
 /// # Returns
-/// * `Ok(NodeId)` - The root node ID of the parsed AST on success.
+/// * `Ok(NodeId)` - The root syntax ID of the parsed AST on success.
 /// * `Err(ParserError)` - An error encountered during parsing.
 pub fn parse_hddl(
     ctx: &mut ParseContext,
@@ -76,7 +76,7 @@ pub fn parse_hddl(
     // Convert ParserInternalError into ParserError and unwrap the root ID.
     let root_id = inner_result?;
 
-    // Save the root node ID into the parse context.
+    // Save the root syntax ID into the parse context.
     ctx.set_root_id(root_id)?;
 
     Ok(root_id)

@@ -5,17 +5,17 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::arena::{NodeContent, NodeId};
 
-/// A generic arena node used in arena-based trees.
+/// A generic arena syntax used in arena-based trees.
 ///
-/// `AbstractNode` represents a single node in a arena and stores its kind, content,
+/// `AbstractNode` represents a single syntax in a arena and stores its kind, content,
 /// list of child nodes, and an optional parent reference.
 ///
 /// This structure is useful for building abstract syntax trees (ASTs),
 /// semantic trees, and other hierarchical data structures.
 ///
 /// # Type Parameters
-/// - `K`: A `Copy` type representing the kind of the node (e.g., an enum of node types).
-/// - `C`: The content stored in the node. Must implement the [`NodeContent`] trait.
+/// - `K`: A `Copy` type representing the kind of the syntax (e.g., an enum of syntax types).
+/// - `C`: The content stored in the syntax. Must implement the [`NodeContent`] trait.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct BaseNode<K: Copy, C: NodeContent> {
     kind: K,
@@ -25,12 +25,12 @@ pub struct BaseNode<K: Copy, C: NodeContent> {
 }
 
 impl<K: Copy, C: NodeContent> BaseNode<K, C> {
-    /// Creates a new node with the given kind, content, and optional parent.
+    /// Creates a new syntax with the given kind, content, and optional parent.
     ///
     /// # Arguments
-    /// - `kind`: The kind of the node.
-    /// - `content`: The node's associated content.
-    /// - `parent`: An optional `NodeId` referencing the parent node.
+    /// - `kind`: The kind of the syntax.
+    /// - `content`: The syntax's associated content.
+    /// - `parent`: An optional `NodeId` referencing the parent syntax.
     ///
     /// # Returns
     /// A new `AbstractNode` instance.
@@ -43,48 +43,48 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
         }
     }
 
-    /// Returns the kind of the node.
+    /// Returns the kind of the syntax.
     pub fn kind(&self) -> K {
         self.kind
     }
 
-    /// Sets the kind of the node.
+    /// Sets the kind of the syntax.
     ///
     /// # Arguments
-    /// - `kind`: The new kind to assign to the node.
+    /// - `kind`: The new kind to assign to the syntax.
     pub fn set_kind(&mut self, kind: K) {
         self.kind = kind;
     }
 
-    /// Returns an immutable reference to the node's content.
+    /// Returns an immutable reference to the syntax's content.
     pub(crate) fn content(&self) -> &C {
         &self.content
     }
 
-    /// Returns a mutable reference to the node's content.
+    /// Returns a mutable reference to the syntax's content.
     pub fn content_mut(&mut self) -> &mut C {
         &mut self.content
     }
 
-    /// Replaces the content of the node.
+    /// Replaces the content of the syntax.
     ///
     /// # Arguments
-    /// - `content`: The new content to assign to the node.
+    /// - `content`: The new content to assign to the syntax.
     pub fn set_content(&mut self, content: C) {
         self.content = content;
     }
 
-    /// Returns a slice of the child node IDs.
+    /// Returns a slice of the child syntax IDs.
     pub fn children(&self) -> &[NodeId] {
         &self.children
     }
 
-    /// Returns a mutable reference to the vector of child node IDs.
+    /// Returns a mutable reference to the vector of child syntax IDs.
     pub fn children_mut(&mut self) -> &mut Vec<NodeId> {
         &mut self.children
     }
 
-    /// Sets the immediate children of this node to the given list of node IDs.
+    /// Sets the immediate children of this syntax to the given list of syntax IDs.
     ///
     /// This replaces the current children with the provided list.
     ///
@@ -95,18 +95,18 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
     /// # Example
     ///
     /// ```
-    /// node.set_children(vec![child1, child2]);
+    /// syntax.set_children(vec![child1, child2]);
     /// ```
     pub fn set_children(&mut self, children: Vec<NodeId>) {
         self.children = children;
     }
 
-    /// Returns the parent node ID, if available.
+    /// Returns the parent syntax ID, if available.
     pub fn parent(&self) -> Option<NodeId> {
         self.parent
     }
 
-    /// Sets the parent node ID.
+    /// Sets the parent syntax ID.
     ///
     /// # Arguments
     /// - `parent`: An optional new parent ID.
@@ -114,7 +114,7 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
         self.parent = parent;
     }
 
-    /// Adds a child node ID to the list of children.
+    /// Adds a child syntax ID to the list of children.
     ///
     /// # Arguments
     /// - `child`: The `NodeId` of the child to add.
@@ -122,7 +122,7 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
         self.children.push(child);
     }
 
-    /// Applies identifier remapping to the content of the node using the provided map.
+    /// Applies identifier remapping to the content of the syntax using the provided map.
     ///
     /// This is a generic wrapper that delegates to the content's own remap_idents method.
     ///

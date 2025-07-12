@@ -121,22 +121,22 @@ impl DerefMut for TypedList {
 }
 
 impl FromAst for TypedList {
-    /// Constructs a `TypedList` from an AST node.
+    /// Constructs a `TypedList` from an AST syntax.
     ///
-    /// This function expects the given `node` to be of type `TypedList`,
+    /// This function expects the given `syntax` to be of type `TypedList`,
     /// where its children are nodes of type `TypedItem`.
     ///
-    /// It iterates over the children of the `TypedList` node, converts each child
-    /// `TypedItem` node into a `TypedSymbol` using its `from_ast` method,
+    /// It iterates over the children of the `TypedList` syntax, converts each child
+    /// `TypedItem` syntax into a `TypedSymbol` using its `from_ast` method,
     /// and collects them into a new `TypedList`.
     ///
     /// # Parameters
-    /// - `node`: Reference to the AST node representing a `TypedList`.
-    /// - `ast`: Reference to the entire AST arena for node lookups.
+    /// - `syntax`: Reference to the AST syntax representing a `TypedList`.
+    /// - `ast`: Reference to the entire AST arena for syntax lookups.
     ///
     /// # Returns
     /// - `Ok(TypedList)` containing all parsed `TypedSymbol` instances from the children.
-    /// - `Err(ParserInternalError)` if any child node fails to convert.
+    /// - `Err(ParserInternalError)` if any child syntax fails to convert.
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>

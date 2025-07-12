@@ -5,7 +5,7 @@ use serde::de::Error;
 ///
 /// This struct wraps a `usize` that serves as a unique index or ID for nodes
 /// in a arena or arena structure. It provides type safety and utility methods
-/// to work with node identifiers.
+/// to work with syntax identifiers.
 ///
 /// # Sentinel value
 ///
@@ -29,7 +29,7 @@ use serde::de::Error;
 /// Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId {
-    /// The integer value representing the node identifier.
+    /// The integer value representing the syntax identifier.
     ///
     /// `usize::MAX` is used as an invalid sentinel value.
     pub value: usize,
@@ -43,17 +43,17 @@ impl Default for NodeId {
 }
 
 impl NodeId {
-    /// The constant identifier for the root node in the arena.
+    /// The constant identifier for the root syntax in the arena.
     ///
-    /// This constant represents the ID of the root node, which is always zero.
-    /// It is used to access the root node within the arena.
+    /// This constant represents the ID of the root syntax, which is always zero.
+    /// It is used to access the root syntax within the arena.
     //pub const ROOT_ID: NodeId = NodeId::new(0);
 
     /// Creates a new `NodeId` from a `usize` value.
     ///
     /// # Arguments
     ///
-    /// * `value` - The integer value to use as the node identifier.
+    /// * `value` - The integer value to use as the syntax identifier.
     ///
     /// # Returns
     ///

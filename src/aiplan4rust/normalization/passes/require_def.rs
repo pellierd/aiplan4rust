@@ -5,15 +5,15 @@
 //!
 //! # Key Features
 //!
-//! - Locate the `RequireDef` node in the AST.
+//! - Locate the `RequireDef` syntax in the AST.
 //! - Detect duplicate `Requirement` children.
 //! - Emit diagnostic warnings for detected duplicates.
-//! - Safely remove duplicate requirements from the `RequireDef` node.
+//! - Safely remove duplicate requirements from the `RequireDef` syntax.
 //!
 //! # Usage
 //!
-//! The primary function exposed is `normalize_require_def`, which performs a full pass on the `RequireDef` node:
-//! - Finds the node in the AST.
+//! The primary function exposed is `normalize_require_def`, which performs a full pass on the `RequireDef` syntax:
+//! - Finds the syntax in the AST.
 //! - Reports duplicates through a diagnostic manager.
 //! - Removes duplicate requirements.
 //!
@@ -34,7 +34,7 @@
 //! # Notes
 //!
 //! This module assumes that the AST is valid and structurally sound.
-//! Any inconsistency in node structure may cause errors or panics.
+//! Any inconsistency in syntax structure may cause errors or panics.
 //!
 //! The normalization pass is standalone and can be run independently at any point.
 
@@ -51,13 +51,13 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::arena::{NodeId, Arena};
 
-/// Normalizes the requirement declarations by removing duplicates from the `RequireDef` node.
+/// Normalizes the requirement declarations by removing duplicates from the `RequireDef` syntax.
 ///
 /// This function assumes the input AST is **valid** and structurally correct.
-/// Specifically, if a `RequireDef` node is present, it should contain only well-formed `Requirement` nodes as children.
+/// Specifically, if a `RequireDef` syntax is present, it should contain only well-formed `Requirement` nodes as children.
 ///
 /// The normalization process does not traverse the entire AST. Instead, it directly locates the `RequireDef`
-/// node (if any), which is expected to hold all `:requirement` declarations. It removes duplicate
+/// syntax (if any), which is expected to hold all `:requirement` declarations. It removes duplicate
 /// requirements (i.e., those with identical keys) and emits a diagnostic warning for each duplicate found and removed.
 ///
 /// This pass is **self-contained** and **stateless**—it does not depend on or affect any other normalization passes,
@@ -65,25 +65,25 @@ use crate::aiplan4rust::arena::{NodeId, Arena};
 ///
 /// # Arguments
 ///
-/// * `ast` - A mutable reference to the AST that may contain a `RequireDef` node.
+/// * `ast` - A mutable reference to the AST that may contain a `RequireDef` syntax.
 /// * `diagnostic_manager` - A manager used to report warnings when duplicate requirements are detected.
 ///
 /// # Returns
 ///
 /// * `Ok(true)` if at least one duplicate requirement was removed.
-/// * `Ok(false)` if no duplicates were found or if no `RequireDef` node exists.
-/// * `Err(ParserInternalError)` if the AST structure is not as expected (e.g., invalid node kinds).
+/// * `Ok(false)` if no duplicates were found or if no `RequireDef` syntax exists.
+/// * `Err(ParserInternalError)` if the AST structure is not as expected (e.g., invalid syntax kinds).
 ///
 /// # Assumptions
 ///
 /// * The AST must be valid and conform to the parser's grammar and invariants.
-/// * The `RequireDef` node—if present—must contain only `Requirement` children.
+/// * The `RequireDef` syntax—if present—must contain only `Requirement` children.
 /// * No other normalization passes are required before or after this one.
 /// * This function is deterministic and has no side effects outside its scope.
 ///
 /// # Panics
 ///
-/// This function may panic if the `RequireDef` node contains unexpected children (e.g., non-`Requirement` nodes),
+/// This function may panic if the `RequireDef` syntax contains unexpected children (e.g., non-`Requirement` nodes),
 /// which indicates a violation of AST validity and a programming error.
 ///
 /// # Example
@@ -100,7 +100,7 @@ pub fn normalize_require_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
-    // Early exit if no RequireDef node is found
+    // Early exit if no RequireDef syntax is found
     let require_def_id = match ast.find_node_id_of_kind(AstKind::RequireDef) {
         Some(id) => id,
         None => return Ok(false),
@@ -120,23 +120,23 @@ pub fn normalize_require_def(
     Ok(modified)
 }
 
-/// Scans the children of a `RequireDef` node in the AST to detect duplicate `:requirement` entries,
+/// Scans the children of a `RequireDef` syntax in the AST to detect duplicate `:requirement` entries,
 /// and reports a diagnostic warning if duplicates are found.
 ///
-/// This function iterates over the children of the specified `RequireDef` node, collects duplicate
+/// This function iterates over the children of the specified `RequireDef` syntax, collects duplicate
 /// requirements, and generates a diagnostic warning which is added to the given diagnostic manager.
 ///
 /// # Arguments
 ///
 /// * `arena` - Reference to the AST arena containing the nodes.
-/// * `require_def_id` - The `NodeId` of the `RequireDef` node to inspect.
+/// * `require_def_id` - The `NodeId` of the `RequireDef` syntax to inspect.
 /// * `source_name` - The name of the source file (used for context in diagnostics).
 /// * `diagnostic_manager` - Mutable reference to the diagnostic manager where warnings are added.
 ///
 /// # Returns
 ///
 /// * `Ok(())` on success.
-/// * `Err(ParserInternalError)` if the `RequireDef` node cannot be found or accessed.
+/// * `Err(ParserInternalError)` if the `RequireDef` syntax cannot be found or accessed.
 ///
 /// # Example
 ///
@@ -154,19 +154,19 @@ pub fn report_duplicate_requirements_warnings(
     source_name: &str,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), ParserInternalError> {
-    // Try to get the RequireDef node by its ID. Return error if not found.
+    // Try to get the RequireDef syntax by its ID. Return error if not found.
     let require_def_node = arena.try_node(require_def_id)?;
 
     // Create a HashSet to track seen requirements and a Vec to collect duplicates.
     let mut seen = HashSet::new();
     let mut duplicates = Vec::new();
 
-    // Iterate over all children of the RequireDef node.
+    // Iterate over all children of the RequireDef syntax.
     for &child_id in require_def_node.children() {
-        // Get the child node reference by its ID.
+        // Get the child syntax reference by its ID.
         let child = arena.get_node(child_id).unwrap();
 
-        // Attempt to parse the child node as a requirement.
+        // Attempt to parse the child syntax as a requirement.
         if let Ok(req) = child.try_requirement() {
             // If this requirement was already seen, add it to duplicates.
             if !seen.insert(req) {
@@ -233,21 +233,21 @@ pub fn new_duplicate_requirement_warning(
     )
 }
 
-/// Removes duplicate requirement children from the `RequireDef` node in the arena.
+/// Removes duplicate requirement children from the `RequireDef` syntax in the arena.
 ///
 /// Returns `Ok(true)` if any duplicates were removed, otherwise `Ok(false)`.
 ///
 /// # Arguments
 /// * `arena_mut` - Mutable reference to the arena containing the AST nodes.
-/// * `require_def_id` - The `NodeId` of the `RequireDef` node.
+/// * `require_def_id` - The `NodeId` of the `RequireDef` syntax.
 ///
 /// # Errors
-/// Returns an error if the node with `require_def_id` or its children cannot be accessed mutably.
+/// Returns an error if the syntax with `require_def_id` or its children cannot be accessed mutably.
 pub fn remove_requirement_duplicates(
     arena_mut: &mut Arena<AstNode>,
     require_def_id: NodeId,
 ) -> Result<bool, ParserInternalError> {
-    // Get mutable reference to RequireDef node
+    // Get mutable reference to RequireDef syntax
     let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
 
     // Copy the children IDs to avoid mutable borrow conflicts
@@ -270,7 +270,7 @@ pub fn remove_requirement_duplicates(
         }
     }
 
-    // Re-borrow RequireDef node mutably to set filtered children
+    // Re-borrow RequireDef syntax mutably to set filtered children
     let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
     require_def_node_mut.set_children(new_children);
 

@@ -122,7 +122,7 @@ impl NormalizerResult {
 impl fmt::Display for NormalizerResult {
     /// Formats the normalization result for display.
     ///
-    /// If an AST is present, it prints the root node of the AST.
+    /// If an AST is present, it prints the root syntax of the AST.
     /// It then prints any diagnostics collected during normalization.
     ///
     /// If no AST is present, it notes that normalization failed.
@@ -131,7 +131,7 @@ impl fmt::Display for NormalizerResult {
     ///
     /// ```
     /// Normalized AST:
-    /// (AST root node printed here)
+    /// (AST root syntax printed here)
     ///
     /// Normalization diagnostics:
     /// - Warning: ...

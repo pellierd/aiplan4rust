@@ -10,7 +10,7 @@ use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
 /// let iter = PreorderIdIter::new(&arena, root_id);
 /// for node_id in iter {
 ///     let node = arena.get_node(node_id).unwrap();
-///     // Process node
+///     // Process syntax
 /// }
 /// ```
 pub struct PreorderIdIter<'a, T: ArenaNode> {

@@ -16,7 +16,7 @@
 //!
 //! To simplify access to key types, several items are re-exported:
 //!
-//! - [`AstNode`] — alias of `node::Node`
+//! - [`AstNode`] — alias of `syntax::Node`
 //! - [`AstKind`] — alias of `kind::Kind`
 //! - [`AstContent`] — alias of `content::Content`
 //! - [`Ast`] — the full parsed AST structure
@@ -40,8 +40,8 @@
 //! use aiplan4rust::syntax::iter::PreorderIter;
 //!
 //! let iter = PreorderIter::new(ast.root());
-//! for (node, depth) in iter {
-//!     println!("{}- {:?}", "  ".repeat(depth), node.kind());
+//! for (syntax, depth) in iter {
+//!     println!("{}- {:?}", "  ".repeat(depth), syntax.kind());
 //! }
 //! ```
 
@@ -62,4 +62,4 @@ pub use from_ast::FromAst;
 pub use ast::Ast;
 pub use node::AstNode;
 
-pub use renderer::syntax::render;
+pub use renderer::syntax::syntax::render_with_indent;

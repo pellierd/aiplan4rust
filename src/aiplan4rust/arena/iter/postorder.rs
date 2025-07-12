@@ -4,7 +4,7 @@ use crate::aiplan4rust::arena::NodeId;
 
 /// An iterator that traverses the nodes of an `Arena` in postorder (depth-first).
 ///
-/// Postorder traversal means all children of a node are visited before the node itself.
+/// Postorder traversal means all children of a syntax are visited before the syntax itself.
 ///
 /// The iterator yields references to nodes of type `T` that implement the `TreeNode` trait.
 ///
@@ -12,8 +12,8 @@ use crate::aiplan4rust::arena::NodeId;
 ///
 /// ```rust
 /// let iter = PostorderIter::new(&arena, root_id);
-/// for node in iter {
-///     // Process node
+/// for syntax in iter {
+///     // Process syntax
 /// }
 /// ```
 pub struct PostorderIter<'a, T: ArenaNode> {
@@ -22,12 +22,12 @@ pub struct PostorderIter<'a, T: ArenaNode> {
 }
 
 impl<'a, T: ArenaNode> PostorderIter<'a, T> {
-    /// Creates a new postorder iterator starting from the given `root` node ID.
+    /// Creates a new postorder iterator starting from the given `root` syntax ID.
     ///
     /// # Parameters
     ///
     /// * `arena` - Reference to the arena containing the nodes.
-    /// * `root` - The root node ID to start traversal from.
+    /// * `root` - The root syntax ID to start traversal from.
     ///
     /// # Returns
     ///
@@ -45,9 +45,9 @@ impl<'a, T: ArenaNode> PostorderIter<'a, T> {
 impl<'a, T: ArenaNode> Iterator for PostorderIter<'a, T> {
     type Item = &'a T;
 
-    /// Returns the next node in postorder traversal.
+    /// Returns the next syntax in postorder traversal.
     ///
-    /// Visits all children of a node before the node itself.
+    /// Visits all children of a syntax before the syntax itself.
     ///
     /// Returns `None` when all nodes have been traversed.
     fn next(&mut self) -> Option<Self::Item> {
@@ -56,12 +56,12 @@ impl<'a, T: ArenaNode> Iterator for PostorderIter<'a, T> {
             let children = node.children();
 
             if idx < children.len() {
-                // Push the current node with incremented child index for future visits
+                // Push the current syntax with incremented child index for future visits
                 self.stack.push((id, idx + 1));
-                // Push the child node to be visited next (depth-first)
+                // Push the child syntax to be visited next (depth-first)
                 self.stack.push((children[idx], 0));
             } else {
-                // All children have been visited, now yield the current node
+                // All children have been visited, now yield the current syntax
                 return Some(node);
             }
         }

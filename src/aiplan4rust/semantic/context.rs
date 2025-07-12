@@ -91,9 +91,9 @@ impl Context {
     }
 
     /// Extracts all implied `Requirement` instances from an arena-based syntax arena,
-    /// assuming all requirements are declared under a single parent node.
+    /// assuming all requirements are declared under a single parent syntax.
     ///
-    /// Traverses the arena to find the first node of kind `Requirement`,
+    /// Traverses the arena to find the first syntax of kind `Requirement`,
     /// collects it and all its children, then stops.
     ///
     /// # Arguments
@@ -106,7 +106,7 @@ impl Context {
     fn extract_requirements(arena: &Arena<AstNode>) -> Result<HashSet<Requirement>, ParserInternalError> {
         let mut requirements = HashSet::new();
 
-        // Step 1: Find the first `RequireDef` node in the AST
+        // Step 1: Find the first `RequireDef` syntax in the AST
         let mut requirement_def_node = None;
         for node in arena.preorder() {
             if matches!(node.kind(), AstKind::RequireDef) {
@@ -155,7 +155,7 @@ impl Context {
         self.requirements.contains(requirement)
     }
 
-    /// Returns a reference to a node by its index, if it exists.
+    /// Returns a reference to a syntax by its index, if it exists.
     pub fn get_node(&self, id: NodeId) -> Option<&AstNode> {
         self.ast.get_node(id)
     }

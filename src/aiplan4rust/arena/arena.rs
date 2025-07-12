@@ -13,7 +13,7 @@ use crate::aiplan4rust::lang::Ident;
 
 /// A flat arena-based arena structure for storing nodes of type `T`.
 ///
-/// The nodes are stored in a `Vec<T>`, and each node must implement the [`ArenaNode`] trait
+/// The nodes are stored in a `Vec<T>`, and each syntax must implement the [`ArenaNode`] trait
 /// which enables parent/child relationships through indices. This is useful for working
 /// with abstract syntax trees and similar structures.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
@@ -83,14 +83,14 @@ impl<T: ArenaNode> Arena<T> {
         self.root_id.is_none()
     }
 
-    /// Adds a node into the arena and returns its `NodeId`.
+    /// Adds a syntax into the arena and returns its `NodeId`.
     pub fn alloc(&mut self, node: T) -> NodeId {
         let id = NodeId::new(self.nodes.len());
         self.nodes.push(node);
         id
     }
 
-    /// Returns a reference to the root node, if it exists.
+    /// Returns a reference to the root syntax, if it exists.
     pub fn root_node(&self) -> Option<&T> {
         match self.root_id {
             Some(root_id) => self.get_node(root_id),
@@ -112,7 +112,7 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    /// Returns a reference to the root node, if it exists.
+    /// Returns a reference to the root syntax, if it exists.
     pub fn root_mut(&mut self) -> Option<&mut T> {
         match self.root_id {
             Some(root_id) => self.get_node_mut(root_id),
@@ -120,7 +120,7 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    /// Returns an immutable `NodeRef` to the root node, if it exists.
+    /// Returns an immutable `NodeRef` to the root syntax, if it exists.
     pub fn root_node_ref(&self) -> Option<NodeRef<'_, T>> {
         match self.root_id {
             Some(root_id) => self.get_node_ref(root_id),
@@ -148,14 +148,14 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    /// Returns the parent node of a given node ID, if available.
+    /// Returns the parent syntax of a given syntax ID, if available.
     pub fn get_parent(&self, id: NodeId) -> Option<&T> {
         self.get_node(id)
             .and_then(|node| node.parent())
             .and_then(|parent_id| self.get_node(parent_id))
     }
 
-    /// Returns an immutable reference to a node by its ID.
+    /// Returns an immutable reference to a syntax by its ID.
     pub fn get_node(&self, id: NodeId) -> Option<&T> {
         self.nodes.get(id.as_usize())
     }
@@ -165,7 +165,7 @@ impl<T: ArenaNode> Arena<T> {
         self.nodes.get(id.as_usize()).map(|node| NodeRef::new(id, node))
     }
 
-    /// Returns a mutable reference to a node by its ID.
+    /// Returns a mutable reference to a syntax by its ID.
     pub fn get_node_mut(&mut self, id: NodeId) -> Option<&mut T> {
         self.nodes.get_mut(id.as_usize())
     }
@@ -175,7 +175,7 @@ impl<T: ArenaNode> Arena<T> {
         self.get_node_mut(id).map(|node| NodeRefMut::new(id, node))
     }
 
-    /// Attempts to retrieve a node or returns a `ParserInternalError` if not found.
+    /// Attempts to retrieve a syntax or returns a `ParserInternalError` if not found.
     pub fn try_node(&self, id: NodeId) -> Result<&T, ParserInternalError> {
         self.get_node(id).ok_or_else(|| {
             ParserInternalError::new(format!("Node with id {} not found", id))
@@ -188,7 +188,7 @@ impl<T: ArenaNode> Arena<T> {
         Ok(NodeRef::new(id, node))
     }
 
-    /// Attempts to retrieve a mutable node reference or returns an error.
+    /// Attempts to retrieve a mutable syntax reference or returns an error.
     pub fn try_node_mut(&mut self, id: NodeId) -> Result<&mut T, ParserInternalError> {
         self.get_node_mut(id).ok_or_else(|| {
             ParserInternalError::new(format!("Node with id {} not found", id))
@@ -201,7 +201,7 @@ impl<T: ArenaNode> Arena<T> {
         Ok(NodeRefMut::new(id, node))
     }
 
-    /// Attempts to retrieve a `SymbolRef` from a node.
+    /// Attempts to retrieve a `SymbolRef` from a syntax.
     pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, ParserInternalError> {
         let node = self.try_node(id)?;
         node.try_symbol_ref()
@@ -228,7 +228,7 @@ impl<T: ArenaNode> Arena<T> {
     /// ```rust
     /// for node_id in arena.preorder_ids() {
     ///     let node = arena.get_node(node_id).unwrap();
-    ///     // process node
+    ///     // process syntax
     /// }
     /// ```
     pub fn preorder_ids(&self) -> PreorderIdIter<'_, T> {
@@ -238,12 +238,12 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    /// Returns a preorder iterator over `NodeId`s starting from the given node.
+    /// Returns a preorder iterator over `NodeId`s starting from the given syntax.
     pub fn preorder_ids_from(&self, root: NodeId) -> PreorderIdIter<'_, T> {
         PreorderIdIter::new(self, root)
     }
 
-    /// Returns a preorder iterator from a specific node.
+    /// Returns a preorder iterator from a specific syntax.
     pub fn preorder_from(&self, root: NodeId) -> PreorderIter<'_, T> {
         PreorderIter::new(self, root)
     }
@@ -272,7 +272,7 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    /// Returns a postorder iterator from a specific node.
+    /// Returns a postorder iterator from a specific syntax.
     pub fn postorder_from(&self, root: NodeId) -> PostorderIter<'_, T> {
         PostorderIter::new(self, root)
     }
@@ -291,7 +291,7 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    /// Remaps identifiers starting from a specific node (subtree).
+    /// Remaps identifiers starting from a specific syntax (subtree).
     pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) {
         let mut stack = vec![id];
 

@@ -1,16 +1,16 @@
 //! Module `ExprContent`
 //!
 //! This module defines the [`Content`] enum, which represents the semantic content
-//! associated with an AST (Abstract Syntax Tree) node.
+//! associated with an AST (Abstract Syntax Tree) syntax.
 //!
 //! Each variant of [`Content`] corresponds to a specific type of content that can be
-//! attached to a node in the arena, such as an identifier, a floating-point literal,
+//! attached to a syntax in the arena, such as an identifier, a floating-point literal,
 //! or various language-specific operators.
 //!
 //! [`Content`] is a leaf element in the AST, meaning it contains data but no child nodes.
 //!
 //! # Main Variants
-//! - `None`: no content (default/empty node).
+//! - `None`: no content (default/empty syntax).
 //! - `Ident`: interned identifier (references a name via [`StringInterner`] for efficient string handling).
 //! - `Float`: floating-point literal (wrapped in [`OrderedFloat`] to ensure total ordering).
 //! - `BinaryComp`: binary comparison operator (`=`, `<`, `>`, etc.).
@@ -57,15 +57,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-/// Represents the semantic content attached to an AST node.
+/// Represents the semantic content attached to an AST syntax.
 ///
-/// Each variant corresponds to a kind of data that can be attached to the node,
+/// Each variant corresponds to a kind of data that can be attached to the syntax,
 /// such as an identifier, a floating-point literal, or an operator.
 ///
 /// This enum is used to give concrete meaning to syntax nodes.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Content {
-    /// No content (empty or default node).
+    /// No content (empty or default syntax).
     #[default]
     None,
 

@@ -76,17 +76,17 @@ pub fn check_typed_expressions(
     Ok(no_error)
 }
 
-/// Returns `true` if the node represents an equality binary comparison (`BinaryComp::Equal`).
+/// Returns `true` if the syntax represents an equality binary comparison (`BinaryComp::Equal`).
 fn is_equal_binary_comp(node: &AstNode) -> bool {
     matches!(node.kind(), AstKind::FComp) && node.as_binary_comp() == Some(BinaryComp::Equal)
 }
 
-/// Returns `true` if the node represents a simple assignment (`AssignOp::Assign`).
+/// Returns `true` if the syntax represents a simple assignment (`AssignOp::Assign`).
 fn is_assign(node: &AstNode) -> bool {
     matches!(node.kind(), AstKind::Assign) && node.as_assign_op() == Some(AssignOp::Assign)
 }
 
-/// Returns `true` if the node is a numeric comparison or a scale assignment expr.
+/// Returns `true` if the syntax is a numeric comparison or a scale assignment expr.
 ///
 /// This includes:
 /// - Comparison operators: `Greater`, `GreaterEq`, `Less`, `LessEq`.
@@ -123,7 +123,7 @@ fn is_numeric_expression(node: &AstNode) -> bool {
 /// # Parameters
 /// - `annotated_syntax_tree`: The annotated syntax arena containing the AST and symbol information.
 /// - `type_checker`: The type checker used to validate type compatibility.
-/// - `node`: The syntax node representing the equality or assignment operation.
+/// - `syntax`: The syntax syntax representing the equality or assignment operation.
 /// - `ty1`: The type(s) of the left-hand side operand.
 /// - `ty2`: The type(s) of the right-hand side operand.
 /// - `source`: The diagnostic source context indicating where diagnostics originate.
@@ -141,7 +141,7 @@ fn is_numeric_expression(node: &AstNode) -> bool {
 /// let result = check_equal_and_assignment_expression(
 ///     &annotated_syntax_tree,
 ///     &type_checker,
-///     &node,
+///     &syntax,
 ///     &ty1,
 ///     &ty2,
 ///     source,
@@ -184,7 +184,7 @@ fn check_equal_and_assignment_expression(
 /// - `ty2`: The second type list involved in the expr.
 /// - `source`: The diagnostic source context indicating where diagnostics originate.
 /// - `filename`: The filename where the error occurred.
-/// - `span`: The span of the syntax node causing the error.
+/// - `span`: The span of the syntax syntax causing the error.
 /// - `diagnostic_manager`: The diagnostic manager to which the error will be added.
 fn report_type_mismatch_in_expression(
     ty1: &Type,
@@ -232,7 +232,7 @@ fn report_type_mismatch_in_expression(
 ///
 /// # Parameters
 /// - `annotated_syntax_tree`: The annotated syntax arena containing the AST and metadata.
-/// - `node`: The syntax node representing the numeric expr.
+/// - `syntax`: The syntax syntax representing the numeric expr.
 /// - `ty1`: A reference to a vector of strings representing the type of the left operand.
 /// - `ty2`: A reference to a vector of strings representing the type of the right operand.
 /// - `source`: The diagnostic source indicating where this check is performed.
@@ -249,7 +249,7 @@ fn report_type_mismatch_in_expression(
 /// let ty2 = vec!["number".to_string()];
 /// let result = check_numeric_expression(
 ///     &annotated_syntax_tree,
-///     &node,
+///     &syntax,
 ///     &ty1,
 ///     &ty2,
 ///     source,
@@ -327,12 +327,12 @@ fn report_invalid_types_in_numeric_expression(
 
 /// Retrieves and returns the types of both operands in a binary expr.
 ///
-/// This function ensures that the given syntax node represents a binary operation
+/// This function ensures that the given syntax syntax represents a binary operation
 /// with exactly two children. It then looks up the types of both operand nodes
 /// using the annotated syntax arena and associated symbol table.
 ///
 /// # Parameters
-/// - `node`: The syntax node representing the binary operation.
+/// - `syntax`: The syntax syntax representing the binary operation.
 /// - `annotated_syntax_tree`: The annotated syntax arena containing the full AST and symbol
 ///   information.
 ///
@@ -343,13 +343,13 @@ fn report_invalid_types_in_numeric_expression(
 ///
 /// # Errors
 /// This function returns a `ParserInternalError` in the following cases:
-/// - The node does not have exactly two children (binary operations must have two).
+/// - The syntax does not have exactly two children (binary operations must have two).
 /// - One of the children is missing in the syntax arena.
 /// - One of the operands has no associated type in the symbol table.
 ///
 /// # Example
 /// ```rust
-/// let (ty1, ty2) = get_binary_operation_types(&node, &annotated_syntax_tree)?;
+/// let (ty1, ty2) = get_binary_operation_types(&syntax, &annotated_syntax_tree)?;
 /// ```
 fn get_binary_operation_types(
     node: &AstNode,
@@ -379,32 +379,32 @@ fn get_binary_operation_types(
     Ok((ty1, ty2))
 }
 
-/// Determines the type of a syntax node based on its kind.
+/// Determines the type of a syntax syntax based on its kind.
 ///
 /// This function supports several kinds of nodes: numbers, variables, constants,
 /// and function terms. It delegates type resolution to specialized helper functions
-/// depending on the node kind. The function is used during type checking to retrieve
+/// depending on the syntax kind. The function is used during type checking to retrieve
 /// the declared or inferred type of an expr or symbol.
 ///
 /// # Parameters
-/// - `index`: The index of the current node in the syntax arena.
-/// - `node`: A reference to the `HeapSyntaxNode` representing the AST node to analyze.
+/// - `index`: The index of the current syntax in the syntax arena.
+/// - `syntax`: A reference to the `HeapSyntaxNode` representing the AST syntax to analyze.
 /// - `annotated_syntax_tree`: A reference to the annotated syntax arena that provides access
 ///   to both the symbol table and the full syntax structure.
 ///
 /// # Returns
 /// A `Result` containing:
-/// - `Some(Vec<String>)` if the node has an associated type.
+/// - `Some(Vec<String>)` if the syntax has an associated type.
 /// - `None` if the type is undefined but not erroneous (e.g., optional typing).
-/// - `Err(ParserInternalError)` if the node kind is invalid or cannot be typed.
+/// - `Err(ParserInternalError)` if the syntax kind is invalid or cannot be typed.
 ///
 /// # Errors
-/// - Returns an error if the node kind is not one of the expected kinds (`Number`, `Variable`,
+/// - Returns an error if the syntax kind is not one of the expected kinds (`Number`, `Variable`,
 ///   `Constant`, `FunctionTerm`).
 ///
 /// # Example
 /// ```rust
-/// let ty = get_type(index, &node, &annotated_syntax_tree)?;
+/// let ty = get_type(index, &syntax, &annotated_syntax_tree)?;
 /// ```
 pub fn get_type(
     index: NodeId,
@@ -424,9 +424,9 @@ pub fn get_type(
         // Case 4: Function Term
         AstKind::FunctionTerm => get_function_term_type(index, node, context),
 
-        // Default case: Unexpected AST node
+        // Default case: Unexpected AST syntax
         _ => Err(ParserInternalError::new(format!(
-            "Unexpected AST node kind found: {}",
+            "Unexpected AST syntax kind found: {}",
             node.kind()
         ))),
     }
@@ -434,7 +434,7 @@ pub fn get_type(
 
 /// Returns the predefined type for numeric values.
 ///
-/// This helper function is used when an AST node represents a numeric literal.
+/// This helper function is used when an AST syntax represents a numeric literal.
 /// It returns the predefined type associated with numbers (i.e., `NUMBER_TYPE`),
 /// wrapped in a `Vec<String>` to be consistent with other type representations
 /// in the type checking system.
@@ -461,7 +461,7 @@ fn get_number_type() -> Result<Option<Type>, ParserInternalError> {
 /// `number`. Otherwise, it delegates the lookup to `get_declaration_type`.
 ///
 /// # Parameters
-/// - `index`: The index of the AST node, used for error tracking.
+/// - `index`: The index of the AST syntax, used for error tracking.
 /// - `symbol`: The name of the variable (e.g., `"?x"`).
 /// - `annotated_syntax_tree`: A reference to the annotated syntax arena containing the
 ///   symbol table and domain requirements.
@@ -499,7 +499,7 @@ fn get_variable_type(
 /// access and conflict resolution.
 ///
 /// # Parameters
-/// - `index`: The index of the AST node, used for error reporting.
+/// - `index`: The index of the AST syntax, used for error reporting.
 /// - `symbol`: The name of the constant (e.g., `"loc1"`).
 /// - `annotated_syntax_tree`: A reference to the annotated syntax arena containing the
 ///   symbol table and other context.
@@ -561,7 +561,7 @@ fn get_declaration_type(
 
 /// Helper to handle `FunctionTerm` and retrieve its type.
 ///
-/// This function checks if the first child of the `FunctionTerm` node is a valid functor,
+/// This function checks if the first child of the `FunctionTerm` syntax is a valid functor,
 /// retrieves its symbol, and determines the type associated with the function term.
 /// Specifically, it handles the special case where the functor is a `TOTAL_TIME` symbol and
 /// ensures the presence of the `NumericFluents` requirement for the `number` type.
@@ -569,7 +569,7 @@ fn get_declaration_type(
 ///
 /// # Parameters
 /// - `index`: The index of the symbol in the symbol table. This is used for symbol lookup.
-/// - `node`: A reference to the AST entry representing the function term to analyze.
+/// - `syntax`: A reference to the AST entry representing the function term to analyze.
 /// - `annotated_syntax_tree`: A reference to the annotated syntax arena, providing access to the
 ///   syntax arena and symbol table.
 ///
@@ -582,7 +582,7 @@ fn get_declaration_type(
 ///
 /// # Example
 /// ```rust
-/// let ty = get_function_term_type(10, &node, &annotated_syntax_tree)?;
+/// let ty = get_function_term_type(10, &syntax, &annotated_syntax_tree)?;
 /// ```
 fn get_function_term_type(
     index: NodeId,

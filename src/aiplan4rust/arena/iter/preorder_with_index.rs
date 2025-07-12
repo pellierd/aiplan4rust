@@ -1,17 +1,17 @@
 use crate::aiplan4rust::arena::{Arena, NodeId, ArenaNode};
 
-/// A preorder iterator over an `Arena` that yields node IDs along with references to the nodes.
+/// A preorder iterator over an `Arena` that yields syntax IDs along with references to the nodes.
 ///
-/// This iterator traverses the arena starting from a given root node,
-/// visiting each node before its children (preorder traversal).
-/// It returns a tuple containing the `NodeId` and a reference to the node itself.
+/// This iterator traverses the arena starting from a given root syntax,
+/// visiting each syntax before its children (preorder traversal).
+/// It returns a tuple containing the `NodeId` and a reference to the syntax itself.
 ///
 /// # Example
 ///
 /// ```rust
 /// let iter = PreorderIterWithIndex::new(&arena, root_id);
-/// for (id, node) in iter {
-///     // Process node with its id
+/// for (id, syntax) in iter {
+///     // Process syntax with its id
 /// }
 /// ```
 pub struct PreorderIterWithIndex<'a, T: ArenaNode> {
@@ -20,12 +20,12 @@ pub struct PreorderIterWithIndex<'a, T: ArenaNode> {
 }
 
 impl<'a, T: ArenaNode> PreorderIterWithIndex<'a, T> {
-    /// Creates a new preorder iterator starting from the specified root node.
+    /// Creates a new preorder iterator starting from the specified root syntax.
     ///
     /// # Parameters
     ///
     /// * `arena` - Reference to the arena containing the nodes.
-    /// * `root` - The root node ID where traversal begins.
+    /// * `root` - The root syntax ID where traversal begins.
     ///
     /// # Returns
     ///
@@ -49,9 +49,9 @@ impl<'a, T: ArenaNode> PreorderIterWithIndex<'a, T> {
 impl<'a, T: ArenaNode> Iterator for PreorderIterWithIndex<'a, T> {
     type Item = (NodeId, &'a T);
 
-    /// Returns the next node ID and reference in preorder traversal order.
+    /// Returns the next syntax ID and reference in preorder traversal order.
     ///
-    /// Visits the current node first, then pushes its children onto the stack
+    /// Visits the current syntax first, then pushes its children onto the stack
     /// in reverse order to maintain left-to-right traversal.
     ///
     /// Returns `None` when all nodes have been visited.

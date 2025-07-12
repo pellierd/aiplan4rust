@@ -149,7 +149,7 @@ impl FromAst for Method {
     /// Parses a `Method` from its AST representation.
     ///
     /// # Parameters
-    /// - `node`: The AST node representing the method.
+    /// - `syntax`: The AST syntax representing the method.
     /// - `ast`: The arena of AST nodes.
     ///
     /// # Returns

@@ -34,8 +34,8 @@
 //!
 //! let ast = Ast::new(root, interner, "domain.pddl".into(), SystemTime::now());
 //!
-//! for (node, depth) in ast.preorder() {
-//!     println!("{:indent$}- {:?}", "", node.kind(), indent = depth * 2);
+//! for (syntax, depth) in ast.preorder() {
+//!     println!("{:indent$}- {:?}", "", syntax.kind(), indent = depth * 2);
 //! }
 //! ```
 //!
@@ -50,7 +50,7 @@
 //! # See Also
 //!
 //! - [`AstNode`] for details about individual arena nodes.
-//! - [`AstKind`] for node classification.
+//! - [`AstKind`] for syntax classification.
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
@@ -71,7 +71,7 @@ use crate::aiplan4rust::arena::{NodeId, Arena};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Ast {
 
-    /// Root node of the AST.
+    /// Root syntax of the AST.
     arena: Arena<AstNode>,
 
     /// String interner used during parsing.
@@ -89,7 +89,7 @@ impl Ast {
     ///
     /// # Arguments
     ///
-    /// - `root`: The root node of the AST.
+    /// - `root`: The root syntax of the AST.
     /// - `interner`: A [`StringInterner`] used to resolve interned content within the AST.
     /// - `source_name`: A human-readable label for the origin of the AST.
     /// - `generated_at`: A [`SystemTime`] indicating when the AST was built.
@@ -115,17 +115,17 @@ impl Ast {
         }
     }
 
-    /// Returns a reference to the AST root node.
+    /// Returns a reference to the AST root syntax.
     pub fn arena(&self) -> &Arena<AstNode> {
         &self.arena
     }
 
-    /// Returns a mutable reference to the AST root node.
+    /// Returns a mutable reference to the AST root syntax.
     pub fn arena_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.arena
     }
 
-    /// Consumes and returns the root AST node.
+    /// Consumes and returns the root AST syntax.
     pub fn take_arena(&mut self) -> Arena<AstNode> {
         std::mem::take(&mut self.arena)
     }
@@ -150,12 +150,12 @@ impl Ast {
         self.generated_at
     }
 
-    /// Returns an iterator over the AST in preorder (node before children).
+    /// Returns an iterator over the AST in preorder (syntax before children).
     /*pub fn preorder(&self) -> PreorderIter<'_> {
         PreorderIter::new(self.root())
     }*/
 
-    /// Returns an iterator over the AST in postorder (children before node).
+    /// Returns an iterator over the AST in postorder (children before syntax).
     /*pub fn postorder(&self) -> PostorderIter<'_> {
         PostorderIter::new(self.root())
     }*/
@@ -198,14 +198,14 @@ impl Ast {
     }
 
 
-    /// Finds the first node ID of the specified kind in the subtree rooted at `node_id`.
+    /// Finds the first syntax ID of the specified kind in the subtree rooted at `node_id`.
     ///
     /// # Arguments
-    /// * `node_id` - The root node ID of the subtree to search.
+    /// * `node_id` - The root syntax ID of the subtree to search.
     /// * `kind` - The `AstKind` to find.
     ///
     /// # Returns
-    /// * `Some(NodeId)` if a matching node is found.
+    /// * `Some(NodeId)` if a matching syntax is found.
     /// * `None` otherwise.
     pub fn find_node_id_of_kind_from(
         &self,
@@ -221,10 +221,10 @@ impl Ast {
         None
     }
 
-    /// Finds the first node ID of the specified kind in the entire AST.
+    /// Finds the first syntax ID of the specified kind in the entire AST.
     ///
     /// # Returns
-    /// * `Some(NodeId)` if a matching node is found.
+    /// * `Some(NodeId)` if a matching syntax is found.
     /// * `None` otherwise.
     pub fn find_node_id_of_kind(&self, kind: AstKind) -> Option<NodeId> {
         self.arena.root_id().and_then(|root_id| {
@@ -232,16 +232,16 @@ impl Ast {
         })
     }
 
-    /// Recursively sets the start and end positions (line and column) for each AST node.
+    /// Recursively sets the start and end positions (line and column) for each AST syntax.
     ///
-    /// This function traverses the AST in a pre-order fashion, updating each node's span information
+    /// This function traverses the AST in a pre-order fashion, updating each syntax's span information
     /// with precise line and column numbers obtained from the provided `FastLineTable`.
     ///
     /// # Arguments
     /// * `fast_line_table` - A reference to a `FastLineTable` used to convert byte offsets to line and column positions.
     ///
     /// # Errors
-    /// Returns a `ParserInternalError` if any node cannot be accessed mutably.
+    /// Returns a `ParserInternalError` if any syntax cannot be accessed mutably.
     pub fn init_span(
         &mut self,
         fast_line_table: &FastLineTable,
@@ -250,7 +250,7 @@ impl Ast {
         if !self.arena().is_empty() {
             let mut stack = vec![self.arena().try_root_id()?];
             while let Some(node_id) = stack.pop() {
-                // Get a mutable reference to the current node
+                // Get a mutable reference to the current syntax
                 let node = self.arena_mut().try_node_mut(node_id)?;
 
                 // Initialize start position (line, column) using the fast_line_table
@@ -283,15 +283,15 @@ impl fmt::Display for Ast {
 
 
 
-        /*for (idx, node) in self.arena().nodes.iter().enumerate() {
+        /*for (idx, syntax) in self.arena().nodes.iter().enumerate() {
             // Transforme les enfants (Vec<NodeId>) en string "id1, id2, id3"
-            let children_str = node.children()
+            let children_str = syntax.children()
                 .iter()
                 .map(|child_id| child_id.to_string())  // si NodeId est un nouveau-type autour de usize, adapte ici
                 .collect::<Vec<_>>()
                 .join(", ");
-            let content = node.content().to_string_with_interner(&self.interner);
-            writeln!(f, "- Id: {}, Kind: {:?}, Content: {} , childen: {}", idx, node.kind(), content, children_str)?;
+            let content = syntax.content().to_string_with_interner(&self.interner);
+            writeln!(f, "- Id: {}, Kind: {:?}, Content: {} , childen: {}", idx, syntax.kind(), content, children_str)?;
         }*/
 
 

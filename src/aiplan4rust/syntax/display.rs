@@ -31,6 +31,16 @@
 use std::fmt::Write;
 use crate::aiplan4rust::interner::StringInterner;
 
+pub const DEFAULT_INDENT_WIDTH: usize = 2;
+pub const DEFAULT_INDENT_CHAR: char = ' ';
+
+pub fn write_indent(f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::Result {
+    for _ in 0..(level * DEFAULT_INDENT_WIDTH) {
+        write!(f, "{}", DEFAULT_INDENT_CHAR)?;
+    }
+    Ok(())
+}
+
 /// Trait for formatting values with planned syntax, supporting indentation and interner resolution.
 ///
 /// Provides default constants for indentation width and indent character,

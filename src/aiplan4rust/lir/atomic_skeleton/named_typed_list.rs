@@ -114,12 +114,12 @@ impl NamedTypedList {
 }
 
 impl FromAst for NamedTypedList {
-    /// Constructs a `NamedTypedList` from an AST node.
+    /// Constructs a `NamedTypedList` from an AST syntax.
     ///
     /// # Parameters
     ///
-    /// - `node`: The AST node to parse.
-    /// - `ast`: The AST arena providing node access.
+    /// - `syntax`: The AST syntax to parse.
+    /// - `ast`: The AST arena providing syntax access.
     ///
     /// # Returns
     ///

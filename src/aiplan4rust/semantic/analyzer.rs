@@ -102,8 +102,8 @@ impl Analyzer {
     /// Performs semantic analysis on the provided AST.
     ///
     /// This function consumes the AST by creating a `SemanticContext` from it,
-    /// then applies domain-specific semantic checks depending on the root node kind
-    /// (`Domain` or `Problem`). If the root node kind is unexpected, an error is returned.
+    /// then applies domain-specific semantic checks depending on the root syntax kind
+    /// (`Domain` or `Problem`). If the root syntax kind is unexpected, an error is returned.
     ///
     /// During analysis, diagnostics (errors, warnings, infos) are collected in
     /// the internal diagnostic manager.
@@ -119,7 +119,7 @@ impl Analyzer {
     /// The `AnalyzerResult` always contains the diagnostics collected during analysis.
     ///
     /// # Errors
-    /// Returns a `ParserInternalError` if the AST's root node kind is unexpected.
+    /// Returns a `ParserInternalError` if the AST's root syntax kind is unexpected.
     fn perform_analysis(
         &mut self,
         ast: &mut Ast,
@@ -139,7 +139,7 @@ impl Analyzer {
             }
             _ => {
                 return Err(ParserInternalError::new(format!(
-                    "Unexpected AST node kind found: {}",
+                    "Unexpected AST syntax kind found: {}",
                     root.kind()
                 )));
             }

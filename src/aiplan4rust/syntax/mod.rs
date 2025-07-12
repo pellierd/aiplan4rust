@@ -86,11 +86,13 @@ pub mod parser_error;
 pub use language::Language;
 pub use parser::Parser;
 pub use span::Span;
-pub(crate) use display::SyntaxDisplay;
+pub use display::SyntaxDisplay;
+pub use display::write_indent;
 pub use fast_line_table::FastLineTable;
 pub use parse_context::ParseContext;
 pub use parser_result::ParserResult;
 pub use parser_error::ParserError;
+
 
 pub use lalrpop::parse_hddl;
 pub use lalrpop::parse_pddl;

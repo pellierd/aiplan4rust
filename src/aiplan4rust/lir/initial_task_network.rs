@@ -75,10 +75,10 @@ impl InitialTaskNetwork {
 }
 
 impl FromAst for InitialTaskNetwork {
-    /// Parses an `InitialTaskNetwork` from an AST node.
+    /// Parses an `InitialTaskNetwork` from an AST syntax.
     ///
     /// # Parameters
-    /// - `node`: The AST node representing the initial task network.
+    /// - `syntax`: The AST syntax representing the initial task network.
     /// - `ast`: The arena containing all AST nodes.
     ///
     /// # Returns

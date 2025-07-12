@@ -12,21 +12,21 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 
-/// Represents a node in an Abstract Syntax Tree (AST) arena.
+/// Represents a syntax in an Abstract Syntax Tree (AST) arena.
 ///
 /// Each `Node` holds information about its kind (syntax type), the source
 /// code span it covers, its children nodes (by indices), and optionally
-/// its parent node index.
+/// its parent syntax index.
 ///
 /// This structure is designed for arena-based AST storage, where nodes
 /// reference each other by indices rather than pointers.
 ///
 /// # Fields
 ///
-/// - `kind`: The type of AST node (e.g., expr, statement).
+/// - `kind`: The type of AST syntax (e.g., expr, statement).
 /// - `children`: A vector of indices pointing to child nodes.
-/// - `span`: The source code span this node covers.
-/// - `parent`: An optional index of the parent node. `None` if this node is a root.
+/// - `span`: The source code span this syntax covers.
+/// - `parent`: An optional index of the parent syntax. `None` if this syntax is a root.
 ///
 /// # Examples
 ///
@@ -36,15 +36,15 @@ use std::ops::{Deref, DerefMut};
 ///
 /// let kind = AstKind::Expr; // example variant
 /// let span = Span::default();
-/// let mut node = Node::new(kind.clone(), span.clone(), None);
+/// let mut syntax = Node::new(kind.clone(), span.clone(), None);
 ///
-/// assert!(node.is_root());
-/// assert_eq!(node.kind(), &kind);
-/// assert_eq!(node.span(), &span);
-/// assert_eq!(node.children().len(), 0);
+/// assert!(syntax.is_root());
+/// assert_eq!(syntax.kind(), &kind);
+/// assert_eq!(syntax.span(), &span);
+/// assert_eq!(syntax.children().len(), 0);
 ///
-/// node.set_kind(AstKind::Stmt);
-/// node.set_span(Span::new(10, 20));
+/// syntax.set_kind(AstKind::Stmt);
+/// syntax.set_span(Span::new(10, 20));
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct AstNode {
@@ -55,7 +55,7 @@ pub struct AstNode {
 impl AstNode {
     /// Creates a new `AstArenaNode` with the given kind, content, span, and optional parent.
     ///
-    /// The node is initialized without children.
+    /// The syntax is initialized without children.
     pub fn new(
         kind: AstKind,
         content: AstContent,
@@ -67,12 +67,12 @@ impl AstNode {
         AstNode { data, span }
     }
 
-    /// Returns a reference to the source code span of this node.
+    /// Returns a reference to the source code span of this syntax.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
-    /// Returns a reference to the source code span of this node.
+    /// Returns a reference to the source code span of this syntax.
     pub fn span_mut(&mut self) -> &mut Span {
         &mut self.span
     }
@@ -204,7 +204,7 @@ impl ArenaNode for AstNode {
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
 
-    /// Recursively pretty-prints this node and its children as a arena.
+    /// Recursively pretty-prints this syntax and its children as a arena.
     fn fmt_with(
         &self,
         f: &mut Formatter<'_>,
@@ -222,7 +222,7 @@ impl ArenaNode for AstNode {
         indent: usize,
     ) -> fmt::Result {
 
-        renderer::syntax::render(self, f, arena, interner, indent)?;
+        renderer::syntax::render_with_indent(self, f, arena, interner, indent)?;
         Ok(())
     }
 }

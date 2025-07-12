@@ -58,7 +58,7 @@ use crate::aiplan4rust::arena::Arena;
 ///
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] transparently.
 /// - Supports pretty-printing with or without an interner (see [`InternerDisplay`] and [`SyntaxDisplay`]).
-/// - Can be constructed directly or parsed from an AST node via [`FromAst`].
+/// - Can be constructed directly or parsed from an AST syntax via [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formula {
     /// Underlying skeleton holding the identifier and parameters.
@@ -98,15 +98,15 @@ impl DerefMut for Formula {
 }
 
 impl FromAst for Formula {
-    /// Parses a `Formula` from an AST node.
+    /// Parses a `Formula` from an AST syntax.
     ///
-    /// The expected AST node structure:
+    /// The expected AST syntax structure:
     /// - Child 0: The identifier.
     /// - Child 1: The typed parameter list.
     ///
     /// # Errors
     ///
-    /// Returns a [`ParserInternalError`] if the node does not have the expected structure.
+    /// Returns a [`ParserInternalError`] if the syntax does not have the expected structure.
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,

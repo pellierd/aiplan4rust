@@ -7,7 +7,7 @@
 //! - the list of lexical or syntactic errors collected during parsing.
 //!
 //! This context is passed around throughout the parsing process and is
-//! responsible for managing node allocation, error recording, and interning
+//! responsible for managing syntax allocation, error recording, and interning
 //! strings.
 //!
 //! # Components
@@ -110,39 +110,39 @@ impl ParseContext {
         std::mem::take(&mut *self.arena.borrow_mut())
     }
 
-    /// Sets the root node ID in the arena.
+    /// Sets the root syntax ID in the arena.
     ///
     /// # Arguments
-    /// * `root_id` - The ID of the node to set as root.
+    /// * `root_id` - The ID of the syntax to set as root.
     ///
     /// # Errors
-    /// Returns [`ParserInternalError`] if the node ID does not exist.
+    /// Returns [`ParserInternalError`] if the syntax ID does not exist.
     pub fn set_root_id(&self, root_id: NodeId) -> Result<(), ParserInternalError> {
         self.arena.borrow_mut().set_root_id(root_id)
     }
 
-    /// Returns the ID of the root node, if any.
+    /// Returns the ID of the root syntax, if any.
     ///
     /// # Returns
-    /// An `Option` containing the `NodeId` of the root node.
+    /// An `Option` containing the `NodeId` of the root syntax.
     pub fn root_id(&self) -> Option<NodeId> {
         self.arena.borrow().root_id()
     }
 
-    /// Allocates a new AST node in the arena.
+    /// Allocates a new AST syntax in the arena.
     ///
-    /// This inserts the node, updates all children to reference it as their parent,
+    /// This inserts the syntax, updates all children to reference it as their parent,
     /// and returns the newly assigned `NodeId`.
     ///
     /// # Arguments
-    /// * `kind` - The kind of AST node.
-    /// * `content` - The node content.
-    /// * `children` - The list of child node IDs.
+    /// * `kind` - The kind of AST syntax.
+    /// * `content` - The syntax content.
+    /// * `children` - The list of child syntax IDs.
     /// * `start` - Start offset in the input.
     /// * `end` - End offset in the input.
     ///
     /// # Returns
-    /// The `NodeId` of the allocated node, or an error if allocation fails.
+    /// The `NodeId` of the allocated syntax, or an error if allocation fails.
     pub fn alloc_node(
         &self,
         kind: AstKind,
@@ -153,7 +153,7 @@ impl ParseContext {
     ) -> Result<NodeId, ParserInternalError> {
         let span = Span::new(start, end);
 
-        // 1) Create the node with the children (parent initially None)
+        // 1) Create the syntax with the children (parent initially None)
         let node = AstNode::new(kind, content, children, span, None);
 
         let mut arena = self.arena.borrow_mut();
@@ -167,7 +167,7 @@ impl ParseContext {
             stored.children().to_vec()
         };
 
-        // 4) Update each child to reference this node as parent
+        // 4) Update each child to reference this syntax as parent
         for child in &children_ids {
             if let Some(child_node) = arena.get_node_mut(*child) {
                 child_node.set_parent(Some(node_id));
@@ -177,7 +177,7 @@ impl ParseContext {
         Ok(node_id)
     }
 
-    /// Merges the children of one `TypedList` node into another.
+    /// Merges the children of one `TypedList` syntax into another.
     ///
     /// All children of `next` are moved into `typed_list` and updated
     /// to have `typed_list` as their parent.

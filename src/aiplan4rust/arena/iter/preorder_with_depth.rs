@@ -7,7 +7,7 @@ pub struct PreorderIterWithDepth<'a, T: ArenaNode> {
 }
 
 impl<'a, T: ArenaNode> PreorderIterWithDepth<'a, T> {
-    /// Creates a new iterator starting from the given root node.
+    /// Creates a new iterator starting from the given root syntax.
     pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
         Self {
             arena,

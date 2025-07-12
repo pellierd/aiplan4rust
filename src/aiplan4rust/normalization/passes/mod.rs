@@ -12,7 +12,7 @@
 //!   `TypedItem` has exactly one element and an optional type.
 //! - [`normalize_type_def`] — Merges `TypedItem` nodes within `TypesDef` that share the same
 //!   `PrimitiveType` key, deduplicating and combining their types.
-//! - [`normalize_require_def`] — Removes duplicate requirement declarations from the `RequireDef` node
+//! - [`normalize_require_def`] — Removes duplicate requirement declarations from the `RequireDef` syntax
 //!   and reports them as diagnostics.
 //! - [`normalize_either_type`] — Normalizes `Type` nodes that use implicit union (either) types by
 //!   sorting and deduplicating type elements.

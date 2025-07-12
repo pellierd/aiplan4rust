@@ -196,7 +196,7 @@ fn skip_unused_symbol_declaration(
         _ => {}
     }
 
-    // Skip if the declaration is a variable and its scope contains an atomic skeleton node.
+    // Skip if the declaration is a variable and its scope contains an atomic skeleton syntax.
     // Variables within such scopes are typically local and do not need to be checked for duplicates.
     if matches!(declaration.symbol_kind(), SymbolKind::Variable)
         && (declaration

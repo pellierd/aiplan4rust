@@ -51,7 +51,7 @@ pub struct SymbolEntry {
     /// The unique name of the symbol.
     name: Ident,
 
-    /// The AST node where the symbol is declared (only once).
+    /// The AST syntax where the symbol is declared (only once).
     declarations: HashSet<Declaration>,
 
     /// The list of AST nodes where the symbol is used.

@@ -1,4 +1,4 @@
-//! The `kind` module: defines the `Kind` enum representing node kinds
+//! The `kind` module: defines the `Kind` enum representing syntax kinds
 //! used in the abstract syntax tree (AST) for planning domain/problem
 //! languages like PDDL and HDDL.
 //!

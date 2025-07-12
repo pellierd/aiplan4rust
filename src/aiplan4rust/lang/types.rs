@@ -324,15 +324,15 @@ impl SyntaxDisplay for Type {
 impl FromAst for Type {
     /// Constructs a [`Type`] from an [`AstNode`] representing a collection of type identifiers.
     ///
-    /// This implementation iterates over the children of the given AST node,
-    /// retrieves each child node's identifier, and adds it to the list of type members.
+    /// This implementation iterates over the children of the given AST syntax,
+    /// retrieves each child syntax's identifier, and adds it to the list of type members.
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// let node: &AstArenaNode = ...;
+    /// let syntax: &AstArenaNode = ...;
     /// let ast: &Ast = ...;
-    /// let ty = Type::from_ast(node, ast)?;
+    /// let ty = Type::from_ast(syntax, ast)?;
     /// ```
     ///
     /// # Errors

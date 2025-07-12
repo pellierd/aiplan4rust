@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 /// Represents a reference to a declared symbol, with its identifier and kind.
 ///
-/// This is typically extracted from an AST node during semantic analysis and used
+/// This is typically extracted from an AST syntax during semantic analysis and used
 /// to describe the declaration of a symbol (e.g., constant, predicate, action).
 ///
 /// A `Reference` is immutable, hashable, and suitable for use in maps or sets.

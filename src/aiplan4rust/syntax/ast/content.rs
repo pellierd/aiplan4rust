@@ -1,7 +1,7 @@
 //! AST Node Content Representation
 //!
 //! This module defines [`Content`], an enum used to attach semantic or syntactic meaning
-//! to an AST node. Each variant represents a concrete payload, such as an identifier,
+//! to an AST syntax. Each variant represents a concrete payload, such as an identifier,
 //! floating-point value, or PDDL-specific operator (e.g., comparison or assignment).
 //!
 //! `Content` is a leaf element in the AST: it holds data but no arena structure.
@@ -43,10 +43,10 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Represents semantic content associated with an AST node.
+/// Represents semantic content associated with an AST syntax.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Content {
-    /// No content (default/empty node).
+    /// No content (default/empty syntax).
     #[default]
     None,
 

@@ -17,7 +17,7 @@ use std::fmt;
 ///
 /// This struct captures detailed information about a symbol's declaration within
 /// the program, including its identity, scope, origin, associated types, parameters,
-/// AST node, and source code location.
+/// AST syntax, and source code location.
 ///
 /// # Fields
 ///
@@ -27,7 +27,7 @@ use std::fmt;
 ///   whether it belongs to the domain or problem context.
 /// * `types` - An optional list of types associated with the symbol (e.g., return types or annotations).
 /// * `arguments` - Optional lists of typed parameters or arguments, grouped by parameter lists, if applicable.
-/// * `node_id` - The AST node identifier corresponding to this declaration.
+/// * `node_id` - The AST syntax identifier corresponding to this declaration.
 /// * `span` - The source span indicating where this declaration occurs in the source code.
 ///
 /// # Example
@@ -64,7 +64,7 @@ pub struct Declaration {
     // The span in source code where the declaration is located.
     span: Span,
 
-    // The AST node ID corresponding to this declaration.
+    // The AST syntax ID corresponding to this declaration.
     node_id: NodeId,
 }
 
@@ -84,7 +84,7 @@ impl Declaration {
     /// - `arguments`: An optional list of typed symbols representing the parameters or arguments,
     ///   possibly grouped by parameter lists.
     /// - `span`: The source code span that locates where the declaration appears.
-    /// - `node_id`: The AST node identifier corresponding to this declaration.
+    /// - `node_id`: The AST syntax identifier corresponding to this declaration.
     ///
     /// # Returns
     ///
@@ -164,7 +164,7 @@ impl Declaration {
         &self.span
     }
 
-    /// Returns the [`NodeId`] of the AST node associated with this usage.
+    /// Returns the [`NodeId`] of the AST syntax associated with this usage.
     pub fn node_id(&self) -> NodeId {
         self.node_id
     }
@@ -396,7 +396,7 @@ impl fmt::Display for Declaration {
     /// Formats the `Declaration` for display purposes.
     ///
     /// This implementation writes a structured representation of the declaration,
-    /// including its AST node index, symbol kind, identifier, scope, source,
+    /// including its AST syntax index, symbol kind, identifier, scope, source,
     /// and optionally the associated types and argument types.
     ///
     /// The output format looks like:

@@ -152,11 +152,11 @@ impl SyntaxDisplay for TypedSymbol {
 }
 
 impl FromAst for TypedSymbol {
-    /// Constructs a `TypedSymbol` from an AST node.
+    /// Constructs a `TypedSymbol` from an AST syntax.
     ///
     /// # Expectations
-    /// - The provided `node` **must** be of kind `TypedItem`.
-    /// - The node has **at most two children**:
+    /// - The provided `syntax` **must** be of kind `TypedItem`.
+    /// - The syntax has **at most two children**:
     ///   - The **first child** is the symbol (mandatory).
     ///   - The **second child** is the type (optional).
     /// - If the second child (type) is absent, returns a `TypedSymbol` with an empty `Type`.

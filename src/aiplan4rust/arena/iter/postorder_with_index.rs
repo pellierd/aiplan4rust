@@ -2,9 +2,9 @@ use crate::aiplan4rust::arena::{Arena, NodeId, ArenaNode};
 
 /// A postorder iterator over nodes in an `Arena`, yielding `(NodeId, &T)` pairs.
 ///
-/// This iterator traverses the arena in postorder, meaning it visits all children of a node
-/// before the node itself. Each iteration returns the unique node identifier along with
-/// a reference to the node.
+/// This iterator traverses the arena in postorder, meaning it visits all children of a syntax
+/// before the syntax itself. Each iteration returns the unique syntax identifier along with
+/// a reference to the syntax.
 ///
 /// The traversal preserves left-to-right order by pushing children onto the stack in reverse.
 ///
@@ -12,22 +12,22 @@ use crate::aiplan4rust::arena::{Arena, NodeId, ArenaNode};
 ///
 /// ```rust
 /// let iter = PostorderIterWithIndex::new(&arena, root_id);
-/// for (id, node) in iter {
-///     // Process node with its id
+/// for (id, syntax) in iter {
+///     // Process syntax with its id
 /// }
 /// ```
 pub struct PostorderIterWithIndex<'a, T: ArenaNode> {
     arena: &'a Arena<T>,
-    stack: Vec<(NodeId, bool)>, // (node id, children visited flag)
+    stack: Vec<(NodeId, bool)>, // (syntax id, children visited flag)
 }
 
 impl<'a, T: ArenaNode> PostorderIterWithIndex<'a, T> {
-    /// Creates a new postorder iterator starting from the specified root node.
+    /// Creates a new postorder iterator starting from the specified root syntax.
     ///
     /// # Parameters
     ///
     /// * `arena` - Reference to the arena containing the arena nodes.
-    /// * `root` - The root node ID from which to start traversal.
+    /// * `root` - The root syntax ID from which to start traversal.
     ///
     /// # Returns
     ///
@@ -51,15 +51,15 @@ impl<'a, T: ArenaNode> PostorderIterWithIndex<'a, T> {
 impl<'a, T: ArenaNode> Iterator for PostorderIterWithIndex<'a, T> {
     type Item = (NodeId, &'a T);
 
-    /// Returns the next node in postorder traversal along with its ID.
+    /// Returns the next syntax in postorder traversal along with its ID.
     ///
-    /// The traversal visits all children of a node before the node itself.
+    /// The traversal visits all children of a syntax before the syntax itself.
     ///
     /// Returns `None` when traversal is complete.
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(&(id, visited)) = self.stack.last() {
             if !visited {
-                // Mark this node as visited to indicate children will be processed
+                // Mark this syntax as visited to indicate children will be processed
                 if let Some(top) = self.stack.last_mut() {
                     top.1 = true;
                 }
@@ -71,7 +71,7 @@ impl<'a, T: ArenaNode> Iterator for PostorderIterWithIndex<'a, T> {
                     }
                 }
             } else {
-                // All children visited; yield this node
+                // All children visited; yield this syntax
                 self.stack.pop();
                 if let Some(node) = self.arena.get_node(id) {
                     return Some((id, node));

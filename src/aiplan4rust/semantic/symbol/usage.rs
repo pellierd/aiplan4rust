@@ -16,7 +16,7 @@ use std::fmt;
 /// This struct encapsulates detailed information about where and how a symbol is referenced
 /// during the compilation or analysis process. It tracks the symbol's reference, the
 /// lexical scope of the usage, the origin of the symbol usage (such as the file or module),
-/// the precise location in the source code, and the AST node associated with this usage.
+/// the precise location in the source code, and the AST syntax associated with this usage.
 ///
 /// # Fields
 ///
@@ -28,7 +28,7 @@ use std::fmt;
 ///   which this usage arises.
 /// - `span`: The source code span that highlights the exact location of the usage in the source
 ///   code (e.g., line and column range).
-/// - `ast`: The AST node index (NodeId) corresponding to this particular usage occurrence.
+/// - `ast`: The AST syntax index (NodeId) corresponding to this particular usage occurrence.
 ///
 /// # Derives
 ///
@@ -67,7 +67,7 @@ pub struct Usage {
     /// The source code span corresponding to this usage.
     span: Span,
 
-    /// The AST node index where the symbol usage occurs.
+    /// The AST syntax index where the symbol usage occurs.
     ast: NodeId,
 }
 impl Usage {
@@ -79,7 +79,7 @@ impl Usage {
     /// * `scope` - The scope in which this symbol usage occurs.
     /// * `source` - The origin of this usage, indicating where the symbol comes from (e.g., domain or problem).
     /// * `span` - The span in the source code corresponding to this usage.
-    /// * `ast` - The identifier of the AST node where this usage appears.
+    /// * `ast` - The identifier of the AST syntax where this usage appears.
     ///
     /// # Returns
     ///
@@ -139,11 +139,11 @@ impl Usage {
         &self.span
     }
 
-    /// Returns the AST node identifier where the symbol is used.
+    /// Returns the AST syntax identifier where the symbol is used.
     ///
     /// # Returns
     ///
-    /// The [`NodeId`] corresponding to the AST node of this usage.
+    /// The [`NodeId`] corresponding to the AST syntax of this usage.
     pub fn node_id(&self) -> NodeId {
         self.ast
     }
@@ -167,7 +167,7 @@ impl fmt::Display for Usage {
     /// Formats the `Usage` for display.
     ///
     /// This implementation writes a human-readable string representing the usage,
-    /// including the AST node index, symbol kind, identifier, scope, and source.
+    /// including the AST syntax index, symbol kind, identifier, scope, and source.
     ///
     /// # Arguments
     ///
@@ -190,7 +190,7 @@ impl InternerDisplay for Usage {
 
     /// Formats the usage into the given writer, resolving interned strings via the interner.
     ///
-    /// This method writes a human-readable representation of the usage, including its AST node index,
+    /// This method writes a human-readable representation of the usage, including its AST syntax index,
     /// symbol kind, identifier (resolved from the interner), scope, and source.
     ///
     /// # Arguments

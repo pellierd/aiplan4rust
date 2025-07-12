@@ -40,7 +40,7 @@ use std::fmt::Formatter;
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
-/// The precondition and effect are always present and default to empty expressions (an `Or` node with no children).
+/// The precondition and effect are always present and default to empty expressions (an `Or` syntax with no children).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Action {
     header: NamedTypedList,
@@ -145,10 +145,10 @@ impl Action {
 }
 
 impl FromAst for Action {
-    /// Constructs an `Action` from an AST node.
+    /// Constructs an `Action` from an AST syntax.
     ///
     /// # Expected AST structure
-    /// The node should have:
+    /// The syntax should have:
     /// - The first child: the action name identifier.
     /// - The second child: parameters as a typed list.
     /// - The third child: the body containing optional precondition and effect nodes.
@@ -182,7 +182,7 @@ impl FromAst for Action {
                 }
                 _ => {
                     return Err(ParserInternalError::new(format!(
-                        "Unexpected node in Action body: {:?}",
+                        "Unexpected syntax in Action body: {:?}",
                         child_node.kind()
                     )));
                 }

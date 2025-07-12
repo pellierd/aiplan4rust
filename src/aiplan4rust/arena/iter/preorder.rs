@@ -4,18 +4,18 @@ use crate::aiplan4rust::arena::ArenaNode;
 
 /// An iterator for traversing nodes in an `Arena` in preorder.
 ///
-/// Preorder traversal visits the current node before its children,
+/// Preorder traversal visits the current syntax before its children,
 /// recursively from left to right.
 ///
 /// This iterator yields references to nodes of type `T` stored in the arena,
-/// starting from a specified root node.
+/// starting from a specified root syntax.
 ///
 /// # Example
 ///
 /// ```rust
 /// let iter = PreorderIter::new(&arena, root_id);
-/// for node in iter {
-///     // Process node
+/// for syntax in iter {
+///     // Process syntax
 /// }
 /// ```
 pub struct PreorderIter<'a, T: ArenaNode> {
@@ -29,7 +29,7 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
     /// # Parameters
     ///
     /// * `arena` - Reference to the arena containing the arena nodes.
-    /// * `root` - The root node ID where traversal begins.
+    /// * `root` - The root syntax ID where traversal begins.
     ///
     /// # Returns
     ///
@@ -52,9 +52,9 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
 impl<'a, T: ArenaNode> Iterator for PreorderIter<'a, T> {
     type Item = &'a T;
 
-    /// Advances the iterator and returns the next node in preorder.
+    /// Advances the iterator and returns the next syntax in preorder.
     ///
-    /// The traversal order is: current node, then recursively each child from left to right.
+    /// The traversal order is: current syntax, then recursively each child from left to right.
     ///
     /// Returns `None` when all nodes have been visited.
     fn next(&mut self) -> Option<Self::Item> {

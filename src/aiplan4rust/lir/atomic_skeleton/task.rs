@@ -51,7 +51,7 @@ use crate::aiplan4rust::arena::Arena;
 /// # Notes
 ///
 /// - Implements [`Deref`] and [`DerefMut`] to expose the underlying [`NamedTypedList`] transparently.
-/// - Can be created from an AST node via [`FromAst`].
+/// - Can be created from an AST syntax via [`FromAst`].
 /// - Supports pretty-printing and interner-based rendering.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Task {
@@ -87,15 +87,15 @@ impl DerefMut for Task {
 }
 
 impl FromAst for Task {
-    /// Builds a `Task` from an abstract syntax arena node.
+    /// Builds a `Task` from an abstract syntax arena syntax.
     ///
-    /// The node is expected to have:
+    /// The syntax is expected to have:
     /// - Child 0: The identifier (name).
     /// - Child 1: The typed parameter list.
     ///
     /// # Errors
     ///
-    /// Returns [`ParserInternalError`] if the node is malformed or required children are missing.
+    /// Returns [`ParserInternalError`] if the syntax is malformed or required children are missing.
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,

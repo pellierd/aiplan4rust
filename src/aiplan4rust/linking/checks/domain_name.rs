@@ -60,7 +60,7 @@ pub fn check_domain_name(
     // If the names don't match, emit a diagnostic warning.
     if declared.name() != referenced.name() {
 
-        // --- 4. Locate the AST node for the referenced domain name ---
+        // --- 4. Locate the AST syntax for the referenced domain name ---
         // Try to find the declaration in the problem's symbol table.
         match problem.symbol_table().resolve_declaration(
             &referenced.name(),

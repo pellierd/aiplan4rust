@@ -502,14 +502,14 @@ impl Table {
             .collect()
     }
 
-    /// Retrieves the declaration associated with a usage identified by a specific AST node index.
+    /// Retrieves the declaration associated with a usage identified by a specific AST syntax index.
     ///
     /// This function searches all symbols and their usages in the symbol table to find a usage
-    /// that matches the given AST node index. It then filters the declarations of the matching
+    /// that matches the given AST syntax index. It then filters the declarations of the matching
     /// symbol to find those whose scope contains the usage's scope.
     ///
     /// # Parameters
-    /// - `index`: The AST node index representing the usage to look up.
+    /// - `index`: The AST syntax index representing the usage to look up.
     ///
     /// # Returns
     /// - `Ok(Some(&Declaration))`: Exactly one matching declaration found.

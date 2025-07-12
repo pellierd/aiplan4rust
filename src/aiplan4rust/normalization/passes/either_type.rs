@@ -11,7 +11,7 @@
 //! # Overview
 //!
 //! In the domain-specific language AST, `Type` nodes can have children that represent primitive types.
-//! It is invalid or redundant for a `Type` node to contain duplicate primitive type identifiers
+//! It is invalid or redundant for a `Type` syntax to contain duplicate primitive type identifiers
 //! (e.g., `(either t1 t1)`).
 //!
 //! This module ensures the AST is normalized by:
@@ -27,7 +27,7 @@
 //!
 //! # Errors
 //!
-//! These functions may return `ParserInternalError` if any AST node access or mutation fails,
+//! These functions may return `ParserInternalError` if any AST syntax access or mutation fails,
 //! or if identifier resolution for diagnostics encounters errors.
 //!
 //! # Usage Example
@@ -51,7 +51,7 @@
 //!
 //! The module depends on:
 //! - Standard collections (`HashSet`) for duplicate detection.
-//! - AST structures and kinds for node manipulation.
+//! - AST structures and kinds for syntax manipulation.
 //! - Diagnostic management for warnings.
 //! - Error types for parser internal errors.
 //!
@@ -137,7 +137,7 @@ pub fn normalize_either_type(
 /// Traverses the AST to detect and report duplicate identifiers within 'Type' nodes.
 ///
 /// This function performs a preorder traversal over the AST nodes contained in the provided `arena`.
-/// For each node of kind `Type`, it inspects its immediate children to identify duplicates among
+/// For each syntax of kind `Type`, it inspects its immediate children to identify duplicates among
 /// `PrimitiveType` children, specifically by checking their identifier (`Ident`) content. If duplicates
 /// are found, it reports these as warnings through the provided `diagnostic_manager`.
 ///
@@ -153,12 +153,12 @@ pub fn normalize_either_type(
 /// # Returns
 ///
 /// - `Ok(())` if traversal and reporting complete successfully.
-/// - `Err(ParserInternalError)` if any node or identifier resolution fails during traversal.
+/// - `Err(ParserInternalError)` if any syntax or identifier resolution fails during traversal.
 ///
 /// # Behavior
 ///
 /// - Traverses the AST in preorder to ensure parent nodes are processed before children.
-/// - For each `Type` node, collects identifiers of its `PrimitiveType` children.
+/// - For each `Type` syntax, collects identifiers of its `PrimitiveType` children.
 /// - Detects duplicates among these identifiers and collects them.
 /// - Calls `report_duplicate_either_type_warning_bis` to report warnings for duplicates found.
 ///
@@ -194,19 +194,19 @@ fn report_either_type_duplicate_warnings(
             continue;
         }
 
-        // HashSet to track which identifiers have already been seen in this Type node
+        // HashSet to track which identifiers have already been seen in this Type syntax
         let mut seen = HashSet::new();
         // Vector to collect identifiers detected as duplicates
         let mut duplicates = Vec::new();
 
-        // Iterate over immediate children of the current Type node
+        // Iterate over immediate children of the current Type syntax
         for &child_id in node.children() {
-            // Get an immutable reference to the child node
+            // Get an immutable reference to the child syntax
             let child = arena.try_node(child_id)?;
 
-            // Check if the child node is a PrimitiveType (the relevant node kind for IDs)
+            // Check if the child syntax is a PrimitiveType (the relevant syntax kind for IDs)
             if child.kind() == AstKind::PrimitiveType {
-                // Extract the identifier content from the node
+                // Extract the identifier content from the syntax
                 if let AstContent::Ident(id) = child.content() {
                     // If this identifier was already seen, record it as a duplicate
                     if !seen.insert(*id) {
@@ -233,7 +233,7 @@ fn report_either_type_duplicate_warnings(
     // Indicate successful completion without errors
     Ok(())
 }
-/// Creates a diagnostic warning for duplicate identifiers found within a 'Type' node.
+/// Creates a diagnostic warning for duplicate identifiers found within a 'Type' syntax.
 ///
 /// Given a vector of duplicate identifier (`Ident`) values, this function resolves each identifier
 /// to its string representation using the provided `ast`. It then constructs a `Diagnostic`
@@ -287,8 +287,8 @@ fn new_duplicate_either_type_warning(
 
 /// Removes duplicate `PrimitiveType` children within `Type` nodes in the AST.
 ///
-/// This function traverses the AST starting from the root node in a depth-first manner,
-/// visiting every node. For each node of kind `Type`, it inspects its immediate children
+/// This function traverses the AST starting from the root syntax in a depth-first manner,
+/// visiting every syntax. For each syntax of kind `Type`, it inspects its immediate children
 /// and removes duplicates among those children whose kind is `PrimitiveType` and which
 /// share the same identifier (`Ident`). Only the first occurrence of each identifier is kept.
 ///
@@ -306,7 +306,7 @@ fn new_duplicate_either_type_warning(
 /// # Behavior
 ///
 /// - Traverses the AST iteratively using a stack to avoid recursion.
-/// - Collects children IDs immutably before mutating the node to avoid borrowing conflicts.
+/// - Collects children IDs immutably before mutating the syntax to avoid borrowing conflicts.
 /// - Uses a hash set to track seen identifiers and detect duplicates efficiently.
 /// - Updates the children list of `Type` nodes to exclude duplicates.
 ///
@@ -323,7 +323,7 @@ fn new_duplicate_either_type_warning(
 ///
 /// # Errors
 ///
-/// Returns an error if any node cannot be accessed or mutated properly during traversal.
+/// Returns an error if any syntax cannot be accessed or mutated properly during traversal.
 ///
 /// # Notes
 ///
@@ -340,11 +340,11 @@ fn remove_either_type_duplicates(
     let mut stack = vec![arena.try_root_id()?];
 
     while let Some(node_id) = stack.pop() {
-        // Obtain an immutable reference to the current node for reading
+        // Obtain an immutable reference to the current syntax for reading
         let node = arena.try_node(node_id)?;
         // Clone the children IDs to avoid borrowing issues when mutating later
         let children_ids = node.children().to_vec();
-        // Cache the node kind for quick checks
+        // Cache the syntax kind for quick checks
         let node_kind = node.kind();
 
         // Process only nodes of kind 'Type' to remove duplicate PrimitiveType children
@@ -375,7 +375,7 @@ fn remove_either_type_duplicates(
                 }
             }
 
-            // After reading and processing children, obtain mutable reference to update node
+            // After reading and processing children, obtain mutable reference to update syntax
             let node_mut = arena.try_node_mut(node_id)?;
             node_mut.set_children(retained);
         }

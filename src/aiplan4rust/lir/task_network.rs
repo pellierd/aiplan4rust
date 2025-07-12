@@ -174,14 +174,14 @@ impl TaskNetwork {
 impl FromAst for TaskNetwork {
     /// Builds a [`TaskNetwork`] instance from the AST representation.
     ///
-    /// This method expects a node containing children corresponding to:
+    /// This method expects a syntax containing children corresponding to:
     /// - A subtask definition (`PartiallyOrderedSubtaskDef` or `OrderedSubtaskDef`).
     /// - Optionally, a task ordering constraint.
     /// - Optionally, a task logical constraint.
     ///
     /// # Errors
     ///
-    /// Returns [`ParserInternalError`] if the node is malformed or has unexpected children.
+    /// Returns [`ParserInternalError`] if the syntax is malformed or has unexpected children.
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
@@ -213,7 +213,7 @@ impl FromAst for TaskNetwork {
                 }
                 _ => {
                     return Err(ParserInternalError::new(format!(
-                        "Unexpected node kind in TaskNetwork: {}",
+                        "Unexpected syntax kind in TaskNetwork: {}",
                         child_node.kind(),
                     )));
                 }

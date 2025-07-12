@@ -74,11 +74,11 @@ impl Expr {
 
 /// Implements the `FromAst` trait for `Expr`.
 ///
-/// This allows constructing an `Expr` (expression arena) from an AST node subtree.
+/// This allows constructing an `Expr` (expression arena) from an AST syntax subtree.
 ///
 /// # Expected AST structure
 ///
-/// The `node` is expected to be the root of an AST subtree representing a logical expression.
+/// The `syntax` is expected to be the root of an AST subtree representing a logical expression.
 /// All descendants will be recursively converted into `ExprNode`s and stored in the `Expr` arena.
 ///
 /// # Errors
@@ -86,7 +86,7 @@ impl Expr {
 /// Returns a `ParserInternalError` if:
 /// - The `AstKind` cannot be converted into an `ExprKind`.
 /// - The `AstContent` cannot be converted into an `ExprContent`.
-/// - Any node lookup in the `TreeArena` fails.
+/// - Any syntax lookup in the `TreeArena` fails.
 ///
 /// # Example
 ///
@@ -99,9 +99,9 @@ impl FromAst for Expr {
     }
 }
 
-/// Converts an AST node and its subtree into an Expr iteratively.
+/// Converts an AST syntax and its subtree into an Expr iteratively.
 ///
-/// This function builds the entire Expr arena starting from the given node reference,
+/// This function builds the entire Expr arena starting from the given syntax reference,
 /// avoiding recursion by using an explicit stack.
 fn wrap(
     node: &AstNode,
@@ -110,7 +110,7 @@ fn wrap(
     let mut expr = Expr::new();
     let mut stack = Vec::new();
 
-    // (AST node, parent ExprNodeId)
+    // (AST syntax, parent ExprNodeId)
     stack.push((node, None));
 
     while let Some((current_ast_node, parent_expr_id_opt)) = stack.pop() {

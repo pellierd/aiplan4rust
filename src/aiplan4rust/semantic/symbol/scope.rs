@@ -31,13 +31,13 @@ pub struct Scope {
 }
 
 impl Scope {
-    /// Creates a new `Scope` starting with the given AST node ID.
+    /// Creates a new `Scope` starting with the given AST syntax ID.
     ///
-    /// If a parent scope is provided, the new scope inherits all node IDs from
-    /// the parent's stack before adding the new node ID.
+    /// If a parent scope is provided, the new scope inherits all syntax IDs from
+    /// the parent's stack before adding the new syntax ID.
     ///
     /// # Parameters
-    /// - `ast`: The AST node ID to start the scope with.
+    /// - `ast`: The AST syntax ID to start the scope with.
     /// - `parent`: An optional reference to a parent scope to inherit from.
     ///
     /// # Returns
@@ -60,7 +60,7 @@ impl Scope {
 
     /// Returns a reference to the root `Scope`.
     ///
-    /// The root scope contains only the root node ID (`NodeId::ROOT_NODE_ID`).
+    /// The root scope contains only the root syntax ID (`NodeId::ROOT_NODE_ID`).
     ///
     /// # Returns
     /// A static reference to the root `Scope`.
@@ -99,7 +99,7 @@ impl Scope {
         self.stack.starts_with(&prefix.stack)
     }
 
-    /// Returns an iterator over the node IDs contained in the scope.
+    /// Returns an iterator over the syntax IDs contained in the scope.
     ///
     /// # Returns
     /// An iterator yielding references to `NodeId`s in the scope.
@@ -114,31 +114,31 @@ impl Scope {
         self.stack.iter()
     }
 
-    /// Checks if the scope contains at least one AST node of the specified kind.
+    /// Checks if the scope contains at least one AST syntax of the specified kind.
     ///
-    /// This function iterates over the node IDs stored in the scope's `stack` and
-    /// attempts to retrieve each corresponding AST node using `try_node`. If any
-    /// node is not found, it returns a `ParserInternalError`, indicating an internal
+    /// This function iterates over the syntax IDs stored in the scope's `stack` and
+    /// attempts to retrieve each corresponding AST syntax using `try_node`. If any
+    /// syntax is not found, it returns a `ParserInternalError`, indicating an internal
     /// inconsistency.
     ///
-    /// If at least one node matches the specified kind, the function returns `Ok(true)`.
+    /// If at least one syntax matches the specified kind, the function returns `Ok(true)`.
     /// If no nodes match, it returns `Ok(false)`.
     ///
     /// # Parameters
-    /// - `kind`: The kind of AST node to search for.
+    /// - `kind`: The kind of AST syntax to search for.
     /// - `ast`: Reference to the AST arena containing all nodes.
     ///
     /// # Returns
-    /// - `Ok(true)` if any node in the scope's stack has the specified kind.
-    /// - `Ok(false)` if no node matches the specified kind.
-    /// - `Err(ParserInternalError)` if an expected node ID is not found.
+    /// - `Ok(true)` if any syntax in the scope's stack has the specified kind.
+    /// - `Ok(false)` if no syntax matches the specified kind.
+    /// - `Err(ParserInternalError)` if an expected syntax ID is not found.
     ///
     /// # Example
     /// ```rust
     /// let result = scope.contains_node_of_kind(AstKind::Function, &ast);
     /// match result {
-    ///     Ok(true) => println!("Scope contains a function node."),
-    ///     Ok(false) => println!("Scope does not contain a function node."),
+    ///     Ok(true) => println!("Scope contains a function syntax."),
+    ///     Ok(false) => println!("Scope does not contain a function syntax."),
     ///     Err(e) => eprintln!("Error: {}", e),
     /// }
     /// ```

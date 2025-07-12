@@ -123,7 +123,7 @@ impl ArenaNode for ExprNode {
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
 
-    /// Recursively pretty-prints this node and its children as a arena.
+    /// Recursively pretty-prints this syntax and its children as a arena.
     fn fmt_with(
         &self,
         f: &mut Formatter<'_>,

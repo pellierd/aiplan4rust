@@ -2,15 +2,15 @@
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprContent, ExprKind, ExprId};
 
-/// Applies negation pushing transformation starting from the root node.
-/// Returns the ExprId of the transformed node.
+/// Applies negation pushing transformation starting from the root syntax.
+/// Returns the ExprId of the transformed syntax.
 pub fn push_negations(expr: &mut Expr) -> Result<ExprId, ParserInternalError> {
     transform_node(expr.try_root_id()?, expr, false)
 }
 
-/// Recursively transforms a node according to the accumulated negation state.
+/// Recursively transforms a syntax according to the accumulated negation state.
 ///
-/// If `negated` is true, negation is pushed down on this node.
+/// If `negated` is true, negation is pushed down on this syntax.
 fn transform_node(
     id: ExprId,
     expr: &mut Expr,
@@ -32,7 +32,7 @@ fn transform_node(
             // Apply De Morgan’s law if negated
             let new_kind = apply_demorgan(kind, negated);
 
-            // Create new node with the new kind
+            // Create new syntax with the new kind
             let new_node = ExprNode::new(new_kind, ExprContent::None, parent);
             let new_id = expr.alloc(new_node);
 
@@ -49,7 +49,7 @@ fn transform_node(
         | ExprKind::Constant
         | ExprKind::Variable
         | ExprKind::FunctionSymbol => {
-            // If negated, wrap node in a Not node
+            // If negated, wrap syntax in a Not syntax
             if negated {
                 wrap_not(id, expr)
             } else {
@@ -57,7 +57,7 @@ fn transform_node(
             }
         }
         _ => {
-            // Return node as is for other kinds (can be extended)
+            // Return syntax as is for other kinds (can be extended)
             Ok(id)
         }
     }
@@ -78,7 +78,7 @@ fn apply_demorgan(kind: ExprKind, negated: bool) -> ExprKind {
     }
 }
 
-/// Wraps the given node in a Not node.
+/// Wraps the given syntax in a Not syntax.
 fn wrap_not(id: ExprId, expr: &mut Expr) -> Result<ExprId, ParserInternalError> {
     let not_node = ExprNode::new(ExprKind::Not, ExprContent::None, None);
     let not_id = expr.alloc(not_node);

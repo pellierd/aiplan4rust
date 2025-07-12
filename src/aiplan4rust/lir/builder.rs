@@ -213,7 +213,7 @@ impl LIRBuilder {
 
 // ---------- Extraction Helpers ---------- //
 
-/// Extracts a set of requirements from a `RequireDef` node.
+/// Extracts a set of requirements from a `RequireDef` syntax.
 fn extract_requirements(
     node: &AstNode,
     ast: &Arena<AstNode>,
@@ -221,7 +221,7 @@ fn extract_requirements(
     extract_set(node, ast, |n, _| n.try_requirement())
 }
 
-/// Extracts predicates from a `PredicatesDef` node.
+/// Extracts predicates from a `PredicatesDef` syntax.
 fn extract_atomic_formula_skeleton(
     node: &AstNode,
     ast: &Arena<AstNode>,
@@ -229,7 +229,7 @@ fn extract_atomic_formula_skeleton(
     extract_set(node, ast, AtomicFormulaSkeleton::from_ast)
 }
 
-/// Extracts functions from a `FunctionsDef` node.
+/// Extracts functions from a `FunctionsDef` syntax.
 fn extract_atomic_function_skeleton(
     node: &AstNode,
     ast: &Arena<AstNode>,
@@ -237,7 +237,7 @@ fn extract_atomic_function_skeleton(
     extract_set(node, ast, AtomicFunctionSkeleton::from_ast)
 }
 
-/// Extracts types from a `TypesDef` node.
+/// Extracts types from a `TypesDef` syntax.
 fn extract_types(
     node: &AstNode,
     ast: &Arena<AstNode>,
@@ -245,7 +245,7 @@ fn extract_types(
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
 
-/// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` node.
+/// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax.
 fn extract_constants(
     node: &AstNode,
     ast: &Arena<AstNode>,
@@ -253,7 +253,7 @@ fn extract_constants(
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
 
-/// Extracts an expression from the first child of an `Init` node.
+/// Extracts an expression from the first child of an `Init` syntax.
 fn extract_init(
     node: &AstNode,
     ast: &Arena<AstNode>,
@@ -261,7 +261,7 @@ fn extract_init(
     extract_expr_first_child(node, ast)
 }
 
-/// Extracts the goal expression from a `Goal` node.
+/// Extracts the goal expression from a `Goal` syntax.
 fn extract_goal(
     node: &AstNode,
     ast: &Arena<AstNode>,
@@ -269,7 +269,7 @@ fn extract_goal(
     extract_expr_first_child(node, ast)
 }
 
-/// Extracts an expression from the first child node.
+/// Extracts an expression from the first child syntax.
 /// Used for `Init`, `Goal`, `Metric`, etc.
 fn extract_expr_first_child(
     node: &AstNode,
@@ -280,7 +280,7 @@ fn extract_expr_first_child(
     Expr::from_ast(child_node, ast)
 }
 
-/// Generic helper to extract a set of elements from direct children of a node.
+/// Generic helper to extract a set of elements from direct children of a syntax.
 /// Used for predicates, functions, requirements, etc.
 fn extract_set<T, F>(
     node: &AstNode,
@@ -301,7 +301,7 @@ where
 }
 
 /// Similar to `extract_set`, but applies the extraction function to the grandchildren
-/// of the first child of the node (used for types, constants).
+/// of the first child of the syntax (used for types, constants).
 fn extract_set_from_first_child<T, F>(
     node: &AstNode,
     ast: &Arena<AstNode>,

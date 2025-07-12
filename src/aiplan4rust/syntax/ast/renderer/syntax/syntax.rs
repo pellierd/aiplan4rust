@@ -3,10 +3,21 @@ use std::fmt::Formatter;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
+use crate::aiplan4rust::syntax::ast::renderer::syntax::{task, typed_list};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 pub fn render(
+    node: &AstNode,
+    f: &mut Formatter<'_>,
+    arena: &Arena<AstNode>,
+    interner: &StringInterner,
+) -> fmt::Result {
+    render_with_indent(node, f, arena, interner, 0)?;
+    Ok(())
+}
+
+pub fn render_with_indent(
     node: &AstNode,
     f: &mut Formatter<'_>,
     arena: &Arena<AstNode>,
@@ -103,7 +114,7 @@ pub fn render(
                         indent + 1,
                     )?;
                 } else {
-                    write!(f, "<invalid-child-node>")?;
+                    write!(f, "<invalid-child-syntax>")?;
                 }
             }
 
@@ -140,7 +151,7 @@ pub fn render(
             if let Some(child_id) = node.children().first() {
                 if let Some(child_node) = arena.get_node(*child_id) {
                     // Pass indent + 1 to indent children 2 spaces more than the opening line
-                    render_typed_list(child_node, f, arena, interner, true, indent + 1)?;
+                    typed_list::render(child_node, f, arena, interner, true, indent + 1)?;
                 }
             } else {
                 // No children: optionally write a comment or just an empty indented line
@@ -152,7 +163,7 @@ pub fn render(
             writeln!(f, ")")
         }
 
-        AstKind::TypedList => render_typed_list(node, f, arena, interner, false, indent),
+        AstKind::TypedList => typed_list::render(node, f, arena, interner, false, indent),
 
         AstKind::TypedItemElements => {
             // Write the indentation once before the list of elements
@@ -165,7 +176,7 @@ pub fn render(
                     write!(f, " ")?;
                 }
 
-                // Try to get the node
+                // Try to get the syntax
                 if let Some(child_node) = arena.get_node(*child_id) {
                     child_node
                         .content()
@@ -250,7 +261,7 @@ pub fn render(
             if let Some(child_id) = node.children().first() {
                 if let Some(child_node) = arena.get_node(*child_id) {
                     // Assuming fmt_typed_list now takes indent parameter to handle multiline indent
-                    render_typed_list(child_node, f, arena, interner, true, indent + 1)?;
+                    typed_list::render(child_node, f, arena, interner, true, indent + 1)?;
                 }
             }
 
@@ -303,11 +314,11 @@ pub fn render(
                 if let Some(child_node) = arena.get_node(*child_id) {
                     // Write a space before this child only if:
                     // - it's not the first child
-                    // - AND the child node's typed list is not empty (i.e., it has children)
+                    // - AND the child syntax's typed list is not empty (i.e., it has children)
                     if i > 0 && !child_node.children().is_empty() {
                         write!(f, " ")?;
                     }
-                    // Format the child node recursively
+                    // Format the child syntax recursively
                     child_node.fmt_planning_syntax(f, arena, interner)?;
                 } else {
                     // For invalid child nodes, write a space before it if not the first child
@@ -367,7 +378,7 @@ pub fn render(
                     write!(f, "{}<invalid_parameters>", AstNode::make_indent(indent + 1))?;
                 }
             } else {
-                // parameters node is missing: error
+                // parameters syntax is missing: error
                 writeln!(f)?;
                 write!(f, "{}<missing_parameters>", AstNode::make_indent(indent + 1))?;
             }
@@ -401,7 +412,7 @@ pub fn render(
                 if let Some(params_node) = arena.get_node(params_id) {
                     writeln!(f)?;
                     write!(f, "{}:parameters (", indent_param)?;
-                    render_typed_list(params_node, f, arena, interner, false, indent + 1)?;
+                    typed_list::render(params_node, f, arena, interner, false, indent + 1)?;
                     write!(f, ")")?;
                 } else {
                     writeln!(f)?;
@@ -440,7 +451,7 @@ pub fn render(
 
         AstKind::Task => {
             // Call fmt_task with increased indentation level for nested formatting
-            render_task(node, f, arena, interner, true, 0)
+            task::render(node, f, arena, interner, true, 0)
         }
 
         AstKind::PreconditionDef
@@ -456,7 +467,7 @@ pub fn render(
 
             let child_indent_str = AstNode::make_indent(indent + 1);
 
-            // Write the indentation for the child node
+            // Write the indentation for the child syntax
             write!(f, "{}", child_indent_str)?;
 
             // Format the first child if it exists, else print <no-children>
@@ -503,7 +514,7 @@ pub fn render(
             // Write the operator keyword using planning syntax formatting
             write!(f, "{}", node.content().to_string())?;
 
-            // Format each child node, separated by spaces
+            // Format each child syntax, separated by spaces
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
@@ -530,7 +541,7 @@ pub fn render(
             // Write the operator keyword using planning syntax formatting
             node.kind().fmt_syntax(f, interner)?;
 
-            // Format each child node, separated by spaces
+            // Format each child syntax, separated by spaces
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
@@ -662,7 +673,7 @@ pub fn render(
                         }
                     }
                 } else {
-                    writeln!(f, "{}<invalid-child-node>", indent_str)?;
+                    writeln!(f, "{}<invalid-child-syntax>", indent_str)?;
                 }
             }
 
@@ -697,7 +708,7 @@ pub fn render(
                                     AstKind::Task => {
                                         // Print task without prefix with one more indentation level
                                         write!(f, "{}", AstNode::make_indent(indent + 2))?;
-                                        render_task(task_node, f, arena, interner, false, 0)?;
+                                        task::render(task_node, f, arena, interner, false, 0)?;
                                         writeln!(f)?;
                                     }
                                     AstKind::TaggedTask => {
@@ -707,7 +718,7 @@ pub fn render(
                                         writeln!(f)?;
                                     }
                                     other => {
-                                        // Unexpected node kind
+                                        // Unexpected syntax kind
                                         writeln!(
                                             f,
                                             "{}<unexpected-{}>",
@@ -724,7 +735,7 @@ pub fn render(
                         write!(f, "{})", AstNode::make_indent(indent + 1))?;
                     }
                 } else {
-                    writeln!(f, "{}<invalid-and-node>", indent_str)?;
+                    writeln!(f, "{}<invalid-and-syntax>", indent_str)?;
                 }
             } else {
                 writeln!(f, "{}<no-children>", indent_str)?;
@@ -757,7 +768,7 @@ pub fn render(
 
             // Print the actual task (second child) without ":task" prefix
             if let Some(task_node) = arena.get_node(children[1]) {
-                render_task(task_node, f, arena, interner, false, 0)?;
+                task::render(task_node, f, arena, interner, false, 0)?;
             } else {
                 write!(f, "<invalid-task>")?;
             }
@@ -849,7 +860,7 @@ pub fn render(
             if let Some(&task_id) = children.get(0) {
                 write!(f, "{}", indent_str)?;
                 if let Some(task_node) = arena.get_node(task_id) {
-                    render_task(task_node, f, arena, interner, true, 0)?;
+                    task::render(task_node, f, arena, interner, true, 0)?;
                 } else {
                     write!(f, "<invalid-task>")?;
                 }
@@ -911,7 +922,7 @@ pub fn render(
                 if let Some(params_node) = arena.get_node(params_id) {
                     writeln!(f)?;
                     write!(f, "{}:parameters (", indent_param)?;
-                    render_typed_list(params_node, f, arena, interner, false, indent + 1)?;
+                    typed_list::render(params_node, f, arena, interner, false, indent + 1)?;
                     write!(f, ")")?;
                 } else {
                     writeln!(f)?;
@@ -990,7 +1001,7 @@ pub fn render(
             if let Some(child_id) = node.children().first() {
                 if let Some(child_node) = arena.get_node(*child_id) {
                     // On peut appeler fmt_typed_list si c’est une liste typée, sinon fmt_planning_syntax_with_indent
-                    render_typed_list(child_node, f, arena, interner, true, indent + 1)?;
+                    typed_list::render(child_node, f, arena, interner, true, indent + 1)?;
                 }
             } else {
                 let empty_indent = AstNode::make_indent(indent + 1);
@@ -1010,13 +1021,13 @@ pub fn render(
             // Opening line: (:init
             writeln!(f, "{}(:init", indent_str)?;
 
-            // Init should have exactly 1 child: the root AND node
+            // Init should have exactly 1 child: the root AND syntax
             if let Some(and_node_id) = node.children().first() {
                 if let Some(and_node) = arena.get_node(*and_node_id) {
                     // Instead of formatting the AND itnode, iterate over its children
                     for grandchild_id in and_node.children() {
                         if let Some(grandchild_node) = arena.get_node(*grandchild_id) {
-                            // Child node already indents itnode
+                            // Child syntax already indents itnode
                             grandchild_node.fmt_planning_syntax_with_indent(
                                 f,
                                 arena,
@@ -1030,11 +1041,11 @@ pub fn render(
                         writeln!(f)?;
                     }
                 } else {
-                    // Invalid AND node
-                    writeln!(f, "{}<invalid-init-node>", child_indent_str)?;
+                    // Invalid AND syntax
+                    writeln!(f, "{}<invalid-init-syntax>", child_indent_str)?;
                 }
             } else {
-                // Missing AND node
+                // Missing AND syntax
                 writeln!(f, "{}<missing-init-expression>", child_indent_str)?;
             }
 
@@ -1064,7 +1075,7 @@ pub fn render(
                 match arena.get_node(param_id) {
                     Some(param_node) => {
                         write!(f, "{}:parameters ", child_indent_str)?;
-                        render_typed_list(param_node, f, arena, interner, false, indent + 2)?;
+                        typed_list::render(param_node, f, arena, interner, false, indent + 2)?;
                         writeln!(f)?;
                     }
                     None => {
@@ -1099,10 +1110,10 @@ pub fn render(
             // Write the opening line with indentation
             writeln!(f, "{}(:goal", indent_str)?;
 
-            // Expect exactly one child node (the goal expression)
+            // Expect exactly one child syntax (the goal expression)
             if let Some(&child_id) = node.children().get(0) {
                 if let Some(child_node) = arena.get_node(child_id) {
-                    // Format the child node with increased indentation
+                    // Format the child syntax with increased indentation
                     child_node.fmt_planning_syntax_with_indent(
                         f,
                         arena,
@@ -1110,12 +1121,12 @@ pub fn render(
                         indent + 1,
                     )?;
                 } else {
-                    // Child node is invalid, print placeholder with indentation
+                    // Child syntax is invalid, print placeholder with indentation
                     let child_indent = AstNode::make_indent(indent + 1);
                     writeln!(f, "{}<invalid-goal>", child_indent)?;
                 }
             } else {
-                // Missing child node, print placeholder with indentation
+                // Missing child syntax, print placeholder with indentation
                 let child_indent = AstNode::make_indent(indent + 1);
                 writeln!(f, "{}<missing-goal>", child_indent)?;
             }
@@ -1204,96 +1215,5 @@ pub fn render(
             Kind::Parallel => {}
             Kind::InitialTaskNetwork => {}*/
         }
-    }
-}
-
-
-fn render_typed_list(
-    node: &AstNode,
-    f: &mut Formatter<'_>,
-    arena: &Arena<AstNode>,
-    interner: &StringInterner,
-    multiline: bool,
-    indent: usize,
-) -> fmt::Result {
-    for (i, child_id) in node.children().iter().enumerate() {
-        if i > 0 && !multiline {
-            write!(f, " ")?;
-        }
-
-        if let Some(child_node) = arena.get_node(*child_id) {
-            if multiline {
-                // Indent seulement avec `indent`
-                let indent_str = AstNode::make_indent(indent);
-                write!(f, "{}", indent_str)?;
-            }
-            child_node.fmt_planning_syntax(f, arena, interner)?;
-            if multiline {
-                writeln!(f)?;
-            }
-        } else {
-            if multiline {
-                let indent_str = AstNode::make_indent(indent);
-                write!(f, "{}", indent_str)?;
-            }
-            write!(f, "<invalid_node>")?;
-            if multiline {
-                writeln!(f)?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-fn render_task(
-    node: &AstNode,
-    f: &mut Formatter<'_>,
-    arena: &Arena<AstNode>,
-    interner: &StringInterner,
-    with_prefix: bool,
-    indent: usize,
-) -> fmt::Result {
-    // Create indentation string based on the current indent level (2 spaces per level)
-    let indent_str = "  ".repeat(indent);
-
-    // If prefix is requested, write it with the current indentation
-    if with_prefix {
-        write!(f, "{}:task ", indent_str)?;
-    }
-
-    let children = node.children();
-
-    if children.is_empty() {
-        // If there are no children, print empty parentheses
-        write!(f, "()")?;
-    } else {
-        // Otherwise, print opening parenthesis
-        write!(f, "(")?;
-
-        // Iterate over children and print each separated by a space
-        for (i, child_id) in children.iter().enumerate() {
-            if i > 0 {
-                write!(f, " ")?;
-            }
-
-            // Format each child node with the same indentation level
-            if let Some(child_node) = arena.get_node(*child_id) {
-                child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
-            } else {
-                // If child node is invalid, print placeholder
-                write!(f, "<invalid>")?;
-            }
-        }
-
-        // Close the parenthesis
-        write!(f, ")")?;
-    }
-
-    // If prefix was written, write a newline; otherwise, just return Ok
-    if with_prefix {
-        writeln!(f)
-    } else {
-        Ok(())
     }
 }
