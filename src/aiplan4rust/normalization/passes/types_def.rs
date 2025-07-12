@@ -166,17 +166,22 @@ fn report_implicit_either_type_warning(
         let primitive_type = arena.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
 
-        // Extract the node containing super types of this primitive type
-        let ty_id = type_item.try_child(1)?;
-        let ty = arena.try_node(ty_id)?;
 
-        // Collect all super type identifiers into a set
-        let mut super_type_idents = HashSet::new();
-        for super_type_id in ty.children() {
-            let super_type = arena.try_node(*super_type_id)?;
-            let super_type_ident = super_type.try_ident()?;
-            super_type_idents.insert(super_type_ident);
-        }
+        // Extract the node containing super types of this primitive type if they exist
+        let super_type_idents = match type_item.get_child(1) {
+            Some(ty_id) => {
+                let ty = arena.try_node(ty_id)?;
+                // Collect all super type identifiers into a set
+                let mut super_type_idents = HashSet::new();
+                for super_type_id in ty.children() {
+                    let super_type = arena.try_node(*super_type_id)?;
+                    let super_type_ident = super_type.try_ident()?;
+                    super_type_idents.insert(super_type_ident);
+                }
+                super_type_idents
+            }
+            None => HashSet::new(),
+        };
 
         // Check if we've already seen this primitive type before
         if seen.contains_key(&primitive_type_ident) {

@@ -333,7 +333,7 @@ pub Type: Result<NodeId, ParserInternalError> = {
     }
 }
 
-TypedList<T>: Result<NodeId, ParserInternalError>= {
+TypedList<T>: Result<NodeId, ParserInternalError> = {
     <start:@L> <elements:T*> <end:@R> => {
         let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
         let typed_item_elt = context.new_node(AstKind::TypedItemElements, AstContent::None, elements, start, end, None);

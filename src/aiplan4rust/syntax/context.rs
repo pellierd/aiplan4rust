@@ -1,14 +1,13 @@
 use std::cell::RefCell;
 use lalrpop_util::ErrorRecovery;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, TreeArena};
-use crate::Parser;
+use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
 
 pub struct ParseContext {
     interner: RefCell<StringInterner>,
@@ -57,7 +56,8 @@ impl ParseContext {
                 child_node.set_parent(Some(node_id));
             }
         }
-
+        let node = arena.try_node(node_id)?;
+        //println!("Read: {}", node.to_string_with_interner(&self.interner()));
         Ok(node_id)
     }
 
@@ -119,94 +119,44 @@ impl ParseContext {
         self.errors.borrow_mut().push(error);
     }
 
-    /// Merges the children of the `next` node into the `typed_list` node under a specific condition.
+    /// Merges the children of a `TypedList` node (`next`) into another `TypedList` node (`typed_list`).
     ///
-    /// This method checks if the first child of the `next` node has non-empty children.
-    /// If so, it drains all the children from `next`
-    /// and appends them as children of the `typed_list` node.
+    /// This function takes all children of `next`, updates their parent to be `typed_list`,
+    /// and appends them to `typed_list`'s children. After the operation, `next` has no children.
     ///
     /// # Arguments
     ///
-    /// * `typed_list` - The target node ID (`NodeId`) in the arena where children will be added.
-    /// * `next` - The source node ID (`NodeId`) whose children will be transferred if the condition is met.
+    /// * `typed_list` - The `NodeId` of the `TypedList` node that will receive the children.
+    /// * `next` - The `NodeId` of the `TypedList` node whose children will be moved.
     ///
-    /// # Behavior
+    /// # Returns
     ///
-    /// 1. Immutably borrows the `next` node and checks whether its first child has children.
-    /// 2. If the first child has children (i.e., is not a leaf),
-    ///    it drains the children from the `next` node.
-    /// 3. These drained children are then appended as children to the `typed_list` node.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if either `typed_list` or `next` nodes are not found in the arena.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// // Assuming a valid context and NodeIds...
-    /// context.merge_typed_list(typed_list_id, next_id);
-    /// ```
-    ///
-    /// This method is designed to be used in syntax tree manipulation,
-    /// where `typed_list` and `next` represent nodes within an AST arena.
-    ///
-    /// # Note
-    ///
-    /// This function consumes the children of `next` only if the condition is satisfied,
-    /// thus mutating the internal state of the involved nodes.
-   /*pub fn merge_typed_list(
-        &mut self,
-        typed_list: NodeId,
-        next: NodeId,
-    ) {
-        let should_merge = {
-            let arena = self.arena();
-            let next_node = arena.get_node(next).unwrap();
-            if let Some(first_child) = next_node.children().get(0) {
-                let first_child_node = arena.get_node(*first_child).unwrap();
-                !first_child_node.children().is_empty()
-            } else {
-                false
-            }
-        };
-
-        if should_merge {
-            let mut arena = self.arena();
-            let drained_children = {
-                let next_node = arena.get_node_mut(next).unwrap();
-                std::mem::take(next_node.children_mut())
-            };
-            let typed_list_node = arena.get_node_mut(typed_list).unwrap();
-            typed_list_node.children_mut().extend(drained_children);
-        }
-    }*/
-
+    /// Returns the `typed_list` `NodeId` on success, or a `ParserInternalError` if any node access fails.
     pub fn merge_typed_list(
         &mut self,
         typed_list: NodeId,
         next: NodeId,
     ) -> Result<NodeId, ParserInternalError> {
-        let should_merge = {
-            let arena = self.arena();
-            let next_node = arena.try_node(next)?;
-            if let Some(first_child) = next_node.children().get(0) {
-                let first_child_node = arena.try_node(*first_child)?;
-                !first_child_node.children().is_empty()
-            } else {
-                false
-            }
+        let mut arena = self.arena();
+
+        // 1) Extract the children of `next` BY DRAINING THEM
+        let next_children: Vec<NodeId> = {
+            let next_node = arena.try_node_mut(next)?;
+            std::mem::take(next_node.children_mut())
         };
 
-        if should_merge {
-            let mut arena = self.arena();
-            let drained_children = {
-                let next_node = arena.try_node_mut(next)?;
-                std::mem::take(next_node.children_mut())
-            };
-            let typed_list_node = arena.try_node_mut(typed_list)?;
-            typed_list_node.children_mut().extend(drained_children);
+        // 2) Update their parent to point to `typed_list`
+        for child_id in &next_children {
+            let child_node = arena.try_node_mut(*child_id)?;
+            child_node.set_parent(Some(typed_list));
         }
+
+        // 3) Append them to `typed_list`
+        let typed_list_node = arena.try_node_mut(typed_list)?;
+        typed_list_node.children_mut().extend(next_children);
+
         Ok(typed_list)
     }
+
+
 }

@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
+use itertools::process_results;
 use crate::aiplan4rust::syntax::ast::kind::Kind;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
@@ -117,10 +118,10 @@ impl AstArenaNode {
             if i > 0 && !multiline {
                 write!(f, " ")?;
             }
+
             if let Some(child_node) = arena.get_node(*child_id) {
                 if multiline {
-                    // Indent seulement avec `indent` (pas indent+1)
-                    // Pour que la première ligne soit indentée de 2 espaces, pas plus
+                    // Indent seulement avec `indent`
                     let indent_str = Self::make_indent(indent);
                     write!(f, "{}", indent_str)?;
                 }
@@ -128,8 +129,18 @@ impl AstArenaNode {
                 if multiline {
                     writeln!(f)?;
                 }
+            } else {
+                if multiline {
+                    let indent_str = Self::make_indent(indent);
+                    write!(f, "{}", indent_str)?;
+                }
+                write!(f, "<invalid_node>")?;
+                if multiline {
+                    writeln!(f)?;
+                }
             }
         }
+
         Ok(())
     }
 
@@ -388,8 +399,6 @@ impl TreeNode for AstArenaNode {
 
     fn fmt_planning_syntax_with_indent(&self, f: &mut Formatter<'_>, arena: &TreeArena<Self>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
-
-
         match self.kind() {
             AstKind::Domain => {
                 // Write the opening line with base indentation
@@ -525,55 +534,56 @@ impl TreeNode for AstArenaNode {
             }
 
             AstKind::TypedItemElements => {
+                // Write the indentation once before the list of elements
                 write!(f, "{}", indent_str)?;
+
+                // Iterate over children nodes
                 for (i, child_id) in self.children().iter().enumerate() {
+                    // Separate elements with spaces
                     if i > 0 {
                         write!(f, " ")?;
                     }
+
+                    // Try to get the node
                     if let Some(child_node) = arena.get_node(*child_id) {
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                        child_node
+                            .content()
+                            .fmt_planning_syntax_with_indent(f, interner, indent)?;
+                    } else {
+                        write!(f, "<invalid_node>")?;
                     }
                 }
+
                 Ok(())
             }
 
             AstKind::TypedItem => {
+
                 let indent_str = Self::make_indent(indent);
-                let children = self.children();
-                let n = children.len();
 
-                if n == 0 {
-                    // Nothing to display if there are no children
-                    return Ok(());
-                }
-
-                // Write indentation before starting the typed item line
-                write!(f, "{}", indent_str)?;
-
-                // All but the last child are typed elements
-                for (i, child_id) in children.iter().take(n - 1).enumerate() {
-                    if i > 0 {
-                        write!(f, " ")?;
-                    }
-                    if let Some(child_node) = arena.get_node(*child_id) {
-                        child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                // Handle first child (elements)
+                if let Some(first_child_id) = self.get_child(0) {
+                    if let Some(first_child_node) = arena.get_node(first_child_id) {
+                        first_child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
                     } else {
-                        write!(f, "<invalid_node>")?;
+                        write!(f, "{}<invalid_node>", indent_str)?;
                     }
+                } else {
+                    write!(f, "{}<missing_child>", indent_str)?;
                 }
 
-                // If there's more than one child, display " - " before the type node
-                if n > 1 {
+                // Handle optional second child (type)
+                if let Some(ty_id) = self.get_child(1) {
                     write!(f, " - ")?;
-                    if let Some(type_node) = arena.get_node(children[n - 1]) {
-                        type_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                    if let Some(ty_node) = arena.get_node(ty_id) {
+                        ty_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?
                     } else {
                         write!(f, "<invalid_node>")?;
                     }
                 }
-
                 Ok(())
             }
+
 
             AstKind::Type => {
                 match self.children().len() {

@@ -147,6 +147,11 @@ impl Frontend {
         // Match on the AST extracted from parsing.
         match parser_result.take_ast() {
             Some(raw_ast) => {
+                println!("********************** RAW AST *************************");
+                println!("{}", raw_ast.arena().try_root()?.to_string_with_interner(raw_ast.arena(), raw_ast.interner()));
+
+                println!("********************** RAW AST *************************");
+                println!("{}", raw_ast.arena().try_root()?.to_planning_syntax(raw_ast.arena(), raw_ast.interner()));
 
                 // Take diagnostics from parser result.
                 let diagnostic_manager = parser_result.take_diagnostic_manager();
@@ -158,6 +163,8 @@ impl Frontend {
 
                 match normalizer_result.take_ast() {
                     Some(mut normalized_ast) => {
+                        //println!("********************** NORMALIZED AST *************************");
+                        //println!("{}", normalized_ast.arena().try_root()?.to_planning_syntax(normalized_ast.arena(), normalized_ast.interner()));
                         let interner = normalized_ast.interner();
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();
