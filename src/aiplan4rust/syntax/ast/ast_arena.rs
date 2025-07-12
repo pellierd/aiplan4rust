@@ -57,13 +57,12 @@
 use std::fmt;
 use std::time::SystemTime;
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::syntax::ast::{AstNode, iterators::{PreorderIter, PostorderIter}, AstKind};
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::AstArenaNode;
 use crate::aiplan4rust::syntax::{FastLineTable, PlanningSyntaxDisplay};
-use crate::aiplan4rust::syntax::ast::node::Node;
-use crate::aiplan4rust::tree::{NodeId, NodeRef, TreeArena};
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::tree::{NodeId, TreeArena};
 
 /// A complete abstract syntax tree and its associated context.
 ///

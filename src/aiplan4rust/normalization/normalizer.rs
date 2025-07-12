@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
-use crate::aiplan4rust::syntax::ast::{Ast, AstArena};
+use crate::aiplan4rust::syntax::ast::AstArena;
 
 /// The `Normalizer` struct provides functionality to transform an Abstract Syntax Tree (AST)
 /// into a standardized, normalized form suitable for further processing or compilation.

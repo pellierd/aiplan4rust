@@ -3,10 +3,10 @@ use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::tree::{TreeArena, NodeId};
 use crate::aiplan4rust::semantic::{AstArenaNode, SymbolTable};
-use crate::aiplan4rust::syntax::ast::{Ast, AstArena, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstArena, AstKind};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 

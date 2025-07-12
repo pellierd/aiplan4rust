@@ -8,7 +8,6 @@
 //! This module is organized into several submodules:
 //!
 //! - [`node`]: Defines the internal structure of AST nodes.
-//! - [`ast`]: The complete AST structure and root logic.
 //! - [`kind`]: Enumerates the kinds of AST nodes (e.g., keyword, identifier).
 //! - [`content`]: Defines the data payload associated with AST nodes.
 //! - [`iterators`]: Contains pre-order and post-order traversal iter.
@@ -47,19 +46,14 @@
 //! ```
 
 // Submodules
-pub mod node;
-pub mod ast;
 pub mod content;
 pub mod kind;
-pub mod iterators;
 
 pub mod from_ast;
 pub mod ast_arena;
 
 // Public re-exports
-pub use node::Node as AstNode;
 pub use kind::Kind as AstKind;
 pub use content::Content as AstContent;
-pub use ast::Ast;
 pub use from_ast::FromAst;
 pub use ast_arena::AstArena;

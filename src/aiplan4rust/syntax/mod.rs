@@ -76,7 +76,6 @@
 pub mod language;
 pub mod lexer;
 pub mod parser;
-pub mod parser_result;
 pub mod grammar;
 pub mod span;
 pub mod ast;
@@ -89,7 +88,6 @@ pub mod parser_error;
 
 pub use language::Language;
 pub use parser::Parser;
-pub use parser_result::ParserResult;
 pub use span::Span;
 pub use display::PlanningSyntaxDisplay;
 pub use fast_line_table::FastLineTable;

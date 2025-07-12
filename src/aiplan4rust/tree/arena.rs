@@ -9,7 +9,6 @@ use crate::aiplan4rust::tree::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::semantic::{AstArenaNode, symbol::SymbolRef};
-use crate::aiplan4rust::syntax::ast::{Ast, AstNode};
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 use crate::aiplan4rust::lang::Ident;
 
@@ -428,55 +427,5 @@ where
             // Si jamais root_id est Some mais le noeud n'existe pas (cas improbable)
             Ok(())
         }
-    }
-}
-
-
-
-
-
-
-
-
-impl TreeArena<AstArenaNode> {
-    /// Builds a `TreeArena<AstArenaNode>` from an `Ast`.
-    pub fn from_ast(ast: &Ast) -> Self {
-        let mut arena = TreeArena::<AstArenaNode>::new();
-        let root = ast.root();
-        Self::add_iterative(&mut arena, root, None);
-        arena
-    }
-
-    /// Iteratively adds AST nodes into the arena using a stack-based approach.
-    fn add_iterative(
-        arena: &mut TreeArena<AstArenaNode>,
-        root: &AstNode,
-        parent_id: Option<NodeId>,
-    ) -> NodeId {
-        let mut stack = vec![(root, parent_id)];
-        let mut node_ids = HashMap::<*const AstNode, NodeId>::new();
-
-        while let Some((node, parent)) = stack.pop() {
-            let arena_node = AstArenaNode::new(
-                node.kind().clone(),
-                node.content().clone(),
-                Vec::new(),
-                node.span().clone(),
-                parent,
-            );
-
-            let node_id = arena.alloc(arena_node);
-            node_ids.insert(node as *const AstNode, node_id);
-
-            if let Some(pid) = parent {
-                arena.nodes[pid.as_usize()].add_child(node_id);
-            }
-
-            for child in node.children().iter().rev() {
-                stack.push((child.as_ref(), Some(node_id)));
-            }
-        }
-
-        node_ids[&(root as *const AstNode)]
     }
 }

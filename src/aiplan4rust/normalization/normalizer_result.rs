@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::syntax::ast::{Ast, AstArena};
+use crate::aiplan4rust::syntax::ast::AstArena;
 use std::fmt;
 
 /// Represents the result of the AST normalization phase.

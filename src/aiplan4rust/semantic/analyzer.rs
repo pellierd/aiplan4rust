@@ -1,12 +1,11 @@
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::syntax::ast::{Ast, AstArena, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstArena, AstKind};
 use crate::aiplan4rust::tree::TreeNode;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
