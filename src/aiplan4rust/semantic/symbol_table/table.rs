@@ -912,66 +912,6 @@ impl Table {
         self.symbols = new_symbols;
     }
 
-
-
-
-    /// Merges two symbol tables (`domain` and `problem`) into a single `SymbolTable`.
-    ///
-    /// The resulting symbol table has the origin set to `SymbolTableOrigin::Merged`.
-    ///
-    /// Symbols from the `domain` table are inserted first. Then symbols from the `problem`
-    /// table are merged:
-    /// - If a symbol from the `problem` table has the same identifier as one in the merged table,
-    ///   an attempt is made to merge their contents via `Symbol::merge_with`.
-    /// - If merging fails (e.g., symbol names differ), the function returns a `ParserInternalError`.
-    /// - Otherwise, the symbol is inserted directly if it does not exist yet.
-    ///
-    /// # Parameters
-    ///
-    /// - `domain`: The symbol table representing domain-level symbols.
-    /// - `problem`: The symbol table representing problem-level symbols.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(SymbolTable)`: The merged symbol table with combined entries.
-    /// - `Err(ParserInternalError)`: If a symbol merge fails due to incompatible symbols.
-    ///
-    /// # Errors
-    ///
-    /// This function returns an error if two symbols with the same identifier cannot be merged,
-    /// typically because their internal names differ.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let merged_table = merge(domain_table, problem_table)?;
-    /// ```
-    ///
-    pub fn merge(domain: Table, problem: Table) -> Result<Table, ParserInternalError> {
-        let mut merged = Table::new();
-        merged.set_origin(SymbolTableOrigin::Merged);
-
-        // Insert symbols from the domain table
-        for (ident, symbol) in domain.into_iter() {
-            merged.insert_symbol(ident, symbol);
-        }
-
-        // Merge or insert symbols from the problem table
-        for (ident, symbol) in problem.into_iter() {
-            if let Some(existing_symbol) = merged.get_symbol_mut(ident) {
-                if !existing_symbol.merge_with(symbol) {
-                    return Err(ParserInternalError::new(format!(
-                        "Failed to merge symbol with different name: {}", ident
-                    )));
-                }
-            } else {
-                merged.insert_symbol(ident, symbol);
-            }
-        }
-
-        Ok(merged)
-    }
-
     /// Creates a new `SymbolTable` by building it from the given AST.
     ///
     /// This function serves as a convenient entry point to construct
