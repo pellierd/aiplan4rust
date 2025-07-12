@@ -117,10 +117,7 @@ cargo test
 
 ### 6. Profile integration tests on macOS (requires sudo)
 ```bash
-sudo RUST_BACKTRACE=1 RUSTFLAGS="-g" \
-  cargo flamegraph --dtrace --root / -- \
-    test --test integration_tests --release
-```
+sudo cargo flamegraph --root --test frontend_parser_integration_tests```
 
 ### 7. View the generated flamegraph
 ```bash

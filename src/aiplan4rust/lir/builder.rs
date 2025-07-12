@@ -158,7 +158,7 @@ impl LIRBuilder {
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
     ) -> Result<(), ParserInternalError> {
-        let domain = context.domain();
+        let domain = context.domain_ast();
 
         for node in domain.preorder() {
             match node.kind() {
@@ -195,7 +195,7 @@ impl LIRBuilder {
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
     ) -> Result<(), ParserInternalError> {
-        let problem = context.problem();
+        let problem = context.problem_ast();
 
         for node in problem.preorder() {
             match node.kind() {

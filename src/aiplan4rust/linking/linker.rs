@@ -126,25 +126,15 @@ impl Linker {
             return Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager)));
         }
 
-        // Step 6: Merge symbol tables only if no errors
-        let domain_table = domain.take_symbol_table();
-        let problem_table = problem.take_symbol_table();
-        let global_table = SymbolTable::merge(domain_table, problem_table)?;
-
-        println!("Symbol Tabl:\n{}", global_table.to_string_with_interner(&global_interner));
-        // Step 7: Extract other data for the linked context and Construct the final linked
-        // semantic context
-        let domain_ast = domain.take_ast();
-        let problem_ast = problem.take_ast();
-        let domain_source = domain.source_name().to_string();
-        let problem_source = problem.source_name().to_string();
+        // Step 7: EConstruct the final linked semantic context
         let semantic_context = LinkedSemanticContext::new(
-            domain_ast,
-            problem_ast,
-            global_table,
+            domain.take_ast(),
+            problem.take_ast(),
+            domain.take_symbol_table(),
+            problem.take_symbol_table(),
             global_interner,
-            domain_source,
-            problem_source,
+            domain.source_name().to_string(),
+            problem.source_name().to_string(),
         );
 
         // Step 8: Return the result with the semantic context and diagnostics
@@ -406,9 +396,9 @@ fn collect_declared_and_undeclared_symbols<'a>(
                 if let Some(domain_declaration) = domain_declaration_option {
                     let mut domain_declaration = domain_declaration.clone();
                     domain_declaration.set_origin(SymbolOrigin::Domain);
+                    domain_declaration.set_imported_scope(Some(domain_declaration.scope().clone()));
                     domain_declaration.set_scope(problem.symbol_table().root_scope().clone());
                     declared.push((symbol.name(), domain_declaration));
-
                 } else {
                     undeclared.push((symbol.name(), usage));
                     all_resolved = false;
