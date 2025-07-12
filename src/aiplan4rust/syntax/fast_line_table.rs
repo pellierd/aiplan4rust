@@ -1,3 +1,32 @@
+//! FastLineTable module for efficient mapping of byte offsets to line and column numbers.
+//!
+//! Parsing libraries like LALRPOP produce spans as byte offsets relative to the start of the source,
+//! but do not provide line and column information directly.
+//! This module addresses that gap by providing a mechanism to efficiently compute
+//! the corresponding line and column numbers from byte offsets.
+//!
+//! [`FastLineTable`] maintains a vector of line start offsets and a coarse index sampled at regular intervals.
+//! This allows fast translation of any byte offset into (line, column) coordinates,
+//! which is essential for generating user-friendly error messages, diagnostics, and tooling features.
+//!
+//! # Key Components
+//! - [`FastLineTable`]: Main struct for managing source text indexing and position lookups.
+//!
+//! # Usage
+//! Construct a `FastLineTable` from a source string, then use
+//! [`get_position(offset)`](FastLineTable::get_position) or
+//! [`get_span(start, end)`](FastLineTable::get_span) to obtain human-readable positions.
+//!
+//! # Example
+//! ```rust
+//! use crate::fast_line_table::FastLineTable;
+//!
+//! let source = "Hello\nWorld\nRust";
+//! let flt = FastLineTable::new(source);
+//! let (line, col) = flt.get_position(7); // Corresponds to line 2, column 2
+//! assert_eq!((line, col), (2, 2));
+//! ```
+
 use crate::aiplan4rust::syntax::Span;
 
 /// A fast line table for efficiently mapping byte offsets to line and column numbers.
