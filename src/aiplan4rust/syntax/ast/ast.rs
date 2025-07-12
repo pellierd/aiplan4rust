@@ -9,14 +9,14 @@
 //!
 //! The [`Ast`] holds the following components:
 //!
-//! - A [`Box<AstNode>`] representing the root of the syntax arena.
+//! - An [`Arena<AstNode>`] representing the root of the syntax arena.
 //! - A [`StringInterner`] used during parsing for deduplicating string content such as symbols.
 //! - A human-readable [`source_name`] (e.g., a filename or label).
 //! - A [`SystemTime`] timestamp recording when the AST was created.
 //!
 //! # Traversal
 //!
-//! The arena can be traversed using built-in iter:
+//! The arena can be traversed using built-in iterators:
 //!
 //! - [`Ast::preorder()`] — depth-first traversal where the parent is visited before its children.
 //! - [`Ast::postorder()`] — depth-first traversal where the children are visited before the parent.
@@ -30,7 +30,7 @@
 //! use aiplan4rust::syntax::{Ast, AstNode, AstKind, AstContent, StringInterner};
 //!
 //! let mut interner = StringInterner::default();
-//! let root = Box::new(AstNode::new(AstKind::Symbol, AstContent::interned("move", &mut interner)));
+//! let root = Arena::<AstNode>::new(); // construction du root à adapter selon ton AST
 //!
 //! let ast = Ast::new(root, interner, "domain.pddl".into(), SystemTime::now());
 //!
@@ -56,8 +56,8 @@
 
 use std::fmt;
 use std::time::SystemTime;
+use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
@@ -68,9 +68,8 @@ use crate::aiplan4rust::arena::{NodeId, Arena};
 ///
 /// This struct owns the entire syntax arena, the string interner used to deduplicate
 /// symbolic strings, and metadata such as source origin and generation timestamp.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ast {
-
     /// Root syntax of the AST.
     arena: Arena<AstNode>,
 
@@ -89,10 +88,14 @@ impl Ast {
     ///
     /// # Arguments
     ///
-    /// - `root`: The root syntax of the AST.
-    /// - `interner`: A [`StringInterner`] used to resolve interned content within the AST.
-    /// - `source_name`: A human-readable label for the origin of the AST.
-    /// - `generated_at`: A [`SystemTime`] indicating when the AST was built.
+    /// * `arena` - The root syntax arena of the AST.
+    /// * `interner` - A [`StringInterner`] used to resolve interned content within the AST.
+    /// * `source_name` - A human-readable label for the origin of the AST.
+    /// * `generated_at` - A [`SystemTime`] indicating when the AST was built.
+    ///
+    /// # Returns
+    ///
+    /// A new `Ast` instance containing the provided components.
     pub fn new(
         arena: Arena<AstNode>,
         interner: StringInterner,
@@ -106,107 +109,100 @@ impl Ast {
             generated_at,
         }
     }
+
+    /// Creates a new empty [`Ast`] instance with default values.
+    ///
+    /// - The arena is empty.
+    /// - The interner is empty.
+    /// - The source name is an empty string.
+    /// - The generation timestamp is set to the current system time.
+    ///
+    /// # Returns
+    ///
+    /// A default `Ast` instance.
     pub fn default() -> Self {
         Ast {
-            arena: Arena::<AstNode>::new(),         // suppose que AstNode impl Default
-            interner: StringInterner::new(),             // interner vide
-            source_name: String::new(),                  // chaîne vide par défaut
-            generated_at: SystemTime::now(),             // horodatage actuel
+            arena: Arena::<AstNode>::new(),
+            interner: StringInterner::new(),
+            source_name: String::new(),
+            generated_at: SystemTime::now(),
         }
     }
 
-    /// Returns a reference to the AST root syntax.
+    /// Returns a reference to the AST arena.
+    ///
+    /// # Returns
+    ///
+    /// A shared reference to the internal [`Arena<AstNode>`].
     pub fn arena(&self) -> &Arena<AstNode> {
         &self.arena
     }
 
-    /// Returns a mutable reference to the AST root syntax.
+    /// Returns a mutable reference to the AST arena.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the internal [`Arena<AstNode>`].
     pub fn arena_mut(&mut self) -> &mut Arena<AstNode> {
         &mut self.arena
     }
 
-    /// Consumes and returns the root AST syntax.
+    /// Consumes and returns the arena, replacing it with an empty arena.
+    ///
+    /// # Returns
+    ///
+    /// The owned [`Arena<AstNode>`] that was contained in the `Ast`.
     pub fn take_arena(&mut self) -> Arena<AstNode> {
         std::mem::take(&mut self.arena)
     }
 
-    /// Returns a reference to the string interner used during parsing.
+    /// Returns a reference to the string interner.
+    ///
+    /// # Returns
+    ///
+    /// A shared reference to the [`StringInterner`] used in the AST.
     pub fn interner(&self) -> &StringInterner {
         &self.interner
     }
 
-    /// Consumes and returns the string interner.
+    /// Consumes and returns the string interner, replacing it with an empty interner.
+    ///
+    /// # Returns
+    ///
+    /// The owned [`StringInterner`] that was contained in the `Ast`.
     pub fn take_interner(&mut self) -> StringInterner {
         std::mem::take(&mut self.interner)
     }
 
     /// Returns the name or label of the source that generated this AST.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the source name string.
     pub fn source_name(&self) -> &String {
         &self.source_name
     }
 
     /// Returns the timestamp indicating when the AST was generated.
+    ///
+    /// # Returns
+    ///
+    /// A [`SystemTime`] timestamp.
     pub fn generated_at(&self) -> SystemTime {
         self.generated_at
     }
 
-    /// Returns an iterator over the AST in preorder (syntax before children).
-    /*pub fn preorder(&self) -> PreorderIter<'_> {
-        PreorderIter::new(self.root())
-    }*/
-
-    /// Returns an iterator over the AST in postorder (children before syntax).
-    /*pub fn postorder(&self) -> PostorderIter<'_> {
-        PostorderIter::new(self.root())
-    }*/
-
-    /// Attempts to resolve an interned identifier to its corresponding string slice.
-    ///
-    /// Returns `Some(&str)` if the identifier exists in the interner, or `None` otherwise.
+    /// Finds the first syntax node ID of the specified kind in the subtree rooted at `node_id`.
     ///
     /// # Arguments
-    /// * `ident` - The interned identifier to resolve.
     ///
-    /// # Examples
-    /// ```rust
-    /// if let Some(name) = ast.resolve(some_ident) {
-    ///     println!("Resolved name: {}", name);
-    /// }
-    /// ```
-    pub fn resolve(&self, ident: Ident) -> Option<&str> {
-        self.interner.resolve(ident)
-    }
-
-    /// Attempts to resolve an interned identifier to its corresponding string slice,
-    /// returning an error if the identifier is not found.
-    ///
-    /// # Arguments
-    /// * `ident` - The interned identifier to resolve.
-    ///
-    /// # Errors
-    /// Returns a `ParserInternalError` if the identifier is not present in the interner.
-    ///
-    /// # Examples
-    /// ```rust
-    /// match ast.try_resolve(some_ident) {
-    ///     Ok(name) => println!("Resolved name: {}", name),
-    ///     Err(e) => eprintln!("Failed to resolve ident: {}", e),
-    /// }
-    /// ```
-    pub fn try_resolve(&self, ident: Ident) -> Result<&str, ParserInternalError> {
-        self.interner.try_resolve(ident)
-    }
-
-
-    /// Finds the first syntax ID of the specified kind in the subtree rooted at `node_id`.
-    ///
-    /// # Arguments
-    /// * `node_id` - The root syntax ID of the subtree to search.
-    /// * `kind` - The `AstKind` to find.
+    /// * `node_id` - The root node ID of the subtree to search.
+    /// * `kind` - The [`AstKind`] to find.
     ///
     /// # Returns
-    /// * `Some(NodeId)` if a matching syntax is found.
-    /// * `None` otherwise.
+    ///
+    /// * `Some(NodeId)` if a matching node is found.
+    /// * `None` if no matching node is found.
     pub fn find_node_id_of_kind_from(
         &self,
         node_id: NodeId,
@@ -221,27 +217,35 @@ impl Ast {
         None
     }
 
-    /// Finds the first syntax ID of the specified kind in the entire AST.
+    /// Finds the first syntax node ID of the specified kind in the entire AST.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The [`AstKind`] to find.
     ///
     /// # Returns
-    /// * `Some(NodeId)` if a matching syntax is found.
-    /// * `None` otherwise.
+    ///
+    /// * `Some(NodeId)` if a matching node is found.
+    /// * `None` if no matching node is found.
     pub fn find_node_id_of_kind(&self, kind: AstKind) -> Option<NodeId> {
         self.arena.root_id().and_then(|root_id| {
             self.find_node_id_of_kind_from(root_id, kind)
         })
     }
 
-    /// Recursively sets the start and end positions (line and column) for each AST syntax.
+    /// Recursively initializes the span (start and end positions: line and column)
+    /// for each AST syntax node based on a [`FastLineTable`].
     ///
-    /// This function traverses the AST in a pre-order fashion, updating each syntax's span information
-    /// with precise line and column numbers obtained from the provided `FastLineTable`.
+    /// This method traverses the AST in pre-order and updates each node’s span
+    /// with precise line and column numbers obtained from the `FastLineTable`.
     ///
     /// # Arguments
-    /// * `fast_line_table` - A reference to a `FastLineTable` used to convert byte offsets to line and column positions.
+    ///
+    /// * `fast_line_table` - Reference to a [`FastLineTable`] to convert byte offsets to line/column positions.
     ///
     /// # Errors
-    /// Returns a `ParserInternalError` if any syntax cannot be accessed mutably.
+    ///
+    /// Returns a [`ParserInternalError`] if a syntax node cannot be accessed mutably.
     pub fn init_span(
         &mut self,
         fast_line_table: &FastLineTable,
@@ -250,20 +254,20 @@ impl Ast {
         if !self.arena().is_empty() {
             let mut stack = vec![self.arena().try_root_id()?];
             while let Some(node_id) = stack.pop() {
-                // Get a mutable reference to the current syntax
+                // Get a mutable reference to the current node
                 let node = self.arena_mut().try_node_mut(node_id)?;
 
-                // Initialize start position (line, column) using the fast_line_table
+                // Initialize start position (line, column)
                 let (line_start, col_start) = fast_line_table.get_position(node.span().start());
                 node.span_mut().set_start_line(line_start);
                 node.span_mut().set_start_column(col_start);
 
-                // Initialize end position (line, column) using the fast_line_table
+                // Initialize end position (line, column)
                 let (line_end, col_end) = fast_line_table.get_position(node.span().end());
                 node.span_mut().set_end_line(line_end);
                 node.span_mut().set_end_column(col_end);
 
-                // Push the children onto the stack in reverse order for pre-order traversal
+                // Push children in reverse order to preserve pre-order traversal
                 for &child_id in node.children().iter().rev() {
                     stack.push(child_id);
                 }
@@ -274,27 +278,15 @@ impl Ast {
 }
 
 impl fmt::Display for Ast {
+    /// Formats the AST for display.
+    ///
+    /// Prints the source name, generation timestamp, and the list of nodes with their syntax.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Abstract Syntax Tree:")?;
         writeln!(f, " - Source: {}", self.source_name)?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
-        writeln!(f, " - Nodes:")?;
+        writeln!(f, " - Nodes:\n")?;
         self.arena().fmt_syntax(f, self.interner())?;
-
-
-
-        /*for (idx, syntax) in self.arena().nodes.iter().enumerate() {
-            // Transforme les enfants (Vec<NodeId>) en string "id1, id2, id3"
-            let children_str = syntax.children()
-                .iter()
-                .map(|child_id| child_id.to_string())  // si NodeId est un nouveau-type autour de usize, adapte ici
-                .collect::<Vec<_>>()
-                .join(", ");
-            let content = syntax.content().to_string_with_interner(&self.interner);
-            writeln!(f, "- Id: {}, Kind: {:?}, Content: {} , childen: {}", idx, syntax.kind(), content, children_str)?;
-        }*/
-
-
         Ok(())
     }
 }

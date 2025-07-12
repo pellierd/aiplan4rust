@@ -6,6 +6,7 @@
 //! a custom `SyntaxDisplay` trait for language-specific formatted output,
 //! including indentation and keywords.
 //!
+
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::lexer::token::{
     ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS,

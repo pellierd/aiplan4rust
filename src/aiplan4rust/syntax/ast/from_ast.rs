@@ -1,3 +1,38 @@
+//! Provides the `FromAst` trait for constructing typed representations from AST nodes.
+//!
+//! This module defines the [`FromAst`] trait, which is used to convert [`AstNode`] instances
+//! (from the parsed abstract syntax tree) into semantic or intermediate representations.
+//!
+//! Implementations of this trait specify how to traverse and interpret an AST node
+//! in order to produce domain-specific structures (e.g., actions, tasks, predicates).
+//!
+//! # Example
+//! ```ignore
+//! use crate::aiplan4rust::semantic::action::Action;
+//! use crate::aiplan4rust::syntax::ast::AstNode;
+//! use crate::aiplan4rust::arena::Arena;
+//! use crate::aiplan4rust::frontend::ParserInternalError;
+//!
+//! impl FromAst for Action {
+//!     fn from_ast(
+//!         node: &AstNode,
+//!         arena: &Arena<AstNode>,
+//!     ) -> Result<Self, ParserInternalError> {
+//!         // Parse the node and build an Action instance.
+//!         Ok(Action::default())
+//!     }
+//! }
+//! ```
+//!
+//! # Errors
+//! Implementations typically return [`ParserInternalError`] if parsing fails
+//! (e.g., due to missing fields, invalid identifiers, or unexpected node kinds).
+//!
+//! # See Also
+//! - [`AstNode`] — the underlying syntax tree node.
+//! - [`Arena`] — the storage structure holding all AST nodes.
+//! - [`ParserInternalError`] — the error type used during parsing and semantic validation.
+
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::arena::Arena;

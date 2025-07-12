@@ -31,12 +31,14 @@
 //! assert_eq!(content.display_with_context(&interner), "move");
 //! ```
 
+use crate::aiplan4rust::arena::NodeContent;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement};
+use crate::aiplan4rust::lang::{
+    ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement,
+};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::NodeContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -77,7 +79,6 @@ pub enum Content {
 }
 
 impl Content {
-
     /// Returns the requirement flag if this content is a `Requirement`.
     ///
     /// # Returns
@@ -99,7 +100,10 @@ impl Content {
     pub fn try_requirement(&self) -> Result<Requirement, ParserInternalError> {
         match self {
             Content::Requirement(r) => Ok(*r),
-            other => Err(ParserInternalError::new(format!("Expected AstContent::Requirement, found {:?}", other))),
+            other => Err(ParserInternalError::new(format!(
+                "Expected AstContent::Requirement, found {:?}",
+                other
+            ))),
         }
     }
 }
@@ -146,7 +150,6 @@ impl fmt::Display for Content {
     }
 }
 
-
 /// Implements the `DisplayWithInterner` trait for the `Content` enum.
 ///
 /// This implementation enables formatting `Content` values with awareness of
@@ -183,14 +186,15 @@ impl InternerDisplay for Content {
                 write!(
                     f,
                     "\"{}\"",
-                    interner.resolve(*idx).unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING)
+                    interner
+                        .resolve(*idx)
+                        .unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING)
                 )
-            },
+            }
             _ => fmt::Display::fmt(self, f),
         }
     }
 }
-
 
 /// Implements the `PlanningSyntaxDisplay` trait for the `Content` enum.
 ///
@@ -232,16 +236,11 @@ impl SyntaxDisplay for Content {
         f.write_str(&indent_str)?;
 
         match self {
-            Content::Ident(idx) => {
-                idx.fmt_syntax_with_indent(f, interner, indent)
-            }
-            _ => {
-                fmt::Display::fmt(self, f)
-            }
+            Content::Ident(idx) => idx.fmt_syntax_with_indent(f, interner, indent),
+            _ => fmt::Display::fmt(self, f),
         }
     }
 }
-
 
 impl NodeContent for Content {
     /// Returns the identifier if this content is an `Ident`.

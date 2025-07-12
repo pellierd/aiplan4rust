@@ -271,7 +271,7 @@ fn new_duplicate_either_type_warning(
     // Resolve identifiers to strings
     let duplicates: Vec<String> = duplicate_ids
         .into_iter()
-        .map(|id| ast.try_resolve(id).map(str::to_string))
+        .map(|id| ast.interner().try_resolve(id).map(str::to_string))
         .collect::<Result<_, _>>()?;
 
     // Build diagnostic warning
