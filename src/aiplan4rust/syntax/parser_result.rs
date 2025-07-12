@@ -22,12 +22,12 @@ use std::fmt;
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub struct ArenaParserResult {
+pub struct ParserResult {
     ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
 }
 
-impl ArenaParserResult {
+impl ParserResult {
     /// Creates a new `ParserResult` from an optional AST and diagnostic manager.
     ///
     /// # Arguments
@@ -35,7 +35,7 @@ impl ArenaParserResult {
     /// * `ast_old` - The resulting AST from parsing, or `None` if parsing failed completely.
     /// * `diagnostic_manager` - Container for all diagnostics produced during parsing.
     pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
-        ArenaParserResult {
+        ParserResult {
             ast,
             diagnostic_manager,
         }
@@ -93,7 +93,7 @@ impl ArenaParserResult {
     }
 }
 
-impl fmt::Display for ArenaParserResult {
+impl fmt::Display for ParserResult {
     /// Formats the parser result as a human-readable string.
     ///
     /// Displays the AST root if parsing succeeded, and lists all diagnostics.

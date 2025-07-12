@@ -5,7 +5,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::syntax::lexer::LexicalError;
-use crate::aiplan4rust::syntax::{ArenaParserResult, FastLineTable, Language, ParseContext, ParserError};
+use crate::aiplan4rust::syntax::{ParserResult, FastLineTable, Language, ParseContext, ParserError};
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 
@@ -113,7 +113,7 @@ impl<'a> Parser<'a> {
         source_name: &'a str,
         source: &'a str,
         language: &Language,
-    ) -> Result<ArenaParserResult, ParserInternalError> {
+    ) -> Result<ParserResult, ParserInternalError> {
 
         // 1. Store temporary references to the filename and source code
         //    These will be used later for generating diagnostics with context.
@@ -151,7 +151,7 @@ impl<'a> Parser<'a> {
 
         // 9. If any diagnostics of severity Error exist, return early with no AST.
         if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
-            return Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)));
+            return Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)));
         }
 
         // 10. Analyze the parser result.
@@ -160,7 +160,7 @@ impl<'a> Parser<'a> {
             Ok(root_id) => {
                 // Check again for errors in diagnostics after parsing.
                 if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
-                    Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+                    Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                 } else {
                     // Otherwise, take the arena and create the AST.
                     let mut arena = context.take_arena();
@@ -173,7 +173,7 @@ impl<'a> Parser<'a> {
                     // Initialize line and column spans on each AST node.
                     ast.init_span(&fast_line_table)?;
                     // Return the AST with the diagnostics.
-                    Ok(ArenaParserResult::new(Some(ast), mem::take(&mut self.diagnostic_manager)))
+                    Ok(ParserResult::new(Some(ast), mem::take(&mut self.diagnostic_manager)))
                 }
             }
             // Parsing error occurred.
@@ -183,7 +183,7 @@ impl<'a> Parser<'a> {
                     let diagnostic = Diagnostic::from_parse_error(&err, Some(source_name), &fast_line_table);
                     self.diagnostic_manager.add_diagnostic(diagnostic);
                     // Return no AST but updated diagnostics.
-                    Ok(ArenaParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+                    Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                 }
                 // Internal error: escalate it as a fatal error.
                 ParserError::InternalError(err) => {
