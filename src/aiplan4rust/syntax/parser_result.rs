@@ -1,16 +1,21 @@
+//! Module defining the `ParserResult` type, representing the outcome of a PDDL parsing operation.
+//!
+//! This structure combines the parsed abstract syntax tree (AST) and diagnostics produced during parsing,
+//! enabling easy inspection of success or failure along with detailed error/warning information.
+
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::syntax::ast::Ast;
 
 use std::fmt;
 
-/// Represents the outcome of a parsing operation in the PDDL syntax.
+/// Represents the outcome of a PDDL syntax parsing operation.
 ///
-/// This structure encapsulates two core elements:
-/// - An optional [`Ast`] containing the parsed abstract syntax arena if parsing succeeded.
-/// - A [`DiagnosticManager`] storing all diagnostics (errors, warnings, etc.) generated during parsing.
+/// `ParserResult` encapsulates two main components:
+/// - An optional [`Ast`] containing the parsed abstract syntax tree if parsing succeeded.
+/// - A [`DiagnosticManager`] holding diagnostics (errors, warnings, notes) generated during parsing.
 ///
-/// `ParserResult` serves as a unified return type for the parsing phase,
-/// enabling straightforward inspection of success and detailed diagnostics access.
+/// This struct serves as a unified return type for the parsing phase,
+/// allowing straightforward success checks and detailed diagnostics inspection.
 ///
 /// # Example
 /// ```
@@ -28,46 +33,44 @@ pub struct ParserResult {
 }
 
 impl ParserResult {
-    /// Creates a new `ParserResult` from an optional AST and diagnostic manager.
+    /// Constructs a new `ParserResult`.
     ///
-    /// # Arguments
-    ///
-    /// * `ast_old` - The resulting AST from parsing, or `None` if parsing failed completely.
-    /// * `diagnostic_manager` - Container for all diagnostics produced during parsing.
-    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
-        ParserResult {
-            ast,
-            diagnostic_manager,
-        }
-    }
-
-    /// Returns an immutable reference to the parsed AST if available.
+    /// # Parameters
+    /// - `ast`: Optional parsed AST; `None` indicates parsing failure.
+    /// - `diagnostic_manager`: Collection of diagnostics produced during parsing.
     ///
     /// # Returns
+    /// A new `ParserResult` instance.
+    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
+        Self { ast, diagnostic_manager }
+    }
+
+    /// Returns an immutable reference to the parsed AST, if available.
     ///
-    /// * `Some(&Ast)` if parsing succeeded.
-    /// * `None` if parsing failed.
+    /// # Returns
+    /// - `Some(&Ast)` if parsing succeeded.
+    /// - `None` if parsing failed.
     pub fn ast(&self) -> Option<&Ast> {
         self.ast.as_ref()
     }
 
-    /// Returns a mutable reference to the parsed AST if available.
+    /// Returns a mutable reference to the parsed AST, if available.
     ///
-    /// Allows modifying the AST after parsing.
+    /// Allows modification of the AST after parsing.
     pub fn ast_mut(&mut self) -> Option<&mut Ast> {
         self.ast.as_mut()
     }
 
     /// Returns an immutable reference to the diagnostic manager.
     ///
-    /// This contains all errors, warnings, and notes produced during parsing.
+    /// This contains all diagnostics (errors, warnings, notes) generated during parsing.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
     /// Returns a mutable reference to the diagnostic manager.
     ///
-    /// Enables adding or modifying diagnostics post-parsing.
+    /// Allows adding or modifying diagnostics after parsing.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
@@ -82,7 +85,7 @@ impl ParserResult {
         std::mem::take(&mut self.diagnostic_manager)
     }
 
-    /// Returns `true` if the parsing produced a valid AST.
+    /// Returns `true` if parsing produced a valid AST.
     pub fn is_some(&self) -> bool {
         self.ast.is_some()
     }
@@ -96,7 +99,7 @@ impl ParserResult {
 impl fmt::Display for ParserResult {
     /// Formats the parser result as a human-readable string.
     ///
-    /// Displays the AST root if parsing succeeded, and lists all diagnostics.
+    /// If parsing succeeded, displays the AST followed by any diagnostics.
     /// If parsing failed, displays all diagnostics related to the failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ast {
