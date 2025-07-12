@@ -53,6 +53,7 @@ pub mod from_ast;
 pub mod ast;
 
 pub mod node;
+mod renderer;
 
 // Public re-exports
 pub use kind::Kind as AstKind;
