@@ -124,7 +124,7 @@ impl ArenaNode for ExprNode {
     }
 
     /// Recursively pretty-prints this syntax and its children as a arena.
-    fn fmt_with(
+    fn fmt_with_interner(
         &self,
         f: &mut Formatter<'_>,
         arena: &Arena<Self>,
@@ -182,7 +182,7 @@ impl ArenaNode for ExprNode {
         fmt_node(self, f, arena, interner, "", true)
     }
 
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         arena: &Arena<Self>,
@@ -192,7 +192,7 @@ impl ArenaNode for ExprNode {
     where
         Self: Sized,
     {
-        self.fmt_with(f, arena, interner)?;
+        self.fmt_with_interner(f, arena, interner)?;
         Ok(())
     }
 }

@@ -421,7 +421,7 @@ where
             // Arène vide, rien à afficher
             Ok(())
         } else if let Some(root) = self.root_node() {
-            root.fmt_planning_syntax_with_indent(f, self, interner, indent)
+            root.fmt_syntax_with_indent(f, self, interner, indent)
         } else {
             // Si jamais root_id est Some mais le noeud n'existe pas (cas improbable)
             Ok(())

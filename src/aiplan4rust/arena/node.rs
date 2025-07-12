@@ -349,7 +349,7 @@ pub trait ArenaNode: Clone {
     /// # Errors
     ///
     /// Returns an error if writing fails.
-    fn fmt_with(&self, f: &mut Formatter<'_>, arena: &Arena<Self>, interner: &StringInterner) -> fmt::Result
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, arena: &Arena<Self>, interner: &StringInterner) -> fmt::Result
     where Self: Sized;
     
     /// Converts the syntax to a string using `fmt_with`.
@@ -375,7 +375,7 @@ pub trait ArenaNode: Clone {
 
         impl<'a, T: ArenaNode> fmt::Display for DisplayWrapper<'a, T> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result  {
-                self.node.fmt_with(f, self.arena, self.interner)
+                self.node.fmt_with_interner(f, self.arena, self.interner)
             }
         }
 
@@ -419,7 +419,7 @@ pub trait ArenaNode: Clone {
     /// # Errors
     ///
     /// Returns a [`fmt::Error`] if writing to the formatter fails.
-    fn fmt_planning_syntax_with_indent(
+    fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         arena: &Arena<Self>,
@@ -443,7 +443,7 @@ pub trait ArenaNode: Clone {
     /// # Errors
     ///
     /// Returns a [`fmt::Error`] if writing to the formatter fails.
-    fn fmt_planning_syntax(
+    fn fmt_syntax(
         &self,
         f: &mut Formatter<'_>,
         arena: &Arena<Self>,
@@ -452,7 +452,7 @@ pub trait ArenaNode: Clone {
     where
         Self: Sized,
     {
-        self.fmt_planning_syntax_with_indent(f, arena, interner, 0)
+        self.fmt_syntax_with_indent(f, arena, interner, 0)
     }
 
 
@@ -478,7 +478,7 @@ pub trait ArenaNode: Clone {
     /// let s = syntax.to_planning_syntax_with_indent(&arena, &interner, 2);
     /// println!("{}", s);
     /// ```
-    fn to_planning_syntax_with_indent(
+    fn to_syntax_with_indent(
         &self,
         arena: &Arena<Self>,
         interner: &StringInterner,
@@ -498,7 +498,7 @@ pub trait ArenaNode: Clone {
         for PlanningSyntaxDisplayWrapper<'a, T>
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                self.node.fmt_planning_syntax_with_indent(f, self.arena, self.interner, self.indent)
+                self.node.fmt_syntax_with_indent(f, self.arena, self.interner, self.indent)
             }
         }
 
@@ -529,7 +529,7 @@ pub trait ArenaNode: Clone {
     /// let s = syntax.to_planning_syntax(&arena, &interner);
     /// println!("{}", s);
     /// ```
-    fn to_planning_syntax(
+    fn to_syntax_string(
         &self,
         arena: &Arena<Self>,
         interner: &StringInterner,
@@ -537,6 +537,6 @@ pub trait ArenaNode: Clone {
     where
         Self: Sized,
     {
-        self.to_planning_syntax_with_indent(arena, interner, 0)
+        self.to_syntax_with_indent(arena, interner, 0)
     }
 }

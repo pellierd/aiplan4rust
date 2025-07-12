@@ -33,7 +33,7 @@ pub fn render_with_indent(
             // Domain name (mandatory)
             if let Some(name_id) = node.children().get(0) {
                 if let Some(name_node) = arena.get_node(*name_id) {
-                    name_node.fmt_planning_syntax_with_indent(f, arena, interner, 0)?;
+                    name_node.fmt_syntax_with_indent(f, arena, interner, 0)?;
                 } else {
                     write!(f, "<invalid-domain-name>")?;
                 }
@@ -48,7 +48,7 @@ pub fn render_with_indent(
                 if let Some(child_node) = arena.get_node(*child_id) {
                     writeln!(f)?;
                     // Recurse with increased indentation
-                    child_node.fmt_planning_syntax_with_indent(
+                    child_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -73,7 +73,7 @@ pub fn render_with_indent(
             // Problem name (mandatory)
             if let Some(name_id) = children.get(0) {
                 if let Some(name_node) = arena.get_node(*name_id) {
-                    name_node.fmt_planning_syntax(f, arena, interner)?;
+                    name_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid-problem-name>")?;
                 }
@@ -89,7 +89,7 @@ pub fn render_with_indent(
                     writeln!(f)?;
                     let child_indent = AstNode::make_indent(indent + 1);
                     write!(f, "{}(:domain ", child_indent)?;
-                    domain_node.fmt_planning_syntax(f, arena, interner)?;
+                    domain_node.fmt_syntax(f, arena, interner)?;
                     write!(f, ")")?;
                 } else {
                     writeln!(f)?;
@@ -107,7 +107,7 @@ pub fn render_with_indent(
                 writeln!(f)?;
                 let child_indent = AstNode::make_indent(indent + 1);
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax_with_indent(
+                    child_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -134,7 +134,7 @@ pub fn render_with_indent(
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax(f, arena, interner)?;
+                    child_node.fmt_syntax(f, arena, interner)?;
                 }
             }
 
@@ -196,7 +196,7 @@ pub fn render_with_indent(
             if let Some(first_child_id) = node.get_child(0) {
                 if let Some(first_child_node) = arena.get_node(first_child_id) {
                     first_child_node
-                        .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                        .fmt_syntax_with_indent(f, arena, interner, indent)?;
                 } else {
                     write!(f, "{}<invalid_node>", indent_str)?;
                 }
@@ -208,7 +208,7 @@ pub fn render_with_indent(
             if let Some(ty_id) = node.get_child(1) {
                 write!(f, " - ")?;
                 if let Some(ty_node) = arena.get_node(ty_id) {
-                    ty_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?
+                    ty_node.fmt_syntax_with_indent(f, arena, interner, indent)?
                 } else {
                     write!(f, "<invalid_node>")?;
                 }
@@ -279,7 +279,7 @@ pub fn render_with_indent(
                     // Write indent for predicates' lines (one level deeper)
                     let child_indent_str = AstNode::make_indent(indent + 1);
                     write!(f, "{}", child_indent_str)?;
-                    child_node.fmt_planning_syntax(f, arena, interner)?;
+                    child_node.fmt_syntax(f, arena, interner)?;
                     writeln!(f)?;
                 }
             }
@@ -296,7 +296,7 @@ pub fn render_with_indent(
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax(f, arena, interner)?;
+                    child_node.fmt_syntax(f, arena, interner)?;
                 }
             }
 
@@ -319,7 +319,7 @@ pub fn render_with_indent(
                         write!(f, " ")?;
                     }
                     // Format the child syntax recursively
-                    child_node.fmt_planning_syntax(f, arena, interner)?;
+                    child_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     // For invalid child nodes, write a space before it if not the first child
                     if i > 0 {
@@ -344,7 +344,7 @@ pub fn render_with_indent(
             // 1. The task name (mandatory)
             if let Some(&name_id) = children.get(idx) {
                 if let Some(name_node) = arena.get_node(name_id) {
-                    name_node.fmt_planning_syntax(f, arena, interner)?;
+                    name_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid_name>")?;
                 }
@@ -365,7 +365,7 @@ pub fn render_with_indent(
                             write!(f, " ")?;
                         }
                         if let Some(child_node) = arena.get_node(*child_id) {
-                            child_node.fmt_planning_syntax(f, arena, interner)?;
+                            child_node.fmt_syntax(f, arena, interner)?;
                         } else {
                             write!(f, "<invalid-parameter>")?;
                         }
@@ -399,7 +399,7 @@ pub fn render_with_indent(
             // === 1. Name (mandatory) ===
             if let Some(&name_id) = children.get(0) {
                 if let Some(name_node) = arena.get_node(name_id) {
-                    name_node.fmt_planning_syntax(f, arena, interner)?;
+                    name_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid-method-name>")?;
                 }
@@ -427,7 +427,7 @@ pub fn render_with_indent(
             if let Some(&body_id) = children.get(2) {
                 writeln!(f)?;
                 if let Some(body_node) = arena.get_node(body_id) {
-                    body_node.fmt_planning_syntax_with_indent(
+                    body_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -473,7 +473,7 @@ pub fn render_with_indent(
             // Format the first child if it exists, else print <no-children>
             if let Some(first_child_id) = node.children().first() {
                 if let Some(first_child_node) = arena.get_node(*first_child_id) {
-                    first_child_node.fmt_planning_syntax(f, arena, interner)?;
+                    first_child_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid>")?;
                 }
@@ -496,7 +496,7 @@ pub fn render_with_indent(
                     write!(f, " ")?;
                 }
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax(f, arena, interner)?;
+                    child_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid>")?;
                 }
@@ -518,7 +518,7 @@ pub fn render_with_indent(
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax(f, arena, interner)?;
+                    child_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid>")?;
                 }
@@ -545,7 +545,7 @@ pub fn render_with_indent(
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax(f, arena, interner)?;
+                    child_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid>")?;
                 }
@@ -567,7 +567,7 @@ pub fn render_with_indent(
             if let Some(&vars_id) = children.get(0) {
                 if let Some(vars_node) = arena.get_node(vars_id) {
                     write!(f, "(")?;
-                    vars_node.fmt_planning_syntax(f, arena, interner)?;
+                    vars_node.fmt_syntax(f, arena, interner)?;
                     write!(f, ")")?;
                 } else {
                     write!(f, "<invalid-variables>")?;
@@ -579,7 +579,7 @@ pub fn render_with_indent(
             // 3. Expression (indentée d’un cran)
             if let Some(&expr_id) = children.get(1) {
                 if let Some(expr_node) = arena.get_node(expr_id) {
-                    expr_node.fmt_planning_syntax_with_indent(
+                    expr_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -607,7 +607,7 @@ pub fn render_with_indent(
             // 2. Condition sur la même ligne
             if let Some(&cond_id) = children.get(0) {
                 if let Some(cond_node) = arena.get_node(cond_id) {
-                    cond_node.fmt_planning_syntax(f, arena, interner)?;
+                    cond_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid-condition>")?;
                 }
@@ -620,7 +620,7 @@ pub fn render_with_indent(
             // 3. Effet indenté
             if let Some(&effect_id) = children.get(1) {
                 if let Some(effect_node) = arena.get_node(effect_id) {
-                    effect_node.fmt_planning_syntax_with_indent(
+                    effect_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -649,21 +649,21 @@ pub fn render_with_indent(
                     match child_node.kind() {
                         AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
                             child_node
-                                .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                .fmt_syntax_with_indent(f, arena, interner, indent)?;
                             if !is_last {
                                 writeln!(f)?;
                             }
                         }
                         AstKind::TaskOrderingConstraintDef => {
                             child_node
-                                .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                .fmt_syntax_with_indent(f, arena, interner, indent)?;
                             if !is_last {
                                 writeln!(f)?;
                             }
                         }
                         AstKind::TaskLogicalConstraintDef => {
                             child_node
-                                .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                                .fmt_syntax_with_indent(f, arena, interner, indent)?;
                             if !is_last {
                                 writeln!(f)?;
                             }
@@ -714,7 +714,7 @@ pub fn render_with_indent(
                                     AstKind::TaggedTask => {
                                         // Print tagged task using fmt_planning with indentation
                                         write!(f, "{}", AstNode::make_indent(indent + 2))?;
-                                        task_node.fmt_planning_syntax(f, arena, interner)?;
+                                        task_node.fmt_syntax(f, arena, interner)?;
                                         writeln!(f)?;
                                     }
                                     other => {
@@ -759,7 +759,7 @@ pub fn render_with_indent(
 
             // Print the TaskID (first child)
             if let Some(task_id_node) = arena.get_node(children[0]) {
-                task_id_node.fmt_planning_syntax(f, arena, interner)?;
+                task_id_node.fmt_syntax(f, arena, interner)?;
             } else {
                 write!(f, "<invalid-task-id>")?;
             }
@@ -799,7 +799,7 @@ pub fn render_with_indent(
                             if let Some(ordering_node) = arena.get_node(*child_id) {
                                 // Print each ordering child with further indentation
                                 write!(f, "{}", AstNode::make_indent(indent + 2))?;
-                                ordering_node.fmt_planning_syntax(f, arena, interner)?;
+                                ordering_node.fmt_syntax(f, arena, interner)?;
                                 writeln!(f)?;
                             } else {
                                 writeln!(f, "{}<invalid>", AstNode::make_indent(indent + 2))?;
@@ -832,7 +832,7 @@ pub fn render_with_indent(
                 // Print first child with a space before
                 write!(f, " ")?;
                 if let Some(first_node) = arena.get_node(children[0]) {
-                    first_node.fmt_planning_syntax(f, arena, interner)?;
+                    first_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid>")?;
                 }
@@ -840,7 +840,7 @@ pub fn render_with_indent(
                 // Print second child with a space before
                 write!(f, " ")?;
                 if let Some(second_node) = arena.get_node(children[1]) {
-                    second_node.fmt_planning_syntax(f, arena, interner)?;
+                    second_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid>")?;
                 }
@@ -874,7 +874,7 @@ pub fn render_with_indent(
                 if let Some(&precond_id) = children.get(1) {
                     if let Some(precond_node) = arena.get_node(precond_id) {
                         precond_node
-                            .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                            .fmt_syntax_with_indent(f, arena, interner, indent)?;
                         writeln!(f)?;
                     }
                 }
@@ -884,7 +884,7 @@ pub fn render_with_indent(
             if let Some(&task_network_id) = children.last() {
                 if let Some(task_network_node) = arena.get_node(task_network_id) {
                     task_network_node
-                        .fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                        .fmt_syntax_with_indent(f, arena, interner, indent)?;
                     writeln!(f)?;
                 } else {
                     write!(f, "<invalid-task-network>")?;
@@ -909,7 +909,7 @@ pub fn render_with_indent(
             // === 1. Name (mandatory) ===
             if let Some(&name_id) = children.get(0) {
                 if let Some(name_node) = arena.get_node(name_id) {
-                    name_node.fmt_planning_syntax(f, arena, interner)?;
+                    name_node.fmt_syntax(f, arena, interner)?;
                 } else {
                     write!(f, "<invalid-action-name>")?;
                 }
@@ -937,7 +937,7 @@ pub fn render_with_indent(
             if let Some(&body_id) = children.get(2) {
                 writeln!(f)?;
                 if let Some(body_node) = arena.get_node(body_id) {
-                    body_node.fmt_planning_syntax_with_indent(
+                    body_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -974,7 +974,7 @@ pub fn render_with_indent(
                 }
 
                 if let Some(child_node) = arena.get_node(child_id) {
-                    child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                    child_node.fmt_syntax_with_indent(f, arena, interner, indent)?;
                 } else {
                     match i {
                         0 => write!(f, "{}<invalid-precondition>", indent_child)?,
@@ -1028,7 +1028,7 @@ pub fn render_with_indent(
                     for grandchild_id in and_node.children() {
                         if let Some(grandchild_node) = arena.get_node(*grandchild_id) {
                             // Child syntax already indents itnode
-                            grandchild_node.fmt_planning_syntax_with_indent(
+                            grandchild_node.fmt_syntax_with_indent(
                                 f,
                                 arena,
                                 interner,
@@ -1088,7 +1088,7 @@ pub fn render_with_indent(
             if let Some(tn_id) = tn_opt {
                 match arena.get_node(tn_id) {
                     Some(tn_node) => {
-                        tn_node.fmt_planning_syntax_with_indent(
+                        tn_node.fmt_syntax_with_indent(
                             f,
                             arena,
                             interner,
@@ -1114,7 +1114,7 @@ pub fn render_with_indent(
             if let Some(&child_id) = node.children().get(0) {
                 if let Some(child_node) = arena.get_node(child_id) {
                     // Format the child syntax with increased indentation
-                    child_node.fmt_planning_syntax_with_indent(
+                    child_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -1143,7 +1143,7 @@ pub fn render_with_indent(
             for child_id in node.children() {
                 write!(f, " ")?; // space before each child
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax_with_indent(
+                    child_node.fmt_syntax_with_indent(
                         f,
                         arena,
                         interner,
@@ -1188,7 +1188,7 @@ pub fn render_with_indent(
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    child_node.fmt_planning_syntax_with_indent(f, arena, interner, indent)?;
+                    child_node.fmt_syntax_with_indent(f, arena, interner, indent)?;
                 }
             }
             write!(f, ")")

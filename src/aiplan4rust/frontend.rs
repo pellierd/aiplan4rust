@@ -151,7 +151,7 @@ impl Frontend {
                 println!("{}", raw_ast.arena().try_root()?.to_string_with_interner(raw_ast.arena(), raw_ast.interner()));
 
                 println!("********************** RAW AST *************************");
-                println!("{}", raw_ast.arena().try_root()?.to_planning_syntax(raw_ast.arena(), raw_ast.interner()));
+                println!("{}", raw_ast.arena().try_root()?.to_syntax_string(raw_ast.arena(), raw_ast.interner()));
 
                 // Take diagnostics from parser result.
                 let diagnostic_manager = parser_result.take_diagnostic_manager();
