@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::tree::{TreeNode, NodeId};
+use crate::aiplan4rust::tree::{ArenaNode, NodeId};
 use crate::aiplan4rust::tree::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
 use crate::aiplan4rust::tree::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::frontend::ParserInternalError;
@@ -13,16 +13,16 @@ use crate::aiplan4rust::lang::Ident;
 
 /// A flat arena-based tree structure for storing nodes of type `T`.
 ///
-/// The nodes are stored in a `Vec<T>`, and each node must implement the [`TreeNode`] trait
+/// The nodes are stored in a `Vec<T>`, and each node must implement the [`ArenaNode`] trait
 /// which enables parent/child relationships through indices. This is useful for working
 /// with abstract syntax trees and similar structures.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct TreeArena<T: TreeNode> {
+pub struct TreeArena<T: ArenaNode> {
     pub nodes: Vec<T>,
     root_id: Option<NodeId>,
 }
 
-impl<T: TreeNode> TreeArena<T> {
+impl<T: ArenaNode> TreeArena<T> {
     const DEFAULT_ROOT_ID: usize = 0;
 
     /// Creates a new, empty tree arena.
@@ -343,10 +343,10 @@ impl<T: TreeNode> TreeArena<T> {
 
 impl<T> fmt::Display for TreeArena<T>
 where
-    T: TreeNode + fmt::Display,
+    T: ArenaNode + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fn fmt_node<T: TreeNode + fmt::Display>(
+        fn fmt_node<T: ArenaNode + fmt::Display>(
             arena: &TreeArena<T>,
             f: &mut fmt::Formatter<'_>,
             node: &T,
@@ -396,7 +396,7 @@ where
 
 impl<T> DisplayWithInterner for TreeArena<T>
 where
-    T: TreeNode,
+    T: ArenaNode,
 {
     fn fmt_with(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if self.is_empty() {
@@ -409,7 +409,7 @@ where
 }
 impl<T> PlanningSyntaxDisplay for TreeArena<T>
 where
-    T: TreeNode,
+    T: ArenaNode,
 {
     fn fmt_planning_syntax_with_indent(
         &self,

@@ -65,7 +65,7 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{NodeId, TreeArena, ArenaNode};
 
 /// Recursively normalizes all `TypedList` nodes in the given AST subtree.
 ///

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::tree::arena::TreeArena;
-use crate::aiplan4rust::tree::node::TreeNode;
+use crate::aiplan4rust::tree::node::ArenaNode;
 use crate::aiplan4rust::tree::NodeId;
 
 /// An iterator that traverses the nodes of an `Arena` in postorder (depth-first).
@@ -16,12 +16,12 @@ use crate::aiplan4rust::tree::NodeId;
 ///     // Process node
 /// }
 /// ```
-pub struct PostorderIter<'a, T: TreeNode> {
+pub struct PostorderIter<'a, T: ArenaNode> {
     arena: &'a TreeArena<T>,
     stack: Vec<(NodeId, usize)>,
 }
 
-impl<'a, T: TreeNode> PostorderIter<'a, T> {
+impl<'a, T: ArenaNode> PostorderIter<'a, T> {
     /// Creates a new postorder iterator starting from the given `root` node ID.
     ///
     /// # Parameters
@@ -42,7 +42,7 @@ impl<'a, T: TreeNode> PostorderIter<'a, T> {
     }
 }
 
-impl<'a, T: TreeNode> Iterator for PostorderIter<'a, T> {
+impl<'a, T: ArenaNode> Iterator for PostorderIter<'a, T> {
     type Item = &'a T;
 
     /// Returns the next node in postorder traversal.

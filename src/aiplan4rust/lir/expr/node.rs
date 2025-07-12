@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -62,7 +62,7 @@ impl fmt::Display for ExprNode {
     }
 }
 
-impl TreeNode for ExprNode {
+impl ArenaNode for ExprNode {
     type Kind = ExprKind;
     type Content = ExprContent;
 

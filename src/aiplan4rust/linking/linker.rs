@@ -11,7 +11,7 @@ use crate::aiplan4rust::lang::Ident;
 
 use std::collections::HashMap;
 use std::mem::take;
-use crate::aiplan4rust::tree::TreeNode;
+use crate::aiplan4rust::tree::ArenaNode;
 
 
 /// The `Linker` is responsible for performing the linking phase

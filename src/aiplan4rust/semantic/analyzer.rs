@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
-use crate::aiplan4rust::tree::TreeNode;
+use crate::aiplan4rust::tree::ArenaNode;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///

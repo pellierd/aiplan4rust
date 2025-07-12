@@ -8,7 +8,7 @@ pub mod content;
 
 pub use node_id::NodeId;
 pub use arena::TreeArena;
-pub use node::TreeNode;
+pub use node::ArenaNode;
 pub use node_ref::NodeRef;
 pub use base_node::BaseNode;
 pub use content::NodeContent as NodeContent;

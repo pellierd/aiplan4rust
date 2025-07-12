@@ -43,7 +43,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
 use crate::aiplan4rust::lir::LiftedProblem;

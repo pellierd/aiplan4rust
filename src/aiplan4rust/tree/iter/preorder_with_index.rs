@@ -1,4 +1,4 @@
-use crate::aiplan4rust::tree::{TreeArena, NodeId, TreeNode};
+use crate::aiplan4rust::tree::{TreeArena, NodeId, ArenaNode};
 
 /// A preorder iterator over an `Arena` that yields node IDs along with references to the nodes.
 ///
@@ -14,12 +14,12 @@ use crate::aiplan4rust::tree::{TreeArena, NodeId, TreeNode};
 ///     // Process node with its id
 /// }
 /// ```
-pub struct PreorderIterWithIndex<'a, T: TreeNode> {
+pub struct PreorderIterWithIndex<'a, T: ArenaNode> {
     arena: &'a TreeArena<T>,
     stack: Vec<NodeId>,
 }
 
-impl<'a, T: TreeNode> PreorderIterWithIndex<'a, T> {
+impl<'a, T: ArenaNode> PreorderIterWithIndex<'a, T> {
     /// Creates a new preorder iterator starting from the specified root node.
     ///
     /// # Parameters
@@ -46,7 +46,7 @@ impl<'a, T: TreeNode> PreorderIterWithIndex<'a, T> {
     }
 }
 
-impl<'a, T: TreeNode> Iterator for PreorderIterWithIndex<'a, T> {
+impl<'a, T: ArenaNode> Iterator for PreorderIterWithIndex<'a, T> {
     type Item = (NodeId, &'a T);
 
     /// Returns the next node ID and reference in preorder traversal order.

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{NodeId, TreeArena, ArenaNode};
 
 /// An iterator for traversing a tree in preorder, yielding only `NodeId`s.
 ///
@@ -13,12 +13,12 @@ use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
 ///     // Process node
 /// }
 /// ```
-pub struct PreorderIdIter<'a, T: TreeNode> {
+pub struct PreorderIdIter<'a, T: ArenaNode> {
     arena: &'a TreeArena<T>,
     stack: Vec<NodeId>,
 }
 
-impl<'a, T: TreeNode> PreorderIdIter<'a, T> {
+impl<'a, T: ArenaNode> PreorderIdIter<'a, T> {
     /// Creates a new preorder iterator starting from `root`.
     pub fn new(arena: &'a TreeArena<T>, root: NodeId) -> Self {
         Self {
@@ -36,7 +36,7 @@ impl<'a, T: TreeNode> PreorderIdIter<'a, T> {
     }
 }
 
-impl<'a, T: TreeNode> Iterator for PreorderIdIter<'a, T> {
+impl<'a, T: ArenaNode> Iterator for PreorderIdIter<'a, T> {
     type Item = NodeId;
 
     fn next(&mut self) -> Option<Self::Item> {

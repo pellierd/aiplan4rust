@@ -7,7 +7,7 @@ use crate::aiplan4rust::interner::{DisplayWithInterner, StringInterner};
 use crate::aiplan4rust::syntax::ast::{AstNode, FromAst};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
-use crate::aiplan4rust::tree::{NodeContent, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{NodeContent, TreeArena, ArenaNode};
 
 /// Represents a type in a planning problem IR.
 ///

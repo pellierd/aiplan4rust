@@ -5,7 +5,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::tree::{NodeId, TreeNode};
+use crate::aiplan4rust::tree::{NodeId, ArenaNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 

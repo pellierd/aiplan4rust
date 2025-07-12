@@ -85,7 +85,7 @@ use crate::aiplan4rust::syntax::PlanningSyntaxDisplay;
 /// - [`ParserInternalError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
 ///
-pub trait TreeNode: Clone {
+pub trait ArenaNode: Clone {
     /// The type used to represent the node's kind.
     type Kind: std::fmt::Display;
 
@@ -367,13 +367,13 @@ pub trait TreeNode: Clone {
     /// ```
     fn to_string_with_interner(&self, arena: &TreeArena<Self>, interner: &StringInterner) -> String
     where Self: Sized {
-        struct DisplayWrapper<'a, T: TreeNode> {
+        struct DisplayWrapper<'a, T: ArenaNode> {
             node: &'a T,
             arena: &'a TreeArena<T>,
             interner: &'a StringInterner,
         }
 
-        impl<'a, T: TreeNode> fmt::Display for DisplayWrapper<'a, T> {
+        impl<'a, T: ArenaNode> fmt::Display for DisplayWrapper<'a, T> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result  {
                 self.node.fmt_with(f, self.arena, self.interner)
             }
@@ -487,14 +487,14 @@ pub trait TreeNode: Clone {
     where
         Self: Sized,
     {
-        struct PlanningSyntaxDisplayWrapper<'a, T: TreeNode> {
+        struct PlanningSyntaxDisplayWrapper<'a, T: ArenaNode> {
             node: &'a T,
             arena: &'a TreeArena<T>,
             interner: &'a StringInterner,
             indent: usize,
         }
 
-        impl<'a, T: TreeNode> fmt::Display
+        impl<'a, T: ArenaNode> fmt::Display
         for PlanningSyntaxDisplayWrapper<'a, T>
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {

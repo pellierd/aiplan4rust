@@ -11,7 +11,7 @@ use crate::aiplan4rust::lang::Requirement;
 use std::collections::HashSet;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::tree::TreeNode;
+use crate::aiplan4rust::tree::ArenaNode;
 
 pub fn check_requirement_violations(
     context: &CheckContext,

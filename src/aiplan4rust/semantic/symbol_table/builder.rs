@@ -1,6 +1,6 @@
 
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::tree::{NodeRef, TreeNode};
+use crate::aiplan4rust::tree::{NodeRef, ArenaNode};
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry,Usage};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;

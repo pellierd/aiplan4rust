@@ -20,7 +20,7 @@ use base64::Engine;
 use base64::engine::general_purpose;
 use crate::aiplan4rust::interner::DisplayWithInterner;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
-use crate::aiplan4rust::tree::TreeNode;
+use crate::aiplan4rust::tree::ArenaNode;
 
 #[derive(Debug)]
 pub struct Frontend {}

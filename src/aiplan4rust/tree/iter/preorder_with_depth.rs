@@ -1,12 +1,12 @@
-use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{NodeId, TreeArena, ArenaNode};
 
 /// Preorder iterator yielding (NodeId, &T, depth)
-pub struct PreorderIterWithDepth<'a, T: TreeNode> {
+pub struct PreorderIterWithDepth<'a, T: ArenaNode> {
     arena: &'a TreeArena<T>,
     stack: Vec<(NodeId, usize)>,
 }
 
-impl<'a, T: TreeNode> PreorderIterWithDepth<'a, T> {
+impl<'a, T: ArenaNode> PreorderIterWithDepth<'a, T> {
     /// Creates a new iterator starting from the given root node.
     pub fn new(arena: &'a TreeArena<T>, root: NodeId) -> Self {
         Self {
@@ -24,7 +24,7 @@ impl<'a, T: TreeNode> PreorderIterWithDepth<'a, T> {
     }
 }
 
-impl<'a, T: TreeNode> Iterator for PreorderIterWithDepth<'a, T> {
+impl<'a, T: ArenaNode> Iterator for PreorderIterWithDepth<'a, T> {
     type Item = (NodeId, &'a T, usize);
 
     fn next(&mut self) -> Option<Self::Item> {

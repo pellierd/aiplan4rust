@@ -6,7 +6,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::content::Content;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::{PlanningSyntaxDisplay, Span};
-use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{BaseNode, NodeId, TreeArena, ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -260,7 +260,7 @@ impl fmt::Display for AstNode {
     }
 }
 
-impl TreeNode for AstNode {
+impl ArenaNode for AstNode {
     type Kind = AstKind;
     type Content = AstContent;
 

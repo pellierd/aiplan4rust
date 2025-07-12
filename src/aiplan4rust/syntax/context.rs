@@ -7,7 +7,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::tree::{NodeId, TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{NodeId, TreeArena, ArenaNode};
 
 pub struct ParseContext {
     interner: RefCell<StringInterner>,

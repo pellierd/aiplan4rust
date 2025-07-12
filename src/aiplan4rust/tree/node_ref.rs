@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::aiplan4rust::tree::{NodeId, TreeNode};
+use crate::aiplan4rust::tree::{NodeId, ArenaNode};
 
 /// A lightweight, non-owning reference to a node in an tree.
 ///
@@ -19,12 +19,12 @@ use crate::aiplan4rust::tree::{NodeId, TreeNode};
 /// println!("Node data: {:?}", node_ref.node());
 /// ```
 #[derive(Debug, Clone)]
-pub struct NodeRef<'a, T: TreeNode + ?Sized> {
+pub struct NodeRef<'a, T: ArenaNode + ?Sized> {
     id: NodeId,
     node: &'a T,
 }
 
-impl<'a, T: TreeNode + ?Sized> NodeRef<'a, T> {
+impl<'a, T: ArenaNode + ?Sized> NodeRef<'a, T> {
     /// Constructs a new `NodeRef` from the node's ID and a reference to the node.
     ///
     /// # Parameters
@@ -51,13 +51,13 @@ impl<'a, T: TreeNode + ?Sized> NodeRef<'a, T> {
 }
 
 /// Enables conversion from `NodeRef` to `NodeId` for convenience.
-impl<'a, T: TreeNode + ?Sized> From<NodeRef<'a, T>> for NodeId {
+impl<'a, T: ArenaNode + ?Sized> From<NodeRef<'a, T>> for NodeId {
     fn from(node_ref: NodeRef<'a, T>) -> Self {
         node_ref.id()
     }
 }
 
-impl<'a, T: TreeNode + fmt::Display + ?Sized> fmt::Display for NodeRef<'a, T> {
+impl<'a, T: ArenaNode + fmt::Display + ?Sized> fmt::Display for NodeRef<'a, T> {
     /// Formats the `NodeRef` for display, showing the ID and the node's display output.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NodeRef {{ id: {:?}, node: {} }}", self.id, self.node)
@@ -71,12 +71,12 @@ impl<'a, T: TreeNode + fmt::Display + ?Sized> fmt::Display for NodeRef<'a, T> {
 ///
 /// The lifetime `'a` ensures the mutable reference is valid as long as the tree node exists.
 #[derive(Debug)]
-pub struct NodeRefMut<'a, T: TreeNode + ?Sized> {
+pub struct NodeRefMut<'a, T: ArenaNode + ?Sized> {
     id: NodeId,
     node: &'a mut T,
 }
 
-impl<'a, T: TreeNode + ?Sized> NodeRefMut<'a, T> {
+impl<'a, T: ArenaNode + ?Sized> NodeRefMut<'a, T> {
     /// Constructs a new mutable node reference from an ID and a mutable node reference.
     ///
     /// # Parameters
@@ -102,7 +102,7 @@ impl<'a, T: TreeNode + ?Sized> NodeRefMut<'a, T> {
     }
 }
 
-impl<'a, T: fmt::Display + TreeNode> fmt::Display for NodeRefMut<'a, T> {
+impl<'a, T: fmt::Display + ArenaNode> fmt::Display for NodeRefMut<'a, T> {
     /// Formats the mutable node reference for display.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "NodeRefMut {{ id: {:?}, node: {} }}", self.id, self.node)

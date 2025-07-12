@@ -1,6 +1,6 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::frontend::ParserInternalError;
-use crate::aiplan4rust::tree::{TreeArena, TreeNode};
+use crate::aiplan4rust::tree::{TreeArena, ArenaNode};
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;

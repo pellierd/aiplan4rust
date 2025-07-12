@@ -1,7 +1,7 @@
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::{ParseContext, ParserError};
-use crate::aiplan4rust::tree::{NodeId, TreeNode};
+use crate::aiplan4rust::tree::{NodeId, ArenaNode};
 use crate::aiplan4rust::syntax::grammar::PDDLParser;
 use crate::aiplan4rust::syntax::grammar::HDDLParser;
 use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError, Token};
