@@ -13,8 +13,9 @@ use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError};
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::{FastLineTable, Language, ParseContext, ParserError, ParserResult};
-use crate::aiplan4rust::syntax::ast::{validate, Ast};
+use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
+use crate::check_well_formed;
 
 /// Parses PDDL or HDDL source code into an abstract syntax tree (AST),
 /// while managing and reporting diagnostics (errors, warnings, notes).
@@ -155,12 +156,13 @@ impl<'a> Parser<'a> {
                     ast.init_span(&fast_line_table)?;
 
                     println!("{}", ast.to_string_with_interner());
-                    match validate(&ast) {
+                    match check_well_formed(&ast) {
                         Ok(()) => {
                             println!("Validation successful: no errors.");
                         }
                         Err(e) => {
                             println!("Validation failed:\n{}", e);
+
                         }
                     }
 
