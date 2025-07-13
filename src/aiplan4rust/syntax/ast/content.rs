@@ -46,7 +46,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 /// Represents semantic content associated with an AST syntax.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub enum Content {
     /// No content (default/empty syntax).
     #[default]

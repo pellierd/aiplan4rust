@@ -37,10 +37,6 @@ use std::fmt;
 /// - Supporting extensions like the HDDL dialect with tasks, methods, and constraints.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Kind {
-    /// Represents an absence of kind or uninitialized value.
-    #[default]
-    None,
-
     /// A constant value in the planning problem (literal or fixed value).
     Constant,
 
@@ -251,12 +247,13 @@ pub enum Kind {
     /// Parallel timing/duration.
     Parallel,
 
+    #[default]
     /// Represents an error or problem in domain/problem definition.
     Error,
 
-    //
+
     // HDDL Dialect Extensions
-    //
+
     /// Represents a task in HDDL.
     Task,
 
@@ -316,7 +313,6 @@ impl fmt::Display for Kind {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            Kind::None => "None",
             Kind::Constant => "Constant",
             Kind::Variable => "Variable",
             Kind::FunctionSymbol => "FunctionSymbol",
@@ -443,7 +439,6 @@ impl SyntaxDisplay for Kind {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         let s = match self {
-            Kind::None => "none",
             Kind::Constant => "",
             Kind::Variable => "",
             Kind::FunctionSymbol => "",

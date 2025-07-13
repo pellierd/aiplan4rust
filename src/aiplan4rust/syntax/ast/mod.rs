@@ -54,6 +54,7 @@ pub mod ast;
 
 pub mod node;
 pub mod renderer;
+pub mod validator;
 
 // Public re-exports
 pub use kind::Kind as AstKind;
@@ -63,3 +64,5 @@ pub use ast::Ast;
 pub use node::AstNode;
 
 pub use renderer::syntax::syntax::render_with_indent;
+
+pub use validator::validate;

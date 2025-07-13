@@ -336,9 +336,13 @@ pub Type: Result<NodeId, ParserInternalError> = {
 TypedList<T>: Result<NodeId, ParserInternalError> = {
     <start:@L> <elements:T*> <end:@R> => {
         let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
-        let typed_item_elt = context.alloc_node(AstKind::TypedItemElements, AstContent::None, elements, start, end);
-        let typed_item = context.alloc_node(AstKind::TypedItem, AstContent::None, vec![typed_item_elt?], start, end);
-        context.alloc_node(AstKind::TypedList, AstContent::None, vec![typed_item?], start, end)
+        if elements.is_empty() {
+            context.alloc_node(AstKind::TypedList, AstContent::None, vec![], start, end)
+        } else {
+            let typed_item_elt = context.alloc_node(AstKind::TypedItemElements, AstContent::None, elements, start, end);
+            let typed_item = context.alloc_node(AstKind::TypedItem, AstContent::None, vec![typed_item_elt?], start, end);
+            context.alloc_node(AstKind::TypedList, AstContent::None, vec![typed_item?], start, end)
+        }
     },
     <start:@L> <elements:T+> <end_elements:@R> "-" <ty:Type> <end_typed_item:@R> <next:TypedList<T>> <end:@R> => {
         let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;

@@ -201,15 +201,17 @@ impl ParseContext {
             std::mem::take(next_node.children_mut())
         };
 
-        // 2) Update parent references
-        for child in &next_children {
-            let child_node = arena.try_node_mut(*child)?;
-            child_node.set_parent(Some(typed_list));
-        }
+        if !next_children.is_empty() {
+            // 2) Update parent references
+            for child in &next_children {
+                let child_node = arena.try_node_mut(*child)?;
+                child_node.set_parent(Some(typed_list));
+            }
 
-        // 3) Append them to `typed_list`
-        let typed_list_node = arena.try_node_mut(typed_list)?;
-        typed_list_node.children_mut().extend(next_children);
+            // 3) Append them to `typed_list`
+            let typed_list_node = arena.try_node_mut(typed_list)?;
+            typed_list_node.children_mut().extend(next_children);
+        }
 
         Ok(typed_list)
     }
