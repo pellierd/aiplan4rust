@@ -193,7 +193,7 @@
 
 	(:action take_image
 		:parameters (?ti_s - satellite ?ti_d - image_direction ?ti_i - instrument ?ti_m - mode)
-		:precondition 
+		:precondition
 			(and
 				(calibrated ?ti_i)
 				(pointing ?ti_s ?ti_d)

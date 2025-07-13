@@ -40,45 +40,6 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-        /// Compacte l'arène en suivant l'ordre preorder_ids() et met la racine en index 0.
-        pub fn compact_from_preorder(&mut self) {
-            let preorder_iter = self.preorder_ids();
-
-            let mut new_arena = Arena {
-                nodes: Vec::with_capacity(self.nodes.len()),
-                root_id: None,
-            };
-
-            let mut old_to_new = std::collections::HashMap::new();
-
-            // 1) Cloner tous les noeuds, sans toucher aux enfants
-            for old_id in preorder_iter {
-                let old_node = &self.nodes[old_id.as_usize()];
-                let node = old_node.clone();
-                let new_id = new_arena.alloc(node);
-                old_to_new.insert(old_id, new_id);
-            }
-
-            // 2) Remapper les enfants après coup
-            for node in &mut new_arena.nodes {
-                let remapped_children: Vec<NodeId> = node
-                    .children()
-                    .iter()
-                    .map(|child_id| {
-                        old_to_new
-                            .get(child_id)
-                            .copied()
-                            .expect("All children should have been remapped")
-                    })
-                    .collect();
-                node.set_children(remapped_children);
-            }
-
-            new_arena.root_id = Some(NodeId::new(0));
-            *self = new_arena;
-        }
-
-
     pub fn is_empty(&self) -> bool {
         self.root_id.is_none()
     }

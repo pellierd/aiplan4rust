@@ -513,7 +513,6 @@ pub trait ArenaNode: Clone {
         )
     }
 
-
     /// Converts the syntax to a string using the specific syntax formatting without indentation.
     ///
     /// This simply calls `to_planning_syntax_with_indent` with an indent level of 0.
@@ -538,5 +537,20 @@ pub trait ArenaNode: Clone {
         Self: Sized,
     {
         self.to_syntax_with_indent(arena, interner, 0)
+    }
+}
+
+impl<N: ArenaNode> Arena<N>
+where
+    N::Kind: PartialEq + Copy,
+{
+    pub fn collect_nodes_of_kind(&self, kinds: &[N::Kind]) -> Vec<NodeId> {
+        let mut nodes = Vec::new();
+        for (id, node) in self.preorder_with_index() {
+            if kinds.contains(&node.kind()) {
+                nodes.push(id);
+            }
+        }
+        nodes
     }
 }

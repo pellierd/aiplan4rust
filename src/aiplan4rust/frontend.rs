@@ -166,8 +166,8 @@ impl Frontend {
 
                 match normalizer_result.take_ast() {
                     Some(mut normalized_ast) => {
-                        //println!("********************** NORMALIZED AST *************************");
-                        //println!("{}", normalized_ast.arena().try_root()?.to_planning_syntax(normalized_ast.arena(), normalized_ast.interner()));
+                        println!("********************** NORMALIZED AST *************************");
+                        println!("{}", normalized_ast.arena().try_root()?.to_syntax_string(normalized_ast.arena(), normalized_ast.interner()));
                         let interner = normalized_ast.interner();
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();

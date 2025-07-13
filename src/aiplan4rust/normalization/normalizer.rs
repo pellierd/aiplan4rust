@@ -133,6 +133,7 @@ impl Normalizer {
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
         passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
         passes::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;
+        passes::normalize_optional(&mut ast, &mut self.diagnostic_manager)?;
         Ok(NormalizerResult::new(Some(ast), std::mem::take(&mut self.diagnostic_manager)))
     }
 
