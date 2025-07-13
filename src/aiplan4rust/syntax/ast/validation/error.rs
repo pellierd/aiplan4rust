@@ -144,7 +144,7 @@ impl fmt::Display for ValidationError {
             ValidationError::MissingChildNode { child_id, parent } => {
                 write!(
                     f,
-                    "Missing child node with ID {:?} ({})",
+                    "Missing child node with ID {} ({})",
                     child_id,
                     parent_info(parent)
                 )
@@ -153,7 +153,7 @@ impl fmt::Display for ValidationError {
             ValidationError::UnexpectedNodeContent { found, node } => {
                 write!(
                     f,
-                    "Unexpected content in node: found {:?}, span={} ({})",
+                    "Unexpected content in node: found {}, span={} ({})",
                     found,
                     node.span(),
                     parent_info(node)
@@ -163,7 +163,7 @@ impl fmt::Display for ValidationError {
             ValidationError::InvalidNodeKind { found } => {
                 write!(
                     f,
-                    "Invalid node kind encountered: {:?}, span={} ({})",
+                    "Invalid node kind encountered: {}, span={} ({})",
                     found.kind(),
                     found.span(),
                     parent_info(found)

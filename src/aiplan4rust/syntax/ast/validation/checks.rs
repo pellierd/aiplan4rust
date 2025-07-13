@@ -49,6 +49,7 @@ pub const EXPRESSION: &[AstKind] = &[
     AstKind::HoldAfter,
     AstKind::TimedInitialLiteral,
     AstKind::TaggedTask,
+    AstKind::Task,
     AstKind::TaskOrderingConstraint,
 ];
 
@@ -208,6 +209,19 @@ pub fn get_node<'a>(
         }),
     }
 }
+
+/// Attempts to retrieve a child node by `node_id` from the `ast` arena.
+///
+/// # Errors
+/// Returns `WellFormedError::MissingChildNode` if the node is not found.
+pub fn get_child_node<'a>(
+    ast: &'a Ast,
+    parent: &AstNode,
+    child_index: usize,
+) -> Result<&'a AstNode, WellFormedError> {
+    get_node(ast, parent, parent.children()[child_index].as_usize())
+}
+
 
 /// Checks that *all* children of `parent` have kinds included in `expected_kinds`.
 ///

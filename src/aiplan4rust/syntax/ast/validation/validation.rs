@@ -188,12 +188,11 @@ pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         }
         AstKind::ActionDefBody => {
             checks::check_children_count_range(node.children().len(), 0, 2, node)?;
-
             match node.children().len() {
                 0 => Ok(()),
                 1 => {
                     // Un seul enfant, c’est forcément la précondition (indice 0)
-                    checks::check_child_kind(ast, node, 0, &[AstKind::PreconditionDef])
+                    checks::check_child_kind(ast, node, 0, &[AstKind::PreconditionDef, AstKind::EffectDef])
                 }
                 2 => {
                     // Deux enfants : 0 = précondition, 1 = effet
@@ -214,9 +213,19 @@ pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellForme
             checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
         }
         AstKind::MethodDefBody => {
-            checks::check_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Task])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::TaskNetworkDef])?;
+            checks::check_children_count_range(node.children().len(), 2, 3, node)?;
+            match node.children().len() {
+                2 => {
+                    checks::check_child_kind(ast, node, 0, &[AstKind::Task])?;
+                    checks::check_child_kind(ast, node, 1, &[AstKind::TaskNetworkDef])
+                }
+                3 => {
+                    checks::check_child_kind(ast, node, 0, &[AstKind::Task])?;
+                    checks::check_child_kind(ast, node, 1, &[AstKind::MethodPreconditionDef])?;
+                    checks::check_child_kind(ast, node, 2, &[AstKind::TaskNetworkDef])
+                }
+                _ => unreachable!(),
+            }?;
         }
         AstKind::Task => {
             checks::check_min_children_count(node.children().len(), 1, node)?;
@@ -314,7 +323,7 @@ pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         AstKind::Init => {
             checks::check_children_count(node.children().len(), 1, node)?;
             checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
-            let init_elements = checks::get_node(ast, node, 0)?;
+            let init_elements = checks::get_child_node(ast, node, 0)?;
             checks::check_all_children_kind(ast, init_elements, &[AstKind::TimedInitialLiteral, AstKind::FComp, AstKind::AtomicFormula, AstKind::Not])?;
             // Todo: check that not contains only atomic formula
         }
@@ -334,7 +343,7 @@ pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         | AstKind::PartiallyOrderedSubtaskDef => {
             checks::check_children_count(node.children().len(), 1, node)?;
             checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
-            let tasks = checks::get_node(ast, node, 0)?;
+            let tasks = checks::get_child_node(ast, node, 0)?;
             checks::check_all_children_kind(ast, tasks, &[AstKind::TaggedTask, AstKind::Task])?;
         }
         AstKind::TaggedTask => {
@@ -345,7 +354,7 @@ pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         AstKind::TaskOrderingConstraintDef => {
             checks::check_children_count(node.children().len(), 1, node)?;
             checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
-            let ordering = checks::get_node(ast, node, 0)?;
+            let ordering = checks::get_child_node(ast, node, 0)?;
             checks::check_all_children_kind(ast, ordering, &[AstKind::TaskOrderingConstraint])?;
         }
         AstKind::TaskOrderingConstraint => {
@@ -389,9 +398,17 @@ pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellForme
 
         }
         AstKind::InitialTaskNetwork => {
-            checks::check_children_count(node.children().len(),2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::ParametersDef])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::TaskNetworkDef])?;
+            checks::check_children_count_range(node.children().len(),1, 2, node)?;
+            match node.children().len() {
+                1 => {
+                    checks::check_child_kind(ast, node, 0, &[AstKind::TaskNetworkDef])
+                },
+                2 => {
+                    checks::check_child_kind(ast, node, 0, &[AstKind::ParametersDef])?;
+                    checks::check_child_kind(ast, node, 1, &[AstKind::TaskNetworkDef])
+                },
+                _ => { unreachable!() }
+            }?;
         }
         AstKind::TaskDef => {
             checks::check_children_count(node.children().len(),2, node)?;
