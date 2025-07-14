@@ -5,7 +5,7 @@ use std::path::Path;
 use test_case::test_case;
 
 mod common;
-use crate::common::io::collect_domain_files;
+use crate::common::io::{collect_domain_files, write_ast_to_file};
 use crate::common::io::read_file;
 use crate::common::io::write_diagnostics_to_file;
 use crate::common::io::delete_all_files_with_extension;
@@ -31,6 +31,8 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
 
     // Delete all existing .diag files before running the tests
     delete_all_files_with_extension(domain_dir, "diag");
+    // Delete all existing .ast files before running the tests
+    delete_all_files_with_extension(domain_dir, "ast");
 
     // Collect all domain files in the directory
     let files = collect_domain_files(domain_dir);
@@ -53,31 +55,29 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
         // Match on the parsing result
         match parse_result {
             Ok(parser_result) => {
-                // Check if AST is available from parsing
                 if let Some(ast) = parser_result.ast() {
-                    // Validate the well-formedness of the AST
                     match check_well_formed(ast) {
                         Ok(()) => {
                             eprintln!("Validation successful: no errors.");
-                            // Write diagnostics to corresponding `.diag` file
+                            // On success, write diagnostics only
                             write_diagnostics_to_file(parser_result.diagnostic_manager(), &file_path);
                         }
                         Err(e) => {
                             eprintln!("Validation failed:\n{}", e);
                             success = false;
+                            // On validation error, write diagnostics and AST
+                            write_diagnostics_to_file(parser_result.diagnostic_manager(), &file_path);
+                            write_ast_to_file(ast, &file_path);
                         }
                     }
                 } else {
-                    // No AST returned, parsing failed
-                    eprintln!(
-                        "Parsing failed (no syntax arena) for file {}",
-                        file_path.display()
-                    );
+                    eprintln!("Parsing failed (no AST) for file {}", file_path.display());
                     success = false;
+                    // No AST, write diagnostics only
+                    write_diagnostics_to_file(parser_result.diagnostic_manager(), &file_path);
                 }
             }
             Err(e) => {
-                // Parsing error occurred
                 eprintln!("Parsing error for file {}: {}", file_path.display(), e);
                 success = false;
             }

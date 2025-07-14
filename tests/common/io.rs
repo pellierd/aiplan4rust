@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
-use std::{fs, io};
+use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
+use aiplan4rust::aiplan4rust::syntax::ast::Ast;
+use aiplan4rust::Renderer;
+use chrono::Utc;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 use walkdir::WalkDir;
-use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
-use aiplan4rust::Renderer;
-use chrono::Utc;
-use aiplan4rust::aiplan4rust::syntax::ast::AstKind::PrimitiveType;
 
 /// Supported file extensions (case-insensitive).
 const SUPPORTED_EXTENSIONS: &[&str] = &["pddl", "hddl"];
@@ -28,7 +28,10 @@ const DOMAIN_SUFFIX_EXCLUSION: &str = "-domain";
 /// The file contents as a `String`.
 pub fn try_read_file(path: &Path) -> io::Result<String> {
     if !path.exists() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "File does not exist"));
+        return Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "File does not exist",
+        ));
     }
 
     let mut source = String::new();
@@ -65,7 +68,10 @@ pub fn try_collect_domain_files(domain_dir: &Path) -> io::Result<Vec<PathBuf>> {
     for entry in entries.filter_map(Result::ok) {
         let path = entry.path();
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            if SUPPORTED_EXTENSIONS.iter().any(|&s| s.eq_ignore_ascii_case(ext)) {
+            if SUPPORTED_EXTENSIONS
+                .iter()
+                .any(|&s| s.eq_ignore_ascii_case(ext))
+            {
                 files.push(path);
             }
         }
@@ -85,8 +91,13 @@ pub fn try_collect_domain_files(domain_dir: &Path) -> io::Result<Vec<PathBuf>> {
 /// # Returns
 /// A vector of `PathBuf`.
 pub fn collect_domain_files(domain_dir: &Path) -> Vec<PathBuf> {
-    try_collect_domain_files(domain_dir)
-        .unwrap_or_else(|e| panic!("Failed to collect domain files in {}: {}", domain_dir.display(), e))
+    try_collect_domain_files(domain_dir).unwrap_or_else(|e| {
+        panic!(
+            "Failed to collect domain files in {}: {}",
+            domain_dir.display(),
+            e
+        )
+    })
 }
 
 /// Filters a list of file paths to return only problem files.
@@ -114,7 +125,8 @@ pub fn collect_domain_files(domain_dir: &Path) -> Vec<PathBuf> {
 /// assert_eq!(problems, vec![PathBuf::from("pb001.hddl")]);
 /// ```
 pub fn filter_problem_files(files: &[PathBuf]) -> Vec<PathBuf> {
-    files.iter()
+    files
+        .iter()
         .filter(|p| {
             p.file_name()
                 .and_then(|f| f.to_str())
@@ -177,10 +189,7 @@ pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
 ///
 /// # Panics
 /// Panics if the `.diag` file cannot be created or written.
-pub fn write_diagnostics_to_file(
-    diagnostic_manager: &DiagnosticManager,
-    file_path: &Path,
-) {
+pub fn write_diagnostics_to_file(diagnostic_manager: &DiagnosticManager, file_path: &Path) {
     // Build the target .diag path
     let diag_path = file_path.with_extension("diag");
 
@@ -192,7 +201,7 @@ pub fn write_diagnostics_to_file(
     let timestamp = Utc::now();
     let header = format!(
         "********************************************************************************\n\
-         *                                DIAGNOSTIC REPORT                            *\n\
+         *                                DIAGNOSTIC REPORT                             *\n\
          ********************************************************************************\n\
          Generated for file: {}\n\
          Generated at UTC:  {}\n\
@@ -201,9 +210,12 @@ pub fn write_diagnostics_to_file(
         timestamp.to_rfc3339(),
     );
 
-    diag_file
-        .write_all(header.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write header to diag file: {}", diag_path.display()));
+    diag_file.write_all(header.as_bytes()).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write header to diag file: {}",
+            diag_path.display()
+        )
+    });
 
     // Render diagnostics into a buffer
     let mut buffer = Vec::new();
@@ -211,7 +223,49 @@ pub fn write_diagnostics_to_file(
         .expect("Failed to write diagnostics");
 
     // Write buffer contents into the file
-    diag_file
-        .write_all(&buffer)
-        .unwrap_or_else(|_| panic!("Failed to write diagnostics to diag file: {}", diag_path.display()));
+    diag_file.write_all(&buffer).unwrap_or_else(|_| {
+        panic!(
+            "Failed to write diagnostics to diag file: {}",
+            diag_path.display()
+        )
+    });
+}
+
+/// Writes the string representation of an AST to a `.ast` file next to the given path,
+/// including a prominent header with file info and timestamp.
+///
+/// # Arguments
+/// * `ast` - The AST to serialize as a string.
+/// * `file_path` - The original file path (the `.ast` file will be created with the same base name).
+/// * `interner` - The interner needed for `to_string_with_interner`.
+///
+/// # Panics
+/// Panics if the `.ast` file cannot be created or written.
+pub fn write_ast_to_file(ast: &Ast, file_path: &Path) {
+    let ast_path = file_path.with_extension("ast");
+
+    let mut ast_file = File::create(&ast_path)
+        .unwrap_or_else(|_| panic!("Failed to create ast file: {}", ast_path.display()));
+
+    let timestamp = Utc::now();
+    let header = format!(
+        "********************************************************************************\n\
+         *                                 AST OUTPUT                                   *\n\
+         ********************************************************************************\n\
+         Generated for file: {}\n\
+         Generated at UTC:  {}\n\
+         ********************************************************************************\n\n",
+        file_path.display(),
+        timestamp.to_rfc3339(),
+    );
+
+    ast_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write header to ast file: {}", ast_path.display()));
+
+    let ast_string = ast.to_string_with_interner();
+
+    ast_file
+        .write_all(ast_string.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write AST to ast file: {}", ast_path.display()));
 }
