@@ -5,7 +5,7 @@ use std::path::Path;
 use test_case::test_case;
 
 mod common;
-use crate::common::io::{collect_domain_files, write_ast_to_file};
+use crate::common::io::{collect_domain_files, write_ast_to_file, write_error_diagnostic_file};
 use crate::common::io::read_file;
 use crate::common::io::write_diagnostics_to_file;
 use crate::common::io::delete_all_files_with_extension;
@@ -29,64 +29,85 @@ use crate::common::io::delete_all_files_with_extension;
 pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
     let mut success = true;
 
-    // Delete all existing .diag files before running the tests
+    // Delete all .diag files before running tests
     delete_all_files_with_extension(domain_dir, "diag");
-    // Delete all existing .ast files before running the tests
+    // Delete all .ast files before running tests
     delete_all_files_with_extension(domain_dir, "ast");
 
-    // Collect all domain files in the directory
+    // Collect all domain files
     let files = collect_domain_files(domain_dir);
 
-    // Iterate over each file path
     for file_path in files {
-        // Read the content of the current file
+        // Read file content
         let content = read_file(&file_path);
 
-        // Create a new parser instance
+        // Create parser instance
         let mut parser = Parser::new();
 
-        // Attempt to parse the file content
+        // Parse file content
         let path_str = file_path
             .to_str()
             .expect("File path is not valid UTF-8");
 
         let parse_result = parser.parse(path_str, &content, language);
 
-        // Match on the parsing result
         match parse_result {
             Ok(parser_result) => {
                 if let Some(ast) = parser_result.ast() {
                     match check_well_formed(ast) {
                         Ok(()) => {
                             eprintln!("Validation successful: no errors.");
-                            // On success, write diagnostics only
-                            write_diagnostics_to_file(parser_result.diagnostic_manager(), &file_path);
+                            // On success, write diagnostics with context
+                            write_diagnostics_to_file(
+                                parser_result.diagnostic_manager(),
+                                &file_path,
+                                "Parser Tests: parsing success"
+                            );
                         }
                         Err(e) => {
                             eprintln!("Validation failed:\n{}", e);
                             success = false;
-                            // On validation error, write diagnostics and AST
-                            write_diagnostics_to_file(parser_result.diagnostic_manager(), &file_path);
-                            write_ast_to_file(ast, &file_path);
+                            // On validation error, write diagnostics and AST with context
+                            write_diagnostics_to_file(
+                                parser_result.diagnostic_manager(),
+                                &file_path,
+                                "Parser Tests: validation error"
+                            );
+                            write_ast_to_file(
+                                ast,
+                                &file_path,
+                                "Parser Tests: validation error"
+                            );
                         }
                     }
                 } else {
                     eprintln!("Parsing failed (no AST) for file {}", file_path.display());
                     success = false;
-                    // No AST, write diagnostics only
-                    write_diagnostics_to_file(parser_result.diagnostic_manager(), &file_path);
+                    // No AST, write diagnostics with context
+                    write_diagnostics_to_file(
+                        parser_result.diagnostic_manager(),
+                        &file_path,
+                        "Parser Tests: parsing failure (no AST)"
+                    );
                 }
             }
             Err(e) => {
                 eprintln!("Parsing error for file {}: {}", file_path.display(), e);
                 success = false;
+                // Write .diag manually for parsing error
+                write_error_diagnostic_file(
+                    &file_path,
+                    "Parser Tests: Parsing error",
+                    &e.to_string()
+                );
             }
         }
     }
 
-    // Return overall success status
     success
 }
+
+
 
 /// Tests the syntax correctness of all HDDL domain files in the specified directory.
 ///

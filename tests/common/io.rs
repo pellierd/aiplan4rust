@@ -189,46 +189,41 @@ pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
 ///
 /// # Panics
 /// Panics if the `.diag` file cannot be created or written.
-pub fn write_diagnostics_to_file(diagnostic_manager: &DiagnosticManager, file_path: &Path) {
-    // Build the target .diag path
+pub fn write_diagnostics_to_file(
+    diagnostic_manager: &DiagnosticManager,
+    file_path: &Path,
+    context: &str,
+) {
     let diag_path = file_path.with_extension("diag");
 
-    // Create the file
     let mut diag_file = File::create(&diag_path)
         .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
 
-    // Prepare a prominent header
     let timestamp = Utc::now();
     let header = format!(
         "********************************************************************************\n\
-         *                                DIAGNOSTIC REPORT                             *\n\
+         *                           DIAGNOSTIC REPORT                                  *\n\
          ********************************************************************************\n\
-         Generated for file: {}\n\
-         Generated at UTC:  {}\n\
+         Context: {}\n\
+         File:    {}\n\
+         UTC:     {}\n\
          ********************************************************************************\n\n",
+        context,
         file_path.display(),
         timestamp.to_rfc3339(),
     );
 
-    diag_file.write_all(header.as_bytes()).unwrap_or_else(|_| {
-        panic!(
-            "Failed to write header to diag file: {}",
-            diag_path.display()
-        )
-    });
+    diag_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write header to diag file: {}", diag_path.display()));
 
-    // Render diagnostics into a buffer
     let mut buffer = Vec::new();
     Renderer::write_to(diagnostic_manager, &mut buffer, false)
         .expect("Failed to write diagnostics");
 
-    // Write buffer contents into the file
-    diag_file.write_all(&buffer).unwrap_or_else(|_| {
-        panic!(
-            "Failed to write diagnostics to diag file: {}",
-            diag_path.display()
-        )
-    });
+    diag_file
+        .write_all(&buffer)
+        .unwrap_or_else(|_| panic!("Failed to write diagnostics to diag file: {}", diag_path.display()));
 }
 
 /// Writes the string representation of an AST to a `.ast` file next to the given path,
@@ -241,31 +236,92 @@ pub fn write_diagnostics_to_file(diagnostic_manager: &DiagnosticManager, file_pa
 ///
 /// # Panics
 /// Panics if the `.ast` file cannot be created or written.
-pub fn write_ast_to_file(ast: &Ast, file_path: &Path) {
+pub fn write_ast_to_file(ast: &Ast, file_path: &Path, context: &str) {
     let ast_path = file_path.with_extension("ast");
 
     let mut ast_file = File::create(&ast_path)
-        .unwrap_or_else(|_| panic!("Failed to create ast file: {}", ast_path.display()));
+        .unwrap_or_else(|_| panic!("Failed to create AST file: {}", ast_path.display()));
 
     let timestamp = Utc::now();
     let header = format!(
         "********************************************************************************\n\
-         *                                 AST OUTPUT                                   *\n\
+         *                                AST DUMP                                      *\n\
          ********************************************************************************\n\
-         Generated for file: {}\n\
-         Generated at UTC:  {}\n\
+         Context: {}\n\
+         File:    {}\n\
+         UTC:     {}\n\
          ********************************************************************************\n\n",
+        context,
         file_path.display(),
         timestamp.to_rfc3339(),
     );
 
     ast_file
         .write_all(header.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write header to ast file: {}", ast_path.display()));
+        .unwrap_or_else(|_| panic!("Failed to write header to AST file: {}", ast_path.display()));
 
-    let ast_string = ast.to_string_with_interner();
-
+    let ast_str = ast.to_string_with_interner();
     ast_file
-        .write_all(ast_string.as_bytes())
-        .unwrap_or_else(|_| panic!("Failed to write AST to ast file: {}", ast_path.display()));
+        .write_all(ast_str.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write AST to file: {}", ast_path.display()));
+}
+
+/// Writes a `.diag` file manually for fatal errors such as parsing or normalization failures.
+///
+/// This function is intended to handle critical errors where structured diagnostics (e.g., via a
+/// `DiagnosticManager`) may not be available—such as when the parser or normalizer crashes early
+/// and cannot return diagnostics in the usual format.
+///
+/// It creates a `.diag` file next to the original input file, containing:
+/// - A clear header labeled "DIAGNOSTIC REPORT"
+/// - The context (e.g., "Parsing error", "Normalization error")
+/// - The file path
+/// - A UTC timestamp
+/// - The error message itself
+///
+/// # Arguments
+///
+/// * `file_path` - The path to the original file that failed to process (used to derive `.diag` filename).
+/// * `context` - A short string describing the phase or nature of the error (e.g., "Parsing error").
+/// * `error_message` - A description of the error to be included in the report.
+///
+/// # Panics
+///
+/// Panics if the `.diag` file cannot be created or written to (e.g., due to file system errors).
+///
+/// # Example
+///
+/// ```rust
+/// use std::path::Path;
+///
+/// write_error_diagnostic_file(
+///     Path::new("examples/domain.pddl"),
+///     "Parsing error",
+///     "Unexpected token 'define' at line 1",
+/// );
+/// ```
+///
+/// This will create a file `examples/domain.diag` containing the error message and diagnostic context.
+pub fn write_error_diagnostic_file(file_path: &Path, context: &str, error_message: &str) {
+    let diag_path = file_path.with_extension("diag");
+    let mut diag_file = File::create(&diag_path)
+        .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
+    let timestamp = Utc::now();
+    let header = format!(
+        "********************************************************************************\n\
+         *                           DIAGNOSTIC REPORT                                  *\n\
+         ********************************************************************************\n\
+         Context: {}\n\
+         File:    {}\n\
+         UTC:     {}\n\
+         ********************************************************************************\n\n\
+         Error: {}\n",
+        context,
+        file_path.display(),
+        timestamp.to_rfc3339(),
+        error_message
+    );
+    diag_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write diagnostic file: {}", diag_path.display()));
 }

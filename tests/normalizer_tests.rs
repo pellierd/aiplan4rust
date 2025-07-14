@@ -3,7 +3,7 @@ use std::path::Path;
 use test_case::test_case;
 
 mod common;
-use crate::common::io::collect_domain_files;
+use crate::common::io::{collect_domain_files, delete_all_files_with_extension, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file};
 use crate::common::io::read_file;
 
 use aiplan4rust::aiplan4rust::diagnostic::Severity;
@@ -39,113 +39,121 @@ use aiplan4rust::{check_well_formed, Language, Normalizer, Parser};
 /// assert!(success);
 /// ```
 pub fn test_parse_and_normalize_all_files(domain_dir: &Path, language: &Language) -> bool {
-    // Initialize success flag to true; will be set to false if any error occurs
     let mut success = true;
 
-    // Collect all domain files (.pddl or .hddl) from the specified directory
+    // Delete all .diag files before running tests
+    delete_all_files_with_extension(domain_dir, "diag");
+    // Delete all .ast files before running tests
+    delete_all_files_with_extension(domain_dir, "ast");
+
+    // Collect all domain files
     let files = collect_domain_files(domain_dir);
 
-    // Iterate over each collected file path
     for file_path in files {
-        // Read the content of the current file
+        // Read file content
         let content = read_file(&file_path);
 
-        // Create a new parser instance
+        // Create parser instance
         let mut parser = Parser::new();
 
-        // Attempt to parse the file content
+        // Parse file content
         let path_str = file_path
             .to_str()
             .expect("File path is not valid UTF-8");
 
         let parse_result = parser.parse(path_str, &content, language);
 
-        // Handle the result of parsing
         match parse_result {
-            // If parsing was successful
             Ok(mut parser_result) => {
-                // Attempt to extract the raw AST from the parser result
                 if let Some(raw_ast) = parser_result.take_ast() {
-                    // Check that the raw AST is well-formed before normalization
+                    // Check raw AST well-formedness
                     if let Err(e) = check_well_formed(&raw_ast) {
-                        eprintln!(
-                            "Raw AST validation failed for {}:\n{}",
-                            file_path.display(),
-                            e
-                        );
-                        // Mark failure and continue to next file
+                        eprintln!("Raw AST validation failed for {}:\n{}", file_path.display(), e);
                         success = false;
+                        write_diagnostics_to_file(
+                            parser_result.diagnostic_manager(),
+                            &file_path,
+                            "Raw AST validation error"
+                        );
+                        write_ast_to_file(&raw_ast, &file_path, "Normalizer tests: Raw AST validation error");
                         continue;
                     }
 
-                    // Extract diagnostic manager from parser result
                     let diagnostic_manager = parser_result.take_diagnostic_manager();
-                    // Create a new normalizer instance
                     let mut normalizer = Normalizer::new();
 
-                    // Normalize the raw AST with diagnostics
-                    let normalize_result =
-                        normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager);
+                    let normalize_result = normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager);
 
-                    // Handle normalization result
                     match normalize_result {
                         Ok(mut normalizer_result) => {
-                            // Extract normalized AST if present
                             if let Some(normalized_ast) = normalizer_result.take_ast() {
-                                // Check that the normalized AST is well-formed
                                 if let Err(e) = check_well_normalized(&normalized_ast) {
-                                    eprintln!(
-                                        "Normalized AST validation failed for {}:\n{}",
-                                        file_path.display(),
-                                        e
-                                    );
+                                    eprintln!("Normalized AST validation failed for {}:\n{}", file_path.display(), e);
                                     eprintln!("{}", normalized_ast.to_string_with_interner());
-                                    // Mark failure
                                     success = false;
+                                    write_diagnostics_to_file(
+                                        normalizer_result.diagnostic_manager(),
+                                        &file_path,
+                                        "Normalizer tests: Normalized AST validation error"
+                                    );
+                                    write_ast_to_file(&normalized_ast, &file_path, "Normalizer tests: Normalized AST validation error");
+                                } else {
+                                    write_diagnostics_to_file(
+                                        normalizer_result.diagnostic_manager(),
+                                        &file_path,
+                                        "Normalizer tests: Normalization success"
+                                    );
                                 }
                             } else {
-                                // No normalized AST returned — mark failure
-                                eprintln!(
-                                    "No normalized AST returned for file {}",
-                                    file_path.display()
-                                );
+                                eprintln!("No normalized AST returned for file {}", file_path.display());
                                 success = false;
+                                write_diagnostics_to_file(
+                                    normalizer_result.diagnostic_manager(),
+                                    &file_path,
+                                    "Normalizer tests: Normalization failed (no AST)"
+                                );
                             }
-                            // Check diagnostic manager for any errors
+
                             let diag_mgr = normalizer_result.take_diagnostic_manager();
                             if diag_mgr.has_diagnostics_of_severity(Severity::Error) {
-                                eprintln!(
-                                    "Diagnostics errors found for file {}",
-                                    file_path.display()
-                                );
+                                eprintln!("Diagnostics errors found for file {}", file_path.display());
                                 success = false;
                             }
                         }
-                        // Normalization failed — log and mark failure
                         Err(e) => {
-                            eprintln!(
-                                "Normalization error for file {}: {}",
-                                file_path.display(),
-                                e
-                            );
+                            eprintln!("Normalization error for file {}: {}", file_path.display(), e);
                             success = false;
+                            // Write .diag manually for normalization error
+                            write_error_diagnostic_file(
+                                &file_path,
+                                "Normalizer tests: Normalization error",
+                                &e.to_string()
+                            );
                         }
                     }
                 } else {
-                    // Parsing succeeded but no AST was produced — mark failure
                     eprintln!("Parsing failed (no AST) for file {}", file_path.display());
                     success = false;
+                    write_diagnostics_to_file(
+                        parser_result.diagnostic_manager(),
+                        &file_path,
+                        "Normalizer tests: Parsing failed (no AST)"
+                    );
                 }
             }
-            // Parsing failed — log error and mark failure
             Err(e) => {
                 eprintln!("Parsing error for file {}: {}", file_path.display(), e);
                 success = false;
+                // Write .diag manually for parsing error
+                write_error_diagnostic_file(
+                    &file_path,
+                    "Normalizer tests: Parsing error",
+                    &e.to_string()
+                );
             }
         }
     }
 
-    // Return overall success status (true if all files passed)
     success
 }
 
