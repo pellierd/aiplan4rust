@@ -54,7 +54,7 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::arena::{Arena, NodeId};
+use crate::aiplan4rust::arena::{Arena, ArenaNode, NodeId};
 use crate::aiplan4rust::frontend::ParserInternalError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -329,6 +329,31 @@ impl Ast {
 
         buf
     }
+    
+    /// Converts an AST node to its syntax string representation using this AST's arena and interner.
+    ///
+    /// # Arguments
+    /// * `node` - The `AstNode` to convert.
+    ///
+    /// # Returns
+    /// A string representing the node's syntax (i.e., how it appears in the source).
+    pub fn to_syntax_string_from(&self, node: &AstNode) -> String {
+        // Delegate to the node's `to_syntax_string` method with the current arena and interner
+        node.to_syntax_string(self.arena(), self.interner())
+    }
+
+    /// Converts an AST node to a string using the interner for resolving identifiers.
+    ///
+    /// # Arguments
+    /// * `node` - The `AstNode` to convert.
+    ///
+    /// # Returns
+    /// A string with interned names resolved for better readability.
+    pub fn to_string_interner_from(&self, node: &AstNode) -> String {
+        // Delegate to the node's `to_string_with_interner` method with the current arena and interner
+        node.to_string_with_interner(self.arena(), self.interner())
+    }
+
 }
 
 impl fmt::Display for Ast {
