@@ -329,7 +329,7 @@ impl Ast {
 
         buf
     }
-    
+
     /// Converts an AST node to its syntax string representation using this AST's arena and interner.
     ///
     /// # Arguments

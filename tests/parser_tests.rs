@@ -1,11 +1,14 @@
-use aiplan4rust::{check_well_formed, Language, Parser};
-use std::io::Read;
+use std::fs::File;
+use aiplan4rust::{check_well_formed, Language, Parser, Renderer};
+use std::io::{Read, Write};
 use std::path::Path;
 use test_case::test_case;
 
 mod common;
 use crate::common::io::collect_domain_files;
 use crate::common::io::read_file;
+use crate::common::io::write_diagnostics_to_file;
+use crate::common::io::delete_all_files_with_extension;
 
 /// Attempts to parse all domain files in the given directory for the specified language.
 ///
@@ -25,6 +28,10 @@ use crate::common::io::read_file;
 /// * `false` if any file fails to parse or validate.
 pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
     let mut success = true;
+
+    // Delete all existing .diag files before running the tests
+    delete_all_files_with_extension(domain_dir, "diag");
+
     // Collect all domain files in the directory
     let files = collect_domain_files(domain_dir);
 
@@ -51,7 +58,9 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
                     // Validate the well-formedness of the AST
                     match check_well_formed(ast) {
                         Ok(()) => {
-                            println!("Validation successful: no errors.");
+                            eprintln!("Validation successful: no errors.");
+                            // Write diagnostics to corresponding `.diag` file
+                            write_diagnostics_to_file(parser_result.diagnostic_manager(), &file_path);
                         }
                         Err(e) => {
                             eprintln!("Validation failed:\n{}", e);

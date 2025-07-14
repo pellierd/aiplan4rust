@@ -1,6 +1,14 @@
+#![allow(dead_code)]
+
 use std::{fs, io};
-use std::io::Read;
+use std::fs::File;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+use walkdir::WalkDir;
+use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
+use aiplan4rust::Renderer;
+use chrono::Utc;
+use aiplan4rust::aiplan4rust::syntax::ast::AstKind::PrimitiveType;
 
 /// Supported file extensions (case-insensitive).
 const SUPPORTED_EXTENSIONS: &[&str] = &["pddl", "hddl"];
@@ -135,4 +143,75 @@ pub fn get_file_stem_as_string(path: &Path) -> String {
 pub fn try_get_file_stem_as_string(path: &Path) -> Option<String> {
     path.file_stem()
         .map(|stem| stem.to_string_lossy().to_string())
+}
+
+/// Recursively deletes all files with the given extension under the specified directory.
+///
+/// # Arguments
+/// * `root_dir` - The root directory to start the search.
+/// * `extension` - The extension to match (e.g., "diag").
+pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
+    for entry in WalkDir::new(root_dir)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+    {
+        let path = entry.path();
+        if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
+            if ext == extension {
+                match fs::remove_file(path) {
+                    Ok(_) => println!("Deleted: {}", path.display()),
+                    Err(e) => eprintln!("Failed to delete {}: {}", path.display(), e),
+                }
+            }
+        }
+    }
+}
+
+/// Writes the diagnostics to a `.diag` file next to the given path,
+/// including a prominent header indicating which test produced it and the timestamp.
+///
+/// # Arguments
+/// * `diagnostic_manager` - The diagnostic manager to render.
+/// * `file_path` - The path of the file for which diagnostics are produced.
+///
+/// # Panics
+/// Panics if the `.diag` file cannot be created or written.
+pub fn write_diagnostics_to_file(
+    diagnostic_manager: &DiagnosticManager,
+    file_path: &Path,
+) {
+    // Build the target .diag path
+    let diag_path = file_path.with_extension("diag");
+
+    // Create the file
+    let mut diag_file = File::create(&diag_path)
+        .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
+
+    // Prepare a prominent header
+    let timestamp = Utc::now();
+    let header = format!(
+        "********************************************************************************\n\
+         *                                DIAGNOSTIC REPORT                            *\n\
+         ********************************************************************************\n\
+         Generated for file: {}\n\
+         Generated at UTC:  {}\n\
+         ********************************************************************************\n\n",
+        file_path.display(),
+        timestamp.to_rfc3339(),
+    );
+
+    diag_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write header to diag file: {}", diag_path.display()));
+
+    // Render diagnostics into a buffer
+    let mut buffer = Vec::new();
+    Renderer::write_to(diagnostic_manager, &mut buffer, false)
+        .expect("Failed to write diagnostics");
+
+    // Write buffer contents into the file
+    diag_file
+        .write_all(&buffer)
+        .unwrap_or_else(|_| panic!("Failed to write diagnostics to diag file: {}", diag_path.display()));
 }
