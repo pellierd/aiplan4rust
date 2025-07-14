@@ -247,7 +247,7 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
             syntax::checks::check_binary_child_expression(ast, node)
         }
         AstKind::Forall | AstKind::Exists => {
-            syntax::checks::check_quantifier_expression(ast, node)
+            syntax::checks::check_quantified_expression(ast, node)
         }
         AstKind::Preference => {
             syntax::checks::check_preference_expression(ast, node)

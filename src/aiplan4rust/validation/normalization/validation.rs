@@ -1,48 +1,102 @@
+//! This module provides functions to validate that an Abstract Syntax Tree (AST)
+//! is *well normalized*. Well normalization means the AST nodes conform to
+//! additional structural and semantic rules beyond basic well-formedness.
+//!
+//! It performs recursive checks starting from the root node, traversing all descendants,
+//! and delegates node-specific validations to appropriate submodules (`normalization::checks`
+//! or `syntax::checks`).
+//!
+//! # Overview of Provided Functions
+//!
+//! - [`is_well_normalized`]: Entry point to check if the entire AST is well normalized.
+//! - [`check_well_normalized`]: Alias of `is_well_normalized`, provided for naming consistency.
+//! - [`check_well_normalized_from`]: Recursively validates a subtree starting at a specified node.
+//! - [`check_well_normalized_node`]: Validates a single node by dispatching to normalization or syntax checks.
+//!
+//! # Error Handling
+//!
+//! Returns [`WellNormalizedError`] if any node violates normalization criteria.
+//!
+//! # Usage
+//!
+//! Typically, call [`is_well_normalized`] on a fully constructed AST to verify normalization
+//! before further processing or compilation.
+//!
+//! [`is_well_normalized`]: fn.is_well_normalized.html
+//! [`check_well_normalized`]: fn.check_well_normalized.html
+//! [`check_well_normalized_from`]: fn.check_well_normalized_from.html
+//! [`check_well_normalized_node`]: fn.check_well_normalized_node.html
+//! [`WellNormalizedError`]: ../common/struct.WellNormalizedError.html
+
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::common::{checks, WellNormalizedError};
-use crate::aiplan4rust::validation::{common, syntax};
+use crate::aiplan4rust::validation::{common, normalization, syntax};
 
+/// Checks if the entire AST is well normalized by validating from the root node.
+/// Returns an error if any node or subtree violates normalization constraints.
+///
+/// # Arguments
+///
+/// * `ast` - The AST to validate.
+///
+/// # Returns
+///
+/// * `Ok(())` if the AST is well normalized.
+/// * `Err(WellNormalizedError)` if any normalization rule is violated.
 pub fn is_well_normalized(ast: &Ast) -> Result<(), WellNormalizedError> {
     match ast.arena().root_node() {
         Some(root) => check_well_normalized_from(root, ast),
-        None => Ok(()), // No root node means empty tree which can be considered well-formed
+        None => Ok(()), // An empty AST is considered well normalized.
     }
 }
 
+/// Alias of [`is_well_normalized`].
 pub fn check_well_normalized(ast: &Ast) -> Result<(), WellNormalizedError> {
-    match ast.arena().root_node() {
-        Some(root) => check_well_normalized_from(root, ast),
-        None => Ok(()),
-    }
+    is_well_normalized(ast)
 }
 
+/// Recursively checks that the subtree rooted at `node` is well normalized.
+///
+/// # Arguments
+///
+/// * `node` - The root node of the subtree to validate.
+/// * `ast` - The full AST containing the node.
+///
+/// # Returns
+///
+/// * `Ok(())` if the subtree is well normalized.
+/// * `Err(WellNormalizedError)` if any node violates normalization rules.
 pub fn check_well_normalized_from(node: &AstNode, ast: &Ast) -> Result<(), WellNormalizedError> {
     check_well_normalized_node(node, ast)?;
     for child_id in node.children() {
         let child_node = checks::get_node(ast, node, child_id.as_usize())?;
         check_well_normalized_from(child_node, ast)?;
     }
-
     Ok(())
 }
 
+/// Validates that the given AST node conforms to the normalization rules.
+///
+/// This function dispatches to normalization-specific checks for certain node kinds,
+/// delegates to syntax checks for quantifier expressions,
+/// invalidates explicitly forbidden node kinds,
+/// and falls back to standard syntax validation for all other nodes.
+///
+/// # Arguments
+/// * `node` - The AST node to validate.
+/// * `ast` - The whole AST context.
+///
+/// # Returns
+/// * `Ok(())` if the node passes normalization checks.
+/// * `Err(WellNormalizedError)` if any check fails.
 pub fn check_well_normalized_node(node: &AstNode, ast: &Ast) -> Result<(), WellNormalizedError> {
     match node.kind() {
-        AstKind::TypesDef => {
-            syntax::checks::check_types_def(ast, node)
-        }
-        AstKind::TypedList => {
-            syntax::checks::check_typed_list(ast, node)
-        }
-        AstKind::TypedItem => {
-            syntax::checks::check_typed_item(ast, node)
-        }
-        AstKind::TypedItemElements => {
-            syntax::checks::check_typed_item_elements(ast, node)
-        }
-        _ => {
-            syntax::validation::check_well_formed_node(node, ast)
-        }
+        AstKind::TypesDef => normalization::checks::check_types_def(ast, node),
+        AstKind::TypedItem => normalization::checks::check_typed_item(ast, node),
+        AstKind::ParametersDef => normalization::checks::check_parameters_def(ast, node),
+        AstKind::Forall | AstKind::Exists => syntax::checks::check_quantified_expression(ast, node),
+        AstKind::TypedItemElements => common::checks::throw_invalid(node),
+        _ => syntax::validation::check_well_formed_node(node, ast),
     }
 }

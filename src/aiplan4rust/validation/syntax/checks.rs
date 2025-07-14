@@ -332,7 +332,6 @@ pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedE
     common::checks::check_children_count(children_len, 1, node)?;
     let typed_list = common::checks::get_child_node(ast, node, 0)?;
     check_typed_list_of(ast, typed_list, &[AstKind::Variable])
-
 }
 
 /// Checks that the given node of kind `MethodDefBody` has between 2 and 3 children,
@@ -502,7 +501,7 @@ pub fn check_binary_child_expression(ast: &Ast, node: &AstNode) -> Result<(), We
 /// # Errors
 /// Returns an error if the node does not have at least two children,
 /// or if the children do not have the expected kinds.
-pub fn check_quantifier_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
+pub fn check_quantified_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.children().len();
     common::checks::check_min_children_count(children_len, 2, node)?;
     let typed_list = common::checks::get_child_node(ast, node, 0)?;
