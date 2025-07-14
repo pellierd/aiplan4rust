@@ -1,12 +1,11 @@
-use std::fs::File;
-use aiplan4rust::{check_well_formed, Language, Parser, Renderer};
+use aiplan4rust::Language;
 use std::io::{Read, Write};
 use std::path::Path;
 use test_case::test_case;
 
 mod common;
-use crate::common::io::{collect_domain_files, write_ast_to_file, write_error_diagnostic_file};
-use crate::common::io::read_file;
+use crate::common::io::collect_domain_files;
+use crate::common::pipeline::parse_and_check_ast;
 use crate::common::io::write_diagnostics_to_file;
 use crate::common::io::delete_all_files_with_extension;
 
@@ -29,85 +28,30 @@ use crate::common::io::delete_all_files_with_extension;
 pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
     let mut success = true;
 
-    // Delete all .diag files before running tests
     delete_all_files_with_extension(domain_dir, "diag");
-    // Delete all .ast files before running tests
     delete_all_files_with_extension(domain_dir, "ast");
 
-    // Collect all domain files
     let files = collect_domain_files(domain_dir);
 
     for file_path in files {
-        // Read file content
-        let content = read_file(&file_path);
-
-        // Create parser instance
-        let mut parser = Parser::new();
-
-        // Parse file content
-        let path_str = file_path
-            .to_str()
-            .expect("File path is not valid UTF-8");
-
-        let parse_result = parser.parse(path_str, &content, language);
-
-        match parse_result {
-            Ok(parser_result) => {
-                if let Some(ast) = parser_result.ast() {
-                    match check_well_formed(ast) {
-                        Ok(()) => {
-                            eprintln!("Validation successful: no errors.");
-                            // On success, write diagnostics with context
-                            write_diagnostics_to_file(
-                                parser_result.diagnostic_manager(),
-                                &file_path,
-                                "Parser Tests: parsing success"
-                            );
-                        }
-                        Err(e) => {
-                            eprintln!("Validation failed:\n{}", e);
-                            success = false;
-                            // On validation error, write diagnostics and AST with context
-                            write_diagnostics_to_file(
-                                parser_result.diagnostic_manager(),
-                                &file_path,
-                                "Parser Tests: validation error"
-                            );
-                            write_ast_to_file(
-                                ast,
-                                &file_path,
-                                "Parser Tests: validation error"
-                            );
-                        }
-                    }
-                } else {
-                    eprintln!("Parsing failed (no AST) for file {}", file_path.display());
-                    success = false;
-                    // No AST, write diagnostics with context
-                    write_diagnostics_to_file(
-                        parser_result.diagnostic_manager(),
-                        &file_path,
-                        "Parser Tests: parsing failure (no AST)"
-                    );
-                }
-            }
-            Err(e) => {
-                eprintln!("Parsing error for file {}: {}", file_path.display(), e);
-                success = false;
-                // Write .diag manually for parsing error
-                write_error_diagnostic_file(
+        match parse_and_check_ast(&file_path, language) {
+            Some((raw_ast, diagnostic_manager)) => {
+                // parsing and AST check succeeded
+                write_diagnostics_to_file(
+                    &diagnostic_manager,
                     &file_path,
-                    "Parser Tests: Parsing error",
-                    &e.to_string()
+                    "Parser Tests: parsing success",
                 );
+            }
+            None => {
+                // parse_and_check_raw_ast already handled error reporting
+                success = false;
             }
         }
     }
 
     success
 }
-
-
 
 /// Tests the syntax correctness of all HDDL domain files in the specified directory.
 ///

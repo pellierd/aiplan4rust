@@ -9,6 +9,8 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 use walkdir::WalkDir;
+use aiplan4rust::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use aiplan4rust::aiplan4rust::semantic::SymbolTable;
 
 /// Supported file extensions (case-insensitive).
 const SUPPORTED_EXTENSIONS: &[&str] = &["pddl", "hddl"];
@@ -324,4 +326,67 @@ pub fn write_error_diagnostic_file(file_path: &Path, context: &str, error_messag
     diag_file
         .write_all(header.as_bytes())
         .unwrap_or_else(|_| panic!("Failed to write diagnostic file: {}", diag_path.display()));
+}
+
+/// Dumps the contents of a `SymbolTable` to a `.symtab` file adjacent to the given source file.
+///
+/// This function writes a human-readable representation of the symbol table, including a header
+/// with context information and a UTC timestamp. The file will have the same base name as the input
+/// `file_path`, but with a `.symtab` extension.
+///
+/// # Arguments
+///
+/// * `symbol_table` - A reference to the `SymbolTable` to be dumped.
+/// * `file_path` - The path to the source file for which the symbol table is associated.
+/// * `context` - A string describing the context (e.g., "Analyzer error", "Test run").
+/// * `interner` - A reference to the `Interner` used to resolve symbol names.
+///
+/// # Panics
+///
+/// This function will panic if:
+/// - The file cannot be created.
+/// - The header or symbol table contents cannot be written.
+///
+/// # Example
+///
+/// ```rust
+/// let symbol_table = SymbolTable::new();
+/// let interner = Interner::new();
+/// let path = Path::new("tests/example/input_file");
+/// write_symbol_table_to_file(&symbol_table, &path, "Unit test symbol table dump", &interner);
+/// ```
+///
+pub fn write_symbol_table_to_file(
+    symbol_table: &SymbolTable,
+    file_path: &Path,
+    context: &str,
+    interner: &StringInterner,
+) {
+    let symtab_path = file_path.with_extension("symtab");
+
+    let mut symtab_file = File::create(&symtab_path)
+        .unwrap_or_else(|_| panic!("Failed to create symbol table file: {}", symtab_path.display()));
+
+    let timestamp = Utc::now();
+    let header = format!(
+        "********************************************************************************\n\
+         *                             SYMBOL TABLE DUMP                                *\n\
+         ********************************************************************************\n\
+         Context: {}\n\
+         File:    {}\n\
+         UTC:     {}\n\
+         ********************************************************************************\n\n",
+        context,
+        file_path.display(),
+        timestamp.to_rfc3339(),
+    );
+
+    symtab_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write header to symbol table file: {}", symtab_path.display()));
+
+    let symtab_str = symbol_table.to_string_with_interner(interner);
+    symtab_file
+        .write_all(symtab_str.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write symbol table to file: {}", symtab_path.display()));
 }

@@ -99,6 +99,11 @@ impl AnalyzerResult {
         &mut self.diagnostic_manager
     }
 
+    /// Takes ownership of the diagnostic manager, leaving an empty one in its place.
+    pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
+        std::mem::take(&mut self.diagnostic_manager)
+    }
+
     /// Checks whether an annotated syntax arena is present.
     ///
     /// # Returns

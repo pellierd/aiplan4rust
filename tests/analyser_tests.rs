@@ -1,105 +1,53 @@
-use std::io::Read;
+mod common;
+
 use std::path::Path;
+use aiplan4rust::{Language};
+use crate::common::io::{collect_domain_files};
+use crate::common::io::delete_all_files_with_extension;
+use crate::common::pipeline::{analyze_ast, normalize_and_check_ast, parse_and_check_ast};
 use test_case::test_case;
 
-mod common;
-use crate::common::io::{collect_domain_files, delete_all_files_with_extension};
-use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
-use aiplan4rust::Language;
-
-/// Integration test for parser + normalizer on all files in a directory.
-///
-/// Iterates over all domain files in the specified directory, performing:
-/// 1. Parsing each file.
-/// 2. Validating the well-formedness of the raw AST.
-/// 3. Normalizing the AST.
-/// 4. Validating the well-normalized AST.
-/// 5. Checking for diagnostics errors.
-///
-/// Returns `true` if parsing and normalization succeed without critical errors for all files,
-/// otherwise returns `false`.
-///
-/// # Arguments
-///
-/// * `domain_dir` - Path to the directory containing domain files to test.
-/// * `language` - The language used for parsing.
-///
-/// # Errors
-///
-/// Instead of panicking, this function logs errors and continues processing all files,
-/// aggregating success/failure.
-///
-/// # Examples
-///
-/// ```
-/// let success = test_parse_and_normalize_all_files(Path::new("tests/integration/hddl/ipc20/partial-order/barman-bdi"), &Language::HDDL);
-/// assert!(success);
-/// ```
-pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool {
+pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
     let mut success = true;
 
-    // Delete all existing .diag files
+    // Clean up old .diag and .ast files
     delete_all_files_with_extension(domain_dir, "diag");
-    // Delete all existing .ast files
     delete_all_files_with_extension(domain_dir, "ast");
 
-    // Collect all domain files to test
+    // Collect all domain files
     let files = collect_domain_files(domain_dir);
 
     for file_path in files {
-        // Parse and validate the raw AST from the file
+        // Parse and check raw AST
         let (raw_ast, diagnostic_manager) = match parse_and_check_ast(&file_path, language) {
             Some(result) => result,
             None => {
                 success = false;
-                continue; // Skip to the next file if parsing failed
+                continue;
             }
         };
 
-        // Normalize and validate the AST
-        if normalize_and_check_ast(raw_ast, diagnostic_manager, &file_path).is_none() {
+        // Normalize and check AST
+        let (normalized_ast, diagnostic_manager) =
+            match normalize_and_check_ast(raw_ast, diagnostic_manager, &file_path) {
+                Some(result) => result,
+                None => {
+                    success = false;
+                    continue;
+                }
+            };
+
+        // Analyze AST
+        if analyze_ast(normalized_ast, diagnostic_manager, &file_path).is_none() {
             success = false;
-            continue; // Skip to the next file if normalization failed
+            continue;
         }
 
-        // If we reach here, the file passed all tests (nothing to do)
+        // All steps succeeded, nothing more to do
     }
 
     success
 }
-
-
-/// Combined parser + normalizer integration test on an HDDL directory.
-///
-/// This test iterates over all files in the given `domain_path` directory
-/// corresponding to HDDL domains and performs for each file:
-///
-/// 1. Parsing the file.
-/// 2. Checking the validity of the raw AST.
-/// 3. Normalizing the AST.
-/// 4. Checking the validity of the normalized AST.
-///
-/// The test fails (panics) if any error occurs during any of these steps,
-/// indicating a problem in the parser + normalizer pipeline.
-///
-/// # Arguments
-///
-/// * `domain_path` - Path to a directory containing HDDL domain files.
-///
-/// # Examples
-///
-/// ```
-/// test_hddl_normalizer("tests/integration/hddl/ipc20/partial-order/barman-bdi");
-/// ```
-///
-/// # Notes
-///
-/// The test is automatically invoked for multiple predefined test directories
-/// via the `#[test_case]` attributes.
-///
-/// # Panics
-///
-/// Panics if parsing or normalization fails for any file.
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/colouring"; "ipc20_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]
@@ -135,11 +83,11 @@ pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool
 #[test_case("tests/integration/hddl/ipc20/total-order/towers"; "ipc20_total_order_towers")]
 #[test_case("tests/integration/hddl/ipc20/total-order/transport"; "ipc20_total_order_transport")]
 #[test_case("tests/integration/hddl/ipc20/total-order/woodworking"; "ipc20_total_order_woodworking")]
-pub fn test_hddl_normalizer(domain_path: &str) {
+pub fn test_hddl_analyzer(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
-        test_normalizer_all_files(path, &Language::HDDL),
-        "Parser + Normalizer integration test failed for directory {}",
+        test_analyser_all_files(path, &Language::HDDL),
+        "Parsing test failed for directory {}",
         domain_path
     );
 }
