@@ -1,98 +1,54 @@
-use std::{fs, io};
+use aiplan4rust::{check_well_formed, Language, Parser};
 use std::io::Read;
 use std::path::Path;
-use std::path::PathBuf;
 use test_case::test_case;
 
-use aiplan4rust::{check_well_formed, Language, Parser};
+mod common;
+use crate::common::io::collect_domain_files;
+use crate::common::io::read_file;
 
-/// Collects all `.pddl` or `.hddl` files from the specified directory.
+/// Attempts to parse all domain files in the given directory for the specified language.
+///
+/// Iterates over each file collected from `domain_dir`, reads its content, parses it,
+/// and validates the well-formedness of the resulting AST.
+///
+/// Returns `true` if all files are parsed and validated successfully, `false` otherwise.
 ///
 /// # Arguments
 ///
-/// * `domain_dir` - A reference to a path representing the directory to search.
+/// * `domain_dir` - Path to the directory containing domain files.
+/// * `language` - Language context to use for parsing.
 ///
 /// # Returns
 ///
-/// A `Result` containing a vector of `PathBuf` if successful, or an `io::Error`.
-pub fn collect_domain_files(domain_dir: &Path) -> io::Result<Vec<PathBuf>> {
-    let entries = fs::read_dir(domain_dir)?;
-
-    let mut files = Vec::new();
-    for entry in entries.filter_map(Result::ok) {
-        let path = entry.path();
-        if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-            if ext.eq_ignore_ascii_case("pddl") || ext.eq_ignore_ascii_case("hddl") {
-                files.push(path);
-            }
-        }
-    }
-
-    Ok(files)
-}
-
-/// Reads the content of a file into a string.
-///
-/// # Arguments
-///
-/// * `path` - A reference to the file path to be read.
-///
-/// # Returns
-///
-/// A `Result` containing the file's content as a `String`, or an `io::Error`.
-pub fn read_file(path: &Path) -> io::Result<String> {
-    if !path.exists() {
-        return Err(io::Error::new(io::ErrorKind::NotFound, "File does not exist"));
-    }
-
-    let mut source = String::new();
-    let mut file = fs::File::open(path)?;
-    file.read_to_string(&mut source)?;
-    Ok(source)
-}
-
-/// Parses all PDDL or HDDL files in a directory using the given language syntax.
-///
-/// # Arguments
-///
-/// * `domain_dir` - A reference to the directory containing the domain files.
-/// * `language` - The language to use for parsing (`Language::PDDL` or `Language::HDDL`).
-///
-/// # Returns
-///
-/// A `bool` indicating whether all files were parsed successfully.
+/// * `true` if parsing and validation succeed for all files.
+/// * `false` if any file fails to parse or validate.
 pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
-    let files = match collect_domain_files(domain_dir) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("Failed to collect domain files: {}", e);
-            return false;
-        }
-    };
-
     let mut success = true;
+    // Collect all domain files in the directory
+    let files = collect_domain_files(domain_dir);
 
+    // Iterate over each file path
     for file_path in files {
-        let content = match read_file(&file_path) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Failed to read file {}: {}", file_path.display(), e);
-                success = false;
-                continue;
-            }
-        };
+        // Read the content of the current file
+        let content = read_file(&file_path);
 
+        // Create a new parser instance
         let mut parser = Parser::new();
 
-        let parse_result = parser.parse(
-            file_path.to_str().unwrap_or_default(),
-            &content,
-            language,
-        );
+        // Attempt to parse the file content
+        let path_str = file_path
+            .to_str()
+            .expect("File path is not valid UTF-8");
 
+        let parse_result = parser.parse(path_str, &content, language);
+
+        // Match on the parsing result
         match parse_result {
             Ok(parser_result) => {
+                // Check if AST is available from parsing
                 if let Some(ast) = parser_result.ast() {
+                    // Validate the well-formedness of the AST
                     match check_well_formed(ast) {
                         Ok(()) => {
                             println!("Validation successful: no errors.");
@@ -103,23 +59,46 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
                         }
                     }
                 } else {
-                    eprintln!("Parsing failed (no syntax arena) for file {}", file_path.display());
+                    // No AST returned, parsing failed
+                    eprintln!(
+                        "Parsing failed (no syntax arena) for file {}",
+                        file_path.display()
+                    );
                     success = false;
                 }
             }
             Err(e) => {
+                // Parsing error occurred
                 eprintln!("Parsing error for file {}: {}", file_path.display(), e);
                 success = false;
             }
         }
     }
 
+    // Return overall success status
     success
 }
 
-/// Test the syntax on a set of HDDL domains.
+/// Tests the syntax correctness of all HDDL domain files in the specified directory.
 ///
-/// The function verifies that all files in the domain are successfully parsed.
+/// This function iterates over all files in the given `domain_path` that belong to HDDL domains,
+/// and attempts to parse each one.
+///
+/// The test will fail if any file fails to parse successfully, indicating a syntax error or parsing issue.
+///
+/// # Arguments
+///
+/// * `domain_path` - A string slice representing the path to the directory containing HDDL domain files.
+///
+/// # Panics
+///
+/// Panics if parsing fails for at least one file in the directory.
+///
+/// # Examples
+///
+/// ```
+/// test_hddl_parser("tests/integration/hddl/ipc20/partial-order/barman-bdi");
+/// ```
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/colouring"; "ipc20_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]

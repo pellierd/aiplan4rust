@@ -3,88 +3,141 @@ use std::path::Path;
 use test_case::test_case;
 
 mod common;
-use crate::common::io::read_file;
 use crate::common::io::collect_domain_files;
+use crate::common::io::read_file;
 
-use aiplan4rust::{check_well_formed, Language, Parser, Normalizer};
 use aiplan4rust::aiplan4rust::diagnostic::Severity;
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
+use aiplan4rust::{check_well_formed, Language, Normalizer, Parser};
 
-/// Test d’intégration pour parser + normalizer sur tous les fichiers d’un répertoire.
+/// Integration test for parser + normalizer on all files in a directory.
 ///
-/// Renvoie true si parsing et normalisation réussissent sans erreur critique.
+/// Iterates over all domain files in the specified directory, performing:
+/// 1. Parsing each file.
+/// 2. Validating the well-formedness of the raw AST.
+/// 3. Normalizing the AST.
+/// 4. Validating the well-normalized AST.
+/// 5. Checking for diagnostics errors.
+///
+/// Returns `true` if parsing and normalization succeed without critical errors for all files,
+/// otherwise returns `false`.
+///
+/// # Arguments
+///
+/// * `domain_dir` - Path to the directory containing domain files to test.
+/// * `language` - The language used for parsing.
+///
+/// # Errors
+///
+/// Instead of panicking, this function logs errors and continues processing all files,
+/// aggregating success/failure.
+///
+/// # Examples
+///
+/// ```
+/// let success = test_parse_and_normalize_all_files(Path::new("tests/integration/hddl/ipc20/partial-order/barman-bdi"), &Language::HDDL);
+/// assert!(success);
+/// ```
 pub fn test_parse_and_normalize_all_files(domain_dir: &Path, language: &Language) -> bool {
-    let files = match collect_domain_files(domain_dir) {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("Failed to collect domain files: {}", e);
-            return false;
-        }
-    };
-
+    // Initialize success flag to true; will be set to false if any error occurs
     let mut success = true;
 
-    for file_path in files {
-        let content = match read_file(&file_path) {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("Failed to read file {}: {}", file_path.display(), e);
-                success = false;
-                continue;
-            }
-        };
+    // Collect all domain files (.pddl or .hddl) from the specified directory
+    let files = collect_domain_files(domain_dir);
 
+    // Iterate over each collected file path
+    for file_path in files {
+        // Read the content of the current file
+        let content = read_file(&file_path);
+
+        // Create a new parser instance
         let mut parser = Parser::new();
 
-        let parse_result = parser.parse(
-            file_path.to_str().unwrap_or_default(),
-            &content,
-            language,
-        );
+        // Attempt to parse the file content
+        let path_str = file_path
+            .to_str()
+            .expect("File path is not valid UTF-8");
 
+        let parse_result = parser.parse(path_str, &content, language);
+
+        // Handle the result of parsing
         match parse_result {
+            // If parsing was successful
             Ok(mut parser_result) => {
-                if let Some(mut raw_ast) = parser_result.take_ast() {
-                    // Check well-formedness of raw AST before normalization
+                // Attempt to extract the raw AST from the parser result
+                if let Some(raw_ast) = parser_result.take_ast() {
+                    // Check that the raw AST is well-formed before normalization
                     if let Err(e) = check_well_formed(&raw_ast) {
-                        eprintln!("Raw AST validation failed for {}:\n{}", file_path.display(), e);
+                        eprintln!(
+                            "Raw AST validation failed for {}:\n{}",
+                            file_path.display(),
+                            e
+                        );
+                        // Mark failure and continue to next file
                         success = false;
                         continue;
                     }
 
+                    // Extract diagnostic manager from parser result
                     let diagnostic_manager = parser_result.take_diagnostic_manager();
+                    // Create a new normalizer instance
                     let mut normalizer = Normalizer::new();
 
-                    let normalize_result = normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager);
+                    // Normalize the raw AST with diagnostics
+                    let normalize_result =
+                        normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager);
 
+                    // Handle normalization result
                     match normalize_result {
                         Ok(mut normalizer_result) => {
+                            // Extract normalized AST if present
                             if let Some(normalized_ast) = normalizer_result.take_ast() {
+                                // Check that the normalized AST is well-formed
                                 if let Err(e) = check_well_normalized(&normalized_ast) {
-                                    eprintln!("Normalized AST validation failed for {}:\n{}", file_path.display(), e);
+                                    eprintln!(
+                                        "Normalized AST validation failed for {}:\n{}",
+                                        file_path.display(),
+                                        e
+                                    );
                                     eprintln!("{}", normalized_ast.to_string_with_interner());
+                                    // Mark failure
                                     success = false;
                                 }
                             } else {
-                                eprintln!("No normalized AST returned for file {}", file_path.display());
+                                // No normalized AST returned — mark failure
+                                eprintln!(
+                                    "No normalized AST returned for file {}",
+                                    file_path.display()
+                                );
                                 success = false;
                             }
+                            // Check diagnostic manager for any errors
                             let diag_mgr = normalizer_result.take_diagnostic_manager();
                             if diag_mgr.has_diagnostics_of_severity(Severity::Error) {
-                                eprintln!("Diagnostics errors found for file {}", file_path.display());
+                                eprintln!(
+                                    "Diagnostics errors found for file {}",
+                                    file_path.display()
+                                );
                                 success = false;
                             }
                         }
+                        // Normalization failed — log and mark failure
                         Err(e) => {
-                            eprintln!("Normalization error for file {}: {}", file_path.display(), e);
+                            eprintln!(
+                                "Normalization error for file {}: {}",
+                                file_path.display(),
+                                e
+                            );
                             success = false;
                         }
                     }
                 } else {
+                    // Parsing succeeded but no AST was produced — mark failure
                     eprintln!("Parsing failed (no AST) for file {}", file_path.display());
                     success = false;
                 }
             }
+            // Parsing failed — log error and mark failure
             Err(e) => {
                 eprintln!("Parsing error for file {}: {}", file_path.display(), e);
                 success = false;
@@ -92,12 +145,41 @@ pub fn test_parse_and_normalize_all_files(domain_dir: &Path, language: &Language
         }
     }
 
+    // Return overall success status (true if all files passed)
     success
 }
 
-/// Test d’intégration combiné parser + normalizer sur un répertoire HDDL.
+/// Combined parser + normalizer integration test on an HDDL directory.
 ///
-/// Le test échoue si une erreur survient à l’une des étapes.
+/// This test iterates over all files in the given `domain_path` directory
+/// corresponding to HDDL domains and performs for each file:
+///
+/// 1. Parsing the file.
+/// 2. Checking the validity of the raw AST.
+/// 3. Normalizing the AST.
+/// 4. Checking the validity of the normalized AST.
+///
+/// The test fails (panics) if any error occurs during any of these steps,
+/// indicating a problem in the parser + normalizer pipeline.
+///
+/// # Arguments
+///
+/// * `domain_path` - Path to a directory containing HDDL domain files.
+///
+/// # Examples
+///
+/// ```
+/// test_hddl_normalizer("tests/integration/hddl/ipc20/partial-order/barman-bdi");
+/// ```
+///
+/// # Notes
+///
+/// The test is automatically invoked for multiple predefined test directories
+/// via the `#[test_case]` attributes.
+///
+/// # Panics
+///
+/// Panics if parsing or normalization fails for any file.
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/colouring"; "ipc20_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]

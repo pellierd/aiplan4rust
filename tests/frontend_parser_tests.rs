@@ -5,37 +5,45 @@ use test_case::test_case;
 
 use aiplan4rust::{Renderer, Frontend, Language};
 
+mod common;
+use crate::common::io::collect_domain_files;
+use crate::common::io::filter_problem_files;
+use crate::common::io::get_file_stem_as_string;
+
+/// Tests parsing and validation of a set of domain and problem HDDL files in a directory.
+///
+/// This function:
+/// - Collects all `.hddl` files in the given directory.
+/// - Filters files to find problem definitions (files starting with "pb").
+/// - For each problem file:
+///     - Locates the corresponding domain file (`<stem>-domain.hddl` or `domain.hddl`).
+///     - Parses the domain and problem together.
+///     - Writes diagnostics to a `.diag` file.
+///     - Reports any errors encountered.
+///
+/// Returns `true` if all problem/domain pairs were successfully parsed and validated.
 fn test_domain(domain_dir: &Path, language: &Language) -> bool {
-    let files = fs::read_dir(domain_dir)
-        .expect("Cannot read domain subdir")
-        .filter_map(Result::ok)
-        .map(|e| e.path())
-        .filter(|p| p.extension().map(|s| s == "hddl").unwrap_or(false))
-        .collect::<Vec<_>>();
+    // Collect all files in the directory
+    let files = collect_domain_files(domain_dir);
 
-    let mut problem_files: Vec<_> = files.iter()
-        .filter(|p| {
-            p.file_name()
-                .and_then(|f| f.to_str())
-                .map(|f| f.starts_with("pb") && !f.contains("-domain"))
-                .unwrap_or(false)
-        })
-        .cloned()
-        .collect();
+    // Filter problem files (those starting with "pb")
+    let mut problem_files = filter_problem_files(&files);
 
+    // Sort for consistent processing order
     problem_files.sort_by_key(|p| p.file_name().map(|f| f.to_os_string()));
 
     let mut success = true;
 
+    // Iterate over each problem file
     for problem_path in problem_files {
-        let problem_stem = problem_path
-            .file_stem()
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
+        // Extract the stem (base filename) to identify the domain file
+        let problem_stem = get_file_stem_as_string(&problem_path);
 
+        // Build possible domain file paths
         let domain_path1 = domain_dir.join("domain.hddl");
         let domain_path2 = domain_dir.join(format!("{}-domain.hddl", problem_stem));
+
+        // Determine which domain file exists
         let domain_path = if domain_path2.exists() {
             domain_path2
         } else if domain_path1.exists() {
@@ -49,12 +57,14 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
             continue;
         };
 
+        // Log which files will be parsed
         println!(
             "\x1b[1;36mParsing:\x1b[0m \n - {} \n - {}",
             domain_path.display(),
             problem_path.display()
         );
 
+        // Initialize the parser frontend
         let frontend = Frontend::new();
         let result = frontend.parse(
             domain_path.to_str().unwrap(),
@@ -62,17 +72,20 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
             language,
         );
 
+        // Prepare a diagnostics output file
         let diag_path = domain_dir.join(format!("{}.diag", problem_stem));
         let mut diag_file = File::create(&diag_path)
             .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
 
         match result {
             Ok(builder_result) => {
+                // Write diagnostics to file
                 let mut buffer = Vec::new();
                 Renderer::write_to(builder_result.diagnostic_manager(), &mut buffer, false)
                     .expect("Failed to write diagnostics");
                 diag_file.write_all(&buffer).expect("Failed to write to diag file");
 
+                // Check whether the parsing produced a lifted problem
                 if builder_result.lifted_problem().is_none() {
                     eprintln!(
                         "\x1b[1;36m===> Failure:\x1b[0m {}",
@@ -82,6 +95,7 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
                 }
             }
             Err(e) => {
+                // Handle and log parsing error
                 let err_msg = format!(
                     "Parsing error for domain: {} and problem: {}.\nError: {}\n",
                     domain_path.display(),
@@ -89,7 +103,9 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
                     e
                 );
                 eprintln!("{}", err_msg);
-                diag_file.write_all(err_msg.as_bytes()).expect("Failed to write error to diag file");
+                diag_file
+                    .write_all(err_msg.as_bytes())
+                    .expect("Failed to write error to diag file");
                 success = false;
             }
         }
@@ -98,8 +114,17 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
     success
 }
 
-// Génère un test par domaine trouvé dans le dossier
-// Chaque `#[test_case]` crée un test distinct dans `cargo test`
+/// Generates one test per domain directory found under `tests/integration/hddl`.
+///
+/// Each `#[test_case]` annotation defines a separate test that is discovered and run by `cargo test`.
+/// This allows systematic testing of all known HDDL benchmark domains.
+///
+/// The test will:
+/// - Run `test_domain()` on the directory.
+/// - Fail if any problem/domain pair in the directory fails parsing or validation.
+///
+/// # Arguments
+/// * `domain_path` - The path to the domain directory to test.
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/colouring"; "ipc20_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]
