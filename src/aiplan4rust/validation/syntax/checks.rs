@@ -81,7 +81,6 @@ pub fn check_type(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
 /// or if the first child is not of kind `TypedList`.
 pub fn check_types_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     common::checks::check_min_children_count(node.children().len(), 1, node)?;
-    //common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
     let typed_list = common::checks::get_child_node(ast, node, 0)?;
     check_typed_list_of(ast, typed_list, &[AstKind::PrimitiveType])
 }
@@ -331,7 +330,6 @@ pub fn check_method_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.children().len();
     common::checks::check_children_count(children_len, 1, node)?;
-    //common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
     let typed_list = common::checks::get_child_node(ast, node, 0)?;
     check_typed_list_of(ast, typed_list, &[AstKind::Variable])
 
@@ -507,7 +505,6 @@ pub fn check_binary_child_expression(ast: &Ast, node: &AstNode) -> Result<(), We
 pub fn check_quantifier_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.children().len();
     common::checks::check_min_children_count(children_len, 2, node)?;
-    //common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
     let typed_list = common::checks::get_child_node(ast, node, 0)?;
     check_typed_list_of(ast, typed_list, &[AstKind::Variable])?;
     common::checks::check_child_kind(ast, node, 1, EXPRESSION)
