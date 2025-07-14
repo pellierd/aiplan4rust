@@ -115,143 +115,73 @@ fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellFormedErr
             common::checks::throw_invalid(node)?;
         }
         AstKind::RequireDef => {
-            checks::check_all_children_kind(ast, node, &[AstKind::Requirement])?;
+            syntax::checks::check_require_def(ast, node)?;
         }
         AstKind::Type => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_all_children_kind(ast, node, &[AstKind::PrimitiveType])?;
+            syntax::checks::check_type(ast, node)?;
         }
         AstKind::TypesDef => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
+            syntax::checks::check_types_def(ast, node)?;
         }
         AstKind::TypedList => {
-            checks::check_all_children_kind(ast, node, &[AstKind::TypedItem])?;
+            syntax::checks::check_typed_list(ast, node)?;
         }
         AstKind::TypedItem => {
-            checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-
-            match node.children().len() {
-                1 => {
-                    // Si un seul enfant, il doit être TypedItemElements
-                    checks::check_child_kind(ast, node, 0, &[AstKind::TypedItemElements])
-                }
-                2 => {
-                    // Si deux enfants :
-                    // - le premier est TypedItemElements
-                    // - le second est optionnellement Type
-                    checks::check_child_kind(ast, node, 0, &[AstKind::TypedItemElements])?;
-                    checks::check_child_kind(ast, node, 1, &[AstKind::Type])
-                }
-                _ => unreachable!(),
-            }?;
+            syntax::checks::check_typed_item(ast, node)?;
         }
         AstKind::TypedItemElements => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_all_children_kind(ast, node, &[
-                AstKind::PrimitiveType,
-                AstKind::Variable,
-                AstKind::Constant,
-                AstKind::FunctionTerm,
-                AstKind::AtomicFunctionSkeleton,
-            ])?;
+            syntax::checks::check_typed_item_elements(ast, node)?;
         }
         AstKind::ConstantsDef
         | AstKind::ObjectsDef => {
-            checks::check_children_count(children_ids.len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
+            syntax::checks::check_constants_def(ast, node)?;
         }
         AstKind::PredicatesDef => {
-            checks::check_all_children_kind(ast, node, &[AstKind::AtomicFormulaSkeleton])?;
+            syntax::checks::check_predicates_def(ast, node)?;
         }
         AstKind::AtomicFormulaSkeleton => {
-            checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Predicate])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::TypedList])?;
+            syntax::checks::check_atomic_formula_skeleton(ast, node)?;
         }
         AstKind::FunctionsDef => {
-            checks::check_children_count(children_ids.len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
+            syntax::checks::check_functions_def(ast, node)?;
         }
         AstKind::AtomicFunctionSkeleton => {
-            checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::FunctionSymbol])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::TypedList])?;
+            syntax::checks::check_atomic_function_skeleton(ast, node)?;
         }
         AstKind::ActionDef => {
-            checks::check_children_count(children_ids.len(), 3, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::ActionSymbol])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])?;
-            checks::check_child_kind(ast, node, 2, &[AstKind::ActionDefBody])?;
+            syntax::checks::check_action_def(ast, node)?;
         }
         AstKind::ActionDefBody => {
-            checks::check_children_count_range(node.children().len(), 0, 2, node)?;
-            match node.children().len() {
-                0 => Ok(()),
-                1 => {
-                    // Un seul enfant, c’est forcément la précondition (indice 0)
-                    checks::check_child_kind(ast, node, 0, &[AstKind::PreconditionDef, AstKind::EffectDef])
-                }
-                2 => {
-                    // Deux enfants : 0 = précondition, 1 = effet
-                    checks::check_child_kind(ast, node, 0, &[AstKind::PreconditionDef])?;
-                    checks::check_child_kind(ast, node, 1, &[AstKind::EffectDef])
-                }
-                _ => unreachable!(),
-            }?;
+           syntax::checks::check_action_def_body(ast, node)?;
         }
         AstKind::MethodDef => {
-            checks::check_children_count(children_ids.len(), 3, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::MethodSymbol])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])?;
-            checks::check_child_kind(ast, node, 2, &[AstKind::MethodDefBody])?;
+           syntax::checks::check_method_def(ast, node)?;
         }
         AstKind::ParametersDef => {
-            checks::check_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
+           syntax::checks::check_parameters_def(ast, node)?;
         }
         AstKind::MethodDefBody => {
-            checks::check_children_count_range(node.children().len(), 2, 3, node)?;
-            match node.children().len() {
-                2 => {
-                    checks::check_child_kind(ast, node, 0, &[AstKind::Task])?;
-                    checks::check_child_kind(ast, node, 1, &[AstKind::TaskNetworkDef])
-                }
-                3 => {
-                    checks::check_child_kind(ast, node, 0, &[AstKind::Task])?;
-                    checks::check_child_kind(ast, node, 1, &[AstKind::MethodPreconditionDef])?;
-                    checks::check_child_kind(ast, node, 2, &[AstKind::TaskNetworkDef])
-                }
-                _ => unreachable!(),
-            }?;
+           syntax::checks::check_method_def_body(ast, node)?;
         }
         AstKind::Task => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TaskSymbol])?;
-            checks::check_children_kind_from(ast, node, 1, &[AstKind::Variable, AstKind::Constant])?;
+            syntax::checks::check_task(ast, node)?;
         }
         AstKind::PreconditionDef
         | AstKind::MethodPreconditionDef => {
-            checks::check_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, EXPRESSION)?;
+            syntax::checks::check_precondition_def(ast, node)?;
         }
         AstKind::EffectDef => {
-            checks::check_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, EXPRESSION)?;
+           syntax::checks::check_effect_def(ast, node)?;
         }
         AstKind::FunctionTerm => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::FunctionSymbol])?;
-            checks::check_children_kind_from(ast, node, 1, &[AstKind::Variable, AstKind::Constant])?;
+            syntax::checks::check_function_term(ast, node)?;
         }
         AstKind::AtomicFormula => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Predicate])?;
-            checks::check_children_kind_from(ast, node, 1, &[AstKind::Variable, AstKind::Constant])?;
+            syntax::checks::check_atomic_formula(ast, node)?;
         }
         AstKind::Or
         | AstKind::And => {
-            checks::check_all_children_kind(ast, node, EXPRESSION)?;
+            syntax::checks::check_all_children_expression(ast, node)?;
         }
         | AstKind::Not
         | AstKind::AtStart
@@ -262,225 +192,102 @@ fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellFormedErr
         | AstKind::AtMostOnce
         | AstKind::Goal
         | AstKind::Constraints
-        | AstKind::Metric => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, EXPRESSION)?;
+        | AstKind::Metric
+        | AstKind::TaskLogicalConstraintDef => {
+           syntax::checks::check_unary_child_expression(ast, node)?;
         }
         | AstKind::Imply
         | AstKind::When
         | AstKind::SometimeAfter
         | AstKind::SometimeBefore => {
-            checks::check_min_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, EXPRESSION)?;
-            checks::check_child_kind(ast, node, 1, EXPRESSION)?;
+            syntax::checks::check_binary_child_expression(ast, node)?;
         }
         AstKind::Forall
         | AstKind::Exists => {
-            checks::check_min_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
-            checks::check_child_kind(ast, node, 1, EXPRESSION)?;
+            syntax::checks::check_quantifier_expression(ast, node)?;
         }
         AstKind::Preference => {
-            checks::check_min_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::PrefName])?;
-            checks::check_child_kind(ast, node, 1, EXPRESSION)?;
+            syntax::checks::check_preference_expression(ast, node)?;
         }
         AstKind::FComp => {
-            checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Number, AstKind::FComp, AstKind::FunctionTerm, AstKind::Variable, AstKind::Constant])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::FComp, AstKind::FunctionTerm, AstKind::Variable, AstKind::Constant])?;
+            syntax::checks::check_fcomp_expression(ast, node)?;
         }
         AstKind::Assign => {
-            checks::check_min_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::FunctionTerm])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::FComp, AstKind::Variable, AstKind::Constant, AstKind::FunctionTerm])?; // Todo: Adding undefined
+            syntax::checks::check_assign_expression(ast, node)?;
         }
         AstKind::Operation => {
-            checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::FComp])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::FComp])?;
+            syntax::checks::check_arithmetic_expression(ast, node)?;
         }
         AstKind::Within
         | AstKind::HoldAfter => {
-            checks::check_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
-            checks::check_child_kind(ast, node, 1, EXPRESSION)?;
+            syntax::checks::check_within_hold_after_expression(ast, node)?;
         }
         AstKind::AlwaysWithin => {
-            checks::check_children_count(node.children().len(), 3, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
-            checks::check_child_kind(ast, node, 1, EXPRESSION)?;
-            checks::check_child_kind(ast, node, 2, EXPRESSION)?;
+            syntax::checks::check_always_within_expression(ast, node)?;
         }
         AstKind::HoldDuring => {
-            checks::check_children_count(node.children().len(), 3, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::Number])?;
-            checks::check_child_kind(ast, node, 2, EXPRESSION)?;
+            syntax::checks::check_hold_during_expression(ast, node)?;
         }
         AstKind::Init => {
-            checks::check_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
-            let init_elements = checks::get_child_node(ast, node, 0)?;
-            checks::check_all_children_kind(ast, init_elements, &[AstKind::TimedInitialLiteral, AstKind::FComp, AstKind::AtomicFormula, AstKind::Not])?;
-            // Todo: check that not contains only atomic formula
+           syntax::checks::check_init_expression(ast, node)?;
         }
         AstKind::TimedInitialLiteral => {
-            checks::check_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::FComp, AstKind::Not])?;
-            // Todo: check that not contains only atomic formula
+            syntax::checks::check_timed_initial_literal(ast, node)?;
         }
         AstKind::DerivedDef => {
-            checks::check_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::AtomicFormulaSkeleton])?;
-            checks::check_child_kind(ast, node, 1, EXPRESSION)?;
+            syntax::checks::check_derived_def(ast, node)?;
         }
-
         AstKind::OrderedSubtaskDef
         | AstKind::PartiallyOrderedSubtaskDef => {
-            checks::check_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
-            let tasks = checks::get_child_node(ast, node, 0)?;
-            checks::check_all_children_kind(ast, tasks, &[AstKind::TaggedTask, AstKind::Task])?;
+            syntax::checks::check_ordered_subtask_def(ast, node)?;
         }
         AstKind::TaggedTask => {
-            checks::check_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TaskID])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::Task])?;
+            syntax::checks::check_tagged_task(ast, node)?;
         }
         AstKind::TaskOrderingConstraintDef => {
-            checks::check_children_count(node.children().len(), 1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
-            let ordering = checks::get_child_node(ast, node, 0)?;
-            checks::check_all_children_kind(ast, ordering, &[AstKind::TaskOrderingConstraint])?;
+           syntax::checks::check_task_ordering_def(ast, node)?;
         }
         AstKind::TaskOrderingConstraint => {
-            checks::check_children_count(node.children().len(), 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TaskID])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::TaskID])?;
-        }
-        AstKind::TaskLogicalConstraintDef => {
-            checks::check_all_children_kind(ast, node, EXPRESSION)?;
+           syntax::checks::check_task_ordering_constraint(ast, node)?;
         }
         AstKind::TaskNetworkDef => {
-            checks::check_children_count_range(node.children().len(), 0, 3, node)?;
-            match node.children().len() {
-                0 => Ok(()),
-                1 => {
-                    checks::check_child_kind(ast, node, 0, &[
-                        AstKind::OrderedSubtaskDef, AstKind::PartiallyOrderedSubtaskDef, AstKind::TaskLogicalConstraintDef
-                    ])
-                },
-                2 => {
-                    checks::check_child_kind(ast, node, 0, &[
-                        AstKind::OrderedSubtaskDef, AstKind::PartiallyOrderedSubtaskDef
-                    ])?;
-                    checks::check_child_kind(ast, node, 1, &[
-                        AstKind::TaskOrderingConstraintDef, AstKind::TaskLogicalConstraintDef
-                    ])
-                },
-                3 => {
-                    checks::check_child_kind(ast, node, 0, &[
-                        AstKind::OrderedSubtaskDef, AstKind::PartiallyOrderedSubtaskDef
-                    ])?;
-                    checks::check_child_kind(ast, node, 1, &[
-                        AstKind::TaskOrderingConstraintDef
-                    ])?;
-                    checks::check_child_kind(ast, node, 2, &[
-                        AstKind::TaskLogicalConstraintDef
-                    ])
-                },
-                _ => { unreachable!() }
-            }?;
-
+           syntax::checks::check_task_network_def(ast, node)?;
         }
         AstKind::InitialTaskNetwork => {
-            checks::check_children_count_range(node.children().len(),1, 2, node)?;
-            match node.children().len() {
-                1 => {
-                    checks::check_child_kind(ast, node, 0, &[AstKind::TaskNetworkDef])
-                },
-                2 => {
-                    checks::check_child_kind(ast, node, 0, &[AstKind::ParametersDef])?;
-                    checks::check_child_kind(ast, node, 1, &[AstKind::TaskNetworkDef])
-                },
-                _ => { unreachable!() }
-            }?;
+            syntax::checks::check_initial_task_network(ast, node)?;
         }
         AstKind::TaskDef => {
-            checks::check_children_count(node.children().len(),2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TaskSymbol])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])?;
+           syntax::checks::check_task_def(ast, node)?;
         }
         AstKind::TotalTime => {
-            checks::check_children_count(node.children().len(),0, node)?;
+           syntax::checks::check_total_time(ast, node)?;
         }
         AstKind::IsViolated => {
-            checks::check_children_count(node.children().len(),1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::PrefName])?;
+           syntax::checks::check_is_violated(ast, node)?;
         }
         AstKind::Length => {
-            checks::check_children_count_range(node.children().len(), 0, 2, node)?;
-            checks::check_all_children_kind(ast, node, &[AstKind::Serial, AstKind::Parallel])?;
+           syntax::checks::check_length_spec(ast, node)?;
         }
         AstKind::Serial | AstKind::Parallel => {
-            checks::check_children_count(node.children().len(),1, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
+           syntax::checks::check_serial_parallel_expression(ast, node)?;
         }
         AstKind::DurativeActionDef => {
-            checks::check_children_count(children_ids.len(), 3, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::DASymbol])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])?;
-            checks::check_child_kind(ast, node, 2, &[AstKind::DADefBody])?;
-
+            syntax::checks::check_durative_action_def(ast, node)?;
         }
         AstKind::DADefBody => {
-            checks::check_children_count(node.children().len(), 3, node)?;
-            checks::check_child_kind(ast, node, 0, EXPRESSION)?;
-            checks::check_child_kind(ast, node, 1, EXPRESSION)?;
-            checks::check_child_kind(ast, node, 2, EXPRESSION)?;
+            syntax::checks::check_duartive_action_def_body(ast, node)?;
         }
-        AstKind::Domain => {}
-        AstKind::Problem => {}
-
-        _ => {
-            println!("ERROR: {}", node.kind());
+        AstKind::Domain => {
+            // TODO
         }
-
+        AstKind::Problem => {
+            // TODO
+        }
     }
 
     for child_id in children_ids {
         let child_node = checks::get_node(ast, node, child_id.as_usize())?;
         check_well_formed_from(child_node, ast)?;
-    }
-
-    Ok(())
-}
-
-
-pub fn check_typed_list(node: &AstNode, ast: &Ast, expected: &[AstKind]) -> Result<(), WellFormedError> {
-    let children_ids = node.children();
-    match node.kind() {
-       AstKind::TypedList => {
-           checks::check_all_children_kind(ast, node, &[AstKind::TypedItem])?;
-        }
-        AstKind::TypedItem => {
-            checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TypedItemElements])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::Type])?;
-        }
-        AstKind::TypedItemElements => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_all_children_kind(ast, node, expected)?;
-        }
-        _ => {
-            check_well_formed_from(node, ast)?;
-        }
-    }
-    for child_id in children_ids {
-        let child_node = checks::get_node(ast, node, child_id.as_usize())?;
-        check_typed_list(child_node, ast, expected)?;
     }
 
     Ok(())
