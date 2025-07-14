@@ -54,7 +54,6 @@ pub mod ast;
 
 pub mod node;
 pub mod renderer;
-pub mod validation;
 
 // Public re-exports
 pub use kind::Kind as AstKind;

@@ -18,7 +18,7 @@
 //! `WellFormedError`s in case of validation failures.
 
 use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::syntax::ast::validation::WellFormedError;
+use crate::aiplan4rust::validation::common::WellFormedError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstKind, AstNode};
 
 /// Set of AST node kinds considered as valid expressions.

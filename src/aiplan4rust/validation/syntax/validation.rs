@@ -19,8 +19,9 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
-use crate::aiplan4rust::syntax::ast::validation::{checks, WellFormedError};
-use crate::aiplan4rust::syntax::ast::validation::checks::{ContentKind, EXPRESSION};
+use crate::aiplan4rust::validation::common::{checks, WellFormedError};
+use crate::aiplan4rust::validation::common::checks::EXPRESSION;
+use crate::aiplan4rust::validation::{common, syntax};
 
 /// Checks that the AST is structurally well-formed starting from its root node.
 ///
@@ -83,7 +84,7 @@ pub fn check_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
 ///
 /// # Note
 /// This function assumes the AST nodes are logically consistent and does not perform semantic checks.
-pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellFormedError> {
+fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellFormedError> {
     //println!("Validating {}", node.to_string_with_interner(ast.arena(), ast.interner()));
     //println!("Validating {}", node);
     let children_ids = node.children();
@@ -102,19 +103,16 @@ pub fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellForme
         | AstKind::TaskSymbol
         | AstKind::PrefName
         | AstKind::TaskID => {
-            checks::check_content(node, ContentKind::Ident)?;
-            checks::check_children_count(children_ids.len(), 0, node)?;
+            syntax::checks::check_symbol(node)?;
         }
         AstKind::Number => {
-            checks::check_content(node, ContentKind::Float)?;
-            checks::check_children_count(children_ids.len(), 0, node)?;
+            syntax::checks::check_number(node)?;
         }
         AstKind::Requirement => {
-            checks::check_content(node, ContentKind::Requirement)?;
-            checks::check_children_count(children_ids.len(), 0, node)?;
+            syntax::checks::check_requirement(node)?;
         }
         AstKind::Error => {
-            checks::throw_invalid(node)?;
+            common::checks::throw_invalid(node)?;
         }
         AstKind::RequireDef => {
             checks::check_all_children_kind(ast, node, &[AstKind::Requirement])?;
