@@ -95,8 +95,10 @@ pub fn check_well_normalized_node(node: &AstNode, ast: &Ast) -> Result<(), WellN
         AstKind::TypesDef => normalization::checks::check_types_def(ast, node),
         AstKind::TypedItem => normalization::checks::check_typed_item(ast, node),
         AstKind::ParametersDef => normalization::checks::check_parameters_def(ast, node),
-        AstKind::Forall | AstKind::Exists => syntax::checks::check_quantified_expression(ast, node),
-        AstKind::TypedItemElements => common::checks::throw_invalid(node),
+        AstKind::Forall | AstKind::Exists => normalization::checks::check_quantified_expression(ast, node),
+        AstKind::TypedItemElements => {
+            common::checks::throw_invalid(node)
+        },
         _ => syntax::validation::check_well_formed_node(node, ast),
     }
 }

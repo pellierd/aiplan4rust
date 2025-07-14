@@ -146,7 +146,7 @@ impl Analyzer {
         }
 
         // Step 3: Build the result depending on errors
-        if !self.diagnostic_manager.has_diagnotics_of_severity(Severity::Error) {
+        if !self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
             Ok(AnalyzerResult::new(
                 Some(context),
                 std::mem::take(&mut self.diagnostic_manager),

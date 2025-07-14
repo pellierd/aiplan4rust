@@ -5,36 +5,64 @@ use crate::aiplan4rust::validation::common::checks::EXPRESSION;
 use crate::WellFormedError;
 
 /// Checks that the given node of kind `TypedItem` has either one or two children:
-/// - If one child, it must be of kind `TypedItemElements`.
-/// - If two children, the first must be one of `PrimitiveType`, `Constant`, `Variable`, or
-///  `AtomicFunctionSkeleton`, and the second must be of kind `Type`.
+///
+/// - If it has **one child**, it must be one of:
+///   `PrimitiveType`, `Constant`, `Variable`, or `AtomicFunctionSkeleton`.
+///
+/// - If it has **two children**:
+///   - The first must be one of:
+///     `PrimitiveType`, `Constant`, `Variable`, or `AtomicFunctionSkeleton`.
+///   - The second must be of kind `Type`.
 ///
 /// # Arguments
+///
 /// * `ast` - Reference to the AST containing the node.
 /// * `node` - The AST node to validate.
 ///
 /// # Errors
+///
 /// Returns an error if:
 /// - The number of children is not 1 or 2.
 /// - The children are not of the expected kinds.
 ///
 /// # Examples
-/// ```
+///
+/// ```rust
 /// let result = check_typed_item(&ast, &node);
 /// if let Err(e) = result {
 ///     eprintln!("TypedItem node is invalid: {:?}", e);
 /// }
 /// ```
-pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellNormalizedError> {
+
+pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.children().len();
-    common::checks::check_children_count(children_len, 2, node)?;
-    common::checks::check_child_kind(ast, node, 0, &[
-        AstKind::PrimitiveType,
-        AstKind::Constant,
-        AstKind::Variable,
-        AstKind::AtomicFunctionSkeleton
-    ])?;
-    common::checks::check_child_kind(ast, node, 1, &[AstKind::Type])
+    common::checks::check_children_count_range(children_len, 1, 2, node)?;
+
+    match children_len {
+        1 => {
+            common::checks::check_child_kind(ast, node, 0,
+                &[
+                    AstKind::PrimitiveType,
+                    AstKind::Constant,
+                    AstKind::Variable,
+                    AstKind::AtomicFunctionSkeleton,
+                ],
+            )?;
+            Ok(())
+        }
+        2 => {
+            common::checks::check_child_kind(ast, node, 0,
+                &[
+                    AstKind::PrimitiveType,
+                    AstKind::Constant,
+                    AstKind::Variable,
+                    AstKind::AtomicFunctionSkeleton,
+                ],
+            )?;
+            common::checks::check_child_kind(ast, node, 1, &[AstKind::Type])
+        }
+        _ => unreachable!(),
+    }
 }
 
 /// Checks that the given node of kind `TypesDef` has at least one child,
@@ -82,7 +110,7 @@ pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedE
 /// # Errors
 /// Returns an error if the node does not have at least two children,
 /// or if the children do not have the expected kinds.
-pub fn check_quantifier_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
+pub fn check_quantified_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.children().len();
     common::checks::check_min_children_count(children_len, 2, node)?;
     let typed_list = common::checks::get_child_node(ast, node, 0)?;
@@ -140,7 +168,7 @@ pub fn check_typed_list_of(
     for child_id in children_ids {
         let child_node = common::checks::get_node(ast, node, child_id.as_usize())?;
         // Recursive call with the same expected kinds
-        syntax::checks::check_typed_list_of(ast, child_node, expected)?;
+        normalization::checks::check_typed_list_of(ast, child_node, expected)?;
     }
 
     Ok(())

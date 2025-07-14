@@ -122,7 +122,7 @@ impl Linker {
         perform_linking_checks(&domain, &problem_ctx, &mut self.diagnostic_manager)?;
 
         // Step 5: If errors, return early with diagnostics only
-        if self.diagnostic_manager.has_diagnotics_of_severity(Severity::Error) {
+        if self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
             return Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager)));
         }
 

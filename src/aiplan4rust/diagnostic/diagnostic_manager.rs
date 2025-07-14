@@ -103,7 +103,7 @@ impl DiagnosticManager {
     /// # Returns
     ///
     /// `true` if at least one diagnostic of the given severity exists.
-    pub fn has_diagnotics_of_severity(&self, severity: Severity) -> bool {
+    pub fn has_diagnostics_of_severity(&self, severity: Severity) -> bool {
         self.diagnostics.iter().any(|e| e.kind().severity() == severity)
     }
 

@@ -21,6 +21,7 @@ use base64::engine::general_purpose;
 use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::validation::normalization::check_well_normalized;
 use crate::Renderer;
 
 #[derive(Debug)]
@@ -88,7 +89,6 @@ impl Frontend {
                         Ok(builder_result)
                     }
                     None => {
-                        println!("5");
                         Ok(LIRBuilderResult::new(None, diagnostic_manager))
                     }
                 }
@@ -164,10 +164,21 @@ impl Frontend {
                 let mut normalizer_result =
                     normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager)?;
 
+
                 match normalizer_result.take_ast() {
                     Some(mut normalized_ast) => {
-                        println!("********************** NORMALIZED AST *************************");
-                        println!("{}", normalized_ast.arena().try_root()?.to_syntax_string(normalized_ast.arena(), normalized_ast.interner()));
+                        //println!("********************** NORMALIZED AST *************************");
+                        //println!("{}", normalized_ast.arena().try_root()?.to_string_with_interner(normalized_ast.arena(), normalized_ast.interner()));
+                        match check_well_normalized(&normalized_ast) {
+                            Ok(()) => {
+                                println!("AST is well-normalized.");
+                            }
+                            Err(e) => {
+                                println!("{}", normalized_ast.to_string_with_interner());
+                                panic!("AST normalization check failed: {}", e);
+                            }
+                        }
+
                         let interner = normalized_ast.interner();
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();

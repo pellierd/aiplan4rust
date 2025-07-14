@@ -131,7 +131,7 @@ impl<'a> Parser<'a> {
         self.handle_syntax_diagnostics(&context.borrow_errors_mut(), &fast_line_table);
 
         // If any error-level diagnostics were added, parsing failed—return no AST but diagnostics
-        if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
+        if self.diagnostic_manager().has_diagnostics_of_severity(Severity::Error) {
             return Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)));
         }
 
@@ -139,7 +139,7 @@ impl<'a> Parser<'a> {
         match parse_result {
             Ok(_) => {
                 // Double-check if any errors were added during parsing
-                if self.diagnostic_manager().has_diagnotics_of_severity(Severity::Error) {
+                if self.diagnostic_manager().has_diagnostics_of_severity(Severity::Error) {
                     // Return failure with diagnostics if errors are present
                     Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                 } else {
@@ -154,17 +154,6 @@ impl<'a> Parser<'a> {
                     );
                     // Initialize line/column span info for AST nodes using the line table
                     ast.init_span(&fast_line_table)?;
-
-                    println!("{}", ast.to_string_with_interner());
-                    match check_well_formed(&ast) {
-                        Ok(()) => {
-                            println!("Validation successful: no errors.");
-                        }
-                        Err(e) => {
-                            println!("Validation failed:\n{}", e);
-
-                        }
-                    }
 
                     // Return the successful parse result with AST and diagnostics
                     Ok(ParserResult::new(Some(ast), mem::take(&mut self.diagnostic_manager)))
