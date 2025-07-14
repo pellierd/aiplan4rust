@@ -1,6 +1,5 @@
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::common;
-use crate::aiplan4rust::validation::common::checks;
 use crate::aiplan4rust::validation::common::checks::{ContentKind, EXPRESSION};
 use crate::WellFormedError;
 
@@ -82,7 +81,9 @@ pub fn check_type(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
 /// or if the first child is not of kind `TypedList`.
 pub fn check_types_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     common::checks::check_min_children_count(node.children().len(), 1, node)?;
-    common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
+    //common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
+    let typed_list = common::checks::get_child_node(ast, node, 0)?;
+    check_typed_list_of(ast, typed_list, &[AstKind::PrimitiveType])
 }
 
 /// Checks that the given node of kind `TypedList` has all its children of kind `TypedItem`.
@@ -330,7 +331,10 @@ pub fn check_method_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.children().len();
     common::checks::check_children_count(children_len, 1, node)?;
-    common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
+    //common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
+    let typed_list = common::checks::get_child_node(ast, node, 0)?;
+    check_typed_list_of(ast, typed_list, &[AstKind::Variable])
+
 }
 
 /// Checks that the given node of kind `MethodDefBody` has between 2 and 3 children,
@@ -503,7 +507,9 @@ pub fn check_binary_child_expression(ast: &Ast, node: &AstNode) -> Result<(), We
 pub fn check_quantifier_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.children().len();
     common::checks::check_min_children_count(children_len, 2, node)?;
-    common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
+    //common::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])?;
+    let typed_list = common::checks::get_child_node(ast, node, 0)?;
+    check_typed_list_of(ast, typed_list, &[AstKind::Variable])?;
     common::checks::check_child_kind(ast, node, 1, EXPRESSION)
 }
 
@@ -1003,49 +1009,81 @@ pub fn check_initial_task_network(ast: &Ast, node: &AstNode) -> Result<(), WellF
     }
 }
 
-/// Recursively validates a typed list AST node and its children.
+/// Recursively validates a subtree of the AST representing typed lists and their components.
 ///
-/// This function checks that:
-/// - A `TypedList` node contains only children of kind `TypedItem`.
-/// - A `TypedItem` node has 1 or 2 children: the first must be `TypedItemElements`,
-///   and if present, the second must be a `Type`.
-/// - A `TypedItemElements` node has at least one child and all children match the expected kinds.
+/// This function checks that the given `node` and its descendants conform to the expected
+/// structure and kinds for typed lists, typed items, typed item elements, and types.
 ///
-/// # Arguments
-/// * `ast` - Reference to the AST containing the node.
-/// * `node` - The current AST node to validate.
-/// * `expected` - A slice of expected `AstKind`s for the children of `TypedItemElements`.
+/// # Parameters
+/// - `ast`: Reference to the AST structure containing all nodes.
+/// - `node`: The current AST node to validate.
+/// - `expected`: A slice of `AstKind` representing the expected kinds for children of `TypedItemElements`.
+///
+/// # Behavior
+/// - If `node` is a `TypedList`, it verifies that all children are `TypedItem` nodes.
+/// - If `node` is a `TypedItem`, it verifies it has two children:
+///   a `TypedItemElements` node and a `Type` node, which are checked accordingly.
+/// - If `node` is `TypedItemElements`, it ensures it has at least one child, and all children
+///   are among the `expected` kinds provided.
+/// - If `node` is a `Type`, it validates the type node (leaf node).
+/// - For any unexpected node kinds, it returns an error.
+///
+/// # Recursion
+/// The function recursively validates all children of `TypedList` and `TypedItem` nodes,
+/// but stops recursion for leaf nodes (`TypedItemElements` and `Type`).
 ///
 /// # Errors
-/// Returns an error if:
-/// - The node kind is unexpected (not `TypedList`, `TypedItem`, or `TypedItemElements`).
-/// - The node’s children do not meet the expected count or kind constraints.
+/// Returns `WellFormedError::InvalidNodeKind` if an unexpected node kind is encountered.
+/// Propagates errors from internal checks performed on nodes.
 ///
-/// # Notes
-pub fn check_typed_list(ast: &Ast, node: &AstNode, expected: &[AstKind]) -> Result<(), WellFormedError> {
+/// # Example
+/// ```ignore
+/// check_typed_list_of(&ast, root_node, &[AstKind::PrimitiveType])?;
+/// ```
+pub fn check_typed_list_of(
+    ast: &Ast,
+    node: &AstNode,
+    expected: &[AstKind],
+) -> Result<(), WellFormedError> {
+    // Get the list of child node IDs of the current node
     let children_ids = node.children();
 
+    // Match on the kind of the current node to apply the appropriate checks
     match node.kind() {
         AstKind::TypedList => {
-            checks::check_all_children_kind(ast, node, &[AstKind::TypedItem])?;
+            // If it's a TypedList, check that all its children are TypedItem nodes
+            check_typed_list(ast, node)?;
         }
         AstKind::TypedItem => {
-            checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-            checks::check_child_kind(ast, node, 0, &[AstKind::TypedItemElements])?;
-            checks::check_child_kind(ast, node, 1, &[AstKind::Type])?;
+            // TypedItem should have exactly two children: TypedItemElements and Type
+            // Check these constraints accordingly
+            check_typed_item(ast, node)?;
         }
         AstKind::TypedItemElements => {
-            checks::check_min_children_count(node.children().len(), 1, node)?;
-            checks::check_all_children_kind(ast, node, expected)?;
+            // TypedItemElements must have at least one child
+            common::checks::check_min_children_count(node.children().len(), 1, node)?;
+            // All children must be of the expected kinds passed in the `expected` slice
+            common::checks::check_all_children_kind(ast, node, expected)?;
+            // Return early because TypedItemElements are leaf nodes for this validation
+            // No need to recurse further down this branch
+            return Ok(())
+        }
+        AstKind::Type => {
+            // Type nodes are also leaf nodes: validate and stop recursion here
+            check_type(ast, node)?;
+            return Ok(())
         }
         _ => {
+            // If the node kind is unexpected here, return an error indicating invalid node kind
             return Err(WellFormedError::InvalidNodeKind { found: node.clone() }.into());
         }
     }
 
+    // For TypedList and TypedItem nodes, recursively check all children
     for child_id in children_ids {
-        let child_node = checks::get_node(ast, node, child_id.as_usize())?;
-        check_typed_list(ast, child_node, expected)?;
+        let child_node = common::checks::get_node(ast, node, child_id.as_usize())?;
+        // Recursive call with the same expected kinds
+        check_typed_list_of(ast, child_node, expected)?;
     }
 
     Ok(())
