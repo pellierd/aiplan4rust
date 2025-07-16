@@ -4,7 +4,7 @@ use std::path::Path;
 use aiplan4rust::{Language};
 use crate::common::io::{collect_domain_files};
 use crate::common::io::delete_all_files_with_extension;
-use crate::common::pipeline::{analyze_ast, normalize_and_check_ast, parse_and_check_ast};
+use crate::common::pipeline::{analyze, normalize_and_check_ast, parse_and_check_ast};
 use test_case::test_case;
 
 pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
@@ -22,6 +22,7 @@ pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
         let (raw_ast, diagnostic_manager) = match parse_and_check_ast(&file_path, language) {
             Some(result) => result,
             None => {
+                eprintln!("Échec du parsing de {}", file_path.display());
                 success = false;
                 continue;
             }
@@ -32,22 +33,25 @@ pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
             match normalize_and_check_ast(raw_ast, diagnostic_manager, &file_path) {
                 Some(result) => result,
                 None => {
+                    eprintln!("Échec de la normalisation de {}", file_path.display());
                     success = false;
                     continue;
                 }
             };
 
         // Analyze AST
-        if analyze_ast(normalized_ast, diagnostic_manager, &file_path).is_none() {
+        if analyze(normalized_ast, diagnostic_manager, &file_path).is_none() {
+            eprintln!("Échec de l’analyse sémantique de {}", file_path.display());
             success = false;
             continue;
         }
 
-        // All steps succeeded, nothing more to do
+        // All steps succeeded
     }
 
     success
 }
+
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/colouring"; "ipc20_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]

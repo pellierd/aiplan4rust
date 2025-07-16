@@ -62,18 +62,27 @@ impl AnalyzerResult {
         self.context.as_ref()
     }
 
-    /// Consumes the current instance and returns the annotated syntax arena if present.
+    /// Takes and returns the `SemanticContext` from the current instance, if present.
     ///
-    /// This function takes ownership of `self` and extracts the `AnnotatedSyntaxTree`
-    /// from it, if it exists. This is useful when you need to move the syntax arena
-    /// out of the structure rather than borrowing it.
+    /// This method mutably borrows the instance and replaces the internal context
+    /// with `None`, effectively transferring ownership of the `SemanticContext`
+    /// to the caller.
     ///
     /// # Returns
     ///
-    /// `Some(AnnotatedSyntaxTree)` if the syntax arena exists, or `None` otherwise.
-    pub fn into_semantic_context(self) -> Option<SemanticContext> {
-        self.context
+    /// `Some(SemanticContext)` if it was available, or `None` if it was already taken.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if let Some(sem_ctx) = analyzer_result.take_semantic_context() {
+    ///     // Use the semantic context
+    /// }
+    /// ```
+    pub fn take_semantic_context(&mut self) -> Option<SemanticContext> {
+        self.context.take()
     }
+
 
     /// Returns a mutable reference to the annotated syntax arena.
     ///

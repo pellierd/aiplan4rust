@@ -328,6 +328,52 @@ pub fn write_error_diagnostic_file(file_path: &Path, context: &str, error_messag
         .unwrap_or_else(|_| panic!("Failed to write diagnostic file: {}", diag_path.display()));
 }
 
+pub fn write_error_diagnostic_file_for_domain_and_problem(
+    domain_path: &Path,
+    problem_path: &Path,
+    context: &str,
+    error_message: &str,
+) {
+    // Construction du nom du fichier diag : <problem>-<domain>.linking.diag
+    let problem_stem = problem_path.file_stem().unwrap_or_default();
+    let domain_stem = domain_path.file_stem().unwrap_or_default();
+
+    let diag_file_name = format!(
+        "{}-{}.linking.diag",
+        problem_stem.to_string_lossy(),
+        domain_stem.to_string_lossy()
+    );
+
+    // Répertoire cible (ici on met le fichier à côté du fichier problème)
+    let diag_path = problem_path.parent().unwrap_or_else(|| Path::new(".")).join(diag_file_name);
+
+    let mut diag_file = File::create(&diag_path)
+        .unwrap_or_else(|_| panic!("Failed to create diag file: {}", diag_path.display()));
+
+    let timestamp = Utc::now();
+
+    let header = format!(
+        "********************************************************************************\n\
+         *                           DIAGNOSTIC REPORT                                  *\n\
+         ********************************************************************************\n\
+         Context: {}\n\
+         Domain File:    {}\n\
+         Problem File:   {}\n\
+         UTC:           {}\n\
+         ********************************************************************************\n\n\
+         Error: {}\n",
+        context,
+        domain_path.display(),
+        problem_path.display(),
+        timestamp.to_rfc3339(),
+        error_message
+    );
+
+    diag_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write diagnostic file: {}", diag_path.display()));
+}
+
 /// Dumps the contents of a `SymbolTable` to a `.symtab` file adjacent to the given source file.
 ///
 /// This function writes a human-readable representation of the symbol table, including a header
@@ -389,4 +435,56 @@ pub fn write_symbol_table_to_file(
     symtab_file
         .write_all(symtab_str.as_bytes())
         .unwrap_or_else(|_| panic!("Failed to write symbol table to file: {}", symtab_path.display()));
+}
+
+pub fn write_linking_diag_to_file(
+    diagnostic_manager: &DiagnosticManager,
+    domain_path: &Path,
+    problem_path: &Path,
+    context: &str,
+) {
+    // Build a filename like "<problem>.linking.diag"
+    let problem_stem = problem_path.file_stem().unwrap_or_default();
+
+    let file_name = format!(
+        "{}.linking.diag",
+        problem_stem.to_string_lossy()
+    );
+
+    let diag_path = problem_path
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(file_name);
+
+    let mut diag_file = File::create(&diag_path)
+        .unwrap_or_else(|_| panic!("Failed to create linking diagnostic file: {}", diag_path.display()));
+
+    let timestamp = Utc::now();
+    let header = format!(
+        "********************************************************************************\n\
+         *                             LINKING DIAGNOSTICS                              *\n\
+         ********************************************************************************\n\
+         Context: {}\n\
+         Domain file:  {}\n\
+         Problem file: {}\n\
+         UTC:         {}\n\
+         ********************************************************************************\n\n",
+        context,
+        domain_path.display(),
+        problem_path.display(),
+        timestamp.to_rfc3339(),
+    );
+
+    diag_file
+        .write_all(header.as_bytes())
+        .unwrap_or_else(|_| panic!("Failed to write header to linking diagnostic file: {}", diag_path.display()));
+
+    // Convert diagnostics to a string using the Renderer
+    let mut buffer = Vec::new();
+    Renderer::write_to(diagnostic_manager, &mut buffer, false)
+        .expect("Failed to write diagnostics");
+
+    diag_file
+        .write_all(&buffer)
+        .unwrap_or_else(|_| panic!("Failed to write linking diagnostics to file: {}", diag_path.display()));
 }

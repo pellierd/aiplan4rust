@@ -1,12 +1,11 @@
-use crate::common::io::{
-    read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file,
-    write_symbol_table_to_file,
-};
+use std::fs::File;
+use std::io::Write;
+use crate::common::io::{read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_symbol_table_to_file};
 use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
-use aiplan4rust::aiplan4rust::semantic::SymbolTable;
+use aiplan4rust::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use aiplan4rust::aiplan4rust::syntax::ast::Ast;
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
-use aiplan4rust::aiplan4rust::Analyzer;
+use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{check_well_formed, Language, Normalizer, Parser, Severity};
 use std::path::Path;
 
@@ -231,11 +230,11 @@ pub fn normalize_and_check_ast(
 /// ```rust
 /// let (symbol_table, diag_manager) = analyze_ast(normalized_ast, diagnostic_manager, &file_path)
 ///     .e
-pub fn analyze_ast(
+pub fn analyze(
     mut normalized_ast: Ast,
     diagnostic_manager: DiagnosticManager,
     file_path: &Path,
-) -> Option<(SymbolTable, DiagnosticManager)> {
+) -> Option<(SemanticContext, DiagnosticManager)> {
     let mut analyzer = Analyzer::new();
 
     match analyzer.analyze_with_diagnostic_manager(&mut normalized_ast, diagnostic_manager) {
@@ -258,19 +257,28 @@ pub fn analyze_ast(
                 write_ast_to_file(&normalized_ast, file_path, "Analyzer error");
 
                 // Save symbol table (non optional)
-                let symtab = analyzer_result.semantic_context()?.symbol_table();
-                write_symbol_table_to_file(
-                    symtab,
-                    file_path,
-                    "Analyzer error",
-                    normalized_ast.interner(),
-                );
+                if let Some(sem_ctx) = analyzer_result.semantic_context() {
+                    let symtab = sem_ctx.symbol_table();
+                    write_symbol_table_to_file(
+                        symtab,
+                        file_path,
+                        "Analyzer error",
+                        normalized_ast.interner(),
+                    );
+                }
 
                 None
             } else {
-                // No blocking errors: return symbol table
-                let symbol_table = analyzer_result.semantic_context_mut()?.take_symbol_table();
-                Some((symbol_table, analyzer_result.take_diagnostic_manager()))
+                // No blocking errors: return the SemanticContext
+                if let Some(sem_ctx) = analyzer_result.take_semantic_context() {
+                    Some((sem_ctx, analyzer_result.take_diagnostic_manager()))
+                } else {
+                    eprintln!(
+                        "Semantic analysis did not produce a SemanticContext for file {}",
+                        file_path.display()
+                    );
+                    None
+                }
             }
         }
         Err(e) => {
@@ -287,6 +295,167 @@ pub fn analyze_ast(
 
             // Write AST even if analysis panics
             write_ast_to_file(&normalized_ast, file_path, "Analyzer panic");
+
+            None
+        }
+    }
+}
+
+/// Parses, normalizes, and performs semantic analysis on a file.
+///
+/// This function processes the file at `file_path` using the specified `language`.
+/// It goes through three main phases:
+/// 1. Parsing and initial checking to produce a raw AST and diagnostics.
+/// 2. Normalizing the AST and updating diagnostics.
+/// 3. Semantic analysis producing a semantic context and updated diagnostics.
+///
+/// The `context` parameter is a descriptive string (e.g., "domain" or "problem")
+/// used for error messages and logging.
+///
+/// The `success` parameter is a mutable reference to a boolean flag that will be
+/// set to `false` if any step fails.
+///
+/// # Arguments
+///
+/// * `file_path` - The path to the file to analyze.
+/// * `language` - The language descriptor used for parsing and analysis.
+/// * `context` - A string slice describing the context (e.g., "domain", "problem").
+/// * `success` - A mutable reference to a boolean that indicates overall success.
+///
+/// # Returns
+///
+/// Returns `Some((SemanticContext, DiagnosticManager))` if all steps succeed,
+/// otherwise returns `None` and sets `success` to `false`.
+///
+/// # Errors
+///
+/// Prints an error message to standard error if parsing, normalization,
+/// or semantic analysis fails.
+pub fn analyze_file(
+    file_path: &Path,
+    language: &Language,
+    context: &str,       // e.g., "domain" or "problem"
+    success: &mut bool,  // mutable reference to update success flag
+) -> Option<(SemanticContext, DiagnosticManager)> {
+    let (raw_ast, diag_mgr) = match parse_and_check_ast(file_path, language) {
+        Some(res) => res,
+        None => {
+            eprintln!("Parsing failed for {}", context);
+            *success = false;
+            return None;
+        }
+    };
+
+    let (norm_ast, diag_mgr) = match normalize_and_check_ast(raw_ast, diag_mgr, file_path) {
+        Some(res) => res,
+        None => {
+            eprintln!("Normalization failed for {}", context);
+            *success = false;
+            return None;
+        }
+    };
+
+    let (semantic_ctx, diag_mgr) = match analyze(norm_ast, diag_mgr, file_path) {
+        Some(res) => res,
+        None => {
+            eprintln!("Semantic analysis failed for {}", context);
+            *success = false;
+            return None;
+        }
+    };
+
+    Some((semantic_ctx, diag_mgr))
+}
+
+/// Performs semantic linking between a domain and a problem semantic context.
+///
+/// This function attempts to link the provided `domain_ctx` and `problem_ctx`
+/// semantic contexts using a `Linker`. It generates diagnostics during the
+/// linking process and writes them to a `.linking.diag` file named
+/// `<problem>-<domain>.linking.diag` in the domain's parent directory.
+///
+/// # Parameters
+///
+/// - `domain_ctx`: The semantic context representing the domain.
+/// - `problem_ctx`: The semantic context representing the problem.
+/// - `domain_path`: The filesystem path to the domain file, used for diagnostic file naming.
+/// - `problem_path`: The filesystem path to the problem file, used for diagnostic file naming.
+///
+/// # Returns
+///
+/// Returns `Some(DiagnosticManager)` if linking succeeds without error-level diagnostics.
+/// Returns `None` if linking fails or if errors were reported during linking.
+///
+/// # Behavior
+///
+/// - On successful linking, diagnostics are collected and always written to a diagnostics file,
+///   even if no errors are reported.
+/// - If linking reports errors, `None` is returned and the diagnostics file reflects those errors.
+/// - If linking itself fails (returns an error), a dedicated error diagnostic file is written,
+///   and `None` is returned.
+///
+/// # Side Effects
+///
+/// Writes diagnostic files to disk:
+/// - `<problem>-<domain>.linking.diag` containing linking diagnostics or errors.
+///
+/// # Examples
+///
+/// ```ignore
+/// let domain_ctx = ...; // obtained from semantic analysis
+/// let problem_ctx = ...;
+/// let domain_path = Path::new("path/to/domain.hddl");
+/// let problem_path = Path::new("path/to/problem.hddl");
+///
+/// let result = link(domain_ctx, problem_ctx, domain_path, problem_path);
+/// if result.is_none() {
+///     eprintln!("Linking failed or had errors.");
+/// }
+/// ```
+pub fn link(
+    domain_ctx: SemanticContext,
+    problem_ctx: SemanticContext,
+    domain_path: &Path,
+    problem_path: &Path,
+) -> Option<DiagnosticManager> {
+    let mut diagnostic_manager = DiagnosticManager::new();
+    let mut linker = Linker::new();
+
+    let result = linker.link(domain_ctx, problem_ctx);
+
+    match result {
+        Ok(linker_result) => {
+            diagnostic_manager.add_diagnostic_from(linker_result.diagnostic_manager());
+
+            // Write the linking diagnostics file (filename and location handled inside the function)
+            write_linking_diag_to_file(
+                &diagnostic_manager,
+                domain_path,
+                problem_path,
+                "Linking tests",
+            );
+
+            if diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
+                eprintln!("Linking reported errors for file {}", problem_path.display());
+                None
+            } else {
+                Some(diagnostic_manager)
+            }
+        }
+        Err(e) => {
+            eprintln!(
+                "Linking failed for domain {} and problem {}: {}",
+                domain_path.display(),
+                problem_path.display(),
+                e
+            );
+
+            write_error_diagnostic_file_for_domain_and_problem(
+                domain_path,
+                problem_path,
+                "Linking error",
+                &e.to_string(),
+            );
 
             None
         }

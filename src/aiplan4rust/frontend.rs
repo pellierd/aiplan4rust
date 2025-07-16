@@ -59,14 +59,14 @@ impl Frontend {
         let mut diagnostic_manager = DiagnosticManager::new();
 
         // Parse the domain file
-        let domain = self.parse_file(domain_path, language)?;
+        let mut domain = self.parse_file(domain_path, language)?;
         diagnostic_manager.add_diagnostic_from(domain.diagnostic_manager());
 
         // Parse the problem file
-        let problem = self.parse_file(problem_path, language)?;
+        let mut problem = self.parse_file(problem_path, language)?;
         diagnostic_manager.add_diagnostic_from(problem.diagnostic_manager());
 
-        match (domain.into_semantic_context(), problem.into_semantic_context()) {
+        match (domain.take_semantic_context(), problem.take_semantic_context()) {
             (Some(domain_tree), Some(problem_tree)) => {
 
                 let mut linker = Linker::new();
