@@ -3,30 +3,19 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 
 use std::fmt;
 
-/// `LinkerResult` represents the result of a linking process, which contains a lifted planning
-/// task and an associated error manager.
+/// Represents the result of the semantic linking process between a domain and a problem.
 ///
-/// This structure is used to store the result of the linking process, whether it's successful
-/// or contains errors that need to be handled.
+/// A `LinkerResult` encapsulates:
+/// - An optional `LinkedSemanticContext`, produced by successful linking.
+/// - A `DiagnosticManager` containing diagnostics and errors encountered during linking.
 ///
 /// # Fields
-/// - `planning_task`: An optional `LiftedPlanningTask` that represents the result of the linking.
-///   It will be `Some(LiftedPlanningTask)` if the linking was successful, or `None` if an error
-///   occurred.
-/// - `error_manager`: The `ErrorManager` that collects any errors encountered during the linking
-///   process.
+/// - `context`: An optional `LinkedSemanticContext` produced by the linker. `None` if linking failed.
+/// - `diagnostic_manager`: The `DiagnosticManager` that collected diagnostics during the linking.
 ///
-/// # Methods
-/// - `new`: Creates a new instance of `LinkerResult` with an optional lifted planning task and an
-///   error manager.
-/// - `planning_task`: Returns an immutable reference to the lifted planning task, or `None` if the
-///   task is unavailable.
-/// - `planning_task_mut`: Returns a mutable reference to the lifted planning task, or `None` if the
-///   task is unavailable.
-/// - `error_manager`: Returns an immutable reference to the error manager.
-/// - `error_manager_mut`: Returns a mutable reference to the error manager.
-/// - `is_some`: Checks whether a lifted planning task is present.
-/// - `is_none`: Checks whether a lifted planning task is absent.
+/// # Use Cases
+/// Use this struct to inspect the result of linking, retrieve diagnostics,
+/// or check if linking succeeded (`is_some`) or failed (`is_none`).
 #[derive(Debug, Clone)]
 pub struct LinkerResult {
     context: Option<LinkedSemanticContext>,
@@ -34,14 +23,14 @@ pub struct LinkerResult {
 }
 
 impl LinkerResult {
-    /// Creates a new `LinkerResult` with an optional lifted planning task and an error manager.
+    /// Creates a new `LinkerResult`.
     ///
     /// # Arguments
-    /// - `planning_task`: The lifted planning task associated with this linking result.
-    /// - `error_manager`: The error manager that collects all errors encountered during the linking.
+    /// - `planning_task`: The result of the linking process (`Some` if successful, `None` if not).
+    /// - `diagnostic_manager`: The `DiagnosticManager` holding all diagnostics from the linking phase.
     ///
     /// # Returns
-    /// A `LinkerResult` containing the provided values.
+    /// A new instance of `LinkerResult`.
     pub fn new(planning_task: Option<LinkedSemanticContext>, diagnostic_manager: DiagnosticManager) -> Self {
         LinkerResult {
             context: planning_task,
@@ -49,50 +38,66 @@ impl LinkerResult {
         }
     }
 
-    /// Returns an immutable reference to the lifted planning task.
+    /// Returns an immutable reference to the linked semantic context, if available.
     ///
     /// # Returns
-    /// `Some(&LiftedPlanningTask)` if the task exists, otherwise `None`.
+    /// `Some(&LinkedSemanticContext)` if available, `None` otherwise.
     pub fn linked_semantic_context(&self) -> Option<&LinkedSemanticContext> {
         self.context.as_ref()
     }
 
-    /// Returns a mutable reference to the lifted planning task.
+    /// Extracts the linked semantic context, leaving `None` in its place.
     ///
     /// # Returns
-    /// `Some(&mut LiftedPlanningTask)` if the task exists, otherwise `None`.
+    /// `Some(LinkedSemanticContext)` if available, `None` otherwise.
+    pub fn take_linked_semantic_context(&mut self) -> Option<LinkedSemanticContext> {
+        self.context.take()
+    }
+
+    /// Returns a mutable reference to the linked semantic context, if available.
+    ///
+    /// # Returns
+    /// `Some(&mut LinkedSemanticContext)` if available, `None` otherwise.
     pub fn linked_semantic_context_mut(&mut self) -> Option<&mut LinkedSemanticContext> {
         self.context.as_mut()
     }
 
-    /// Returns an immutable reference to the error manager.
+    /// Returns an immutable reference to the diagnostic manager.
     ///
     /// # Returns
-    /// A reference to the `ErrorManager`.
+    /// A reference to the `DiagnosticManager` containing diagnostics from linking.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
-    /// Returns a mutable reference to the error manager.
+    /// Returns a mutable reference to the diagnostic manager.
     ///
     /// # Returns
-    /// A mutable reference to the `ErrorManager`.
+    /// A mutable reference to the `DiagnosticManager`.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
 
-    /// Checks whether a lifted planning task is present.
+    /// Extracts the diagnostic manager, replacing it with an empty one.
     ///
     /// # Returns
-    /// `true` if the lifted planning task exists, `false` otherwise.
+    /// The owned `DiagnosticManager` with all diagnostics collected during linking.
+    pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
+        std::mem::take(&mut self.diagnostic_manager)
+    }
+
+    /// Returns `true` if the linking produced a semantic context (`Some`).
+    ///
+    /// # Returns
+    /// `true` if linking succeeded and produced a context, `false` otherwise.
     pub fn is_some(&self) -> bool {
         self.context.is_some()
     }
 
-    /// Checks whether a lifted planning task is absent.
+    /// Returns `true` if the linking did not produce a semantic context (`None`).
     ///
     /// # Returns
-    /// `true` if the lifted planning task is absent, `false` otherwise.
+    /// `true` if linking failed or produced no context, `false` otherwise.
     pub fn is_none(&self) -> bool {
         self.context.is_none()
     }
@@ -101,25 +106,22 @@ impl LinkerResult {
 impl fmt::Display for LinkerResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.context {
-            Some(task) => {
-                // If the lifted planning task exists, display the task and any errors.
-                write!(f, "Linking successful:\n{}", task)?;
+            Some(context) => {
+                write!(f, "Linking successful:\n{}", context)?;
 
-                // Check if there are any errors in the error manager.
                 if !self.diagnostic_manager().is_empty() {
-                    write!(f, "\nErrors encountered during linking:\n")?;
+                    write!(f, "\nDiagnostics:\n")?;
                     for diagnostic in self.diagnostic_manager().diagnostics() {
-                        write!(f, "{}\n", diagnostic)?;
+                        writeln!(f, "{}", diagnostic)?;
                     }
                 } else {
-                    write!(f, "\nNo errors detected.")?;
+                    writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
             None => {
-                // If no lifted planning task is available, display linking failure and errors.
-                write!(f, "Linking failed:\n")?;
+                writeln!(f, "Linking failed:\n")?;
                 for diagnostic in self.diagnostic_manager().diagnostics() {
-                    write!(f, "{}\n", diagnostic)?;
+                    writeln!(f, "{}", diagnostic)?;
                 }
             }
         }

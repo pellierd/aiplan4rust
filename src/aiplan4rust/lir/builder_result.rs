@@ -1,26 +1,26 @@
-//! Module defining the `BuilderResult` type,
-//! which represents the result of the IR building phase in the AI planning framework.
+//! Defines the [`BuilderResult`] type, which encapsulates the result of the IR (Intermediate Representation)
+//! building phase in the AI planning pipeline.
 //!
-//! The `BuilderResult` contains an optional `LiftedProblem` representing the constructed
-//! intermediate representation (IR) of the planning problem, along with a `DiagnosticManager`
-//! that holds any diagnostics such as errors, warnings, or informational messages encountered
-//! during the build process.
+//! A [`BuilderResult`] contains:
+//! - An optional [`LiftedProblem`] representing the constructed IR of the planning problem.
+//! - A [`DiagnosticManager`] collecting diagnostics such as errors, warnings, and informational messages
+//!   that occurred during IR construction.
 //!
-//! This design allows returning both the result of the build phase and any relevant diagnostics,
-//! enabling better error reporting and handling in the parsing and IR building pipeline.
+//! This design supports detailed diagnostic reporting alongside partial or failed IR generation,
+//! enabling robust error handling in parsing and compilation stages.
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::lir::LiftedProblem;
 use std::fmt;
 
-/// `BuilderResult` represents the outcome of the IR building step.
+/// Represents the result of the IR (Intermediate Representation) building phase.
 ///
-/// It contains an optional `LiftedProblem` which is the IR produced if the build
-/// was successful, as well as a `DiagnosticManager` that accumulates diagnostics
-/// (errors, warnings, info) produced during the process.
+/// This structure bundles the outcome of the build:
+/// - An optional [`LiftedProblem`] if IR construction was successful.
+/// - A [`DiagnosticManager`] containing diagnostics emitted during the process.
 ///
-/// This allows to convey partial success (with diagnostics) or failure (without IR)
-/// while preserving detailed feedback for the user or caller.
+/// This design allows the caller to inspect whether the IR was generated,
+/// and still retrieve relevant diagnostics even in the case of failure.
 #[derive(Debug, Clone)]
 pub struct BuilderResult {
     lifted_problem: Option<LiftedProblem>,
@@ -28,16 +28,14 @@ pub struct BuilderResult {
 }
 
 impl BuilderResult {
-    /// Creates a new `BuilderResult`.
+    /// Constructs a new [`BuilderResult`] with the given IR and diagnostics.
     ///
-    /// # Arguments
-    ///
-    /// * `lifted_problem` - Optional `LiftedProblem` produced by the IR builder.
-    /// * `diagnostic_manager` - The diagnostics collected during the build.
+    /// # Parameters
+    /// - `lifted_problem`: The IR result (`Some`) if successfully built, otherwise `None`.
+    /// - `diagnostic_manager`: The diagnostics collected during IR construction.
     ///
     /// # Returns
-    ///
-    /// A new `BuilderResult` containing the provided IR and diagnostics.
+    /// A new instance of [`BuilderResult`].
     pub fn new(lifted_problem: Option<LiftedProblem>, diagnostic_manager: DiagnosticManager) -> Self {
         Self {
             lifted_problem,
@@ -45,69 +43,72 @@ impl BuilderResult {
         }
     }
 
-    /// Returns a reference to the `LiftedProblem` if present.
+    /// Returns an immutable reference to the built [`LiftedProblem`], if available.
     ///
     /// # Returns
-    ///
-    /// * `Some(&LiftedProblem)` if the IR was successfully built.
-    /// * `None` otherwise.
+    /// - `Some(&LiftedProblem)` if IR is present.
+    /// - `None` if IR was not successfully built.
     pub fn lifted_problem(&self) -> Option<&LiftedProblem> {
         self.lifted_problem.as_ref()
     }
 
-    /// Returns a mutable reference to the `LiftedProblem` if present.
+    /// Returns a mutable reference to the built [`LiftedProblem`], if available.
     ///
     /// # Returns
-    ///
-    /// * `Some(&mut LiftedProblem)` if the IR was successfully built.
-    /// * `None` otherwise.
+    /// - `Some(&mut LiftedProblem)` if IR is present.
+    /// - `None` otherwise.
     pub fn lifted_problem_mut(&mut self) -> Option<&mut LiftedProblem> {
         self.lifted_problem.as_mut()
     }
 
-    /// Returns a reference to the `DiagnosticManager`.
+    /// Returns an immutable reference to the [`DiagnosticManager`].
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
-    /// Returns a mutable reference to the `DiagnosticManager`.
+    /// Returns a mutable reference to the [`DiagnosticManager`].
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
 
-    /// Returns `true` if a `LiftedProblem` is present.
+    /// Extracts the diagnostic manager, replacing it with an empty one.
+    ///
+    /// # Returns
+    /// The collected [`DiagnosticManager`] containing all diagnostics.
+    pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
+        std::mem::take(&mut self.diagnostic_manager)
+    }
+
+    /// Returns `true` if the IR was successfully built.
     pub fn is_some(&self) -> bool {
         self.lifted_problem.is_some()
     }
 
-    /// Returns `true` if no `LiftedProblem` is present.
+    /// Returns `true` if the IR is absent (i.e., build failed).
     pub fn is_none(&self) -> bool {
         self.lifted_problem.is_none()
     }
 }
 
 impl fmt::Display for BuilderResult {
-    /// Formats the `BuilderResult` for user-friendly display.
-    ///
-    /// If the IR was successfully built, it prints the IR followed by any diagnostics.
-    /// Otherwise, it prints the diagnostics indicating failure.
+    /// Formats the result for display, including the IR (if any) and diagnostics.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.lifted_problem {
             Some(ir) => {
-                write!(f, "IR built successfully:\n{}", ir)?;
+                writeln!(f, "IR built successfully:\n{}", ir)?;
                 if !self.diagnostic_manager().is_empty() {
-                    write!(f, "\nDiagnostics:\n")?;
+                    writeln!(f, "\nDiagnostics:")?;
                     for diagnostic in self.diagnostic_manager().diagnostics() {
-                        write!(f, "{}\n", diagnostic)?;
+                        writeln!(f, "{}", diagnostic)?;
                     }
                 } else {
-                    write!(f, "\nNo diagnostics.")?;
+                    writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
             None => {
-                write!(f, "IR build failed:\n")?;
+                writeln!(f, "IR build failed.")?;
                 for diagnostic in self.diagnostic_manager().diagnostics() {
-                    write!(f, "{}\n", diagnostic)?;
+                    writeln!(f, "{}", diagnostic)?;
                 }
             }
         }

@@ -38,13 +38,13 @@ pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
         };
 
         // Analyse domaine
-        let (domain_sem_ctx, _) = match analyze_file(&domain_path, language, "domaine", &mut success) {
+        let (domain_sem_ctx, domain_diag_mgr) = match analyze_file(&domain_path, language, "domaine", &mut success) {
             Some(res) => res,
             None => continue,
         };
 
         // Analyse problème
-        let (problem_sem_ctx, _) = match analyze_file(&problem_path, language, "problème", &mut success) {
+        let (problem_sem_ctx, problem_diag_mgr) = match analyze_file(&problem_path, language, "problème", &mut success) {
             Some(res) => res,
             None => continue,
         };
@@ -53,6 +53,8 @@ pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
         let linking_result = link(
             domain_sem_ctx,
             problem_sem_ctx,
+            domain_diag_mgr,
+            problem_diag_mgr,
             &domain_path,
             &problem_path,
         );

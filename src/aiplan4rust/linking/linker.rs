@@ -77,11 +77,49 @@ impl Linker {
     /// Identifier remapping ensures symbol consistency within the unified identifier space.
     /// The diagnostic manager collects errors or warnings encountered during linking.
     ///
+    pub fn link_with_diagnostic_manager(
+        &mut self,
+        mut domain: SemanticContext,
+        mut problem: SemanticContext,
+        diagnostic_manager: DiagnosticManager
+    ) -> Result<LinkerResult, ParserInternalError> {
+        self.diagnostic_manager = diagnostic_manager;
+        self.link(domain, problem)
+    }
+
+    /// Performs semantic linking between a domain and a problem context.
+    ///
+    /// This function carries out the following steps:
+    ///
+    /// 1. Merges string interners from the domain and the problem to create a global interner.
+    /// 2. Remaps identifiers in the problem's AST and symbol table to correspond to the global interner.
+    /// 3. Resolves external references in the problem against the domain.
+    /// 4. Creates a verification context (`CheckContext`) using the problem's AST, symbol table,
+    ///    global interner, source name, and requirements.
+    /// 5. Performs semantic and structural linking checks on the problem.
+    /// 6. Finalizes the linking process and returns the result, while managing diagnostics.
+    ///
+    /// # Arguments
+    ///
+    /// * `domain` - The semantic context representing the domain (reference context).
+    /// * `problem` - The semantic context of the problem to be linked.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(LinkerResult)` if linking succeeds.
+    /// * `Err(ParserInternalError)` if an error occurs during resolution or verification.
+    ///
+    /// # Notes
+    ///
+    /// Identifier remapping ensures symbol consistency within the unified identifier space.
+    /// The diagnostic manager collects errors or warnings encountered during linking.
+    ///
     pub fn link(
         &mut self,
         mut domain: SemanticContext,
         mut problem: SemanticContext,
     ) -> Result<LinkerResult, ParserInternalError> {
+//        self.diagnostic_manager.add
         /*println!("DOMAIN ****************************$");
         println!("{}", domain.interner());
         println!("PROBLEM ****************************$");
@@ -126,7 +164,7 @@ impl Linker {
             return Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager)));
         }
 
-        // Step 7: EConstruct the final linked semantic context
+        // Step 7: Construct the final linked semantic context
         let semantic_context = LinkedSemanticContext::new(
             domain.take_ast(),
             problem.take_ast(),
@@ -214,6 +252,7 @@ pub fn perform_linking_checks(
     problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, ParserInternalError> {
+
     // Check that the domain name matches the problem's declared domain
     linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
 
