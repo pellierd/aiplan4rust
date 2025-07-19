@@ -1,11 +1,11 @@
 use std::fmt;
 use std::str::FromStr;
-
+use clap::ValueEnum;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::serde::SerdeExtension;
 
 /// Represents supported serialization formats (JSON, YAML).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum)]
 pub enum Format {
     /// JSON format (default)
     #[default]
@@ -60,32 +60,12 @@ impl From<SerdeExtension> for Format {
     }
 }
 
-/// Parses a `Format` from a string (case-insensitive, with or without leading dot).
 impl FromStr for Format {
     type Err = AiplanError;
 
-    /// Parses a string into a `Format`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the format string is unknown.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let fmt = Format::from_str("yaml")?;
-    /// let fmt_dot = Format::from_str(".json")?;
-    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let normalized = s.trim_start_matches('.').to_ascii_lowercase();
-        match normalized.as_str() {
-            "json" => Ok(Format::Json),
-            "yaml" | "yml" => Ok(Format::Yaml),
-            "toml" => Ok(Format::Toml),
-            "cbor" => Ok(Format::Cbor),
-            "messagepack" | "msgpack" => Ok(Format::MessagePack),
-            other => Err(AiplanError::new(format!("Unknown format: {}", other))),
-        }
+        <Self as clap::ValueEnum>::from_str(s, false)
+            .map_err(|e| AiplanError::new(format!("Invalid format: {}", e)))
     }
 }
 
