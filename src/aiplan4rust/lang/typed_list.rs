@@ -1,7 +1,7 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
@@ -140,7 +140,7 @@ impl FromAst for TypedList {
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>
-    ) -> Result<Self, ParserInternalError> {
+    ) -> Result<Self, AiplanError> {
         let mut typed_list = TypedList::new();
         for id in node.children() {
             let child = ast.try_node(*id)?;

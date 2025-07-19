@@ -3,7 +3,7 @@
 
 use std::fmt::{self, Display};
 use std::str::FromStr;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 
 /// Enumeration of supported file extensions.
@@ -64,7 +64,7 @@ impl From<SerdeFormat> for Extension {
 
 /// Conversion from string to `Extension`.
 impl FromStr for Extension {
-    type Err = ParserInternalError;
+    type Err = AiplanError;
 
     /// Parses a string (with or without leading dot) into an `Extension`.
     ///
@@ -92,7 +92,7 @@ impl FromStr for Extension {
             "toml" => Ok(Extension::Toml),
             "cbor" => Ok(Extension::Cbor),
             "msgpack" | "messagepack" => Ok(Extension::MessagePack),
-            other => Err(ParserInternalError::new(format!("Unknown extension: {}", other))),
+            other => Err(AiplanError::new(format!("Unknown extension: {}", other))),
         }
     }
 }

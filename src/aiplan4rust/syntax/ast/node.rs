@@ -33,7 +33,7 @@ use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::arena::{Arena, ArenaNode, BaseNode, NodeId};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
@@ -103,7 +103,7 @@ impl AstNode {
     ///
     /// # Errors
     /// Returns `ParserInternalError` if this node does not contain a requirement.
-    pub fn try_requirement(&self) -> Result<Requirement, ParserInternalError> {
+    pub fn try_requirement(&self) -> Result<Requirement, AiplanError> {
         self.content().try_requirement()
     }
 }
@@ -207,7 +207,7 @@ impl ArenaNode for AstNode {
     /// - `Ok(Some(SymbolRef))` if the node is a known symbol.
     /// - `Ok(None)` if it does not correspond to a symbol.
     /// - `Err(ParserInternalError)` if an identifier is missing.
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, ParserInternalError> {
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError> {
         let kind = self.kind();
         let symbol_kind = match kind {
             AstKind::DomainName => SymbolKind::DomainName,

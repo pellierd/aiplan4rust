@@ -23,7 +23,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -124,7 +124,7 @@ impl FromAst for NamedTypedList {
     /// # Returns
     ///
     /// `Ok(NamedTypedList)` if parsing succeeds, or `ParserInternalError` on failure.
-    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, AiplanError> {
         let name_id = node.try_child(0)?;
         let name_node = ast.try_node(name_id)?;
         let name = name_node.try_ident()?;

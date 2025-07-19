@@ -9,7 +9,7 @@ use std::mem;
 use std::time::SystemTime;
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError};
 use crate::aiplan4rust::syntax::lexer::token::Token;
 use crate::aiplan4rust::syntax::{FastLineTable, Language, ParseContext, ParserError, ParserResult};
@@ -102,7 +102,7 @@ impl<'a> Parser<'a> {
         source_name: &'a str,
         source: &'a str,
         language: &Language,
-    ) -> Result<ParserResult, ParserInternalError> {
+    ) -> Result<ParserResult, AiplanError> {
         // Store the source name (e.g., filename) for diagnostics context
         self.source_name = Some(source_name);
         // Store the source code string slice for diagnostics context

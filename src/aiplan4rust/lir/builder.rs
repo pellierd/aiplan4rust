@@ -40,7 +40,7 @@ use std::collections::HashSet;
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
@@ -128,7 +128,7 @@ impl LIRBuilder {
     pub fn build(
         &mut self,
         context: &LinkedSemanticContext,
-    ) -> Result<LIRBuilderResult, ParserInternalError> {
+    ) -> Result<LIRBuilderResult, AiplanError> {
         let mut lir = LiftedProblem::new();
 
         self.extract_domain(context, &mut lir)?;
@@ -140,7 +140,7 @@ impl LIRBuilder {
         &mut self,
         context: &LinkedSemanticContext,
         diagnostic_manager: DiagnosticManager
-    ) -> Result<LIRBuilderResult, ParserInternalError> {
+    ) -> Result<LIRBuilderResult, AiplanError> {
         self.diagnostic_manager = diagnostic_manager;
         self.build(context)
     }
@@ -157,7 +157,7 @@ impl LIRBuilder {
         &mut self,
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         let domain = context.domain_ast();
 
         for node in domain.preorder() {
@@ -194,7 +194,7 @@ impl LIRBuilder {
         &self,
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         let problem = context.problem_ast();
 
         for node in problem.preorder() {
@@ -226,7 +226,7 @@ impl LIRBuilder {
 fn extract_requirements(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<HashSet<Requirement>, ParserInternalError> {
+) -> Result<HashSet<Requirement>, AiplanError> {
     extract_set(node, ast, |n, _| n.try_requirement())
 }
 
@@ -234,7 +234,7 @@ fn extract_requirements(
 fn extract_atomic_formula_skeleton(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<HashSet<AtomicFormulaSkeleton>, ParserInternalError> {
+) -> Result<HashSet<AtomicFormulaSkeleton>, AiplanError> {
     extract_set(node, ast, AtomicFormulaSkeleton::from_ast)
 }
 
@@ -242,7 +242,7 @@ fn extract_atomic_formula_skeleton(
 fn extract_atomic_function_skeleton(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<HashSet<AtomicFunctionSkeleton>, ParserInternalError> {
+) -> Result<HashSet<AtomicFunctionSkeleton>, AiplanError> {
     extract_set(node, ast, AtomicFunctionSkeleton::from_ast)
 }
 
@@ -250,7 +250,7 @@ fn extract_atomic_function_skeleton(
 fn extract_types(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
+) -> Result<HashSet<TypedSymbol>, AiplanError> {
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
 
@@ -258,7 +258,7 @@ fn extract_types(
 fn extract_constants(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<HashSet<TypedSymbol>, ParserInternalError> {
+) -> Result<HashSet<TypedSymbol>, AiplanError> {
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
 
@@ -266,7 +266,7 @@ fn extract_constants(
 fn extract_init(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<Expr, ParserInternalError> {
+) -> Result<Expr, AiplanError> {
     extract_expr_first_child(node, ast)
 }
 
@@ -274,7 +274,7 @@ fn extract_init(
 fn extract_goal(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<Expr, ParserInternalError> {
+) -> Result<Expr, AiplanError> {
     extract_expr_first_child(node, ast)
 }
 
@@ -283,7 +283,7 @@ fn extract_goal(
 fn extract_expr_first_child(
     node: &AstNode,
     ast: &Arena<AstNode>,
-) -> Result<Expr, ParserInternalError> {
+) -> Result<Expr, AiplanError> {
     let child_id = node.try_child(0)?;
     let child_node = ast.try_node(child_id)?;
     Expr::from_ast(child_node, ast)
@@ -295,10 +295,10 @@ fn extract_set<T, F>(
     node: &AstNode,
     ast: &Arena<AstNode>,
     extract_fn: F,
-) -> Result<HashSet<T>, ParserInternalError>
+) -> Result<HashSet<T>, AiplanError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, ParserInternalError>,
+    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, AiplanError>,
 {
     let mut set = HashSet::new();
     for child_id in node.children() {
@@ -315,10 +315,10 @@ fn extract_set_from_first_child<T, F>(
     node: &AstNode,
     ast: &Arena<AstNode>,
     extract_fn: F,
-) -> Result<HashSet<T>, ParserInternalError>
+) -> Result<HashSet<T>, AiplanError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, ParserInternalError>,
+    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, AiplanError>,
 {
     let first_child_id = node.try_child(0)?;
     let first_child_node = ast.try_node(first_child_id)?;

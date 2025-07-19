@@ -12,6 +12,7 @@ pub mod lang;
 
 pub mod frontend;
 pub mod validation;
+pub mod error;
 
 pub use frontend::Frontend;
 pub use normalization::Normalizer;
@@ -19,3 +20,5 @@ pub use semantic::Analyzer;
 pub use syntax::Parser;
 pub use linking::Linker;
 pub use lir::LIRBuilder;
+
+pub use error::AiplanError;

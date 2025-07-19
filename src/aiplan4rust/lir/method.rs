@@ -25,7 +25,7 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
@@ -157,7 +157,7 @@ impl FromAst for Method {
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
-    ) -> Result<Self, ParserInternalError> {
+    ) -> Result<Self, AiplanError> {
         // Parse header (name + parameters)
         let header = NamedTypedList::from_ast(node, ast)?;
 

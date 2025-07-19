@@ -1,4 +1,4 @@
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -94,7 +94,7 @@ impl Expr {
 /// let expr = Expr::from_ast(ast_root_node, &arena)?;
 /// ```
 impl FromAst for Expr {
-    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, AiplanError> {
         wrap(node, ast)
     }
 }
@@ -106,7 +106,7 @@ impl FromAst for Expr {
 fn wrap(
     node: &AstNode,
     ast: &Arena<AstNode>
-) -> Result<Expr, ParserInternalError> {
+) -> Result<Expr, AiplanError> {
     let mut expr = Expr::new();
     let mut stack = Vec::new();
 

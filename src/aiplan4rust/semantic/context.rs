@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::arena::{Arena, NodeId};
 use crate::aiplan4rust::semantic::SymbolTable;
@@ -73,7 +73,7 @@ impl Context {
     ///
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
-    pub fn from(ast: &mut Ast) -> Result<Self, ParserInternalError> {
+    pub fn from(ast: &mut Ast) -> Result<Self, AiplanError> {
 
         let symbol_table = SymbolTable::from_ast(ast)?;
         let arena = ast.take_arena();
@@ -103,7 +103,7 @@ impl Context {
     /// # Returns
     ///
     /// A `HashSet` of all declared and implied `Requirement` instances.
-    fn extract_requirements(arena: &Arena<AstNode>) -> Result<HashSet<Requirement>, ParserInternalError> {
+    fn extract_requirements(arena: &Arena<AstNode>) -> Result<HashSet<Requirement>, AiplanError> {
         let mut requirements = HashSet::new();
 
         // Step 1: Find the first `RequireDef` syntax in the AST
@@ -160,7 +160,7 @@ impl Context {
         self.ast.get_node(id)
     }
 
-    pub fn try_node(&self, id: NodeId) -> Result<&AstNode, ParserInternalError> {
+    pub fn try_node(&self, id: NodeId) -> Result<&AstNode, AiplanError> {
         self.ast.try_node(id)
     }
 

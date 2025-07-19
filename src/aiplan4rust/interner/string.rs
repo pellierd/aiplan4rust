@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
@@ -272,9 +272,9 @@ impl StringInterner {
     /// assert!(interner.expect_str(invalid_id).is_err());
     /// ```
     ///
-    pub fn try_resolve(&self, ident: Ident) -> Result<&str, ParserInternalError> {
+    pub fn try_resolve(&self, ident: Ident) -> Result<&str, AiplanError> {
         self.resolve(ident).ok_or_else(|| {
-            ParserInternalError::new(format!(
+            AiplanError::new(format!(
                 "Invalid Ident {}: out of bounds for interner size {}",
                 ident.as_usize(),
                 self.string_pool.len()

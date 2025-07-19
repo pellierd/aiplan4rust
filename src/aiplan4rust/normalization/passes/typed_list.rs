@@ -61,7 +61,7 @@
 //!
 //! The main entry point is [`normalize_typed_list`], which normalizes all `TypedList` nodes.
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
@@ -135,7 +135,7 @@ use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
 /// This function uses an explicit stack to avoid deep recursion and possible stack overflow
 /// on very large ASTs. It is typically the first normalization step before semantic analysis,
 /// type inference, or code generation.
-pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), ParserInternalError> {
+pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), AiplanError> {
     if !ast.arena().is_empty() {
         normalize_typed_list_node(ast)?
     }
@@ -189,7 +189,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), ParserInternalError> {
 /// This normalization step is important to simplify downstream processing,
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
 /// type checking and code generation phases.
-fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), ParserInternalError> {
+fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), AiplanError> {
     let root_id = ast.arena().try_root_id()?;
     let arena = ast.arena_mut();
     let mut stack = vec![root_id];
@@ -247,7 +247,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), ParserInternalError> {
 fn normalize_typed_list_node_children(
     arena: &mut Arena<AstNode>,
     node_id: NodeId,
-) -> Result<(), ParserInternalError> {
+) -> Result<(), AiplanError> {
     // 1. Retrieve and clear the current children of the TypedList syntax.
     let old_typed_items = {
         let node = arena.try_node_mut(node_id)?;
@@ -311,7 +311,7 @@ fn normalize_typed_list_node_children(
 fn is_typed_list_node(
     arena: &mut Arena<AstNode>,
     node_id: NodeId,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let node = arena.try_node(node_id)?;
     Ok(node.kind() == AstKind::TypedList)
 }
@@ -351,7 +351,7 @@ fn is_typed_list_node(
 fn extract_typed_item_data(
     arena: &Arena<AstNode>,
     typed_item_id: NodeId,
-) -> Result<(Vec<NodeId>, Option<NodeId>, Span), ParserInternalError> {
+) -> Result<(Vec<NodeId>, Option<NodeId>, Span), AiplanError> {
     // Retrieve the TypedItem syntax
     let typed_item_node = arena.try_node(typed_item_id)?;
 

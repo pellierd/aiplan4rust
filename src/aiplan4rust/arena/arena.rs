@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
 use crate::aiplan4rust::arena::node_ref::{NodeRef, NodeRefMut};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -59,17 +59,17 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    pub fn try_root(&self) -> Result<&T, ParserInternalError> {
+    pub fn try_root(&self) -> Result<&T, AiplanError> {
         match self.root_id {
             Some(id) => self.try_node(id),
-            None => Err(ParserInternalError::new("Root ID is missing".to_string())),
+            None => Err(AiplanError::new("Root ID is missing".to_string())),
         }
     }
 
-    pub fn try_root_mut(&mut self) -> Result<&mut T, ParserInternalError> {
+    pub fn try_root_mut(&mut self) -> Result<&mut T, AiplanError> {
         match self.root_id {
             Some(id) => self.try_node_mut(id),
-            None => Err(ParserInternalError::new("Root ID is missing".to_string())),
+            None => Err(AiplanError::new("Root ID is missing".to_string())),
         }
     }
 
@@ -93,19 +93,19 @@ impl<T: ArenaNode> Arena<T> {
         self.root_id
     }
 
-    pub fn try_root_id(&self) -> Result<NodeId, ParserInternalError> {
+    pub fn try_root_id(&self) -> Result<NodeId, AiplanError> {
         match self.root_id {
             Some(id) => Ok(id),
-            None => Err(ParserInternalError::new("Root Id missing".to_string())),
+            None => Err(AiplanError::new("Root Id missing".to_string())),
         }
     }
 
-    pub fn set_root_id(&mut self, id: NodeId) -> Result<(), ParserInternalError> {
+    pub fn set_root_id(&mut self, id: NodeId) -> Result<(), AiplanError> {
         if id.as_usize() < self.nodes.len() {
             self.root_id = Some(id);
             Ok(())
         } else {
-            Err(ParserInternalError::new("out of bound root id".to_string()))
+            Err(AiplanError::new("out of bound root id".to_string()))
         }
     }
 
@@ -137,33 +137,33 @@ impl<T: ArenaNode> Arena<T> {
     }
 
     /// Attempts to retrieve a syntax or returns a `ParserInternalError` if not found.
-    pub fn try_node(&self, id: NodeId) -> Result<&T, ParserInternalError> {
+    pub fn try_node(&self, id: NodeId) -> Result<&T, AiplanError> {
         self.get_node(id).ok_or_else(|| {
-            ParserInternalError::new(format!("Node with id {} not found", id))
+            AiplanError::new(format!("Node with id {} not found", id))
         })
     }
 
     /// Attempts to retrieve a `NodeRef` or returns an error.
-    pub fn try_node_ref(&self, id: NodeId) -> Result<NodeRef<'_, T>, ParserInternalError> {
+    pub fn try_node_ref(&self, id: NodeId) -> Result<NodeRef<'_, T>, AiplanError> {
         let node = self.try_node(id)?;
         Ok(NodeRef::new(id, node))
     }
 
     /// Attempts to retrieve a mutable syntax reference or returns an error.
-    pub fn try_node_mut(&mut self, id: NodeId) -> Result<&mut T, ParserInternalError> {
+    pub fn try_node_mut(&mut self, id: NodeId) -> Result<&mut T, AiplanError> {
         self.get_node_mut(id).ok_or_else(|| {
-            ParserInternalError::new(format!("Node with id {} not found", id))
+            AiplanError::new(format!("Node with id {} not found", id))
         })
     }
 
     /// Attempts to retrieve a mutable `NodeRefMut` or returns an error.
-    pub fn try_node_ref_mut(&mut self, id: NodeId) -> Result<NodeRefMut<'_, T>, ParserInternalError> {
+    pub fn try_node_ref_mut(&mut self, id: NodeId) -> Result<NodeRefMut<'_, T>, AiplanError> {
         let node = self.try_node_mut(id)?;
         Ok(NodeRefMut::new(id, node))
     }
 
     /// Attempts to retrieve a `SymbolRef` from a syntax.
-    pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, ParserInternalError> {
+    pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, AiplanError> {
         let node = self.try_node(id)?;
         node.try_symbol_ref()
     }

@@ -4,7 +4,7 @@
 //! The `InitialTaskNetwork` consists of a list of typed parameters and
 //! a lifted task network describing the tasks and their relationships.
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
@@ -87,7 +87,7 @@ impl FromAst for InitialTaskNetwork {
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
-    ) -> Result<Self, ParserInternalError> {
+    ) -> Result<Self, AiplanError> {
         let mut child_index = 0;
 
         // Try to parse parameters if present, otherwise use empty parameters

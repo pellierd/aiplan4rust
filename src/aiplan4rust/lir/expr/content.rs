@@ -45,7 +45,7 @@
 //! This is useful for producing human-readable output, especially for debugging or logging.
 //!
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
@@ -204,7 +204,7 @@ impl NodeContent for Content {
 }
 
 impl TryFrom<&AstContent> for Content {
-    type Error = ParserInternalError;
+    type Error = AiplanError;
 
     fn try_from(content: &AstContent) -> Result<Self, Self::Error> {
         match content {
@@ -214,7 +214,7 @@ impl TryFrom<&AstContent> for Content {
             AstContent::AssignOp(op) => Ok(Content::AssignOp(*op)),
             AstContent::ArithmeticOp(op) => Ok(Content::ArithmeticOp(*op)),
             AstContent::Optimization(op) => Ok(Content::Optimization(*op)),
-            AstContent::Requirement(_) => Err(ParserInternalError::new("UnsupportedContent(Requirement".to_string())),
+            AstContent::Requirement(_) => Err(AiplanError::new("UnsupportedContent(Requirement".to_string())),
             AstContent::None => Ok(Content::None)
         }
     }

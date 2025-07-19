@@ -43,7 +43,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -99,7 +99,7 @@ use crate::aiplan4rust::arena::{NodeId, Arena};
 pub fn normalize_require_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     // Early exit if no RequireDef syntax is found
     let require_def_id = match ast.find_node_id_of_kind(AstKind::RequireDef) {
         Some(id) => id,
@@ -153,7 +153,7 @@ pub fn report_duplicate_requirements_warnings(
     require_def_id: NodeId,
     source_name: &str,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), ParserInternalError> {
+) -> Result<(), AiplanError> {
     // Try to get the RequireDef syntax by its ID. Return error if not found.
     let require_def_node = arena.try_node(require_def_id)?;
 
@@ -246,7 +246,7 @@ pub fn new_duplicate_requirement_warning(
 pub fn remove_requirement_duplicates(
     arena_mut: &mut Arena<AstNode>,
     require_def_id: NodeId,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     // Get mutable reference to RequireDef syntax
     let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
 

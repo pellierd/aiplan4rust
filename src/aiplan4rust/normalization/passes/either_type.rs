@@ -62,7 +62,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Ident;
@@ -122,7 +122,7 @@ use crate::aiplan4rust::arena::Arena;
 pub fn normalize_either_type(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let arena = ast.arena();
     // Step 1: Detect and report duplicate type warnings without modifying the AST
     report_either_type_duplicate_warnings(arena, ast, diagnostic_manager)?;
@@ -183,7 +183,7 @@ fn report_either_type_duplicate_warnings(
     arena: &Arena<AstNode>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), ParserInternalError> {
+) -> Result<(), AiplanError> {
     // Retrieve the source name from the AST, used for diagnostics reporting
     let source_name = ast.source_name();
 
@@ -267,7 +267,7 @@ fn new_duplicate_either_type_warning(
     ast: &Ast,
     source: &str,
     span: &Span,
-) -> Result<Diagnostic, ParserInternalError> {
+) -> Result<Diagnostic, AiplanError> {
     // Resolve identifiers to strings
     let duplicates: Vec<String> = duplicate_ids
         .into_iter()
@@ -335,7 +335,7 @@ fn new_duplicate_either_type_warning(
 /// - `normalize_either_type` – calls this function as part of its normalization pipeline.
 fn remove_either_type_duplicates(
     arena: &mut Arena<AstNode>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut modified = false;
     let mut stack = vec![arena.try_root_id()?];
 

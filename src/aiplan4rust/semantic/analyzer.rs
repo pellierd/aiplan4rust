@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
@@ -63,13 +63,13 @@ impl Analyzer {
     ///   and some of its internal data (e.g., the interner) may be moved out.
     ///
     /// # Returns
-    /// Returns an [`AnalyzerResult`] on success or a [`ParserInternalError`] if
+    /// Returns an [`AnalyzerResult`] on success or a [`AiplanError`] if
     /// the analysis fails.
     ///
     /// # Note
     /// Because the AST is passed as mutable, this function can efficiently
     /// consume parts of the AST (such as the interner) to avoid duplication.
-    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, ParserInternalError> {
+    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, AiplanError> {
         self.perform_analysis(ast)
     }
 
@@ -85,7 +85,7 @@ impl Analyzer {
     /// - `diagnostic_manager`: The diagnostic manager to use for collecting diagnostics.
     ///
     /// # Returns
-    /// Returns an [`AnalyzerResult`] on success or a [`ParserInternalError`] if the analysis fails.
+    /// Returns an [`AnalyzerResult`] on success or a [`AiplanError`] if the analysis fails.
     ///
     /// # Note
     /// Passing the diagnostic manager by value replaces the analyzer's current
@@ -94,7 +94,7 @@ impl Analyzer {
         &mut self,
         ast: &mut Ast,
         diagnostic_manager: DiagnosticManager,
-    ) -> Result<AnalyzerResult, ParserInternalError> {
+    ) -> Result<AnalyzerResult, AiplanError> {
         self.diagnostic_manager = diagnostic_manager;
         self.perform_analysis(ast)
     }
@@ -123,7 +123,7 @@ impl Analyzer {
     fn perform_analysis(
         &mut self,
         ast: &mut Ast,
-    ) -> Result<AnalyzerResult, ParserInternalError> {
+    ) -> Result<AnalyzerResult, AiplanError> {
 
         let context = SemanticContext::from(ast)?;
         let check_ctx = CheckContext::from_semantic_context(&context);
@@ -138,7 +138,7 @@ impl Analyzer {
                 Self::check_problem(&check_ctx, &mut self.diagnostic_manager)?;
             }
             _ => {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "Unexpected AST syntax kind found: {}",
                     root.kind()
                 )));
@@ -189,7 +189,7 @@ impl Analyzer {
     fn check_domain(
         context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
-    ) -> Result<bool, ParserInternalError> {
+    ) -> Result<bool, AiplanError> {
         // Skip unused symbols of kind Constant during the checks
         let skip_symbols_unused = &[SymbolKind::Constant];
 
@@ -266,7 +266,7 @@ impl Analyzer {
     fn check_problem(
         context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
-    ) -> Result<bool, ParserInternalError> {
+    ) -> Result<bool, AiplanError> {
         let skip_types_undeclared = &[
             SymbolKind::PrimitiveType,
             SymbolKind::Constant,
@@ -333,7 +333,7 @@ impl Analyzer {
         skip_types_undeclared: &[SymbolKind], // Types of symbols to ignore during undeclared symbol checking
         skip_symbols_unused: &[SymbolKind],   // Symbols to ignore during unused symbol checking
         diagnostic_manager: &mut DiagnosticManager,
-    ) -> Result<bool, ParserInternalError> {
+    ) -> Result<bool, AiplanError> {
         let mut checked = true;
 
         // Check declared symbols in the annotated syntax arena

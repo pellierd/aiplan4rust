@@ -1,6 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
 #[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -113,7 +113,7 @@ impl fmt::Display for Kind {
     }
 }
 impl TryFrom<AstKind> for Kind {
-    type Error = ParserInternalError;
+    type Error = AiplanError;
 
     fn try_from(kind: AstKind) -> Result<Self, Self::Error> {
         match kind {
@@ -162,7 +162,7 @@ impl TryFrom<AstKind> for Kind {
             AstKind::TypedList => Ok(Kind::TypedList),
             AstKind::TypedItem => Ok(Kind::TypedSymbol),
             AstKind::TaskOrderingConstraint => Ok(Kind::TaskOrderingConstraint),
-            other => Err(ParserInternalError::new(format!(
+            other => Err(AiplanError::new(format!(
                 "Unsupported conversion from AstKind to ExprKind: {other:?}"
             ))),
         }

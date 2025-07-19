@@ -1,12 +1,9 @@
-use crate::aiplan4rust::arena::{Arena, NodeId};
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::arena::NodeId;
 
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
 use std::hash::Hash;
-use crate::aiplan4rust::syntax::ast::AstNode;
 
 /// Represents a lexical or semantic scope within the AST.
 ///

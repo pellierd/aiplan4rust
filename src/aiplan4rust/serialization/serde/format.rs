@@ -1,7 +1,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::serde::SerdeExtension;
 
 /// Represents supported serialization formats (JSON, YAML).
@@ -62,7 +62,7 @@ impl From<SerdeExtension> for Format {
 
 /// Parses a `Format` from a string (case-insensitive, with or without leading dot).
 impl FromStr for Format {
-    type Err = ParserInternalError;
+    type Err = AiplanError;
 
     /// Parses a string into a `Format`.
     ///
@@ -84,7 +84,7 @@ impl FromStr for Format {
             "toml" => Ok(Format::Toml),
             "cbor" => Ok(Format::Cbor),
             "messagepack" | "msgpack" => Ok(Format::MessagePack),
-            other => Err(ParserInternalError::new(format!("Unknown format: {}", other))),
+            other => Err(AiplanError::new(format!("Unknown format: {}", other))),
         }
     }
 }

@@ -18,7 +18,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
@@ -106,11 +106,11 @@ impl FromAst for Formula {
     ///
     /// # Errors
     ///
-    /// Returns a [`ParserInternalError`] if the syntax does not have the expected structure.
+    /// Returns a [`AiplanError`] if the syntax does not have the expected structure.
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
-    ) -> Result<Self, ParserInternalError> {
+    ) -> Result<Self, AiplanError> {
         let header = NamedTypedList::from_ast(node, ast)?;
         Ok(Formula { header })
     }

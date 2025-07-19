@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use crate::aiplan4rust::syntax::Span;
 
@@ -64,7 +64,7 @@ pub fn check_task_ordering(
     context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut checked = true;
 
     for node in context.ast().preorder() {
@@ -182,13 +182,13 @@ fn report_cyclic_task_ordering_error(
 fn extract_task_ids(
     node: &AstNode,
     tree: &Arena<AstNode>,
-) -> Result<Vec<Ident>, ParserInternalError> {
+) -> Result<Vec<Ident>, AiplanError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {
         let child_node = match tree.get_node(*child_index) {
             Some(child) => child,
             None => {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "Entry not found for child index: {}",
                     child_index
                 )))
@@ -265,10 +265,10 @@ fn extract_task_ids(
 ///
 /// - Each consecutive pair of task IDs in the input slice represents an ordering constraint where
 ///   the first task must precede the second.
-fn build_task_order_matrix(task_ids: &Vec<Ident>) -> Result<Vec<Vec<bool>>, ParserInternalError> {
+fn build_task_order_matrix(task_ids: &Vec<Ident>) -> Result<Vec<Vec<bool>>, AiplanError> {
     // Ensure the number of task IDs is even, as we expect pairs of tasks
     if task_ids.len() % 2 != 0 {
-        return Err(ParserInternalError::new(
+        return Err(AiplanError::new(
             "task_ids length must be even".to_string(),
         ));
     }
@@ -461,9 +461,9 @@ fn transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 ///
 /// The check for cycles is performed by inspecting the diagonal elements of the matrix.
 /// If any of the diagonal elements are `true`, it indicates a cycle (self-dependency).
-fn is_cyclic(matrix: &[Vec<bool>]) -> Result<bool, ParserInternalError> {
+fn is_cyclic(matrix: &[Vec<bool>]) -> Result<bool, AiplanError> {
     if !is_square(matrix) {
-        return Err(ParserInternalError::new("Matrix is not square".to_string()));
+        return Err(AiplanError::new("Matrix is not square".to_string()));
     }
     for i in 0..matrix.len() {
         if matrix[i][i] {

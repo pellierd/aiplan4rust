@@ -39,7 +39,7 @@ use std::collections::HashSet;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::arena::{NodeId, ArenaNode};
@@ -105,7 +105,7 @@ use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 pub fn normalize_type_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     // Retrieve the syntax ID of the TypesDef syntax in the AST
     let types_def_id = match ast.find_node_id_of_kind(AstKind::TypesDef) {
         Some(id) => id,
@@ -143,7 +143,7 @@ fn report_implicit_either_type_warning(
     types_def_id: NodeId,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), ParserInternalError> {
+) -> Result<(), AiplanError> {
     // Get immutable access to the arena containing the AST nodes
     let arena = ast.arena();
 
@@ -218,7 +218,7 @@ fn new_implicit_either_type_warning(
     type_ident: Ident,
     span: &Span,
     ast: &Ast,
-) -> Result<Diagnostic, ParserInternalError> {
+) -> Result<Diagnostic, AiplanError> {
 
     // Resolve the string name of the type identifier using the AST's interner
     let type_name = ast.interner().try_resolve(type_ident)?;
@@ -290,7 +290,7 @@ fn new_implicit_either_type_warning(
 pub fn merge_duplicate_type_declarations(
     types_def_id: NodeId,
     ast: &mut Ast,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     // Get mutable access to the arena holding all AST nodes
     let arena = ast.arena_mut();
 

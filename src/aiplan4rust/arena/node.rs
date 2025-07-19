@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::{Arena, NodeId, NodeContent};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
@@ -82,7 +82,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 ///
 /// - [`Arena`] for managing trees of nodes implementing this trait.
 /// - [`NodeContent`] for content types that hold semantic syntax data.
-/// - [`ParserInternalError`] for error handling during parsing or resolution.
+/// - [`AiplanError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
 ///
 pub trait ArenaNode: Clone {
@@ -132,8 +132,8 @@ pub trait ArenaNode: Clone {
     ///
     /// # Panics
     /// This method does **not** panic. It returns a proper `Result`.
-    fn try_parent(&self) -> Result<NodeId, ParserInternalError> {
-        self.parent().ok_or_else(|| ParserInternalError::new(format!(
+    fn try_parent(&self) -> Result<NodeId, AiplanError> {
+        self.parent().ok_or_else(|| AiplanError::new(format!(
             "Expected parent for syntax kind {} but found none",
             self.kind()
         )))
@@ -191,11 +191,11 @@ pub trait ArenaNode: Clone {
     ///
     /// # Panics
     /// This method does **not** panic. It returns a proper `Result`.
-    fn try_child(&self, index: usize) -> Result<NodeId, ParserInternalError> {
+    fn try_child(&self, index: usize) -> Result<NodeId, AiplanError> {
         self.children()
             .get(index)
             .copied()
-            .ok_or_else(|| ParserInternalError::new(format!(
+            .ok_or_else(|| AiplanError::new(format!(
                 "Expected child index {} in syntax kind {} but found only {} children",
                 index,
                 self.kind(),
@@ -298,41 +298,41 @@ pub trait ArenaNode: Clone {
         self.content().as_optimization()
     }
 
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, ParserInternalError>;
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError>;
 
     // Try-extraction methods that return Result for better error handling.
 
     /// Attempts to extract an identifier from the syntax’s content.
-    fn try_ident(&self) -> Result<Ident, ParserInternalError> {
+    fn try_ident(&self) -> Result<Ident, AiplanError> {
         self.content().try_ident()
     }
 
     /// Attempts to extract a floating-point literal from the syntax’s content.
-    fn try_float(&self) -> Result<OrderedFloat<f64>, ParserInternalError> {
+    fn try_float(&self) -> Result<OrderedFloat<f64>, AiplanError> {
         self.content().try_float()
     }
 
     /// Attempts to extract a binary comparison operator from the syntax’s content.
-    fn try_binary_comp(&self) -> Result<BinaryComp, ParserInternalError> {
+    fn try_binary_comp(&self) -> Result<BinaryComp, AiplanError> {
         self.content().try_binary_comp()
     }
 
     /// Attempts to extract an assignment operator from the syntax’s content.
-    fn try_assign_op(&self) -> Result<AssignOp, ParserInternalError> {
+    fn try_assign_op(&self) -> Result<AssignOp, AiplanError> {
         self.content().try_assign_op()
     }
 
     /// Attempts to extract an arithmetic operator from the syntax’s content.
-    fn try_arithmetic_op(&self) -> Result<ArithmeticOp, ParserInternalError> {
+    fn try_arithmetic_op(&self) -> Result<ArithmeticOp, AiplanError> {
         self.content().try_arithmetic_op()
     }
 
     /// Attempts to extract an optimization directive from the syntax’s content.
-    fn try_optimization(&self) -> Result<Optimization, ParserInternalError> {
+    fn try_optimization(&self) -> Result<Optimization, AiplanError> {
         self.content().try_optimization()
     }
-    fn try_symbol_ref(&self) -> Result<SymbolRef, ParserInternalError> {
-        self.as_symbol_ref()?.ok_or_else(|| ParserInternalError::new("Not a SymbolRef".to_string()))
+    fn try_symbol_ref(&self) -> Result<SymbolRef, AiplanError> {
+        self.as_symbol_ref()?.ok_or_else(|| AiplanError::new("Not a SymbolRef".to_string()))
     }
 
     /// Formats the syntax with access to the arena and an interner.

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
@@ -82,7 +82,7 @@ impl Linker {
         mut domain: SemanticContext,
         mut problem: SemanticContext,
         diagnostic_manager: DiagnosticManager
-    ) -> Result<LinkerResult, ParserInternalError> {
+    ) -> Result<LinkerResult, AiplanError> {
         self.diagnostic_manager = diagnostic_manager;
         self.link(domain, problem)
     }
@@ -118,7 +118,7 @@ impl Linker {
         &mut self,
         mut domain: SemanticContext,
         mut problem: SemanticContext,
-    ) -> Result<LinkerResult, ParserInternalError> {
+    ) -> Result<LinkerResult, AiplanError> {
 //        self.diagnostic_manager.add
         /*println!("DOMAIN ****************************$");
         println!("{}", domain.interner());
@@ -251,7 +251,7 @@ pub fn perform_linking_checks(
     domain: &SemanticContext,
     problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
 
     // Check that the domain name matches the problem's declared domain
     linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
@@ -349,7 +349,7 @@ pub fn perform_linking_checks(
 pub fn resolve_external_references(
     domain: &SemanticContext,
     problem: &mut SemanticContext,
-) -> Result<(), ParserInternalError> {
+) -> Result<(), AiplanError> {
     // Collect declared and undeclared symbols in the problem relative to the domain symbol table
     let mut declared = Vec::new();
     let mut undeclared = Vec::new();
@@ -419,7 +419,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
     domain_symbol_table: &'a SymbolTable,
     declared: &mut Vec<(Ident, Declaration)>,
     undeclared: &mut Vec<(Ident, &'a Usage)>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let problem_symbol_table = problem.symbol_table();
     let mut all_resolved = true;
 

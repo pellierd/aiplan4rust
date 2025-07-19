@@ -3,7 +3,7 @@
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -32,7 +32,7 @@ use crate::aiplan4rust::semantic::checks::CheckContext;
 pub fn check_declared_symbols(
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     check_symbol_declarations(context, diagnostic_manager, None)
 }
 
@@ -59,7 +59,7 @@ fn check_symbol_declarations(
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
     kinds_to_check: Option<&HashSet<SymbolKind>>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut checked = true;
     let symbol_table = context.symbol_table();
 
@@ -149,7 +149,7 @@ fn check_symbol_declarations(
 /// - `Ok(true)` if the declaration should be skipped.
 /// - `Ok(false)` otherwise.
 /// - `Err(ParserInternalError)` if the operation fails unexpectedly.
-fn skip_declaration(declaration: &Declaration) -> Result<bool, ParserInternalError> {
+fn skip_declaration(declaration: &Declaration) -> Result<bool, AiplanError> {
     if matches!(
         declaration.symbol_kind(),
         SymbolKind::DomainName | SymbolKind::ProblemName

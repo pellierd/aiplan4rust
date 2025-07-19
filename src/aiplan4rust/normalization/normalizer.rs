@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::syntax::ast::Ast;
@@ -80,7 +80,7 @@ impl Normalizer {
     /// # Errors
     ///
     /// Errors returned are typically internal logic errors detected during normalization.
-    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, ParserInternalError> {
+    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, AiplanError> {
         self.perform_normalization(ast)
     }
 
@@ -102,7 +102,7 @@ impl Normalizer {
         &mut self,
         ast: Ast,
         diagnostic_manager: DiagnosticManager,
-    ) -> Result<NormalizerResult, ParserInternalError> {
+    ) -> Result<NormalizerResult, AiplanError> {
         self.diagnostic_manager = diagnostic_manager;
         self.perform_normalization(ast)
     }
@@ -128,7 +128,7 @@ impl Normalizer {
     fn perform_normalization(
         &mut self,
         mut ast: Ast,
-    ) -> Result<NormalizerResult, ParserInternalError> {
+    ) -> Result<NormalizerResult, AiplanError> {
         passes::normalize_typed_list(&mut ast)?;
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
         passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;

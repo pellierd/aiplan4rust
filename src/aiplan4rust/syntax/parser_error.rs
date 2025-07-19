@@ -26,7 +26,7 @@ use std::error::Error;
 
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 
 /// Represents errors that can occur during parsing.
 ///
@@ -41,7 +41,7 @@ pub enum ParserError {
     ParseError(ParseError<usize, Token, LexicalError>),
 
     /// Internal parser error.
-    InternalError(ParserInternalError),
+    InternalError(AiplanError),
 }
 
 impl fmt::Display for ParserError {
@@ -80,8 +80,8 @@ impl From<ParseError<usize, Token, LexicalError>> for ParserError {
 /// Enables automatic conversion from `ParserInternalError` to `ParserError`.
 ///
 /// This allows using the `?` operator conveniently on internal parser errors.
-impl From<ParserInternalError> for ParserError {
-    fn from(e: ParserInternalError) -> Self {
+impl From<AiplanError> for ParserError {
+    fn from(e: AiplanError) -> Self {
         ParserError::InternalError(e)
     }
 }

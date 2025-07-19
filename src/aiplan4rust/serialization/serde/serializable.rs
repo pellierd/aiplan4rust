@@ -8,7 +8,7 @@
 //! The trait handles serialization to/from strings and files, with error handling
 //! via `ParserInternalError`.
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{de::DeserializeOwned, Serialize};
@@ -29,23 +29,23 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// # Returns
     ///
     /// A `String` representing the serialized object, or an error if serialization fails.
-    fn serialize_to_string(&self, format: SerdeFormat) -> Result<String, ParserInternalError> {
+    fn serialize_to_string(&self, format: SerdeFormat) -> Result<String, AiplanError> {
         match format {
             SerdeFormat::Json => serde_json::to_string_pretty(self)
-                .map_err(|e| ParserInternalError::new(format!("JSON serialization error: {}", e))),
+                .map_err(|e| AiplanError::new(format!("JSON serialization error: {}", e))),
             SerdeFormat::Yaml => serde_yaml::to_string(self)
-                .map_err(|e| ParserInternalError::new(format!("YAML serialization error: {}", e))),
+                .map_err(|e| AiplanError::new(format!("YAML serialization error: {}", e))),
             SerdeFormat::Toml => toml::to_string(self)
-                .map_err(|e| ParserInternalError::new(format!("TOML serialization error: {}", e))),
+                .map_err(|e| AiplanError::new(format!("TOML serialization error: {}", e))),
             SerdeFormat::Cbor => {
                 let bytes = serde_cbor::to_vec(self).map_err(|e| {
-                    ParserInternalError::new(format!("CBOR serialization error: {}", e))
+                    AiplanError::new(format!("CBOR serialization error: {}", e))
                 })?;
                 Ok(general_purpose::STANDARD.encode(&bytes))
             }
             SerdeFormat::MessagePack => {
                 let bytes = rmp_serde::to_vec(self).map_err(|e| {
-                    ParserInternalError::new(format!("MessagePack serialization error: {}", e))
+                    AiplanError::new(format!("MessagePack serialization error: {}", e))
                 })?;
                 Ok(general_purpose::STANDARD.encode(&bytes))
             }
@@ -62,10 +62,10 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// # Returns
     ///
     /// `Ok(())` on success, or an error if writing or serialization fails.
-    fn serialize_to_file(&self, format: SerdeFormat, path: &str) -> Result<(), ParserInternalError> {
+    fn serialize_to_file(&self, format: SerdeFormat, path: &str) -> Result<(), AiplanError> {
         let content = self.serialize_to_string(format)?;
         std::fs::write(path, content)
-            .map_err(|e| ParserInternalError::new(format!("File write error: {}", e)))
+            .map_err(|e| AiplanError::new(format!("File write error: {}", e)))
     }
 
     /// Serializes the object and writes it to a file, automatically inferring
@@ -102,7 +102,7 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// // Serialize to YAML due to `.yaml` extension
     /// obj.serialize_to_file_auto_format("config.yaml")?;
     /// ```
-    fn serialize_to_file_auto_format(&self, path: &str) -> Result<(), ParserInternalError> {
+    fn serialize_to_file_auto_format(&self, path: &str) -> Result<(), AiplanError> {
         let format = Self::format_from_path(path)?;
         self.serialize_to_file(format, path)
     }
@@ -117,34 +117,34 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// # Returns
     ///
     /// The deserialized object on success, or an error on failure.
-    fn deserialize_from_str(s: &str, format: SerdeFormat) -> Result<Self, ParserInternalError>
+    fn deserialize_from_str(s: &str, format: SerdeFormat) -> Result<Self, AiplanError>
     where
         Self: Sized,
     {
         match format {
             SerdeFormat::Json => serde_json::from_str(s).map_err(|e| {
-                ParserInternalError::new(format!("JSON deserialization error: {}", e))
+                AiplanError::new(format!("JSON deserialization error: {}", e))
             }),
             SerdeFormat::Yaml => serde_yaml::from_str(s).map_err(|e| {
-                ParserInternalError::new(format!("YAML deserialization error: {}", e))
+                AiplanError::new(format!("YAML deserialization error: {}", e))
             }),
             SerdeFormat::Toml => toml::from_str(s).map_err(|e| {
-                ParserInternalError::new(format!("TOML deserialization error: {}", e))
+                AiplanError::new(format!("TOML deserialization error: {}", e))
             }),
             SerdeFormat::Cbor => {
                 let bytes = general_purpose::STANDARD.decode(s).map_err(|e| {
-                    ParserInternalError::new(format!("CBOR base64 decode error: {}", e))
+                    AiplanError::new(format!("CBOR base64 decode error: {}", e))
                 })?;
                 serde_cbor::from_slice(&bytes).map_err(|e| {
-                    ParserInternalError::new(format!("CBOR deserialization error: {}", e))
+                    AiplanError::new(format!("CBOR deserialization error: {}", e))
                 })
             }
             SerdeFormat::MessagePack => {
                 let bytes = general_purpose::STANDARD.decode(s).map_err(|e| {
-                    ParserInternalError::new(format!("MessagePack base64 decode error: {}", e))
+                    AiplanError::new(format!("MessagePack base64 decode error: {}", e))
                 })?;
                 rmp_serde::from_slice(&bytes).map_err(|e| {
-                    ParserInternalError::new(format!("MessagePack deserialization error: {}", e))
+                    AiplanError::new(format!("MessagePack deserialization error: {}", e))
                 })
             }
         }
@@ -160,12 +160,12 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// # Returns
     ///
     /// The deserialized object on success, or an error on failure.
-    fn deserialize_from_file(path: &str, format: SerdeFormat) -> Result<Self, ParserInternalError>
+    fn deserialize_from_file(path: &str, format: SerdeFormat) -> Result<Self, AiplanError>
     where
         Self: Sized,
     {
         let content = std::fs::read_to_string(path)
-            .map_err(|e| ParserInternalError::new(format!("File read error: {}", e)))?;
+            .map_err(|e| AiplanError::new(format!("File read error: {}", e)))?;
         Self::deserialize_from_str(&content, format)
     }
 
@@ -194,7 +194,7 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// ```rust
     /// let obj = MyType::deserialize_from_file_auto_format("config.yaml")?;
     /// ```
-    fn deserialize_from_file_auto_format(path: &str) -> Result<Self, ParserInternalError>
+    fn deserialize_from_file_auto_format(path: &str) -> Result<Self, AiplanError>
     where
         Self: Sized,
     {
@@ -227,11 +227,11 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// let format = format_from_path("config.yaml")?;
     /// assert_eq!(format, Format::Yaml);
     /// ```
-    fn format_from_path(path: &str) -> Result<SerdeFormat, ParserInternalError> {
+    fn format_from_path(path: &str) -> Result<SerdeFormat, AiplanError> {
         let ext = std::path::Path::new(path)
             .extension()
             .and_then(|e| e.to_str())
-            .ok_or_else(|| ParserInternalError::new("File has no extension".to_string()))?;
+            .ok_or_else(|| AiplanError::new("File has no extension".to_string()))?;
 
         ext.parse::<SerdeFormat>()
     }

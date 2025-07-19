@@ -26,7 +26,7 @@
 use std::fmt;
 use std::str::FromStr;
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::planning::PlanningExtension; // Adjust if you have a specific Extension enum for syntax
 
 /// This module defines the `Format` enum representing supported syntax serialization formats,
@@ -102,14 +102,14 @@ impl From<PlanningExtension> for Format {
 /// let g = Format::from_str(".pddl")?;
 /// ```
 impl FromStr for Format {
-    type Err = ParserInternalError;
+    type Err = AiplanError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let normalized = s.trim_start_matches('.').to_ascii_lowercase();
         match normalized.as_str() {
             "hddl" => Ok(Format::Hddl),
             "pddl" => Ok(Format::Pddl),
-            other => Err(ParserInternalError::new(format!("Unknown syntax format: {}", other))),
+            other => Err(AiplanError::new(format!("Unknown syntax format: {}", other))),
         }
     }
 }

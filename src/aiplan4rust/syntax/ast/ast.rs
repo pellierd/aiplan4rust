@@ -55,7 +55,7 @@
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
 use crate::aiplan4rust::arena::{Arena, ArenaNode, NodeId};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -242,11 +242,11 @@ impl Ast {
     ///
     /// # Errors
     ///
-    /// Returns a [`ParserInternalError`] if a syntax node cannot be accessed mutably.
+    /// Returns a [`AiplanError`] if a syntax node cannot be accessed mutably.
     pub fn init_span(
         &mut self,
         fast_line_table: &FastLineTable,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         if !self.arena().is_empty() {
             let mut stack = vec![self.arena().try_root_id()?];
             while let Some(node_id) = stack.pop() {

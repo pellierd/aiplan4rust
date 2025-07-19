@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::lang::Requirement::Adl;
@@ -56,7 +56,7 @@ pub fn check_undeclared_symbols(
     skip_symbols: &[SymbolKind],
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut checked = true;
 
     let symbol_table = context.symbol_table();

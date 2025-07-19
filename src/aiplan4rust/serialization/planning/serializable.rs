@@ -1,5 +1,5 @@
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::serialization::planning::PlanningFormat;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -16,7 +16,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 /// - CBOR
 /// - MessagePack
 ///
-/// Errors are returned as [`ParserInternalError`].
+/// Errors are returned as [`AiplanError`].
 pub trait Serializable: SyntaxDisplay {
     /// Serializes the object into a string in the specified format.
     ///
@@ -31,7 +31,7 @@ pub trait Serializable: SyntaxDisplay {
     fn serialize_to_string(
         &self,
         interner: &StringInterner,
-    ) -> Result<String, ParserInternalError>;
+    ) -> Result<String, AiplanError>;
 
     /// Serializes the object and writes it to a file in the specified format.
     ///
@@ -48,7 +48,7 @@ pub trait Serializable: SyntaxDisplay {
         &self,
         interner: &StringInterner,
         path: &str,
-    ) -> Result<(), ParserInternalError>;
+    ) -> Result<(), AiplanError>;
 
     /// Deserializes an object from a string in the specified format.
     ///
@@ -64,7 +64,7 @@ pub trait Serializable: SyntaxDisplay {
     fn deserialize_from_str(
         s: &str,
         interner: &mut StringInterner,
-    ) -> Result<Self, ParserInternalError>
+    ) -> Result<Self, AiplanError>
     where
         Self: Sized;
 
@@ -82,7 +82,7 @@ pub trait Serializable: SyntaxDisplay {
     fn deserialize_from_file(
         path: &str,
         interner: &mut StringInterner,
-    ) -> Result<Self, ParserInternalError>
+    ) -> Result<Self, AiplanError>
     where
         Self: Sized;
 
@@ -95,11 +95,11 @@ pub trait Serializable: SyntaxDisplay {
     /// # Returns
     ///
     /// The corresponding `Format`, or an error if the extension is missing or unsupported.
-    fn format_from_path(path: &str) -> Result<PlanningFormat, ParserInternalError> {
+    fn format_from_path(path: &str) -> Result<PlanningFormat, AiplanError> {
         let ext = std::path::Path::new(path)
             .extension()
             .and_then(|e| e.to_str())
-            .ok_or_else(|| ParserInternalError::new("File has no extension".to_string()))?;
+            .ok_or_else(|| AiplanError::new("File has no extension".to_string()))?;
 
         ext.parse::<PlanningFormat>()
     }

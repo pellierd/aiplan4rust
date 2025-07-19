@@ -3,7 +3,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::lang::Requirement;
@@ -63,7 +63,7 @@ pub fn check_unused_symbols(
     skip_symbols: &[SymbolKind],
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let symbol_table = context.symbol_table();
 
     for symbol in symbol_table.values() {
@@ -166,7 +166,7 @@ fn report_unused_symbol_warning(
 fn skip_unused_symbol_declaration(
     declaration: &Declaration,
     context: &CheckContext,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     // Skip if the declaration is of a built-in kind: Requirement, Action, DASymbol, or Method
     if matches!(
         declaration.symbol_kind(),
@@ -440,7 +440,7 @@ fn scope_contains_node_of_kind(
     scope: &Scope,
     kind: AstKind,
     ast: &Arena<AstNode>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     for &id in scope.iter() {
         let node = ast.try_node(id)?;
         if node.kind() == kind {

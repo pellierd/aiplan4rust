@@ -32,7 +32,7 @@
 //! ```
 
 use crate::aiplan4rust::arena::NodeContent;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{
     ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement,
@@ -97,10 +97,10 @@ impl Content {
     /// # Errors
     ///
     /// Returns `ParserInternalError` if the content is not a `Requirement`.
-    pub fn try_requirement(&self) -> Result<Requirement, ParserInternalError> {
+    pub fn try_requirement(&self) -> Result<Requirement, AiplanError> {
         match self {
             Content::Requirement(r) => Ok(*r),
-            other => Err(ParserInternalError::new(format!(
+            other => Err(AiplanError::new(format!(
                 "Expected AstContent::Requirement, found {:?}",
                 other
             ))),

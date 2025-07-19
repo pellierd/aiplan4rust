@@ -20,7 +20,7 @@
 use std::cell::RefCell;
 use lalrpop_util::ErrorRecovery;
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -116,8 +116,8 @@ impl ParseContext {
     /// * `root_id` - The ID of the syntax to set as root.
     ///
     /// # Errors
-    /// Returns [`ParserInternalError`] if the syntax ID does not exist.
-    pub fn set_root_id(&self, root_id: NodeId) -> Result<(), ParserInternalError> {
+    /// Returns [`AiplanError`] if the syntax ID does not exist.
+    pub fn set_root_id(&self, root_id: NodeId) -> Result<(), AiplanError> {
         self.arena.borrow_mut().set_root_id(root_id)
     }
 
@@ -150,7 +150,7 @@ impl ParseContext {
         children: Vec<NodeId>,
         start: usize,
         end: usize,
-    ) -> Result<NodeId, ParserInternalError> {
+    ) -> Result<NodeId, AiplanError> {
         let span = Span::new(start, end);
 
         // 1) Create the syntax with the children (parent initially None)
@@ -192,7 +192,7 @@ impl ParseContext {
         &mut self,
         typed_list: NodeId,
         next: NodeId,
-    ) -> Result<NodeId, ParserInternalError> {
+    ) -> Result<NodeId, AiplanError> {
         let mut arena = self.borrow_arena_mut();
 
         // 1) Drain children from `next`

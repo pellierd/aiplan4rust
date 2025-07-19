@@ -25,15 +25,15 @@
 //! ```
 //!
 //! # Errors
-//! Implementations typically return [`ParserInternalError`] if parsing fails
+//! Implementations typically return [`AiplanError`] if parsing fails
 //! (e.g., due to missing fields, invalid identifiers, or unexpected node kinds).
 //!
 //! # See Also
 //! - [`AstNode`] — the underlying syntax tree node.
 //! - [`Arena`] — the storage structure holding all AST nodes.
-//! - [`ParserInternalError`] — the error type used during parsing and semantic validation.
+//! - [`AiplanError`] — the error type used during parsing and semantic validation.
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::arena::Arena;
 
@@ -71,7 +71,7 @@ pub trait FromAst {
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
-    ) -> Result<Self, ParserInternalError>
+    ) -> Result<Self, AiplanError>
     where
         Self: Sized;
 }

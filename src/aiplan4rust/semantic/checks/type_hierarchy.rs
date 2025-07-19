@@ -2,7 +2,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::lang::Ident;
@@ -62,7 +62,7 @@ pub fn check_type_hierarchy(
     context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
 
     // Step 1: Collect all type declarations from the root scope (PrimitiveType only)
     let types = context
@@ -147,7 +147,7 @@ fn report_cyclic_type_declaration_error(
     filename: &str,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), ParserInternalError> {
+) -> Result<(), AiplanError> {
 
     // Build a fast lookup map from symbol names to declarations
     let type_map: HashMap<Ident, &Declaration> = types
@@ -170,7 +170,7 @@ fn report_cyclic_type_declaration_error(
 
         // If no valid declarations were found, report an internal error
         if cycle_detail.is_empty() {
-            return Err(ParserInternalError::new(
+            return Err(AiplanError::new(
                 "Cycle detail cannot be empty".to_string(),
             ));
         }
@@ -511,7 +511,7 @@ fn compute_transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 fn build_type_adjacency_matrix(
     type_bimap: &BiMap<Ident, usize>,
     declarations: &Vec<&Declaration>,
-) -> Result<Vec<Vec<bool>>, ParserInternalError> {
+) -> Result<Vec<Vec<bool>>, AiplanError> {
     let n = type_bimap.len();
 
     // Preallocate a square adjacency matrix of size n x n initialized with false
@@ -530,7 +530,7 @@ fn build_type_adjacency_matrix(
 
         // Validate type_idx is within matrix bounds
         if type_idx >= n {
-            return Err(ParserInternalError::new(format!(
+            return Err(AiplanError::new(format!(
                 "Index {} for type '{}' is out of bounds (max {})",
                 type_idx, declaration.symbol_ident(), n - 1
             )));
@@ -543,7 +543,7 @@ fn build_type_adjacency_matrix(
                     if let Some(&parent_idx) = type_bimap.get_by_left(parent) {
                         // Validate parent_idx is within bounds
                         if parent_idx >= n {
-                            return Err(ParserInternalError::new(format!(
+                            return Err(AiplanError::new(format!(
                                 "Index {} for parent type '{}' is out of bounds (max {})",
                                 parent_idx, parent, n - 1
                             )));
@@ -556,7 +556,7 @@ fn build_type_adjacency_matrix(
                 // If no parent declared, implicitly link to the "object" type if present
                 if let Some(j) = object_index {
                     if j >= n {
-                        return Err(ParserInternalError::new(format!(
+                        return Err(AiplanError::new(format!(
                             "Index {} for special object type is out of bounds (max {})",
                             j, n - 1
                         )));

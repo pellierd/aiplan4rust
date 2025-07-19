@@ -1,4 +1,4 @@
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lir::expr::content::Content;
@@ -106,7 +106,7 @@ impl ArenaNode for ExprNode {
         self.data.remap_idents(map)
     }
 
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, ParserInternalError> {
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError> {
         let kind = self.kind();
         let symbol_kind = match kind {
             ExprKind::PrimitiveType => SymbolKind::PrimitiveType,

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -30,7 +30,7 @@ pub fn check_domain_name(
     problem: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
 
     // --- 1. Resolve the domain name declared in the domain AST ---
     // Tries to extract the domain name from the domain's symbol table.
@@ -38,7 +38,7 @@ pub fn check_domain_name(
     let declared = match domain.symbol_table().resolve_domain_name_declaration()? {
         Some(name) => name,
         None => {
-            return Err(ParserInternalError::new(
+            return Err(AiplanError::new(
                 "Domain name declaration not found in domain AST".to_string(),
             ));
         }
@@ -50,7 +50,7 @@ pub fn check_domain_name(
     let referenced = match problem.symbol_table().resolve_domain_name_declaration()? {
         Some(name) => name,
         None => {
-            return Err(ParserInternalError::new(
+            return Err(AiplanError::new(
                 "Domain name declaration not found in problem AST".to_string(),
             ));
         }
@@ -92,7 +92,7 @@ pub fn check_domain_name(
                     }
                     None => {
                         // AST entry is missing for the declaration — this should not happen
-                        return Err(ParserInternalError::new(
+                        return Err(AiplanError::new(
                             "AST entry for domain name declaration not found in problem AST.".to_string(),
                         ));
                     }
@@ -100,7 +100,7 @@ pub fn check_domain_name(
             }
             None => {
                 // No declaration found for the domain name in the problem's symbol table
-                return Err(ParserInternalError::new(
+                return Err(AiplanError::new(
                     "Domain name declaration not found in problem symbol table".to_string(),
                 ));
             }

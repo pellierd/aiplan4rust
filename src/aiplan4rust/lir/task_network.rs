@@ -38,7 +38,7 @@
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -181,11 +181,11 @@ impl FromAst for TaskNetwork {
     ///
     /// # Errors
     ///
-    /// Returns [`ParserInternalError`] if the syntax is malformed or has unexpected children.
+    /// Returns [`AiplanError`] if the syntax is malformed or has unexpected children.
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
-    ) -> Result<Self, ParserInternalError> {
+    ) -> Result<Self, AiplanError> {
         let children = node.children();
 
         let mut tasks = Expr::empty_and();
@@ -212,7 +212,7 @@ impl FromAst for TaskNetwork {
                     constraints = Expr::from_ast(logical_node, ast)?;
                 }
                 _ => {
-                    return Err(ParserInternalError::new(format!(
+                    return Err(AiplanError::new(format!(
                         "Unexpected syntax kind in TaskNetwork: {}",
                         child_node.kind(),
                     )));

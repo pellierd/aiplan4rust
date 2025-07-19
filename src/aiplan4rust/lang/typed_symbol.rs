@@ -1,4 +1,4 @@
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
@@ -163,7 +163,7 @@ impl FromAst for TypedSymbol {
     ///
     /// # Errors
     /// Returns a `ParserInternalError` if accessing the children or parsing fails.
-    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, ParserInternalError> {
+    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, AiplanError> {
         let children = node.children();
         let symbol_node = ast.try_node(children[0])?;
 

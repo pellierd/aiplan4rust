@@ -1,14 +1,11 @@
-use std::fs::File;
-use std::io::Write;
 use crate::common::io::{read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_symbol_table_to_file};
 use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
-use aiplan4rust::aiplan4rust::semantic::{SemanticContext, SymbolTable};
+use aiplan4rust::aiplan4rust::semantic::SemanticContext;
 use aiplan4rust::aiplan4rust::syntax::ast::Ast;
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{check_well_formed, Language, Normalizer, Parser, Severity};
 use std::path::Path;
-use aiplan4rust::aiplan4rust::frontend::ParserInternalError;
 use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
 
 /// Parses the source file to produce a raw AST and checks its well-formedness.
@@ -25,7 +22,7 @@ use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
 /// # Returns
 ///
 /// Returns `Some((Ast, DiagnosticManager))` with the raw AST and the diagnostic manager if parsing and validation succeed.
-/// Returns `None` if parsing fails, no AST is produced, or if the AST fails the well-formedness check.
+/// Returns `None` if parsing fails, no AST is produced, or if the AST fails the well-formedness check.l11
 ///
 /// # Side Effects
 ///

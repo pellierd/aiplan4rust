@@ -19,13 +19,12 @@
 //! ```
 
 use std::fmt;
-use std::fmt::write;
 use std::ops::{Deref, DerefMut};
 use serde::{Serialize, Deserialize};
 
 use crate::aiplan4rust::lang::{Ident, Type, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
@@ -124,12 +123,12 @@ impl FromAst for Function {
     ///
     /// # Errors
     ///
-    /// Returns a [`ParserInternalError`] if any required child is missing
+    /// Returns a [`AiplanError`] if any required child is missing
     /// or if type parsing fails.
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
-    ) -> Result<Self, ParserInternalError> {
+    ) -> Result<Self, AiplanError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
 
         let ty_id = node.try_child(2)?;

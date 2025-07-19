@@ -1,7 +1,7 @@
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstNode};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::diagnostic::{DiagnosticManager};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::arena::{NodeId, ArenaNode, Arena};
 
@@ -10,7 +10,7 @@ use crate::aiplan4rust::arena::{NodeId, ArenaNode, Arena};
 pub fn normalize_optional(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut changed = false;
 
     // Emprunt immuable limité à la fonction collect_nodes_to_normalize
@@ -36,7 +36,7 @@ fn collect_nodes_to_normalize(ast: &Ast) -> Vec<NodeId> {
 fn normalize_nodes(
     nodes: Vec<NodeId>,
     arena: &mut Arena<AstNode>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut changed = false;
 
     for node_id in nodes {
@@ -65,7 +65,7 @@ fn normalize_nodes(
 fn normalize_method_def_body(
     id: NodeId,
     arena: &mut Arena<AstNode>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut new_children = Vec::new();
     let mut changed = false;
 
@@ -85,7 +85,7 @@ fn normalize_method_def_body(
             new_children = method_def_body.children().to_vec();
             changed = false;
         }
-        _ => return Err(ParserInternalError::new("Too many children in ActionDefBody".to_string())),
+        _ => return Err(AiplanError::new("Too many children in ActionDefBody".to_string())),
     }
     let task_network_id = new_children[2];
     normalize_task_network_def(task_network_id, arena)?;
@@ -113,7 +113,7 @@ fn normalize_method_def_body(
 fn normalize_task_network_def(
     id: NodeId,
     arena_mut: &mut Arena<AstNode>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut new_children = Vec::new();
     let mut changed = false;
 
@@ -148,7 +148,7 @@ fn normalize_task_network_def(
                     new_children.push(allocate_optional(arena_mut, AstKind::TaskOrderingConstraintDef, AstKind::And, id, span.clone())?);
                     new_children.push(child_id);
                 }
-                _ => return Err(ParserInternalError::new("Unexpected child node in ActionDefBody".into())),
+                _ => return Err(AiplanError::new("Unexpected child node in ActionDefBody".into())),
             }
             changed = true;
         }
@@ -194,7 +194,7 @@ fn normalize_task_network_def(
                     new_children.push(allocate_optional(arena_mut, AstKind::TaskOrderingConstraintDef, AstKind::And, id, span.clone())?);
                     new_children.push(first_id);
                 }
-                _ => return Err(ParserInternalError::new("Unexpected combination of children in ActionDefBody".into())),
+                _ => return Err(AiplanError::new("Unexpected combination of children in ActionDefBody".into())),
             }
 
             changed = true;
@@ -206,7 +206,7 @@ fn normalize_task_network_def(
         }
 
         _ => {
-            return Err(ParserInternalError::new("Too many children in ActionDefBody".into()));
+            return Err(AiplanError::new("Too many children in ActionDefBody".into()));
         }
     }
 
@@ -222,7 +222,7 @@ fn normalize_task_network_def(
 fn normalize_action_def_body(
     id: NodeId,
     arena_mut: &mut Arena<AstNode>,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut new_children = Vec::new();
     let mut changed = false;
 
@@ -256,7 +256,7 @@ fn normalize_action_def_body(
                     new_children.push(first_child_id);
                     changed = true;
                 }
-                _ => return Err(ParserInternalError::new("Unexpected child node".to_string())),
+                _ => return Err(AiplanError::new("Unexpected child node".to_string())),
             }
         }
         2 => {
@@ -264,7 +264,7 @@ fn normalize_action_def_body(
             new_children = node.children().to_vec();
             changed = false;
         }
-        _ => return Err(ParserInternalError::new("Too many children in ActionDefBody".to_string())),
+        _ => return Err(AiplanError::new("Too many children in ActionDefBody".to_string())),
     }
 
     let action_def_body = arena_mut.try_node_mut(id)?;
@@ -296,14 +296,14 @@ fn allocate_effect_def(arena: &mut Arena<AstNode>, parent_id: NodeId, span: Span
     arena.try_node_mut(eff_def_id).unwrap().set_children(vec![eff_id]);
     eff_def_id
 }
-fn allocate_ordered_subtask_def(arena: &mut Arena<AstNode>, parent_id: NodeId, span: Span) -> Result<NodeId, ParserInternalError> {
+fn allocate_ordered_subtask_def(arena: &mut Arena<AstNode>, parent_id: NodeId, span: Span) -> Result<NodeId, AiplanError> {
     let ordered_def_id = arena.alloc(AstNode::new(AstKind::OrderedSubtaskDef, AstContent::None, vec![], span.clone(), Some(parent_id)));
     let tasks_id = arena.alloc(AstNode::new(AstKind::And, AstContent::None, vec![], span, Some(ordered_def_id)));
     arena.try_node_mut(ordered_def_id)?.set_children(vec![tasks_id]);
     Ok(ordered_def_id)
 }
 
-fn allocate_task_ordering_constraints_def(arena: &mut Arena<AstNode>, parent_id: NodeId, span: Span) -> Result<NodeId, ParserInternalError> {
+fn allocate_task_ordering_constraints_def(arena: &mut Arena<AstNode>, parent_id: NodeId, span: Span) -> Result<NodeId, AiplanError> {
     let ordered_def_id = arena.alloc(AstNode::new(AstKind::TaskOrderingConstraintDef, AstContent::None, vec![], span.clone(), Some(parent_id)));
     let tasks_id = arena.alloc(AstNode::new(AstKind::And, AstContent::None, vec![], span, Some(ordered_def_id)));
     arena.try_node_mut(ordered_def_id)?.set_children(vec![tasks_id]);
@@ -316,7 +316,7 @@ fn allocate_optional(
     child_kind: AstKind,
     parent_id: NodeId,
     span: Span,
-) -> Result<NodeId, ParserInternalError> {
+) -> Result<NodeId, AiplanError> {
     let parent_node_id = arena.alloc(AstNode::new(
         parent_kind,
         AstContent::None,

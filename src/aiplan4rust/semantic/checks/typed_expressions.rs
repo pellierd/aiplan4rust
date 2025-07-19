@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
@@ -48,7 +48,7 @@ pub fn check_typed_expressions(
     type_checker: &TypeChecker,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut no_error = true;
 
     for node in context.ast().preorder() {
@@ -156,7 +156,7 @@ fn check_equal_and_assignment_expression(
     ty2: &Type,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut no_error = true;
 
     if !type_checker.have_common_supertype(&ty1, &ty2)? {
@@ -263,7 +263,7 @@ fn check_numeric_expression(
     ty2: &Type,
     source: Provider,
     diagnostic_manager:&mut DiagnosticManager
-) -> Result<bool, ParserInternalError> {
+) -> Result<bool, AiplanError> {
     let mut no_error = true;
 
     // Handle Greater, Less, etc.
@@ -354,26 +354,26 @@ fn report_invalid_types_in_numeric_expression(
 fn get_binary_operation_types(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<(Type, Type), ParserInternalError> {
+) -> Result<(Type, Type), AiplanError> {
     // Validate that there are exactly 2 children
     if node.children().len() != 2 {
-        return Err(ParserInternalError::new(
+        return Err(AiplanError::new(
             "Binary operations must have exactly two children.".to_string(),
         ));
     }
     let ast = context.ast();
     let arg1 = ast
         .get_node(node.children()[0])
-        .ok_or_else(|| ParserInternalError::new("Missing first argument.".to_string()))?;
+        .ok_or_else(|| AiplanError::new("Missing first argument.".to_string()))?;
     let arg2 = ast
         .get_node(node.children()[1])
-        .ok_or_else(|| ParserInternalError::new("Missing second argument.".to_string()))?;
+        .ok_or_else(|| AiplanError::new("Missing second argument.".to_string()))?;
 
     let ty1 = get_type(node.children()[0], arg1, context)?.ok_or_else(|| {
-        ParserInternalError::new("No type declared for the first argument.".to_string())
+        AiplanError::new("No type declared for the first argument.".to_string())
     })?;
     let ty2 = get_type(node.children()[1], arg2, context)?.ok_or_else(|| {
-        ParserInternalError::new("No type declared for the second argument.".to_string())
+        AiplanError::new("No type declared for the second argument.".to_string())
     })?;
 
     Ok((ty1, ty2))
@@ -410,7 +410,7 @@ pub fn get_type(
     index: NodeId,
     node: &AstNode,
     context: &CheckContext
-) -> Result<Option<Type>, ParserInternalError> {
+) -> Result<Option<Type>, AiplanError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         AstKind::Number => get_number_type(),
@@ -425,7 +425,7 @@ pub fn get_type(
         AstKind::FunctionTerm => get_function_term_type(index, node, context),
 
         // Default case: Unexpected AST syntax
-        _ => Err(ParserInternalError::new(format!(
+        _ => Err(AiplanError::new(format!(
             "Unexpected AST syntax kind found: {}",
             node.kind()
         ))),
@@ -449,7 +449,7 @@ pub fn get_type(
 /// ```rust
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
-fn get_number_type() -> Result<Option<Type>, ParserInternalError> {
+fn get_number_type() -> Result<Option<Type>, AiplanError> {
     Ok(Some(Type::number().clone()))
 }
 
@@ -485,7 +485,7 @@ fn get_variable_type(
     index: NodeId,
     symbol: Ident,
     context: &CheckContext,
-) -> Result<Option<Type>, ParserInternalError> {
+) -> Result<Option<Type>, AiplanError> {
     if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
         return get_number_type();
     }
@@ -518,7 +518,7 @@ fn get_constant_type(
     index: NodeId,
     _symbol: Ident,
     context: &CheckContext,
-) -> Result<Option<Type>, ParserInternalError> {
+) -> Result<Option<Type>, AiplanError> {
     get_declaration_type(index, context)
 }
 
@@ -552,7 +552,7 @@ fn get_constant_type(
 fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
-) -> Result<Option<Type>, ParserInternalError> {
+) -> Result<Option<Type>, AiplanError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id)? {
         Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
         None => Ok(None),
@@ -588,17 +588,17 @@ fn get_function_term_type(
     index: NodeId,
     node: &AstNode,
     context: &CheckContext
-) -> Result<Option<Type>, ParserInternalError> {
+) -> Result<Option<Type>, AiplanError> {
     let children = node.children();
     if children.is_empty() {
-        return Err(ParserInternalError::new(
+        return Err(AiplanError::new(
             "Function term has no functor (empty children).".to_string(),
         ));
     }
 
     let functor_index = children[0];
     let functor_entry = context.ast().get_node(functor_index).ok_or_else(|| {
-        ParserInternalError::new(format!("No AST entry found for index {}.", functor_index))
+        AiplanError::new(format!("No AST entry found for index {}.", functor_index))
     })?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
@@ -610,7 +610,7 @@ fn get_function_term_type(
         return get_declaration_type(index, context);
     }
 
-    Err(ParserInternalError::new(
+    Err(AiplanError::new(
         "First child of function term is not a FunctionSymbol.".to_string(),
     ))
 }

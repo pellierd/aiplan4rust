@@ -1,10 +1,10 @@
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprContent, ExprKind, ExprId};
 
 /// Applies negation pushing transformation starting from the root syntax.
 /// Returns the ExprId of the transformed syntax.
-pub fn push_negations(expr: &mut Expr) -> Result<ExprId, ParserInternalError> {
+pub fn push_negations(expr: &mut Expr) -> Result<ExprId, AiplanError> {
     transform_node(expr.try_root_id()?, expr, false)
 }
 
@@ -15,7 +15,7 @@ fn transform_node(
     id: ExprId,
     expr: &mut Expr,
     negated: bool,
-) -> Result<ExprId, ParserInternalError> {
+) -> Result<ExprId, AiplanError> {
     // First borrow immutably to get needed data, then drop borrow before mutable borrow
     let (kind, children, parent) = {
         let node = expr.try_node(id)?;
@@ -79,7 +79,7 @@ fn apply_demorgan(kind: ExprKind, negated: bool) -> ExprKind {
 }
 
 /// Wraps the given syntax in a Not syntax.
-fn wrap_not(id: ExprId, expr: &mut Expr) -> Result<ExprId, ParserInternalError> {
+fn wrap_not(id: ExprId, expr: &mut Expr) -> Result<ExprId, AiplanError> {
     let not_node = ExprNode::new(ExprKind::Not, ExprContent::None, None);
     let not_id = expr.alloc(not_node);
     let not_node_mut = expr.try_node_mut(not_id)?;

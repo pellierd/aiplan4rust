@@ -1,5 +1,5 @@
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::arena::{NodeRef, ArenaNode};
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry,Usage};
@@ -103,7 +103,7 @@ impl SymbolTableBuilder {
     ///
     /// # Errors
     ///
-    /// Returns a [`ParserInternalError`] if:
+    /// Returns a [`AiplanError`] if:
     /// - The AST has no root syntax.
     /// - The root syntax is not a valid entry point (Domain or Problem).
     /// - An error occurs during symbol initialization.
@@ -111,11 +111,11 @@ impl SymbolTableBuilder {
     /// # Returns
     ///
     /// A fully initialized `SymbolTable` on success.
-    pub fn build(&mut self, ast: &Ast) -> Result<SymbolTable, ParserInternalError> {
+    pub fn build(&mut self, ast: &Ast) -> Result<SymbolTable, AiplanError> {
 
         // Retrieve the root of the AST and handle the case where it is missing
         let root_ref = ast.arena().root_node_ref().ok_or_else(|| {
-            ParserInternalError::new("AST root syntax is missing".to_string())
+            AiplanError::new("AST root syntax is missing".to_string())
         })?;
         let root_node = root_ref.node();
         // Determine the root kind and set the source of the symbol table
@@ -130,7 +130,7 @@ impl SymbolTableBuilder {
                 self.table_mut().set_root_id(root_ref.id())
             }
             _ => {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "Invalid AST: root syntax is not a Domain or Problem, found: {}",
                     root_node.kind()
                 )));
@@ -159,7 +159,7 @@ impl SymbolTableBuilder {
     ///
     /// # Returns
     ///
-    /// Returns `Ok(())` on success, or a [`ParserInternalError`] if an error occurs during
+    /// Returns `Ok(())` on success, or a [`AiplanError`] if an error occurs during
     /// symbol initialization, such as invalid syntax types or semantic errors.
     ///
     /// # Example
@@ -173,7 +173,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         let scope = Scope::new(node_ref.id(), None);
         self.init_from(node_ref, ast, scope)?;
         Ok(())
@@ -227,7 +227,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Determine the type of the AST syntax and apply appropriate processing
         match node_ref.node().kind() {
             // Handle declarations: These simply register symbols without additional processing
@@ -354,7 +354,7 @@ impl SymbolTableBuilder {
         scope: Scope,
         types: Option<Type>,
         arguments: Option<TypedList>,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Assert that the AST kind is valid
         /*Self::assert_ast_kind(
             node_ref.syntax(),
@@ -438,7 +438,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Assert that the AST syntax is of a valid kind for symbol usage.
         /*Self::assert_ast_kind(
             node_ref.syntax(),
@@ -525,7 +525,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Ensure the AST syntax is of the expected type 'TypedList'
         //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TypedList])?;
 
@@ -587,7 +587,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Ensure the syntax is of the expected kind
         //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TypedItem])?;
 
@@ -599,7 +599,7 @@ impl SymbolTableBuilder {
             1 => Type::new(),
             2 => self.init_from_type(&ast.arena().try_node_ref(children[1])?, ast, scope.clone())?,
             _ => {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "TypedItem syntax has unexpected number of children: {}",
                     children.len()
                 )))
@@ -641,7 +641,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         types: Type,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Validate that the syntax kind is one of the expected AST kinds
         /*Self::assert_ast_kind(
             node_ref.syntax(),
@@ -723,7 +723,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         types: Type,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Check that the AST syntax is of the expected type 'Function'
         //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::AtomicFunctionSkeleton])?;
 
@@ -735,7 +735,7 @@ impl SymbolTableBuilder {
         // Retrieve the first child and validate it as a 'FunctionSymbol'
         let functor_ref = ast.arena().try_node_ref(children[0])?;
         if functor_ref.node().kind() != AstKind::FunctionSymbol {
-            return Err(ParserInternalError::new(format!(
+            return Err(AiplanError::new(format!(
                 "First child of 'Function' must match the expected kind. Encountered: '{:?}'",
                 functor_ref.node().kind()
             )))
@@ -799,7 +799,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -847,7 +847,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -891,7 +891,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -934,7 +934,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -992,7 +992,7 @@ impl SymbolTableBuilder {
         _valid_kinds: &[AstKind],
         _expected_children: usize,
         has_body: bool,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Ensure the AST syntax is of the correct kind
         //Self::assert_ast_kind(node_ref.syntax(), valid_kinds)?;
 
@@ -1068,7 +1068,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Ensure the AST syntax is of the correct kind (AtomicFormula or FunctionTerm)
         /*Self::assert_ast_kind(
             node_ref.syntax(),
@@ -1132,7 +1132,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Check if the AST syntax is of kind 'Exists' or 'Forall'
         //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::Exists, AstKind::Forall])?;
 
@@ -1193,7 +1193,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         let children = node_ref.node().children();
 
         // Ensure the AST has at least two children (predicate and arguments)
@@ -1256,7 +1256,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList, ParserInternalError> {
+    ) -> Result<TypedList, AiplanError> {
         // Ensure the AST syntax is of kind TypedList
         //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TypedList])?;
 
@@ -1295,7 +1295,7 @@ impl SymbolTableBuilder {
         &mut self,
         typed_item_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList, ParserInternalError> {
+    ) -> Result<TypedList, AiplanError> {
         // Ensure the syntax is of the correct kind
         //Self::assert_ast_kind(typed_item_ref.syntax(), &[AstKind::TypedItem])?;
 
@@ -1306,7 +1306,7 @@ impl SymbolTableBuilder {
             1 => Type::new(),
             2 => self.extract_type(&ast.arena().try_node_ref(children[1])?, ast)?,
             _ => {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "TypedItem must have 1 or 2 children, got {}",
                     children.len()
                 )))
@@ -1323,7 +1323,7 @@ impl SymbolTableBuilder {
                 typed_arguments.push(TypedSymbol::new(name, types.clone()));
             }
             _ => {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "Expected Constant or Variable in TypedItem, found {:?}",
                     elt.node().kind()
                 )));
@@ -1355,7 +1355,7 @@ impl SymbolTableBuilder {
         &mut self,
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<Type, ParserInternalError> {
+    ) -> Result<Type, AiplanError> {
         // Ensure the provided AST syntax is of kind `Type`
         //Self::assert_ast_kind(type_ref.syntax(), &[AstKind::Type])?;
 
@@ -1370,7 +1370,7 @@ impl SymbolTableBuilder {
                 let name = symbol_ref.ident();
                 super_types.add_type(name);
             } else {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "Unexpected AST syntax inside Type: {}",
                     ty_ref.node().kind(),
                 )));
@@ -1405,7 +1405,7 @@ impl SymbolTableBuilder {
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<Type, ParserInternalError> {
+    ) -> Result<Type, AiplanError> {
         //Self::assert_ast_kind(type_ref.syntax(), &[AstKind::Type])?;
         let super_types = self.extract_type(type_ref, ast)?; // Reuse `extract_type` to get type names
 
@@ -1444,7 +1444,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Ensure the AST syntax is a tagged task
         //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TaggedTask])?;
         //Self::assert_ast_children_number(node_ref.syntax(), 2, Comparator::Equal)?;
@@ -1492,7 +1492,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         // Ensure the AST syntax is a tagged task
         /*Self::assert_ast_kind(
             node_ref.syntax(),
@@ -1539,7 +1539,7 @@ impl SymbolTableBuilder {
     fn assert_ast_kind(
         node: &AstNode,
         valid_kinds: &[AstKind],
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         match node.kind() {
             // Case where the AST syntax's kind is one of the defined types (Predicate, DomainName, etc.)
             AstKind::DomainName
@@ -1568,7 +1568,7 @@ impl SymbolTableBuilder {
                 if valid_kinds.iter().any(|_k| matches!(node.kind(), _k)) {
                     Ok(())
                 } else {
-                    Err(ParserInternalError::new(format!(
+                    Err(AiplanError::new(format!(
                         "Unexpected AST syntax '{:?}'. Expected one of {:?}.",
                         node.kind(),
                         valid_kinds
@@ -1578,7 +1578,7 @@ impl SymbolTableBuilder {
             // Standard case: check if the syntax's kind is in valid_kinds
             kind if valid_kinds.contains(&kind) => Ok(()),
             // Case where the type is not expected
-            kind => Err(ParserInternalError::new(format!(
+            kind => Err(AiplanError::new(format!(
                 "Unexpected AST syntax '{:?}'. Expected one of {:?}.",
                 kind, valid_kinds
             ))),
@@ -1617,7 +1617,7 @@ impl SymbolTableBuilder {
         node: &AstNode,
         expected_len: usize,
         comparator: Comparator,
-    ) -> Result<(), ParserInternalError> {
+    ) -> Result<(), AiplanError> {
         let children_len = node.children().len();
 
         let is_valid = match comparator {
@@ -1632,7 +1632,7 @@ impl SymbolTableBuilder {
         if is_valid {
             Ok(())
         } else {
-            Err(ParserInternalError::new(format!(
+            Err(AiplanError::new(format!(
                 "Expected {} children for AST syntax of kind '{:?}', found {}. Expected comparison: '{:?}'.",
                 expected_len,
                 node.kind(),

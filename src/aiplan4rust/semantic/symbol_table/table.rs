@@ -1,4 +1,4 @@
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Declaration;
@@ -531,7 +531,7 @@ impl Table {
     pub fn resolve_declaration_by_usage(
         &self,
         node_id: NodeId,
-    ) -> Result<Option<&Declaration>, ParserInternalError> {
+    ) -> Result<Option<&Declaration>, AiplanError> {
         // Iterate over every symbol stored in the symbol table
         for symbol in self.symbols.values() {
             // Cache declarations of the current symbol for efficient reuse
@@ -553,7 +553,7 @@ impl Table {
                         1 => return Ok(Some(filtered[0])), // Exactly one declaration found, return it
                         _ => {
                             // Multiple matching declarations found, which is an error case
-                            return Err(ParserInternalError::new(format!(
+                            return Err(AiplanError::new(format!(
                                 "Multiple declarations found for usage at AST index {}.",
                                 node_id
                             )));
@@ -625,7 +625,7 @@ impl Table {
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         scope: &Scope,
-    ) -> Result<Option<&Declaration>, ParserInternalError> {
+    ) -> Result<Option<&Declaration>, AiplanError> {
         // Define a closure to fetch and validate declarations for a specific SymbolKind
         let resolve_candidates = |kind: SymbolKind| {
             // Fetch declarations matching symbol_name, kind, and scope
@@ -665,7 +665,7 @@ impl Table {
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
-    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+    ) -> Result<Option<&'a Declaration>, AiplanError> {
         // Match on the usage kind to determine the appropriate validation strategy
         match usage_kind {
             // For PrimitiveType or Predicate kinds, use specific validation logic
@@ -729,7 +729,7 @@ impl Table {
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
-    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+    ) -> Result<Option<&'a Declaration>, AiplanError> {
         // Collect all declarations that exactly match the usage kind
         let matching: Vec<_> = declarations.iter().filter(|d| d.symbol_kind() == *usage_kind).collect();
 
@@ -766,7 +766,7 @@ impl Table {
     fn validate_task_declarations<'a>(
         symbol_name: &Ident,
         declarations: &[&'a Declaration],
-    ) -> Result<Option<&'a Declaration>, ParserInternalError> {
+    ) -> Result<Option<&'a Declaration>, AiplanError> {
         // If there is more than one declaration, return an error indicating ambiguity
         if declarations.len() > 1 {
             return Err(Self::multiple_declarations_error(
@@ -804,7 +804,7 @@ impl Table {
     /// # Errors
     /// Returns an error when multiple `DomainName` symbols are found, indicating
     /// that the annotated syntax arena (AST) is structurally invalid.
-    pub fn resolve_domain_name_declaration(&self) -> Result<Option<&SymbolEntry>, ParserInternalError> {
+    pub fn resolve_domain_name_declaration(&self) -> Result<Option<&SymbolEntry>, AiplanError> {
         self.resolve_unique_declaration(SymbolKind::DomainName)
     }
 
@@ -823,7 +823,7 @@ impl Table {
     /// # Errors
     /// Returns an error when multiple `ProblemName` symbols are found, indicating
     /// that the annotated syntax arena (AST) is structurally invalid.
-    pub fn resolve_problem_name_declaration(&self) -> Result<Option<&SymbolEntry>, ParserInternalError> {
+    pub fn resolve_problem_name_declaration(&self) -> Result<Option<&SymbolEntry>, AiplanError> {
         self.resolve_unique_declaration(SymbolKind::ProblemName)
     }
 
@@ -850,13 +850,13 @@ impl Table {
     fn resolve_unique_declaration(
         &self,
         kind: SymbolKind,
-    ) -> Result<Option<&SymbolEntry>, ParserInternalError> {
+    ) -> Result<Option<&SymbolEntry>, AiplanError> {
         let symbols = self.collect_symbol_with_declaration(None, Some(&kind), None);
 
         match symbols.len() {
             0 => Ok(None),
             1 => Ok(Some(symbols[0])),
-            _ => Err(ParserInternalError::new(format!(
+            _ => Err(AiplanError::new(format!(
                 "Malformed Annotated Syntax Tree: multiple declarations found for symbol kind {:?}: {:?}",
                 kind, symbols,
             ))),
@@ -881,8 +881,8 @@ impl Table {
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         count: usize,
-    ) -> ParserInternalError {
-        ParserInternalError::new(format!(
+    ) -> AiplanError {
+        AiplanError::new(format!(
             "Symbol '{}' with kind '{:?}' has {} declarations, which is invalid.",
             symbol_name, usage_kind, count
         ))
@@ -933,7 +933,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns `ParserInternalError` if semantic errors or other parsing issues are detected during building.
-    pub fn from_ast(ast: &Ast) -> Result<Table, ParserInternalError> {
+    pub fn from_ast(ast: &Ast) -> Result<Table, AiplanError> {
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(ast)?;
         Ok(symbol_table)

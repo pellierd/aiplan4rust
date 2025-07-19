@@ -9,7 +9,7 @@
 use std::fmt::{self, Display};
 use std::str::FromStr;
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::planning::PlanningFormat;
 
 /// Enumeration of supported planning language file extensions.
@@ -80,14 +80,14 @@ impl From<PlanningFormat> for Extension {
 /// assert_eq!(ext, Extension::Pddl);
 /// ```
 impl FromStr for Extension {
-    type Err = ParserInternalError;
+    type Err = AiplanError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let normalized = s.trim_start_matches('.').to_ascii_lowercase();
         match normalized.as_str() {
             "pddl" => Ok(Extension::Pddl),
             "hddl" => Ok(Extension::Hddl),
-            other => Err(ParserInternalError::new(format!("Unknown planning extension: {}", other))),
+            other => Err(AiplanError::new(format!("Unknown planning extension: {}", other))),
         }
     }
 }

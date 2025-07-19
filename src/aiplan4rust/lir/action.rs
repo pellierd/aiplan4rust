@@ -23,7 +23,7 @@
 //! println!("Action name: {}", action.name());
 //! ```
 
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
@@ -160,7 +160,7 @@ impl FromAst for Action {
     fn from_ast(
         node: &AstNode,
         ast: &Arena<AstNode>,
-    ) -> Result<Self, ParserInternalError> {
+    ) -> Result<Self, AiplanError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
         let def_body_node = ast.try_node(node.try_child(2)?)?;
 
@@ -181,7 +181,7 @@ impl FromAst for Action {
                     effect = Expr::from_ast(eff_node, ast)?;
                 }
                 _ => {
-                    return Err(ParserInternalError::new(format!(
+                    return Err(AiplanError::new(format!(
                         "Unexpected syntax in Action body: {:?}",
                         child_node.kind()
                     )));

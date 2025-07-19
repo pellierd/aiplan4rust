@@ -1,4 +1,4 @@
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -104,7 +104,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         ty1: &Type,
         ty2: &Type,
-    ) -> Result<bool, ParserInternalError> {
+    ) -> Result<bool, AiplanError> {
         let ty1_set: HashSet<_> = ty1.iter().collect(); // références, pas de clone
 
         for ty in ty2.iter() {
@@ -150,7 +150,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         ty1: &Type,
         ty2: &Type,
-    ) -> Result<bool, ParserInternalError> {
+    ) -> Result<bool, AiplanError> {
         // We check if any type in ty2 is a subtype of any type in ty1
         self.is_any_subtype_of(ty2, ty1)
     }
@@ -185,7 +185,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         ty1: &Type,
         ty2: &Type,
-    ) -> Result<bool, ParserInternalError> {
+    ) -> Result<bool, AiplanError> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
 
@@ -227,7 +227,7 @@ impl<'a> TypeChecker<'a> {
         &self,
         ty1: &Type,
         ty2: &Type,
-    ) -> Result<bool, ParserInternalError> {
+    ) -> Result<bool, AiplanError> {
         let mut supertypes1 = HashSet::new();
 
         for t1 in ty1.iter() {
@@ -295,7 +295,7 @@ impl<'a> TypeChecker<'a> {
     pub fn ascending_type_closure(
         &self,
         primitive_type: Ident,
-    ) -> Result<Ref<HashSet<Ident>>, ParserInternalError> {
+    ) -> Result<Ref<HashSet<Ident>>, AiplanError> {
         {
             // First, try to return the cached value without recalculating
             let cache_ref = self.type_closure_cache.borrow();

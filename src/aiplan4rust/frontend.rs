@@ -1,28 +1,21 @@
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
-use crate::aiplan4rust::linking::LinkedSemanticContext;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::linking::LinkerResult;
-use crate::aiplan4rust::syntax::{Language, SyntaxDisplay};
+use crate::aiplan4rust::syntax::Language;
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::serialization::serde::{SerdeFormat, SerdeSerializable};
 
-use serde::Deserialize;
-use std::backtrace::Backtrace;
-use std::fmt;
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
 use std::string::String;
-use base64::Engine;
-use base64::engine::general_purpose;
 use crate::aiplan4rust::interner::InternerDisplay;
-use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult, LiftedProblem};
+use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult};
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::validation::normalization::check_well_normalized;
-use crate::Renderer;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -55,7 +48,7 @@ impl Frontend {
         domain_path: &str,
         problem_path: &str,
         language: &Language,
-    ) -> Result<LIRBuilderResult, ParserInternalError> {
+    ) -> Result<LIRBuilderResult, AiplanError> {
         let mut diagnostic_manager = DiagnosticManager::new();
 
         // Parse the domain file
@@ -136,7 +129,7 @@ impl Frontend {
         &self,
         source_path: &str,
         language: &Language,
-    ) -> Result<AnalyzerResult, ParserInternalError> {
+    ) -> Result<AnalyzerResult, AiplanError> {
         // Attempt to read the content of the source file.
         let content = self.read_file(source_path)?;
 
@@ -202,7 +195,7 @@ impl Frontend {
 
     fn create_error_result(
         diagnostic_manager: &mut DiagnosticManager,
-    ) -> Result<AnalyzerResult, ParserInternalError> {
+    ) -> Result<AnalyzerResult, AiplanError> {
         Ok(AnalyzerResult::new(None, std::mem::take(diagnostic_manager)))
     }
 
@@ -210,7 +203,7 @@ impl Frontend {
         &self,
         lifted_domain_path: &str,
         lifted_problem_path: &str,
-    ) -> Result<LinkerResult, ParserInternalError> {
+    ) -> Result<LinkerResult, AiplanError> {
         let diagnostic_manager = DiagnosticManager::new();
 
         // Désérialiser le fichier de domaine
@@ -278,7 +271,7 @@ impl Frontend {
     /// - If the file is empty, an empty `String` will be returned without an error.
     /// - If the file is large, it could put a strain on memory usage. Ensure that the file size is
     ///   manageable for your system.
-    fn read_file(&self, path: &str) -> Result<String, ParserInternalError> {
+    fn read_file(&self, path: &str) -> Result<String, AiplanError> {
         // Initialize an empty String to store the file's content.
         let mut source = String::new();
 
@@ -288,7 +281,7 @@ impl Frontend {
             Ok(mut file) => {
                 // If reading the file fails, return a ParserInternalError with the failure message.
                 if let Err(e) = file.read_to_string(&mut source) {
-                    return Err(ParserInternalError::new(format!(
+                    return Err(AiplanError::new(format!(
                         "Error reading the file: {}",
                         e
                     )));
@@ -296,7 +289,7 @@ impl Frontend {
             }
             // If the file cannot be opened, return a ParserInternalError with the failure message.
             Err(e) => {
-                return Err(ParserInternalError::new(format!(
+                return Err(AiplanError::new(format!(
                     "Error opening the file: {}",
                     e
                 )));
@@ -307,39 +300,3 @@ impl Frontend {
         Ok(source)
     }
 }
-
-#[derive(Debug)]
-pub struct ParserInternalError {
-    pub message: String,
-    pub backtrace: Backtrace,
-}
-
-impl ParserInternalError {
-    pub fn new(message: String) -> Self {
-        Self {
-            message,
-            backtrace: Backtrace::capture(),
-        }
-    }
-    pub fn message(&self) -> &str {
-        &self.message
-    }
-
-    pub fn backtrace(&self) -> &Backtrace {
-        &self.backtrace
-    }
-}
-
-impl fmt::Display for ParserInternalError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "ParserInternalError : {}", self.message)?;
-
-        // Affiche la backtrace seulement en mode debug
-        if cfg!(debug_assertions) {
-            writeln!(f, "Backtrace :\n{}", self.backtrace)?;
-        }
-
-        Ok(())
-    }
-}
-impl std::error::Error for ParserInternalError {}

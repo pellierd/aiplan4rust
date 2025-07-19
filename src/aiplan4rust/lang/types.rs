@@ -2,7 +2,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
-use crate::aiplan4rust::frontend::ParserInternalError;
+use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::{AstNode, FromAst};
 use crate::aiplan4rust::lang::Ident;
@@ -337,8 +337,8 @@ impl FromAst for Type {
     ///
     /// # Errors
     ///
-    /// Returns a [`ParserInternalError`] if any of the child nodes cannot be retrieved.
-    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, ParserInternalError> {
+    /// Returns a [`AiplanError`] if any of the child nodes cannot be retrieved.
+    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, AiplanError> {
         let mut ty = Type::new();
         for ty_id in node.children() {
             let child_node = ast.try_node(*ty_id)?;
