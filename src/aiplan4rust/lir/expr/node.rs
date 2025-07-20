@@ -10,7 +10,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
 use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -104,6 +103,9 @@ impl ArenaNode for ExprNode {
         self.data.add_child(child)
     }
 
+}
+
+impl SyntaxNode for ExprNode {
     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         self.data.remap_idents(map)
     }
@@ -124,9 +126,6 @@ impl ArenaNode for ExprNode {
         let ident = self.try_ident()?;
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
-}
-
-impl SyntaxNode for ExprNode {
     /// Recursively pretty-prints this syntax and its children as a arena.
     fn fmt_with_interner(
         &self,

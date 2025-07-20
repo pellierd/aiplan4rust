@@ -7,7 +7,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
 
 /// Checks the task ordering constraints in the provided annotated syntax arena and detects any
 /// cyclic dependencies.

@@ -52,7 +52,7 @@ use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
 
 /// This module defines the `LIRBuilder`, which transforms a parsed and linked
 /// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).

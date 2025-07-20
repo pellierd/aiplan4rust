@@ -8,6 +8,7 @@ use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
+use crate::aiplan4rust::syntax::core::SyntaxNode;
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax arena.
 ///

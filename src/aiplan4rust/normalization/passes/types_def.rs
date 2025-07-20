@@ -43,6 +43,7 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::arena::{NodeId, ArenaNode};
+use crate::aiplan4rust::syntax::core::SyntaxNode;
 
 /// Normalizes type declarations in the AST by merging all `TypedItem` nodes
 /// that share the same `PrimitiveType` key.

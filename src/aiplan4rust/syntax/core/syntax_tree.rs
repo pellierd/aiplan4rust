@@ -13,11 +13,11 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around the low-level Arena, intended as the main entry point for syntax-level operations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct SyntaxTree<T : ArenaNode> {
+pub struct SyntaxTree<T : ArenaNode + SyntaxNode> {
     arena: Arena<T>,
 }
 
-impl<T: ArenaNode> SyntaxTree<T> {
+impl<T: ArenaNode + SyntaxNode> SyntaxTree<T> {
     pub fn new() -> Self {
         SyntaxTree {
             arena: Arena::new(),
@@ -106,9 +106,14 @@ impl<T: ArenaNode> SyntaxTree<T> {
         self.arena.try_node_ref_mut(id)
     }
 
+
+    /// Attempts to retrieve a `SymbolRef` from a syntax.
     pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, ArenaError> {
-        self.arena.try_symbol_ref(id)
+        let node = self.try_node(id)?;
+        Ok(node.try_symbol_ref()?) // TODO: handle error properly remove Ok ?
     }
+
+
 
     pub fn len(&self) -> usize {
         self.arena.len()
@@ -151,11 +156,24 @@ impl<T: ArenaNode> SyntaxTree<T> {
     }
 
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.arena.remap_idents(map)
+        if !self.is_empty() {
+            self.remap_idents_from(self.arena.try_root_id().unwrap(), map);
+        }
     }
 
+    /// Remaps identifiers starting from a specific syntax (subtree).
     pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) {
-        self.arena.remap_idents_from(id, map)
+        let mut stack = vec![id];
+
+        while let Some(current_id) = stack.pop() {
+            if let Some(node) = self.arena.get_node_mut(current_id) {
+                node.remap_idents(map);
+
+                for &child_id in node.children() {
+                    stack.push(child_id);
+                }
+            }
+        }
     }
 
     pub fn size(&self, root: NodeId) -> usize {
@@ -169,7 +187,7 @@ impl<T: ArenaNode> SyntaxTree<T> {
 
 impl<T> fmt::Display for SyntaxTree<T>
 where
-    T: ArenaNode + fmt::Display,
+    T: ArenaNode + SyntaxNode + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // On délègue à l'affichage de l'arène interne

@@ -188,6 +188,10 @@ impl ArenaNode for AstNode {
         self.base_node.add_child(child);
     }
 
+
+}
+
+impl SyntaxNode for AstNode {
     /// Remaps identifier names in this node's content according to a mapping.
     ///
     /// This is useful when renaming symbols after interning.
@@ -229,9 +233,7 @@ impl ArenaNode for AstNode {
         let ident = self.try_ident()?;
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
-}
 
-impl SyntaxNode for AstNode {
     /// Recursively pretty-prints this node and its subtree using a tree layout.
     fn fmt_with_interner(
         &self,
@@ -253,4 +255,6 @@ impl SyntaxNode for AstNode {
         renderer::syntax::render_with_indent(self, f, arena, interner, indent)?;
         Ok(())
     }
+
+
 }

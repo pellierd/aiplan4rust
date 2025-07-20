@@ -321,12 +321,7 @@ impl<T: ArenaNode> Arena<T> {
         Ok(NodeRefMut::new(id, node))
     }
 
-    /// Attempts to retrieve a `SymbolRef` from a syntax.
-    /// TODO should not be here but at syntax_tree level
-    pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, ArenaError> {
-        let node = self.try_node(id)?;
-        Ok(node.try_symbol_ref()?) // TODO: handle error properly remove Ok ?
-    }
+
 
     /// Returns the total number of nodes in the arena.
     pub fn len(&self) -> usize {
@@ -403,27 +398,6 @@ impl<T: ArenaNode> Arena<T> {
         match self.root_id {
             Some(root) => PostorderIterWithIndex::new(self, root),
             None => PostorderIterWithIndex::empty(self),
-        }
-    }
-
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        if !self.is_empty() {
-            self.remap_idents_from(self.root_id.unwrap(), map);
-        }
-    }
-
-    /// Remaps identifiers starting from a specific syntax (subtree).
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) {
-        let mut stack = vec![id];
-
-        while let Some(current_id) = stack.pop() {
-            if let Some(node) = self.get_node_mut(current_id) {
-                node.remap_idents(map);
-
-                for &child_id in node.children() {
-                    stack.push(child_id);
-                }
-            }
         }
     }
 

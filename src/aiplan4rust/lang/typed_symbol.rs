@@ -8,7 +8,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents a symbol identified by `Ident` with associated types,
