@@ -553,7 +553,7 @@ impl Table {
                         1 => return Ok(Some(filtered[0])), // Exactly one declaration found, return it
                         _ => {
                             // Multiple matching declarations found, which is an error case
-                            return Err(AiplanError::new(format!(
+                            return Err(AiplanError::InternalError(format!(
                                 "Multiple declarations found for usage at AST index {}.",
                                 node_id
                             )));
@@ -856,7 +856,7 @@ impl Table {
         match symbols.len() {
             0 => Ok(None),
             1 => Ok(Some(symbols[0])),
-            _ => Err(AiplanError::new(format!(
+            _ => Err(AiplanError::InternalError(format!(
                 "Malformed Annotated Syntax Tree: multiple declarations found for symbol kind {:?}: {:?}",
                 kind, symbols,
             ))),
@@ -882,7 +882,7 @@ impl Table {
         usage_kind: &SymbolKind,
         count: usize,
     ) -> AiplanError {
-        AiplanError::new(format!(
+        AiplanError::InternalError(format!(
             "Symbol '{}' with kind '{:?}' has {} declarations, which is invalid.",
             symbol_name, usage_kind, count
         ))

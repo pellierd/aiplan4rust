@@ -181,7 +181,7 @@ impl FromAst for Action {
                     effect = Expr::from_ast(eff_node, ast)?;
                 }
                 _ => {
-                    return Err(AiplanError::new(format!(
+                    return Err(AiplanError::InternalError(format!(
                         "Unexpected syntax in Action body: {:?}",
                         child_node.kind()
                     )));

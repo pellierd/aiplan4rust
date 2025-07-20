@@ -170,7 +170,7 @@ fn report_cyclic_type_declaration_error(
 
         // If no valid declarations were found, report an internal error
         if cycle_detail.is_empty() {
-            return Err(AiplanError::new(
+            return Err(AiplanError::InternalError(
                 "Cycle detail cannot be empty".to_string(),
             ));
         }
@@ -530,7 +530,7 @@ fn build_type_adjacency_matrix(
 
         // Validate type_idx is within matrix bounds
         if type_idx >= n {
-            return Err(AiplanError::new(format!(
+            return Err(AiplanError::InternalError(format!(
                 "Index {} for type '{}' is out of bounds (max {})",
                 type_idx, declaration.symbol_ident(), n - 1
             )));
@@ -543,7 +543,7 @@ fn build_type_adjacency_matrix(
                     if let Some(&parent_idx) = type_bimap.get_by_left(parent) {
                         // Validate parent_idx is within bounds
                         if parent_idx >= n {
-                            return Err(AiplanError::new(format!(
+                            return Err(AiplanError::InternalError(format!(
                                 "Index {} for parent type '{}' is out of bounds (max {})",
                                 parent_idx, parent, n - 1
                             )));
@@ -556,7 +556,7 @@ fn build_type_adjacency_matrix(
                 // If no parent declared, implicitly link to the "object" type if present
                 if let Some(j) = object_index {
                     if j >= n {
-                        return Err(AiplanError::new(format!(
+                        return Err(AiplanError::InternalError(format!(
                             "Index {} for special object type is out of bounds (max {})",
                             j, n - 1
                         )));

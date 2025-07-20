@@ -212,7 +212,7 @@ impl FromAst for TaskNetwork {
                     constraints = Expr::from_ast(logical_node, ast)?;
                 }
                 _ => {
-                    return Err(AiplanError::new(format!(
+                    return Err(AiplanError::InternalError(format!(
                         "Unexpected syntax kind in TaskNetwork: {}",
                         child_node.kind(),
                     )));

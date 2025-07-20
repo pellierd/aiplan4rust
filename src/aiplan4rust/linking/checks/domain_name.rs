@@ -38,7 +38,7 @@ pub fn check_domain_name(
     let declared = match domain.symbol_table().resolve_domain_name_declaration()? {
         Some(name) => name,
         None => {
-            return Err(AiplanError::new(
+            return Err(AiplanError::InternalError(
                 "Domain name declaration not found in domain AST".to_string(),
             ));
         }
@@ -50,7 +50,7 @@ pub fn check_domain_name(
     let referenced = match problem.symbol_table().resolve_domain_name_declaration()? {
         Some(name) => name,
         None => {
-            return Err(AiplanError::new(
+            return Err(AiplanError::InternalError(
                 "Domain name declaration not found in problem AST".to_string(),
             ));
         }
@@ -92,7 +92,7 @@ pub fn check_domain_name(
                     }
                     None => {
                         // AST entry is missing for the declaration — this should not happen
-                        return Err(AiplanError::new(
+                        return Err(AiplanError::InternalError(
                             "AST entry for domain name declaration not found in problem AST.".to_string(),
                         ));
                     }
@@ -100,7 +100,7 @@ pub fn check_domain_name(
             }
             None => {
                 // No declaration found for the domain name in the problem's symbol table
-                return Err(AiplanError::new(
+                return Err(AiplanError::InternalError(
                     "Domain name declaration not found in problem symbol table".to_string(),
                 ));
             }

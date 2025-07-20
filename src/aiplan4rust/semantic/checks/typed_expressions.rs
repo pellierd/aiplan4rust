@@ -357,23 +357,23 @@ fn get_binary_operation_types(
 ) -> Result<(Type, Type), AiplanError> {
     // Validate that there are exactly 2 children
     if node.children().len() != 2 {
-        return Err(AiplanError::new(
+        return Err(AiplanError::InternalError(
             "Binary operations must have exactly two children.".to_string(),
         ));
     }
     let ast = context.ast();
     let arg1 = ast
         .get_node(node.children()[0])
-        .ok_or_else(|| AiplanError::new("Missing first argument.".to_string()))?;
+        .ok_or_else(|| AiplanError::InternalError("Missing first argument.".to_string()))?;
     let arg2 = ast
         .get_node(node.children()[1])
-        .ok_or_else(|| AiplanError::new("Missing second argument.".to_string()))?;
+        .ok_or_else(|| AiplanError::InternalError("Missing second argument.".to_string()))?;
 
     let ty1 = get_type(node.children()[0], arg1, context)?.ok_or_else(|| {
-        AiplanError::new("No type declared for the first argument.".to_string())
+        AiplanError::InternalError("No type declared for the first argument.".to_string())
     })?;
     let ty2 = get_type(node.children()[1], arg2, context)?.ok_or_else(|| {
-        AiplanError::new("No type declared for the second argument.".to_string())
+        AiplanError::InternalError("No type declared for the second argument.".to_string())
     })?;
 
     Ok((ty1, ty2))
@@ -425,7 +425,7 @@ pub fn get_type(
         AstKind::FunctionTerm => get_function_term_type(index, node, context),
 
         // Default case: Unexpected AST syntax
-        _ => Err(AiplanError::new(format!(
+        _ => Err(AiplanError::InternalError(format!(
             "Unexpected AST syntax kind found: {}",
             node.kind()
         ))),
@@ -591,14 +591,14 @@ fn get_function_term_type(
 ) -> Result<Option<Type>, AiplanError> {
     let children = node.children();
     if children.is_empty() {
-        return Err(AiplanError::new(
+        return Err(AiplanError::InternalError(
             "Function term has no functor (empty children).".to_string(),
         ));
     }
 
     let functor_index = children[0];
     let functor_entry = context.ast().get_node(functor_index).ok_or_else(|| {
-        AiplanError::new(format!("No AST entry found for index {}.", functor_index))
+        AiplanError::InternalError(format!("No AST entry found for index {}.", functor_index))
     })?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
@@ -610,7 +610,7 @@ fn get_function_term_type(
         return get_declaration_type(index, context);
     }
 
-    Err(AiplanError::new(
+    Err(AiplanError::InternalError(
         "First child of function term is not a FunctionSymbol.".to_string(),
     ))
 }

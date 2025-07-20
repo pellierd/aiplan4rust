@@ -281,7 +281,7 @@ impl Frontend {
             Ok(mut file) => {
                 // If reading the file fails, return a ParserInternalError with the failure message.
                 if let Err(e) = file.read_to_string(&mut source) {
-                    return Err(AiplanError::new(format!(
+                    return Err(AiplanError::InternalError(format!(
                         "Error reading the file: {}",
                         e
                     )));
@@ -289,7 +289,7 @@ impl Frontend {
             }
             // If the file cannot be opened, return a ParserInternalError with the failure message.
             Err(e) => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "Error opening the file: {}",
                     e
                 )));

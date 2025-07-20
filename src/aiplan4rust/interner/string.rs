@@ -274,7 +274,7 @@ impl StringInterner {
     ///
     pub fn try_resolve(&self, ident: Ident) -> Result<&str, AiplanError> {
         self.resolve(ident).ok_or_else(|| {
-            AiplanError::new(format!(
+            AiplanError::InternalError(format!(
                 "Invalid Ident {}: out of bounds for interner size {}",
                 ident.as_usize(),
                 self.string_pool.len()

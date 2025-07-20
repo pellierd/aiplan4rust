@@ -135,7 +135,7 @@ fn match_declaration_with_usage(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, AiplanError> {
     let ast_usage = context.ast().get_node(usage.node_id()).ok_or_else(|| {
-        AiplanError::new(format!("AST entry not found for usage '{}'", usage.node_id()))
+        AiplanError::InternalError(format!("AST entry not found for usage '{}'", usage.node_id()))
     })?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
@@ -146,7 +146,7 @@ fn match_declaration_with_usage(
             AstKind::Constant => SymbolKind::Constant,
             AstKind::FunctionTerm => SymbolKind::Function,
             _ => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "Unexpected AST kind encountered: {}",
                     argument.kind()
                 )))
@@ -211,7 +211,7 @@ fn match_argument(
     let symbol_declaration = match symbol_table.resolve_declaration(&name, &kind, usage.scope())? {
         Some(decl) => decl,
         None => {
-            return Err(AiplanError::new(format!(
+            return Err(AiplanError::InternalError(format!(
                 "No declaration found for symbol '{}' in scope {}.",
                 name,
                 usage.scope()
@@ -223,7 +223,7 @@ fn match_argument(
     let declared_arguments = match declaration.arguments() {
         Some(args) => args,
         None => {
-            return Err(AiplanError::new(format!(
+            return Err(AiplanError::InternalError(format!(
                 "Failed to retrieve arguments for declaration in scope {}",
                 declaration.scope()
             )))
@@ -234,7 +234,7 @@ fn match_argument(
     let ty1 = match declared_arguments.get(index) {
         Some(arg) => arg.types(),
         None => {
-            return Err(AiplanError::new(format!(
+            return Err(AiplanError::InternalError(format!(
                 "Argument index {} out of bounds for declaration in scope {}",
                 index,
                 declaration.scope()
@@ -246,7 +246,7 @@ fn match_argument(
     let ty2 = match symbol_declaration.types() {
         Some(types) => types,
         None => {
-            return Err(AiplanError::new(format!(
+            return Err(AiplanError::InternalError(format!(
                 "Failed to retrieve types for symbol '{}' in scope {}",
                 name,
                 usage.scope()

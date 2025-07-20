@@ -5,6 +5,7 @@ pub mod node;
 pub mod node_ref;
 pub mod base_node;
 pub mod content;
+pub mod error;
 
 pub use node_id::NodeId;
 pub use arena::Arena;

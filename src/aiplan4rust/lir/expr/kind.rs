@@ -162,7 +162,7 @@ impl TryFrom<AstKind> for Kind {
             AstKind::TypedList => Ok(Kind::TypedList),
             AstKind::TypedItem => Ok(Kind::TypedSymbol),
             AstKind::TaskOrderingConstraint => Ok(Kind::TaskOrderingConstraint),
-            other => Err(AiplanError::new(format!(
+            other => Err(AiplanError::InternalError(format!(
                 "Unsupported conversion from AstKind to ExprKind: {other:?}"
             ))),
         }

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
 use crate::aiplan4rust::arena::node_ref::{NodeRef, NodeRefMut};
-use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::arena::error::ArenaError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -59,19 +59,38 @@ impl<T: ArenaNode> Arena<T> {
         }
     }
 
-    pub fn try_root(&self) -> Result<&T, AiplanError> {
+    /// Attempts to get an immutable reference to the root node.
+    ///
+    /// Returns an error if the root ID is missing or if the node ID is out of bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArenaError::MissingRootId` if the root ID is not set.
+    ///
+    /// Returns other `ArenaError`s from `try_node`.
+    pub fn try_root(&self) -> Result<&T, ArenaError> {
         match self.root_id {
             Some(id) => self.try_node(id),
-            None => Err(AiplanError::new("Root ID is missing".to_string())),
+            None => Err(ArenaError::missing_root_id()),
         }
     }
 
-    pub fn try_root_mut(&mut self) -> Result<&mut T, AiplanError> {
+    /// Attempts to get a mutable reference to the root node.
+    ///
+    /// Returns an error if the root ID is missing or if the node ID is out of bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns `AiplanError::InternalError` if the root ID is missing.
+    ///
+    /// Returns `AiplanError::Arena` wrapping the specific `ArenaError` from `try_node_mut`.
+    pub fn try_root_mut(&mut self) -> Result<&mut T, ArenaError> {
         match self.root_id {
             Some(id) => self.try_node_mut(id),
-            None => Err(AiplanError::new("Root ID is missing".to_string())),
+            None => Err(ArenaError::missing_root_id()),
         }
     }
+
 
     /// Returns a reference to the root syntax, if it exists.
     pub fn root_mut(&mut self) -> Option<&mut T> {
@@ -93,19 +112,48 @@ impl<T: ArenaNode> Arena<T> {
         self.root_id
     }
 
-    pub fn try_root_id(&self) -> Result<NodeId, AiplanError> {
+    /// Attempts to retrieve the root node ID.
+    ///
+    /// Returns an error if the root ID is missing.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArenaError::MissingRootId` if the root ID is not set.
+    pub fn try_root_id(&self) -> Result<NodeId, ArenaError> {
         match self.root_id {
             Some(id) => Ok(id),
-            None => Err(AiplanError::new("Root Id missing".to_string())),
+            None => Err(ArenaError::missing_root_id()),
         }
     }
 
-    pub fn set_root_id(&mut self, id: NodeId) -> Result<(), AiplanError> {
-        if id.as_usize() < self.nodes.len() {
+    /// Sets the root ID of the arena.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The `NodeId` to set as the root.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `ArenaError::NodeIdOutOfBounds` if the given `id` is outside the valid bounds
+    /// of the arena nodes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use your_crate::{Arena, NodeId, ArenaError};
+    /// # let mut arena = Arena::new();
+    /// # let node_id = NodeId::new(0);
+    /// arena.set_root_id(node_id).expect("Valid root id");
+    /// ```
+    pub fn set_root_id(&mut self, id: NodeId) -> Result<(), ArenaError> {
+        let idx = id.as_usize();
+        let max = self.nodes.len().saturating_sub(1);
+
+        if idx <= max {
             self.root_id = Some(id);
             Ok(())
         } else {
-            Err(AiplanError::new("out of bound root id".to_string()))
+            Err(ArenaError::node_id_out_of_bounds(idx, max))
         }
     }
 
@@ -136,36 +184,148 @@ impl<T: ArenaNode> Arena<T> {
         self.get_node_mut(id).map(|node| NodeRefMut::new(id, node))
     }
 
-    /// Attempts to retrieve a syntax or returns a `ParserInternalError` if not found.
-    pub fn try_node(&self, id: NodeId) -> Result<&T, AiplanError> {
-        self.get_node(id).ok_or_else(|| {
-            AiplanError::new(format!("Node with id {} not found", id))
-        })
+    /// Attempts to retrieve an immutable reference to a node by its `NodeId`.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The identifier of the node to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&T)` - A reference to the node if it exists and the id is within bounds.
+    /// * `Err(ArenaError)` - An error if the `id` is out of bounds or the node is not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArenaError::NodeIdOutOfBounds` if the `id` exceeds the arena's node capacity.
+    ///
+    /// Returns `ArenaError::NodeNotFound` if the node at the given `id` does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let node = arena.try_node(node_id)?;
+    /// println!("Node found: {:?}", node);
+    /// # Ok::<(), ArenaError>(())
+    /// ```
+    pub fn try_node(&self, id: NodeId) -> Result<&T, ArenaError> {
+        let index = id.as_usize();
+        let max = self.nodes.len();
+        if index >= max {
+            return Err(ArenaError::node_id_out_of_bounds(index, max));
+        }
+        self.get_node(id).ok_or_else(|| ArenaError::node_not_found(index))
     }
 
-    /// Attempts to retrieve a `NodeRef` or returns an error.
-    pub fn try_node_ref(&self, id: NodeId) -> Result<NodeRef<'_, T>, AiplanError> {
+    /// Attempts to retrieve a `NodeRef` for the given `NodeId`.
+    ///
+    /// This method tries to get an immutable reference to the node identified by `id`,
+    /// and if successful, wraps it in a `NodeRef`.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The identifier of the node to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(NodeRef<'_, T>)` - A `NodeRef` wrapping the node if found.
+    /// * `Err(ArenaError)` - An error if the node is not found or the id is out of bounds.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArenaError::NodeIdOutOfBounds` if `id` is outside the valid range of nodes.
+    ///
+    /// Returns `ArenaError::NodeNotFound` if the node at the specified `id` does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let node_ref = arena.try_node_ref(node_id)?;
+    /// println!("NodeRef: {:?}", node_ref);
+    /// # Ok::<(), ArenaError>(())
+    /// ```
+    pub fn try_node_ref(&self, id: NodeId) -> Result<NodeRef<'_, T>, ArenaError> {
         let node = self.try_node(id)?;
         Ok(NodeRef::new(id, node))
     }
 
-    /// Attempts to retrieve a mutable syntax reference or returns an error.
-    pub fn try_node_mut(&mut self, id: NodeId) -> Result<&mut T, AiplanError> {
-        self.get_node_mut(id).ok_or_else(|| {
-            AiplanError::new(format!("Node with id {} not found", id))
-        })
+    /// Attempts to retrieve a mutable reference to a node identified by `id`.
+    ///
+    /// This method checks if the given `NodeId` is within bounds and then tries to
+    /// return a mutable reference to the node. If the node does not exist or the ID
+    /// is out of bounds, an appropriate `ArenaError` is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The identifier of the node to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&mut T)` - A mutable reference to the node if found.
+    /// * `Err(ArenaError)` - An error indicating why the node could not be retrieved.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArenaError::NodeIdOutOfBounds` if `id` is greater than the maximum index.
+    ///
+    /// Returns `ArenaError::NodeNotFound` if the node at the specified `id` does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let node_mut = arena.try_node_mut(node_id)?;
+    /// node_mut.update_something();
+    /// # Ok::<(), ArenaError>(())
+    /// ```
+    pub fn try_node_mut(&mut self, id: NodeId) -> Result<&mut T, ArenaError> {
+        let index = id.as_usize();
+        let max = self.nodes.len().saturating_sub(1);
+
+        if index > max {
+            return Err(ArenaError::node_id_out_of_bounds(index, max));
+        }
+
+        self.get_node_mut(id).ok_or_else(|| ArenaError::node_not_found(index))
     }
 
-    /// Attempts to retrieve a mutable `NodeRefMut` or returns an error.
-    pub fn try_node_ref_mut(&mut self, id: NodeId) -> Result<NodeRefMut<'_, T>, AiplanError> {
+    /// Attempts to retrieve a mutable `NodeRefMut` for the node identified by `id`.
+    ///
+    /// This method attempts to get a mutable reference to the node via `try_node_mut`.
+    /// If successful, it wraps the mutable reference in a `NodeRefMut` and returns it.
+    /// If the node cannot be found or the ID is out of bounds, an appropriate `ArenaError` is returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The identifier of the node to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(NodeRefMut<'_, T>)` - A mutable node reference wrapper if the node exists.
+    /// * `Err(ArenaError)` - An error indicating why the node could not be retrieved.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ArenaError::NodeIdOutOfBounds` if the `id` is out of bounds.
+    ///
+    /// Returns `ArenaError::NodeNotFound` if the node at the given `id` does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let mut node_ref = arena.try_node_ref_mut(node_id)?;
+    /// node_ref.modify();
+    /// # Ok::<(), ArenaError>(())
+    /// ```
+    pub fn try_node_ref_mut(&mut self, id: NodeId) -> Result<NodeRefMut<'_, T>, ArenaError> {
         let node = self.try_node_mut(id)?;
         Ok(NodeRefMut::new(id, node))
     }
 
     /// Attempts to retrieve a `SymbolRef` from a syntax.
-    pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, AiplanError> {
+    /// TODO should not be here but at syntax_tree level
+    pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, ArenaError> {
         let node = self.try_node(id)?;
-        node.try_symbol_ref()
+        Ok(node.try_symbol_ref()?) // TODO: handle error properly remove Ok ?
     }
 
     /// Returns the total number of nodes in the arena.

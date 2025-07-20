@@ -109,7 +109,7 @@ pub trait NodeContent : InternerDisplay {
     /// `Err(ParserInternalError)` if the content is not an identifier.
     fn try_ident(&self) -> Result<Ident, AiplanError> {
         self.as_ident()
-            .ok_or_else(|| AiplanError::new("Not an Ident".to_string()))
+            .ok_or_else(|| AiplanError::InternalError("Not an Ident".to_string()))
     }
 
     /// Attempts to extract a floating-point value from the content.
@@ -118,7 +118,7 @@ pub trait NodeContent : InternerDisplay {
     /// `Err(ParserInternalError)` if the content is not a float.
     fn try_float(&self) -> Result<OrderedFloat<f64>, AiplanError> {
         self.as_float()
-            .ok_or_else(|| AiplanError::new("Not a Float".to_string()))
+            .ok_or_else(|| AiplanError::InternalError("Not a Float".to_string()))
     }
 
     /// Attempts to extract a binary comparison operator from the content.
@@ -127,7 +127,7 @@ pub trait NodeContent : InternerDisplay {
     /// `Err(ParserInternalError)` if the content is not a binary comparison.
     fn try_binary_comp(&self) -> Result<BinaryComp, AiplanError> {
         self.as_binary_comp()
-            .ok_or_else(|| AiplanError::new("Not a BinaryComp".to_string()))
+            .ok_or_else(|| AiplanError::InternalError("Not a BinaryComp".to_string()))
     }
 
     /// Attempts to extract an assignment operator from the content.
@@ -136,7 +136,7 @@ pub trait NodeContent : InternerDisplay {
     /// `Err(ParserInternalError)` if the content is not an assignment operator.
     fn try_assign_op(&self) -> Result<AssignOp, AiplanError> {
         self.as_assign_op()
-            .ok_or_else(|| AiplanError::new("Not an AssignOp".to_string()))
+            .ok_or_else(|| AiplanError::InternalError("Not an AssignOp".to_string()))
     }
 
     /// Attempts to extract an arithmetic operator from the content.
@@ -145,7 +145,7 @@ pub trait NodeContent : InternerDisplay {
     /// `Err(ParserInternalError)` if the content is not an arithmetic operator.
     fn try_arithmetic_op(&self) -> Result<ArithmeticOp, AiplanError> {
         self.as_arithmetic_op()
-            .ok_or_else(|| AiplanError::new("Not an ArithmeticOp".to_string()))
+            .ok_or_else(|| AiplanError::InternalError("Not an ArithmeticOp".to_string()))
     }
 
     /// Attempts to extract an optimization directive from the content.
@@ -154,7 +154,7 @@ pub trait NodeContent : InternerDisplay {
     /// `Err(ParserInternalError)` if the content is not an optimization.
     fn try_optimization(&self) -> Result<Optimization, AiplanError> {
         self.as_optimization()
-            .ok_or_else(|| AiplanError::new("Not an Optimization".to_string()))
+            .ok_or_else(|| AiplanError::InternalError("Not an Optimization".to_string()))
     }
 
 }

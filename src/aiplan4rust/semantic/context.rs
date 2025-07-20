@@ -161,7 +161,7 @@ impl Context {
     }
 
     pub fn try_node(&self, id: NodeId) -> Result<&AstNode, AiplanError> {
-        self.ast.try_node(id)
+        Ok(self.ast.try_node(id)?) // TODO: handle error properly Ok add for refactoring
     }
 
     /// Returns a reference to the internal AST arena.

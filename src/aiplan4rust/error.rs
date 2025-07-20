@@ -1,53 +1,30 @@
-use std::backtrace::Backtrace;
-use std::error::Error;
-use std::fmt;
+use thiserror::Error;
+use crate::aiplan4rust::arena::error::ArenaError;
+use crate::aiplan4rust::syntax::SyntaxError;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum AiplanError {
-    Parser {
-        message: String,
-        backtrace: Backtrace,
-    },
-    // D’autres variantes à venir, ex Normalizer, Linker...
+    #[error("Internal error: {0}")]
+    InternalError(String),
+
+    #[error(transparent)]
+    Syntax(#[from] SyntaxError),
+
+    #[error("Arena error: {0}")]
+    Arena(#[from] ArenaError),
+
+    // autres variantes à venir...
 }
 
-impl AiplanError {
-    pub fn new(message: String) -> Self {
-        AiplanError::Parser {
-            message,
-            backtrace: Backtrace::capture(),
-        }
-    }
-
-    pub fn message(&self) -> &str {
-        match self {
-            AiplanError::Parser { message, .. } => message,
-            // gérer les autres variantes plus tard
-        }
-    }
-
-    pub fn backtrace(&self) -> &Backtrace {
-        match self {
-            AiplanError::Parser { backtrace, .. } => backtrace,
-            // gérer les autres variantes plus tard
-        }
-    }
-}
-
-impl fmt::Display for AiplanError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            AiplanError::Parser { message, backtrace } => {
-                writeln!(f, "Parser error: {message}")?;
-
-                if cfg!(debug_assertions) {
-                    writeln!(f, "Backtrace:\n{backtrace}")?;
-                }
-
-                Ok(())
+impl From<AiplanError> for ArenaError {
+    fn from(e: AiplanError) -> Self {
+        match e {
+            AiplanError::Arena(ae) => ae, // déjà un ArenaError, on renvoie tel quel
+            AiplanError::Syntax(se) => {
+                ArenaError::InternalError(format!("Syntax error wrapped: {}", se))
             }
+            AiplanError::InternalError(msg) => ArenaError::InternalError(msg),
+            // gérer les autres variantes si tu en ajoutes plus tard
         }
     }
 }
-
-impl Error for AiplanError {}

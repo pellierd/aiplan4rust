@@ -87,7 +87,7 @@ impl FromStr for Extension {
         match normalized.as_str() {
             "pddl" => Ok(Extension::Pddl),
             "hddl" => Ok(Extension::Hddl),
-            other => Err(AiplanError::new(format!("Unknown planning extension: {}", other))),
+            other => Err(AiplanError::InternalError(format!("Unknown planning extension: {}", other))),
         }
     }
 }

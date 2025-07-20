@@ -20,14 +20,14 @@
 use std::cell::RefCell;
 use lalrpop_util::ErrorRecovery;
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
-use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
 use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::syntax::error::SyntaxError;
 
 /// Parsing context used throughout the LALRPOP parsing process.
 ///
@@ -117,8 +117,9 @@ impl ParseContext {
     ///
     /// # Errors
     /// Returns [`AiplanError`] if the syntax ID does not exist.
-    pub fn set_root_id(&self, root_id: NodeId) -> Result<(), AiplanError> {
-        self.arena.borrow_mut().set_root_id(root_id)
+    pub fn set_root_id(&self, root_id: NodeId) -> Result<(), SyntaxError> {
+        self.arena.borrow_mut().set_root_id(root_id)?;
+        Ok(())
     }
 
     /// Returns the ID of the root syntax, if any.
@@ -150,7 +151,7 @@ impl ParseContext {
         children: Vec<NodeId>,
         start: usize,
         end: usize,
-    ) -> Result<NodeId, AiplanError> {
+    ) -> Result<NodeId, SyntaxError> {
         let span = Span::new(start, end);
 
         // 1) Create the syntax with the children (parent initially None)
@@ -192,7 +193,7 @@ impl ParseContext {
         &mut self,
         typed_list: NodeId,
         next: NodeId,
-    ) -> Result<NodeId, AiplanError> {
+    ) -> Result<NodeId, SyntaxError> {
         let mut arena = self.borrow_arena_mut();
 
         // 1) Drain children from `next`

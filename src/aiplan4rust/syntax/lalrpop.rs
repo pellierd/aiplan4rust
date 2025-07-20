@@ -17,9 +17,10 @@
 //! These functions abstract away the nested `Result` types produced by LALRPOP,
 //! providing a cleaner and more ergonomic API for consumers of the parsing library.
 
-use crate::aiplan4rust::syntax::{ParseContext, ParserError};
+use crate::aiplan4rust::syntax::ParseContext;
 use crate::aiplan4rust::syntax::lexer::Lexer;
 use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::syntax::error::SyntaxError;
 use crate::aiplan4rust::syntax::grammar::{PDDLParser, HDDLParser};
 
 /// Parses a PDDL source using the LALRPOP-generated PDDL parser.
@@ -37,16 +38,15 @@ use crate::aiplan4rust::syntax::grammar::{PDDLParser, HDDLParser};
 pub fn parse_pddl(
     ctx: &mut ParseContext,
     lexer: Lexer,
-) -> Result<NodeId, ParserError> {
+) -> Result<NodeId, SyntaxError> {
     let parser = PDDLParser::new();
 
-    // Call the LALRPOP parser, converting ParseError into ParserError.
-    let inner_result = parser.parse(ctx, lexer)?;
+    let inner_result = parser
+        .parse(ctx, lexer)
+        .map_err(SyntaxError::ParseError)?;
 
-    // Convert ParserInternalError into ParserError and unwrap the root ID.
     let root_id = inner_result?;
 
-    // Save the root syntax ID into the parse context.
     ctx.set_root_id(root_id)?;
 
     Ok(root_id)
@@ -67,16 +67,14 @@ pub fn parse_pddl(
 pub fn parse_hddl(
     ctx: &mut ParseContext,
     lexer: Lexer,
-) -> Result<NodeId, ParserError> {
+) -> Result<NodeId, SyntaxError> {
     let parser = HDDLParser::new();
 
-    // Call the LALRPOP parser, converting ParseError into ParserError.
-    let inner_result = parser.parse(ctx, lexer)?;
+    let inner_result: Result<NodeId, _> = parser.parse(ctx, lexer)
+        .map_err(SyntaxError::ParseError)?;
 
-    // Convert ParserInternalError into ParserError and unwrap the root ID.
     let root_id = inner_result?;
 
-    // Save the root syntax ID into the parse context.
     ctx.set_root_id(root_id)?;
 
     Ok(root_id)

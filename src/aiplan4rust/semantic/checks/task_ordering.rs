@@ -188,7 +188,7 @@ fn extract_task_ids(
         let child_node = match tree.get_node(*child_index) {
             Some(child) => child,
             None => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "Entry not found for child index: {}",
                     child_index
                 )))
@@ -268,7 +268,7 @@ fn extract_task_ids(
 fn build_task_order_matrix(task_ids: &Vec<Ident>) -> Result<Vec<Vec<bool>>, AiplanError> {
     // Ensure the number of task IDs is even, as we expect pairs of tasks
     if task_ids.len() % 2 != 0 {
-        return Err(AiplanError::new(
+        return Err(AiplanError::InternalError(
             "task_ids length must be even".to_string(),
         ));
     }
@@ -463,7 +463,7 @@ fn transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 /// If any of the diagonal elements are `true`, it indicates a cycle (self-dependency).
 fn is_cyclic(matrix: &[Vec<bool>]) -> Result<bool, AiplanError> {
     if !is_square(matrix) {
-        return Err(AiplanError::new("Matrix is not square".to_string()));
+        return Err(AiplanError::InternalError("Matrix is not square".to_string()));
     }
     for i in 0..matrix.len() {
         if matrix[i][i] {

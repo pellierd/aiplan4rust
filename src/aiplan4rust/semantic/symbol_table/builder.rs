@@ -115,7 +115,7 @@ impl SymbolTableBuilder {
 
         // Retrieve the root of the AST and handle the case where it is missing
         let root_ref = ast.arena().root_node_ref().ok_or_else(|| {
-            AiplanError::new("AST root syntax is missing".to_string())
+            AiplanError::InternalError("AST root syntax is missing".to_string())
         })?;
         let root_node = root_ref.node();
         // Determine the root kind and set the source of the symbol table
@@ -130,7 +130,7 @@ impl SymbolTableBuilder {
                 self.table_mut().set_root_id(root_ref.id())
             }
             _ => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "Invalid AST: root syntax is not a Domain or Problem, found: {}",
                     root_node.kind()
                 )));
@@ -599,7 +599,7 @@ impl SymbolTableBuilder {
             1 => Type::new(),
             2 => self.init_from_type(&ast.arena().try_node_ref(children[1])?, ast, scope.clone())?,
             _ => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "TypedItem syntax has unexpected number of children: {}",
                     children.len()
                 )))
@@ -735,7 +735,7 @@ impl SymbolTableBuilder {
         // Retrieve the first child and validate it as a 'FunctionSymbol'
         let functor_ref = ast.arena().try_node_ref(children[0])?;
         if functor_ref.node().kind() != AstKind::FunctionSymbol {
-            return Err(AiplanError::new(format!(
+            return Err(AiplanError::InternalError(format!(
                 "First child of 'Function' must match the expected kind. Encountered: '{:?}'",
                 functor_ref.node().kind()
             )))
@@ -1306,7 +1306,7 @@ impl SymbolTableBuilder {
             1 => Type::new(),
             2 => self.extract_type(&ast.arena().try_node_ref(children[1])?, ast)?,
             _ => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "TypedItem must have 1 or 2 children, got {}",
                     children.len()
                 )))
@@ -1323,7 +1323,7 @@ impl SymbolTableBuilder {
                 typed_arguments.push(TypedSymbol::new(name, types.clone()));
             }
             _ => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "Expected Constant or Variable in TypedItem, found {:?}",
                     elt.node().kind()
                 )));
@@ -1370,7 +1370,7 @@ impl SymbolTableBuilder {
                 let name = symbol_ref.ident();
                 super_types.add_type(name);
             } else {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "Unexpected AST syntax inside Type: {}",
                     ty_ref.node().kind(),
                 )));
@@ -1568,7 +1568,7 @@ impl SymbolTableBuilder {
                 if valid_kinds.iter().any(|_k| matches!(node.kind(), _k)) {
                     Ok(())
                 } else {
-                    Err(AiplanError::new(format!(
+                    Err(AiplanError::InternalError(format!(
                         "Unexpected AST syntax '{:?}'. Expected one of {:?}.",
                         node.kind(),
                         valid_kinds
@@ -1578,7 +1578,7 @@ impl SymbolTableBuilder {
             // Standard case: check if the syntax's kind is in valid_kinds
             kind if valid_kinds.contains(&kind) => Ok(()),
             // Case where the type is not expected
-            kind => Err(AiplanError::new(format!(
+            kind => Err(AiplanError::InternalError(format!(
                 "Unexpected AST syntax '{:?}'. Expected one of {:?}.",
                 kind, valid_kinds
             ))),
@@ -1632,7 +1632,7 @@ impl SymbolTableBuilder {
         if is_valid {
             Ok(())
         } else {
-            Err(AiplanError::new(format!(
+            Err(AiplanError::InternalError(format!(
                 "Expected {} children for AST syntax of kind '{:?}', found {}. Expected comparison: '{:?}'.",
                 expected_len,
                 node.kind(),

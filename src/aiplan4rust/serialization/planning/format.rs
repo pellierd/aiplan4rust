@@ -109,7 +109,7 @@ impl FromStr for Format {
         match normalized.as_str() {
             "hddl" => Ok(Format::Hddl),
             "pddl" => Ok(Format::Pddl),
-            other => Err(AiplanError::new(format!("Unknown syntax format: {}", other))),
+            other => Err(AiplanError::InternalError(format!("Unknown syntax format: {}", other))),
         }
     }
 }

@@ -133,7 +133,7 @@ pub trait ArenaNode: Clone {
     /// # Panics
     /// This method does **not** panic. It returns a proper `Result`.
     fn try_parent(&self) -> Result<NodeId, AiplanError> {
-        self.parent().ok_or_else(|| AiplanError::new(format!(
+        self.parent().ok_or_else(|| AiplanError::InternalError(format!(
             "Expected parent for syntax kind {} but found none",
             self.kind()
         )))
@@ -195,7 +195,7 @@ pub trait ArenaNode: Clone {
         self.children()
             .get(index)
             .copied()
-            .ok_or_else(|| AiplanError::new(format!(
+            .ok_or_else(|| AiplanError::InternalError(format!(
                 "Expected child index {} in syntax kind {} but found only {} children",
                 index,
                 self.kind(),
@@ -227,42 +227,7 @@ pub trait ArenaNode: Clone {
     /// - `map`: A `HashMap` mapping old identifiers to new identifiers.
     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>);
 
-    /// Returns `true` if this syntax is a leaf (has no children).
-    ///
-    /// # Returns
-    ///
-    /// - `true` if the syntax has no children.
-    /// - `false` otherwise.
-    ///
-    /// # Default
-    ///
-    /// Checks if `children().is_empty()`.
-    fn is_leaf(&self) -> bool {
-        self.children().is_empty()
-    }
 
-    /// Returns the number of direct children this syntax has.
-    ///
-    /// # Returns
-    ///
-    /// The count of immediate child nodes.
-    ///
-    /// # Default
-    ///
-    /// Returns `children().len()`.
-    fn arity(&self) -> usize {
-        self.children().len()
-    }
-
-    /// Returns `true` if this syntax is the root of the arena (has no parent).
-    ///
-    /// # Returns
-    ///
-    /// - `true` if `parent()` returns `None`.
-    /// - `false` otherwise.
-    fn is_root(&self) -> bool {
-        self.parent().is_none()
-    }
 
 
     // Delegation methods to the syntax’s content, allowing convenient extraction
@@ -332,7 +297,7 @@ pub trait ArenaNode: Clone {
         self.content().try_optimization()
     }
     fn try_symbol_ref(&self) -> Result<SymbolRef, AiplanError> {
-        self.as_symbol_ref()?.ok_or_else(|| AiplanError::new("Not a SymbolRef".to_string()))
+        self.as_symbol_ref()?.ok_or_else(|| AiplanError::InternalError("Not a SymbolRef".to_string()))
     }
 
     /// Formats the syntax with access to the arena and an interner.

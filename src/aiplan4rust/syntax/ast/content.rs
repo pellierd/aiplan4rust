@@ -100,7 +100,7 @@ impl Content {
     pub fn try_requirement(&self) -> Result<Requirement, AiplanError> {
         match self {
             Content::Requirement(r) => Ok(*r),
-            other => Err(AiplanError::new(format!(
+            other => Err(AiplanError::InternalError(format!(
                 "Expected AstContent::Requirement, found {:?}",
                 other
             ))),

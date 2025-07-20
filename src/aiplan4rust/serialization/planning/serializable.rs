@@ -99,7 +99,7 @@ pub trait Serializable: SyntaxDisplay {
         let ext = std::path::Path::new(path)
             .extension()
             .and_then(|e| e.to_str())
-            .ok_or_else(|| AiplanError::new("File has no extension".to_string()))?;
+            .ok_or_else(|| AiplanError::InternalError("File has no extension".to_string()))?;
 
         ext.parse::<PlanningFormat>()
     }

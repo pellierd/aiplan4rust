@@ -9,13 +9,11 @@ use std::mem;
 use std::time::SystemTime;
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError};
 use crate::aiplan4rust::syntax::lexer::token::Token;
-use crate::aiplan4rust::syntax::{FastLineTable, Language, ParseContext, ParserError, ParserResult};
+use crate::aiplan4rust::syntax::{FastLineTable, Language, ParseContext, ParserResult, SyntaxError};
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
-use crate::check_well_formed;
 
 /// Parses PDDL or HDDL source code into an abstract syntax tree (AST),
 /// while managing and reporting diagnostics (errors, warnings, notes).
@@ -102,7 +100,7 @@ impl<'a> Parser<'a> {
         source_name: &'a str,
         source: &'a str,
         language: &Language,
-    ) -> Result<ParserResult, AiplanError> {
+    ) -> Result<ParserResult, SyntaxError> {
         // Store the source name (e.g., filename) for diagnostics context
         self.source_name = Some(source_name);
         // Store the source code string slice for diagnostics context
@@ -159,18 +157,18 @@ impl<'a> Parser<'a> {
                     Ok(ParserResult::new(Some(ast), mem::take(&mut self.diagnostic_manager)))
                 }
             }
-            Err(e) => match e {
-                // Handle normal parse errors by converting them to diagnostics
-                ParserError::ParseError(err) => {
-                    let diagnostic =
-                        Diagnostic::from_parse_error(&err, Some(source_name), &fast_line_table);
+            Err(e) => match e.as_parse_error() {
+                Some(parse_err) => {
+                    let diagnostic = Diagnostic::from_parse_error(
+                        parse_err,
+                        Some(source_name),
+                        &fast_line_table,
+                    );
                     self.diagnostic_manager.add_diagnostic(diagnostic);
-                    // Return a ParserResult with no AST but populated diagnostics
                     Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                 }
-                // Propagate internal errors as fatal parsing failures
-                ParserError::InternalError(err) => Err(err.into()),
-            },
+                None => Err(e),
+            }
         }
     }
 

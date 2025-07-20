@@ -92,7 +92,7 @@ impl FromStr for Extension {
             "toml" => Ok(Extension::Toml),
             "cbor" => Ok(Extension::Cbor),
             "msgpack" | "messagepack" => Ok(Extension::MessagePack),
-            other => Err(AiplanError::new(format!("Unknown extension: {}", other))),
+            other => Err(AiplanError::InternalError(format!("Unknown extension: {}", other))),
         }
     }
 }

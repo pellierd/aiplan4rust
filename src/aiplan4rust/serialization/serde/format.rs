@@ -65,7 +65,7 @@ impl FromStr for Format {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         <Self as clap::ValueEnum>::from_str(s, false)
-            .map_err(|e| AiplanError::new(format!("Invalid format: {}", e)))
+            .map_err(|e| AiplanError::InternalError(format!("Invalid format: {}", e)))
     }
 }
 

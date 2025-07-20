@@ -214,7 +214,7 @@ impl TryFrom<&AstContent> for Content {
             AstContent::AssignOp(op) => Ok(Content::AssignOp(*op)),
             AstContent::ArithmeticOp(op) => Ok(Content::ArithmeticOp(*op)),
             AstContent::Optimization(op) => Ok(Content::Optimization(*op)),
-            AstContent::Requirement(_) => Err(AiplanError::new("UnsupportedContent(Requirement".to_string())),
+            AstContent::Requirement(_) => Err(AiplanError::InternalError("UnsupportedContent(Requirement".to_string())),
             AstContent::None => Ok(Content::None)
         }
     }

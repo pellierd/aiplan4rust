@@ -81,7 +81,7 @@ pub(crate) mod fast_line_table;
 pub mod parse_context;
 pub mod parser_result;
 pub mod lalrpop;
-pub mod parser_error;
+pub mod error;
 
 pub use language::Language;
 pub use parser::Parser;
@@ -92,7 +92,9 @@ pub use display::write_indent;
 pub use fast_line_table::FastLineTable;
 pub use parse_context::ParseContext;
 pub use parser_result::ParserResult;
-pub use parser_error::ParserError;
+pub use error::SyntaxError;
+
+
 
 
 pub use lalrpop::parse_hddl;

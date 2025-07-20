@@ -138,7 +138,7 @@ impl Analyzer {
                 Self::check_problem(&check_ctx, &mut self.diagnostic_manager)?;
             }
             _ => {
-                return Err(AiplanError::new(format!(
+                return Err(AiplanError::InternalError(format!(
                     "Unexpected AST syntax kind found: {}",
                     root.kind()
                 )));
