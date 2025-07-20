@@ -25,8 +25,9 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
-use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
-use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::syntax::Span;
+use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 use crate::aiplan4rust::syntax::error::SyntaxError;
 
 /// Parsing context used throughout the LALRPOP parsing process.
@@ -50,7 +51,7 @@ pub struct ParseContext {
     interner: RefCell<StringInterner>,
 
     /// Stores all AST nodes allocated during parsing.
-    arena: RefCell<Arena<AstNode>>,
+    arena: RefCell<SyntaxTree<AstNode>>,
 
     /// Stores recoverable errors encountered during parsing.
     errors: RefCell<Vec<ErrorRecovery<usize, Token, LexicalError>>>,
@@ -72,7 +73,7 @@ impl ParseContext {
     pub fn new() -> Self {
         Self {
             interner: RefCell::new(StringInterner::new()),
-            arena: RefCell::new(Arena::empty()),
+            arena: RefCell::new(SyntaxTree::empty()),
             errors: RefCell::new(Vec::new()),
         }
     }
@@ -83,7 +84,7 @@ impl ParseContext {
     ///
     /// # Returns
     /// A shared reference to the arena.
-    pub fn borrow_arena(&self) -> std::cell::Ref<'_, Arena<AstNode>> {
+    pub fn borrow_arena(&self) -> std::cell::Ref<'_, SyntaxTree<AstNode>> {
         self.arena.borrow()
     }
 
@@ -96,7 +97,7 @@ impl ParseContext {
     ///
     /// # Returns
     /// A mutable reference to the arena.
-    pub fn borrow_arena_mut(&self) -> std::cell::RefMut<'_, Arena<AstNode>> {
+    pub fn borrow_arena_mut(&self) -> std::cell::RefMut<'_, SyntaxTree<AstNode>> {
         self.arena.borrow_mut()
     }
 
@@ -106,7 +107,7 @@ impl ParseContext {
     ///
     /// # Returns
     /// The previous arena containing all nodes.
-    pub fn take_arena(&self) -> Arena<AstNode> {
+    pub fn take_arena(&self) -> SyntaxTree<AstNode> {
         std::mem::take(&mut *self.arena.borrow_mut())
     }
 

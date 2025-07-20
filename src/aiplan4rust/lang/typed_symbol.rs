@@ -4,10 +4,11 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents a symbol identified by `Ident` with associated types,
@@ -163,7 +164,7 @@ impl FromAst for TypedSymbol {
     ///
     /// # Errors
     /// Returns a `ParserInternalError` if accessing the children or parsing fails.
-    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, AiplanError> {
+    fn from_ast(node: &AstNode, ast: &SyntaxTree<AstNode>) -> Result<Self, AiplanError> {
         let children = node.children();
         let symbol_node = ast.try_node(children[0])?;
 

@@ -17,10 +17,11 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Recursively renders the given AST node and its children into the formatter.
 ///
@@ -44,7 +45,7 @@ use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
 pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
-    arena: &Arena<AstNode>,
+    arena: &SyntaxTree<AstNode>,
     interner: &StringInterner,
     multiline: bool,
     indent: usize,

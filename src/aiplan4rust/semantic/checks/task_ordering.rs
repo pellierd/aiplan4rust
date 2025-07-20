@@ -1,12 +1,13 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Checks the task ordering constraints in the provided annotated syntax arena and detects any
 /// cyclic dependencies.
@@ -181,7 +182,7 @@ fn report_cyclic_task_ordering_error(
 ///   its child nodes.
 fn extract_task_ids(
     node: &AstNode,
-    tree: &Arena<AstNode>,
+    tree: &SyntaxTree<AstNode>,
 ) -> Result<Vec<Ident>, AiplanError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {

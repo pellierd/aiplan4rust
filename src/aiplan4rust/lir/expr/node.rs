@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
+use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {
@@ -122,18 +124,20 @@ impl ArenaNode for ExprNode {
         let ident = self.try_ident()?;
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
+}
 
+impl SyntaxNode for ExprNode {
     /// Recursively pretty-prints this syntax and its children as a arena.
     fn fmt_with_interner(
         &self,
         f: &mut Formatter<'_>,
-        arena: &Arena<Self>,
+        arena: &SyntaxTree<Self>,
         interner: &StringInterner,
     ) -> fmt::Result {
         fn fmt_node(
             node: &ExprNode,
             f: &mut Formatter<'_>,
-            arena: &Arena<ExprNode>,
+            arena: &SyntaxTree<ExprNode>,
             interner: &StringInterner,
             prefix: &str,
             last: bool,
@@ -185,7 +189,7 @@ impl ArenaNode for ExprNode {
     fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
-        arena: &Arena<Self>,
+        arena: &SyntaxTree<Self>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result

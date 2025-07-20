@@ -44,7 +44,8 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///
@@ -184,7 +185,7 @@ impl FromAst for TaskNetwork {
     /// Returns [`AiplanError`] if the syntax is malformed or has unexpected children.
     fn from_ast(
         node: &AstNode,
-        ast: &Arena<AstNode>,
+        ast: &SyntaxTree<AstNode>,
     ) -> Result<Self, AiplanError> {
         let children = node.children();
 

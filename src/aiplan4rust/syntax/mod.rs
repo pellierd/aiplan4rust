@@ -82,6 +82,7 @@ pub mod parse_context;
 pub mod parser_result;
 pub mod lalrpop;
 pub mod error;
+pub mod core;
 
 pub use language::Language;
 pub use parser::Parser;
@@ -93,8 +94,6 @@ pub use fast_line_table::FastLineTable;
 pub use parse_context::ParseContext;
 pub use parser_result::ParserResult;
 pub use error::SyntaxError;
-
-
 
 
 pub use lalrpop::parse_hddl;

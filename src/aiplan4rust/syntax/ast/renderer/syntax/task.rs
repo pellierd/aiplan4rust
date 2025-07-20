@@ -41,12 +41,13 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::syntax;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Renders a `task` AST node in an indented, syntax-like format with optional prefix.
 ///
@@ -63,7 +64,7 @@ use crate::aiplan4rust::syntax;
 pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
-    arena: &Arena<AstNode>,
+    arena: &SyntaxTree<AstNode>,
     interner: &StringInterner,
     with_prefix: bool,
     indent: usize,

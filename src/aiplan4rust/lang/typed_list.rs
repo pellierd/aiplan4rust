@@ -6,8 +6,8 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::ast::FromAst;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::Arena;
 
 /// A list of `TypedSymbol` items.
 ///
@@ -139,7 +139,7 @@ impl FromAst for TypedList {
     /// - `Err(ParserInternalError)` if any child syntax fails to convert.
     fn from_ast(
         node: &AstNode,
-        ast: &Arena<AstNode>
+        ast: &SyntaxTree<AstNode>
     ) -> Result<Self, AiplanError> {
         let mut typed_list = TypedList::new();
         for id in node.children() {

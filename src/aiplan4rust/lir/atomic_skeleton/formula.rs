@@ -24,8 +24,8 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::Arena;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///
@@ -109,7 +109,7 @@ impl FromAst for Formula {
     /// Returns a [`AiplanError`] if the syntax does not have the expected structure.
     fn from_ast(
         node: &AstNode,
-        ast: &Arena<AstNode>,
+        ast: &SyntaxTree<AstNode>,
     ) -> Result<Self, AiplanError> {
         let header = NamedTypedList::from_ast(node, ast)?;
         Ok(Formula { header })

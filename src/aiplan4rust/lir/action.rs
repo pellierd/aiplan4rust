@@ -33,10 +33,11 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::{ArenaNode};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
@@ -159,7 +160,7 @@ impl FromAst for Action {
     /// Returns `ParserInternalError` if the AST structure is unexpected or parsing fails.
     fn from_ast(
         node: &AstNode,
-        ast: &Arena<AstNode>,
+        ast: &SyntaxTree<AstNode>,
     ) -> Result<Self, AiplanError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
         let def_body_node = ast.try_node(node.try_child(2)?)?;

@@ -1,4 +1,3 @@
-use crate::aiplan4rust::arena::Arena;
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
@@ -14,7 +13,7 @@ use crate::aiplan4rust::lang::Requirement::Typing;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.
@@ -439,7 +438,7 @@ fn report_symbol_declared_as_keyword_error(
 fn scope_contains_node_of_kind(
     scope: &Scope,
     kind: AstKind,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<bool, AiplanError> {
     for &id in scope.iter() {
         let node = ast.try_node(id)?;

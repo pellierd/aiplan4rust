@@ -35,7 +35,7 @@
 
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::arena::Arena;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Trait for constructing an instance of a type from an AST syntax.
 ///
@@ -70,7 +70,7 @@ use crate::aiplan4rust::arena::Arena;
 pub trait FromAst {
     fn from_ast(
         node: &AstNode,
-        ast: &Arena<AstNode>,
+        ast: &SyntaxTree<AstNode>,
     ) -> Result<Self, AiplanError>
     where
         Self: Sized;

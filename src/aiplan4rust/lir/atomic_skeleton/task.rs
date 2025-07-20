@@ -24,8 +24,8 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::Arena;
 
 /// Represents a planning task declaration in HDDL.
 ///
@@ -98,7 +98,7 @@ impl FromAst for Task {
     /// Returns [`AiplanError`] if the syntax is malformed or required children are missing.
     fn from_ast(
         node: &AstNode,
-        ast: &Arena<AstNode>,
+        ast: &SyntaxTree<AstNode>,
     ) -> Result<Self, AiplanError> {
         let signature = NamedTypedList::from_ast(node, ast)?;
         Ok(Task { header: signature })

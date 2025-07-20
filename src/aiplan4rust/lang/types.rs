@@ -7,7 +7,8 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::{AstNode, FromAst};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::{NodeContent, Arena, ArenaNode};
+use crate::aiplan4rust::arena::{NodeContent, ArenaNode};
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Represents a type in a planning problem IR.
 ///
@@ -338,7 +339,7 @@ impl FromAst for Type {
     /// # Errors
     ///
     /// Returns a [`AiplanError`] if any of the child nodes cannot be retrieved.
-    fn from_ast(node: &AstNode, ast: &Arena<AstNode>) -> Result<Self, AiplanError> {
+    fn from_ast(node: &AstNode, ast: &SyntaxTree<AstNode>) -> Result<Self, AiplanError> {
         let mut ty = Type::new();
         for ty_id in node.children() {
             let child_node = ast.try_node(*ty_id)?;

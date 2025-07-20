@@ -66,8 +66,8 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::arena::Arena;
 
 /// Normalizes all `Type` nodes in the AST by detecting and removing duplicate `PrimitiveType` children.
 ///
@@ -180,7 +180,7 @@ pub fn normalize_either_type(
 ///
 /// - `report_duplicate_either_type_warning_bis` – helper function that actually formats and sends diagnostics.
 fn report_either_type_duplicate_warnings(
-    arena: &Arena<AstNode>,
+    arena: &SyntaxTree<AstNode>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), AiplanError> {
@@ -334,7 +334,7 @@ fn new_duplicate_either_type_warning(
 ///
 /// - `normalize_either_type` – calls this function as part of its normalization pipeline.
 fn remove_either_type_duplicates(
-    arena: &mut Arena<AstNode>,
+    arena: &mut SyntaxTree<AstNode>,
 ) -> Result<bool, AiplanError> {
     let mut modified = false;
     let mut stack = vec![arena.try_root_id()?];

@@ -43,7 +43,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
 use crate::aiplan4rust::lir::LiftedProblem;
@@ -52,6 +52,7 @@ use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// This module defines the `LIRBuilder`, which transforms a parsed and linked
 /// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).
@@ -225,7 +226,7 @@ impl LIRBuilder {
 /// Extracts a set of requirements from a `RequireDef` syntax.
 fn extract_requirements(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<Requirement>, AiplanError> {
     extract_set(node, ast, |n, _| n.try_requirement())
 }
@@ -233,7 +234,7 @@ fn extract_requirements(
 /// Extracts predicates from a `PredicatesDef` syntax.
 fn extract_atomic_formula_skeleton(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<AtomicFormulaSkeleton>, AiplanError> {
     extract_set(node, ast, AtomicFormulaSkeleton::from_ast)
 }
@@ -241,7 +242,7 @@ fn extract_atomic_formula_skeleton(
 /// Extracts functions from a `FunctionsDef` syntax.
 fn extract_atomic_function_skeleton(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<AtomicFunctionSkeleton>, AiplanError> {
     extract_set(node, ast, AtomicFunctionSkeleton::from_ast)
 }
@@ -249,7 +250,7 @@ fn extract_atomic_function_skeleton(
 /// Extracts types from a `TypesDef` syntax.
 fn extract_types(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, AiplanError> {
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
@@ -257,7 +258,7 @@ fn extract_types(
 /// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax.
 fn extract_constants(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, AiplanError> {
     extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
 }
@@ -265,7 +266,7 @@ fn extract_constants(
 /// Extracts an expression from the first child of an `Init` syntax.
 fn extract_init(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<Expr, AiplanError> {
     extract_expr_first_child(node, ast)
 }
@@ -273,7 +274,7 @@ fn extract_init(
 /// Extracts the goal expression from a `Goal` syntax.
 fn extract_goal(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<Expr, AiplanError> {
     extract_expr_first_child(node, ast)
 }
@@ -282,7 +283,7 @@ fn extract_goal(
 /// Used for `Init`, `Goal`, `Metric`, etc.
 fn extract_expr_first_child(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
 ) -> Result<Expr, AiplanError> {
     let child_id = node.try_child(0)?;
     let child_node = ast.try_node(child_id)?;
@@ -293,12 +294,12 @@ fn extract_expr_first_child(
 /// Used for predicates, functions, requirements, etc.
 fn extract_set<T, F>(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, AiplanError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, AiplanError>,
+    F: Fn(&AstNode, &SyntaxTree<AstNode>) -> Result<T, AiplanError>,
 {
     let mut set = HashSet::new();
     for child_id in node.children() {
@@ -313,12 +314,12 @@ where
 /// of the first child of the syntax (used for types, constants).
 fn extract_set_from_first_child<T, F>(
     node: &AstNode,
-    ast: &Arena<AstNode>,
+    ast: &SyntaxTree<AstNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, AiplanError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &Arena<AstNode>) -> Result<T, AiplanError>,
+    F: Fn(&AstNode, &SyntaxTree<AstNode>) -> Result<T, AiplanError>,
 {
     let first_child_id = node.try_child(0)?;
     let first_child_node = ast.try_node(first_child_id)?;

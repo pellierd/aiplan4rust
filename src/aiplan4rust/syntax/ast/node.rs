@@ -32,12 +32,13 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::arena::{Arena, ArenaNode, BaseNode, NodeId};
+use crate::aiplan4rust::arena::{ArenaNode, BaseNode, NodeId};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstKind};
+use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::Span;
 
 /// Represents a node in the Abstract Syntax Tree (AST).
@@ -228,12 +229,14 @@ impl ArenaNode for AstNode {
         let ident = self.try_ident()?;
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
+}
 
+impl SyntaxNode for AstNode {
     /// Recursively pretty-prints this node and its subtree using a tree layout.
     fn fmt_with_interner(
         &self,
         f: &mut Formatter<'_>,
-        arena: &Arena<Self>,
+        arena: &SyntaxTree<Self>,
         interner: &StringInterner,
     ) -> fmt::Result {
         renderer::tree::render(self, f, arena, interner)
@@ -243,7 +246,7 @@ impl ArenaNode for AstNode {
     fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
-        arena: &Arena<Self>,
+        arena: &SyntaxTree<Self>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {

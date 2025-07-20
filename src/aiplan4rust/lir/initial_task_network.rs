@@ -11,10 +11,11 @@ use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::{Arena, ArenaNode};
+use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Represents the initial task network, containing parameters and a lifted task network.
 ///
@@ -86,7 +87,7 @@ impl FromAst for InitialTaskNetwork {
     /// - `Err(ParserInternalError)` if parsing fails.
     fn from_ast(
         node: &AstNode,
-        ast: &Arena<AstNode>,
+        ast: &SyntaxTree<AstNode>,
     ) -> Result<Self, AiplanError> {
         let mut child_index = 0;
 

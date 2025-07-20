@@ -31,7 +31,7 @@
 //! assert_eq!(content.display_with_context(&interner), "move");
 //! ```
 
-use crate::aiplan4rust::arena::NodeContent;
+//use crate::aiplan4rust::arena::NodeContent;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{
@@ -44,6 +44,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::arena::NodeContent;
+use crate::aiplan4rust::syntax::core::SyntaxContent;
 
 /// Represents semantic content associated with an AST syntax.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]

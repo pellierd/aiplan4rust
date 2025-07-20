@@ -513,39 +513,3 @@ where
         }
     }
 }
-
-
-impl<T> InternerDisplay for Arena<T>
-where
-    T: ArenaNode,
-{
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        if self.is_empty() {
-            write!(f, "<empty>")
-        } else {
-            let root = self.root_node().expect("root_node should exist if not empty");
-            write!(f, "{}", root.to_string_with_interner(self, interner))
-        }
-    }
-}
-impl<T> SyntaxDisplay for Arena<T>
-where
-    T: ArenaNode,
-{
-    fn fmt_syntax_with_indent(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        if self.is_empty() {
-            // Arène vide, rien à afficher
-            Ok(())
-        } else if let Some(root) = self.root_node() {
-            root.fmt_syntax_with_indent(f, self, interner, indent)
-        } else {
-            // Si jamais root_id est Some mais le noeud n'existe pas (cas improbable)
-            Ok(())
-        }
-    }
-}

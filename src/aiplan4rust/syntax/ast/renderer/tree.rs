@@ -1,18 +1,18 @@
 use std::fmt::{self, Formatter};
-use crate::aiplan4rust::arena::Arena;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstContent};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
-    arena: &Arena<AstNode>,
+    arena: &SyntaxTree<AstNode>,
     interner: &StringInterner,
 ) -> fmt::Result {
     fn fmt_node(
         node: &AstNode,
         f: &mut Formatter<'_>,
-        arena: &Arena<AstNode>,
+        arena: &SyntaxTree<AstNode>,
         interner: &StringInterner,
         prefix: &str,
         last: bool,
