@@ -25,11 +25,11 @@ use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::lang::{Ident, Type, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::core::SyntaxTree;
 
 /// Represents the signature of an atomic function in a PDDL-like domain.

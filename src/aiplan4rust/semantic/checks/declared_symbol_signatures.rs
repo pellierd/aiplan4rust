@@ -5,10 +5,10 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
-use crate::aiplan4rust::arena::{NodeId, ArenaNode};
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::syntax::core::SyntaxNode;
+use crate::aiplan4rust::syntax::core::{NodeId, SyntaxNode};
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax arena.
 ///

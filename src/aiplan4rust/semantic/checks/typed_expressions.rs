@@ -11,8 +11,7 @@ use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::arena::{NodeContent, NodeId, ArenaNode};
-use crate::aiplan4rust::syntax::core::SyntaxNode;
+use crate::aiplan4rust::syntax::core::{SyntaxContent, SyntaxNode, NodeId};
 
 /// Checks the type correctness of typed expr in the syntax arena, including comparisons,
 /// assignments, and arithmetic operations.

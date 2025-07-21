@@ -4,12 +4,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::core::{NodeId, SyntaxTree};
 
 /// Represents the semantic context resulting from the semantic analysis phase.
 ///

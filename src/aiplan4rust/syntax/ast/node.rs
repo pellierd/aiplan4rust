@@ -38,7 +38,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstKind};
-use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::core::{SyntaxContent, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::Span;
 
 /// Represents a node in the Abstract Syntax Tree (AST).
@@ -191,7 +191,10 @@ impl ArenaNode for AstNode {
 
 }
 
-impl SyntaxNode for AstNode {
+impl SyntaxNode for AstNode
+    where
+    Self::Content: SyntaxContent
+{
     /// Remaps identifier names in this node's content according to a mapping.
     ///
     /// This is useful when renaming symbols after interning.

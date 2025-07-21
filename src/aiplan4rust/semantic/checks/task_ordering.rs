@@ -3,7 +3,6 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::Ident;

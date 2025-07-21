@@ -106,9 +106,6 @@ impl ArenaNode for ExprNode {
 }
 
 impl SyntaxNode for ExprNode {
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.data.remap_idents(map)
-    }
 
     fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError> {
         let kind = self.kind();

@@ -1,7 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::arena::Arena;
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;

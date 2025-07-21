@@ -57,7 +57,7 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
     }
 
     /// Returns an immutable reference to the syntax's content.
-    pub(crate) fn content(&self) -> &C {
+    pub fn content(&self) -> &C {
         &self.content
     }
 
@@ -122,36 +122,5 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
         self.children.push(child);
     }
 
-    /// Applies identifier remapping to the content of the syntax using the provided map.
-    ///
-    /// This is a generic wrapper that delegates to the content's own remap_idents method.
-    ///
-    /// # Arguments
-    /// * `map` - A mapping from old identifiers to new ones.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.content.remap_idents(map);
-    }
-}
 
-impl<K, C> InternerDisplay for BaseNode<K, C>
-where
-    K: Copy + fmt::Display,
-    C: NodeContent + InternerDisplay,
-{
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        // Affiche `kind` avec Debug et `content` avec DisplayWithInterner
-        write!(
-            f,
-            "Node[kind={}, content=",
-            self.kind
-        )?;
-
-        self.content.fmt_with_interner(f, interner)?;
-
-        write!(
-            f,
-            "parent={:?}]",
-            self.parent
-        )
-    }
 }

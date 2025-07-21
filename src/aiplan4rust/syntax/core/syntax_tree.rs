@@ -8,16 +8,20 @@ use crate::aiplan4rust::arena::node_ref::NodeRefMut;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::core::SyntaxNode;
+use crate::aiplan4rust::syntax::core::{SyntaxContent, SyntaxNode};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around the low-level Arena, intended as the main entry point for syntax-level operations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct SyntaxTree<T : ArenaNode + SyntaxNode> {
+pub struct SyntaxTree<T : ArenaNode + SyntaxNode>
+    where <T as ArenaNode>::Content: SyntaxContent
+{
     arena: Arena<T>,
 }
 
-impl<T: ArenaNode + SyntaxNode> SyntaxTree<T> {
+impl<T: ArenaNode + SyntaxNode> SyntaxTree<T>
+    where <T as ArenaNode>::Content: SyntaxContent
+{
     pub fn new() -> Self {
         SyntaxTree {
             arena: Arena::new(),
@@ -187,7 +191,7 @@ impl<T: ArenaNode + SyntaxNode> SyntaxTree<T> {
 
 impl<T> fmt::Display for SyntaxTree<T>
 where
-    T: ArenaNode + SyntaxNode + fmt::Display,
+    T: ArenaNode + SyntaxNode + fmt::Display,  <T as ArenaNode>::Content: SyntaxContent
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // On délègue à l'affichage de l'arène interne
@@ -197,7 +201,7 @@ where
 
 impl<T> InternerDisplay for SyntaxTree<T>
 where
-    T: ArenaNode + SyntaxNode,
+    T: ArenaNode + SyntaxNode,  <T as ArenaNode>::Content: SyntaxContent
 {
     fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if self.is_empty() {
@@ -210,7 +214,7 @@ where
 }
 impl<T> SyntaxDisplay for SyntaxTree<T>
 where
-    T: ArenaNode + SyntaxNode,
+    T: ArenaNode + SyntaxNode,  <T as ArenaNode>::Content: SyntaxContent
 {
     fn fmt_syntax_with_indent(
         &self,

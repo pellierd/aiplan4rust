@@ -56,6 +56,7 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use crate::aiplan4rust::syntax::core::SyntaxContent;
 
 /// Represents the semantic content attached to an AST syntax.
 ///
@@ -118,7 +119,9 @@ impl InternerDisplay for Content {
     }
 }
 
-impl NodeContent for Content {
+impl NodeContent for Content {}
+
+impl SyntaxContent for Content {
     /// Returns the identifier if the content is an `Ident`.
     fn as_ident(&self) -> Option<Ident> {
         match self {

@@ -244,7 +244,9 @@ impl SyntaxDisplay for Content {
     }
 }
 
-impl NodeContent for Content {
+impl NodeContent for Content {}
+
+impl SyntaxContent for Content {
     /// Returns the identifier if this content is an `Ident`.
     ///
     /// # Returns

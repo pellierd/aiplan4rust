@@ -3,22 +3,16 @@ use std::fmt;
 use std::fmt::Formatter;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::{ArenaNode, NodeContent};
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::core::{SyntaxContent, SyntaxTree};
 
-pub trait SyntaxNode: ArenaNode {
-
-    /// Remaps identifiers inside the syntax’s content according to the given map.
-    ///
-    /// This is useful for operations like renaming or merging scopes.
-    ///
-    /// # Arguments
-    ///
-    /// - `map`: A `HashMap` mapping old identifiers to new identifiers.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>);
+pub trait SyntaxNode: ArenaNode
+    where
+        Self::Content: SyntaxContent,
+{
 
     // Delegation methods to the syntax’s content, allowing convenient extraction
     // of specific semantic types without manually matching on content.
@@ -90,6 +84,16 @@ pub trait SyntaxNode: ArenaNode {
         self.as_symbol_ref()?.ok_or_else(|| AiplanError::InternalError("Not a SymbolRef".to_string()))
     }
 
+    /// Applies identifier remapping to the content of the syntax using the provided map.
+    ///
+    /// This is a generic wrapper that delegates to the content's own remap_idents method.
+    ///
+    /// # Arguments
+    /// * `map` - A mapping from old identifiers to new ones.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        self.content_mut().remap_idents(map);
+    }
+
     /// Formats the syntax with access to the arena and an interner.
     ///
     /// This method allows accessing other nodes in the arena,
@@ -122,14 +126,22 @@ pub trait SyntaxNode: ArenaNode {
     /// ```
     fn to_string_with_interner(&self, arena: &SyntaxTree<Self>, interner: &StringInterner) -> String
     where Self: Sized {
-        struct DisplayWrapper<'a, T: SyntaxNode> {
+        struct DisplayWrapper<'a, T: SyntaxNode>
+            where
+            <T as ArenaNode>::Content: SyntaxContent,
+        {
             node: &'a T,
             arena: &'a SyntaxTree<T>,
             interner: &'a StringInterner,
         }
 
-        impl<'a, T: SyntaxNode> fmt::Display for DisplayWrapper<'a, T> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result  {
+        impl<'a, T: SyntaxNode> fmt::Display for DisplayWrapper<'a, T>
+            where <T as ArenaNode>::Content: SyntaxContent
+        {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
+                where
+                <T as ArenaNode>::Content: SyntaxContent,
+                {
                 self.node.fmt_with_interner(f, self.arena, self.interner)
             }
         }
@@ -242,17 +254,21 @@ pub trait SyntaxNode: ArenaNode {
     where
         Self: Sized,
     {
-        struct PlanningSyntaxDisplayWrapper<'a, T: SyntaxNode> {
+        struct PlanningSyntaxDisplayWrapper<'a, T: SyntaxNode>
+            where <T as ArenaNode>::Content: SyntaxContent
+        {
             node: &'a T,
             arena: &'a SyntaxTree<T>,
             interner: &'a StringInterner,
             indent: usize,
         }
 
-        impl<'a, T: SyntaxNode> fmt::Display
-        for PlanningSyntaxDisplayWrapper<'a, T>
+        impl<'a, T: SyntaxNode> fmt::Display  for PlanningSyntaxDisplayWrapper<'a, T>
+            where <T as ArenaNode>::Content: SyntaxContent
         {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
+                where <T as ArenaNode>::Content: SyntaxContent
+            {
                 self.node.fmt_syntax_with_indent(f, self.arena, self.interner, self.indent)
             }
         }
