@@ -6,19 +6,54 @@ use crate::aiplan4rust::syntax::core::SyntaxContent;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct SyntaxBaseNode<K: Copy + Debug + Display, C: SyntaxContent> {
-    base_node: BaseNode<K, C>,
+    base_node: BaseNode,
+    kind: K,
+    content: C,
 }
 
 impl<K: Copy + Debug + Display, C: SyntaxContent> SyntaxBaseNode<K, C> {
     pub fn new(kind: K, content: C, children: Vec<NodeId>, parent: Option<NodeId>) -> Self {
         Self {
-            base_node: BaseNode::<K, C>::new(kind, content, children, parent),
+            base_node: BaseNode::new(children, parent),
+            kind,
+            content,
         }
+    }
+
+    /// Returns the kind of the syntax.
+    pub fn kind(&self) -> K {
+        self.kind
+    }
+
+    /// Sets the kind of the syntax.
+    ///
+    /// # Arguments
+    /// - `kind`: The new kind to assign to the syntax.
+    pub fn set_kind(&mut self, kind: K) {
+        self.kind = kind;
+    }
+
+    /// Returns an immutable reference to the syntax's content.
+    pub fn content(&self) -> &C {
+        &self.content
+    }
+
+    /// Returns a mutable reference to the syntax's content.
+    pub fn content_mut(&mut self) -> &mut C {
+        &mut self.content
+    }
+
+    /// Replaces the content of the syntax.
+    ///
+    /// # Arguments
+    /// - `content`: The new content to assign to the syntax.
+    pub fn set_content(&mut self, content: C) {
+        self.content = content;
     }
 }
 
 impl<K: Copy + Debug + Display, C: SyntaxContent> Deref for SyntaxBaseNode<K, C> {
-    type Target = BaseNode<K, C>;
+    type Target = BaseNode;
 
     fn deref(&self) -> &Self::Target {
         &self.base_node
@@ -33,25 +68,6 @@ impl<K: Copy + Debug + Display, C: SyntaxContent> DerefMut for SyntaxBaseNode<K,
 
 
 impl<K: Copy + Debug + Display, C: SyntaxContent> ArenaNode for SyntaxBaseNode<K, C> {
-    type Kind = K;
-    type Content = C;
-
-    fn kind(&self) -> Self::Kind {
-        self.base_node.kind()
-    }
-
-    fn set_kind(&mut self, kind: Self::Kind) {
-        self.base_node.set_kind(kind)
-    }
-
-    fn content(&self) -> &Self::Content {
-        self.base_node.content()
-    }
-
-    fn content_mut(&mut self) -> &mut Self::Content {
-        self.base_node.content_mut()
-    }
-
     fn parent(&self) -> Option<NodeId> {
         self.base_node.parent()
     }

@@ -45,18 +45,17 @@
 //! This is useful for producing human-readable output, especially for debugging or logging.
 //!
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::AstContent;
-use crate::aiplan4rust::arena::NodeContent;
+use crate::aiplan4rust::syntax::core::SyntaxContent;
+use crate::aiplan4rust::AiplanError;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use crate::aiplan4rust::syntax::core::SyntaxContent;
 
 /// Represents the semantic content attached to an AST syntax.
 ///
@@ -108,18 +107,20 @@ impl fmt::Display for Content {
 }
 
 impl InternerDisplay for Content {
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
         match self {
             Content::Ident(idx) => {
                 let resolved = interner.resolve(*idx).unwrap_or("(unknown)");
                 write!(f, "Iden(\"{}\")", resolved)
-            },
+            }
             _ => fmt::Display::fmt(self, f),
         }
     }
 }
-
-impl NodeContent for Content {}
 
 impl SyntaxContent for Content {
     /// Returns the identifier if the content is an `Ident`.
@@ -217,8 +218,10 @@ impl TryFrom<&AstContent> for Content {
             AstContent::AssignOp(op) => Ok(Content::AssignOp(*op)),
             AstContent::ArithmeticOp(op) => Ok(Content::ArithmeticOp(*op)),
             AstContent::Optimization(op) => Ok(Content::Optimization(*op)),
-            AstContent::Requirement(_) => Err(AiplanError::InternalError("UnsupportedContent(Requirement".to_string())),
-            AstContent::None => Ok(Content::None)
+            AstContent::Requirement(_) => Err(AiplanError::InternalError(
+                "UnsupportedContent(Requirement".to_string(),
+            )),
+            AstContent::None => Ok(Content::None),
         }
     }
 }

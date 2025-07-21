@@ -68,25 +68,6 @@ impl fmt::Display for AstNode {
 }
 
 impl ArenaNode for AstNode {
-    type Kind = AstKind;
-    type Content = AstContent;
-
-    fn kind(&self) -> Self::Kind {
-        self.inner.kind()
-    }
-
-    fn set_kind(&mut self, kind: Self::Kind) {
-        self.inner.set_kind(kind);
-    }
-
-    fn content(&self) -> &Self::Content {
-        self.inner.content()
-    }
-
-    fn content_mut(&mut self) -> &mut Self::Content {
-        self.inner.content_mut()
-    }
-
     fn parent(&self) -> Option<NodeId> {
         self.inner.parent()
     }
@@ -108,10 +89,26 @@ impl ArenaNode for AstNode {
     }
 }
 
-impl SyntaxNode for AstNode
-where
-    AstContent: SyntaxContent,
-{
+impl SyntaxNode for AstNode {
+    type Kind = AstKind;
+    type Content = AstContent;
+
+    fn kind(&self) -> Self::Kind {
+        self.inner.kind()
+    }
+
+    fn set_kind(&mut self, kind: Self::Kind) {
+        self.inner.set_kind(kind);
+    }
+
+    fn content(&self) -> &Self::Content {
+        self.inner.content()
+    }
+
+    fn content_mut(&mut self) -> &mut Self::Content {
+        self.inner.content_mut()
+    }
+
     fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError> {
         let symbol_kind = match self.kind() {
             AstKind::DomainName => SymbolKind::DomainName,

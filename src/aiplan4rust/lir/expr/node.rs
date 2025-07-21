@@ -62,24 +62,7 @@ impl fmt::Display for ExprNode {
 }
 
 impl ArenaNode for ExprNode {
-    type Kind = ExprKind;
-    type Content = ExprContent;
 
-    fn kind(&self) -> Self::Kind {
-        self.data.kind()
-    }
-
-    fn set_kind(&mut self, kind: Self::Kind) {
-        self.data.set_kind(kind);
-    }
-
-    fn content(&self) -> &Self::Content {
-        &self.data.content()
-    }
-
-    fn content_mut(&mut self) -> &mut Self::Content {
-        self.data.content_mut()
-    }
 
     fn parent(&self) -> Option<NodeId> {
         self.data.parent()
@@ -104,7 +87,24 @@ impl ArenaNode for ExprNode {
 }
 
 impl SyntaxNode for ExprNode {
+    type Kind = ExprKind;
+    type Content = ExprContent;
 
+    fn kind(&self) -> Self::Kind {
+        self.data.kind()
+    }
+
+    fn set_kind(&mut self, kind: Self::Kind) {
+        self.data.set_kind(kind);
+    }
+
+    fn content(&self) -> &Self::Content {
+        &self.data.content()
+    }
+
+    fn content_mut(&mut self) -> &mut Self::Content {
+        self.data.content_mut()
+    }
     fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError> {
         let kind = self.kind();
         let symbol_kind = match kind {

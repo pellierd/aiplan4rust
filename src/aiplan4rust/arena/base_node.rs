@@ -1,9 +1,5 @@
-use std::collections::HashMap;
-use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::arena::{NodeContent, NodeId};
+use crate::aiplan4rust::arena::NodeId;
 
 /// A generic arena syntax used in arena-based trees.
 ///
@@ -17,14 +13,12 @@ use crate::aiplan4rust::arena::{NodeContent, NodeId};
 /// - `K`: A `Copy` type representing the kind of the syntax (e.g., an enum of syntax types).
 /// - `C`: The content stored in the syntax. Must implement the [`NodeContent`] trait.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct BaseNode<K: Copy, C: NodeContent> {
-    kind: K,
-    content: C,
+pub struct BaseNode {
     children: Vec<NodeId>,
     parent: Option<NodeId>,
 }
 
-impl<K: Copy, C: NodeContent> BaseNode<K, C> {
+impl BaseNode {
     /// Creates a new syntax with the given kind, content, and optional parent.
     ///
     /// # Arguments
@@ -34,44 +28,11 @@ impl<K: Copy, C: NodeContent> BaseNode<K, C> {
     ///
     /// # Returns
     /// A new `AbstractNode` instance.
-    pub fn new(kind: K, content: C, children: Vec<NodeId>, parent: Option<NodeId>) -> Self {
+    pub fn new(children: Vec<NodeId>, parent: Option<NodeId>) -> Self {
         Self {
-            kind,
-            content,
             children,
             parent,
         }
-    }
-
-    /// Returns the kind of the syntax.
-    pub fn kind(&self) -> K {
-        self.kind
-    }
-
-    /// Sets the kind of the syntax.
-    ///
-    /// # Arguments
-    /// - `kind`: The new kind to assign to the syntax.
-    pub fn set_kind(&mut self, kind: K) {
-        self.kind = kind;
-    }
-
-    /// Returns an immutable reference to the syntax's content.
-    pub fn content(&self) -> &C {
-        &self.content
-    }
-
-    /// Returns a mutable reference to the syntax's content.
-    pub fn content_mut(&mut self) -> &mut C {
-        &mut self.content
-    }
-
-    /// Replaces the content of the syntax.
-    ///
-    /// # Arguments
-    /// - `content`: The new content to assign to the syntax.
-    pub fn set_content(&mut self, content: C) {
-        self.content = content;
     }
 
     /// Returns a slice of the child syntax IDs.

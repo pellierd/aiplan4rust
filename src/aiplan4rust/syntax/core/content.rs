@@ -1,11 +1,11 @@
 use std::collections::HashMap;
+use std::fmt::Debug;
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::NodeContent;
 use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 
-pub trait SyntaxContent: NodeContent + InternerDisplay {
+pub trait SyntaxContent:  InternerDisplay + Clone + Debug {
     /// Returns the content as an identifier if available.
     fn as_ident(&self) -> Option<Ident>;
 

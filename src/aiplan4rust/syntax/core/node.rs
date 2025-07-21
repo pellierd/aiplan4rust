@@ -3,17 +3,37 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::{ArenaNode, NodeContent};
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::core::{SyntaxContent, SyntaxTree};
 
-pub trait SyntaxNode: ArenaNode
-    where
-        Self::Content: SyntaxContent,
-{
+pub trait SyntaxNode: ArenaNode + Display {
+    /// The type used to represent the syntax's kind.
+    type Kind: Copy + Debug + Display;
 
+    /// The type used to represent the semantic content of the syntax.
+    type Content: SyntaxContent;
+
+    /// Returns the kind of the syntax.
+    fn kind(&self) -> Self::Kind;
+
+    /// Sets the kind of the syntax.
+    fn set_kind(&mut self, kind: Self::Kind);
+
+    /// Returns a reference to the syntax's semantic content.
+    fn content(&self) -> &Self::Content;
+
+    /// Returns a mutable reference to the syntax's semantic content.
+    fn content_mut(&mut self) -> &mut Self::Content;
+
+    /// Returns `true` if the syntax has no meaningful content.
+    ///
+    /// By default, this delegates to `content().is_none()`.
+    fn has_content(&self) -> bool {
+        self.content().is_none()
+    }
 
     // Delegation methods to the syntax’s content, allowing convenient extraction
     // of specific semantic types without manually matching on content.
@@ -110,7 +130,7 @@ pub trait SyntaxNode: ArenaNode
     ///
     /// Returns an error if writing fails.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, arena: &SyntaxTree<Self>, interner: &StringInterner) -> fmt::Result
-    where Self: Sized;
+    where Self: Sized, <Self as SyntaxNode>::Content: SyntaxContent;
 
     /// Converts the syntax to a string using `fmt_with`.
     ///
@@ -126,10 +146,11 @@ pub trait SyntaxNode: ArenaNode
     /// println!("{}", s);
     /// ```
     fn to_string_with_interner(&self, arena: &SyntaxTree<Self>, interner: &StringInterner) -> String
-    where Self: Sized {
+    where Self: Sized, <Self as SyntaxNode>::Content: SyntaxContent {
         struct DisplayWrapper<'a, T: SyntaxNode>
             where
-            <T as ArenaNode>::Content: SyntaxContent,
+                T: SyntaxNode,
+                T::Content: SyntaxContent,
         {
             node: &'a T,
             arena: &'a SyntaxTree<T>,
@@ -137,11 +158,14 @@ pub trait SyntaxNode: ArenaNode
         }
 
         impl<'a, T: SyntaxNode> fmt::Display for DisplayWrapper<'a, T>
-            where <T as ArenaNode>::Content: SyntaxContent
-        {
+            where
+                T: SyntaxNode,
+                T::Content: SyntaxContent,
+            {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
                 where
-                <T as ArenaNode>::Content: SyntaxContent,
+                    T: SyntaxNode,
+                    T::Content: SyntaxContent,
                 {
                 self.node.fmt_with_interner(f, self.arena, self.interner)
             }
@@ -195,7 +219,7 @@ pub trait SyntaxNode: ArenaNode
         indent: usize,
     ) -> fmt::Result
     where
-        Self: Sized;
+        Self: Sized,  <Self as SyntaxNode>::Content: SyntaxContent;
 
     /// Formats the syntax using a specific planning syntax style with no indentation.
     ///
@@ -218,7 +242,7 @@ pub trait SyntaxNode: ArenaNode
         interner: &StringInterner,
     ) -> fmt::Result
     where
-        Self: Sized,
+        Self: Sized, <Self as SyntaxNode>::Content: SyntaxContent
     {
         self.fmt_syntax_with_indent(f, arena, interner, 0)
     }
@@ -253,10 +277,12 @@ pub trait SyntaxNode: ArenaNode
         indent: usize,
     ) -> String
     where
-        Self: Sized,
+        Self: Sized, <Self as SyntaxNode>::Content: SyntaxContent
     {
         struct PlanningSyntaxDisplayWrapper<'a, T: SyntaxNode>
-            where <T as ArenaNode>::Content: SyntaxContent
+            where
+                T: SyntaxNode,
+                T::Content: SyntaxContent,
         {
             node: &'a T,
             arena: &'a SyntaxTree<T>,
@@ -265,10 +291,14 @@ pub trait SyntaxNode: ArenaNode
         }
 
         impl<'a, T: SyntaxNode> fmt::Display  for PlanningSyntaxDisplayWrapper<'a, T>
-            where <T as ArenaNode>::Content: SyntaxContent
+            where
+                T: SyntaxNode,
+                T::Content: SyntaxContent,
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result
-                where <T as ArenaNode>::Content: SyntaxContent
+                where
+                    T: SyntaxNode,
+                    T::Content: SyntaxContent,
             {
                 self.node.fmt_syntax_with_indent(f, self.arena, self.interner, self.indent)
             }
@@ -306,7 +336,7 @@ pub trait SyntaxNode: ArenaNode
         interner: &StringInterner,
     ) -> String
     where
-        Self: Sized,
+        Self: Sized, <Self as SyntaxNode>::Content: SyntaxContent
     {
         self.to_syntax_with_indent(arena, interner, 0)
     }

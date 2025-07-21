@@ -1,10 +1,7 @@
-use std::fmt::{Debug, Display, Formatter};
-use crate::aiplan4rust::arena::{Arena, NodeContent, NodeId};
+use std::fmt::{Debug, Display};
+use crate::aiplan4rust::arena::{Arena, NodeId};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
-use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// A generic trait representing a syntax in a arena stored within an `Arena`.
 ///
@@ -83,30 +80,6 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
 ///
 pub trait ArenaNode: Clone + Debug {
-    /// The type used to represent the syntax's kind.
-    type Kind: Copy + Debug + Display;
-
-    /// The type used to represent the semantic content of the syntax.
-    type Content: NodeContent;
-
-    /// Returns the kind of the syntax.
-    fn kind(&self) -> Self::Kind;
-
-    /// Sets the kind of the syntax.
-    fn set_kind(&mut self, kind: Self::Kind);
-
-    /// Returns a reference to the syntax's semantic content.
-    fn content(&self) -> &Self::Content;
-
-    /// Returns a mutable reference to the syntax's semantic content.
-    fn content_mut(&mut self) -> &mut Self::Content;
-
-    /// Returns `true` if the syntax has no meaningful content.
-    ///
-    /// By default, this delegates to `content().is_none()`.
-    fn has_content(&self) -> bool {
-        self.content().is_none()
-    }
 
     /// Returns the ID of the syntax’s parent if it exists.
     ///
@@ -130,10 +103,7 @@ pub trait ArenaNode: Clone + Debug {
     /// # Panics
     /// This method does **not** panic. It returns a proper `Result`.
     fn try_parent(&self) -> Result<NodeId, AiplanError> {
-        self.parent().ok_or_else(|| AiplanError::InternalError(format!(
-            "Expected parent for syntax kind {} but found none",
-            self.kind()
-        )))
+        self.parent().ok_or_else(|| AiplanError::InternalError("Expected parent but found none".to_string()))
     }
 
     /// Sets the parent of this syntax.
@@ -193,9 +163,8 @@ pub trait ArenaNode: Clone + Debug {
             .get(index)
             .copied()
             .ok_or_else(|| AiplanError::InternalError(format!(
-                "Expected child index {} in syntax kind {} but found only {} children",
+                "Expected child index {} but found only {} children",
                 index,
-                self.kind(),
                 self.children().len()
             )))
     }
@@ -215,19 +184,4 @@ pub trait ArenaNode: Clone + Debug {
         self.children().get(index).copied()
     }
 
-}
-
-impl<N: ArenaNode> Arena<N>
-where
-    N::Kind: PartialEq + Copy,
-{
-    pub fn collect_nodes_of_kind(&self, kinds: &[N::Kind]) -> Vec<NodeId> {
-        let mut nodes = Vec::new();
-        for (id, node) in self.preorder_with_index() {
-            if kinds.contains(&node.kind()) {
-                nodes.push(id);
-            }
-        }
-        nodes
-    }
 }
