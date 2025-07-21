@@ -1,27 +1,84 @@
-use std::fmt;
+//! Module providing an arena-based tree structure for managing hierarchical nodes.
+//!
+//! This module defines the `ArenaTree` struct, which stores nodes of type `T` implementing
+//! the [`ArenaNode`] trait in a flat vector, enabling efficient parent-child relationships
+//! through indices.
+//!
+//! The arena supports allocation, retrieval, and mutation of nodes, along with traversal
+//! via preorder and postorder iterators. It also offers utilities to query tree properties
+//! such as size and depth.
+//!
+//! Errors related to invalid node access or missing roots are handled via [`ArenaError`].
+//!
+//! # Key types and traits
+//! - `ArenaTree<T>`: Main tree structure managing nodes.
+//! - `ArenaNode`: Trait required for nodes to track parent/children.
+//! - `NodeId`: Unique identifier for nodes.
+//! - `ArenaError`: Error type for arena operations.
+
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
-use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::core::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
-use crate::aiplan4rust::core::arena::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::core::arena::error::ArenaError;
+use crate::aiplan4rust::core::arena::iter::{
+    PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth,
+    PreorderIterWithIndex,
+};
+use crate::aiplan4rust::core::arena::node_ref::{NodeRef, NodeRefMut};
+use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
 
-
-/// A flat arena-based arena structure for storing nodes of type `T`.
+/// A flat arena-based tree structure for storing nodes of type `T`.
 ///
-/// The nodes are stored in a `Vec<T>`, and each syntax must implement the [`ArenaNode`] trait
-/// which enables parent/child relationships through indices. This is useful for working
-/// with abstract syntax trees and similar structures.
+/// The nodes are stored internally in a contiguous `Vec<T>`. Each node must implement the [`ArenaNode`] trait,
+/// which enables parent-child relationships to be represented through indices rather than pointers.
+/// This design is useful for representing hierarchical structures such as abstract syntax trees (ASTs),
+/// parse trees, or any tree-like data where nodes can reference their children and parents by index.
+///
+/// # Type Parameters
+///
+/// - `T`: The node type, which must implement the [`ArenaNode`] trait.
+///
+/// # Examples
+///
+/// ```
+/// # use your_crate::{ArenaTree, ArenaNode, NodeId};
+/// // Example node struct implementing ArenaNode would go here
+/// #
+/// # fn example() {
+/// let mut arena = ArenaTree::<YourNodeType>::new();
+/// let node_id = arena.alloc(YourNodeType::new());
+/// // Work with arena and nodes...
+/// # }
+/// ```
+///
+/// # Notes
+///
+/// - The arena owns all nodes and manages them in a flat vector for cache efficiency.
+/// - Nodes are identified and accessed by `NodeId`, which is simply an index wrapper.
+/// - The tree keeps track of an optional root node ID, which can be `None` if empty.
+///
+/// # Serialization
+///
+/// This struct derives `Serialize` and `Deserialize` for easy persistence of the tree.
+///
+/// # Derives
+///
+/// `Debug`, `Clone`, `PartialEq`, `Eq`, `Hash`, `Serialize`, `Deserialize`, `Default`
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct ArenaTree<T: ArenaNode> {
+    /// The internal storage of nodes in a contiguous vector.
     pub nodes: Vec<T>,
+
+    /// Optional root node ID of the tree.
     root_id: Option<NodeId>,
 }
 
 impl<T: ArenaNode> ArenaTree<T> {
     const DEFAULT_ROOT_ID: usize = 0;
 
-    /// Creates a new, empty arena arena.
+    /// Creates a new, empty arena with the root ID set to 0.
+    ///
+    /// Note that this does not allocate any nodes initially.
     pub fn new() -> Self {
         ArenaTree {
             nodes: Vec::new(),
@@ -29,6 +86,9 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
+    /// Creates a completely empty arena with no root node.
+    ///
+    /// Useful if you want to build the arena from scratch and assign root later.
     pub fn empty() -> Self {
         ArenaTree {
             nodes: Vec::new(),
@@ -36,18 +96,33 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
+    /// Returns `true` if the arena contains no root node.
+    ///
+    /// This is a quick way to check if the tree is empty.
     pub fn is_empty(&self) -> bool {
         self.root_id.is_none()
     }
 
-    /// Adds a syntax into the arena and returns its `NodeId`.
+    /// Allocates a new node in the arena and returns its `NodeId`.
+    ///
+    /// The node is appended to the internal `Vec`, and its ID corresponds to its index.
+    ///
+    /// # Parameters
+    ///
+    /// - `node`: The node to insert into the arena.
+    ///
+    /// # Returns
+    ///
+    /// The `NodeId` corresponding to the inserted node.
     pub fn alloc(&mut self, node: T) -> NodeId {
         let id = NodeId::new(self.nodes.len());
         self.nodes.push(node);
         id
     }
 
-    /// Returns a reference to the root syntax, if it exists.
+    /// Returns a reference to the root node if it exists.
+    ///
+    /// Returns `None` if there is no root node set.
     pub fn root_node(&self) -> Option<&T> {
         match self.root_id {
             Some(root_id) => self.get_node(root_id),
@@ -57,13 +132,10 @@ impl<T: ArenaNode> ArenaTree<T> {
 
     /// Attempts to get an immutable reference to the root node.
     ///
-    /// Returns an error if the root ID is missing or if the node ID is out of bounds.
-    ///
     /// # Errors
     ///
-    /// Returns `ArenaError::MissingRootId` if the root ID is not set.
-    ///
-    /// Returns other `ArenaError`s from `try_node`.
+    /// Returns [`ArenaError::MissingRootId`] if the root ID is not set.
+    /// Returns other `ArenaError`s from `try_node` if the root ID is invalid.
     pub fn try_root(&self) -> Result<&T, ArenaError> {
         match self.root_id {
             Some(id) => self.try_node(id),
@@ -73,13 +145,10 @@ impl<T: ArenaNode> ArenaTree<T> {
 
     /// Attempts to get a mutable reference to the root node.
     ///
-    /// Returns an error if the root ID is missing or if the node ID is out of bounds.
-    ///
     /// # Errors
     ///
-    /// Returns `AiplanError::InternalError` if the root ID is missing.
-    ///
-    /// Returns `AiplanError::Arena` wrapping the specific `ArenaError` from `try_node_mut`.
+    /// Returns [`ArenaError::MissingRootId`] if the root ID is not set.
+    /// Returns other `ArenaError`s from `try_node_mut` if the root ID is invalid.
     pub fn try_root_mut(&mut self) -> Result<&mut T, ArenaError> {
         match self.root_id {
             Some(id) => self.try_node_mut(id),
@@ -87,8 +156,9 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
-
-    /// Returns a reference to the root syntax, if it exists.
+    /// Returns a mutable reference to the root node if it exists.
+    ///
+    /// Returns `None` if there is no root node.
     pub fn root_mut(&mut self) -> Option<&mut T> {
         match self.root_id {
             Some(root_id) => self.get_node_mut(root_id),
@@ -96,7 +166,9 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
-    /// Returns an immutable `NodeRef` to the root syntax, if it exists.
+    /// Returns an immutable [`NodeRef`] to the root node if it exists.
+    ///
+    /// This can be useful for traversing or inspecting the node without copying.
     pub fn root_node_ref(&self) -> Option<NodeRef<'_, T>> {
         match self.root_id {
             Some(root_id) => self.get_node_ref(root_id),
@@ -104,17 +176,18 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
+    /// Returns the root node ID if set.
+    ///
+    /// Returns `None` if the arena has no root node.
     pub fn root_id(&self) -> Option<NodeId> {
         self.root_id
     }
 
     /// Attempts to retrieve the root node ID.
     ///
-    /// Returns an error if the root ID is missing.
-    ///
     /// # Errors
     ///
-    /// Returns `ArenaError::MissingRootId` if the root ID is not set.
+    /// Returns [`ArenaError::MissingRootId`] if the root ID is not set.
     pub fn try_root_id(&self) -> Result<NodeId, ArenaError> {
         match self.root_id {
             Some(id) => Ok(id),
@@ -154,28 +227,110 @@ impl<T: ArenaNode> ArenaTree<T> {
     }
 
     /// Returns the parent syntax of a given syntax ID, if available.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The `NodeId` whose parent is requested.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a reference to the parent node, or `None` if no parent exists or the node does not exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// if let Some(parent) = arena.get_parent(node_id) {
+    ///     println!("Parent found");
+    /// }
+    /// ```
     pub fn get_parent(&self, id: NodeId) -> Option<&T> {
         self.get_node(id)
             .and_then(|node| node.parent())
             .and_then(|parent_id| self.get_node(parent_id))
     }
 
-    /// Returns an immutable reference to a syntax by its ID.
+    /// Returns an immutable reference to a syntax node by its ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The `NodeId` to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing the reference to the node if it exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// if let Some(node) = arena.get_node(node_id) {
+    ///     // use node
+    /// }
+    /// ```
     pub fn get_node(&self, id: NodeId) -> Option<&T> {
         self.nodes.get(id.as_usize())
     }
 
     /// Returns a `NodeRef` combining the ID and an immutable reference.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The `NodeId` to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a `NodeRef` if the node exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// if let Some(node_ref) = arena.get_node_ref(node_id) {
+    ///     // use node_ref
+    /// }
+    /// ```
     pub fn get_node_ref(&self, id: NodeId) -> Option<NodeRef<'_, T>> {
-        self.nodes.get(id.as_usize()).map(|node| NodeRef::new(id, node))
+        self.nodes
+            .get(id.as_usize())
+            .map(|node| NodeRef::new(id, node))
     }
 
-    /// Returns a mutable reference to a syntax by its ID.
+    /// Returns a mutable reference to a syntax node by its ID.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The `NodeId` to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a mutable reference if the node exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// if let Some(node_mut) = arena.get_node_mut(node_id) {
+    ///     // modify node_mut
+    /// }
+    /// ```
     pub fn get_node_mut(&mut self, id: NodeId) -> Option<&mut T> {
         self.nodes.get_mut(id.as_usize())
     }
 
     /// Returns a `NodeRefMut` combining the ID and a mutable reference.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The `NodeId` to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a `NodeRefMut` if the node exists.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// if let Some(node_ref_mut) = arena.get_ref_mut(node_id) {
+    ///     // modify node_ref_mut
+    /// }
+    /// ```
     pub fn get_ref_mut(&mut self, id: NodeId) -> Option<NodeRefMut<'_, T>> {
         self.get_node_mut(id).map(|node| NodeRefMut::new(id, node))
     }
@@ -210,7 +365,8 @@ impl<T: ArenaNode> ArenaTree<T> {
         if index >= max {
             return Err(ArenaError::node_id_out_of_bounds(index, max));
         }
-        self.get_node(id).ok_or_else(|| ArenaError::node_not_found(index))
+        self.get_node(id)
+            .ok_or_else(|| ArenaError::node_not_found(index))
     }
 
     /// Attempts to retrieve a `NodeRef` for the given `NodeId`.
@@ -281,7 +437,8 @@ impl<T: ArenaNode> ArenaTree<T> {
             return Err(ArenaError::node_id_out_of_bounds(index, max));
         }
 
-        self.get_node_mut(id).ok_or_else(|| ArenaError::node_not_found(index))
+        self.get_node_mut(id)
+            .ok_or_else(|| ArenaError::node_not_found(index))
     }
 
     /// Attempts to retrieve a mutable `NodeRefMut` for the node identified by `id`.
@@ -317,14 +474,34 @@ impl<T: ArenaNode> ArenaTree<T> {
         Ok(NodeRefMut::new(id, node))
     }
 
-
-
     /// Returns the total number of nodes in the arena.
+    ///
+    /// # Returns
+    ///
+    /// The number of nodes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// println!("Total nodes: {}", arena.len());
+    /// ```
     pub fn len(&self) -> usize {
         self.nodes.len()
     }
 
     /// Returns a preorder iterator starting from the root.
+    ///
+    /// # Returns
+    ///
+    /// A preorder iterator over nodes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// for node in arena.preorder() {
+    ///     // process node
+    /// }
+    /// ```
     pub fn preorder(&self) -> PreorderIter<'_, T> {
         match self.root_id {
             Some(root) => PreorderIter::new(self, root),
@@ -336,8 +513,9 @@ impl<T: ArenaNode> ArenaTree<T> {
     ///
     /// This allows iteration where mutable or indexed access to the nodes is needed.
     ///
-    /// # Example
-    /// ```rust
+    /// # Examples
+    ///
+    /// ```
     /// for node_id in arena.preorder_ids() {
     ///     let node = arena.get_node(node_id).unwrap();
     ///     // process syntax
@@ -351,16 +529,36 @@ impl<T: ArenaNode> ArenaTree<T> {
     }
 
     /// Returns a preorder iterator over `NodeId`s starting from the given syntax.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The starting node.
+    ///
+    /// # Returns
+    ///
+    /// A preorder iterator starting from `root`.
     pub fn preorder_ids_from(&self, root: NodeId) -> PreorderIdIter<'_, T> {
         PreorderIdIter::new(self, root)
     }
 
     /// Returns a preorder iterator from a specific syntax.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The starting node.
+    ///
+    /// # Returns
+    ///
+    /// A preorder iterator starting from `root`.
     pub fn preorder_from(&self, root: NodeId) -> PreorderIter<'_, T> {
         PreorderIter::new(self, root)
     }
 
     /// Returns a preorder iterator with indices from the root.
+    ///
+    /// # Returns
+    ///
+    /// A preorder iterator that yields nodes with their indices.
     pub fn preorder_with_index(&self) -> PreorderIterWithIndex<'_, T> {
         match self.root_id {
             Some(root) => PreorderIterWithIndex::new(self, root),
@@ -369,6 +567,10 @@ impl<T: ArenaNode> ArenaTree<T> {
     }
 
     /// Returns a preorder iterator with depth from the root.
+    ///
+    /// # Returns
+    ///
+    /// A preorder iterator yielding nodes with depth information.
     pub fn preorder_with_depth(&self) -> PreorderIterWithDepth<'_, T> {
         match self.root_id {
             Some(root) => PreorderIterWithDepth::new(self, root),
@@ -377,6 +579,18 @@ impl<T: ArenaNode> ArenaTree<T> {
     }
 
     /// Returns a postorder iterator from the root.
+    ///
+    /// # Returns
+    ///
+    /// A postorder iterator over nodes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// for node in arena.postorder() {
+    ///     // process node
+    /// }
+    /// ```
     pub fn postorder(&self) -> PostorderIter<'_, T> {
         match self.root_id {
             Some(root) => PostorderIter::new(self, root),
@@ -385,11 +599,23 @@ impl<T: ArenaNode> ArenaTree<T> {
     }
 
     /// Returns a postorder iterator from a specific syntax.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The starting node.
+    ///
+    /// # Returns
+    ///
+    /// A postorder iterator starting from `root`.
     pub fn postorder_from(&self, root: NodeId) -> PostorderIter<'_, T> {
         PostorderIter::new(self, root)
     }
 
     /// Returns a postorder iterator with indices from the root.
+    ///
+    /// # Returns
+    ///
+    /// A postorder iterator yielding nodes with their indices.
     pub fn postorder_with_index(&self) -> PostorderIterWithIndex<'_, T> {
         match self.root_id {
             Some(root) => PostorderIterWithIndex::new(self, root),
@@ -397,7 +623,22 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
-    /// Computes the total number of nodes in a subtree.
+    /// Computes the total number of nodes in a subtree rooted at `root`.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The root node of the subtree.
+    ///
+    /// # Returns
+    ///
+    /// The total number of nodes in the subtree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let size = arena.size(root_node_id);
+    /// println!("Subtree size: {}", size);
+    /// ```
     pub fn size(&self, root: NodeId) -> usize {
         let mut count = 0;
         let mut stack = vec![root];
@@ -415,6 +656,21 @@ impl<T: ArenaNode> ArenaTree<T> {
     }
 
     /// Computes the depth of a subtree (max path from root to leaf).
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The root node of the subtree.
+    ///
+    /// # Returns
+    ///
+    /// The depth of the subtree.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let depth = arena.depth(root_node_id);
+    /// println!("Subtree depth: {}", depth);
+    /// ```
     pub fn depth(&self, root: NodeId) -> usize {
         let mut max_depth = 0;
         let mut stack = vec![(root, 1)];
@@ -430,13 +686,47 @@ impl<T: ArenaNode> ArenaTree<T> {
 
         max_depth
     }
+
 }
 
+/// Implements the [`Display`] trait for [`ArenaTree<T>`], where `T` implements both [`ArenaNode`] and [`Display`].
+///
+/// This allows you to pretty-print the arena tree using `format!` or `println!`.
+/// Nodes are printed in a tree-like structure, starting from the root, with indentation
+/// reflecting the depth in the tree. Each node is preceded by its index and followed
+/// by an "End Node" marker.
+///
+/// If the arena is empty (i.e., has no root), it prints `"<empty>"`.
+///
+/// # Example
+///
+/// ```
+/// # use your_crate::{ArenaTree, NodeId};
+/// let mut arena = ArenaTree::new();
+/// let node_id = arena.alloc(MyNode::new("root"));
+/// arena.set_root_id(node_id).unwrap();
+/// println!("{}", arena);
+/// ```
+///
+/// # Errors
+///
+/// If any internal error occurs while traversing the tree (e.g., a child reference is invalid),
+/// a [`fmt::Error`] is returned.
 impl<T> fmt::Display for ArenaTree<T>
 where
     T: ArenaNode + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        /// Recursively prints a node and its children with indentation.
+        ///
+        /// # Arguments
+        ///
+        /// * `arena` - The tree to traverse.
+        /// * `f` - The formatter to write to.
+        /// * `node` - The current node.
+        /// * `node_index` - The index of the current node.
+        /// * `indent` - The depth level in the tree.
+        /// * `is_last` - Whether this is the last child of its parent.
         fn fmt_node<T: ArenaNode + fmt::Display>(
             arena: &ArenaTree<T>,
             f: &mut fmt::Formatter<'_>,
@@ -445,24 +735,29 @@ where
             indent: usize,
             is_last: bool,
         ) -> fmt::Result {
+            // Print indentation
             for _ in 0..indent {
-                write!(f, "  ")?;
+                write!(f, "  ")?; // two spaces per indent level
             }
+
+            // Print the node itself
             writeln!(f, "Node #{}: {}", node_index, node)?;
 
-            let children = node.children();
-            for child_idx in children.iter() {
-                let child = arena.get_node(*child_idx).expect("Child not found");
-                fmt_node(
-                    arena,
-                    f,
-                    child,
-                    child_idx.as_usize(),
-                    indent + 1,
-                    false,
-                )?;
+            // Recursively format all children
+            for (i, child_id) in node.children().iter().enumerate() {
+                let is_last_child = i == node.children().len() - 1;
+                if let Some(child_node) = arena.get_node(*child_id) {
+                    fmt_node(arena, f, child_node, child_id.as_usize(), indent + 1, is_last_child)?;
+                } else {
+                    // If the child does not exist, print an error placeholder
+                    for _ in 0..(indent + 1) {
+                        write!(f, "  ")?;
+                    }
+                    writeln!(f, "Missing child #{}", child_id.as_usize())?;
+                }
             }
 
+            // Print the closing line for the current node
             for _ in 0..indent {
                 write!(f, "  ")?;
             }
@@ -474,12 +769,16 @@ where
             }
         }
 
+        // If the tree has no root, it's considered empty
         if self.is_empty() {
             write!(f, "<empty>")
         } else {
-            let root = self.root_node().expect("root_node should exist if not empty");
-            let root_index = self.root_id.expect("root_id should exist if not empty").as_usize();
-            fmt_node(self, f, root, root_index, 0, true)
+            // Safely retrieve the root node and its index
+            let root_id = self.root_id.ok_or(fmt::Error)?;
+            let root_node = self.get_node(root_id).ok_or(fmt::Error)?;
+            let root_index = root_id.as_usize();
+
+            fmt_node(self, f, root_node, root_index, 0, true)
         }
     }
 }
