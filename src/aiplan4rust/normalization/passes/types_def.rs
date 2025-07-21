@@ -42,8 +42,9 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManag
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::arena::{NodeId, ArenaNode};
-use crate::aiplan4rust::syntax::core::SyntaxNode;
+use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::syntax::tree::SyntaxNode;
 
 /// Normalizes type declarations in the AST by merging all `TypedItem` nodes
 /// that share the same `PrimitiveType` key.

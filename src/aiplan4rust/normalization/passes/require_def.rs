@@ -49,8 +49,8 @@ use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Normalizes the requirement declarations by removing duplicates from the `RequireDef` syntax.
 ///

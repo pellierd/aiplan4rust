@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::aiplan4rust::arena::error::ArenaError;
+use crate::aiplan4rust::core::arena::error::ArenaError;
 use crate::aiplan4rust::syntax::SyntaxError;
 
 #[derive(Debug, Error)]

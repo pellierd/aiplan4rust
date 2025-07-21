@@ -17,11 +17,11 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Recursively renders the given AST node and its children into the formatter.
 ///

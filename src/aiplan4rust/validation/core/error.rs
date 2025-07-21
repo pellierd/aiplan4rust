@@ -23,7 +23,7 @@
 //! providing detailed information about the cause and context of the error.
 
 use std::fmt;
-use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 
 /// Represents errors that can occur during AST validation.

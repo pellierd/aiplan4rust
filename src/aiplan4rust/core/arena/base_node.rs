@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::core::arena::NodeId;
 
 /// A generic arena syntax used in arena-based trees.
 ///

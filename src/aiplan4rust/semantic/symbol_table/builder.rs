@@ -1,6 +1,6 @@
 
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry,Usage};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
@@ -9,7 +9,7 @@ use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstKind};
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::syntax::core::NodeRef;
+use crate::aiplan4rust::syntax::tree::NodeRef;
 
 /// `Comparator` is an enum that represents the different types of comparisons
 /// that can be made between values, specifically for validating the number of children
@@ -33,7 +33,7 @@ use crate::aiplan4rust::syntax::core::NodeRef;
 /// - `LessEq`: Checks if the value is less than or equal to the expected value.
 /// - `GreaterEq`: Checks if the value is greater than or equal to the expected value.
 ///
-/// `Comparator` makes it easy to express common comparison operations in a type-safe manner.
+/// `Comparator` makes it easy to express core comparison operations in a type-safe manner.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[allow(dead_code)]
 enum Comparator {

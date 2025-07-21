@@ -1,7 +1,7 @@
 //! This module defines the `LexicalError` enum, representing errors that may occur during lexical analysis
 //! and token parsing phases.
 //!
-//! The enum categorizes common lexical errors such as:
+//! The enum categorizes core lexical errors such as:
 //! - Invalid tokens encountered in the input stream.
 //! - Failures when parsing floating-point numbers (`ParseFloatError`).
 //!

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::core::arena::{NodeId, ArenaTree, ArenaNode};
 
 /// An iterator for traversing a arena in preorder, yielding only `NodeId`s.
 ///
@@ -14,13 +14,13 @@ use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
 /// }
 /// ```
 pub struct PreorderIdIter<'a, T: ArenaNode> {
-    arena: &'a Arena<T>,
+    arena: &'a ArenaTree<T>,
     stack: Vec<NodeId>,
 }
 
 impl<'a, T: ArenaNode> PreorderIdIter<'a, T> {
     /// Creates a new preorder iterator starting from `root`.
-    pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
+    pub fn new(arena: &'a ArenaTree<T>, root: NodeId) -> Self {
         Self {
             arena,
             stack: vec![root],
@@ -28,7 +28,7 @@ impl<'a, T: ArenaNode> PreorderIdIter<'a, T> {
     }
 
     /// Creates an empty iterator (useful for no-op cases).
-    pub fn empty(arena: &'a Arena<T>) -> Self {
+    pub fn empty(arena: &'a ArenaTree<T>) -> Self {
         Self {
             arena,
             stack: Vec::new(),

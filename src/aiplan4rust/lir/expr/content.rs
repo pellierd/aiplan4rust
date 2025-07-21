@@ -50,7 +50,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::AstContent;
-use crate::aiplan4rust::syntax::core::SyntaxContent;
+use crate::aiplan4rust::syntax::tree::SyntaxContent;
 use crate::aiplan4rust::AiplanError;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};

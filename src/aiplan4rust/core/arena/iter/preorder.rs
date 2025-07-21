@@ -1,6 +1,6 @@
-use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::arena::Arena;
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::NodeId;
+use crate::aiplan4rust::core::arena::ArenaTree;
+use crate::aiplan4rust::core::arena::ArenaNode;
 
 /// An iterator for traversing nodes in an `Arena` in preorder.
 ///
@@ -19,7 +19,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 /// }
 /// ```
 pub struct PreorderIter<'a, T: ArenaNode> {
-    arena: &'a Arena<T>,
+    arena: &'a ArenaTree<T>,
     stack: Vec<NodeId>,
 }
 
@@ -34,14 +34,14 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
     /// # Returns
     ///
     /// A `PreorderIter` that will traverse the arena in preorder.
-    pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
+    pub fn new(arena: &'a ArenaTree<T>, root: NodeId) -> Self {
         Self {
             arena,
             stack: vec![root],
         }
     }
 
-    pub fn empty(arena: &'a Arena<T>) -> Self {
+    pub fn empty(arena: &'a ArenaTree<T>) -> Self {
         PreorderIter {
             arena,
             stack: Vec::new(),

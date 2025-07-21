@@ -1,6 +1,6 @@
 //! Module defining abstract skeletons shared by predicates and functions in PDDL.
 //!
-//! This module provides the `NamedTypedList` struct, which encapsulates the common
+//! This module provides the `NamedTypedList` struct, which encapsulates the core
 //! structure of predicates and functions, including their name and parameter signature.
 //!
 //! These skeletons serve as a base for more specific constructs by factorizing
@@ -29,13 +29,13 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 
-/// Abstract skeleton common to both predicates and functions in PDDL.
+/// Abstract skeleton core to both predicates and functions in PDDL.
 ///
 /// Encapsulates the shared parts like the name and the signature.
-/// This allows factorizing common behavior and fields.
+/// This allows factorizing core behavior and fields.
 ///
 /// # Examples
 ///

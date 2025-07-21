@@ -17,8 +17,8 @@
 //! including children kinds, counts, and content, returning detailed
 //! `WellFormedError`s in case of validation failures.
 
-use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::validation::common::WellFormedError;
+use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::validation::core::WellFormedError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstKind, AstNode};
 
 /// Set of AST node kinds considered as valid expressions.

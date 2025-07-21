@@ -1,4 +1,4 @@
-//! This module defines the core data structures for representing **lifted** planning problems
+//! This module defines the tree data structures for representing **lifted** planning problems
 //! in hierarchical task network (HTN) and classical planning domains.
 //!
 //! The primary struct [`Problem`] models a **lifted planning problem**, meaning

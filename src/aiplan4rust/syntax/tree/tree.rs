@@ -1,14 +1,14 @@
 use std::collections::HashMap;
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::arena::{Arena, ArenaNode, NodeId, NodeRef};
-use crate::aiplan4rust::arena::error::ArenaError;
-use crate::aiplan4rust::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
-use crate::aiplan4rust::arena::node_ref::NodeRefMut;
+use crate::aiplan4rust::core::arena::{ArenaTree, ArenaNode, NodeId, NodeRef};
+use crate::aiplan4rust::core::arena::error::ArenaError;
+use crate::aiplan4rust::core::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
+use crate::aiplan4rust::core::arena::node_ref::NodeRefMut;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::core::{SyntaxContent, SyntaxNode};
+use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around the low-level Arena, intended as the main entry point for syntax-level operations.
@@ -18,7 +18,7 @@ pub struct SyntaxTree<T : SyntaxNode>
         T: SyntaxNode,
         T::Content: SyntaxContent,
 {
-    arena: Arena<T>,
+    arena: ArenaTree<T>,
 }
 
 impl<T: SyntaxNode> SyntaxTree<T>
@@ -28,13 +28,13 @@ impl<T: SyntaxNode> SyntaxTree<T>
 {
     pub fn new() -> Self {
         SyntaxTree {
-            arena: Arena::new(),
+            arena: ArenaTree::new(),
         }
     }
 
     pub fn empty() -> Self {
         SyntaxTree {
-            arena: Arena::empty(),
+            arena: ArenaTree::empty(),
         }
     }
 

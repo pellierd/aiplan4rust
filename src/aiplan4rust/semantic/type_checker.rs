@@ -189,7 +189,7 @@ impl<'a> TypeChecker<'a> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
 
-    /// Checks if two sets of types share at least one common supertype.
+    /// Checks if two sets of types share at least one core supertype.
     ///
     /// For each type in `ty1` and `ty2`, the function retrieves the ascending closure of supertypes
     /// (i.e., all supertypes inherited directly or indirectly), then determines if there is any
@@ -202,7 +202,7 @@ impl<'a> TypeChecker<'a> {
     ///
     /// # Returns
     ///
-    /// * `Ok(true)` if at least one common supertype is found.
+    /// * `Ok(true)` if at least one core supertype is found.
     /// * `Ok(false)` otherwise.
     /// * `Err(ParserInternalError)` if an error occurs while retrieving the supertypes closure.
     ///
@@ -213,8 +213,8 @@ impl<'a> TypeChecker<'a> {
     /// let types_b = vec!["TypeC".to_string()];
     /// let result = my_struct.have_common_supertype(&types_a, &types_b);
     /// match result {
-    ///     Ok(true) => println!("Types share a common supertype"),
-    ///     Ok(false) => println!("No common supertype found"),
+    ///     Ok(true) => println!("Types share a core supertype"),
+    ///     Ok(false) => println!("No core supertype found"),
     ///     Err(e) => println!("Error: {:?}", e),
     /// }
     /// ```

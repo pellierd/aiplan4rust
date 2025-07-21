@@ -26,12 +26,12 @@
 //! [`check_well_normalized`]: fn.check_well_normalized.html
 //! [`check_well_normalized_from`]: fn.check_well_normalized_from.html
 //! [`check_well_normalized_node`]: fn.check_well_normalized_node.html
-//! [`WellNormalizedError`]: ../common/struct.WellNormalizedError.html
+//! [`WellNormalizedError`]: ../core/struct.WellNormalizedError.html
 
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
-use crate::aiplan4rust::validation::common::{checks, WellNormalizedError};
-use crate::aiplan4rust::validation::{common, normalization, syntax};
+use crate::aiplan4rust::validation::core::{checks, WellNormalizedError};
+use crate::aiplan4rust::validation::{core, normalization, syntax};
 
 /// Checks if the entire AST is well normalized by validating from the root node.
 /// Returns an error if any node or subtree violates normalization constraints.
@@ -97,7 +97,7 @@ pub fn check_well_normalized_node(node: &AstNode, ast: &Ast) -> Result<(), WellN
         AstKind::ParametersDef => normalization::checks::check_parameters_def(ast, node),
         AstKind::Forall | AstKind::Exists => normalization::checks::check_quantified_expression(ast, node),
         AstKind::TypedItemElements => {
-            common::checks::throw_invalid(node)
+            core::checks::throw_invalid(node)
         },
         _ => syntax::validation::check_well_formed_node(node, ast),
     }

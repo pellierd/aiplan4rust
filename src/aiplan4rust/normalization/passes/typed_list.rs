@@ -65,8 +65,9 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Recursively normalizes all `TypedList` nodes in the given AST subtree.
 ///
@@ -215,7 +216,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), AiplanError> {
 /// Normalizes the children of a `TypedList` syntax by expanding each `TypedItem`
 /// so that each new `TypedItem` syntax contains exactly one element and an optional type.
 ///
-/// This function performs the core normalization step for `TypedList` nodes:
+/// This function performs the tree normalization step for `TypedList` nodes:
 /// - It extracts the existing children (which are `TypedItem` nodes that may contain multiple elements).
 /// - For each old `TypedItem`, it creates one new `TypedItem` per element, preserving optional type and span.
 /// - It replaces the old children with the newly created normalized `TypedItem` nodes.

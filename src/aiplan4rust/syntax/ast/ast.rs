@@ -1,6 +1,6 @@
 //! High-Level Abstract Syntax Tree (AST) Representation for `aiplan4rust`
 //!
-//! This module defines the [`Ast`] type, a container that encapsulates the core components
+//! This module defines the [`Ast`] type, a container that encapsulates the tree components
 //! of an abstract syntax arena (AST) generated during the parsing phase of PDDL or HDDL documents.
 //! It centralizes both syntactic structure and parsing metadata for downstream tasks
 //! such as analysis, transformation, code generation, or pretty-printing.
@@ -54,7 +54,6 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -64,7 +63,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Debug;
 use std::time::SystemTime;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId};
 
 /// A complete abstract syntax arena and its associated context.
 ///

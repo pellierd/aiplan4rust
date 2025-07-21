@@ -1,10 +1,10 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
-use crate::aiplan4rust::arena::node_ref::{NodeRef, NodeRefMut};
-use crate::aiplan4rust::arena::error::ArenaError;
+use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
+use crate::aiplan4rust::core::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
+use crate::aiplan4rust::core::arena::node_ref::{NodeRef, NodeRefMut};
+use crate::aiplan4rust::core::arena::error::ArenaError;
 
 
 /// A flat arena-based arena structure for storing nodes of type `T`.
@@ -13,24 +13,24 @@ use crate::aiplan4rust::arena::error::ArenaError;
 /// which enables parent/child relationships through indices. This is useful for working
 /// with abstract syntax trees and similar structures.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
-pub struct Arena<T: ArenaNode> {
+pub struct ArenaTree<T: ArenaNode> {
     pub nodes: Vec<T>,
     root_id: Option<NodeId>,
 }
 
-impl<T: ArenaNode> Arena<T> {
+impl<T: ArenaNode> ArenaTree<T> {
     const DEFAULT_ROOT_ID: usize = 0;
 
     /// Creates a new, empty arena arena.
     pub fn new() -> Self {
-        Arena {
+        ArenaTree {
             nodes: Vec::new(),
             root_id: Some(NodeId::new(Self::DEFAULT_ROOT_ID)),
         }
     }
 
     pub fn empty() -> Self {
-        Arena {
+        ArenaTree {
             nodes: Vec::new(),
             root_id: None,
         }
@@ -432,13 +432,13 @@ impl<T: ArenaNode> Arena<T> {
     }
 }
 
-impl<T> fmt::Display for Arena<T>
+impl<T> fmt::Display for ArenaTree<T>
 where
     T: ArenaNode + fmt::Display,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fn fmt_node<T: ArenaNode + fmt::Display>(
-            arena: &Arena<T>,
+            arena: &ArenaTree<T>,
             f: &mut fmt::Formatter<'_>,
             node: &T,
             node_index: usize,

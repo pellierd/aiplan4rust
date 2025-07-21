@@ -1,6 +1,6 @@
 //! Syntax support for the `aiplan4rust` crate.
 //!
-//! This module defines the core components of the Abstract Syntax Tree (AST)
+//! This module defines the tree components of the Abstract Syntax Tree (AST)
 //! used to represent PDDL and HDDL domain and problem structures.
 //!
 //! # Structure

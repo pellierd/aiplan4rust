@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::fmt::{self, Formatter};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::arena::{ArenaNode, NodeId};
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstKind};
-use crate::aiplan4rust::syntax::core::{SyntaxBaseNode, SyntaxContent, SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::AiplanError;
 

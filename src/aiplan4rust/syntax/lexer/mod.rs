@@ -1,6 +1,6 @@
 //! Lexical analysis module for the `aiplan4rust` crate.
 //!
-//! This module provides the core components for lexical analysis of PDDL/HDDL source files,
+//! This module provides the tree components for lexical analysis of PDDL/HDDL source files,
 //! including tokenization, token definitions, and lexical error handling.
 //!
 //! # Submodules

@@ -3,7 +3,7 @@ use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use std::collections::HashSet;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// A lightweight wrapper to pass semantic context components to verification functions.
 ///

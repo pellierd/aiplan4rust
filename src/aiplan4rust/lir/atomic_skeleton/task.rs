@@ -24,7 +24,7 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents a planning task declaration in HDDL.

@@ -26,8 +26,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
 use crate::aiplan4rust::syntax::error::SyntaxError;
 
 /// Parsing context used throughout the LALRPOP parsing process.

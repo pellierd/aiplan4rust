@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
-use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::syntax::tree::NodeId;
 
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;

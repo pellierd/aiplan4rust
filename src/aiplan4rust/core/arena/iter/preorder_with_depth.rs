@@ -1,14 +1,14 @@
-use crate::aiplan4rust::arena::{NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::core::arena::{NodeId, ArenaTree, ArenaNode};
 
 /// Preorder iterator yielding (NodeId, &T, depth)
 pub struct PreorderIterWithDepth<'a, T: ArenaNode> {
-    arena: &'a Arena<T>,
+    arena: &'a ArenaTree<T>,
     stack: Vec<(NodeId, usize)>,
 }
 
 impl<'a, T: ArenaNode> PreorderIterWithDepth<'a, T> {
     /// Creates a new iterator starting from the given root syntax.
-    pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
+    pub fn new(arena: &'a ArenaTree<T>, root: NodeId) -> Self {
         Self {
             arena,
             stack: vec![(root, 0)],
@@ -16,7 +16,7 @@ impl<'a, T: ArenaNode> PreorderIterWithDepth<'a, T> {
     }
 
     /// Creates an empty iterator (no nodes to iterate).
-    pub fn empty(arena: &'a Arena<T>) -> Self {
+    pub fn empty(arena: &'a ArenaTree<T>) -> Self {
         Self {
             arena,
             stack: Vec::new(),

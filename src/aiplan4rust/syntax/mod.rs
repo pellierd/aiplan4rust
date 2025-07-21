@@ -1,4 +1,4 @@
-//! The `aiplan4rust` crate provides core components for parsing PDDL and HDDL planning domain languages.
+//! The `aiplan4rust` crate provides tree components for parsing PDDL and HDDL planning domain languages.
 //!
 //! # Overview
 //! This crate enables reading, parsing, and structured error reporting of PDDL and HDDL files,
@@ -82,7 +82,7 @@ pub mod parse_context;
 pub mod parser_result;
 pub mod lalrpop;
 pub mod error;
-pub mod core;
+pub mod tree;
 
 pub use language::Language;
 pub use parser::Parser;

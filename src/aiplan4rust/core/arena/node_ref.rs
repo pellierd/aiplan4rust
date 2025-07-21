@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::aiplan4rust::arena::{NodeId, ArenaNode};
+use crate::aiplan4rust::core::arena::{NodeId, ArenaNode};
 
 /// A lightweight, non-owning reference to a syntax in an arena.
 ///

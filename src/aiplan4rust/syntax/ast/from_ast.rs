@@ -35,7 +35,7 @@
 
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Trait for constructing an instance of a type from an AST syntax.
 ///

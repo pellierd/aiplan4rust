@@ -43,7 +43,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::syntax::core::SyntaxContent;
+use crate::aiplan4rust::syntax::tree::SyntaxContent;
 
 /// Represents semantic content associated with an AST syntax.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]

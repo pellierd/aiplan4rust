@@ -9,7 +9,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lang::Optimization;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Wrapper struct around `TreeArena<ExprNode>` representing an expression arena.
 ///

@@ -1,3 +1,3 @@
-pub mod common;
+pub mod core;
 pub mod syntax;
 pub mod normalization;

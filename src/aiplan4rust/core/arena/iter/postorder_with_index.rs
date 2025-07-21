@@ -1,4 +1,4 @@
-use crate::aiplan4rust::arena::{Arena, NodeId, ArenaNode};
+use crate::aiplan4rust::core::arena::{ArenaTree, NodeId, ArenaNode};
 
 /// A postorder iterator over nodes in an `Arena`, yielding `(NodeId, &T)` pairs.
 ///
@@ -17,7 +17,7 @@ use crate::aiplan4rust::arena::{Arena, NodeId, ArenaNode};
 /// }
 /// ```
 pub struct PostorderIterWithIndex<'a, T: ArenaNode> {
-    arena: &'a Arena<T>,
+    arena: &'a ArenaTree<T>,
     stack: Vec<(NodeId, bool)>, // (syntax id, children visited flag)
 }
 
@@ -32,7 +32,7 @@ impl<'a, T: ArenaNode> PostorderIterWithIndex<'a, T> {
     /// # Returns
     ///
     /// A `PostorderIterWithIndex` ready to traverse the arena in postorder.
-    pub fn new(arena: &'a Arena<T>, root: NodeId) -> Self {
+    pub fn new(arena: &'a ArenaTree<T>, root: NodeId) -> Self {
         Self {
             arena,
             stack: vec![(root, false)],
@@ -40,7 +40,7 @@ impl<'a, T: ArenaNode> PostorderIterWithIndex<'a, T> {
     }
 
     /// Creates an empty postorder iterator with no nodes.
-    pub fn empty(arena: &'a Arena<T>) -> Self {
+    pub fn empty(arena: &'a ArenaTree<T>) -> Self {
         Self {
             arena,
             stack: Vec::new(),

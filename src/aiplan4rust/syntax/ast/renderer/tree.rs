@@ -1,7 +1,7 @@
 use std::fmt::{self, Formatter};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstContent};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 pub fn render(
     node: &AstNode,

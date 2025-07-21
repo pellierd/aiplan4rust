@@ -4,7 +4,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Represents a linked semantic context combining a domain and a problem.
 ///

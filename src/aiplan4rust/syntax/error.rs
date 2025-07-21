@@ -2,7 +2,7 @@ use thiserror::Error;
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::error::ArenaError;
+use crate::aiplan4rust::core::arena::error::ArenaError;
 
 #[derive(Debug, Error)]
 pub enum SyntaxError {

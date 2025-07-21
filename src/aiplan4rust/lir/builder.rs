@@ -43,7 +43,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
 use crate::aiplan4rust::lir::LiftedProblem;
@@ -52,7 +52,7 @@ use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
-use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 
 /// This module defines the `LIRBuilder`, which transforms a parsed and linked
 /// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).

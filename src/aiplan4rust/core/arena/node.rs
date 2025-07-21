@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display};
-use crate::aiplan4rust::arena::{Arena, NodeId};
+use crate::aiplan4rust::core::arena::{ArenaTree, NodeId};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 
@@ -74,7 +74,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolRef;
 ///
 /// # See Also
 ///
-/// - [`Arena`] for managing trees of nodes implementing this trait.
+/// - [`ArenaTree`] for managing trees of nodes implementing this trait.
 /// - [`NodeContent`] for content types that hold semantic syntax data.
 /// - [`AiplanError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.

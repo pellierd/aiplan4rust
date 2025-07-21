@@ -3,11 +3,11 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
-use crate::aiplan4rust::syntax::core::{SyntaxContent, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 
 pub trait SyntaxNode: ArenaNode + Display {
     /// The type used to represent the syntax's kind.

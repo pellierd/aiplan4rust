@@ -13,7 +13,7 @@ use crate::aiplan4rust::lang::Requirement::Typing;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.

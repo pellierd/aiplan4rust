@@ -6,13 +6,15 @@ pub mod semantic;
 pub mod normalization;
 pub mod interner;
 mod lir;
-mod arena;
 pub mod serialization;
 pub mod lang;
 
 pub mod frontend;
 pub mod validation;
 pub mod error;
+
+pub mod core;
+
 pub use frontend::Frontend;
 pub use normalization::Normalizer;
 pub use semantic::Analyzer;

@@ -41,7 +41,7 @@ impl Format {
 
 /// Converts a file extension into a `Format`.
 impl From<SerdeExtension> for Format {
-    /// Maps common file extensions to serialization formats.
+    /// Maps core file extensions to serialization formats.
     ///
     /// # Examples
     ///

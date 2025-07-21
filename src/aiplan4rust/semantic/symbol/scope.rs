@@ -1,4 +1,4 @@
-use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::syntax::tree::NodeId;
 
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;

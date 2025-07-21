@@ -3,7 +3,7 @@
 //! A `Method` describes how a complex task can be decomposed into subtasks under certain preconditions,
 //! encapsulating the method's name, parameters, the task it refines, its preconditions, and the resulting task network.
 //!
-//! This is a core abstraction for expressing domain methods in HTN planning.
+//! This is a tree abstraction for expressing domain methods in HTN planning.
 //!
 //! # Overview
 //! - `header`: The method’s name and typed parameters (via `NamedTypedList`).
@@ -36,10 +36,10 @@ use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Method {

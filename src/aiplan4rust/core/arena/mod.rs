@@ -7,7 +7,7 @@ pub mod base_node;
 pub mod error;
 
 pub use node_id::NodeId;
-pub use arena::Arena;
+pub use arena::ArenaTree;
 pub use node::ArenaNode;
 pub use node_ref::NodeRef;
 pub use base_node::BaseNode;

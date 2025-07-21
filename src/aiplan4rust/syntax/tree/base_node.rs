@@ -1,8 +1,8 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::arena::{ArenaNode, BaseNode, NodeId};
-use crate::aiplan4rust::syntax::core::SyntaxContent;
+use crate::aiplan4rust::core::arena::{ArenaNode, BaseNode, NodeId};
+use crate::aiplan4rust::syntax::tree::SyntaxContent;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct SyntaxBaseNode<K: Copy + Debug + Display, C: SyntaxContent> {

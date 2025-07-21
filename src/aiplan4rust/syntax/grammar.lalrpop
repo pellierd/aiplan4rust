@@ -14,7 +14,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstContent;
 use crate::aiplan4rust::syntax::ParseContext;
 use crate::aiplan4rust::syntax::SyntaxError;
-use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::syntax::tree::NodeId;
 
 grammar<'ctx>(context: &'ctx mut ParseContext);
 

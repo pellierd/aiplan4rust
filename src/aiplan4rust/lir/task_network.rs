@@ -44,8 +44,8 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::syntax::core::SyntaxTree;
+use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///
