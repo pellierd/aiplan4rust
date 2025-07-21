@@ -195,20 +195,6 @@ impl SyntaxNode for AstNode
     where
     Self::Content: SyntaxContent
 {
-    /// Remaps identifier names in this node's content according to a mapping.
-    ///
-    /// This is useful when renaming symbols after interning.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        match self.content_mut() {
-            AstContent::Ident(id) => {
-                if let Some(&new_id) = map.get(id) {
-                    *id = new_id;
-                }
-            }
-            _ => {}
-        }
-    }
-
     /// Converts this node to a `SymbolRef` if it represents a known symbol.
     ///
     /// # Returns
@@ -235,6 +221,20 @@ impl SyntaxNode for AstNode
 
         let ident = self.try_ident()?;
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
+    }
+
+    /// Remaps identifier names in this node's content according to a mapping.
+    ///
+    /// This is useful when renaming symbols after interning.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        match self.content_mut() {
+            AstContent::Ident(id) => {
+                if let Some(&new_id) = map.get(id) {
+                    *id = new_id;
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Recursively pretty-prints this node and its subtree using a tree layout.

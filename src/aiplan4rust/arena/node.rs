@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::{Arena, NodeContent, NodeId};
 use crate::aiplan4rust::AiplanError;
@@ -86,9 +86,9 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 /// - [`AiplanError`] for error handling during parsing or resolution.
 /// - [`SymbolRef`] for referencing symbols resolved from nodes.
 ///
-pub trait ArenaNode: Clone {
+pub trait ArenaNode: Clone + Debug {
     /// The type used to represent the syntax's kind.
-    type Kind: std::fmt::Display;
+    type Kind: Copy + Debug + Display;
 
     /// The type used to represent the semantic content of the syntax.
     type Content: NodeContent;
