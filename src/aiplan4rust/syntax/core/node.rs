@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Formatter;
+use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::arena::{ArenaNode, NodeContent};
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
@@ -13,6 +13,7 @@ pub trait SyntaxNode: ArenaNode
     where
         Self::Content: SyntaxContent,
 {
+
 
     // Delegation methods to the syntax’s content, allowing convenient extraction
     // of specific semantic types without manually matching on content.

@@ -41,7 +41,7 @@ impl<K: Copy + Debug + Display, C: SyntaxContent> ArenaNode for SyntaxBaseNode<K
     }
 
     fn set_kind(&mut self, kind: Self::Kind) {
-        self.set_kind(kind)
+        self.base_node.set_kind(kind)
     }
 
     fn content(&self) -> &Self::Content {
@@ -57,7 +57,7 @@ impl<K: Copy + Debug + Display, C: SyntaxContent> ArenaNode for SyntaxBaseNode<K
     }
 
     fn set_parent(&mut self, parent: Option<NodeId>) {
-        self.set_parent(parent)
+        self.base_node.set_parent(parent)
     }
 
     fn children(&self) -> &[NodeId] {
