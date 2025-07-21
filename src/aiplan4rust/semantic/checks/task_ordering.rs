@@ -67,7 +67,7 @@ pub fn check_task_ordering(
 ) -> Result<bool, AiplanError> {
     let mut checked = true;
 
-    for node in context.ast().preorder() {
+    for node in context.ast().preorder().values() {
         match node.kind() {
             AstKind::TaskOrderingConstraintDef => {
                 let task_ids = extract_task_ids(node, context.ast())?;

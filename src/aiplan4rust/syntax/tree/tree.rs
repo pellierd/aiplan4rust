@@ -3,7 +3,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::core::arena::{ArenaTree, ArenaNode, NodeId, NodeRef};
 use crate::aiplan4rust::core::arena::error::ArenaError;
-use crate::aiplan4rust::core::arena::iter::{PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth, PreorderIterWithIndex};
+use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::core::arena::node_ref::NodeRefMut;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
@@ -12,7 +12,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around the low-level Arena, intended as the main entry point for syntax-level operations.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct SyntaxTree<T : SyntaxNode>
     where
         T: SyntaxNode,
@@ -127,40 +127,74 @@ impl<T: SyntaxNode> SyntaxTree<T>
         self.arena.len()
     }
 
+    /// Returns a preorder iterator over nodes starting from the root.
+    ///
+    /// Preorder traversal visits each node before its children, recursively from left to right.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// for node in your_struct.preorder().values() {
+    ///     // Process nodes in preorder starting from the root
+    /// }
+    /// ```
     pub fn preorder(&self) -> PreorderIter<'_, T> {
         self.arena.preorder()
     }
 
-    pub fn preorder_ids(&self) -> PreorderIdIter<'_, T> {
-        self.arena.preorder_ids()
-    }
-
-    pub fn preorder_ids_from(&self, root: NodeId) -> PreorderIdIter<'_, T> {
-        self.arena.preorder_ids_from(root)
-    }
-
+    /// Returns a preorder iterator over nodes starting from the specified node.
+    ///
+    /// This allows traversing a subtree rooted at `root` in preorder.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The node ID to start traversal from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let root_id = some_node_id;
+    /// for node in your_struct.preorder_from(root_id).values() {
+    ///     // Process nodes in preorder starting from `root_id`
+    /// }
+    /// ```
     pub fn preorder_from(&self, root: NodeId) -> PreorderIter<'_, T> {
         self.arena.preorder_from(root)
     }
 
-    pub fn preorder_with_index(&self) -> PreorderIterWithIndex<'_, T> {
-        self.arena.preorder_with_index()
-    }
-
-    pub fn preorder_with_depth(&self) -> PreorderIterWithDepth<'_, T> {
-        self.arena.preorder_with_depth()
-    }
-
+    /// Returns a postorder iterator over nodes starting from the root.
+    ///
+    /// Postorder traversal visits children before their parent nodes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// for node in your_struct.postorder().values() {
+    ///     // Process nodes in postorder starting from the root
+    /// }
+    /// ```
     pub fn postorder(&self) -> PostorderIter<'_, T> {
         self.arena.postorder()
     }
 
+    /// Returns a postorder iterator over nodes starting from the specified node.
+    ///
+    /// This allows traversing a subtree rooted at `root` in postorder.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The node ID to start traversal from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let root_id = some_node_id;
+    /// for node in your_struct.postorder_from(root_id).values() {
+    ///     // Process nodes in postorder starting from `root_id`
+    /// }
+    /// ```
     pub fn postorder_from(&self, root: NodeId) -> PostorderIter<'_, T> {
         self.arena.postorder_from(root)
-    }
-
-    pub fn postorder_with_index(&self) -> PostorderIterWithIndex<'_, T> {
-        self.arena.postorder_with_index()
     }
 
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {

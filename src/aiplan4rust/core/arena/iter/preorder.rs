@@ -1,71 +1,113 @@
-use crate::aiplan4rust::core::arena::NodeId;
-use crate::aiplan4rust::core::arena::ArenaTree;
-use crate::aiplan4rust::core::arena::ArenaNode;
+//! Iterators for traversing nodes in an `ArenaTree`.
+//!
+//! This module provides preorder and postorder traversal iterators for
+//! trees stored in an arena. These iterators yield nodes along with
+//! optional metadata such as node IDs and depth.
+//!
+//! Traversals are generic over node type `T` implementing the `ArenaNode` trait.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use crate::aiplan4rust::core::arena::{ArenaTree, NodeId};
+//!
+//! let arena: ArenaTree<MyNodeType> = ...;
+//! let root: NodeId = arena.root_id().unwrap();
+//!
+//! // Iterate over nodes in preorder with depth information
+//! for (id, depth, node) in arena.preorder_from(root) {
+//!     println!("Node {:?} at depth {}: {:?}", id, depth, node);
+//! }
+//! ```
 
-/// An iterator for traversing nodes in an `Arena` in preorder.
+use crate::aiplan4rust::core::arena::{ArenaNode, ArenaTree, NodeId, NodeRef};
+
+/// A generic preorder iterator over nodes in an `ArenaTree<T>`.
 ///
-/// Preorder traversal visits the current syntax before its children,
-/// recursively from left to right.
+/// This iterator yields `(NodeId, depth, &T)` for each node, starting from
+/// the specified root node and traversing parents before their children.
 ///
-/// This iterator yields references to nodes of type `T` stored in the arena,
-/// starting from a specified root syntax.
+/// Preorder traversal is useful for top-down processing of trees,
+/// such as syntax analysis or serialization.
 ///
 /// # Example
 ///
 /// ```rust
-/// let iter = PreorderIter::new(&arena, root_id);
-/// for syntax in iter {
-///     // Process syntax
+/// let iter = PreorderIter::new(&arena, root);
+/// for (id, depth, node) in iter {
+///     println!("Visited node {:?} at depth {}", id, depth);
 /// }
 /// ```
 pub struct PreorderIter<'a, T: ArenaNode> {
     arena: &'a ArenaTree<T>,
-    stack: Vec<NodeId>,
+    stack: Vec<(NodeId, usize)>, // (node ID, depth)
 }
 
 impl<'a, T: ArenaNode> PreorderIter<'a, T> {
-    /// Creates a new preorder iterator starting from `root`.
+    /// Creates a new preorder iterator starting from the given `root`.
     ///
     /// # Parameters
     ///
-    /// * `arena` - Reference to the arena containing the arena nodes.
-    /// * `root` - The root syntax ID where traversal begins.
+    /// * `arena` - Reference to the arena tree to traverse.
+    /// * `root` - The starting node ID for traversal.
     ///
     /// # Returns
     ///
-    /// A `PreorderIter` that will traverse the arena in preorder.
+    /// A `PreorderIter` that will yield nodes in preorder.
     pub fn new(arena: &'a ArenaTree<T>, root: NodeId) -> Self {
         Self {
             arena,
-            stack: vec![root],
+            stack: vec![(root, 0)],
         }
     }
 
+    /// Creates an empty preorder iterator.
+    ///
+    /// Useful for conditional traversal cases.
     pub fn empty(arena: &'a ArenaTree<T>) -> Self {
-        PreorderIter {
+        Self {
             arena,
             stack: Vec::new(),
         }
     }
+
+    /// Transforms this iterator to yield `(NodeId, &T)` tuples,
+    /// dropping depth information.
+    pub fn with_id(self) -> impl Iterator<Item = (NodeId, &'a T)> {
+        self.map(|(id, _, node)| (id, node))
+    }
+
+    /// Transforms this iterator to yield `(depth, &T)` tuples,
+    /// dropping node ID information.
+    pub fn with_depth(self) -> impl Iterator<Item = (usize, &'a T)> {
+        self.map(|(_, depth, node)| (depth, node))
+    }
+
+    /// Transforms this iterator to yield `NodeRef` structs,
+    /// bundling node ID and node reference.
+    pub fn node_refs(self) -> impl Iterator<Item = NodeRef<'a, T>> {
+        self.map(|(id, _, node)| NodeRef::new(id, node))
+    }
+
+    /// Transforms this iterator to yield only node references `&T`,
+    /// dropping node ID and depth.
+    pub fn values(self) -> impl Iterator<Item = &'a T> {
+        self.map(|(_, _, node)| node)
+    }
 }
 
 impl<'a, T: ArenaNode> Iterator for PreorderIter<'a, T> {
-    type Item = &'a T;
+    type Item = (NodeId, usize, &'a T);
 
-    /// Advances the iterator and returns the next syntax in preorder.
-    ///
-    /// The traversal order is: current syntax, then recursively each child from left to right.
-    ///
-    /// Returns `None` when all nodes have been visited.
     fn next(&mut self) -> Option<Self::Item> {
-        let id = self.stack.pop()?;
+        let (id, depth) = self.stack.pop()?;
         let node = self.arena.get_node(id)?;
 
-        // Push children in reverse order so the leftmost child is processed first
-        for &child in node.children().iter().rev() {
-            self.stack.push(child);
+        // Push children in reverse order to maintain left-to-right traversal
+        for &child_id in node.children().iter().rev() {
+            self.stack.push((child_id, depth + 1));
         }
 
-        Some(node)
+        Some((id, depth, node))
     }
 }

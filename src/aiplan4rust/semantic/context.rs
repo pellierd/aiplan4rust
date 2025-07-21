@@ -108,7 +108,7 @@ impl Context {
 
         // Step 1: Find the first `RequireDef` syntax in the AST
         let mut requirement_def_node = None;
-        for node in arena.preorder() {
+        for node in arena.preorder().values() {
             if matches!(node.kind(), AstKind::RequireDef) {
                 requirement_def_node = Some(node);
                 break;

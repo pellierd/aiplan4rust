@@ -63,7 +63,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Debug;
 use std::time::SystemTime;
-use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId};
+use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId, SyntaxNode};
 
 /// A complete abstract syntax arena and its associated context.
 ///
@@ -205,7 +205,7 @@ impl Ast {
     /// * `Some(NodeId)` if a matching node is found.
     /// * `None` if no matching node is found.
     pub fn find_node_id_of_kind_from(&self, node_id: NodeId, kind: AstKind) -> Option<NodeId> {
-        for id in self.arena.preorder_ids_from(node_id) {
+        for (id, _) in self.arena.preorder_from(node_id).with_id() {
             let node = self.arena.get_node(id)?;
             if node.kind() == kind {
                 return Some(id);
@@ -330,17 +330,17 @@ impl Ast {
         buf
     }
 
-/*    /// Converts an AST node to its syntax string representation using this AST's arena and interner.
+    /// Converts an AST node to its syntax string representation using this AST's arena and interner.
     ///
     /// # Arguments
     /// * `node` - The `AstNode` to convert.
     ///
     /// # Returns
     /// A string representing the node's syntax (i.e., how it appears in the source).
-    //pub fn to_syntax_string_from(&self, node: &AstNode) -> String {
+    pub fn to_syntax_string_from(&self, node: &AstNode) -> String {
         // Delegate to the node's `to_syntax_string` method with the current arena and interner
-    //    node.to_syntax_string(self.arena(), self.interner())
-    //}
+        node.to_syntax_string(self.arena(), self.interner())
+    }
 
     /// Converts an AST node to a string using the interner for resolving identifiers.
     ///
@@ -349,10 +349,10 @@ impl Ast {
     ///
     /// # Returns
     /// A string with interned names resolved for better readability.
-    //pub fn to_string_interner_from(&self, node: &AstNode) -> String {
+    pub fn to_string_interner_from(&self, node: &AstNode) -> String {
         // Delegate to the node's `to_string_with_interner` method with the current arena and interner
-    //    node.to_string_with_interner(self.arena(), self.interner())
-    //}*/
+        node.to_string_with_interner(self.arena(), self.interner())
+    }
 
 }
 

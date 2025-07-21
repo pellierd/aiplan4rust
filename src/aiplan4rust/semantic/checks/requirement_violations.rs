@@ -21,7 +21,7 @@ pub fn check_requirement_violations(
 ) -> Result<bool, AiplanError> {
     let mut checked = true;
 
-    for (index, node) in context.ast().preorder_with_index() {
+    for (index, node) in context.ast().preorder().with_id() {
         match node.kind() {
             AstKind::PrimitiveType | AstKind::TypesDef => {
                 checked &= report_requirement_violation(

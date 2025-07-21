@@ -161,7 +161,7 @@ impl LIRBuilder {
     ) -> Result<(), AiplanError> {
         let domain = context.domain_ast();
 
-        for node in domain.preorder() {
+        for node in domain.preorder().values() {
             match node.kind() {
                 AstKind::DomainName => ir.set_domain_name(node.try_ident()?),
                 AstKind::RequireDef => ir.add_requirements(extract_requirements(node, domain)?),
@@ -198,7 +198,7 @@ impl LIRBuilder {
     ) -> Result<(), AiplanError> {
         let problem = context.problem_ast();
 
-        for node in problem.preorder() {
+        for node in problem.preorder().values() {
             match node.kind() {
                 AstKind::ProblemName => ir.set_problem_name(node.try_ident()?),
                 AstKind::RequireDef => ir.add_requirements(extract_requirements(node, problem)?),

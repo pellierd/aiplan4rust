@@ -20,10 +20,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 
 use crate::aiplan4rust::core::arena::error::ArenaError;
-use crate::aiplan4rust::core::arena::iter::{
-    PostorderIter, PostorderIterWithIndex, PreorderIdIter, PreorderIter, PreorderIterWithDepth,
-    PreorderIterWithIndex,
-};
+use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::core::arena::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
 
@@ -489,17 +486,19 @@ impl<T: ArenaNode> ArenaTree<T> {
         self.nodes.len()
     }
 
-    /// Returns a preorder iterator starting from the root.
+    /// Returns an iterator that traverses the arena tree in preorder,
+    /// starting from the root node if it exists.
     ///
-    /// # Returns
+    /// Preorder traversal visits the current node before its children,
+    /// recursively from left to right.
     ///
-    /// A preorder iterator over nodes.
+    /// If the tree is empty (no root), returns an empty iterator.
     ///
     /// # Examples
     ///
     /// ```
-    /// for node in arena.preorder() {
-    ///     // process node
+    /// for node in arena.preorder().values() {
+    ///     // process each node in preorder
     /// }
     /// ```
     pub fn preorder(&self) -> PreorderIter<'_, T> {
@@ -509,86 +508,43 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
-    /// Returns a preorder iterator over `NodeId`s starting from the root.
+    /// Returns a preorder iterator starting from the given `root` node ID.
     ///
-    /// This allows iteration where mutable or indexed access to the nodes is needed.
+    /// This allows traversal of any subtree within the arena, starting
+    /// at the specified node.
+    ///
+    /// Preorder traversal visits the current node before its children,
+    /// recursively from left to right.
+    ///
+    /// # Arguments
+    ///
+    /// * `root` - The `NodeId` of the node where traversal should begin.
     ///
     /// # Examples
     ///
     /// ```
-    /// for node_id in arena.preorder_ids() {
-    ///     let node = arena.get_node(node_id).unwrap();
-    ///     // process syntax
+    /// let root = some_node_id;
+    /// for node in arena.preorder_from(root).values() {
+    ///     // process subtree in preorder
     /// }
     /// ```
-    pub fn preorder_ids(&self) -> PreorderIdIter<'_, T> {
-        match self.root_id {
-            Some(root) => PreorderIdIter::new(self, root),
-            None => PreorderIdIter::empty(self),
-        }
-    }
-
-    /// Returns a preorder iterator over `NodeId`s starting from the given syntax.
-    ///
-    /// # Arguments
-    ///
-    /// * `root` - The starting node.
-    ///
-    /// # Returns
-    ///
-    /// A preorder iterator starting from `root`.
-    pub fn preorder_ids_from(&self, root: NodeId) -> PreorderIdIter<'_, T> {
-        PreorderIdIter::new(self, root)
-    }
-
-    /// Returns a preorder iterator from a specific syntax.
-    ///
-    /// # Arguments
-    ///
-    /// * `root` - The starting node.
-    ///
-    /// # Returns
-    ///
-    /// A preorder iterator starting from `root`.
     pub fn preorder_from(&self, root: NodeId) -> PreorderIter<'_, T> {
         PreorderIter::new(self, root)
     }
 
-    /// Returns a preorder iterator with indices from the root.
+    /// Returns an iterator that traverses the arena tree in postorder,
+    /// starting from the root node if it exists.
     ///
-    /// # Returns
+    /// Postorder traversal visits the children of a node before the node itself,
+    /// recursively from left to right.
     ///
-    /// A preorder iterator that yields nodes with their indices.
-    pub fn preorder_with_index(&self) -> PreorderIterWithIndex<'_, T> {
-        match self.root_id {
-            Some(root) => PreorderIterWithIndex::new(self, root),
-            None => PreorderIterWithIndex::empty(self),
-        }
-    }
-
-    /// Returns a preorder iterator with depth from the root.
-    ///
-    /// # Returns
-    ///
-    /// A preorder iterator yielding nodes with depth information.
-    pub fn preorder_with_depth(&self) -> PreorderIterWithDepth<'_, T> {
-        match self.root_id {
-            Some(root) => PreorderIterWithDepth::new(self, root),
-            None => PreorderIterWithDepth::empty(self),
-        }
-    }
-
-    /// Returns a postorder iterator from the root.
-    ///
-    /// # Returns
-    ///
-    /// A postorder iterator over nodes.
+    /// If the tree is empty (no root), returns an empty iterator.
     ///
     /// # Examples
     ///
     /// ```
-    /// for node in arena.postorder() {
-    ///     // process node
+    /// for node in arena.postorder().values() {
+    ///     // process each node in postorder
     /// }
     /// ```
     pub fn postorder(&self) -> PostorderIter<'_, T> {
@@ -598,29 +554,28 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
-    /// Returns a postorder iterator from a specific syntax.
+    /// Returns a postorder iterator starting from the given `root` node ID.
+    ///
+    /// This allows traversal of any subtree within the arena, starting
+    /// at the specified node.
+    ///
+    /// Postorder traversal visits the children of a node before the node itself,
+    /// recursively from left to right.
     ///
     /// # Arguments
     ///
-    /// * `root` - The starting node.
+    /// * `root` - The `NodeId` of the node where traversal should begin.
     ///
-    /// # Returns
+    /// # Examples
     ///
-    /// A postorder iterator starting from `root`.
+    /// ```
+    /// let root = some_node_id;
+    /// for node in arena.postorder_from(root).values() {
+    ///     // process subtree in postorder
+    /// }
+    /// ```
     pub fn postorder_from(&self, root: NodeId) -> PostorderIter<'_, T> {
         PostorderIter::new(self, root)
-    }
-
-    /// Returns a postorder iterator with indices from the root.
-    ///
-    /// # Returns
-    ///
-    /// A postorder iterator yielding nodes with their indices.
-    pub fn postorder_with_index(&self) -> PostorderIterWithIndex<'_, T> {
-        match self.root_id {
-            Some(root) => PostorderIterWithIndex::new(self, root),
-            None => PostorderIterWithIndex::empty(self),
-        }
     }
 
     /// Computes the total number of nodes in a subtree rooted at `root`.

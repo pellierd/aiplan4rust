@@ -1,7 +1,6 @@
-use std::fmt::{Debug, Display};
-use crate::aiplan4rust::core::arena::{ArenaTree, NodeId};
+use std::fmt::Debug;
+use crate::aiplan4rust::core::arena::NodeId;
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::semantic::symbol::SymbolRef;
 
 /// A generic trait representing a syntax in a arena stored within an `Arena`.
 ///

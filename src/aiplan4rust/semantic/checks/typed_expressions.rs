@@ -51,7 +51,7 @@ pub fn check_typed_expressions(
 ) -> Result<bool, AiplanError> {
     let mut no_error = true;
 
-    for node in context.ast().preorder() {
+    for node in context.ast().preorder().values() {
         if is_equal_binary_comp(node) || is_assign(node) {
             let (ty1, ty2) = get_binary_operation_types(node, context)?;
 

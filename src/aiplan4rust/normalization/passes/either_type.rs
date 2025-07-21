@@ -188,7 +188,7 @@ fn report_either_type_duplicate_warnings(
     let source_name = ast.source_name();
 
     // Traverse all nodes in the AST in preorder (parent before children)
-    for node in arena.preorder() {
+    for node in arena.preorder().values() {
         // Skip nodes that are not of kind Type, since duplicates only matter there
         if node.kind() != AstKind::Type {
             continue;
