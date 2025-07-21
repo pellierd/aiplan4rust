@@ -1,32 +1,30 @@
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::arena::{BaseNode, NodeId, Arena, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::syntax::core::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::core::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {
-    data: BaseNode<ExprKind, ExprContent>,
+    data: SyntaxBaseNode<ExprKind, ExprContent>,
 }
 
 impl ExprNode {
     pub fn new(kind: ExprKind, content: ExprContent, parent: Option<NodeId>) -> Self {
         ExprNode {
-            data: BaseNode::new(kind, content, Vec::new(), parent),
+            data: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
         }
     }
 }
 
 impl Deref for ExprNode {
-    type Target = BaseNode<ExprKind, ExprContent>;
+    type Target = SyntaxBaseNode<ExprKind, ExprContent>;
 
     fn deref(&self) -> &Self::Target {
         &self.data
