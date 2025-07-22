@@ -54,7 +54,6 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -63,6 +62,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Debug;
 use std::time::SystemTime;
+use crate::aiplan4rust::syntax::ast::error::AstError;
 use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId, SyntaxNode};
 
 /// A complete abstract syntax arena and its associated context.
@@ -246,7 +246,7 @@ impl Ast {
     pub fn init_span(
         &mut self,
         fast_line_table: &FastLineTable,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), AstError> {
         if !self.arena().is_empty() {
             let mut stack = vec![self.arena().try_root_id()?];
             while let Some(node_id) = stack.pop() {

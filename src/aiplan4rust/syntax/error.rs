@@ -2,12 +2,16 @@ use thiserror::Error;
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::core::arena::error::ArenaError;
+use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::AstError;
 
 #[derive(Debug, Error)]
 pub enum SyntaxError {
     #[error("Parsing failed: {0}")]
     ParseError(#[from] ParseError<usize, Token, LexicalError>),
+
+    #[error("Ast error: {0}")]
+    Ast(#[from] AstError),
 
     #[error("Arena error: {0}")]
     Arena(#[from] ArenaError),

@@ -54,12 +54,14 @@ pub mod ast;
 
 pub mod node;
 pub mod renderer;
+pub mod error;
 
 // Public re-exports
 pub use kind::Kind as AstKind;
 pub use content::Content as AstContent;
 pub use from_ast::FromAst;
 pub use ast::Ast;
+pub use error::AstError;
 pub use node::AstNode;
 
 pub use renderer::syntax::syntax::render_with_indent;
