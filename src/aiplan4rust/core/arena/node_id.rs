@@ -1,17 +1,55 @@
+//! Unique node identifiers for arena-managed tree structures.
+//!
+//! This module defines the [`NodeId`] type, which wraps a `usize` index to uniquely
+//! identify nodes stored within an arena (a contiguous node storage).
+//!
+//! # Key Features
+//!
+//! - Provides strong typing and clarity by wrapping raw indices in a distinct type.
+//! - Defines a sentinel invalid ID (`usize::MAX`) for easy validation checks.
+//! - Implements common traits for copying, hashing, serialization, and debugging.
+//! - Supports (de)serialization as strings for better readability in serialized forms.
+//! - Offers convenient conversion to/from `usize`.
+//!
+//! # Usage
+//!
+//! `NodeId` is the primary way to refer to nodes in arena-based trees, ensuring
+//! type safety and preventing accidental misuse of raw indices.
+//!
+//! Typical operations include creating new IDs, validating their correctness,
+//! and converting them to and from raw indices or serialized forms.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use crate::NodeId;
+//!
+//! let id = NodeId::new(42);
+//! assert!(id.is_valid());
+//! assert_eq!(id.as_usize(), 42);
+//!
+//! let invalid = NodeId::default();
+//! assert!(!invalid.is_valid());
+//! ```
+//!
+//! # Serialization
+//!
+//! `NodeId` serializes as a string representation of its numeric value and
+//! deserializes from the same, enhancing readability in JSON or other text formats.
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde::de::Error;
 
-/// A unique identifier for nodes in an arena.
+/// A unique identifier for nodes within an arena.
 ///
-/// This struct wraps a `usize` that serves as a unique index or ID for nodes
-/// in a arena or arena structure. It provides type safety and utility methods
-/// to work with syntax identifiers.
+/// `NodeId` wraps a `usize` index used to uniquely identify nodes in
+/// an arena-managed tree structure. It provides type safety and utility
+/// methods for working with node identifiers.
 ///
 /// # Sentinel value
 ///
-/// The value `usize::MAX` is reserved as a sentinel to represent an invalid
-/// or uninitialized `NodeId`. This allows distinguishing between valid and
-/// invalid IDs.
+/// The value `usize::MAX` is reserved as a sentinel representing an invalid
+/// or uninitialized `NodeId`. This allows easy detection of invalid IDs.
 ///
 /// # Examples
 ///
@@ -24,45 +62,34 @@ use serde::de::Error;
 /// assert!(!invalid.is_valid());
 /// ```
 ///
-/// # Derives
+/// # Traits
 ///
-/// Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`.
+/// Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`, `Serialize`, and `Deserialize`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct NodeId {
-    /// The integer value representing the syntax identifier.
+    /// The underlying integer value representing the node identifier.
     ///
-    /// `usize::MAX` is used as an invalid sentinel value.
+    /// The sentinel value `usize::MAX` indicates an invalid ID.
     pub value: usize,
 }
 
 impl Default for NodeId {
-    /// Returns a default invalid `NodeId` with the sentinel value `usize::MAX`.
+    /// Returns an invalid `NodeId` with the sentinel value `usize::MAX`.
     fn default() -> Self {
         NodeId { value: usize::MAX }
     }
 }
 
 impl NodeId {
-    /// The constant identifier for the root syntax in the arena.
-    ///
-    /// This constant represents the ID of the root syntax, which is always zero.
-    /// It is used to access the root syntax within the arena.
-    //pub const ROOT_ID: NodeId = NodeId::new(0);
-
-    /// Creates a new `NodeId` from a `usize` value.
+    /// Creates a new `NodeId` wrapping the given `usize` value.
     ///
     /// # Arguments
     ///
-    /// * `value` - The integer value to use as the syntax identifier.
+    /// * `value` - The integer value to use as the node identifier.
     ///
     /// # Returns
     ///
-    /// A new `NodeId` wrapping the provided value.
-    pub const fn new(value: usize) -> Self {
-        NodeId { value }
-    }
-
-    /// Returns the underlying `usize` value of the `NodeId`.
+    /// A new `NodeId` instance.
     ///
     /// # Examples
     ///
@@ -70,15 +97,23 @@ impl NodeId {
     /// let id = NodeId::new(7);
     /// assert_eq!(id.as_usize(), 7);
     /// ```
+    pub const fn new(value: usize) -> Self {
+        NodeId { value }
+    }
+
+    /// Returns the raw `usize` value of this `NodeId`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let id = NodeId::new(10);
+    /// assert_eq!(id.as_usize(), 10);
+    /// ```
     pub fn as_usize(&self) -> usize {
         self.value
     }
 
-    /// Checks whether the `NodeId` is valid (not equal to the sentinel `usize::MAX`).
-    ///
-    /// # Returns
-    ///
-    /// `true` if the ID is valid, `false` otherwise.
+    /// Returns `true` if the `NodeId` is valid (not the sentinel invalid value).
     ///
     /// # Examples
     ///
@@ -94,7 +129,7 @@ impl NodeId {
     }
 }
 
-// Sérialisation en string
+// Serialization of NodeId as string
 impl Serialize for NodeId {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
@@ -102,7 +137,7 @@ impl Serialize for NodeId {
     }
 }
 
-// Désérialisation depuis string
+// Deserialization of NodeId from string
 impl<'de> Deserialize<'de> for NodeId {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where D: Deserializer<'de> {
@@ -113,9 +148,18 @@ impl<'de> Deserialize<'de> for NodeId {
 }
 
 impl std::fmt::Display for NodeId {
-    /// Formats the `NodeId` for display purposes.
+    /// Formats the `NodeId` for user-friendly display.
     ///
-    /// Displays as `NodeId(<value>)` if valid, or `NodeId(<invalid>)` if not.
+    /// Shows `#<value>` if valid, or `#invalid` if not.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let valid = NodeId::new(3);
+    /// let invalid = NodeId::default();
+    /// assert_eq!(format!("{}", valid), "#3");
+    /// assert_eq!(format!("{}", invalid), "#invalid");
+    /// ```
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.is_valid() {
             write!(f, "#{}", self.value)
@@ -140,7 +184,7 @@ impl From<usize> for NodeId {
 }
 
 impl From<NodeId> for usize {
-    /// Converts a `NodeId` back into a `usize`.
+    /// Converts a `NodeId` into its underlying `usize` value.
     ///
     /// # Examples
     ///
