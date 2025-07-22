@@ -15,6 +15,10 @@
 //! - [`Arena`] is a generic arena allocator for tree structures.
 //! - [`StringInterner`] reduces memory usage by deduplicating strings.
 //!
+//! # Errors
+//! Most methods return [`ParseContextError`] if something goes wrong,
+//! which typically wraps lower-level [`ArenaError`] or [`AstError`].
+//!
 //! This module is designed to be used internally by the parser.
 
 use std::cell::RefCell;
@@ -22,12 +26,11 @@ use lalrpop_util::ErrorRecovery;
 
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
+use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
+use crate::aiplan4rust::syntax::context::error::ParseContextError;
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
-use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
-use crate::aiplan4rust::syntax::error::SyntaxError;
+use crate::aiplan4rust::syntax::Span;
 
 /// Parsing context used throughout the LALRPOP parsing process.
 ///
@@ -39,30 +42,14 @@ use crate::aiplan4rust::syntax::error::SyntaxError;
 /// This structure is passed into the parser and progressively filled during
 /// parsing. After parsing, it provides access to the AST root, interned strings,
 /// and collected errors.
-///
-/// # Example
-/// ```
-/// let ctx = ParseContext::new();
-/// let id = ctx.intern("var".to_string());
-/// ```
 pub struct ParseContext {
-    /// Interns strings to deduplicate identifiers and literals.
     interner: RefCell<StringInterner>,
-
-    /// Stores all AST nodes allocated during parsing.
     arena: RefCell<SyntaxTree<AstNode>>,
-
-    /// Stores recoverable errors encountered during parsing.
     errors: RefCell<Vec<ErrorRecovery<usize, Token, LexicalError>>>,
 }
 
 impl ParseContext {
     /// Creates a new, empty `ParseContext`.
-    ///
-    /// This initializes:
-    /// - an empty [`Arena`] for storing AST nodes,
-    /// - a fresh [`StringInterner`] for deduplicating strings,
-    /// - an empty error list.
     ///
     /// # Example
     /// ```
@@ -78,72 +65,50 @@ impl ParseContext {
     }
 
     /// Provides read-only access to the arena.
-    ///
-    /// Use this if you want to inspect nodes without modifying them.
-    ///
-    /// # Returns
-    /// A shared reference to the arena.
     pub fn borrow_arena(&self) -> std::cell::Ref<'_, SyntaxTree<AstNode>> {
         self.arena.borrow()
     }
 
     /// Provides mutable access to the arena.
     ///
-    /// Use this if you need to mutate nodes or the arena structure.
-    ///
     /// # Panics
     /// Panics if another borrow (mutable or immutable) is still active.
-    ///
-    /// # Returns
-    /// A mutable reference to the arena.
     pub fn borrow_arena_mut(&self) -> std::cell::RefMut<'_, SyntaxTree<AstNode>> {
         self.arena.borrow_mut()
     }
 
     /// Takes ownership of the arena and replaces it with a new empty arena.
-    ///
-    /// Use this to extract all allocated nodes after parsing.
-    ///
-    /// # Returns
-    /// The previous arena containing all nodes.
     pub fn take_arena(&self) -> SyntaxTree<AstNode> {
         std::mem::take(&mut *self.arena.borrow_mut())
     }
 
     /// Sets the root syntax ID in the arena.
     ///
-    /// # Arguments
-    /// * `root_id` - The ID of the syntax to set as root.
-    ///
     /// # Errors
-    /// Returns [`AiplanError`] if the syntax ID does not exist.
-    pub fn set_root_id(&self, root_id: NodeId) -> Result<(), SyntaxError> {
+    /// Returns [`ParseContextError`] if the syntax ID does not exist.
+    pub fn set_root_id(&self, root_id: NodeId) -> Result<(), ParseContextError> {
         self.arena.borrow_mut().set_root_id(root_id)?;
         Ok(())
     }
 
     /// Returns the ID of the root syntax, if any.
-    ///
-    /// # Returns
-    /// An `Option` containing the `NodeId` of the root syntax.
     pub fn root_id(&self) -> Option<NodeId> {
         self.arena.borrow().root_id()
     }
 
-    /// Allocates a new AST syntax in the arena.
-    ///
-    /// This inserts the syntax, updates all children to reference it as their parent,
-    /// and returns the newly assigned `NodeId`.
+    /// Allocates a new AST node in the arena.
     ///
     /// # Arguments
-    /// * `kind` - The kind of AST syntax.
-    /// * `content` - The syntax content.
-    /// * `children` - The list of child syntax IDs.
-    /// * `start` - Start offset in the input.
-    /// * `end` - End offset in the input.
+    /// - `kind` – The node kind.
+    /// - `content` – The AST content.
+    /// - `children` – Children nodes.
+    /// - `start` / `end` – Span positions.
     ///
     /// # Returns
-    /// The `NodeId` of the allocated syntax, or an error if allocation fails.
+    /// A `NodeId` if successful.
+    ///
+    /// # Errors
+    /// Returns [`ParseContextError`] if allocation or child update fails.
     pub fn alloc_node(
         &self,
         kind: AstKind,
@@ -151,24 +116,17 @@ impl ParseContext {
         children: Vec<NodeId>,
         start: usize,
         end: usize,
-    ) -> Result<NodeId, SyntaxError> {
+    ) -> Result<NodeId, ParseContextError> {
         let span = Span::new(start, end);
-
-        // 1) Create the syntax with the children (parent initially None)
         let node = AstNode::new(kind, content, children, span, None);
-
         let mut arena = self.arena.borrow_mut();
-
-        // 2) Allocate it and get its NodeId
         let node_id = arena.alloc(node);
 
-        // 3) Clone children list before releasing borrow
         let children_ids = {
             let stored = arena.try_node(node_id)?;
             stored.children().to_vec()
         };
 
-        // 4) Update each child to reference this syntax as parent
         for child in &children_ids {
             if let Some(child_node) = arena.get_node_mut(*child) {
                 child_node.set_parent(Some(node_id));
@@ -178,38 +136,28 @@ impl ParseContext {
         Ok(node_id)
     }
 
-    /// Merges the children of one `TypedList` syntax into another.
+    /// Merges the children of `next` into `typed_list`, updating parent links.
     ///
-    /// All children of `next` are moved into `typed_list` and updated
-    /// to have `typed_list` as their parent.
-    ///
-    /// # Arguments
-    /// * `typed_list` - The `NodeId` receiving the children.
-    /// * `next` - The `NodeId` whose children will be moved.
-    ///
-    /// # Returns
-    /// The updated `typed_list` `NodeId`.
+    /// # Errors
+    /// Returns [`ParseContextError`] if nodes cannot be accessed.
     pub fn merge_typed_list(
         &mut self,
         typed_list: NodeId,
         next: NodeId,
-    ) -> Result<NodeId, SyntaxError> {
+    ) -> Result<NodeId, ParseContextError> {
         let mut arena = self.borrow_arena_mut();
 
-        // 1) Drain children from `next`
         let next_children = {
             let next_node = arena.try_node_mut(next)?;
             std::mem::take(next_node.children_mut())
         };
 
         if !next_children.is_empty() {
-            // 2) Update parent references
             for child in &next_children {
                 let child_node = arena.try_node_mut(*child)?;
                 child_node.set_parent(Some(typed_list));
             }
 
-            // 3) Append them to `typed_list`
             let typed_list_node = arena.try_node_mut(typed_list)?;
             typed_list_node.children_mut().extend(next_children);
         }
@@ -217,81 +165,57 @@ impl ParseContext {
         Ok(typed_list)
     }
 
-    // String interner manipulation
-
-    /// Provides read-only access to the `StringInterner`.
-    ///
-    /// # Returns
-    /// A shared reference to the `StringInterner`.
-    pub fn borrow_interner(&self) -> std::cell::Ref<'_, StringInterner> {
-        self.interner.borrow()
-    }
-
-    /// Provides mutable access to the `StringInterner`.
-    ///
-    /// # Returns
-    /// A mutable reference to the `StringInterner`.
-    pub fn borrow_interner_mut(&self) -> std::cell::RefMut<'_, StringInterner> {
-        self.interner.borrow_mut()
-    }
-
-    /// Takes ownership of the current `StringInterner`, replacing it with a fresh one.
-    ///
-    /// # Returns
-    /// The previous `StringInterner`.
-    pub fn take_interner(&self) -> StringInterner {
-        std::mem::take(&mut *self.interner.borrow_mut())
-    }
+    // String interning
 
     /// Interns a string and returns its unique identifier.
     ///
-    /// # Arguments
-    /// * `s` - The string to intern.
+    /// If the string already exists, reuses its identifier.
     ///
-    /// # Returns
-    /// An `Ident` representing the interned string.
+    /// # Example
+    /// ```
+    /// let id1 = ctx.intern("var".to_string());
+    /// let id2 = ctx.intern("var".to_string());
+    /// assert_eq!(id1, id2);
+    /// ```
     pub fn intern(&self, s: String) -> Ident {
         self.interner.borrow_mut().intern(s)
     }
 
-    // Error management
+    pub fn borrow_interner(&self) -> std::cell::Ref<'_, StringInterner> {
+        self.interner.borrow()
+    }
 
-    /// Provides read-only access to the list of accumulated errors.
-    ///
-    /// # Returns
-    /// A shared reference to the error list.
+    pub fn borrow_interner_mut(&self) -> std::cell::RefMut<'_, StringInterner> {
+        self.interner.borrow_mut()
+    }
+
+    pub fn take_interner(&self) -> StringInterner {
+        std::mem::take(&mut *self.interner.borrow_mut())
+    }
+
+    // Error collection
+
+    /// Returns all accumulated recoverable errors (lexical/syntactic).
     pub fn borrow_errors(&self) -> std::cell::Ref<'_, Vec<ErrorRecovery<usize, Token, LexicalError>>> {
         self.errors.borrow()
     }
 
-    /// Provides mutable access to the list of accumulated errors.
-    ///
-    /// # Returns
-    /// A mutable reference to the error list.
+    /// Mutable access to accumulated errors.
     pub fn borrow_errors_mut(&self) -> std::cell::RefMut<'_, Vec<ErrorRecovery<usize, Token, LexicalError>>> {
         self.errors.borrow_mut()
     }
 
-    /// Returns `true` if any error has been recorded.
-    ///
-    /// # Returns
-    /// `true` if there are errors, `false` otherwise.
+    /// Returns `true` if errors have been recorded.
     pub fn has_errors(&self) -> bool {
         !self.errors.borrow().is_empty()
     }
 
-    /// Takes ownership of all errors, replacing the list with an empty vector.
-    ///
-    /// # Returns
-    /// The previous list of errors.
+    /// Clears and returns all recorded errors.
     pub fn take_errors(&self) -> Vec<ErrorRecovery<usize, Token, LexicalError>> {
         std::mem::take(&mut *self.errors.borrow_mut())
     }
 
-    /// Adds a new error to the error list.
-    ///
-    /// # Arguments
-    /// * `error` - The error to record.
+    /// Adds a new recoverable error to the list.
     pub fn push_error(&self, error: ErrorRecovery<usize, Token, LexicalError>) {
         self.errors.borrow_mut().push(error);
     }

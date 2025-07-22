@@ -78,22 +78,23 @@ pub mod span;
 pub mod ast;
 pub mod display;
 pub(crate) mod fast_line_table;
-pub mod parse_context;
 pub mod parser_result;
 pub mod lalrpop;
 pub mod error;
 pub mod tree;
+pub mod context;
 
+pub use ast::Ast;
+pub use context::ParseContext;
+pub use context::ParseContextError;
+pub use display::write_indent;
+pub use display::SyntaxDisplay;
+pub use error::SyntaxError;
+pub use fast_line_table::FastLineTable;
 pub use language::Language;
 pub use parser::Parser;
-pub use span::Span;
-pub use ast::Ast;
-pub use display::SyntaxDisplay;
-pub use display::write_indent;
-pub use fast_line_table::FastLineTable;
-pub use parse_context::ParseContext;
 pub use parser_result::ParserResult;
-pub use error::SyntaxError;
+pub use span::Span;
 
 
 pub use lalrpop::parse_hddl;

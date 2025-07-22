@@ -2,7 +2,6 @@ use lalrpop_util::ErrorRecovery;
 use lalrpop_util::ParseError;
 use ordered_float::OrderedFloat;
 
-
 use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
@@ -12,9 +11,10 @@ use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstContent;
-use crate::aiplan4rust::syntax::ParseContext;
-use crate::aiplan4rust::syntax::SyntaxError;
+use crate::aiplan4rust::syntax::context::ParseContext;
+use crate::aiplan4rust::syntax::context::ParseContextError;
 use crate::aiplan4rust::syntax::tree::NodeId;
+
 
 grammar<'ctx>(context: &'ctx mut ParseContext);
 
@@ -208,14 +208,14 @@ pub VarName : Result<AstContent, ()> = {
     },
 }
 
-pub Constant: Result<NodeId, SyntaxError> = {
+pub Constant: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::Constant, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     }
 }
 
-pub Variable: Result<NodeId, SyntaxError> = {
+pub Variable: Result<NodeId, ParseContextError> = {
     <start:@L> <name:VarName> <end:@R> => {
         match name {
             Ok(name) => context.alloc_node(AstKind::Variable, name, Vec::new(), start, end),
@@ -225,7 +225,7 @@ pub Variable: Result<NodeId, SyntaxError> = {
     <var:DurationVariable> => var,
 }
 
-pub FunctionSymbol: Result<NodeId, SyntaxError> = {
+pub FunctionSymbol: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
             Ok(name) => context.alloc_node(AstKind::FunctionSymbol, name, Vec::new(), start, end),
@@ -234,62 +234,62 @@ pub FunctionSymbol: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub Number: Result<NodeId, SyntaxError> = {
+pub Number: Result<NodeId, ParseContextError> = {
     <start:@L> <value:"number"> <end:@R> => {
         context.alloc_node(AstKind::Number, AstContent::Float(OrderedFloat(value)), Vec::new(), start, end)
     },
 }
 
-pub DomainName: Result<NodeId, SyntaxError> = {
+pub DomainName: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::DomainName, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
 
-pub ProblemName: Result<NodeId, SyntaxError> = {
+pub ProblemName: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::ProblemName, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
 
-pub PrimitiveType: Result<NodeId, SyntaxError> = {
+pub PrimitiveType: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::PrimitiveType, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
 
-pub Predicate: Result<NodeId, SyntaxError> = {
+pub Predicate: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::Predicate, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
 
-pub ActionSymbol: Result<NodeId, SyntaxError> = {
+pub ActionSymbol: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::ActionSymbol, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
 
-pub DASymbol: Result<NodeId, SyntaxError> = {
+pub DASymbol: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::DASymbol, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
 
-pub PrefName: Result<NodeId, SyntaxError> = {
+pub PrefName: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::PrefName, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     },
 }
 
-pub Requirement: Result<NodeId, SyntaxError> = {
+pub Requirement: Result<NodeId, ParseContextError> = {
     <start:@L> ":strips" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Strips), Vec::new(), start, end),
     <start:@L> ":typing" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Typing), Vec::new(), start, end),
     <start:@L> ":equality" <end:@R> => context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Equality), Vec::new(), start, end),
@@ -317,14 +317,14 @@ pub Requirement: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub RequireDef: Result<NodeId, SyntaxError> = {
+pub RequireDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":requirements" <requirements:Requirement*> ")" <end:@R> => {
         let requirements = requirements.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::RequireDef, AstContent::None, requirements, start, end)
     }
 }
 
-pub Type: Result<NodeId, SyntaxError> = {
+pub Type: Result<NodeId, ParseContextError> = {
     <start:@L> <ty:PrimitiveType> <end:@R> => {
         context.alloc_node(AstKind::Type, AstContent::None, vec![ty?], start, end)
     },
@@ -334,7 +334,7 @@ pub Type: Result<NodeId, SyntaxError> = {
     }
 }
 
-TypedList<T>: Result<NodeId, SyntaxError> = {
+TypedList<T>: Result<NodeId, ParseContextError> = {
     <start:@L> <elements:T*> <end:@R> => {
         let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
         if elements.is_empty() {
@@ -354,50 +354,50 @@ TypedList<T>: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub TypesDef: Result<NodeId, SyntaxError> = {
+pub TypesDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":types" <types:TypedList<PrimitiveType>> ")" <end:@R> => {
         context.alloc_node(AstKind::TypesDef, AstContent::None, vec![types?], start, end)
     }
 }
 
-pub ConstantsDef: Result<NodeId, SyntaxError> = {
+pub ConstantsDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":constants" <constants:TypedList<Constant>> ")" <end:@R> => {
         context.alloc_node(AstKind::ConstantsDef, AstContent::None, vec![constants?], start, end)
     }
 }
 
-pub PredicatesDef: Result<NodeId, SyntaxError> = {
+pub PredicatesDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":predicates" <predicates:AtomicFormulaSkeleton+> ")" <end:@R> => {
         let predicates = predicates.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::PredicatesDef, AstContent::None, predicates, start, end)
     }
 }
 
-pub AtomicFormulaSkeleton: Result<NodeId, SyntaxError> = {
+pub AtomicFormulaSkeleton: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <predicate:Predicate> <arguments:TypedList<Variable>> ")" <end:@R> => {
         context.alloc_node(AstKind::AtomicFormulaSkeleton, AstContent::None, vec![predicate?, arguments?], start, end)
     }
 }
 
-pub FunctionsDef: Result<NodeId, SyntaxError> = {
+pub FunctionsDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":functions" <functions:TypedList<AtomicFunctionSkeleton>> ")" <end:@R> => {
         context.alloc_node(AstKind::FunctionsDef, AstContent::None, vec![functions?], start, end)
     }
 }
 
-pub AtomicFunctionSkeleton:  Result<NodeId, SyntaxError> = {
+pub AtomicFunctionSkeleton:  Result<NodeId, ParseContextError> = {
     <start:@L> "(" <functor:FunctionSymbol> <arguments:TypedList<Variable>> ")" <end:@R> => {
         context.alloc_node(AstKind::AtomicFunctionSkeleton, AstContent::None, vec![functor?, arguments?], start, end)
     }
 }
 
-pub StructureDef: Result<NodeId, SyntaxError> = {
+pub StructureDef: Result<NodeId, ParseContextError> = {
     <action:ActionDef> => action,
     <derived:DerivedDef> => derived,
     <durative_action:DurativeActionDef> => durative_action,
 }
 
-pub ActionDef: Result<NodeId, SyntaxError> = {
+pub ActionDef: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" ":action"
             <name:ActionSymbol>
@@ -409,7 +409,7 @@ pub ActionDef: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub ParameterDef: Result<NodeId, SyntaxError> = {
+pub ParameterDef: Result<NodeId, ParseContextError> = {
     <start:@L>
        ":parameters" "(" <parameters:TypedList<Variable>> ")"
     <end:@R> => {
@@ -417,7 +417,7 @@ pub ParameterDef: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub ActionDefBody: Result<NodeId, SyntaxError> = {
+pub ActionDefBody: Result<NodeId, ParseContextError> = {
     <start:@L> <precondition:PreconditionDef?> <effect:EffectDef?> <end:@R> => {
         let mut children = Vec::new();
         if let Some(pre) = precondition {
@@ -430,33 +430,33 @@ pub ActionDefBody: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub PreconditionDef: Result<NodeId, SyntaxError> = {
+pub PreconditionDef: Result<NodeId, ParseContextError> = {
     <start:@L> ":precondition" <precondition:EmptyOr<PreGD>> <end:@R> => {
         context.alloc_node(AstKind::PreconditionDef, AstContent::None, vec![precondition?], start, end)
     }
 }
 
-pub EffectDef: Result<NodeId, SyntaxError> = {
+pub EffectDef: Result<NodeId, ParseContextError> = {
     <start:@L> ":effect" <effect:EmptyAnd<Effect>> <end:@R> => {
         context.alloc_node(AstKind::EffectDef, AstContent::None, vec![effect?], start, end)
     }
 }
 
-EmptyOr<T>: Result<NodeId, SyntaxError> = {
+EmptyOr<T>: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ")" <end:@R> => {
         context.alloc_node(AstKind::Or, AstContent::None, Vec::new(), start, end)
     },
     <start:@L> <element:T> <end:@R> => element,
 }
 
-EmptyAnd<T>: Result<NodeId, SyntaxError> = {
+EmptyAnd<T>: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ")" <end:@R> => {
         context.alloc_node(AstKind::And, AstContent::None, Vec::new(), start, end)
     },
     <start:@L> <element:T> <end:@R> => element,
 }
 
-pub PreGD: Result<NodeId, SyntaxError> = {
+pub PreGD: Result<NodeId, ParseContextError> = {
     <start:@L> <pref_gd:PrefGD> <end:@R> => pref_gd,
     <atom:AtomicFormula<Term>> => atom,
     <start:@L> "(" "and" <pre_gd:PreGD*> ")" <end:@R> => {
@@ -492,7 +492,7 @@ pub PreGD: Result<NodeId, SyntaxError> = {
     <fcomp:FComp> => fcomp,
 }
 
-pub PrefGD: Result<NodeId, SyntaxError> = {
+pub PrefGD: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "preference" <pref_name:PrefName?> <gd:GD> ")" <end:@R> => {
         let mut children = Vec::new();
         if let Some(pref_name) = pref_name {
@@ -503,7 +503,7 @@ pub PrefGD: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub GD: Result<NodeId, SyntaxError> = {
+pub GD: Result<NodeId, ParseContextError> = {
     <atom:AtomicFormula<Term>> => atom,
     <start:@L> "(" "and" <gd:GD*> ")" <end:@R> => {
         let gd = gd.into_iter().collect::<Result<Vec<_>, _>>()?;
@@ -538,7 +538,7 @@ pub GD: Result<NodeId, SyntaxError> = {
     <fcomp:FComp> => fcomp,
 }
 
-pub Effect: Result<NodeId, SyntaxError> = {
+pub Effect: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <effects:CEffect*> ")" <end:@R> => {
         let effects = effects.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::And, AstContent::None, effects, start, end)
@@ -546,7 +546,7 @@ pub Effect: Result<NodeId, SyntaxError> = {
     <effect:CEffect> => effect,
 }
 
-pub CEffect: Result<NodeId, SyntaxError> = {
+pub CEffect: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "forall"
             <start_var:@L> "(" <variables:TypedList<Variable>> ")" <end_var:@R>
@@ -561,14 +561,14 @@ pub CEffect: Result<NodeId, SyntaxError> = {
     <effect:PEffect> => effect,
 }
 
-pub PEffect: Result<NodeId, SyntaxError> = {
+pub PEffect: Result<NodeId, ParseContextError> = {
     <literal:Literal<Term>> => literal,
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexp:_FExp> ")" <end:@R> => {
         context.alloc_node(AstKind::Assign, op, vec![fhead?, fexp?], start, end)
     },
 }
 
-pub CondEffect: Result<NodeId, SyntaxError> = {
+pub CondEffect: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <effects:PEffect*> ")" <end:@R> => {
         let effects = effects.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::And, AstContent::None, effects, start, end)
@@ -576,7 +576,7 @@ pub CondEffect: Result<NodeId, SyntaxError> = {
     <effect:PEffect> => effect,
 }
 
-pub Term: Result<NodeId, SyntaxError> = {
+pub Term: Result<NodeId, ParseContextError> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
             context.alloc_node(AstKind::Constant, AstContent::Ident(context.intern(name)), Vec::new(), start, end)
@@ -588,11 +588,11 @@ pub Term: Result<NodeId, SyntaxError> = {
     <function:FunctionTerm> => function,
 }
 
-pub FunctionTerm: Result<NodeId, SyntaxError> = {
+pub FunctionTerm: Result<NodeId, ParseContextError> = {
     <function_term:_FunctionTerm<Term>> => function_term,
 }
 
-_FunctionTerm<T>: Result<NodeId, SyntaxError> = {
+_FunctionTerm<T>: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <function_symbol:FunctionSymbol> <arguments:T*> ")" <end:@R> => {
         let arguments = arguments.into_iter().collect::<Result<Vec<_>, _>>()?;
         let mut children = Vec::new();
@@ -602,7 +602,7 @@ _FunctionTerm<T>: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub FComp: Result<NodeId, SyntaxError> = {
+pub FComp: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <comparator:BinaryComp> <arg1:_FExp> <arg2:_FExp> ")" <end:@R> => {
         context.alloc_node(AstKind::FComp, comparator, vec![arg1?, arg2?], start, end)
     }
@@ -631,14 +631,14 @@ pub ArithmeticOp : AstContent = {
     "*" =>AstContent::ArithmeticOp(ArithmeticOp::Mul),
 }
 
-Literal<T>: Result<NodeId, SyntaxError> = {
+Literal<T>: Result<NodeId, ParseContextError> = {
     <atom:AtomicFormula<T>> => atom,
     <start:@L> "(" "not" <atom:AtomicFormula<T>> ")" <end:@R> => {
         context.alloc_node(AstKind::Not, AstContent::None, vec![atom?], start, end)
     }
 }
 
-AtomicFormula<T>: Result<NodeId, SyntaxError> = {
+AtomicFormula<T>: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <predicate:Predicate> <terms:T*> ")" <end:@R> => {
         let terms = terms.into_iter().collect::<Result<Vec<_>, _>>()?;
         let mut children = Vec::new();
@@ -648,7 +648,7 @@ AtomicFormula<T>: Result<NodeId, SyntaxError> = {
     }
 }
 
-_FExp: Result<NodeId, SyntaxError> = {
+_FExp: Result<NodeId, ParseContextError> = {
     <term:Term> => term,
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:_FExp> <arg2:_FExp?> ")" <end:@R> => {
@@ -678,7 +678,7 @@ _FExp: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub FExp: Result<NodeId, SyntaxError> = {
+pub FExp: Result<NodeId, ParseContextError> = {
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:FExp> <arg2:FExp?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -708,7 +708,7 @@ pub FExp: Result<NodeId, SyntaxError> = {
     <fhead:FHead> => fhead,
 }
 
-pub FExpDA: Result<NodeId, SyntaxError> = {
+pub FExpDA: Result<NodeId, ParseContextError> = {
     <number:Number> => number,
     <start:@L> "(" "-" <arg1:FExpDA> <arg2:FExpDA?> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -740,20 +740,20 @@ pub FExpDA: Result<NodeId, SyntaxError> = {
     <duration:DurationVariable> => duration,
 }
 
-pub FHead: Result<NodeId, SyntaxError> = {
+pub FHead: Result<NodeId, ParseContextError> = {
     <function:FunctionTerm> => function,
     <start:@L> <symbol:FunctionSymbol> <end:@R> => {
         context.alloc_node(AstKind::FunctionTerm, AstContent::None, vec![symbol?], start, end)
     }
 }
 
-pub Constraints: Result<NodeId, SyntaxError> = {
+pub Constraints: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":constraints" <con_gd:ConGD> ")" <end:@R> => {
         context.alloc_node(AstKind::Constraints, AstContent::None, vec![con_gd?], start, end)
     }
 }
 
-pub ConGD: Result<NodeId, SyntaxError> = {
+pub ConGD: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <con_gd:ConGD*> ")" <end:@R> => {
         let con_gd = con_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::And, AstContent::None, con_gd, start, end)
@@ -798,13 +798,13 @@ pub ConGD: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub DerivedDef: Result<NodeId, SyntaxError> = {
+pub DerivedDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":derived" <atom:AtomicFormulaSkeleton> <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::DerivedDef, AstContent::None, vec![atom?, gd?], start, end)
     }
 }
 
-pub DurativeActionDef: Result<NodeId, SyntaxError> = {
+pub DurativeActionDef: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" ":durative-action" <name:DASymbol>
         <parameters:ParameterDef>
@@ -814,7 +814,7 @@ pub DurativeActionDef: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub DADefBody: Result<NodeId, SyntaxError> = {
+pub DADefBody: Result<NodeId, ParseContextError> = {
     <start:@L>
         ":duration" <constraint:DurationConstraint>
         ":condition" <condition:EmptyOr<DAGD>>
@@ -824,7 +824,7 @@ pub DADefBody: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub DurationConstraint: Result<NodeId, SyntaxError> = {
+pub DurationConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <constraints:SimpleDurationConstraint*> ")" <end:@R> => {
         let constraints = constraints.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::And, AstContent::None, constraints, start, end)
@@ -835,7 +835,7 @@ pub DurationConstraint: Result<NodeId, SyntaxError> = {
     <constraint:SimpleDurationConstraint> => constraint,
 }
 
-pub SimpleDurationConstraint: Result<NodeId, SyntaxError> = {
+pub SimpleDurationConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <op:DOp> <var:DurationVariable> <value:DValue> ")" <end:@R> => {
         context.alloc_node(AstKind::FComp, op, vec![var?, value?], start, end)
     },
@@ -847,7 +847,7 @@ pub SimpleDurationConstraint: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub DurationVariable: Result<NodeId, SyntaxError> = {
+pub DurationVariable: Result<NodeId, ParseContextError> = {
     <start:@L> <var:"?duration"> <end:@R> => {
         context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), vec![], start, end)
     }
@@ -859,11 +859,11 @@ pub DOp : AstContent = {
     "=" =>AstContent::BinaryComp(BinaryComp::Equal),
 }
 
-pub DValue: Result<NodeId, SyntaxError> = {
+pub DValue: Result<NodeId, ParseContextError> = {
     <fexp:FExp> => fexp,
 }
 
-pub DAGD: Result<NodeId, SyntaxError> = {
+pub DAGD: Result<NodeId, ParseContextError> = {
     <pref_timed_gd:PrefTimedGD> => pref_timed_gd,
     <start:@L> "(" "and" <da_gd:DAGD*> ")" <end:@R> => {
         let da_gd = da_gd.into_iter().collect::<Result<Vec<_>, _>>()?;
@@ -879,7 +879,7 @@ pub DAGD: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub PrefTimedGD: Result<NodeId, SyntaxError> = {
+pub PrefTimedGD: Result<NodeId, ParseContextError> = {
     <timed_gd:TimedGD> => timed_gd,
     <start:@L> "(" "preference" <pref_name:PrefName?> <timed_gd:TimedGD> ")" <end:@R> => {
         let mut children = Vec::new();
@@ -891,7 +891,7 @@ pub PrefTimedGD: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub TimedGD: Result<NodeId, SyntaxError> = {
+pub TimedGD: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "at start" <gd:GD> ")" <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![gd?], start, end)
     },
@@ -903,7 +903,7 @@ pub TimedGD: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub DAEffect: Result<NodeId, SyntaxError> = {
+pub DAEffect: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "and" <da_effect:DAEffect*> ")" <end:@R> => {
         let da_effect = da_effect.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::And, AstContent::None, da_effect, start, end)
@@ -922,7 +922,7 @@ pub DAEffect: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub TimedEffect: Result<NodeId, SyntaxError> = {
+pub TimedEffect: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "at start" <con_effect:CondEffect> ")" <end:@R> => {
         context.alloc_node(AstKind::AtStart, AstContent::None, vec![con_effect?], start, end)
     },
@@ -934,7 +934,7 @@ pub TimedEffect: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub FAssignDA: Result<NodeId, SyntaxError> = {
+pub FAssignDA: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <op:AssignOp> <fhead:FHead> <fexpda:FExpDA> ")" <end:@R> => {
         context.alloc_node(AstKind::Assign, op, vec![fhead?, fexpda?], start, end)
     },
@@ -945,7 +945,7 @@ pub AssignOpT : AstContent = {
     "decrease" =>AstContent::AssignOp(AssignOp::Decrease),
 }
 
-pub FExpT: Result<NodeId, SyntaxError> = {
+pub FExpT: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "*" <fexp:FExp> <var:ContinusVariable> ")" <end:@R> => {
         context.alloc_node(AstKind::Operation, AstContent::ArithmeticOp(ArithmeticOp::Mul), vec![fexp?, var?], start, end)
     },
@@ -955,13 +955,13 @@ pub FExpT: Result<NodeId, SyntaxError> = {
     <var:ContinusVariable> => var,
 }
 
-pub ContinusVariable: Result<NodeId, SyntaxError> = {
+pub ContinusVariable: Result<NodeId, ParseContextError> = {
     <start:@L> <var:"#t"> <end:@R> => {
         context.alloc_node(AstKind::Variable, AstContent::Ident(context.intern(var.to_string())), Vec::new(), start, end)
     }
 }
 
-pub Domain: Result<NodeId, SyntaxError> = {
+pub Domain: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
             <require_def:RequireDef?>
@@ -999,18 +999,18 @@ pub Domain: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub ObjectsDef: Result<NodeId, SyntaxError> = {
+pub ObjectsDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":objects" <objects:TypedList<Constant>> ")" <end:@R> => {
         context.alloc_node(AstKind::ObjectsDef, AstContent::None, vec![objects?], start, end)
     }
 }
 
-pub BasicFunctionTerm : Result<NodeId, SyntaxError> = {
+pub BasicFunctionTerm : Result<NodeId, ParseContextError> = {
     <function:FunctionTerm> => function,
     <symbol:FunctionSymbol> => symbol,
 }
 
-pub InitEl: Result<NodeId, SyntaxError> = {
+pub InitEl: Result<NodeId, ParseContextError> = {
     <literal:Literal<Constant>> => literal,
     <start:@L> "(" <number:Number> <literal:Literal<Constant>> ")" <end:@R> => {
         context.alloc_node(AstKind::TimedInitialLiteral, AstContent::None, vec![number?, literal?], start, end)
@@ -1023,7 +1023,7 @@ pub InitEl: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub Init: Result<NodeId, SyntaxError> = {
+pub Init: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":init" <init_els:InitEl*> ")" <end:@R> => {
         // Add and expression to uniformize
         let init_els = init_els.into_iter().collect::<Result<Vec<_>, _>>()?;
@@ -1032,7 +1032,7 @@ pub Init: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub Goal: Result<NodeId, SyntaxError> = {
+pub Goal: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":goal" <pre_gd:PreGD> ")" <end:@R> => {
         let children = vec![pre_gd?];
         context.alloc_node(AstKind::Goal, AstContent::None, children, start, end)
@@ -1044,7 +1044,7 @@ pub Optimization : AstContent = {
     "maximize" => AstContent::Optimization(Optimization::Maximize),
 }
 
-pub MetricFExp: Result<NodeId, SyntaxError> = {
+pub MetricFExp: Result<NodeId, ParseContextError> = {
     <number:Number> => number,
     <function:_FunctionTerm<Constant>> => function,
     <start:@L> <symbol:FunctionSymbol> <end:@R> => {
@@ -1080,13 +1080,13 @@ pub MetricFExp: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub MetricSpec: Result<NodeId, SyntaxError> = {
+pub MetricSpec: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":metric" <op:Optimization> <fexp:MetricFExp> ")" <end:@R> => {
         context.alloc_node(AstKind::Metric, op, vec![fexp?], start, end)
     },
 }
 
-pub LengthSpec: Result<NodeId, SyntaxError> = {
+pub LengthSpec: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" ":length"
             <start_serial:@L> "(" ":serial" <serial_value:"number"?> ")" <end_serial:@R>
@@ -1106,7 +1106,7 @@ pub LengthSpec: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub Problem: Result<NodeId, SyntaxError> = {
+pub Problem: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "define" "(" "problem" <problem:ProblemName> ")"
         "(" ":domain" <domain:DomainName> ")"
@@ -1143,7 +1143,7 @@ pub Problem: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub PDDL: Result<NodeId, SyntaxError> = {
+pub PDDL: Result<NodeId, ParseContextError> = {
     <domain:Domain> => domain,
     <problem:Problem> => problem,
 }
@@ -1152,7 +1152,7 @@ pub PDDL: Result<NodeId, SyntaxError> = {
 // HDDL Dialect
 ///////////////////////////////////////////////////////////////////////////////////////////////
 
-pub TaskSymbol: Result<NodeId, SyntaxError> = {
+pub TaskSymbol: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
             Ok(name) => context.alloc_node(AstKind::TaskSymbol, name, Vec::new(), start, end),
@@ -1161,13 +1161,13 @@ pub TaskSymbol: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub TaskDef: Result<NodeId, SyntaxError> = {
+pub TaskDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":task" <symbol:TaskSymbol> <parameters:ParameterDef> ")" <end:@R> => {
         context.alloc_node(AstKind::TaskDef, AstContent::None, vec![symbol?, parameters?], start, end)
     },
 }
 
-pub MethodSymbol: Result<NodeId, SyntaxError> = {
+pub MethodSymbol: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => {
         match name {
             Ok(name) => context.alloc_node(AstKind::MethodSymbol, name, Vec::new(), start, end),
@@ -1176,14 +1176,14 @@ pub MethodSymbol: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub TaskID: Result<NodeId, SyntaxError> = {
+pub TaskID: Result<NodeId, ParseContextError> = {
     <start:@L> <name:Name> <end:@R> => match name {
         Ok(name) => context.alloc_node(AstKind::TaskID, name, Vec::new(), start, end),
         Err(_) => context.alloc_node(AstKind::Error, AstContent::None, Vec::new(), start, end),
     }
 }
 
-pub TaskTerm: Result<NodeId, SyntaxError> = {
+pub TaskTerm: Result<NodeId, ParseContextError> = {
     <start:@L> <name:"id"> <end:@R> => {
         if !name.starts_with("?") {
             context.alloc_node(AstKind::Constant, AstContent::Ident(context.intern(name.to_string())), Vec::new(), start, end)
@@ -1193,7 +1193,7 @@ pub TaskTerm: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub Task: Result<NodeId, SyntaxError> = {
+pub Task: Result<NodeId, ParseContextError> = {
     <start:@L> "(" <symbol:TaskSymbol> <terms:TaskTerm*> ")" <end:@R> => {
         let terms = terms.into_iter().collect::<Result<Vec<_>, _>>()?;
         let mut children = Vec::new();
@@ -1203,7 +1203,7 @@ pub Task: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub Subtask: Result<NodeId, SyntaxError> = {
+pub Subtask: Result<NodeId, ParseContextError> = {
     "(" <start_name:@L> <name:Name> <end_name:@R> <rest:SubtaskRest> <end_rest:@R> => {
         let rest = rest?;
         match name {
@@ -1233,7 +1233,7 @@ pub Subtask: Result<NodeId, SyntaxError> = {
     }
 }
 
-SubtaskRest: Result<Vec<NodeId>, SyntaxError> = {
+SubtaskRest: Result<Vec<NodeId>, ParseContextError> = {
     <start:@L> "(" <task_symbol:TaskSymbol> <terms:TaskTerm*> ")" ")" <end:@R> => {
         let terms = terms.into_iter().collect::<Result<Vec<_>, _>>()?;
         let mut children = Vec::new();
@@ -1246,7 +1246,7 @@ SubtaskRest: Result<Vec<NodeId>, SyntaxError> = {
         Ok(terms)
     }
 }
-pub SubtaskDef: Result<NodeId, SyntaxError> = {
+pub SubtaskDef: Result<NodeId, ParseContextError> = {
     <start:@L> <subtask:Subtask> <end:@R> => {
         context.alloc_node(AstKind::And, AstContent::None, vec![subtask?], start, end)
     },
@@ -1259,7 +1259,7 @@ pub SubtaskDef: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub TaskNetworkSubtaskDef: Result<NodeId, SyntaxError> = {
+pub TaskNetworkSubtaskDef: Result<NodeId, ParseContextError> = {
     <start:@L> ":ordered-tasks" <subtasks:SubtaskDef> <end:@R> => {
         context.alloc_node(AstKind::OrderedSubtaskDef, AstContent::None, vec![subtasks?], start, end)
     },
@@ -1274,13 +1274,13 @@ pub TaskNetworkSubtaskDef: Result<NodeId, SyntaxError> = {
     }
 }
 
-pub SimpleTaskOrderingConstraint: Result<NodeId, SyntaxError> = {
+pub SimpleTaskOrderingConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "<" <t1:TaskID> <t2:TaskID> ")" <end:@R> => {
         context.alloc_node(AstKind::TaskOrderingConstraint, AstContent::BinaryComp(BinaryComp::Less), vec![t1?, t2?], start, end)
     }
 }
 
-pub TaskOrderingConstraint: Result<NodeId, SyntaxError> = {
+pub TaskOrderingConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> <constraint:SimpleTaskOrderingConstraint> <end:@R> => {
         context.alloc_node(AstKind::And, AstContent::None, vec![constraint?], start, end)
     },
@@ -1293,7 +1293,7 @@ pub TaskOrderingConstraint: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub TaskNetworkOrderingConstraintDef: Result<NodeId, SyntaxError> = {
+pub TaskNetworkOrderingConstraintDef: Result<NodeId, ParseContextError> = {
     <start:@L> ":ordering" <constraints:TaskOrderingConstraint> <end:@R> => {
         context.alloc_node(AstKind::TaskOrderingConstraintDef, AstContent::None, vec![constraints?], start, end)
     },
@@ -1302,7 +1302,7 @@ pub TaskNetworkOrderingConstraintDef: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub SimpleTaskLogicalConstraint: Result<NodeId, SyntaxError> = {
+pub SimpleTaskLogicalConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" "=" <t1:Term> <t2:Term> ")" <end:@R> => {
         context.alloc_node(AstKind::FComp, AstContent::BinaryComp(BinaryComp::Equal), vec![t1?, t2?], start, end)
     },
@@ -1311,7 +1311,7 @@ pub SimpleTaskLogicalConstraint: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub TaskLogicalConstraint: Result<NodeId, SyntaxError> = {
+pub TaskLogicalConstraint: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ")" <end:@R> => {
         context.alloc_node(AstKind::And, AstContent::None, Vec::new(), start, end)
     },
@@ -1324,13 +1324,13 @@ pub TaskLogicalConstraint: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub TaskNetworkLogicalConstraintDef: Result<NodeId, SyntaxError> = {
+pub TaskNetworkLogicalConstraintDef: Result<NodeId, ParseContextError> = {
     <start:@L> ":constraints" <constraint:TaskLogicalConstraint> <end:@R> => {
         context.alloc_node(AstKind::TaskLogicalConstraintDef, AstContent::None, vec![constraint?], start, end)
     },
 }
 
-pub TaskNetworkDef: Result<NodeId, SyntaxError> = {
+pub TaskNetworkDef: Result<NodeId, ParseContextError> = {
     <start:@L>
         <subtasks:TaskNetworkSubtaskDef?>
         <ordering_constraints:TaskNetworkOrderingConstraintDef?>
@@ -1350,19 +1350,19 @@ pub TaskNetworkDef: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub MethodPreconditionDef: Result<NodeId, SyntaxError> = {
+pub MethodPreconditionDef: Result<NodeId, ParseContextError> = {
     <start:@L> ":precondition" <gd:EmptyOr<GD>> <end:@R> => {
         context.alloc_node(AstKind::MethodPreconditionDef, AstContent::None, vec![gd?], start, end)
     },
 }
 
-pub MethodDef: Result<NodeId, SyntaxError> = {
+pub MethodDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":method" <name:MethodSymbol> <parameters:ParameterDef> <body:MethodDefBody> ")" <end:@R> => {
         context.alloc_node(AstKind::MethodDef, AstContent::None, vec![name?, parameters?, body?], start, end)
     },
 }
 
-pub MethodDefBody: Result<NodeId, SyntaxError> = {
+pub MethodDefBody: Result<NodeId, ParseContextError> = {
     <start:@L>
         ":task" <task:Task>
         <precondition:MethodPreconditionDef?>
@@ -1377,7 +1377,7 @@ pub MethodDefBody: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub InitialTaskNetwork: Result<NodeId, SyntaxError> = {
+pub InitialTaskNetwork: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":htn" <parameters:ParameterDef?> <task_network:TaskNetworkDef> ")" <end:@R> => {
         let mut children = Vec::new();
         if let Some(parameters) = parameters {
@@ -1388,7 +1388,7 @@ pub InitialTaskNetwork: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub HDDLRequirement: Result<NodeId, SyntaxError> = {
+pub HDDLRequirement: Result<NodeId, ParseContextError> = {
     <requirement:Requirement> => requirement,
     <start:@L> ":hierarchy" <end:@R> => {
         context.alloc_node(AstKind::Requirement, AstContent::Requirement(Requirement::Hierarchy), Vec::new(), start, end)
@@ -1398,14 +1398,14 @@ pub HDDLRequirement: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub HDDLRequireDef: Result<NodeId, SyntaxError> = {
+pub HDDLRequireDef: Result<NodeId, ParseContextError> = {
     <start:@L> "(" ":requirements" <requirements:HDDLRequirement*> ")" <end:@R> => {
         let requirements = requirements.into_iter().collect::<Result<Vec<_>, _>>()?;
         context.alloc_node(AstKind::RequireDef, AstContent::None, requirements, start, end)
     },
 }
 
-pub HDDLStructureDef: Result<NodeId, SyntaxError> = {
+pub HDDLStructureDef: Result<NodeId, ParseContextError> = {
     <action:ActionDef> => action,
     <derived:DerivedDef> => derived,
     <durative_action:DurativeActionDef> => durative_action,
@@ -1413,7 +1413,7 @@ pub HDDLStructureDef: Result<NodeId, SyntaxError> = {
     <method:MethodDef> => method,
 }
 
-pub HDDLDomain: Result<NodeId, SyntaxError> = {
+pub HDDLDomain: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
             <require_def:HDDLRequireDef?>
@@ -1447,7 +1447,7 @@ pub HDDLDomain: Result<NodeId, SyntaxError> = {
     },
 }
 
-pub HDDLProblem : Result<NodeId, SyntaxError> = {
+pub HDDLProblem : Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "define" "(" "problem" <problem_name:ProblemName> ")"
         "(" ":domain" <domain_name:DomainName> ")"
@@ -1476,7 +1476,7 @@ pub HDDLProblem : Result<NodeId, SyntaxError> = {
     },
 }
 
-pub HDDL: Result<NodeId, SyntaxError> = {
+pub HDDL: Result<NodeId, ParseContextError> = {
     <domain:HDDLDomain> => domain,
     <problem:HDDLProblem> => problem,
 }

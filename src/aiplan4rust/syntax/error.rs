@@ -4,6 +4,7 @@ use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::AstError;
+use crate::aiplan4rust::syntax::context::ParseContextError;
 
 #[derive(Debug, Error)]
 pub enum SyntaxError {
@@ -12,6 +13,9 @@ pub enum SyntaxError {
 
     #[error("Ast error: {0}")]
     Ast(#[from] AstError),
+
+    #[error("ParserContext error: {0}")]
+    ParseContext(#[from] ParseContextError),
 
     #[error("Arena error: {0}")]
     Arena(#[from] ArenaError),

@@ -1,4 +1,4 @@
-use std::fmt::{self, Write};
+use std::fmt;
 use crate::aiplan4rust::syntax::ast::AstNode;
 
 pub fn render(
