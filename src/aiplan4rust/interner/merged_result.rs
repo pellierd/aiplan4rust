@@ -1,3 +1,30 @@
+//! Utilities for merging [`StringInterner`] instances and managing identifier mappings.
+//!
+//! This module provides the [`InternerMergeResult`] type, which encapsulates
+//! the result of merging two [`StringInterner`]s — typically a domain and a problem interner.
+//!
+//! # Purpose
+//!
+//! When working with multiple interners representing different scopes (e.g., domain and problem),
+//! it is often necessary to combine them into a single unified interner for global consistency.
+//! This module supports that by merging strings and providing a mapping from problem identifiers
+//! to their corresponding identifiers in the merged global interner.
+//!
+//! # Main type
+//!
+//! - [`InternerMergeResult`]: Holds the merged interner and a mapping from problem [`Ident`]
+//!   to global [`Ident`], enabling translation between the two contexts.
+//!
+//! # Example
+//!
+//! ```ignore
+//! let merged = InternerMergeResult::from_domain_and_problem(&domain_interner, &problem_interner);
+//! println!("Merged interner has {} strings", merged.interner().len());
+//! if let Some(global_id) = merged.problem_ident_map().get(&problem_id) {
+//!     println!("Problem id {:?} maps to global id {:?}", problem_id, global_id);
+//! }
+//! ```
+
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
 

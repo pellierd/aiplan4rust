@@ -1,7 +1,51 @@
+//! String interning implementation using a pool and an index map.
+//!
+//! This module defines the [`StringInterner`] struct, which efficiently stores
+//! unique strings by assigning each a unique numeric index. It is designed to
+//! reduce memory usage and speed up string equality checks by avoiding repeated
+//! string allocations and using fast numeric lookups instead.
+//!
+//! # Interning Mechanism
+//!
+//! Interned strings are stored in a vector (`string_pool`) as owned boxed strings (`Box<str>`).
+//! These boxed strings are leaked to obtain `'static` lifetime references, which serve
+//! as keys in a hashmap (`string_index`) mapping from `&'static str` to unique indices.
+//!
+//! # Features
+//!
+//! - Avoids duplicate storage of strings by returning indices for repeated strings.
+//! - Enables fast retrieval of interned strings by their indices.
+//! - Supports serialization and deserialization through Serde:
+//!   - On serialization, only the string pool is saved.
+//!   - On deserialization, the index map is rebuilt from the pool.
+//!
+//! # Usage Example
+//!
+//! ```rust
+//! # use your_crate::StringInterner;
+//! let mut interner = StringInterner::new();
+//! let id1 = interner.intern("hello".to_string());
+//! let id2 = interner.intern("world".to_string());
+//! assert_eq!(interner.get_str(id1), Some("hello"));
+//! assert_eq!(interner.get_str(id2), Some("world"));
+//! ```
+//!
+//! # Memory Considerations
+//!
+//! Interned strings are leaked to provide `'static` references, meaning memory
+//! is not reclaimed until the interner itself is dropped. This design is
+//! appropriate for long-lived interners or use cases where leaked memory is acceptable.
+//!
+//! # Display
+//!
+//! Implements the `Display` trait to output all interned strings, joined by commas,
+//! which is useful for debugging and inspection.
+//!
+
 use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::interner::error::InternerError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
@@ -161,7 +205,6 @@ impl StringInterner {
         interner.intern_reserved(DURATION_VARIABLE); // index 2
         interner.intern_reserved(TOTAL_TIME);        // index 3
 
-
         interner
     }
 
@@ -244,13 +287,14 @@ impl StringInterner {
     pub fn resolve(&self, ident: Ident) -> Option<&str> {
         self.string_pool.get(ident.as_usize()).map(|s| s.as_ref())
     }
+
     /// Returns the interned string associated with the given `Ident`.
     ///
     /// If the `Ident` is valid and corresponds to a stored string, returns
     /// `Ok(&str)` referencing the interned string slice.
     ///
-    /// If the `Ident` is invalid (e.g., out of bounds), returns a
-    /// `ParserInternalError` with a descriptive error message.
+    /// If the `Ident` is invalid (e.g., out of bounds), returns an
+    /// [`InternerError::InvalidIdent`] with a descriptive error message.
     ///
     /// # Arguments
     ///
@@ -258,31 +302,31 @@ impl StringInterner {
     ///
     /// # Errors
     ///
-    /// Returns `Err(ParserInternalError)` if the `Ident` is not valid for this interner.
+    /// Returns `Err(InternerError)` if the `Ident` is not valid for this interner.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// # use your_crate::{StringInterner, Ident, ParserInternalError};
+    /// # use your_crate::{StringInterner, Ident, InternerError};
     /// let mut interner = StringInterner::new();
     /// let id = interner.intern("example".to_string());
-    /// assert_eq!(interner.expect_str(id).unwrap(), "example");
+    /// assert_eq!(interner.try_resolve(id).unwrap(), "example");
     ///
     /// let invalid_id = Ident::new(9999);
-    /// assert!(interner.expect_str(invalid_id).is_err());
+    /// assert!(interner.try_resolve(invalid_id).is_err());
     /// ```
     ///
-    pub fn try_resolve(&self, ident: Ident) -> Result<&str, AiplanError> {
+    pub fn try_resolve(&self, ident: Ident) -> Result<&str, InternerError> {
         self.resolve(ident).ok_or_else(|| {
-            AiplanError::InternalError(format!(
-                "Invalid Ident {}: out of bounds for interner size {}",
-                ident.as_usize(),
-                self.string_pool.len()
-            ))
+            InternerError::InvalidIdent {
+                ident_index: ident.as_usize(),
+                interner_size: self.string_pool.len(),
+            }
         })
     }
 
-    // Lookup an interned string and get its Ident if it exists (no insertion).
+
+    /// Lookup an interned string and get its Ident if it exists (no insertion).
     pub fn lookup(&self, s: &str) -> Option<Ident> {
         self.string_index.get(s).copied().map(Ident::new)
     }
