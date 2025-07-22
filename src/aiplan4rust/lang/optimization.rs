@@ -1,3 +1,21 @@
+//! Module defining the `Optimization` enum used to represent optimization goals
+//! in a planning or constraint-solving context.
+//!
+//! This module provides a simple abstraction over optimization directives commonly
+//! used in domain-specific languages or IRs (Intermediate Representations). Specifically,
+//! it supports three states:
+//! - `None`: No optimization is specified.
+//! - `Minimize`: Indicates that the system should minimize a given objective.
+//! - `Maximize`: Indicates that the system should maximize a given objective.
+//!
+//! The enum is designed to integrate easily with parsing (e.g., from PDDL keywords
+//! like `:minimize` or `:maximize`), as well as serialization formats like JSON.
+//!
+//! It derives common utility traits such as `Clone`, `Copy`, `Debug`, `Eq`, `Hash`,
+//! and also supports serialization through Serde.
+//!
+//! This type is typically used in goal representations, metric definitions, or solver configurations.
+
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
 use crate::aiplan4rust::syntax::SyntaxDisplay;

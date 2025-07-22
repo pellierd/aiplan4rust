@@ -1,13 +1,29 @@
-use std::fmt;
-use std::fmt::Formatter;
-use once_cell::sync::Lazy;
-use serde::{Serialize, Deserialize};
+//! Module defining the `Type` abstraction for planning problem intermediate representation (IR).
+//!
+//! This module provides a representation of types as non-empty lists of atomic identifiers,
+//! supporting both simple atomic types and union types (referred to as `either` in PDDL).
+//!
+//! The design enables efficient and flexible modeling of type expressions commonly found
+//! in planning domain definitions, where a type can be:
+//! - A single atomic type (e.g., `vehicle`)
+//! - A union of multiple atomic types (e.g., `either car truck`)
+//!
+//! The internal representation uses a flat vector of `Ident` to store the constituent atomic types,
+//! simplifying processing while preserving expressiveness.
+//!
+//! Typical usage includes parsing, type checking, and semantic analysis of planning domain languages.
+
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::{AstNode, FromAst};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
+
+use std::fmt;
+use std::fmt::Formatter;
+use once_cell::sync::Lazy;
+use serde::{Serialize, Deserialize};
 
 /// Represents a type in a planning problem IR.
 ///
@@ -319,7 +335,6 @@ impl SyntaxDisplay for Type {
         }
     }
 }
-
 
 impl FromAst for Type {
     /// Constructs a [`Type`] from an [`AstNode`] representing a collection of type identifiers.

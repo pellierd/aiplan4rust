@@ -1,3 +1,28 @@
+//! # PDDL and HDDL Requirements Enumeration
+//!
+//! This module defines the `Requirement` enum, representing the various features
+//! a PDDL (Planning Domain Definition Language) domain or problem can require.
+//!
+//! Each variant corresponds to a specific PDDL feature declared via the `:requirements`
+//! keyword, affecting the language constructs allowed in the domain/problem definition.
+//!
+//! The enum supports:
+//! - Checking implied atomic requirements (`imply` method).
+//! - Converting to static string representations (`as_str`).
+//! - Standard formatting with `Display`.
+//! - Formatting with an interner via `InternerDisplay` (trivial pass-through here).
+//! - Pretty-printing for planning syntax with indentation (`SyntaxDisplay`).
+//!
+//! # Example
+//!
+//! ```rust
+//! use your_crate::Requirement;
+//!
+//! let req = Requirement::Strips;
+//! assert_eq!(req.as_str(), "strips");
+//! println!("{}", req); // prints "strips"
+//! ```
+
 use crate::aiplan4rust::syntax::lexer::token::ACTION_COSTS;
 use crate::aiplan4rust::syntax::lexer::token::ADL;
 use crate::aiplan4rust::syntax::lexer::token::CONDITIONAL_EFFECTS;
@@ -29,11 +54,12 @@ use serde::Serialize;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// # PDDL Requirements Enum
+/// # PDDL and HDDL Requirements Enum
 ///
 /// The `Requirement` enum represents the various features that a PDDL (Planning Domain Definition
-/// Language) domain or problem can declare using the `:requirements` keyword. Each variant
-/// corresponds to a specific feature that influences the expressiveness of the planning formalism.
+/// Language) or HDDL (Hierarchical Domain Definition Language) domain or problem can declare using
+/// the `:requirements` keyword. Each variant corresponds to a specific feature that influences the
+/// expressiveness of the planning formalism.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Requirement {
     /// Represents the basic STRIPS formalism, which supports only add and delete effects.

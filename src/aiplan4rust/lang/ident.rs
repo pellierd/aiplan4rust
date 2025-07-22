@@ -1,6 +1,56 @@
+//! Unique identifier type backed by `usize` for use in interning and indexing.
+//!
+//! The `Ident` struct wraps a `usize` value representing a unique identifier,
+//! typically used as an index into an interner (such as `StringInterner`) or
+//! other structures requiring compact, type-safe identifiers.
+//!
+//! # Sentinel value
+//!
+//! The special value `usize::MAX` is reserved as an invalid or uninitialized
+//! identifier, since `usize` is unsigned and cannot hold negative values.
+//! The `Default` implementation returns this sentinel value.
+//!
+//! Users should check validity with the `is_valid()` method before using an `Ident`.
+//!
+//! # Features
+//!
+//! - Construct from a `usize` or convert back to `usize`.
+//! - Implements `Display` to show the identifier as `#<value>`.
+//! - Implements `InternerDisplay` for formatting with a `StringInterner`,
+//!   falling back to a constant placeholder if unresolved.
+//! - Implements `SyntaxDisplay` for pretty printing with indentation and
+//!   fallback placeholder when unresolved.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use your_crate::Ident;
+//!
+//! let id = Ident::new(42);
+//! assert_eq!(id.as_usize(), 42);
+//! assert!(id.is_valid());
+//!
+//! let default_id = Ident::default();
+//! assert_eq!(default_id.as_usize(), usize::MAX);
+//! assert!(!default_id.is_valid());
+//!
+//! println!("{}", id);  // prints "#42"
+//! ```
+//!
+//! Interner usage example (assuming an existing `StringInterner`):
+//!
+//! ```rust
+//! # use your_crate::{Ident, StringInterner};
+//! let interner = StringInterner::new();
+//! let id = Ident::new(0);
+//! let s = id.to_string_with_interner(&interner);
+//! ```
+
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
+
 use serde::{Deserialize, Serialize};
+
 use std::fmt;
 use std::fmt::Formatter;
 

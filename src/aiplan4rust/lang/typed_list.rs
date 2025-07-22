@@ -1,3 +1,27 @@
+//! Module defining `TypedList`, a collection of typed symbols.
+//!
+//! This module provides the `TypedList` struct, which is a wrapper around a vector of
+//! `TypedSymbol` items. It offers convenient management and access of typed symbols
+//! in a PDDL-like planning domain context.
+//!
+//! `TypedList` supports common collection operations through `Deref` to the underlying
+//! slice, making iteration and manipulation ergonomic.
+//!
+//! # Example
+//!
+//! ```rust
+//! use crate::TypedList;
+//! use crate::TypedSymbol;
+//!
+//! let mut list = TypedList::new();
+//! let typed_symbol = TypedSymbol::new(/* ... */);
+//! list.push(typed_symbol);
+//! assert_eq!(list.len(), 1);
+//! for symbol in list.iter() {
+//!     // process each TypedSymbol
+//! }
+//! ```
+
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};

@@ -1,3 +1,33 @@
+//! Binary comparison operators used in conditions and constraints.
+//!
+//! This module defines the `BinaryComp` enum, representing the standard
+//! comparison operators used in formal models such as PDDL, for expressing
+//! numeric and logical constraints.
+//!
+//! # Variants
+//! - `Greater` (`>`): Greater than comparison.
+//! - `Less` (`<`): Less than comparison.
+//! - `Equal` (`=`): Equality comparison.
+//! - `GreaterEq` (`>=`): Greater than or equal to comparison.
+//! - `LessEq` (`<=`): Less than or equal to comparison.
+//!
+//! # Features
+//!
+//! - Implements `Display` to format each variant as its symbolic operator string.
+//! - Implements `InternerDisplay` and `SyntaxDisplay` traits for integration with
+//!   interning and syntax display systems.
+//! - Formatting delegates to the standard `Display` implementation as interner
+//!   resolution is not required.
+//!
+//! # Example
+//!
+//! ```rust
+//! use your_crate::BinaryComp;
+//!
+//! let op = BinaryComp::GreaterEq;
+//! assert_eq!(op.to_string(), ">=");
+//! ```
+
 use crate::aiplan4rust::syntax::lexer::token::EQUAL;
 use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;

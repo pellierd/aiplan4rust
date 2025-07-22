@@ -1,3 +1,33 @@
+//! Arithmetic operations used in PDDL and HDDL expressions and logical comparisons.
+//!
+//! This module defines the `ArithmeticOp` enum representing basic arithmetic
+//! operators (addition, subtraction, multiplication, division) commonly used
+//! in numeric expressions within PDDL (Planning Domain Definition Language).
+//!
+//! # Features
+//!
+//! - Enumerates the four fundamental arithmetic operators.
+//! - Implements `Display` to format operators as their symbolic representation (`+`, `-`, `*`, `/`).
+//! - Implements `InternerDisplay` and `SyntaxDisplay` traits to support
+//!   formatting within the syntax and interning framework, delegating to the
+//!   standard `Display` implementation since no interning is required.
+//!
+//! # Usage Example
+//!
+//! ```rust
+//! use your_crate::ArithmeticOp;
+//!
+//! let op = ArithmeticOp::Add;
+//! assert_eq!(format!("{}", op), "+");
+//! ```
+//!
+//! # Integration
+//!
+//! This module integrates with the lexer tokens for arithmetic operators
+//! and the syntax display system, allowing seamless formatting of PDDL numeric
+//! expressions in user-friendly syntax.
+
+
 use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;
@@ -63,7 +93,6 @@ impl fmt::Display for ArithmeticOp {
     }
 }
 
-
 /// Implements the `DisplayWithInterner` trait for `ArithmeticOp`.
 ///
 /// This implementation formats the `ArithmeticOp` by delegating
@@ -93,7 +122,6 @@ impl InternerDisplay for ArithmeticOp {
         fmt::Display::fmt(self, f)
     }
 }
-
 
 /// Implements the `PlanningSyntaxDisplay` trait for `ArithmeticOp`.
 ///

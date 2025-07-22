@@ -1,20 +1,39 @@
+//! Module defining `TypedSymbol`, a semantic symbol with associated type information.
+//!
+//! This module provides the `TypedSymbol` struct, which represents an identified symbol
+//! (such as a variable or function name) together with one or more associated types.
+//!
+//! The main purpose of this struct is to model typed entities in a planning domain,
+//! where each symbol carries semantic meaning and type constraints.
+//!
+//! Features:
+//! - Construction from an identifier and associated types.
+//! - Accessor methods for symbol and types.
+//! - Ability to remap identifiers via a provided mapping, useful for renaming or
+//!   interning operations during processing.
+//!
+//! This is commonly used in parsing and semantic analysis stages of a PDDL-like
+//! domain-specific language processor.
+
+
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::FromAst;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
-/// Represents a symbol identified by `Ident` with associated types,
-/// also identified by `Ident`.
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt;
+
+/// Represents a typed symbol identified by an [`Ident`],
+/// with one or more associated types.
 ///
-/// This structure models semantic symbols (variables, functions, etc.)
-/// along with zero or more associated type identifiers.
+/// This struct models a semantic symbol (such as a variable or function)
+/// along with its associated type(s).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol {
     symbol: Ident,
@@ -25,32 +44,42 @@ impl TypedSymbol {
     /// Creates a new `TypedSymbol` from a symbol and its associated types.
     ///
     /// # Arguments
+    ///
     /// * `symbol` - The main symbol identifier.
-    /// * `types` - A vector of associated type identifiers.
+    /// * `types` - The associated type(s) for the symbol.
     ///
     /// # Returns
-    /// A new `TypedSymbol` instance.
+    ///
+    /// A new instance of `TypedSymbol`.
     pub fn new(symbol: Ident, types: Type) -> Self {
         TypedSymbol { symbol, ty: types }
     }
 
-    /// Returns the symbol identifier.
+    /// Returns the main symbol identifier.
     pub fn symbol(&self) -> Ident {
         self.symbol
     }
 
-    /// Returns a reference to the vector of associated type identifiers.
+    /// Returns a reference to the associated type(s).
     pub fn types(&self) -> &Type {
         &self.ty
     }
 
+    /// Remaps identifiers in the typed symbol according to the given mapping.
+    ///
+    /// This method updates the main symbol identifier as well as all associated
+    /// types if a mapping is found in `map`.
+    ///
+    /// # Arguments
+    ///
+    /// * `map` - A mapping from old identifiers to new identifiers used for remapping.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        // Remap le symbol principal
+        // Remap the main symbol
         if let Some(new_symbol) = map.get(&self.symbol) {
             self.symbol = new_symbol.clone();
         }
 
-        // Remap tous les types dans le vecteur
+        // Remap all associated types
         for ty in self.ty.iter_mut() {
             if let Some(new_ty) = map.get(ty) {
                 *ty = new_ty.clone();

@@ -1,3 +1,38 @@
+//! Assignment operations used in planning and mathematical modeling.
+//!
+//! This module defines the `AssignOp` enum representing various assignment
+//! and value modification operations applicable to variables in planning
+//! problems or formal models, such as PDDL numeric effects.
+//!
+//! # Variants
+//! - `Assign`: simple assignment operation.
+//! - `ScaleUp`: multiply the value by a factor.
+//! - `ScaleDown`: divide the value by a factor.
+//! - `Increase`: add a value.
+//! - `Decrease`: subtract a value.
+//!
+//! # Features
+//!
+//! - Provides user-friendly display strings for each operation via the
+//!   `Display` trait implementation.
+//! - Implements `InternerDisplay` and `SyntaxDisplay` traits for integration
+//!   with the interning and syntax formatting systems.
+//! - Delegates formatting to the standard `Display` trait as interner
+//!   resolution is not required.
+//!
+//! # Example
+//!
+//! ```rust
+//! use your_crate::AssignOp;
+//!
+//! let op = AssignOp::Increase;
+//! assert_eq!(format!("{}", op), ":increase");
+//! ```
+//!
+//! # Integration
+//!
+//! Works seamlessly with lexer tokens and syntax display for planning languages.
+
 use crate::aiplan4rust::syntax::lexer::token::ASSIGN;
 use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
