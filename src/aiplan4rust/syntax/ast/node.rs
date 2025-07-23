@@ -6,10 +6,11 @@ use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
-use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstKind};
+use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents a node in the Abstract Syntax Tree (AST).
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -109,7 +110,7 @@ impl SyntaxNode for AstNode {
         self.inner.content_mut()
     }
 
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError> {
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, SyntaxTreeError> {
         let symbol_kind = match self.kind() {
             AstKind::DomainName => SymbolKind::DomainName,
             AstKind::PrimitiveType => SymbolKind::PrimitiveType,

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 pub trait SyntaxContent:  InternerDisplay + Clone + Debug {
     /// Returns the content as an identifier if available.
@@ -40,54 +40,55 @@ pub trait SyntaxContent:  InternerDisplay + Clone + Debug {
     /// Attempts to extract an identifier from the content.
     ///
     /// Returns `Ok(Ident)` if successful or
-    /// `Err(ParserInternalError)` if the content is not an identifier.
-    fn try_ident(&self) -> Result<Ident, AiplanError> {
+    /// `Err(SyntaxTreeError::NotAnIdent)` if the content is not an identifier.
+    fn try_ident(&self) -> Result<Ident, SyntaxTreeError> {
         self.as_ident()
-            .ok_or_else(|| AiplanError::InternalError("Not an Ident".to_string()))
+            .ok_or_else(|| SyntaxTreeError::not_an_ident())
     }
 
     /// Attempts to extract a floating-point value from the content.
     ///
     /// Returns `Ok(OrderedFloat<f64>)` if successful or
-    /// `Err(ParserInternalError)` if the content is not a float.
-    fn try_float(&self) -> Result<OrderedFloat<f64>, AiplanError> {
+    /// `Err(SyntaxTreeError::NotAFloat)` if the content is not a float.
+    fn try_float(&self) -> Result<OrderedFloat<f64>, SyntaxTreeError> {
         self.as_float()
-            .ok_or_else(|| AiplanError::InternalError("Not a Float".to_string()))
+            .ok_or_else(|| SyntaxTreeError::not_a_float())
     }
 
     /// Attempts to extract a binary comparison operator from the content.
     ///
     /// Returns `Ok(BinaryComp)` if successful or
-    /// `Err(ParserInternalError)` if the content is not a binary comparison.
-    fn try_binary_comp(&self) -> Result<BinaryComp, AiplanError> {
+    /// `Err(SyntaxTreeError::NotABinaryComp)` if the content is not a binary comparison.
+    fn try_binary_comp(&self) -> Result<BinaryComp, SyntaxTreeError> {
         self.as_binary_comp()
-            .ok_or_else(|| AiplanError::InternalError("Not a BinaryComp".to_string()))
+            .ok_or_else(|| SyntaxTreeError::not_a_binary_comp())
     }
 
     /// Attempts to extract an assignment operator from the content.
     ///
     /// Returns `Ok(AssignOp)` if successful or
-    /// `Err(ParserInternalError)` if the content is not an assignment operator.
-    fn try_assign_op(&self) -> Result<AssignOp, AiplanError> {
+    /// `Err(SyntaxTreeError::NotAnAssignOp)` if the content is not an assignment operator.
+    fn try_assign_op(&self) -> Result<AssignOp, SyntaxTreeError> {
         self.as_assign_op()
-            .ok_or_else(|| AiplanError::InternalError("Not an AssignOp".to_string()))
+            .ok_or_else(|| SyntaxTreeError::not_an_assign_op())
     }
 
     /// Attempts to extract an arithmetic operator from the content.
     ///
     /// Returns `Ok(ArithmeticOp)` if successful or
-    /// `Err(ParserInternalError)` if the content is not an arithmetic operator.
-    fn try_arithmetic_op(&self) -> Result<ArithmeticOp, AiplanError> {
+    /// `Err(SyntaxTreeError::NotAnArithmeticOp)` if the content is not an arithmetic operator.
+    fn try_arithmetic_op(&self) -> Result<ArithmeticOp, SyntaxTreeError> {
         self.as_arithmetic_op()
-            .ok_or_else(|| AiplanError::InternalError("Not an ArithmeticOp".to_string()))
+            .ok_or_else(|| SyntaxTreeError::not_an_arithmetic_op())
     }
 
     /// Attempts to extract an optimization directive from the content.
     ///
     /// Returns `Ok(Optimization)` if successful or
-    /// `Err(ParserInternalError)` if the content is not an optimization.
-    fn try_optimization(&self) -> Result<Optimization, AiplanError> {
+    /// `Err(SyntaxTreeError::NotAnOptimization)` if the content is not an optimization.
+    fn try_optimization(&self) -> Result<Optimization, SyntaxTreeError> {
         self.as_optimization()
-            .ok_or_else(|| AiplanError::InternalError("Not an Optimization".to_string()))
+            .ok_or_else(|| SyntaxTreeError::not_an_optimization())
     }
+
 }

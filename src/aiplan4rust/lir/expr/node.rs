@@ -10,6 +10,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {
@@ -106,7 +107,7 @@ impl SyntaxNode for ExprNode {
     fn content_mut(&mut self) -> &mut Self::Content {
         self.data.content_mut()
     }
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError> {
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, SyntaxTreeError> {
         let kind = self.kind();
         let symbol_kind = match kind {
             ExprKind::PrimitiveType => SymbolKind::PrimitiveType,

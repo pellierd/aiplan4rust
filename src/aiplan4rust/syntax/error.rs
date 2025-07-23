@@ -5,6 +5,7 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 #[derive(Debug, Error)]
 pub enum SyntaxError {
@@ -16,6 +17,9 @@ pub enum SyntaxError {
 
     #[error("ParserContext error: {0}")]
     ParseContext(#[from] ParseContextError),
+
+    #[error("Syntax tree error: {0}")]
+    SyntaxTee(#[from] SyntaxTreeError),
 
     #[error("Arena error: {0}")]
     Arena(#[from] ArenaError),

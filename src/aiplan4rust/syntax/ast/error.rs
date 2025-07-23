@@ -7,13 +7,14 @@
 
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Errors that can occur when working with the AST.
 #[derive(Error, Debug)]
 pub enum AstError {
-    /// An error occurred at the arena level.
-    #[error("Arena error: {0}")]
-    Arena(#[from] ArenaError),
+
+    #[error("Syntax tree error: {0}")]
+    SyntaxTree(#[from] SyntaxTreeError),
 
     /// Catch-all internal error for unexpected conditions.
     #[error("Internal AST error: {0}")]

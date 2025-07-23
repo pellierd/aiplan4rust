@@ -2,12 +2,12 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 use crate::aiplan4rust::semantic::symbol::SymbolRef;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 pub trait SyntaxNode: ArenaNode + Display {
     /// The type used to represent the syntax's kind.
@@ -68,41 +68,41 @@ pub trait SyntaxNode: ArenaNode + Display {
         self.content().as_optimization()
     }
 
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, AiplanError>;
+    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, SyntaxTreeError>;
 
     // Try-extraction methods that return Result for better error handling.
 
     /// Attempts to extract an identifier from the syntax’s content.
-    fn try_ident(&self) -> Result<Ident, AiplanError> {
+    fn try_ident(&self) -> Result<Ident, SyntaxTreeError> {
         self.content().try_ident()
     }
 
     /// Attempts to extract a floating-point literal from the syntax’s content.
-    fn try_float(&self) -> Result<OrderedFloat<f64>, AiplanError> {
+    fn try_float(&self) -> Result<OrderedFloat<f64>, SyntaxTreeError> {
         self.content().try_float()
     }
 
     /// Attempts to extract a binary comparison operator from the syntax’s content.
-    fn try_binary_comp(&self) -> Result<BinaryComp, AiplanError> {
+    fn try_binary_comp(&self) -> Result<BinaryComp, SyntaxTreeError> {
         self.content().try_binary_comp()
     }
 
     /// Attempts to extract an assignment operator from the syntax’s content.
-    fn try_assign_op(&self) -> Result<AssignOp, AiplanError> {
+    fn try_assign_op(&self) -> Result<AssignOp, SyntaxTreeError> {
         self.content().try_assign_op()
     }
 
     /// Attempts to extract an arithmetic operator from the syntax’s content.
-    fn try_arithmetic_op(&self) -> Result<ArithmeticOp, AiplanError> {
+    fn try_arithmetic_op(&self) -> Result<ArithmeticOp, SyntaxTreeError> {
         self.content().try_arithmetic_op()
     }
 
     /// Attempts to extract an optimization directive from the syntax’s content.
-    fn try_optimization(&self) -> Result<Optimization, AiplanError> {
+    fn try_optimization(&self) -> Result<Optimization, SyntaxTreeError> {
         self.content().try_optimization()
     }
-    fn try_symbol_ref(&self) -> Result<SymbolRef, AiplanError> {
-        self.as_symbol_ref()?.ok_or_else(|| AiplanError::InternalError("Not a SymbolRef".to_string()))
+    fn try_symbol_ref(&self) -> Result<SymbolRef, SyntaxTreeError> {
+        self.as_symbol_ref()?.ok_or_else(|| SyntaxTreeError::not_a_symbol_ref())
     }
 
     /// Applies identifier remapping to the content of the syntax using the provided map.

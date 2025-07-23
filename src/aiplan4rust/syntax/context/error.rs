@@ -1,5 +1,6 @@
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents all possible errors that may occur when manipulating the AST
 /// or its associated parsing context.
@@ -15,6 +16,10 @@ pub enum ParseContextError {
     /// from the AST arena structure.
     #[error("Arena error: {0}")]
     Arena(#[from] ArenaError),
+
+    #[error("Syntax tree error: {0}")]
+    SyntaxTree(#[from] SyntaxTreeError),
+
 
     /// A general-purpose internal error that should not occur in normal usage.
     ///

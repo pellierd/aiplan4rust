@@ -2,6 +2,7 @@ pub mod node;
 pub mod content;
 pub mod tree;
 pub mod base_node;
+pub mod error;
 
 pub use tree::SyntaxTree;
 pub use node::SyntaxNode;
