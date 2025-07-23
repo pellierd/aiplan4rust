@@ -228,7 +228,7 @@ fn extract_requirements(
     node: &AstNode,
     ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<Requirement>, AiplanError> {
-    extract_set(node, ast, |n, _| n.try_requirement())
+    extract_set(node, ast, |n, _| Ok(n.try_requirement()?))
 }
 
 /// Extracts predicates from a `PredicatesDef` syntax.

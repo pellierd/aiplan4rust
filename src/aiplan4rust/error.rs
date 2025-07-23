@@ -1,6 +1,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
@@ -14,6 +15,9 @@ pub enum AiplanError {
 
     #[error(transparent)]
     Arena(#[from] ArenaError),
+
+    #[error(transparent)]
+    Ast(#[from] AstError),
 
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
@@ -34,11 +38,13 @@ impl From<AiplanError> for ArenaError {
             AiplanError::SyntaxTree(ste) => {
                 ArenaError::InternalError(format!("SyntaxTree error wrapped: {}", ste))
             }
+            AiplanError::Ast(ast) => {
+                ArenaError::InternalError(format!("AST error wrapped: {}", ast))
+            }
             AiplanError::InternalError(msg) => ArenaError::InternalError(msg),
             AiplanError::Interner(ie) => {
                 ArenaError::InternalError(format!("Interner error wrapped: {}", ie))
             }
-            // Ajouter ici le traitement des futures variantes si besoin
         }
     }
 }

@@ -16,6 +16,9 @@ pub enum AstError {
     #[error("Syntax tree error: {0}")]
     SyntaxTree(#[from] SyntaxTreeError),
 
+    #[error("Expected Requirement, but content was not a requirement")]
+    NotARequirement,
+
     /// Catch-all internal error for unexpected conditions.
     #[error("Internal AST error: {0}")]
     InternalError(String),
@@ -23,7 +26,12 @@ pub enum AstError {
 
 impl AstError {
 
+    /// Constructs a new `AstError::NotARequirement`.
+    pub fn not_a_requirement() -> Self {
+        AstError::NotARequirement
+    }
     pub fn internal_error(msg: impl Into<String>) -> Self {
         AstError::InternalError(msg.into())
     }
+
 }

@@ -9,7 +9,6 @@ use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents a node in the Abstract Syntax Tree (AST).
@@ -43,7 +42,7 @@ impl AstNode {
         self.content().as_requirement()
     }
 
-    pub fn try_requirement(&self) -> Result<Requirement, AiplanError> {
+    pub fn try_requirement(&self) -> Result<Requirement, AstError> {
         self.content().try_requirement()
     }
 }

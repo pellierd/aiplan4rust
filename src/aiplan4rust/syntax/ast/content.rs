@@ -31,7 +31,6 @@
 //! assert_eq!(content.display_with_context(&interner), "move");
 //! ```
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{
     ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement,
@@ -43,6 +42,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::tree::SyntaxContent;
 
 /// Represents semantic content associated with an AST syntax.
@@ -96,14 +96,11 @@ impl Content {
     ///
     /// # Errors
     ///
-    /// Returns `ParserInternalError` if the content is not a `Requirement`.
-    pub fn try_requirement(&self) -> Result<Requirement, AiplanError> {
+    /// Returns `AstError::NotARequirement` if the content is not a `Requirement`.
+    pub fn try_requirement(&self) -> Result<Requirement, AstError> {
         match self {
             Content::Requirement(r) => Ok(*r),
-            other => Err(AiplanError::InternalError(format!(
-                "Expected AstContent::Requirement, found {:?}",
-                other
-            ))),
+            _ => Err(AstError::not_a_requirement()),
         }
     }
 }
