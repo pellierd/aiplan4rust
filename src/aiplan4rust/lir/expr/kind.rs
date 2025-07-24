@@ -1,6 +1,54 @@
+//! Module defining the `Kind` enum representing the classification of expression components
+//! in the LIR (Logical Intermediate Representation) for AI planning.
+//!
+//! # Overview
+//!
+//! The `Kind` enum categorizes various syntactic and semantic entities used in expressions,
+//! including logical operators, terms, predicates, task symbols, and temporal constructs.
+//! It serves as an abstraction layer over raw AST kinds (`AstKind`) used during parsing,
+//! enabling a more domain-specific representation of expression nodes.
+//!
+//! This module also provides:
+//! - Conversion (`TryFrom`) from the generic `AstKind` into the more specialized `Kind`,
+//!   with error handling for unsupported kinds.
+//! - A `Display` implementation for readable string representation of each kind.
+//!
+//! # Enum Variants
+//!
+//! Variants include (but are not limited to):
+//! - Logical operators: `And`, `Or`, `Not`, `Imply`, `Forall`, `Exists`
+//! - Constants and variables: `Constant`, `Variable`
+//! - Function and predicate symbols: `FunctionSymbol`, `Predicate`
+//! - Task-related constructs: `TaskSymbol`, `Task`, `TaskID`, `TaggedTask`, `TaskOrderingConstraint`
+//! - Temporal and metric constructs: `AtStart`, `AtEnd`, `Always`, `Sometime`, `Metric`, `TotalTime`
+//! - Types and typing constructs: `Type`, `PrimitiveType`, `TypedList`, `TypedSymbol`
+//!
+//! # Conversion from AST
+//!
+//! The `TryFrom<AstKind>` implementation attempts to convert a generic AST kind into
+//! a `Kind`. Unsupported AST kinds result in an `ExprError` to signal that conversion
+//! is not possible in the current context.
+//!
+//! # Usage Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::lir::expr::Kind;
+//! use crate::aiplan4rust::syntax::ast::AstKind;
+//! use std::convert::TryFrom;
+//!
+//! let ast_kind = AstKind::And;
+//! let kind = Kind::try_from(ast_kind).expect("Supported kind");
+//! assert_eq!(kind.to_string(), "And");
+//! ```
+//!
+//! # Errors
+//!
+//! Converting from `AstKind` to `Kind` may fail with [`ExprError`] if the AST kind
+//! is unsupported.
+//!
+
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
@@ -57,6 +105,7 @@ pub enum Kind {
     TaggedTask, // check
     TaskOrderingConstraint, // check
 }
+
 impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
@@ -113,6 +162,7 @@ impl fmt::Display for Kind {
         write!(f, "{}", s)
     }
 }
+
 impl TryFrom<AstKind> for Kind {
     type Error = ExprError;
 
@@ -163,7 +213,7 @@ impl TryFrom<AstKind> for Kind {
             AstKind::TypedList => Ok(Kind::TypedList),
             AstKind::TypedItem => Ok(Kind::TypedSymbol),
             AstKind::TaskOrderingConstraint => Ok(Kind::TaskOrderingConstraint),
-            other => Err(ExprError::unsupported_kind(format!("{other:?}"))),
+            other => Err(ExprError::unsupported_kind(other)),
         }
     }
 }

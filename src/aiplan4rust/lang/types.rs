@@ -18,13 +18,12 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
+use crate::aiplan4rust::lang::error::LangError;
 
 use std::fmt;
 use std::fmt::Formatter;
 use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
-use crate::aiplan4rust::lang::error::LangError;
-use crate::Language;
 
 /// Represents a type in a planning problem IR.
 ///

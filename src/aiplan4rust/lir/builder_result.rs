@@ -1,26 +1,29 @@
-//! Defines the [`BuilderResult`] type, which encapsulates the result of the IR (Intermediate Representation)
-//! building phase in the AI planning pipeline.
+//! Defines the [`LirBuilderResult`] type, which encapsulates the outcome of the
+//! IR (Intermediate Representation) building phase in the AI planning pipeline.
 //!
-//! A [`BuilderResult`] contains:
-//! - An optional [`LiftedProblem`] representing the constructed IR of the planning problem.
+//! A [`LirBuilderResult`] contains:
+//! - An optional [`LiftedProblem`] representing the successfully constructed IR of the planning problem.
 //! - A [`DiagnosticManager`] collecting diagnostics such as errors, warnings, and informational messages
-//!   that occurred during IR construction.
+//!   encountered during IR construction.
 //!
-//! This design supports detailed diagnostic reporting alongside partial or failed IR generation,
-//! enabling robust error handling in parsing and compilation stages.
+//! This design enables detailed diagnostic reporting alongside partial or failed IR generation,
+//! facilitating robust error handling and user feedback during parsing and compilation stages.
+//!
+//! # Usage
+//! - Check if IR is present using [`LirBuilderResult::is_some`].
+//! - Access diagnostics regardless of build success to understand issues.
+//! - Use [`LirBuilderResult::lifted_problem`] to obtain the constructed IR when available.
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::lir::LiftedProblem;
 use std::fmt;
 
-/// Represents the result of the IR (Intermediate Representation) building phase.
+/// Represents the result of the LIR building phase.
 ///
-/// This structure bundles the outcome of the build:
-/// - An optional [`LiftedProblem`] if IR construction was successful.
-/// - A [`DiagnosticManager`] containing diagnostics emitted during the process.
+/// Bundles the optional constructed IR with the diagnostics collected during the process,
+/// allowing callers to inspect both the output and any warnings or errors.
 ///
-/// This design allows the caller to inspect whether the IR was generated,
-/// and still retrieve relevant diagnostics even in the case of failure.
+/// This separation of concerns improves robustness in the face of partial failures.
 #[derive(Debug, Clone)]
 pub struct BuilderResult {
     lifted_problem: Option<LiftedProblem>,
@@ -28,14 +31,14 @@ pub struct BuilderResult {
 }
 
 impl BuilderResult {
-    /// Constructs a new [`BuilderResult`] with the given IR and diagnostics.
+    /// Creates a new [`LirBuilderResult`] with the given IR and diagnostics.
     ///
     /// # Parameters
-    /// - `lifted_problem`: The IR result (`Some`) if successfully built, otherwise `None`.
-    /// - `diagnostic_manager`: The diagnostics collected during IR construction.
+    /// - `lifted_problem`: `Some` if the LIR was successfully built, otherwise `None`.
+    /// - `diagnostic_manager`: Diagnostics collected during IR construction.
     ///
     /// # Returns
-    /// A new instance of [`BuilderResult`].
+    /// A new [`LirBuilderResult`] instance.
     pub fn new(lifted_problem: Option<LiftedProblem>, diagnostic_manager: DiagnosticManager) -> Self {
         Self {
             lifted_problem,
@@ -43,55 +46,49 @@ impl BuilderResult {
         }
     }
 
-    /// Returns an immutable reference to the built [`LiftedProblem`], if available.
+    /// Returns a reference to the constructed IR, if available.
     ///
     /// # Returns
-    /// - `Some(&LiftedProblem)` if IR is present.
-    /// - `None` if IR was not successfully built.
+    /// - `Some(&LiftedProblem)` if LIR build succeeded.
+    /// - `None` if no IR was produced.
     pub fn lifted_problem(&self) -> Option<&LiftedProblem> {
         self.lifted_problem.as_ref()
     }
 
-    /// Returns a mutable reference to the built [`LiftedProblem`], if available.
-    ///
-    /// # Returns
-    /// - `Some(&mut LiftedProblem)` if IR is present.
-    /// - `None` otherwise.
+    /// Returns a mutable reference to the constructed LIR, if available.
     pub fn lifted_problem_mut(&mut self) -> Option<&mut LiftedProblem> {
         self.lifted_problem.as_mut()
     }
 
-    /// Returns an immutable reference to the [`DiagnosticManager`].
+    /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
-    /// Returns a mutable reference to the [`DiagnosticManager`].
+    /// Returns a mutable reference to the diagnostic manager.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
 
     /// Extracts the diagnostic manager, replacing it with an empty one.
-    ///
-    /// # Returns
-    /// The collected [`DiagnosticManager`] containing all diagnostics.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         std::mem::take(&mut self.diagnostic_manager)
     }
 
-    /// Returns `true` if the IR was successfully built.
+    /// Returns `true` if the LIR was successfully built.
     pub fn is_some(&self) -> bool {
         self.lifted_problem.is_some()
     }
 
-    /// Returns `true` if the IR is absent (i.e., build failed).
+    /// Returns `true` if no LIR was built.
     pub fn is_none(&self) -> bool {
         self.lifted_problem.is_none()
     }
 }
 
 impl fmt::Display for BuilderResult {
-    /// Formats the result for display, including the IR (if any) and diagnostics.
+    /// Formats the builder result, showing whether IR was successfully built,
+    /// along with any diagnostics collected.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.lifted_problem {
             Some(ir) => {

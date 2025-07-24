@@ -1,12 +1,24 @@
-//! Module defining the `Action` struct, representing an instantaneous action in the planning domain.
+//! Module defining the `Action` struct, representing an instantaneous action in a lifted planning domain.
 //!
 //! An `Action` includes a name, parameters, a precondition, and an effect expression.
-//! Both precondition and effect are always present, defaulting to an empty expression if unspecified.
+//! Both precondition and effect are always present, defaulting to an empty expression (an `Or` with no children) if unspecified.
 //!
 //! This module provides:
 //! - Construction of actions from parsed AST nodes.
-//! - Accessors and mutators for the action's signature, precondition, and effect.
-//! - Display implementations for debugging and formatted output.
+//! - Accessors and mutators for the action's signature, name, parameters, precondition, and effect.
+//! - Display implementations for debugging and formatted output, including interner-aware printing.
+//!
+//! # Structure
+//!
+//! - `Action` encapsulates the concept of an instantaneous action with:
+//!   - A header (`NamedTypedList`) holding the action name and typed parameters.
+//!   - A precondition expression that must hold before execution.
+//!   - An effect expression describing the outcome of the action.
+//!
+//! # Conversion from AST
+//!
+//! The module supports creating an `Action` from a syntax subtree of an AST, extracting the signature, precondition, and effect nodes,
+//! with sensible defaults if the precondition or effect are omitted.
 //!
 //! # Usage example
 //!
@@ -22,22 +34,27 @@
 //! );
 //! println!("Action name: {}", action.name());
 //! ```
+//!
+//! # Error handling
+//!
+//! Parsing from AST may fail with `LirError` if the structure is invalid or missing expected parts.
 
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::core::arena::ArenaNode;
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
@@ -58,12 +75,14 @@ impl Action {
     /// Creates a new `Action` with the given name, parameters, precondition, and effect.
     ///
     /// # Arguments
+    ///
     /// * `name` - The identifier/name of the action.
     /// * `parameters` - Typed list of parameters for the action.
     /// * `precondition` - Expression representing the precondition.
     /// * `effect` - Expression representing the effect.
     ///
     /// # Returns
+    ///
     /// A new `Action` instance.
     ///
     /// # Example
@@ -88,37 +107,45 @@ impl Action {
     }
 
     /// Returns a reference to the full signature (name + parameters).
+    ///
+    /// This includes both the action's identifier and its typed parameters.
     pub fn signature(&self) -> &NamedTypedList {
         &self.header
     }
 
-    /// Returns the name of the action.
+    /// Returns the name (identifier) of the action.
     pub fn name(&self) -> Ident {
         self.header.name()
     }
 
-    /// Sets the name of the action.
+    /// Sets the name (identifier) of the action.
     ///
     /// # Arguments
-    /// * `name` - The new identifier to assign.
+    ///
+    /// * `name` - The new identifier to assign to the action.
     pub fn set_name(&mut self, name: Ident) {
         self.header.set_name(name);
     }
 
-    /// Returns a slice of the action's parameters.
+    /// Returns a slice of the action's typed parameters.
+    ///
+    /// These represent the variables and their types used by the action.
     pub fn parameters(&self) -> &[TypedSymbol] {
         &self.header.parameters()
     }
 
-    /// Sets the action's parameters.
+    /// Sets the action's parameters to a new typed list.
     ///
     /// # Arguments
+    ///
     /// * `parameters` - The new list of typed parameters.
     pub fn set_parameters(&mut self, parameters: TypedList) {
         self.header.set_parameters(parameters);
     }
 
-    /// Returns a reference to the precondition expression.
+    /// Returns a reference to the precondition expression of the action.
+    ///
+    /// The precondition must hold true for the action to be applicable.
     pub fn precondition(&self) -> &Expr {
         &self.precondition
     }
@@ -126,12 +153,15 @@ impl Action {
     /// Replaces the precondition expression.
     ///
     /// # Arguments
+    ///
     /// * `pre` - The new precondition expression.
     pub fn set_precondition(&mut self, pre: Expr) {
         self.precondition = pre;
     }
 
-    /// Returns a reference to the effect expression.
+    /// Returns a reference to the effect expression of the action.
+    ///
+    /// The effect describes how the world changes after executing the action.
     pub fn effect(&self) -> &Expr {
         &self.effect
     }
@@ -139,6 +169,7 @@ impl Action {
     /// Replaces the effect expression.
     ///
     /// # Arguments
+    ///
     /// * `eff` - The new effect expression.
     pub fn set_effect(&mut self, eff: Expr) {
         self.effect = eff;
@@ -148,6 +179,7 @@ impl Action {
 /// Attempts to construct an [`Action`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
 ///
 /// # Expected AST Structure
+///
 /// - Child 0: Action name identifier (`Ident`).
 /// - Child 1: Typed parameter list.
 /// - Child 2: Body node, which may contain:
@@ -157,7 +189,8 @@ impl Action {
 /// If precondition or effect nodes are missing, they default to empty expressions.
 ///
 /// # Errors
-/// Returns an [`AiplanError`] if the syntax structure is invalid or if parsing fails.
+///
+/// Returns an [`LirError`] if the syntax structure is invalid or if parsing fails.
 ///
 /// # Example
 ///
@@ -197,10 +230,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
                     effect = Expr::try_from(&SyntaxSubtree::new(eff_node, ast))?;
                 }
                 _ => {
-                    return Err(LirError::unsupported_action(format!(
-                        "Unexpected syntax in Action body: {:?}",
-                        child_node.kind()
-                    )));
+                    return Err(LirError::action_ast_kind_error(child_node.kind()));
                 }
             }
         }
@@ -212,7 +242,6 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
         })
     }
 }
-
 
 impl fmt::Display for Action {
     /// Formats the `Action` for display purposes.
@@ -239,7 +268,7 @@ impl fmt::Display for Action {
 impl InternerDisplay for Action {
     /// Formats the `Action` using a string interner for symbol resolution.
     ///
-    /// This is useful for pretty-printing names and parameters with interning.
+    /// Useful for pretty-printing names and parameters with interning.
     fn fmt_with_interner(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -267,8 +296,15 @@ impl InternerDisplay for Action {
 }
 
 impl SyntaxDisplay for Action {
-    /// Formats the `Action` syntax for display, delegating to `fmt_with`.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    /// Formats the `Action` syntax for display, delegating to `fmt_with_interner`.
+    ///
+    /// The output is indented according to the `indent` parameter.
+    fn fmt_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         self.fmt_with_interner(f, interner)

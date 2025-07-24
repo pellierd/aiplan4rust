@@ -7,7 +7,7 @@ use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::lir::{LIRBuilder, LIRBuilderResult};
+use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
@@ -46,7 +46,7 @@ impl Frontend {
         domain_path: &str,
         problem_path: &str,
         language: &Language,
-    ) -> Result<LIRBuilderResult, AiplanError> {
+    ) -> Result<LirBuilderResult, AiplanError> {
         let mut diagnostic_manager = DiagnosticManager::new();
 
         // Parse the domain file
@@ -69,7 +69,7 @@ impl Frontend {
                         //println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
                         //println!("Linking successful, building LIR...");
                         //println!("{}", linked_semantic_context.problem().to_planning_string(linked_semantic_context.interner()));
-                        let mut ir_builder = LIRBuilder::new();
+                        let mut ir_builder = LirBuilder::new();
                         let builder_result = ir_builder.build_with_diagnostic_manager(
                             &linked_semantic_context,
                             linker_result.take_diagnostic_manager()
@@ -79,11 +79,11 @@ impl Frontend {
                         Ok(builder_result)
                     }
                     None => {
-                        Ok(LIRBuilderResult::new(None, linker_result.take_diagnostic_manager()))
+                        Ok(LirBuilderResult::new(None, linker_result.take_diagnostic_manager()))
                     }
                 }
             }
-            _ => Ok(LIRBuilderResult::new(None, diagnostic_manager)),
+            _ => Ok(LirBuilderResult::new(None, diagnostic_manager)),
         }
     }
 

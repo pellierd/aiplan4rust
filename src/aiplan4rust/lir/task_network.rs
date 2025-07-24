@@ -224,10 +224,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
                     constraints = Expr::try_from(&SyntaxSubtree::new(logical_node, ast))?;
                 }
                 _ => {
-                    return Err(LirError::unsupported_task_network(format!(
-                        "Unexpected syntax kind in TaskNetwork: {:?}",
-                        child_node.kind()
-                    )));
+                    return Err(LirError::task_network_ast_kind_error(child_node.kind()));
                 }
             }
         }

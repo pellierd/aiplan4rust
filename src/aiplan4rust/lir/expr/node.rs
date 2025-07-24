@@ -1,3 +1,40 @@
+//! Module defining the `ExprNode` struct representing nodes in the expression syntax tree
+//! for the AIPlan4Rust intermediate representation (LIR).
+//!
+//! # Overview
+//!
+//! `ExprNode` is a wrapper around a generic syntax tree node (`SyntaxBaseNode`) specialized
+//! for expressions, with `ExprKind` as the node kind and `ExprContent` as its content.
+//! This struct supports parent-child relationships and integrates with the arena allocator model
+//! through the `ArenaNode` trait, enabling efficient tree manipulation.
+//!
+//! # Key Features
+//!
+//! - Construction of expression nodes with kind, content, and optional parent.
+//! - Deref coercions to access underlying `SyntaxBaseNode` functionality transparently.
+//! - Display formatting for easy debugging and visualization of node properties,
+//!   including kind, content, parent, and children.
+//! - Integration with the `ArenaNode` trait for generic tree arena management,
+//!   providing parent and children getter/setters and child addition.
+//! - Implementation of the `SyntaxNode` trait providing accessors and mutators for kind
+//!   and content, as well as symbol resolution when applicable.
+//! - Recursive pretty-printing of the syntax subtree with interner support to display
+//!   interned strings in a readable way.
+//!
+//! # Usage Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::lir::expr::ExprNode;
+//! use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent};
+//!
+//! let node = ExprNode::new(ExprKind::Variable, ExprContent::None, None);
+//! println!("{}", node);
+//! ```
+//!
+//! # Error Handling
+//!
+//! The symbol resolution method returns `Result` to handle cases where
+//! identification extraction fails or when the node kind does not correspond to a symbol.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::content::Content;
@@ -12,33 +49,55 @@ use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
+/// Expression node wrapping a syntax base node specialized with `ExprKind` and `ExprContent`.
+///
+/// This struct represents a node in the expression syntax tree with
+/// hierarchical parent-child relationships managed via node IDs.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {
-    data: SyntaxBaseNode<ExprKind, ExprContent>,
+    inner: SyntaxBaseNode<ExprKind, ExprContent>,
 }
 
 impl ExprNode {
+    /// Creates a new `ExprNode` with the specified kind, content, and optional parent.
+    ///
+    /// # Parameters
+    ///
+    /// - `kind`: The kind of expression node (e.g., Variable, Constant, Function).
+    /// - `content`: Additional content associated with the node (e.g., identifiers, literals).
+    /// - `parent`: Optional parent node ID, if this node is a child in a syntax tree.
+    ///
+    /// # Returns
+    ///
+    /// A new `ExprNode` instance with empty children.
     pub fn new(kind: ExprKind, content: ExprContent, parent: Option<NodeId>) -> Self {
         ExprNode {
-            data: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
+            inner: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
         }
     }
 }
 
+/// Allows transparent access to the underlying `SyntaxBaseNode` via dereferencing.
 impl Deref for ExprNode {
     type Target = SyntaxBaseNode<ExprKind, ExprContent>;
 
     fn deref(&self) -> &Self::Target {
-        &self.data
+        &self.inner
     }
 }
 
+/// Allows mutable access to the underlying `SyntaxBaseNode` via dereferencing.
 impl DerefMut for ExprNode {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.data
+        &mut self.inner
     }
 }
 
+/// Implements the `Display` trait to format an `ExprNode` as a string, showing:
+/// - The node's kind
+/// - The node's content
+/// - The parent node ID (or "none" if absent)
+/// - A list of children node IDs
 impl fmt::Display for ExprNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let children = self
@@ -63,50 +122,65 @@ impl fmt::Display for ExprNode {
     }
 }
 
+/// Implements the `ArenaNode` trait enabling arena-based tree management.
+///
+/// Provides methods to get/set parent, children, and add a child node.
 impl ArenaNode for ExprNode {
-
-
     fn parent(&self) -> Option<NodeId> {
-        self.data.parent()
+        self.inner.parent()
     }
 
     fn set_parent(&mut self, parent: Option<NodeId>) {
-        self.data.set_parent(parent)
+        self.inner.set_parent(parent)
     }
 
     fn children(&self) -> &[NodeId] {
-        self.data.children()
+        self.inner.children()
     }
 
     fn set_children(&mut self, children: Vec<NodeId>) {
-        self.data.set_children(children)
+        self.inner.set_children(children)
     }
 
     fn add_child(&mut self, child: NodeId) {
-        self.data.add_child(child)
+        self.inner.add_child(child)
     }
-
 }
 
+/// Implements the `SyntaxNode` trait for `ExprNode`,
+/// which provides accessors for the node's kind and content,
+/// as well as functionality for symbol resolution and formatted output.
+///
+/// # Symbol Resolution
+///
+/// The `as_symbol_ref` method returns a `SymbolRef` if the node's kind corresponds to a symbol,
+/// such as a variable, constant, or function. Otherwise, it returns `None`.
 impl SyntaxNode for ExprNode {
     type Kind = ExprKind;
     type Content = ExprContent;
 
     fn kind(&self) -> Self::Kind {
-        self.data.kind()
+        self.inner.kind()
     }
 
     fn set_kind(&mut self, kind: Self::Kind) {
-        self.data.set_kind(kind);
+        self.inner.set_kind(kind);
     }
 
     fn content(&self) -> &Self::Content {
-        &self.data.content()
+        &self.inner.content()
     }
 
     fn content_mut(&mut self) -> &mut Self::Content {
-        self.data.content_mut()
+        self.inner.content_mut()
     }
+
+    /// Attempts to interpret this node as a symbol reference if its kind corresponds to
+    /// a symbol type. Returns `None` if not applicable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if identifier extraction fails.
     fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, SyntaxTreeError> {
         let kind = self.kind();
         let symbol_kind = match kind {
@@ -123,7 +197,19 @@ impl SyntaxNode for ExprNode {
         let ident = self.try_ident()?;
         Ok(Some(SymbolRef::new(ident, symbol_kind)))
     }
-    /// Recursively pretty-prints this syntax and its children as a arena.
+
+    /// Recursively pretty-prints the syntax subtree rooted at this node,
+    /// formatting the tree structure with branch graphics and displaying interned strings.
+    ///
+    /// # Parameters
+    ///
+    /// - `f`: The formatter to write output to.
+    /// - `arena`: The syntax tree arena containing nodes.
+    /// - `interner`: The string interner for resolving interned identifiers.
+    ///
+    /// # Returns
+    ///
+    /// A formatting result.
     fn fmt_with_interner(
         &self,
         f: &mut Formatter<'_>,
@@ -149,11 +235,11 @@ impl SyntaxNode for ExprNode {
             let children = node.children();
             let len = children.len();
 
-            // Affiche ligne courante (pas de saut de ligne ici)
+            // Print the current line (no newline here)
             write!(f, "{}{}{}{}", prefix, branch, node.kind(), content_str)?;
 
             if len > 0 {
-                // Si on a des enfants, on ajoute un saut de ligne pour commencer leur indentation
+                // If there are children, start a new line for them
                 write!(f, "\n")?;
             }
 
@@ -170,7 +256,7 @@ impl SyntaxNode for ExprNode {
 
                 fmt_node(child, f, arena, interner, &new_prefix, i == len - 1)?;
 
-                // Saut de ligne entre enfants (sauf après le dernier)
+                // Add a newline between children except after the last
                 if i < len - 1 {
                     write!(f, "\n")?;
                 }
@@ -182,6 +268,19 @@ impl SyntaxNode for ExprNode {
         fmt_node(self, f, arena, interner, "", true)
     }
 
+    /// Formats the syntax subtree with indentation.
+    /// This is currently a wrapper around `fmt_with_interner`.
+    ///
+    /// # Parameters
+    ///
+    /// - `f`: The formatter to write output to.
+    /// - `arena`: The syntax tree arena containing nodes.
+    /// - `interner`: The string interner for resolving interned identifiers.
+    /// - `indent`: The number of indentation spaces (currently unused).
+    ///
+    /// # Returns
+    ///
+    /// A formatting result.
     fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,

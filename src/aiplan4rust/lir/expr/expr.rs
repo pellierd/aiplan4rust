@@ -1,3 +1,38 @@
+//! Module `expr`
+//!
+//! This module defines the [`Expr`] struct, a wrapper around an abstract syntax tree (AST)
+//! specialized to represent expressions in parsing and semantic analysis.
+//!
+//! The [`Expr`] struct encapsulates a generic [`SyntaxTree`] whose nodes are [`ExprNode`]s,
+//! each associating an expression kind (`ExprKind`) with semantic content (`ExprContent`).
+//!
+//! This module also provides utility methods to create common predefined expressions,
+//! such as empty expressions with logical `and` or `or` operators,
+//! or expressions specific to metrics or length specifications.
+//!
+//! # Key Features
+//! - Construction of empty expressions or with basic logical operators.
+//! - Conversion from a generic AST subtree into a fully typed expression tree.
+//! - Transparent access to the underlying tree via `Deref` and `DerefMut`.
+//! - Displaying expressions with or without resolving interned identifiers via a `StringInterner`.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use aiplan4rust::lir::expr::Expr;
+//!
+//! let expr = Expr::new();
+//! assert!(expr.is_empty());
+//!
+//! let expr_or = Expr::empty_or();
+//! println!("{}", expr_or);
+//! ```
+//!
+//! # Errors
+//!
+//! Converting from an AST subtree may fail if the conversion of kinds or content
+//! is unsupported, returning an [`ExprError`].
+//!
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
@@ -10,10 +45,19 @@ use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lang::Optimization;
 use crate::aiplan4rust::syntax::tree::{SyntaxSubtree, SyntaxTree};
 
-/// Wrapper struct around `TreeArena<ExprNode>` representing an expression arena.
+/// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
 ///
-/// This struct provides a dedicated type for expressions, allowing
-/// to add custom methods on top of the underlying `TreeArena`.
+/// This struct enables manipulation of expressions as syntax trees with precise semantic content,
+/// facilitating construction, transformation, and display of expressions.
+///
+/// # Examples
+///
+/// ```rust
+/// use aiplan4rust::lir::expr::Expr;
+///
+/// let expr = Expr::new();
+/// assert!(expr.is_empty());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Expr {
     tree: SyntaxTree<ExprNode>,
@@ -28,12 +72,23 @@ impl Expr {
     /// let expr = Expr::new();
     /// assert!(expr.is_empty());
     /// ```
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `Expr` with an empty underlying syntax tree.
     pub fn new() -> Self {
         Self {
             tree: SyntaxTree::<ExprNode>::new(),
         }
     }
 
+    /// Creates an expression with a single root node of kind `Or` and no content.
+    ///
+    /// This is useful to represent an empty logical OR expression.
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` with root `ExprNode` of kind `Or` and empty content.
     pub fn empty_or() -> Self {
         let mut empty_or = Expr::new();
         let root = ExprNode::new(ExprKind::Or, ExprContent::None, None);
@@ -41,6 +96,13 @@ impl Expr {
         empty_or
     }
 
+    /// Creates an expression with a single root node of kind `And` and no content.
+    ///
+    /// This is useful to represent an empty logical AND expression.
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` with root `ExprNode` of kind `And` and empty content.
     pub fn empty_and() -> Self {
         let mut empty_and = Expr::new();
         let root = ExprNode::new(ExprKind::And, ExprContent::None, None);
@@ -48,6 +110,14 @@ impl Expr {
         empty_and
     }
 
+    /// Creates an expression representing a metric with no optimization directive.
+    ///
+    /// This creates an expression with a root node of kind `Metric` and content specifying
+    /// no optimization (`Optimization::None`).
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` representing a metric expression with no optimization.
     pub fn metric_none() -> Self {
         let mut expr = Expr::new();
         let root = ExprNode::new(
@@ -59,6 +129,13 @@ impl Expr {
         expr
     }
 
+    /// Creates an expression with a single root node of kind `Length` and no content.
+    ///
+    /// This can represent an empty length specification expression.
+    ///
+    /// # Returns
+    ///
+    /// An `Expr` with root `ExprNode` of kind `Length` and empty content.
     pub fn empty_length_spec() -> Self {
         let mut expr = Expr::new();
         let root = ExprNode::new(
@@ -71,16 +148,24 @@ impl Expr {
     }
 }
 
-/// Attempts to construct an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
+/// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
 ///
-/// This builds the entire expression arena iteratively from the AST subtree,
-/// converting each AST node into an `ExprNode`, preserving the tree structure.
+/// This implementation iteratively traverses the AST subtree, converting each node to an `ExprNode`
+/// while preserving parent-child relationships to construct the expression tree.
 ///
 /// # Errors
 ///
-/// Returns [`AiplanError`] if:
-/// - Conversion of AST kinds or contents to Expr kinds/contents fails.
+/// Returns an [`ExprError`] if:
+/// - Conversion of AST kinds or contents to expression kinds or contents fails.
 /// - Syntax node lookups fail.
+///
+/// # Arguments
+///
+/// * `subtree` - A reference to a [`SyntaxSubtree`] of [`AstNode`] representing the AST fragment.
+///
+/// # Returns
+///
+/// Returns an `Expr` instance constructed from the AST subtree on success.
 ///
 /// # Example
 ///
@@ -95,24 +180,25 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
         let mut expr = Expr::new();
         let mut stack = Vec::new();
 
-        // Stack elements are (AST node, Option<parent ExprNodeId>)
+        // Stack elements: (AST node, optional parent ExprNodeId)
         stack.push((subtree.node(), None));
 
         while let Some((current_ast_node, parent_expr_id_opt)) = stack.pop() {
-            // Convert AST kind and content into Expr kind and content
+            // Convert AST kind and content to Expr kind and content
             let kind = ExprKind::try_from(current_ast_node.kind())?;
             let content = ExprContent::try_from(current_ast_node.content())?;
 
-            // Create ExprNode and allocate in arena
+            // Create ExprNode and allocate in the expression arena
             let expr_node = ExprNode::new(kind, content, parent_expr_id_opt);
             let expr_node_id = expr.alloc(expr_node);
 
-            // Link to parent if applicable
+            // Link this node as child of parent if parent exists
             if let Some(parent_id) = parent_expr_id_opt {
                 expr.try_node_mut(parent_id)?.add_child(expr_node_id);
             }
 
-            // Push children in reverse order to preserve left-to-right traversal
+            // Add children of the current AST node to the stack in reverse order,
+            // to maintain left-to-right traversal order
             for &child_id in current_ast_node.children().iter().rev() {
                 let child_node = subtree.tree().try_node(child_id)?;
                 stack.push((child_node, Some(expr_node_id)));
@@ -123,39 +209,77 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
     }
 }
 
-
 impl Deref for Expr {
     type Target = SyntaxTree<ExprNode>;
 
-    /// Dereferences the `Expr` to the underlying `TreeArena<ExprNode>`.
+    /// Dereferences `Expr` to the underlying [`SyntaxTree`] of [`ExprNode`]s.
     ///
-    /// This allows transparent access to all methods of `TreeArena`.
+    /// This enables convenient transparent access to all tree operations on the expression.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the internal syntax tree.
     fn deref(&self) -> &Self::Target {
         &self.tree
     }
 }
 
 impl DerefMut for Expr {
-    /// Mutable dereference to the underlying `TreeArena<ExprNode>`.
+    /// Mutable dereference to the underlying [`SyntaxTree`] of [`ExprNode`]s.
+    ///
+    /// Allows mutation of the expression tree structure.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the internal syntax tree.
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.tree
     }
 }
 
 impl fmt::Display for Expr {
+    /// Formats the expression as a string using the Display implementation of the underlying syntax tree.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter.
+    ///
+    /// # Returns
+    ///
+    /// A formatting result indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Délègue au Display de TreeArena<ExprNode>
         fmt::Display::fmt(&self.tree, f)
     }
 }
 
 impl InternerDisplay for Expr {
+    /// Formats the expression using a [`StringInterner`] to resolve interned identifiers.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter.
+    /// * `interner` - The interner used to resolve interned strings.
+    ///
+    /// # Returns
+    ///
+    /// A formatting result indicating success or failure.
     fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         self.tree.fmt_with_interner(f, interner)
     }
 }
 
 impl SyntaxDisplay for Expr {
+    /// Formats the expression with indentation and interner support for pretty printing.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter.
+    /// * `interner` - The string interner for resolving identifiers.
+    /// * `indent` - The indentation level (number of spaces or tabs).
+    ///
+    /// # Returns
+    ///
+    /// A formatting result indicating success or failure.
     fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;

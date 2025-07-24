@@ -1,9 +1,9 @@
-//! This module defines the `IRBuilder` struct and associated functions to
+//! This module defines the `LirBuilder` struct and associated functions to
 //! transform a linked and semantically verified planning domain and problem
 //! into a lifted intermediate representation (`LiftedProblem`).
 //!
 //! # Overview
-//! The `IRBuilder` processes a `LinkedSemanticContext` containing:
+//! The `LirBuilder` processes a `LinkedSemanticContext` containing:
 //! - The domain and problem abstract syntax trees (ASTs) with all references
 //!   resolved and semantic checks passed.
 //! - Extracts domain elements such as types, predicates, functions, actions,
@@ -44,7 +44,7 @@ use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult, LirError};
+use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LirBuilderResult, LirError};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -53,7 +53,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
-/// This module defines the `LIRBuilder`, which transforms a parsed and linked
+/// This module defines the `LirBuilder`, which transforms a parsed and linked
 /// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).
 ///
 /// # What does it do?
@@ -80,19 +80,18 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 /// It only prepares data for later use.
 /// The input has already been verified to be semantically correct.
 #[derive(Debug, Default)]
-pub struct LIRBuilder {
+pub struct LirBuilder {
     diagnostic_manager: DiagnosticManager,
 }
 
-impl LIRBuilder {
+impl LirBuilder {
 
     /// Creates a new instance of IRBuilder.
     pub fn new() -> Self {
-        LIRBuilder {
+        LirBuilder {
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
-
 
     /// Returns an immutable reference to the internal `DiagnosticManager`,
     /// which contains diagnostics collected during the LIR building process.
@@ -128,19 +127,19 @@ impl LIRBuilder {
     pub fn build(
         &mut self,
         context: &LinkedSemanticContext,
-    ) -> Result<LIRBuilderResult, LirError> {
+    ) -> Result<LirBuilderResult, LirError> {
         let mut lir = LiftedProblem::new();
 
         self.extract_domain(context, &mut lir)?;
         self.extract_problem(context, &mut lir)?;
-        Ok(LIRBuilderResult::new(Some(lir), take(&mut self.diagnostic_manager)))
+        Ok(LirBuilderResult::new(Some(lir), take(&mut self.diagnostic_manager)))
     }
 
     pub fn build_with_diagnostic_manager(
         &mut self,
         context: &LinkedSemanticContext,
         diagnostic_manager: DiagnosticManager
-    ) -> Result<LIRBuilderResult, LirError> {
+    ) -> Result<LirBuilderResult, LirError> {
         self.diagnostic_manager = diagnostic_manager;
         self.build(context)
     }
