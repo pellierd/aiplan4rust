@@ -38,13 +38,13 @@
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
@@ -193,7 +193,7 @@ impl TaskNetwork {
 /// let task_network = TaskNetwork::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
-    type Error = AiplanError;
+    type Error = LirError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();
@@ -224,7 +224,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
                     constraints = Expr::try_from(&SyntaxSubtree::new(logical_node, ast))?;
                 }
                 _ => {
-                    return Err(AiplanError::internal_error(format!(
+                    return Err(LirError::unsupported_task_network(format!(
                         "Unexpected syntax kind in TaskNetwork: {:?}",
                         child_node.kind()
                     )));

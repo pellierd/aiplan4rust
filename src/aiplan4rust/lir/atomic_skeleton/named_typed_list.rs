@@ -30,6 +30,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// Abstract skeleton core to both predicates and functions in PDDL.
@@ -136,7 +137,7 @@ impl NamedTypedList {
 /// let named = NamedTypedList::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for NamedTypedList {
-    type Error = AiplanError;
+    type Error = LirError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();

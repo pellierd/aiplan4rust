@@ -23,7 +23,6 @@
 //! println!("Action name: {}", action.name());
 //! ```
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
@@ -37,6 +36,7 @@ use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
@@ -166,7 +166,7 @@ impl Action {
 /// let action = Action::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
-    type Error = AiplanError;
+    type Error = LirError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();
@@ -197,7 +197,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
                     effect = Expr::try_from(&SyntaxSubtree::new(eff_node, ast))?;
                 }
                 _ => {
-                    return Err(AiplanError::internal_error(format!(
+                    return Err(LirError::unsupported_action(format!(
                         "Unexpected syntax in Action body: {:?}",
                         child_node.kind()
                     )));

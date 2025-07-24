@@ -1,6 +1,6 @@
-use crate::aiplan4rust::AiplanError;
+
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
@@ -89,7 +89,7 @@ impl Expr {
 /// let expr = Expr::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
-    type Error = AiplanError;
+    type Error = ExprError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let mut expr = Expr::new();

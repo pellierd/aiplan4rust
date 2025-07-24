@@ -1,6 +1,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -23,6 +24,9 @@ pub enum AiplanError {
     SyntaxTree(#[from] SyntaxTreeError),
 
     #[error(transparent)]
+    Lir(#[from] LirError),
+
+    #[error(transparent)]
     Interner(#[from] InternerError),
 
     // autres variantes à venir...
@@ -34,6 +38,7 @@ impl AiplanError {
         AiplanError::InternalError(msg.into())
     }
 }
+
 impl From<AiplanError> for ArenaError {
     fn from(e: AiplanError) -> Self {
         match e {
@@ -50,6 +55,9 @@ impl From<AiplanError> for ArenaError {
             AiplanError::InternalError(msg) => ArenaError::InternalError(msg),
             AiplanError::Interner(ie) => {
                 ArenaError::InternalError(format!("Interner error wrapped: {}", ie))
+            }
+            AiplanError::Lir(le) => {
+                ArenaError::InternalError(format!("LIR error wrapped: {}", le))
             }
         }
     }

@@ -40,12 +40,11 @@ use std::collections::HashSet;
 use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
+use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult, LirError};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -129,7 +128,7 @@ impl LIRBuilder {
     pub fn build(
         &mut self,
         context: &LinkedSemanticContext,
-    ) -> Result<LIRBuilderResult, AiplanError> {
+    ) -> Result<LIRBuilderResult, LirError> {
         let mut lir = LiftedProblem::new();
 
         self.extract_domain(context, &mut lir)?;
@@ -141,7 +140,7 @@ impl LIRBuilder {
         &mut self,
         context: &LinkedSemanticContext,
         diagnostic_manager: DiagnosticManager
-    ) -> Result<LIRBuilderResult, AiplanError> {
+    ) -> Result<LIRBuilderResult, LirError> {
         self.diagnostic_manager = diagnostic_manager;
         self.build(context)
     }
@@ -158,7 +157,7 @@ impl LIRBuilder {
         &mut self,
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), LirError> {
         let domain_tree = context.domain_ast();
 
         for node in domain_tree.preorder().values() {
@@ -214,7 +213,7 @@ impl LIRBuilder {
         &self,
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), LirError> {
         let problem_tree = context.problem_ast();
 
         for node in problem_tree.preorder().values() {
@@ -261,49 +260,49 @@ impl LIRBuilder {
 /// Extracts a set of requirements from a `RequireDef` syntax subtree.
 fn extract_requirements(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<HashSet<Requirement>, AiplanError> {
+) -> Result<HashSet<Requirement>, LirError> {
     extract_set(subtree, |child_subtree| Ok(child_subtree.node().try_requirement()?))
 }
 
 /// Extracts predicates from a `PredicatesDef` syntax subtree.
 fn extract_atomic_formula_skeleton(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<HashSet<AtomicFormulaSkeleton>, AiplanError> {
+) -> Result<HashSet<AtomicFormulaSkeleton>, LirError> {
     extract_set(subtree, |child_subtree| AtomicFormulaSkeleton::try_from(child_subtree))
 }
 
 /// Extracts functions from a `FunctionsDef` syntax subtree.
 fn extract_atomic_function_skeleton(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<HashSet<AtomicFunctionSkeleton>, AiplanError> {
+) -> Result<HashSet<AtomicFunctionSkeleton>, LirError> {
     extract_set(subtree, |child_subtree| AtomicFunctionSkeleton::try_from(child_subtree))
 }
 
 /// Extracts types from a `TypesDef` syntax subtree.
 fn extract_types(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<HashSet<TypedSymbol>, AiplanError> {
-    extract_set_from_first_child(subtree, |child_subtree| TypedSymbol::try_from(child_subtree))
+) -> Result<HashSet<TypedSymbol>, LirError> {
+    extract_set_from_first_child(subtree, |child_subtree| Ok(TypedSymbol::try_from(child_subtree)?))
 }
 
 /// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax subtree.
 fn extract_constants(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<HashSet<TypedSymbol>, AiplanError> {
-    extract_set_from_first_child(subtree, |child_subtree| TypedSymbol::try_from(child_subtree))
+) -> Result<HashSet<TypedSymbol>, LirError> {
+    extract_set_from_first_child(subtree, |child_subtree| Ok(TypedSymbol::try_from(child_subtree)?))
 }
 
 /// Extracts an expression from the first child of an `Init` syntax subtree.
 fn extract_init(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<Expr, AiplanError> {
+) -> Result<Expr, LirError> {
     extract_expr_first_child(subtree)
 }
 
 /// Extracts the goal expression from a `Goal` syntax subtree.
 fn extract_goal(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<Expr, AiplanError> {
+) -> Result<Expr, LirError> {
     extract_expr_first_child(subtree)
 }
 
@@ -311,10 +310,10 @@ fn extract_goal(
 /// Used for `Init`, `Goal`, `Metric`, etc.
 fn extract_expr_first_child(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<Expr, AiplanError> {
+) -> Result<Expr, LirError> {
     let child_id = subtree.node().try_child(0)?;
     let child_node = subtree.tree().try_node(child_id)?;
-    Expr::try_from(&SyntaxSubtree::new(child_node, subtree.tree()))
+    Ok(Expr::try_from(&SyntaxSubtree::new(child_node, subtree.tree()))?)
 }
 
 /// Generic helper to extract a set of elements from direct children of a syntax subtree.
@@ -322,10 +321,10 @@ fn extract_expr_first_child(
 fn extract_set<T, F>(
     subtree: &SyntaxSubtree<AstNode>,
     extract_fn: F,
-) -> Result<HashSet<T>, AiplanError>
+) -> Result<HashSet<T>, LirError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&SyntaxSubtree<AstNode>) -> Result<T, AiplanError>,
+    F: Fn(&SyntaxSubtree<AstNode>) -> Result<T, LirError>,
 {
     let mut set = HashSet::new();
     for child_id in subtree.node().children() {
@@ -342,10 +341,10 @@ where
 fn extract_set_from_first_child<T, F>(
     subtree: &SyntaxSubtree<AstNode>,
     extract_fn: F,
-) -> Result<HashSet<T>, AiplanError>
+) -> Result<HashSet<T>, LirError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&SyntaxSubtree<AstNode>) -> Result<T, AiplanError>,
+    F: Fn(&SyntaxSubtree<AstNode>) -> Result<T, LirError>,
 {
     let first_child_id = subtree.node().try_child(0)?;
     let first_child_node = subtree.tree().try_node(first_child_id)?;

@@ -13,7 +13,6 @@
 //!
 //! Typical usage includes parsing, type checking, and semantic analysis of planning domain languages.
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::Ident;
@@ -24,6 +23,8 @@ use std::fmt;
 use std::fmt::Formatter;
 use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
+use crate::aiplan4rust::lang::error::LangError;
+use crate::Language;
 
 /// Represents a type in a planning problem IR.
 ///
@@ -364,7 +365,7 @@ impl SyntaxDisplay for Type {
 /// let ty = Type::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Type {
-    type Error = AiplanError;
+    type Error = LangError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();

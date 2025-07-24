@@ -25,7 +25,6 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;
@@ -39,6 +38,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -169,7 +169,7 @@ impl Method {
 /// let method = Method::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Method {
-    type Error = AiplanError;
+    type Error = LirError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();

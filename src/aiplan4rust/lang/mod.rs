@@ -46,6 +46,7 @@ pub mod arithmetic_op;
 pub mod assign_op;
 pub mod binary_comp;
 pub mod optimization;
+pub mod error;
 
 pub use types::Type;
 pub use typed_symbol::TypedSymbol;
@@ -56,3 +57,4 @@ pub use arithmetic_op::ArithmeticOp;
 pub use assign_op::AssignOp;
 pub use binary_comp::BinaryComp;
 pub use optimization::Optimization;
+pub use error::LangError;

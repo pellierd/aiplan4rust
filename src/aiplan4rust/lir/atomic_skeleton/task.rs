@@ -22,6 +22,7 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -106,7 +107,7 @@ impl DerefMut for Task {
 /// let task = Task::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Task {
-    type Error = AiplanError;
+    type Error = LirError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let signature = NamedTypedList::try_from(subtree)?;

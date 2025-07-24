@@ -15,8 +15,6 @@
 //! This is commonly used in parsing and semantic analysis stages of a PDDL-like
 //! domain-specific language processor.
 
-
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
@@ -27,6 +25,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use crate::aiplan4rust::lang::error::LangError;
 
 /// Represents a typed symbol identified by an [`Ident`],
 /// with one or more associated types.
@@ -201,7 +200,7 @@ impl SyntaxDisplay for TypedSymbol {
 /// let symbol = TypedSymbol::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TypedSymbol {
-    type Error = AiplanError;
+    type Error = LangError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();

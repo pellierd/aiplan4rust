@@ -4,7 +4,6 @@
 //! The `InitialTaskNetwork` consists of a list of typed parameters and
 //! a lifted task network describing the tasks and their relationships.
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
@@ -15,6 +14,7 @@ use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents the initial task network, containing parameters and a lifted task network.
@@ -96,7 +96,7 @@ impl InitialTaskNetwork {
 /// let initial_tn = InitialTaskNetwork::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for InitialTaskNetwork {
-    type Error = AiplanError;
+    type Error = LirError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();

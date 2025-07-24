@@ -56,6 +56,7 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use crate::aiplan4rust::lir::expr::error::ExprError;
 
 /// Represents the semantic content attached to an AST syntax.
 ///
@@ -208,7 +209,7 @@ impl SyntaxContent for Content {
 }
 
 impl TryFrom<&AstContent> for Content {
-    type Error = AiplanError;
+    type Error = ExprError;
 
     fn try_from(content: &AstContent) -> Result<Self, Self::Error> {
         match content {
@@ -218,9 +219,7 @@ impl TryFrom<&AstContent> for Content {
             AstContent::AssignOp(op) => Ok(Content::AssignOp(*op)),
             AstContent::ArithmeticOp(op) => Ok(Content::ArithmeticOp(*op)),
             AstContent::Optimization(op) => Ok(Content::Optimization(*op)),
-            AstContent::Requirement(_) => Err(AiplanError::InternalError(
-                "UnsupportedContent(Requirement".to_string(),
-            )),
+            AstContent::Requirement(_) => Err(ExprError::unsupported_content("Requirement not supported".to_string())),
             AstContent::None => Ok(Content::None),
         }
     }

@@ -27,6 +27,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::error::LangError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxSubtree};
@@ -166,7 +167,7 @@ impl DerefMut for TypedList {
 /// let typed_list = TypedList::try_from(subtree)?;
 /// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TypedList {
-    type Error = AiplanError;
+    type Error = LangError;
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let node = subtree.node();
