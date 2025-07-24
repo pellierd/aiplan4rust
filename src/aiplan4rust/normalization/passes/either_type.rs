@@ -62,10 +62,10 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::normalization::NormalizationError;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use crate::aiplan4rust::syntax::Span;
 
@@ -122,7 +122,7 @@ use crate::aiplan4rust::syntax::Span;
 pub fn normalize_either_type(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, NormalizationError> {
     let arena = ast.arena();
     // Step 1: Detect and report duplicate type warnings without modifying the AST
     report_either_type_duplicate_warnings(arena, ast, diagnostic_manager)?;
@@ -153,7 +153,7 @@ pub fn normalize_either_type(
 /// # Returns
 ///
 /// - `Ok(())` if traversal and reporting complete successfully.
-/// - `Err(ParserInternalError)` if any syntax or identifier resolution fails during traversal.
+/// - `Err(NormalizationError)` if any syntax or identifier resolution fails during traversal.
 ///
 /// # Behavior
 ///
@@ -183,7 +183,7 @@ fn report_either_type_duplicate_warnings(
     arena: &SyntaxTree<AstNode>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), AiplanError> {
+) -> Result<(), NormalizationError> {
     // Retrieve the source name from the AST, used for diagnostics reporting
     let source_name = ast.source_name();
 
@@ -249,7 +249,7 @@ fn report_either_type_duplicate_warnings(
 /// # Returns
 ///
 /// - `Ok(Diagnostic)` containing the formatted warning ready to be emitted.
-/// - `Err(ParserInternalError)` if any identifier resolution fails.
+/// - `Err(NormalizationError)` if any identifier resolution fails.
 ///
 /// # Example
 ///
@@ -267,7 +267,7 @@ fn new_duplicate_either_type_warning(
     ast: &Ast,
     source: &str,
     span: &Span,
-) -> Result<Diagnostic, AiplanError> {
+) -> Result<Diagnostic, NormalizationError> {
     // Resolve identifiers to strings
     let duplicates: Vec<String> = duplicate_ids
         .into_iter()
@@ -301,7 +301,7 @@ fn new_duplicate_either_type_warning(
 ///
 /// - `Ok(true)` if any duplicates were removed (i.e., the AST was modified).
 /// - `Ok(false)` if no duplicates were found and the AST remains unchanged.
-/// - `Err(ParserInternalError)` if an error occurs while accessing nodes in the arena.
+/// - `Err(NormalizationError)` if an error occurs while accessing nodes in the arena.
 ///
 /// # Behavior
 ///
@@ -335,7 +335,7 @@ fn new_duplicate_either_type_warning(
 /// - `normalize_either_type` – calls this function as part of its normalization pipeline.
 fn remove_either_type_duplicates(
     arena: &mut SyntaxTree<AstNode>,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, NormalizationError> {
     let mut modified = false;
     let mut stack = vec![arena.try_root_id()?];
 

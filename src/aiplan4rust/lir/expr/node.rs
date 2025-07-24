@@ -286,7 +286,7 @@ impl SyntaxNode for ExprNode {
         f: &mut Formatter<'_>,
         arena: &SyntaxTree<Self>,
         interner: &StringInterner,
-        indent: usize,
+        _indent: usize,
     ) -> fmt::Result
     where
         Self: Sized,

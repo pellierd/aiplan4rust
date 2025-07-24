@@ -61,11 +61,11 @@
 //!
 //! The main entry point is [`normalize_typed_list`], which normalizes all `TypedList` nodes.
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::normalization::NormalizationError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
@@ -137,7 +137,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// This function uses an explicit stack to avoid deep recursion and possible stack overflow
 /// on very large ASTs. It is typically the first normalization step before semantic analysis,
 /// type inference, or code generation.
-pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), AiplanError> {
+pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
     if !ast.arena().is_empty() {
         normalize_typed_list_node(ast)?
     }
@@ -151,7 +151,8 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), AiplanError> {
 ///
 /// 1. Retrieves and clears its current children (`TypedItem` nodes).
 /// 2. For each `TypedItem`, extracts all contained elements along with the optional type annotation.
-/// 3. Creates a new `TypedItem` syntax for each individual element, preserving the original span and optional type annotation.
+/// 3. Creates a new `TypedItem` syntax for each individual element, preserving the original span
+///   and optional type annotation.
 /// 4. Replaces the original `TypedList` children with these normalized `TypedItem` nodes.
 ///
 /// The normalization guarantees that after processing:
@@ -165,13 +166,13 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), AiplanError> {
 /// # Returns
 ///
 /// * `Ok(())` if the normalization completes successfully.
-/// * `Err(ParserInternalError)` if the AST contains unexpected syntax kinds, invalid children indices,
-///   or any structural inconsistencies encountered during traversal.
+/// * `Err(NormalizationError)` if the AST contains unexpected syntax kinds, invalid children
+///   indices, or any structural inconsistencies encountered during traversal.
 ///
 /// # Panics
 ///
 /// This function is designed to **never panic**. All errors related to AST structure
-/// or unexpected conditions are returned as `ParserInternalError`.
+/// or unexpected conditions are returned as `NormalizationError`.
 ///
 /// # Traversal Details
 ///
@@ -191,7 +192,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), AiplanError> {
 /// This normalization step is important to simplify downstream processing,
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
 /// type checking and code generation phases.
-fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), AiplanError> {
+fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
     let root_id = ast.arena().try_root_id()?;
     let arena = ast.arena_mut();
     let mut stack = vec![root_id];
@@ -217,8 +218,10 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), AiplanError> {
 /// so that each new `TypedItem` syntax contains exactly one element and an optional type.
 ///
 /// This function performs the tree normalization step for `TypedList` nodes:
-/// - It extracts the existing children (which are `TypedItem` nodes that may contain multiple elements).
-/// - For each old `TypedItem`, it creates one new `TypedItem` per element, preserving optional type and span.
+/// - It extracts the existing children (which are `TypedItem` nodes that may contain multiple
+///   elements).
+/// - For each old `TypedItem`, it creates one new `TypedItem` per element, preserving optional type
+///   and span.
 /// - It replaces the old children with the newly created normalized `TypedItem` nodes.
 ///
 /// # Arguments
@@ -229,7 +232,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), AiplanError> {
 /// # Returns
 ///
 /// * `Ok(())` if the normalization completes successfully.
-/// * `Err(ParserInternalError)` if any syntax access or manipulation fails.
+/// * `Err(NormalizationError)` if any syntax access or manipulation fails.
 ///
 /// # Errors
 ///
@@ -239,7 +242,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), AiplanError> {
 ///
 /// # Panics
 ///
-/// This function does **not** panic. All errors are returned as `ParserInternalError`.
+/// This function does **not** panic. All errors are returned as `NormalizationError`.
 ///
 /// # Example
 ///
@@ -249,7 +252,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), AiplanError> {
 fn normalize_typed_list_node_children(
     arena: &mut SyntaxTree<AstNode>,
     node_id: NodeId,
-) -> Result<(), AiplanError> {
+) -> Result<(), NormalizationError> {
     // 1. Retrieve and clear the current children of the TypedList syntax.
     let old_typed_items = {
         let node = arena.try_node_mut(node_id)?;
@@ -301,7 +304,7 @@ fn normalize_typed_list_node_children(
 ///
 /// # Errors
 ///
-/// Returns `ParserInternalError` if the syntax ID is invalid or cannot be found in the arena.
+/// Returns `NormalizationError` if the syntax ID is invalid or cannot be found in the arena.
 ///
 /// # Example
 ///
@@ -313,7 +316,7 @@ fn normalize_typed_list_node_children(
 fn is_typed_list_node(
     arena: &mut SyntaxTree<AstNode>,
     node_id: NodeId,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, NormalizationError> {
     let node = arena.try_node(node_id)?;
     Ok(node.kind() == AstKind::TypedList)
 }
@@ -337,7 +340,7 @@ fn is_typed_list_node(
 ///     - `type_id_opt`: An optional ID of the associated type syntax.
 ///     - `span`: The span information of the `TypedItem`.
 ///
-/// * `Err(ParserInternalError)` - If the syntax is missing expected children or is invalid.
+/// * `Err(NormalizationError)` - If the syntax is missing expected children or is invalid.
 ///
 /// # Errors
 ///
@@ -353,7 +356,7 @@ fn is_typed_list_node(
 fn extract_typed_item_data(
     arena: &SyntaxTree<AstNode>,
     typed_item_id: NodeId,
-) -> Result<(Vec<NodeId>, Option<NodeId>, Span), AiplanError> {
+) -> Result<(Vec<NodeId>, Option<NodeId>, Span), NormalizationError> {
     // Retrieve the TypedItem syntax
     let typed_item_node = arena.try_node(typed_item_id)?;
 

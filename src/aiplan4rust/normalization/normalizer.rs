@@ -1,149 +1,132 @@
+//! Provides the [`Normalizer`] struct, which performs normalization of an [`Ast`] (Abstract Syntax Tree)
+//! as part of the AI planning pipeline.
+//!
+//! Normalization is a crucial preprocessing stage that transforms the parsed AST into a cleaner,
+//! canonical form suitable for later compilation, optimization, or reasoning. It ensures consistency
+//! and eliminates syntactic variations that may hinder interpretation.
+//!
+//! This module supports:
+//! - A fixed sequence of normalization passes (e.g., typed list flattening, disjunction simplification).
+//! - Internal and external [`DiagnosticManager`] support for error/warning reporting.
+//! - Graceful failure with detailed diagnostics on malformed or unsupported constructs.
+//!
+//! # Normalization Passes
+//! The normalization process applies the following transformations, in order:
+//! 1. `normalize_typed_list`: Converts complex typed list syntax into a uniform structure.
+//! 2. `normalize_either_type`: Resolves `either` types into disjunctions or intersections.
+//! 3. `normalize_require_def`: Processes `:requirements` to ensure semantic validity.
+//! 4. `normalize_type_def`: Normalizes type hierarchies and definitions.
+//!
+//! Each pass may emit diagnostics and may return a [`NormalizationError`] if it encounters
+//! an unrecoverable issue.
+//!
+//! # Example
+//! ```rust
+//! use aiplan4rust::normalization::Normalizer;
+//! use aiplan4rust::syntax::ast::Ast;
+//!
+//! let ast: Ast = /* parsed from input */;
+//! let mut normalizer = Normalizer::new();
+//!
+//! match normalizer.normalize(ast) {
+//!     Ok(result) => println!("Normalized successfully"),
+//!     Err(e) => eprintln!("Normalization failed: {e}"),
+//! }
+//! ```
+//!
+//! # Error Handling
+//! Errors are represented via [`NormalizationError`], which may wrap:
+//! - Syntax tree violations ([`SyntaxTreeError`])
+//! - Arena allocation failures ([`ArenaError`])
+//! - Interning resolution errors ([`InternerError`])
+//! - Internal logic bugs or malformed AST states
+//!
+//! Even in failure, collected diagnostics can provide useful context for recovery or debugging.
+
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::normalization::error::NormalizationError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::syntax::ast::Ast;
 
-/// The `Normalizer` struct provides functionality to transform an Abstract Syntax Tree (AST)
-/// into a standardized, normalized form suitable for further processing or compilation.
+/// Performs AST normalization by applying canonical transformation passes.
 ///
-/// Normalization typically involves applying a sequence of transformation passes that
-/// restructure, simplify, or canonicalize the AST to enforce consistency and remove ambiguities.
-///
-/// During normalization, the `Normalizer` also accumulates diagnostics such as warnings and errors
-/// via an internal [`DiagnosticManager`], enabling detailed reporting of issues found.
-///
-/// # Examples
-///
-/// ```rust
-/// use crate::aiplan4rust::syntax::ast::Ast;
-/// use crate::aiplan4rust::normalization::Normalizer;
-///
-/// let mut normalizer = Normalizer::new();
-/// let ast: Ast = /* ... obtain AST ... */;
-///
-/// match normalizer.normalize(ast) {
-///     Ok(result) => {
-///         let normalized_ast = result.ast;
-///         // Proceed with normalized AST
-///     }
-///     Err(err) => {
-///         eprintln!("Normalization failed: {:?}", err);
-///     }
-/// }
-/// ```
-///
-/// # Note
-///
-/// The `Normalizer` owns an internal [`DiagnosticManager`], but you may also supply
-/// your own diagnostic manager to collect diagnostics externally.
-///
-/// This is useful for integrating the normalizer into larger toolchains where
-/// diagnostics need to be aggregated or customized.
+/// The `Normalizer` collects diagnostics and reports normalization errors through
+/// [`NormalizationError`] or the internal [`DiagnosticManager`]. It can be reused across multiple
+/// normalization operations.
 #[derive(Debug, Clone, Default)]
 pub struct Normalizer {
     diagnostic_manager: DiagnosticManager,
 }
+
 impl Normalizer {
-    /// Constructs a new `Normalizer` instance with an empty diagnostic manager.
+    /// Constructs a new `Normalizer` with an empty internal diagnostic manager.
     ///
     /// # Returns
-    ///
-    /// A fresh `Normalizer` ready to normalize ASTs and collect diagnostics.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let normalizer = Normalizer::new();
-    /// ```
+    /// A new instance of `Normalizer`.
     pub fn new() -> Self {
         Self {
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
 
-    /// Normalizes the provided AST, applying all standard normalization passes.
+    /// Normalizes an AST by applying standard normalization passes.
     ///
-    /// This method takes ownership of the AST, applies a fixed sequence of transformations,
-    /// updates the AST in place, and collects any diagnostics internally.
+    /// This method consumes the input AST, mutates it in-place, and returns a
+    /// [`NormalizerResult`] containing the normalized AST and any collected diagnostics.
     ///
     /// # Arguments
-    ///
-    /// * `ast` - The AST to normalize.
+    /// * `ast` - The [`Ast`] to normalize.
     ///
     /// # Returns
-    ///
-    /// - `Ok(NormalizerResult)` containing the normalized AST and accumulated diagnostics
-    ///   if normalization succeeds.
-    /// - `Err(ParserInternalError)` if an internal error occurs during any normalization pass.
-    ///
-    /// # Errors
-    ///
-    /// Errors returned are typically internal logic errors detected during normalization.
-    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, AiplanError> {
+    /// * `Ok(NormalizerResult)` if all passes succeed.
+    /// * `Err(NormalizationError)` if any pass fails irrecoverably.
+    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, NormalizationError> {
         self.perform_normalization(ast)
     }
 
-    /// Normalizes the AST using an externally supplied diagnostic manager.
+    /// Normalizes an AST using an externally provided [`DiagnosticManager`].
     ///
-    /// This method replaces the internal diagnostic manager with the provided one,
-    /// allowing diagnostics to be collected outside of the `Normalizer`.
+    /// This method allows external control over how diagnostics are collected and reported.
+    /// The internal diagnostic manager is replaced with the supplied one.
     ///
     /// # Arguments
-    ///
     /// * `ast` - The AST to normalize.
-    /// * `diagnostic_manager` - An externally created diagnostic manager for collecting diagnostics.
+    /// * `diagnostic_manager` - An externally created diagnostic manager.
     ///
     /// # Returns
-    ///
-    /// - `Ok(NormalizerResult)` if normalization succeeds.
-    /// - `Err(ParserInternalError)` if an error occurs during normalization.
+    /// A result containing the normalized AST and diagnostics, or an error.
     pub fn normalize_with_diagnostic_manager(
         &mut self,
         ast: Ast,
         diagnostic_manager: DiagnosticManager,
-    ) -> Result<NormalizerResult, AiplanError> {
+    ) -> Result<NormalizerResult, NormalizationError> {
         self.diagnostic_manager = diagnostic_manager;
         self.perform_normalization(ast)
     }
 
-    /// Private helper that executes the actual normalization passes on the AST.
+    /// Internal method: orchestrates the normalization pipeline.
     ///
-    /// This method applies several normalization passes, mutating the AST and
-    /// recording any diagnostics. The passes include:
-    ///
-    /// - Typed list normalization
-    /// - Either type normalization
-    /// - Require definition normalization
-    /// - Type definition normalization
+    /// Applies a fixed sequence of passes that transform the AST in place.
+    /// Any diagnostics encountered during the process are accumulated internally.
     ///
     /// # Arguments
-    ///
-    /// * `ast` - The AST to normalize.
+    /// * `ast` - The mutable AST to normalize.
     ///
     /// # Returns
-    ///
-    /// - `Ok(NormalizerResult)` with the normalized AST and diagnostics.
-    /// - `Err(ParserInternalError)` if any pass fails.
+    /// `Ok(NormalizerResult)` on success, otherwise a [`NormalizationError`].
     fn perform_normalization(
         &mut self,
         mut ast: Ast,
-    ) -> Result<NormalizerResult, AiplanError> {
+    ) -> Result<NormalizerResult, NormalizationError> {
         passes::normalize_typed_list(&mut ast)?;
         passes::normalize_either_type(&mut ast, &mut self.diagnostic_manager)?;
         passes::normalize_require_def(&mut ast, &mut self.diagnostic_manager)?;
         passes::normalize_type_def(&mut ast, &mut self.diagnostic_manager)?;
-        //passes::normalize_optional(&mut ast, &mut self.diagnostic_manager)?;
         Ok(NormalizerResult::new(Some(ast), std::mem::take(&mut self.diagnostic_manager)))
     }
 
-    /// Returns a reference to the internal diagnostic manager.
-    ///
-    /// This allows inspection of diagnostics accumulated during normalization.
-    ///
-    /// # Returns
-    ///
-    /// Reference to the `DiagnosticManager` containing warnings and errors.
+    /// Returns a reference to the internal [`DiagnosticManager`] for inspection or reuse.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }

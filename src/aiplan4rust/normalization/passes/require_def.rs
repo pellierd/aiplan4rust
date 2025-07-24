@@ -12,7 +12,8 @@
 //!
 //! # Usage
 //!
-//! The primary function exposed is `normalize_require_def`, which performs a full pass on the `RequireDef` syntax:
+//! The primary function exposed is `normalize_require_def`, which performs a full pass on the
+//! `RequireDef` syntax:
 //! - Finds the syntax in the AST.
 //! - Reports duplicates through a diagnostic manager.
 //! - Removes duplicate requirements.
@@ -43,8 +44,8 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::normalization::NormalizationError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -55,25 +56,29 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// Normalizes the requirement declarations by removing duplicates from the `RequireDef` syntax.
 ///
 /// This function assumes the input AST is **valid** and structurally correct.
-/// Specifically, if a `RequireDef` syntax is present, it should contain only well-formed `Requirement` nodes as children.
+/// Specifically, if a `RequireDef` syntax is present, it should contain only well-formed
+/// `Requirement` nodes as children.
 ///
-/// The normalization process does not traverse the entire AST. Instead, it directly locates the `RequireDef`
-/// syntax (if any), which is expected to hold all `:requirement` declarations. It removes duplicate
-/// requirements (i.e., those with identical keys) and emits a diagnostic warning for each duplicate found and removed.
+/// The normalization process does not traverse the entire AST. Instead, it directly locates the
+/// `RequireDef` syntax (if any), which is expected to hold all `:requirement` declarations. It
+/// removes duplicate requirements (i.e., those with identical keys) and emits a diagnostic warning
+/// for each duplicate found and removed.
 ///
-/// This pass is **self-contained** and **stateless**—it does not depend on or affect any other normalization passes,
-/// and can safely be run independently at any point, provided the AST is valid.
+/// This pass is **self-contained** and **stateless**—it does not depend on or affect any other
+/// normalization passes, and can safely be run independently at any point, provided the AST is
+/// valid.
 ///
 /// # Arguments
 ///
 /// * `ast` - A mutable reference to the AST that may contain a `RequireDef` syntax.
-/// * `diagnostic_manager` - A manager used to report warnings when duplicate requirements are detected.
+/// * `diagnostic_manager` - A manager used to report warnings when duplicate requirements are
+///   detected.
 ///
 /// # Returns
 ///
 /// * `Ok(true)` if at least one duplicate requirement was removed.
 /// * `Ok(false)` if no duplicates were found or if no `RequireDef` syntax exists.
-/// * `Err(ParserInternalError)` if the AST structure is not as expected (e.g., invalid syntax kinds).
+/// * `Err(NormalizationError)` if the AST structure is not as expected (e.g., invalid syntax kinds).
 ///
 /// # Assumptions
 ///
@@ -84,8 +89,8 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 ///
 /// # Panics
 ///
-/// This function may panic if the `RequireDef` syntax contains unexpected children (e.g., non-`Requirement` nodes),
-/// which indicates a violation of AST validity and a programming error.
+/// This function may panic if the `RequireDef` syntax contains unexpected children (e.g.,
+/// non-`Requirement` nodes), which indicates a violation of AST validity and a programming error.
 ///
 /// # Example
 ///
@@ -100,7 +105,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 pub fn normalize_require_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, NormalizationError> {
     // Early exit if no RequireDef syntax is found
     let require_def_id = match ast.find_node_id_of_kind(AstKind::RequireDef) {
         Some(id) => id,
@@ -137,7 +142,7 @@ pub fn normalize_require_def(
 /// # Returns
 ///
 /// * `Ok(())` on success.
-/// * `Err(ParserInternalError)` if the `RequireDef` syntax cannot be found or accessed.
+/// * `Err(NormalizationError)` if the `RequireDef` syntax cannot be found or accessed.
 ///
 /// # Example
 ///
@@ -154,7 +159,7 @@ pub fn report_duplicate_requirements_warnings(
     require_def_id: NodeId,
     source_name: &str,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), AiplanError> {
+) -> Result<(), NormalizationError> {
     // Try to get the RequireDef syntax by its ID. Return error if not found.
     let require_def_node = arena.try_node(require_def_id)?;
 
@@ -189,7 +194,6 @@ pub fn report_duplicate_requirements_warnings(
     // Return Ok if everything went fine.
     Ok(())
 }
-
 
 /// Creates a diagnostic warning for one or more duplicate requirement declarations.
 ///
@@ -247,7 +251,7 @@ pub fn new_duplicate_requirement_warning(
 pub fn remove_requirement_duplicates(
     arena_mut: &mut SyntaxTree<AstNode>,
     require_def_id: NodeId,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, NormalizationError> {
     // Get mutable reference to RequireDef syntax
     let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
 

@@ -3,14 +3,19 @@
 //! This module provides functions to process and clean up the abstract syntax arena (AST)
 //! related to type declarations. Its main purpose is to:
 //!
-//! - Detect and warn about implicit "either" type declarations, which may indicate ambiguous or overlapping type definitions.
-//! - Merge duplicate type declarations sharing the same primitive type key to simplify and consolidate the AST.
+//! - Detect and warn about implicit "either" type declarations, which may indicate ambiguous or
+//!   overlapping type definitions.
+//! - Merge duplicate type declarations sharing the same primitive type key to simplify and
+//!   consolidate the AST.
 //!
 //! # Key Functions
 //!
-//! - [`normalize_type_def`]: The primary function that coordinates normalization by reporting warnings and merging duplicates.
-//! - [`report_implicit_either_type_warning`]: Scans type declarations to find implicit either types and generates warnings.
-//! - [`merge_duplicate_type_declarations`]: Merges `TypedItem` nodes with identical keys, updating the AST accordingly.
+//! - [`normalize_type_def`]: The primary function that coordinates normalization by reporting
+//!   warnings and merging duplicates.
+//! - [`report_implicit_either_type_warning`]: Scans type declarations to find implicit either types
+//!   and generates warnings.
+//! - [`merge_duplicate_type_declarations`]: Merges `TypedItem` nodes with identical keys, updating
+//!   the AST accordingly.
 //!
 //! # Usage Notes
 //!
@@ -36,15 +41,15 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
+use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::normalization::NormalizationError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::tree::SyntaxNode;
+use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes type declarations in the AST by merging all `TypedItem` nodes
 /// that share the same `PrimitiveType` key.
@@ -77,7 +82,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxNode;
 ///
 /// - `Ok(true)` if the AST was modified (i.e., at least one type was merged).
 /// - `Ok(false)` if no changes were needed.
-/// - `Err(ParserInternalError)` if validation or extraction of any type fails.
+/// - `Err(NormalizationError)` if validation or extraction of any type fails.
 ///
 /// # Errors
 ///
@@ -107,7 +112,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxNode;
 pub fn normalize_type_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, NormalizationError> {
     // Retrieve the syntax ID of the TypesDef syntax in the AST
     let types_def_id = match ast.find_node_id_of_kind(AstKind::TypesDef) {
         Some(id) => id,
@@ -123,7 +128,6 @@ pub fn normalize_type_def(
     Ok(modified)
 }
 
-
 /// Scans the type declarations under the given syntax and reports warnings
 /// for implicit 'either' type declarations detected.
 ///
@@ -134,7 +138,7 @@ pub fn normalize_type_def(
 ///
 /// # Returns
 /// * `Ok(())` on success.
-/// * `Err(ParserInternalError)` if any AST access fails.
+/// * `Err(NormalizationError)` if any AST access fails.
 ///
 /// # Behavior
 /// Iterates over all type declarations within the `types_def_id` syntax.
@@ -145,7 +149,7 @@ fn report_implicit_either_type_warning(
     types_def_id: NodeId,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), AiplanError> {
+) -> Result<(), NormalizationError> {
     // Get immutable access to the arena containing the AST nodes
     let arena = ast.arena();
 
@@ -168,7 +172,6 @@ fn report_implicit_either_type_warning(
         let primitive_type = arena.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
 
-
         // Extract the syntax containing super types of this primitive type if they exist
         let super_type_idents = match type_item.get_child(1) {
             Some(ty_id) => {
@@ -188,7 +191,8 @@ fn report_implicit_either_type_warning(
         // Check if we've already seen this primitive type before
         if seen.contains_key(&primitive_type_ident) {
             // Generate a warning diagnostic for implicit either type declaration
-            let warning = new_implicit_either_type_warning(primitive_type_ident, primitive_type.span(), ast)?;
+            let warning =
+                new_implicit_either_type_warning(primitive_type_ident, primitive_type.span(), ast)?;
             // Add the warning to the diagnostic manager
             diagnostic_manager.add_diagnostic(warning);
         } else {
@@ -201,7 +205,6 @@ fn report_implicit_either_type_warning(
     Ok(())
 }
 
-
 /// Creates a warning diagnostic for an implicit 'either' type declaration.
 ///
 /// # Arguments
@@ -211,7 +214,7 @@ fn report_implicit_either_type_warning(
 ///
 /// # Returns
 /// * `Ok(Diagnostic)` containing the warning information if successful.
-/// * `Err(ParserInternalError)` if resolving the identifier fails.
+/// * `Err(NormalizationError)` if resolving the identifier fails.
 ///
 /// # Purpose
 /// This function generates a diagnostic warning indicating that an 'either' type
@@ -220,8 +223,7 @@ fn new_implicit_either_type_warning(
     type_ident: Ident,
     span: &Span,
     ast: &Ast,
-) -> Result<Diagnostic, AiplanError> {
-
+) -> Result<Diagnostic, NormalizationError> {
     // Resolve the string name of the type identifier using the AST's interner
     let type_name = ast.interner().try_resolve(type_ident)?;
 
@@ -230,69 +232,101 @@ fn new_implicit_either_type_warning(
         DiagnosticKind::ImplicitEitherTypeDeclarationWarning {
             ty: type_name.to_string(),
         },
-        Provider::Normalizer,           // Mark the normalizer as the source of this warning
-        ast.source_name().to_string(),  // Source file name where the warning originates
-        span.clone(),                   // Location span in the source code for the warning
+        Provider::Normalizer, // Mark the normalizer as the source of this warning
+        ast.source_name().to_string(), // Source file name where the warning originates
+        span.clone(),         // Location span in the source code for the warning
     );
 
     // Return the constructed diagnostic wrapped in Ok
     Ok(diagnostic)
 }
 
-
-/// Merges duplicate type declarations in the AST by combining their children.
+/// Merges duplicate type declarations in the AST by combining their supertype children.
 ///
-/// This function scans through a list of type declarations under a given syntax (`types_def_id`)
-/// in the AST arena. If multiple declarations share the same primitive type identifier,
-/// their children nodes (super types) are merged into a single declaration,
-/// removing duplicates and preserving the order where possible.
+/// This normalization pass traverses a list of type declarations found under the provided
+/// `types_def_id` node in the AST. If multiple type declarations use the same primitive identifier
+/// (e.g., multiple `(type robot ...)` blocks with the same name), their child nodes are merged
+/// into a single consolidated declaration.
 ///
 /// # Parameters
-/// - `types_def_id`: The `NodeId` of the parent syntax containing the type declarations list.
-/// - `ast`: A mutable reference to the `AstArena` containing the AST nodes.
+///
+/// - `types_def_id`: The [`NodeId`] of the parent syntax node containing the list of type declarations.
+/// - `ast`: A mutable reference to the [`Ast`] arena representing the syntax tree.
 ///
 /// # Returns
-/// - `Ok(true)` if any duplicate declarations were merged and the AST was modified.
+///
+/// - `Ok(true)` if any duplicate declarations were found and merged.
 /// - `Ok(false)` if no duplicates were found and no changes were made.
-/// - `Err(ParserInternalError)` if accessing nodes or children fails during traversal.
+/// - `Err(NormalizationError)` if traversal or AST manipulation fails.
 ///
 /// # Behavior
-/// For each type declaration, the function extracts the primitive type identifier.
-/// If a previous declaration with the same identifier exists, it merges the children of the
-/// current declaration into the existing one, removing any duplicate children.
-/// The current duplicate declaration syntax is then removed from its parent's children list.
+///
+/// - Scans the children of `types_def_id`, which is expected to contain a `(types ...)` list.
+/// - For each type declaration:
+///   - Extracts the primitive type name (e.g., `robot`, `vehicle`, etc.).
+///   - Checks for prior declarations with the same type name.
+///   - If found, merges their supertype children, removing duplicates while preserving order.
+///   - Removes the redundant declaration node from the parent's children list.
+///
+/// The function operates in-place, directly modifying the provided AST arena.
 ///
 /// # Example
+///
 /// ```rust,no_run
-/// # // Assume existence of ast arena setup and types_def_id.
-/// # let mut ast = AstArena::new();
-/// # let types_def_id = NodeId::new(0);
-/// let modified = merge_duplicate_type_declarations(types_def_id, &mut ast)?;
-/// if modified {
-///     println!("Duplicate type declarations merged successfully.");
+/// # use aiplan4rust::syntax::tree::NodeId;
+/// # use aiplan4rust::syntax::ast::{Ast, AstArena};
+/// # use aiplan4rust::normalization::passes::merge_duplicate_type_declarations;
+/// # use aiplan4rust::normalization::NormalizationError;
+/// # fn example() -> Result<(), NormalizationError> {
+/// let mut ast = AstArena::new();
+/// let types_def_id = NodeId::new(1); // ID pointing to the `(types ...)` declaration
+///
+/// let changed = merge_duplicate_type_declarations(types_def_id, &mut ast)?;
+///
+/// if changed {
+///     println!("✅ Duplicate type declarations were successfully merged.");
 /// } else {
-///     println!("No duplicates found.");
+///     println!("ℹ️ No duplicate type declarations found.");
 /// }
-/// # Ok::<(), ParserInternalError>(())
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// # Errors
-/// This function returns an error if any of the syntax retrievals or child accesses fail,
-/// which usually indicates an inconsistent or malformed AST.
 ///
-/// # Notes
-/// - This function assumes the first child of the syntax with `types_def_id` is a list syntax
-///   containing the individual type declarations.
-/// - The function operates in-place, mutating the provided AST arena.
+/// This function may return a [`NormalizationError`] if:
+///
+/// - The `types_def_id` does not point to a valid node or one without children.
+/// - Any referenced child node is malformed or of unexpected kind.
+/// - The AST arena encounters internal allocation or lookup issues.
+///
+/// # Assumptions
+///
+/// - The `types_def_id` node must have a `List` kind and represent a `(types ...)` clause.
+/// - All type declarations are immediate children of this node.
+/// - Duplicate detection is based on matching the primitive name (e.g., `robot`, `agent`).
 ///
 /// # See Also
-/// Related functions that manipulate the AST or type declarations.
 ///
-/// ```
+/// - [`normalize_type_def`] — Wrapper function that applies this merging as part of full normalization.
+/// - [`Normalizer`] — Interface that orchestrates multiple normalization passes.
+/// - [`Ast`] — The syntax tree structure being normalized.
+/// - [`NodeId`] — Unique identifier for nodes in the AST arena.
+///
+/// # Related Passes
+///
+/// - [`normalize_require_def`] — Merges duplicate `:requirements`.
+/// - [`normalize_typed_list`] — Expands and cleans up typed item declarations.
+///
+/// # Stability
+///
+/// This function is internal to normalization and may be refactored without notice.
+/// It is not intended to be called outside the `passes` module.
+
 pub fn merge_duplicate_type_declarations(
     types_def_id: NodeId,
     ast: &mut Ast,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, NormalizationError> {
     // Get mutable access to the arena holding all AST nodes
     let arena = ast.arena_mut();
 
@@ -358,7 +392,7 @@ pub fn merge_duplicate_type_declarations(
             }
 
             // Update the existing declaration's children to the merged list
-            let mut existing_super_type_mut = arena.try_node_mut(existing_super_type_id)?;
+            let existing_super_type_mut = arena.try_node_mut(existing_super_type_id)?;
             existing_super_type_mut.set_children(merged_children);
 
             // Mark this duplicate declaration for removal later
@@ -374,7 +408,7 @@ pub fn merge_duplicate_type_declarations(
 
     // After processing all declarations, remove all duplicates in one operation
     if modified {
-        let mut typed_list_mut = arena.try_node_mut(typed_list_id)?;
+        let typed_list_mut = arena.try_node_mut(typed_list_id)?;
 
         // Filter out all nodes marked as duplicates from the children list
         typed_list_mut.set_children(
