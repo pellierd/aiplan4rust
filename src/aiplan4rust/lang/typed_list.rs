@@ -29,7 +29,6 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
-use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
@@ -144,33 +143,37 @@ impl DerefMut for TypedList {
     }
 }
 
-impl FromAst for TypedList {
-    /// Constructs a `TypedList` from an AST syntax.
-    ///
-    /// This function expects the given `syntax` to be of type `TypedList`,
-    /// where its children are nodes of type `TypedItem`.
-    ///
-    /// It iterates over the children of the `TypedList` syntax, converts each child
-    /// `TypedItem` syntax into a `TypedSymbol` using its `from_ast` method,
-    /// and collects them into a new `TypedList`.
-    ///
-    /// # Parameters
-    /// - `syntax`: Reference to the AST syntax representing a `TypedList`.
-    /// - `ast`: Reference to the entire AST arena for syntax lookups.
-    ///
-    /// # Returns
-    /// - `Ok(TypedList)` containing all parsed `TypedSymbol` instances from the children.
-    /// - `Err(ParserInternalError)` if any child syntax fails to convert.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>
-    ) -> Result<Self, AiplanError> {
+/// Attempts to construct a [`TypedList`] from an [`AstNode`] and a corresponding [`SyntaxTree`].
+///
+/// This function expects the given `node` to represent a `TypedList`,
+/// where its children are of kind `TypedItem`. Each child node is converted
+/// into a [`TypedSymbol`] and added to the resulting `TypedList`.
+///
+/// # Parameters
+/// - `node`: The AST node representing the `TypedList`.
+/// - `ast`: The full syntax tree used to resolve the children of the node.
+///
+/// # Returns
+/// - `Ok(TypedList)` containing all parsed [`TypedSymbol`]s.
+/// - `Err(AiplanError)` if any child fails to convert (e.g., missing node, invalid identifier).
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let typed_list = TypedList::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for TypedList {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
         let mut typed_list = TypedList::new();
+
         for id in node.children() {
             let child = ast.try_node(*id)?;
-            let ty = TypedSymbol::from_ast(&child, ast)?;
+            let ty = TypedSymbol::try_from((child, ast))?;
             typed_list.push(ty);
         }
+
         Ok(typed_list)
     }
 }

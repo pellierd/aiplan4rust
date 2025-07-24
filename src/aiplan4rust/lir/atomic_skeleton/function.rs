@@ -28,7 +28,6 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
@@ -114,27 +113,34 @@ impl DerefMut for Function {
     }
 }
 
-impl FromAst for Function {
-    /// Builds a [`Function`] from an AST syntax.
-    ///
-    /// The AST syntax is expected to have the following children:
-    /// - Child 0: Function identifier (`Ident`)
-    /// - Child 1: Typed parameter list
-    /// - Child 2: Return type
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`AiplanError`] if any required child is missing
-    /// or if type parsing fails.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>,
-    ) -> Result<Self, AiplanError> {
-        let signature = NamedTypedList::from_ast(node, ast)?;
+/// Attempts to construct a [`Function`] from an [`AstNode`] and its associated [`SyntaxTree`].
+///
+/// # Expectations
+///
+/// The AST node must follow this structure:
+/// - **Child 0**: Function identifier (`Ident`)
+/// - **Child 1**: Typed parameter list
+/// - **Child 2**: Return type
+///
+/// # Returns
+///
+/// - `Ok(Function)` on success.
+/// - `Err(AiplanError)` if any required child is missing or if type resolution fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let function = Function::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Function {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+        let signature = NamedTypedList::try_from((node, ast))?;
 
         let ty_id = node.try_child(2)?;
         let ty_node = ast.try_node(ty_id)?;
-        let ty = Type::from_ast(ty_node, ast)?;
+        let ty = Type::try_from((ty_node, ast))?;
 
         Ok(Function { header: signature, ty })
     }

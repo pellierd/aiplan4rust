@@ -27,7 +27,7 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
@@ -114,18 +114,30 @@ impl NamedTypedList {
     }
 }
 
-impl FromAst for NamedTypedList {
-    /// Constructs a `NamedTypedList` from an AST syntax.
-    ///
-    /// # Parameters
-    ///
-    /// - `syntax`: The AST syntax to parse.
-    /// - `ast`: The AST arena providing syntax access.
-    ///
-    /// # Returns
-    ///
-    /// `Ok(NamedTypedList)` if parsing succeeds, or `ParserInternalError` on failure.
-    fn from_ast(node: &AstNode, ast: &SyntaxTree<AstNode>) -> Result<Self, AiplanError> {
+/// Attempts to construct a [`NamedTypedList`] from an [`AstNode`] and its corresponding [`SyntaxTree`].
+///
+/// # Parameters
+/// - `node`: The AST node representing the named typed list structure.
+/// - `ast`: The full syntax tree used to resolve child nodes.
+///
+/// # Behavior
+/// - The first child of `node` is expected to be an identifier representing the name.
+/// - The second child may either be:
+///   - A direct [`TypedList`] node, or
+///   - A wrapper node of kind `ParametersDef` whose first child is the actual [`TypedList`].
+///
+/// # Returns
+/// Returns `Ok(NamedTypedList)` on success, or an `AiplanError` if any step of the conversion fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let named = NamedTypedList::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for NamedTypedList {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
         let name_id = node.try_child(0)?;
         let name_node = ast.try_node(name_id)?;
         let name = name_node.try_ident()?;
@@ -137,12 +149,11 @@ impl FromAst for NamedTypedList {
             AstKind::ParametersDef => {
                 let parameters_id = second_child_node.try_child(0)?;
                 let parameters_node = ast.try_node(parameters_id)?;
-                TypedList::from_ast(parameters_node, ast)?
-            },
-            _ => {
-                TypedList::from_ast(second_child_node, ast)?
+                TypedList::try_from((parameters_node, ast))?
             }
+            _ => TypedList::try_from((second_child_node, ast))?,
         };
+
         Ok(NamedTypedList::new(name, parameters))
     }
 }

@@ -49,7 +49,6 @@
 pub mod content;
 pub mod kind;
 
-pub mod from_ast;
 pub mod ast;
 
 pub mod node;
@@ -59,7 +58,6 @@ pub mod error;
 // Public re-exports
 pub use kind::Kind as AstKind;
 pub use content::Content as AstContent;
-pub use from_ast::FromAst;
 pub use ast::Ast;
 pub use error::AstError;
 pub use node::AstNode;

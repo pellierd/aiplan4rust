@@ -21,7 +21,6 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
@@ -180,28 +179,39 @@ impl SyntaxDisplay for TypedSymbol {
     }
 }
 
-impl FromAst for TypedSymbol {
-    /// Constructs a `TypedSymbol` from an AST syntax.
-    ///
-    /// # Expectations
-    /// - The provided `syntax` **must** be of kind `TypedItem`.
-    /// - The syntax has **at most two children**:
-    ///   - The **first child** is the symbol (mandatory).
-    ///   - The **second child** is the type (optional).
-    /// - If the second child (type) is absent, returns a `TypedSymbol` with an empty `Type`.
-    ///
-    /// # Errors
-    /// Returns a `ParserInternalError` if accessing the children or parsing fails.
-    fn from_ast(node: &AstNode, ast: &SyntaxTree<AstNode>) -> Result<Self, AiplanError> {
+/// Attempts to construct a [`TypedSymbol`] from an [`AstNode`] and a corresponding [`SyntaxTree`].
+///
+/// # Expectations
+///
+/// - The provided `node` **must** be of kind `TypedItem`.
+/// - The node is expected to have **at most two children**:
+///   - The **first child** is the symbol (mandatory).
+///   - The **second child** is the type (optional).
+/// - If the second child is absent, a `TypedSymbol` with an empty [`Type`] is returned.
+///
+/// # Errors
+///
+/// Returns an [`AiplanError`] if accessing the children or parsing the symbol/type fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let symbol = TypedSymbol::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for TypedSymbol {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
         let children = node.children();
         let symbol_node = ast.try_node(children[0])?;
 
         let ty = if children.len() > 1 {
             let ty_node = ast.try_node(children[1])?;
-            Type::from_ast(ty_node, ast)?
+            Type::try_from((ty_node, ast))?
         } else {
             Type::new()
         };
+
         Ok(TypedSymbol::new(symbol_node.try_ident()?, ty))
     }
 }

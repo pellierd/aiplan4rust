@@ -15,7 +15,7 @@
 
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::syntax::ast::{AstNode, FromAst};
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
@@ -336,31 +336,46 @@ impl SyntaxDisplay for Type {
     }
 }
 
-impl FromAst for Type {
-    /// Constructs a [`Type`] from an [`AstNode`] representing a collection of type identifiers.
-    ///
-    /// This implementation iterates over the children of the given AST syntax,
-    /// retrieves each child syntax's identifier, and adds it to the list of type members.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let syntax: &AstArenaNode = ...;
-    /// let ast: &Ast = ...;
-    /// let ty = Type::from_ast(syntax, ast)?;
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`AiplanError`] if any of the child nodes cannot be retrieved.
-    fn from_ast(node: &AstNode, ast: &SyntaxTree<AstNode>) -> Result<Self, AiplanError> {
+/// Attempts to construct a [`Type`] from an [`AstNode`] and a corresponding [`SyntaxTree`].
+///
+/// This implementation iterates over the children of the given AST node,
+/// retrieves each child from the syntax tree, and adds its identifier
+/// to the type representation if the content is not empty.
+///
+/// # Parameters
+///
+/// - `node`: A reference to the AST node representing the type structure (e.g., a list of type identifiers).
+/// - `ast`: The full syntax tree used to resolve the children of `node`.
+///
+/// # Returns
+///
+/// Returns a [`Type`] composed of all valid child identifiers found in the AST node.
+///
+/// # Errors
+///
+/// Returns an [`AiplanError`] if any child node cannot be retrieved from the syntax tree
+/// or if an identifier is missing or malformed.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let syntax: &AstArenaNode = ...;
+/// let ast: &SyntaxTree<AstNode> = ...;
+/// let ty = Type::try_from((syntax, ast))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Type {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
         let mut ty = Type::new();
+
         for ty_id in node.children() {
             let child_node = ast.try_node(*ty_id)?;
             if !child_node.content().is_none() {
                 ty.add_type(child_node.try_ident()?);
             }
         }
+
         Ok(ty)
     }
 }

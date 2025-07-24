@@ -48,7 +48,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LIRBuilderResult};
 use crate::aiplan4rust::lir::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
@@ -170,11 +170,11 @@ impl LIRBuilder {
                 AstKind::PredicatesDef => ir.add_predicates(extract_atomic_formula_skeleton(node, domain)?),
                 AstKind::FunctionsDef => ir.add_functions(extract_atomic_function_skeleton(node, domain)?),
                 AstKind::Constraints => {
-                    ir.set_domain_constraints(Expr::from_ast(node, domain)?)
+                    ir.set_domain_constraints(Expr::try_from((node, domain))?)
                 }
-                AstKind::TaskDef => ir.add_task(AtomicTaskSkeleton::from_ast(node, domain)?),
-                AstKind::ActionDef => ir.add_action(LiftedAction::from_ast(node, domain)?),
-                AstKind::MethodDef => ir.add_method(LiftedMethod::from_ast(node, domain)?),
+                AstKind::TaskDef => ir.add_task(AtomicTaskSkeleton::try_from((node, domain))?),
+                AstKind::ActionDef => ir.add_action(LiftedAction::try_from((node, domain))?),
+                AstKind::MethodDef => ir.add_method(LiftedMethod::try_from((node, domain))?),
                 _ => {}
             }
         }
@@ -206,12 +206,12 @@ impl LIRBuilder {
                 AstKind::Init => ir.set_init(extract_init(node, problem)?),
                 AstKind::Goal => ir.set_goal(extract_goal(node, problem)?),
                 AstKind::Constraints => {
-                    ir.set_problem_constraints(Expr::from_ast(node, problem)?)
+                    ir.set_problem_constraints(Expr::try_from((node, problem))?)
                 }
-                AstKind::Metric => ir.set_metric_spec(Expr::from_ast(node, problem)?),
-                AstKind::Length => ir.set_length_spec(Expr::from_ast(node, problem)?),
+                AstKind::Metric => ir.set_metric_spec(Expr::try_from((node, problem))?),
+                AstKind::Length => ir.set_length_spec(Expr::try_from((node, problem))?),
                 AstKind::InitialTaskNetwork => {
-                    ir.set_initial_task_network(InitialTaskNetwork::from_ast(node, problem)?)
+                    ir.set_initial_task_network(InitialTaskNetwork::try_from((node, problem))?)
                 }
                 _ => {}
             }
@@ -236,7 +236,7 @@ fn extract_atomic_formula_skeleton(
     node: &AstNode,
     ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<AtomicFormulaSkeleton>, AiplanError> {
-    extract_set(node, ast, AtomicFormulaSkeleton::from_ast)
+    extract_set(node, ast, |n, a| AtomicFormulaSkeleton::try_from((n, a)))
 }
 
 /// Extracts functions from a `FunctionsDef` syntax.
@@ -244,7 +244,7 @@ fn extract_atomic_function_skeleton(
     node: &AstNode,
     ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<AtomicFunctionSkeleton>, AiplanError> {
-    extract_set(node, ast, AtomicFunctionSkeleton::from_ast)
+    extract_set(node, ast, |n, a| AtomicFunctionSkeleton::try_from((n, a)))
 }
 
 /// Extracts types from a `TypesDef` syntax.
@@ -252,7 +252,7 @@ fn extract_types(
     node: &AstNode,
     ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, AiplanError> {
-    extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
+    extract_set_from_first_child(node, ast, |n, a| TypedSymbol::try_from((n, a)))
 }
 
 /// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax.
@@ -260,7 +260,7 @@ fn extract_constants(
     node: &AstNode,
     ast: &SyntaxTree<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, AiplanError> {
-    extract_set_from_first_child(node, ast, TypedSymbol::from_ast)
+    extract_set_from_first_child(node, ast, |n, a| TypedSymbol::try_from((n, a)))
 }
 
 /// Extracts an expression from the first child of an `Init` syntax.
@@ -287,7 +287,7 @@ fn extract_expr_first_child(
 ) -> Result<Expr, AiplanError> {
     let child_id = node.try_child(0)?;
     let child_node = ast.try_node(child_id)?;
-    Expr::from_ast(child_node, ast)
+    Expr::try_from((child_node, ast))
 }
 
 /// Generic helper to extract a set of elements from direct children of a syntax.

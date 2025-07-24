@@ -42,7 +42,7 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
@@ -172,21 +172,29 @@ impl TaskNetwork {
     }
 }
 
-impl FromAst for TaskNetwork {
-    /// Builds a [`TaskNetwork`] instance from the AST representation.
-    ///
-    /// This method expects a syntax containing children corresponding to:
-    /// - A subtask definition (`PartiallyOrderedSubtaskDef` or `OrderedSubtaskDef`).
-    /// - Optionally, a task ordering constraint.
-    /// - Optionally, a task logical constraint.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`AiplanError`] if the syntax is malformed or has unexpected children.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>,
-    ) -> Result<Self, AiplanError> {
+/// Attempts to construct a [`TaskNetwork`] from an [`AstNode`] and its associated [`SyntaxTree`].
+///
+/// # Expected Structure
+///
+/// The `AstNode` should contain children matching one or more of the following:
+/// - `PartiallyOrderedSubtaskDef` or `OrderedSubtaskDef`: holds the task definitions.
+/// - `TaskOrderingConstraintDef`: holds ordering constraints.
+/// - `TaskLogicalConstraintDef`: holds logical constraints.
+///
+/// # Returns
+///
+/// - `Ok(TaskNetwork)` if all components are successfully parsed.
+/// - `Err(AiplanError)` if the syntax structure is unexpected or a subcomponent fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let network = TaskNetwork::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for TaskNetwork {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
         let children = node.children();
 
         let mut tasks = Expr::empty_and();
@@ -196,26 +204,25 @@ impl FromAst for TaskNetwork {
         for child_id in children {
             let child_node = ast.try_node(*child_id)?;
             match child_node.kind() {
-                AstKind::PartiallyOrderedSubtaskDef
-                | AstKind::OrderedSubtaskDef => {
+                AstKind::PartiallyOrderedSubtaskDef | AstKind::OrderedSubtaskDef => {
                     let tasks_node_id = child_node.try_child(0)?;
                     let tasks_node = ast.try_node(tasks_node_id)?;
-                    tasks = Expr::from_ast(tasks_node, ast)?;
+                    tasks = Expr::try_from((tasks_node, ast))?;
                 }
                 AstKind::TaskOrderingConstraintDef => {
                     let ordering_node_id = child_node.try_child(0)?;
                     let ordering_node = ast.try_node(ordering_node_id)?;
-                    ordering = Expr::from_ast(ordering_node, ast)?;
+                    ordering = Expr::try_from((ordering_node, ast))?;
                 }
                 AstKind::TaskLogicalConstraintDef => {
                     let logical_node_id = child_node.try_child(0)?;
                     let logical_node = ast.try_node(logical_node_id)?;
-                    constraints = Expr::from_ast(logical_node, ast)?;
+                    constraints = Expr::try_from((logical_node, ast))?;
                 }
                 _ => {
-                    return Err(AiplanError::InternalError(format!(
+                    return Err(AiplanError::internal_error(format!(
                         "Unexpected syntax kind in TaskNetwork: {}",
-                        child_node.kind(),
+                        child_node.kind()
                     )));
                 }
             }

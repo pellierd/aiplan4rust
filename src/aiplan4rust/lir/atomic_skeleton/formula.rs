@@ -23,7 +23,6 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
@@ -97,21 +96,29 @@ impl DerefMut for Formula {
     }
 }
 
-impl FromAst for Formula {
-    /// Parses a `Formula` from an AST syntax.
-    ///
-    /// The expected AST syntax structure:
-    /// - Child 0: The identifier.
-    /// - Child 1: The typed parameter list.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`AiplanError`] if the syntax does not have the expected structure.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>,
-    ) -> Result<Self, AiplanError> {
-        let header = NamedTypedList::from_ast(node, ast)?;
+/// Attempts to construct a [`Formula`] from an [`AstNode`] and its associated [`SyntaxTree`].
+///
+/// # Expectations
+///
+/// The AST node must have the following structure:
+/// - **Child 0**: Identifier
+/// - **Child 1**: Typed parameter list
+///
+/// # Returns
+///
+/// - `Ok(Formula)` if parsing succeeds.
+/// - `Err(AiplanError)` if the AST structure is malformed or incomplete.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let formula = Formula::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Formula {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+        let header = NamedTypedList::try_from((node, ast))?;
         Ok(Formula { header })
     }
 }

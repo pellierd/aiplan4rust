@@ -31,7 +31,7 @@ use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
@@ -145,44 +145,49 @@ impl Action {
     }
 }
 
-impl FromAst for Action {
-    /// Constructs an `Action` from an AST syntax.
-    ///
-    /// # Expected AST structure
-    /// The syntax should have:
-    /// - The first child: the action name identifier.
-    /// - The second child: parameters as a typed list.
-    /// - The third child: the body containing optional precondition and effect nodes.
-    ///
-    /// If the precondition or effect are missing, they default to empty expressions.
-    ///
-    /// # Errors
-    /// Returns `ParserInternalError` if the AST structure is unexpected or parsing fails.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>,
-    ) -> Result<Self, AiplanError> {
-        let signature = NamedTypedList::from_ast(node, ast)?;
+/// Attempts to construct an [`Action`] from a given [`AstNode`] and [`SyntaxTree`].
+///
+/// # Expected AST Structure
+/// - Child 0: Action name identifier (`Ident`).
+/// - Child 1: Typed parameter list.
+/// - Child 2: Body node, which may contain:
+///   - A precondition definition node (`PreconditionDef`).
+///   - An effect definition node (`EffectDef`).
+///
+/// If precondition or effect nodes are missing, they default to empty expressions.
+///
+/// # Errors
+/// Returns an [`AiplanError`] if the syntax structure is invalid or if parsing fails.
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Action {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+        // Parse the action signature (name + parameters)
+        let header = NamedTypedList::try_from((node, ast))?;
+
+        // Get the body node of the action
         let def_body_node = ast.try_node(node.try_child(2)?)?;
 
+        // Initialize precondition and effect with empty expressions by default
         let mut precondition = Expr::empty_or();
         let mut effect = Expr::empty_or();
 
+        // Iterate over the children of the body node to find precondition and effect
         for &child_id in def_body_node.children() {
             let child_node = ast.try_node(child_id)?;
             match child_node.kind() {
                 AstKind::PreconditionDef => {
                     let pre_node_id = child_node.try_child(0)?;
                     let pre_node = ast.try_node(pre_node_id)?;
-                    precondition = Expr::from_ast(pre_node, ast)?;
+                    precondition = Expr::try_from((pre_node, ast))?;
                 }
                 AstKind::EffectDef => {
                     let eff_node_id = child_node.try_child(0)?;
                     let eff_node = ast.try_node(eff_node_id)?;
-                    effect = Expr::from_ast(eff_node, ast)?;
+                    effect = Expr::try_from((eff_node, ast))?;
                 }
                 _ => {
-                    return Err(AiplanError::InternalError(format!(
+                    return Err(AiplanError::internal_error(format!(
                         "Unexpected syntax in Action body: {:?}",
                         child_node.kind()
                     )));
@@ -191,7 +196,7 @@ impl FromAst for Action {
         }
 
         Ok(Action {
-            header: signature,
+            header,
             precondition,
             effect,
         })

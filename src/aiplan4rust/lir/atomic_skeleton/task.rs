@@ -23,7 +23,6 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
@@ -86,21 +85,29 @@ impl DerefMut for Task {
     }
 }
 
-impl FromAst for Task {
-    /// Builds a `Task` from an abstract syntax arena syntax.
-    ///
-    /// The syntax is expected to have:
-    /// - Child 0: The identifier (name).
-    /// - Child 1: The typed parameter list.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`AiplanError`] if the syntax is malformed or required children are missing.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>,
-    ) -> Result<Self, AiplanError> {
-        let signature = NamedTypedList::from_ast(node, ast)?;
+/// Attempts to build a [`Task`] from an [`AstNode`] and its corresponding [`SyntaxTree`].
+///
+/// # Expectations
+///
+/// - The node should represent a task signature with:
+///   - Child 0: An identifier (the task name).
+///   - Child 1: A typed parameter list.
+///
+/// # Returns
+///
+/// - `Ok(Task)` on successful parsing.
+/// - `Err(AiplanError)` if the node structure is invalid or a required element is missing.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let task = Task::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Task {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+        let signature = NamedTypedList::try_from((node, ast))?;
         Ok(Task { header: signature })
     }
 }

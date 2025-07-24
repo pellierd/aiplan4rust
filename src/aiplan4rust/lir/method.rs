@@ -34,7 +34,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
@@ -146,47 +146,53 @@ impl Method {
     }
 }
 
-impl FromAst for Method {
-    /// Parses a `Method` from its AST representation.
-    ///
-    /// # Parameters
-    /// - `syntax`: The AST syntax representing the method.
-    /// - `ast`: The arena of AST nodes.
-    ///
-    /// # Returns
-    /// Returns a `Method` instance or a `ParserInternalError` if parsing fails.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>,
-    ) -> Result<Self, AiplanError> {
-        // Parse header (name + parameters)
-        let header = NamedTypedList::from_ast(node, ast)?;
+/// Attempts to construct a [`Method`] from a given [`AstNode`] and [`SyntaxTree`].
+///
+/// # Expected AST Structure
+/// - The root node represents a method definition.
+/// - Child 0: method name (`Ident`)
+/// - Child 1: typed parameter list
+/// - Child 2: method body node, containing:
+///     - Task expression
+///     - Optionally, a precondition (`MethodPreconditionDef`)
+///     - The lifted task network
+///
+/// # Returns
+/// - `Ok(Method)` on success.
+/// - `Err(AiplanError)` if the structure is invalid or parsing fails.
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Method {
+    type Error = AiplanError;
 
-        // Parse method body children container
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+        // Parse header (name + parameters)
+        let header = NamedTypedList::try_from((node, ast))?;
+
+        // Parse method body
         let def_body_node = ast.try_node(node.try_child(2)?)?;
         let children = def_body_node.children();
 
         let mut child_index = 0;
 
-        // Parse the task expression (first child)
-        let task = Expr::from_ast(ast.try_node(children[child_index])?, ast)?;
+        // Parse the task expression
+        let task_node = ast.try_node(children[child_index])?;
+        let task = Expr::try_from((task_node, ast))?;
         child_index += 1;
 
-        // Parse optional precondition (second child, if present)
+        // Parse optional precondition
         let pre_node_def = ast.try_node(children[child_index])?;
         let precondition = match pre_node_def.kind() {
             AstKind::MethodPreconditionDef => {
                 let pre_node_id = pre_node_def.try_child(0)?;
                 let pre_node = ast.try_node(pre_node_id)?;
                 child_index += 1;
-                Expr::from_ast(pre_node, ast)?
+                Expr::try_from((pre_node, ast))?
             }
             _ => Expr::empty_or(),
         };
 
-        // Parse task network (next child)
+        // Parse task network
         let tw_node_def = ast.try_node(children[child_index])?;
-        let task_network = LiftedTaskNetwork::from_ast(tw_node_def, ast)?;
+        let task_network = LiftedTaskNetwork::try_from((tw_node_def, ast))?;
 
         Ok(Method {
             header,

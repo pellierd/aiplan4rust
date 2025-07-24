@@ -9,7 +9,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::{AstKind, FromAst};
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
@@ -75,20 +75,28 @@ impl InitialTaskNetwork {
     }
 }
 
-impl FromAst for InitialTaskNetwork {
-    /// Parses an `InitialTaskNetwork` from an AST syntax.
-    ///
-    /// # Parameters
-    /// - `syntax`: The AST syntax representing the initial task network.
-    /// - `ast`: The arena containing all AST nodes.
-    ///
-    /// # Returns
-    /// - `Ok(InitialTaskNetwork)` if parsing succeeds.
-    /// - `Err(ParserInternalError)` if parsing fails.
-    fn from_ast(
-        node: &AstNode,
-        ast: &SyntaxTree<AstNode>,
-    ) -> Result<Self, AiplanError> {
+/// Attempts to construct an [`InitialTaskNetwork`] from a given [`AstNode`] and [`SyntaxTree`].
+///
+/// # Expected Structure
+///
+/// The AST node can contain:
+/// - Optionally, a `ParametersDef` node as the first child. If found, it is parsed as a `TypedList`.
+/// - A `LiftedTaskNetwork` node as the next child.
+///
+/// # Returns
+///
+/// - `Ok(InitialTaskNetwork)` if parsing succeeds.
+/// - `Err(AiplanError)` if the AST structure is invalid or parsing fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let initial_tn = InitialTaskNetwork::try_from((node, syntax_tree))?;
+/// ```
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for InitialTaskNetwork {
+    type Error = AiplanError;
+
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
         let mut child_index = 0;
 
         // Try to parse parameters if present, otherwise use empty parameters
@@ -99,7 +107,7 @@ impl FromAst for InitialTaskNetwork {
                 let param_node_id = parameters_def_node.try_child(0)?;
                 let param_node = ast.try_node(param_node_id)?;
                 child_index += 1;
-                TypedList::from_ast(param_node, ast)?
+                TypedList::try_from((param_node, ast))?
             }
             _ => TypedList::empty(),
         };
@@ -107,7 +115,7 @@ impl FromAst for InitialTaskNetwork {
         // Parse the lifted task network
         let tw_node_id = node.try_child(child_index)?;
         let tw_node = ast.try_node(tw_node_id)?;
-        let tw = LiftedTaskNetwork::from_ast(tw_node, ast)?;
+        let tw = LiftedTaskNetwork::try_from((tw_node, ast))?;
 
         Ok(InitialTaskNetwork::new(parameters, tw))
     }

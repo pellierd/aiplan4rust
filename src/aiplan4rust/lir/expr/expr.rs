@@ -2,7 +2,6 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::FromAst;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -72,69 +71,56 @@ impl Expr {
     }
 }
 
-/// Implements the `FromAst` trait for `Expr`.
+/// Attempts to construct an [`Expr`] from a given AST node and syntax tree.
 ///
-/// This allows constructing an `Expr` (expression arena) from an AST syntax subtree.
-///
-/// # Expected AST structure
-///
-/// The `syntax` is expected to be the root of an AST subtree representing a logical expression.
-/// All descendants will be recursively converted into `ExprNode`s and stored in the `Expr` arena.
+/// This builds the entire expression arena iteratively from the AST subtree,
+/// converting each AST node into an `ExprNode`, preserving the tree structure.
 ///
 /// # Errors
 ///
-/// Returns a `ParserInternalError` if:
-/// - The `AstKind` cannot be converted into an `ExprKind`.
-/// - The `AstContent` cannot be converted into an `ExprContent`.
-/// - Any syntax lookup in the `TreeArena` fails.
+/// Returns [`AiplanError`] if:
+/// - Conversion of AST kinds or contents to Expr kinds/contents fails.
+/// - Syntax node lookups fail.
 ///
 /// # Example
 ///
 /// ```rust
-/// let expr = Expr::from_ast(ast_root_node, &arena)?;
+/// let expr = Expr::try_from((ast_root_node, &arena))?;
 /// ```
-impl FromAst for Expr {
-    fn from_ast(node: &AstNode, ast: &SyntaxTree<AstNode>) -> Result<Self, AiplanError> {
-        wrap(node, ast)
-    }
-}
+impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Expr {
+    type Error = AiplanError;
 
-/// Converts an AST syntax and its subtree into an Expr iteratively.
-///
-/// This function builds the entire Expr arena starting from the given syntax reference,
-/// avoiding recursion by using an explicit stack.
-fn wrap(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>
-) -> Result<Expr, AiplanError> {
-    let mut expr = Expr::new();
-    let mut stack = Vec::new();
+    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+        let mut expr = Expr::new();
+        let mut stack = Vec::new();
 
-    // (AST syntax, parent ExprNodeId)
-    stack.push((node, None));
+        // Stack elements are (AST node, Option<parent ExprNodeId>)
+        stack.push((node, None));
 
-    while let Some((current_ast_node, parent_expr_id_opt)) = stack.pop() {
-        // Create ExprNode
-        let kind = ExprKind::try_from(current_ast_node.kind())?;
-        let content = ExprContent::try_from(current_ast_node.content())?;
-        let expr_node = ExprNode::new(kind, content, parent_expr_id_opt);
-        let expr_node_id = expr.alloc(expr_node);
+        while let Some((current_ast_node, parent_expr_id_opt)) = stack.pop() {
+            // Convert AST kind and content into Expr kind and content
+            let kind = ExprKind::try_from(current_ast_node.kind())?;
+            let content = ExprContent::try_from(current_ast_node.content())?;
 
-        // Attach to parent if needed
-        if let Some(parent_id) = parent_expr_id_opt {
-            expr.try_node_mut(parent_id)?.add_child(expr_node_id);
+            // Create ExprNode and allocate in arena
+            let expr_node = ExprNode::new(kind, content, parent_expr_id_opt);
+            let expr_node_id = expr.alloc(expr_node);
+
+            // Link to parent if applicable
+            if let Some(parent_id) = parent_expr_id_opt {
+                expr.try_node_mut(parent_id)?.add_child(expr_node_id);
+            }
+
+            // Push children in reverse order to preserve left-to-right traversal
+            for &child_id in current_ast_node.children().iter().rev() {
+                let child_node = ast.try_node(child_id)?;
+                stack.push((child_node, Some(expr_node_id)));
+            }
         }
 
-        // Push children in reverse to preserve left-to-right order
-        for &child_id in current_ast_node.children().iter().rev() {
-            let child_node = ast.try_node(child_id)?;
-            stack.push((child_node, Some(expr_node_id)));
-        }
+        Ok(expr)
     }
-
-    Ok(expr)
 }
-
 
 impl Deref for Expr {
     type Target = SyntaxTree<ExprNode>;
