@@ -29,7 +29,7 @@ use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
 ///
@@ -113,7 +113,8 @@ impl DerefMut for Function {
     }
 }
 
-/// Attempts to construct a [`Function`] from an [`AstNode`] and its associated [`SyntaxTree`].
+/// Attempts to construct a [`Function`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
+/// and its associated [`SyntaxTree`].
 ///
 /// # Expectations
 ///
@@ -130,17 +131,18 @@ impl DerefMut for Function {
 /// # Example
 ///
 /// ```rust,ignore
-/// let function = Function::try_from((node, syntax_tree))?;
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let function = Function::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Function {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Function {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
-        let signature = NamedTypedList::try_from((node, ast))?;
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let signature = NamedTypedList::try_from(subtree)?;
 
-        let ty_id = node.try_child(2)?;
-        let ty_node = ast.try_node(ty_id)?;
-        let ty = Type::try_from((ty_node, ast))?;
+        let ty_id = subtree.node().try_child(2)?;
+        let ty_node = subtree.tree().try_node(ty_id)?;
+        let ty = Type::try_from(&SyntaxSubtree::new(ty_node, subtree.tree()))?;
 
         Ok(Function { header: signature, ty })
     }

@@ -45,7 +45,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///
@@ -172,11 +172,12 @@ impl TaskNetwork {
     }
 }
 
-/// Attempts to construct a [`TaskNetwork`] from an [`AstNode`] and its associated [`SyntaxTree`].
+/// Attempts to construct a [`TaskNetwork`] from a given [`SyntaxSubtree`]
+/// referencing an AST node and its associated syntax tree.
 ///
 /// # Expected Structure
 ///
-/// The `AstNode` should contain children matching one or more of the following:
+/// The node should contain children matching one or more of the following:
 /// - `PartiallyOrderedSubtaskDef` or `OrderedSubtaskDef`: holds the task definitions.
 /// - `TaskOrderingConstraintDef`: holds ordering constraints.
 /// - `TaskLogicalConstraintDef`: holds logical constraints.
@@ -189,39 +190,42 @@ impl TaskNetwork {
 /// # Example
 ///
 /// ```rust,ignore
-/// let network = TaskNetwork::try_from((node, syntax_tree))?;
+/// let task_network = TaskNetwork::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for TaskNetwork {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let node = subtree.node();
+        let ast = subtree.tree();
+
         let children = node.children();
 
         let mut tasks = Expr::empty_and();
         let mut ordering = Expr::empty_and();
         let mut constraints = Expr::empty_and();
 
-        for child_id in children {
-            let child_node = ast.try_node(*child_id)?;
+        for &child_id in children {
+            let child_node = ast.try_node(child_id)?;
             match child_node.kind() {
                 AstKind::PartiallyOrderedSubtaskDef | AstKind::OrderedSubtaskDef => {
                     let tasks_node_id = child_node.try_child(0)?;
                     let tasks_node = ast.try_node(tasks_node_id)?;
-                    tasks = Expr::try_from((tasks_node, ast))?;
+                    tasks = Expr::try_from(&SyntaxSubtree::new(tasks_node, ast))?;
                 }
                 AstKind::TaskOrderingConstraintDef => {
                     let ordering_node_id = child_node.try_child(0)?;
                     let ordering_node = ast.try_node(ordering_node_id)?;
-                    ordering = Expr::try_from((ordering_node, ast))?;
+                    ordering = Expr::try_from(&SyntaxSubtree::new(ordering_node, ast))?;
                 }
                 AstKind::TaskLogicalConstraintDef => {
                     let logical_node_id = child_node.try_child(0)?;
                     let logical_node = ast.try_node(logical_node_id)?;
-                    constraints = Expr::try_from((logical_node, ast))?;
+                    constraints = Expr::try_from(&SyntaxSubtree::new(logical_node, ast))?;
                 }
                 _ => {
                     return Err(AiplanError::internal_error(format!(
-                        "Unexpected syntax kind in TaskNetwork: {}",
+                        "Unexpected syntax kind in TaskNetwork: {:?}",
                         child_node.kind()
                     )));
                 }
@@ -231,6 +235,7 @@ impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for TaskNetwork {
         Ok(TaskNetwork::new(tasks, ordering, constraints))
     }
 }
+
 
 impl Display for TaskNetwork {
     /// Formats the `TaskNetwork` as a human-readable string.

@@ -23,7 +23,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
@@ -96,7 +96,8 @@ impl DerefMut for Formula {
     }
 }
 
-/// Attempts to construct a [`Formula`] from an [`AstNode`] and its associated [`SyntaxTree`].
+/// Attempts to construct a [`Formula`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
+/// and its associated [`SyntaxTree`].
 ///
 /// # Expectations
 ///
@@ -112,16 +113,18 @@ impl DerefMut for Formula {
 /// # Example
 ///
 /// ```rust,ignore
-/// let formula = Formula::try_from((node, syntax_tree))?;
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let formula = Formula::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Formula {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Formula {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
-        let header = NamedTypedList::try_from((node, ast))?;
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let header = NamedTypedList::try_from(subtree)?;
         Ok(Formula { header })
     }
 }
+
 
 impl fmt::Display for Formula {
     /// Formats the formula in a human-readable form.

@@ -8,7 +8,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lang::Optimization;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::{SyntaxSubtree, SyntaxTree};
 
 /// Wrapper struct around `TreeArena<ExprNode>` representing an expression arena.
 ///
@@ -71,7 +71,7 @@ impl Expr {
     }
 }
 
-/// Attempts to construct an [`Expr`] from a given AST node and syntax tree.
+/// Attempts to construct an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
 ///
 /// This builds the entire expression arena iteratively from the AST subtree,
 /// converting each AST node into an `ExprNode`, preserving the tree structure.
@@ -84,18 +84,19 @@ impl Expr {
 ///
 /// # Example
 ///
-/// ```rust
-/// let expr = Expr::try_from((ast_root_node, &arena))?;
+/// ```rust,ignore
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let expr = Expr::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Expr {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let mut expr = Expr::new();
         let mut stack = Vec::new();
 
         // Stack elements are (AST node, Option<parent ExprNodeId>)
-        stack.push((node, None));
+        stack.push((subtree.node(), None));
 
         while let Some((current_ast_node, parent_expr_id_opt)) = stack.pop() {
             // Convert AST kind and content into Expr kind and content
@@ -113,7 +114,7 @@ impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Expr {
 
             // Push children in reverse order to preserve left-to-right traversal
             for &child_id in current_ast_node.children().iter().rev() {
-                let child_node = ast.try_node(child_id)?;
+                let child_node = subtree.tree().try_node(child_id)?;
                 stack.push((child_node, Some(expr_node_id)));
             }
         }
@@ -121,6 +122,7 @@ impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Expr {
         Ok(expr)
     }
 }
+
 
 impl Deref for Expr {
     type Target = SyntaxTree<ExprNode>;

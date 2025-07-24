@@ -78,8 +78,8 @@ impl Linker {
     ///
     pub fn link_with_diagnostic_manager(
         &mut self,
-        mut domain: SemanticContext,
-        mut problem: SemanticContext,
+        domain: SemanticContext,
+        problem: SemanticContext,
         diagnostic_manager: DiagnosticManager
     ) -> Result<LinkerResult, AiplanError> {
         self.diagnostic_manager = diagnostic_manager;

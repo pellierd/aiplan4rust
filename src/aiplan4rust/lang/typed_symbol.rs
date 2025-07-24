@@ -21,7 +21,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 use serde::{Deserialize, Serialize};
@@ -179,11 +179,12 @@ impl SyntaxDisplay for TypedSymbol {
     }
 }
 
-/// Attempts to construct a [`TypedSymbol`] from an [`AstNode`] and a corresponding [`SyntaxTree`].
+/// Attempts to construct a [`TypedSymbol`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
+/// and its corresponding [`SyntaxTree`].
 ///
 /// # Expectations
 ///
-/// - The provided `node` **must** be of kind `TypedItem`.
+/// - The referenced node **must** be of kind `TypedItem`.
 /// - The node is expected to have **at most two children**:
 ///   - The **first child** is the symbol (mandatory).
 ///   - The **second child** is the type (optional).
@@ -196,18 +197,22 @@ impl SyntaxDisplay for TypedSymbol {
 /// # Example
 ///
 /// ```rust,ignore
-/// let symbol = TypedSymbol::try_from((node, syntax_tree))?;
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let symbol = TypedSymbol::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for TypedSymbol {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TypedSymbol {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let node = subtree.node();
+        let ast = subtree.tree();
+
         let children = node.children();
         let symbol_node = ast.try_node(children[0])?;
 
         let ty = if children.len() > 1 {
             let ty_node = ast.try_node(children[1])?;
-            Type::try_from((ty_node, ast))?
+            Type::try_from(&SyntaxSubtree::new(ty_node, ast))?
         } else {
             Type::new()
         };

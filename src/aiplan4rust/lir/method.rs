@@ -39,7 +39,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Method {
@@ -146,7 +146,8 @@ impl Method {
     }
 }
 
-/// Attempts to construct a [`Method`] from a given [`AstNode`] and [`SyntaxTree`].
+/// Attempts to construct a [`Method`] from a given [`SyntaxSubtree`]
+/// referencing an AST node and its syntax tree.
 ///
 /// # Expected AST Structure
 /// - The root node represents a method definition.
@@ -160,12 +161,22 @@ impl Method {
 /// # Returns
 /// - `Ok(Method)` on success.
 /// - `Err(AiplanError)` if the structure is invalid or parsing fails.
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Method {
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let method = Method::try_from(subtree)?;
+/// ```
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Method {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let node = subtree.node();
+        let ast = subtree.tree();
+
         // Parse header (name + parameters)
-        let header = NamedTypedList::try_from((node, ast))?;
+        let header = NamedTypedList::try_from(subtree)?;
 
         // Parse method body
         let def_body_node = ast.try_node(node.try_child(2)?)?;
@@ -175,24 +186,28 @@ impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Method {
 
         // Parse the task expression
         let task_node = ast.try_node(children[child_index])?;
-        let task = Expr::try_from((task_node, ast))?;
+        let task = Expr::try_from(&SyntaxSubtree::new(task_node, ast))?;
         child_index += 1;
 
         // Parse optional precondition
-        let pre_node_def = ast.try_node(children[child_index])?;
-        let precondition = match pre_node_def.kind() {
-            AstKind::MethodPreconditionDef => {
-                let pre_node_id = pre_node_def.try_child(0)?;
-                let pre_node = ast.try_node(pre_node_id)?;
-                child_index += 1;
-                Expr::try_from((pre_node, ast))?
+        let precondition = if children.len() > child_index {
+            let pre_node_def = ast.try_node(children[child_index])?;
+            match pre_node_def.kind() {
+                AstKind::MethodPreconditionDef => {
+                    let pre_node_id = pre_node_def.try_child(0)?;
+                    let pre_node = ast.try_node(pre_node_id)?;
+                    child_index += 1;
+                    Expr::try_from(&SyntaxSubtree::new(pre_node, ast))?
+                }
+                _ => Expr::empty_or(),
             }
-            _ => Expr::empty_or(),
+        } else {
+            Expr::empty_or()
         };
 
         // Parse task network
         let tw_node_def = ast.try_node(children[child_index])?;
-        let task_network = LiftedTaskNetwork::try_from((tw_node_def, ast))?;
+        let task_network = LiftedTaskNetwork::try_from(&SyntaxSubtree::new(tw_node_def, ast))?;
 
         Ok(Method {
             header,
@@ -202,6 +217,7 @@ impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Method {
         })
     }
 }
+
 
 impl fmt::Display for Method {
     /// Formats the `Method` for human-readable output.

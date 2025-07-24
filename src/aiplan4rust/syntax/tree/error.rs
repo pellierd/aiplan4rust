@@ -1,7 +1,6 @@
 
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
-use crate::aiplan4rust::syntax::ast::AstError;
 
 /// Errors that can occur when working with the AST.
 #[derive(Error, Debug)]

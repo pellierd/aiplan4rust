@@ -23,7 +23,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents a planning task declaration in HDDL.
@@ -85,7 +85,8 @@ impl DerefMut for Task {
     }
 }
 
-/// Attempts to build a [`Task`] from an [`AstNode`] and its corresponding [`SyntaxTree`].
+/// Attempts to build a [`Task`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
+/// and its corresponding [`SyntaxTree`].
 ///
 /// # Expectations
 ///
@@ -101,16 +102,18 @@ impl DerefMut for Task {
 /// # Example
 ///
 /// ```rust,ignore
-/// let task = Task::try_from((node, syntax_tree))?;
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let task = Task::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Task {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Task {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
-        let signature = NamedTypedList::try_from((node, ast))?;
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let signature = NamedTypedList::try_from(subtree)?;
         Ok(Task { header: signature })
     }
 }
+
 
 impl fmt::Display for Task {
     /// Formats the task into a human-readable string.

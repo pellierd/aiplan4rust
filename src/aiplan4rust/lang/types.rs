@@ -18,7 +18,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
 
 use std::fmt;
 use std::fmt::Formatter;
@@ -336,7 +336,8 @@ impl SyntaxDisplay for Type {
     }
 }
 
-/// Attempts to construct a [`Type`] from an [`AstNode`] and a corresponding [`SyntaxTree`].
+/// Attempts to construct a [`Type`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
+/// and its corresponding [`SyntaxTree`].
 ///
 /// This implementation iterates over the children of the given AST node,
 /// retrieves each child from the syntax tree, and adds its identifier
@@ -344,8 +345,8 @@ impl SyntaxDisplay for Type {
 ///
 /// # Parameters
 ///
-/// - `node`: A reference to the AST node representing the type structure (e.g., a list of type identifiers).
-/// - `ast`: The full syntax tree used to resolve the children of `node`.
+/// - `subtree`: A reference to a [`SyntaxSubtree`] that holds a node representing the type
+///   structure (e.g., a list of type identifiers) and the full syntax tree.
 ///
 /// # Returns
 ///
@@ -359,14 +360,16 @@ impl SyntaxDisplay for Type {
 /// # Example
 ///
 /// ```rust,ignore
-/// let syntax: &AstArenaNode = ...;
-/// let ast: &SyntaxTree<AstNode> = ...;
-/// let ty = Type::try_from((syntax, ast))?;
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let ty = Type::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Type {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Type {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let node = subtree.node();
+        let ast = subtree.tree();
+
         let mut ty = Type::new();
 
         for ty_id in node.children() {

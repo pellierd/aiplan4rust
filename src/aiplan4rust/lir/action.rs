@@ -37,7 +37,7 @@ use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
@@ -145,7 +145,7 @@ impl Action {
     }
 }
 
-/// Attempts to construct an [`Action`] from a given [`AstNode`] and [`SyntaxTree`].
+/// Attempts to construct an [`Action`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
 ///
 /// # Expected AST Structure
 /// - Child 0: Action name identifier (`Ident`).
@@ -158,12 +158,22 @@ impl Action {
 ///
 /// # Errors
 /// Returns an [`AiplanError`] if the syntax structure is invalid or if parsing fails.
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Action {
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let action = Action::try_from(subtree)?;
+/// ```
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let node = subtree.node();
+        let ast = subtree.tree();
+
         // Parse the action signature (name + parameters)
-        let header = NamedTypedList::try_from((node, ast))?;
+        let header = NamedTypedList::try_from(&SyntaxSubtree::new(node, ast))?;
 
         // Get the body node of the action
         let def_body_node = ast.try_node(node.try_child(2)?)?;
@@ -179,12 +189,12 @@ impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Action {
                 AstKind::PreconditionDef => {
                     let pre_node_id = child_node.try_child(0)?;
                     let pre_node = ast.try_node(pre_node_id)?;
-                    precondition = Expr::try_from((pre_node, ast))?;
+                    precondition = Expr::try_from(&SyntaxSubtree::new(pre_node, ast))?;
                 }
                 AstKind::EffectDef => {
                     let eff_node_id = child_node.try_child(0)?;
                     let eff_node = ast.try_node(eff_node_id)?;
-                    effect = Expr::try_from((eff_node, ast))?;
+                    effect = Expr::try_from(&SyntaxSubtree::new(eff_node, ast))?;
                 }
                 _ => {
                     return Err(AiplanError::internal_error(format!(
@@ -202,6 +212,7 @@ impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for Action {
         })
     }
 }
+
 
 impl fmt::Display for Action {
     /// Formats the `Action` for display purposes.

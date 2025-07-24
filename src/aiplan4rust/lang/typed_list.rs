@@ -29,7 +29,7 @@ use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::tree::{SyntaxSubtree};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// A list of `TypedSymbol` items.
@@ -143,40 +143,48 @@ impl DerefMut for TypedList {
     }
 }
 
-/// Attempts to construct a [`TypedList`] from an [`AstNode`] and a corresponding [`SyntaxTree`].
+/// Attempts to construct a [`TypedList`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
+/// and its corresponding [`SyntaxTree`].
 ///
-/// This function expects the given `node` to represent a `TypedList`,
+/// This function expects the referenced node to represent a `TypedList`,
 /// where its children are of kind `TypedItem`. Each child node is converted
 /// into a [`TypedSymbol`] and added to the resulting `TypedList`.
 ///
 /// # Parameters
-/// - `node`: The AST node representing the `TypedList`.
-/// - `ast`: The full syntax tree used to resolve the children of the node.
+///
+/// - `subtree`: A reference to the `SyntaxSubtree` representing the `TypedList`.
 ///
 /// # Returns
+///
 /// - `Ok(TypedList)` containing all parsed [`TypedSymbol`]s.
 /// - `Err(AiplanError)` if any child fails to convert (e.g., missing node, invalid identifier).
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// let typed_list = TypedList::try_from((node, syntax_tree))?;
+/// let subtree: &SyntaxSubtree<AstNode> = ...;
+/// let typed_list = TypedList::try_from(subtree)?;
 /// ```
-impl TryFrom<(&AstNode, &SyntaxTree<AstNode>)> for TypedList {
+impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TypedList {
     type Error = AiplanError;
 
-    fn try_from((node, ast): (&AstNode, &SyntaxTree<AstNode>)) -> Result<Self, Self::Error> {
+    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
+        let node = subtree.node();
+        let ast = subtree.tree();
+
         let mut typed_list = TypedList::new();
 
         for id in node.children() {
-            let child = ast.try_node(*id)?;
-            let ty = TypedSymbol::try_from((child, ast))?;
+            let child_node = ast.try_node(*id)?;
+            let child_subtree = SyntaxSubtree::new(child_node, ast);
+            let ty = TypedSymbol::try_from(&child_subtree)?;
             typed_list.push(ty);
         }
 
         Ok(typed_list)
     }
 }
+
 
 /// Implements `Display` for `TypedList`.
 ///

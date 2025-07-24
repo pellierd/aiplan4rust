@@ -6,7 +6,6 @@
 //! interner issues, span initialization errors, and serialization errors.
 
 use thiserror::Error;
-use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Errors that can occur when working with the AST.

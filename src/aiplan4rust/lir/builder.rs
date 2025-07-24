@@ -52,7 +52,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// This module defines the `LIRBuilder`, which transforms a parsed and linked
 /// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).
@@ -159,22 +159,41 @@ impl LIRBuilder {
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
     ) -> Result<(), AiplanError> {
-        let domain = context.domain_ast();
+        let domain_tree = context.domain_ast();
 
-        for node in domain.preorder().values() {
-            match node.kind() {
-                AstKind::DomainName => ir.set_domain_name(node.try_ident()?),
-                AstKind::RequireDef => ir.add_requirements(extract_requirements(node, domain)?),
-                AstKind::TypesDef => ir.add_types(extract_types(node, domain)?),
-                AstKind::ConstantsDef => ir.add_constants(extract_constants(node, domain)?),
-                AstKind::PredicatesDef => ir.add_predicates(extract_atomic_formula_skeleton(node, domain)?),
-                AstKind::FunctionsDef => ir.add_functions(extract_atomic_function_skeleton(node, domain)?),
-                AstKind::Constraints => {
-                    ir.set_domain_constraints(Expr::try_from((node, domain))?)
+        for node in domain_tree.preorder().values() {
+            let subtree = SyntaxSubtree::new(node, domain_tree);
+
+            match subtree.node().kind() {
+                AstKind::DomainName => ir.set_domain_name(subtree.node().try_ident()?),
+
+                AstKind::RequireDef => {
+                    ir.add_requirements(extract_requirements(&subtree)?);
                 }
-                AstKind::TaskDef => ir.add_task(AtomicTaskSkeleton::try_from((node, domain))?),
-                AstKind::ActionDef => ir.add_action(LiftedAction::try_from((node, domain))?),
-                AstKind::MethodDef => ir.add_method(LiftedMethod::try_from((node, domain))?),
+                AstKind::TypesDef => {
+                    ir.add_types(extract_types(&subtree)?);
+                }
+                AstKind::ConstantsDef => {
+                    ir.add_constants(extract_constants(&subtree)?);
+                }
+                AstKind::PredicatesDef => {
+                    ir.add_predicates(extract_atomic_formula_skeleton(&subtree)?);
+                }
+                AstKind::FunctionsDef => {
+                    ir.add_functions(extract_atomic_function_skeleton(&subtree)?);
+                }
+                AstKind::Constraints => {
+                    ir.set_domain_constraints(Expr::try_from(&subtree)?);
+                }
+                AstKind::TaskDef => {
+                    ir.add_task(AtomicTaskSkeleton::try_from(&subtree)?);
+                }
+                AstKind::ActionDef => {
+                    ir.add_action(LiftedAction::try_from(&subtree)?);
+                }
+                AstKind::MethodDef => {
+                    ir.add_method(LiftedMethod::try_from(&subtree)?);
+                }
                 _ => {}
             }
         }
@@ -196,22 +215,37 @@ impl LIRBuilder {
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
     ) -> Result<(), AiplanError> {
-        let problem = context.problem_ast();
+        let problem_tree = context.problem_ast();
 
-        for node in problem.preorder().values() {
-            match node.kind() {
-                AstKind::ProblemName => ir.set_problem_name(node.try_ident()?),
-                AstKind::RequireDef => ir.add_requirements(extract_requirements(node, problem)?),
-                AstKind::ObjectsDef => ir.add_objects(extract_constants(node, problem)?),
-                AstKind::Init => ir.set_init(extract_init(node, problem)?),
-                AstKind::Goal => ir.set_goal(extract_goal(node, problem)?),
-                AstKind::Constraints => {
-                    ir.set_problem_constraints(Expr::try_from((node, problem))?)
+        for node in problem_tree.preorder().values() {
+            let subtree = SyntaxSubtree::new(node, problem_tree);
+
+            match subtree.node().kind() {
+                AstKind::ProblemName => ir.set_problem_name(subtree.node().try_ident()?),
+
+                AstKind::RequireDef => {
+                    ir.add_requirements(extract_requirements(&subtree)?);
                 }
-                AstKind::Metric => ir.set_metric_spec(Expr::try_from((node, problem))?),
-                AstKind::Length => ir.set_length_spec(Expr::try_from((node, problem))?),
+                AstKind::ObjectsDef => {
+                    ir.add_objects(extract_constants(&subtree)?);
+                }
+                AstKind::Init => {
+                    ir.set_init(extract_init(&subtree)?);
+                }
+                AstKind::Goal => {
+                    ir.set_goal(extract_goal(&subtree)?);
+                }
+                AstKind::Constraints => {
+                    ir.set_problem_constraints(Expr::try_from(&subtree)?);
+                }
+                AstKind::Metric => {
+                    ir.set_metric_spec(Expr::try_from(&subtree)?);
+                }
+                AstKind::Length => {
+                    ir.set_length_spec(Expr::try_from(&subtree)?);
+                }
                 AstKind::InitialTaskNetwork => {
-                    ir.set_initial_task_network(InitialTaskNetwork::try_from((node, problem))?)
+                    ir.set_initial_task_network(InitialTaskNetwork::try_from(&subtree)?);
                 }
                 _ => {}
             }
@@ -219,110 +253,103 @@ impl LIRBuilder {
 
         Ok(())
     }
+
 }
 
 // ---------- Extraction Helpers ---------- //
 
-/// Extracts a set of requirements from a `RequireDef` syntax.
+/// Extracts a set of requirements from a `RequireDef` syntax subtree.
 fn extract_requirements(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<Requirement>, AiplanError> {
-    extract_set(node, ast, |n, _| Ok(n.try_requirement()?))
+    extract_set(subtree, |child_subtree| Ok(child_subtree.node().try_requirement()?))
 }
 
-/// Extracts predicates from a `PredicatesDef` syntax.
+/// Extracts predicates from a `PredicatesDef` syntax subtree.
 fn extract_atomic_formula_skeleton(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<AtomicFormulaSkeleton>, AiplanError> {
-    extract_set(node, ast, |n, a| AtomicFormulaSkeleton::try_from((n, a)))
+    extract_set(subtree, |child_subtree| AtomicFormulaSkeleton::try_from(child_subtree))
 }
 
-/// Extracts functions from a `FunctionsDef` syntax.
+/// Extracts functions from a `FunctionsDef` syntax subtree.
 fn extract_atomic_function_skeleton(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<AtomicFunctionSkeleton>, AiplanError> {
-    extract_set(node, ast, |n, a| AtomicFunctionSkeleton::try_from((n, a)))
+    extract_set(subtree, |child_subtree| AtomicFunctionSkeleton::try_from(child_subtree))
 }
 
-/// Extracts types from a `TypesDef` syntax.
+/// Extracts types from a `TypesDef` syntax subtree.
 fn extract_types(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, AiplanError> {
-    extract_set_from_first_child(node, ast, |n, a| TypedSymbol::try_from((n, a)))
+    extract_set_from_first_child(subtree, |child_subtree| TypedSymbol::try_from(child_subtree))
 }
 
-/// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax.
+/// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax subtree.
 fn extract_constants(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<TypedSymbol>, AiplanError> {
-    extract_set_from_first_child(node, ast, |n, a| TypedSymbol::try_from((n, a)))
+    extract_set_from_first_child(subtree, |child_subtree| TypedSymbol::try_from(child_subtree))
 }
 
-/// Extracts an expression from the first child of an `Init` syntax.
+/// Extracts an expression from the first child of an `Init` syntax subtree.
 fn extract_init(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<Expr, AiplanError> {
-    extract_expr_first_child(node, ast)
+    extract_expr_first_child(subtree)
 }
 
-/// Extracts the goal expression from a `Goal` syntax.
+/// Extracts the goal expression from a `Goal` syntax subtree.
 fn extract_goal(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<Expr, AiplanError> {
-    extract_expr_first_child(node, ast)
+    extract_expr_first_child(subtree)
 }
 
-/// Extracts an expression from the first child syntax.
+/// Extracts an expression from the first child syntax subtree.
 /// Used for `Init`, `Goal`, `Metric`, etc.
 fn extract_expr_first_child(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<Expr, AiplanError> {
-    let child_id = node.try_child(0)?;
-    let child_node = ast.try_node(child_id)?;
-    Expr::try_from((child_node, ast))
+    let child_id = subtree.node().try_child(0)?;
+    let child_node = subtree.tree().try_node(child_id)?;
+    Expr::try_from(&SyntaxSubtree::new(child_node, subtree.tree()))
 }
 
-/// Generic helper to extract a set of elements from direct children of a syntax.
+/// Generic helper to extract a set of elements from direct children of a syntax subtree.
 /// Used for predicates, functions, requirements, etc.
 fn extract_set<T, F>(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, AiplanError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &SyntaxTree<AstNode>) -> Result<T, AiplanError>,
+    F: Fn(&SyntaxSubtree<AstNode>) -> Result<T, AiplanError>,
 {
     let mut set = HashSet::new();
-    for child_id in node.children() {
-        let child_node = ast.try_node(*child_id)?;
-        let value = extract_fn(child_node, ast)?;
+    for child_id in subtree.node().children() {
+        let child_node = subtree.tree().try_node(*child_id)?;
+        let child_subtree = SyntaxSubtree::new(child_node, subtree.tree());
+        let value = extract_fn(&child_subtree)?;
         set.insert(value);
     }
     Ok(set)
 }
 
 /// Similar to `extract_set`, but applies the extraction function to the grandchildren
-/// of the first child of the syntax (used for types, constants).
+/// of the first child of the syntax subtree (used for types, constants).
 fn extract_set_from_first_child<T, F>(
-    node: &AstNode,
-    ast: &SyntaxTree<AstNode>,
+    subtree: &SyntaxSubtree<AstNode>,
     extract_fn: F,
 ) -> Result<HashSet<T>, AiplanError>
 where
     T: Eq + std::hash::Hash,
-    F: Fn(&AstNode, &SyntaxTree<AstNode>) -> Result<T, AiplanError>,
+    F: Fn(&SyntaxSubtree<AstNode>) -> Result<T, AiplanError>,
 {
-    let first_child_id = node.try_child(0)?;
-    let first_child_node = ast.try_node(first_child_id)?;
+    let first_child_id = subtree.node().try_child(0)?;
+    let first_child_node = subtree.tree().try_node(first_child_id)?;
+    let first_child_subtree = SyntaxSubtree::new(first_child_node, subtree.tree());
 
-    extract_set(first_child_node, ast, extract_fn)
+    extract_set(&first_child_subtree, extract_fn)
 }
