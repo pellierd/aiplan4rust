@@ -106,7 +106,6 @@ pub fn render_with_indent(
             // Remaining children (index >=2)
             for child_id in children.iter().skip(2) {
                 writeln!(f)?;
-                let child_indent = AstNode::make_indent(indent + 1);
                 if let Some(child_node) = arena.get_node(*child_id) {
                     child_node.fmt_syntax_with_indent(
                         f,
