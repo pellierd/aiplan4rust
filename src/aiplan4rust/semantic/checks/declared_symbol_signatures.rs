@@ -76,7 +76,7 @@ pub fn check_declared_symbol_signatures(
                     diagnostic_manager,
                 )? {
                     no_error &= false;
-                    let entry = context.ast().get_node(usage.node_id()).unwrap();
+                    let entry = context.syntax_tree().get_node(usage.node_id()).unwrap();
                     let name = context.interner().try_resolve(symbol.ident())?;
                     let diagnostic_kind = match declaration.symbol_kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
@@ -135,10 +135,10 @@ fn match_declaration_with_usage(
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
-    let ast_usage = context.ast().try_node(usage.node_id())?;
+    let ast_usage = context.syntax_tree().try_node(usage.node_id())?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
-        let argument = context.ast().get_node(*argument_index).unwrap();
+        let argument = context.syntax_tree().get_node(*argument_index).unwrap();
 
         let kind = match argument.kind() {
             AstKind::Variable => SymbolKind::Variable,
@@ -204,7 +204,7 @@ fn match_argument(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax arena
-    let name = context.ast().try_node(NodeId::new(argument_index))?.try_ident()?;
+    let name = context.syntax_tree().try_node(NodeId::new(argument_index))?.try_ident()?;
 
     // Look up the corresponding declaration in the symbol table,
     // given the expected kind and usage scope

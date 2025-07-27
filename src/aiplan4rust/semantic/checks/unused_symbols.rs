@@ -200,9 +200,9 @@ fn skip_unused_symbol_declaration(
     let scope = declaration.scope();
 
     // Check if scope contains specific AST kinds
-    let contains_formula = scope_contains_node_of_kind(scope, AstKind::AtomicFormulaSkeleton, context.ast())?;
-    let contains_function = scope_contains_node_of_kind(scope, AstKind::AtomicFunctionSkeleton, context.ast())?;
-    let contains_task = scope_contains_node_of_kind(scope, AstKind::TaskDef, context.ast())?;
+    let contains_formula = scope_contains_node_of_kind(scope, AstKind::AtomicFormulaSkeleton, context.syntax_tree())?;
+    let contains_function = scope_contains_node_of_kind(scope, AstKind::AtomicFunctionSkeleton, context.syntax_tree())?;
+    let contains_task = scope_contains_node_of_kind(scope, AstKind::TaskDef, context.syntax_tree())?;
 
     // Check if symbol is a variable
     let is_variable = matches!(declaration.symbol_kind(), SymbolKind::Variable);

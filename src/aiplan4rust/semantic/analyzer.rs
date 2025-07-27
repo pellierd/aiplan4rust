@@ -1,3 +1,61 @@
+//! # Semantic Analyzer Module
+//!
+//! This module provides the `Analyzer` struct and related functionality to perform semantic analysis
+//! on abstract syntax trees (ASTs) generated from parsing AI planning domain and problem specifications.
+//!
+//! ## Overview
+//!
+//! The `Analyzer` is responsible for:
+//! - Validating the semantic correctness of the input AST.
+//! - Detecting and reporting semantic errors such as undeclared symbols, unused symbols, type mismatches,
+//!   and task ordering violations.
+//! - Managing diagnostics (errors, warnings, and informational messages) during analysis.
+//!
+//! The analysis supports two primary root AST kinds:
+//! - `Domain`: checks related to domain specifications (e.g., symbol declarations, type hierarchies, expressions).
+//! - `Problem`: checks related to problem instances within a domain (e.g., symbol usage, task ordering).
+//!
+//! ## Main Types
+//!
+//! - [`Analyzer`]: The main struct that performs semantic analysis and collects diagnostics.
+//! - [`DiagnosticManager`]: Manages diagnostics such as errors and warnings.
+//! - [`SemanticContext`]: Represents the annotated semantic information for an AST.
+//! - [`AnalyzerResult`]: Contains the outcome of the analysis including semantic context and diagnostics.
+//!
+//! ## Usage Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::analyzer::Analyzer;
+//! use crate::aiplan4rust::syntax::ast::Ast;
+//!
+//! let mut ast = Ast::parse("...domain and problem source...")?;
+//! let mut analyzer = Analyzer::new();
+//!
+//! match analyzer.analyze(&mut ast) {
+//!     Ok(result) => {
+//!         if let Some(semantic_ctx) = result.semantic_context() {
+//!             println!("Semantic analysis succeeded.");
+//!         } else {
+//!             println!("Semantic errors were found.");
+//!         }
+//!         // Diagnostics can be inspected via result.diagnostics()
+//!     }
+//!     Err(err) => eprintln!("Failed to analyze AST: {}", err),
+//! }
+//! ```
+//!
+//! ## Notes
+//!
+//! - The analyzer may mutate the AST during analysis, consuming internal resources such as string interners
+//!   to improve efficiency.
+//! - Diagnostic information is collected throughout the analysis and can be retrieved after analysis completes.
+//! - Custom diagnostic managers can be injected to collect or customize diagnostic handling.
+//!
+//! ## Error Handling
+//!
+//! Semantic errors are returned as variants of [`SemanticError`]. These may include unexpected AST node kinds,
+//! type errors, symbol resolution errors, and other domain-specific semantic validation failures.
+
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -9,23 +67,43 @@ use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
 /// It manages the detection and collection of errors encountered during the analysis process.
-/// The `error_manager` field stores any errors found while analyzing the syntax arena.
+/// The `diagnostic_manager` field stores all diagnostics, including errors, warnings,
+/// and informational messages that occur during semantic analysis.
+///
+/// # Example
+/// ```rust
+/// let mut analyzer = Analyzer::new();
+/// let mut ast = ...; // obtain or build the AST
+/// let result = analyzer.analyze(&mut ast);
+/// match result {
+///     Ok(analyzer_result) => {
+///         if analyzer_result.is_some() {
+///             println!("Semantic analysis succeeded.");
+///         } else {
+///             println!("Semantic errors were found.");
+///         }
+///     }
+///     Err(err) => eprintln!("Failed to analyze: {}", err),
+/// }
+/// ```
 #[derive(Debug)]
 pub struct Analyzer {
-    /// Manages and tracks parsing and semantic errors encountered during analysis.
+    /// Manages and tracks parsing and semantic diagnostics encountered during analysis.
     diagnostic_manager: DiagnosticManager
 }
 
 impl Analyzer {
     /// Creates a new instance of `Analyzer`.
     ///
+    /// Initializes a fresh `DiagnosticManager` to collect diagnostics during analysis.
+    ///
     /// # Returns
     ///
-    /// Returns an `Analyzer` instance with an initialized `ErrorManager`.
+    /// An `Analyzer` ready to perform semantic checks.
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// let analyzer = Analyzer::new();
     /// ```
     pub fn new() -> Self {
@@ -34,60 +112,62 @@ impl Analyzer {
         }
     }
 
-    /// Returns a reference to the `ErrorManager` for accessing collected errors.
+    /// Returns a reference to the internal `DiagnosticManager`.
+    ///
+    /// This allows inspection of collected diagnostics (errors, warnings, infos) after analysis.
     ///
     /// # Returns
     ///
-    /// Returns a reference to the internal `ErrorManager` instance.
+    /// A reference to the `DiagnosticManager`.
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// let analyzer = Analyzer::new();
-    /// let errors = analyzer.error_manager();
+    /// let diagnostics = analyzer.diagnostic_manager();
+    /// for diagnostic in diagnostics.diagnostics() {
+    ///     println!("{}", diagnostic);
+    /// }
     /// ```
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
-    /// Performs semantic analysis on the given mutable AST.
+    /// Performs semantic analysis on the provided mutable AST.
     ///
-    /// This method takes a mutable reference to an [`Ast`], allowing the analyzer
-    /// to modify its contents during analysis. In particular, it may take ownership
-    /// of internal components such as the `StringInterner` to avoid costly cloning.
+    /// This method takes ownership of parts of the AST (e.g., string interner) if needed,
+    /// allowing efficient modifications without cloning.
     ///
     /// # Parameters
-    /// - `ast`: A mutable reference to the AST to analyze. The AST may be mutated,
-    ///   and some of its internal data (e.g., the interner) may be moved out.
+    /// - `ast`: Mutable reference to the abstract syntax tree to analyze.
     ///
     /// # Returns
-    /// Returns an [`AnalyzerResult`] on success or a [`AiplanError`] if
-    /// the analysis fails.
+    ///
+    /// On success, returns an `AnalyzerResult` encapsulating the semantic context and diagnostics.
+    /// On failure, returns a `SemanticError`.
     ///
     /// # Note
-    /// Because the AST is passed as mutable, this function can efficiently
-    /// consume parts of the AST (such as the interner) to avoid duplication.
+    ///
+    /// The AST may be mutated during analysis, and internal structures may be consumed.
     pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
         self.perform_analysis(ast)
     }
 
-    /// Performs semantic analysis on the given mutable AST with a custom diagnostic manager.
+    /// Performs semantic analysis on the AST using a custom diagnostic manager.
     ///
-    /// This method allows injecting a [`DiagnosticManager`] to collect diagnostics
-    /// (errors, warnings, infos) during the analysis. The AST is passed as a mutable
-    /// reference so the analyzer can modify it and potentially take ownership of
-    /// internal data such as the `StringInterner` to avoid cloning.
+    /// This allows injection of a specific `DiagnosticManager` to collect errors and warnings.
     ///
     /// # Parameters
-    /// - `ast`: A mutable reference to the AST to analyze. It may be mutated or partially consumed.
-    /// - `diagnostic_manager`: The diagnostic manager to use for collecting diagnostics.
+    /// - `ast`: Mutable reference to the AST to analyze.
+    /// - `diagnostic_manager`: The diagnostic manager to replace the current one.
     ///
     /// # Returns
-    /// Returns an [`AnalyzerResult`] on success or a [`AiplanError`] if the analysis fails.
+    ///
+    /// Returns an `AnalyzerResult` or a `SemanticError`.
     ///
     /// # Note
-    /// Passing the diagnostic manager by value replaces the analyzer's current
-    /// diagnostic manager with the provided one.
+    ///
+    /// The current internal diagnostic manager is replaced by the provided one.
     pub fn analyze_with_diagnostic_manager(
         &mut self,
         ast: &mut Ast,
@@ -97,38 +177,32 @@ impl Analyzer {
         self.perform_analysis(ast)
     }
 
-    /// Performs semantic analysis on the provided AST.
+    /// Internal method to perform semantic analysis on the AST.
     ///
-    /// This function consumes the AST by creating a `SemanticContext` from it,
-    /// then applies domain-specific semantic checks depending on the root syntax kind
-    /// (`Domain` or `Problem`). If the root syntax kind is unexpected, an error is returned.
-    ///
-    /// During analysis, diagnostics (errors, warnings, infos) are collected in
-    /// the internal diagnostic manager.
+    /// Converts the AST into a `SemanticContext` and dispatches checks depending on
+    /// whether the root node represents a `Domain` or a `Problem`.
     ///
     /// # Parameters
-    /// - `ast`: A mutable reference to the AST to analyze. It may be mutated or partially consumed.
+    /// - `ast`: Mutable reference to the AST.
     ///
     /// # Returns
-    /// Returns an `AnalyzerResult` containing:
-    /// - `Some(SemanticContext)` if analysis succeeded without errors.
-    /// - `None` if semantic errors were found.
     ///
-    /// The `AnalyzerResult` always contains the diagnostics collected during analysis.
+    /// Returns an `AnalyzerResult` with the semantic context if no errors, or none if errors are present.
     ///
     /// # Errors
-    /// Returns a `ParserInternalError` if the AST's root syntax kind is unexpected.
+    ///
+    /// Returns a `SemanticError` if the root node kind is not supported.
     fn perform_analysis(
         &mut self,
         ast: &mut Ast,
     ) -> Result<AnalyzerResult, SemanticError> {
 
-        let context = SemanticContext::from(ast)?;
-        let check_ctx = CheckContext::from_semantic_context(&context);
+        // Build semantic context from AST
+        let context = SemanticContext::try_from(ast)?;
+        let check_ctx = CheckContext::from(&context);
 
-        // Step 2: Determine kind and apply semantic checks
-        let root_ref =  context.ast().try_root_node_ref()?;
-        // Match on the root kind and handle unexpected kinds with the semantic error
+        // Determine root kind and run appropriate checks
+        let root_ref = context.syntax_tree().try_root_node_ref()?;
         match root_ref.node().kind() {
             AstKind::Domain => {
                 Self::check_domain(&check_ctx, &mut self.diagnostic_manager)?;
@@ -145,7 +219,7 @@ impl Analyzer {
             }
         }
 
-        // Step 3: Build the result depending on errors
+        // Build the AnalyzerResult based on presence of errors
         if !self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
             Ok(AnalyzerResult::new(
                 Some(context),
@@ -159,70 +233,52 @@ impl Analyzer {
         }
     }
 
-    /// Checks the domain-related syntax arena and performs the relevant checks.
+    /// Checks the domain part of the syntax arena with domain-specific semantic validations.
     ///
-    /// This function performs several checks specific to the domain section of the syntax arena:
-    /// 1. It first checks the declared symbols against the given exclusions for unused symbols.
-    /// 2. If the symbol check passes, it proceeds to check for atomic formula correctness.
-    /// 3. Then, it checks the functional expr correctness using the type_checker information from the
-    ///   symbol table.
+    /// The checks include verifying symbol declarations, type hierarchies, atomic formulas,
+    /// typed expressions, task ordering, and requirement violations.
     ///
     /// # Parameters
-    /// - `annotated_syntax_tree`: The annotated syntax arena that contains the domain-related AST.
-    ///    This arena includes the structure of the domain and the associated symbol table.
+    /// - `context`: The `CheckContext` derived from the semantic context.
+    /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` to collect diagnostics.
     ///
     /// # Returns
-    /// Returns a `Result<bool, ParserInternalError>`.
-    /// - `Ok(true)` if all checks pass without errors.
-    /// - `Ok(false)` if any check fails.
-    /// - `Err(ParserInternalError)` if there is an internal error during the checking process.
     ///
-    /// # Example
-    /// ```rust
-    /// let result = my_analyzer.check_domain(&annotated_syntax_tree);
-    /// match result {
-    ///     Ok(true) => println!("Domain is valid."),
-    ///     Ok(false) => println!("Domain check failed."),
-    ///     Err(e) => eprintln!("Error during domain check: {}", e),
-    /// }
-    /// ```
+    /// `Ok(true)` if all checks pass without errors, `Ok(false)` if any check fails,
+    /// or `Err(SemanticError)` if an internal error occurs.
     fn check_domain(
         context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, SemanticError> {
-        // Skip unused symbols of kind Constant during the checks
+        // Skip checking unused symbols of kind Constant in domain
         let skip_symbols_unused = &[SymbolKind::Constant];
 
-
-        // Perform the first symbol check (declared symbols check)
-        let mut checked= Self::check_symbols(
+        // First, check symbols for declarations and unused symbols
+        let mut checked = Self::check_symbols(
             context,
-            &[],                 // No symbols to skip for declared symbols check
-            skip_symbols_unused, // Skip symbols of type_checker Constant for unused symbol check
+            &[],                 // no skip for undeclared symbols here
+            skip_symbols_unused, // skip Constants for unused check
             diagnostic_manager,
         )?;
 
-        checked &= checked && semantic::checks::check_type_hierarchy(
+        // Check type hierarchy correctness
+        checked &= semantic::checks::check_type_hierarchy(
             context,
             Provider::Analyzer,
             diagnostic_manager,
         )?;
 
-        // If the symbol check passes without errors, proceed with further checks
         if checked {
-
-
-            // Create a type_checker checker using the symbol table from the annotated syntax arena
+            // Build type checker from symbol table
             let type_checker = TypeChecker::new(context.symbol_table());
 
-            // Check atomic formulas in the domain using the type_checker checker
+            // Perform detailed semantic checks using type checker
             checked &= semantic::checks::check_declared_symbol_signatures(
                 context,
                 &type_checker,
                 diagnostic_manager,
             )?;
 
-            // Check functional expr in the domain using the type_checker checker
             checked &= semantic::checks::check_typed_expressions(
                 context,
                 &type_checker,
@@ -233,8 +289,9 @@ impl Analyzer {
             checked &= semantic::checks::check_task_ordering(
                 context,
                 Provider::Analyzer,
-                diagnostic_manager
+                diagnostic_manager,
             )?;
+
             semantic::checks::check_requirement_violations(
                 context,
                 context.requirements(),
@@ -243,36 +300,32 @@ impl Analyzer {
             )?;
         }
 
-        // Return the result of the checks (true if all checks passed, false otherwise)
         Ok(checked)
     }
 
-    /// Analyzes the problem-related syntax arena and performs relevant checks.
+    /// Checks the problem part of the syntax arena with problem-specific semantic validations.
     ///
-    /// This method checks for any symbol-related issues in the provided annotated syntax arena,
-    /// excluding certain types of symbols (like primitive types, constants, predicates, functions, and tasks).
-    /// Errors encountered during the check are recorded in the `error_manager`.
+    /// It primarily checks symbols excluding some types and verifies task ordering.
     ///
-    /// # Arguments
-    ///
-    /// * `annotated_syntax_tree` - A reference to the `AnnotatedSyntaxTree` that will be checked.
+    /// # Parameters
+    /// - `context`: The `CheckContext` derived from the semantic context.
+    /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` to collect diagnostics.
     ///
     /// # Returns
     ///
-    /// This method returns a `Result<bool, ParserInternalError>`.
-    /// * `Ok(true)` indicates that no errors were found during the check.
-    /// * `Ok(false)` indicates that errors were found.
-    /// * `Err(ParserInternalError)` indicates an internal error occurred.
+    /// `Ok(true)` if checks pass, `Ok(false)` if errors are found,
+    /// or `Err(SemanticError)` if internal errors occur.
     fn check_problem(
         context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
     ) -> Result<bool, SemanticError> {
+        // Skip these kinds during undeclared symbol check in problems
         let skip_types_undeclared = &[
             SymbolKind::PrimitiveType,
             SymbolKind::Constant,
             SymbolKind::Predicate,
             SymbolKind::Function,
-            SymbolKind::Task, // Add for HDDL
+            SymbolKind::Task,
         ];
 
         let mut checked = Self::check_symbols(
@@ -285,82 +338,63 @@ impl Analyzer {
         checked &= semantic::checks::check_task_ordering(
             context,
             Provider::Analyzer,
-            diagnostic_manager
+            diagnostic_manager,
         )?;
 
         Ok(checked)
     }
 
-    /// Checks the symbols in the given annotated syntax arena for various types of symbol-related
-    /// errors.
+    /// Performs general symbol checks: declared, undeclared, and unused symbols.
     ///
-    /// This function performs the following checks:
-    /// - Verifies declared symbols.
-    /// - Verifies undeclared symbols, skipping specific types.
-    /// - Verifies unused symbols, skipping specific ones.
+    /// This method verifies that:
+    /// - All declared symbols are valid.
+    /// - No undeclared symbols are used (except those specified to skip).
+    /// - No symbols are unused (except those specified to skip).
     ///
-    /// # Arguments
-    ///
-    /// * `annotated_syntax_tree` - An `AnnotatedSyntaxTree` representing the parsed code that needs
-    ///   to be checked.
-    /// * `skip_types_undeclared` - A slice of `SymbolKind` specifying the types of symbols to skip
-    ///   during undeclared symbol checking.
-    /// * `skip_symbols_unused` - A slice of `SymbolKind` specifying the symbols to skip during
-    ///   unused symbol checking.
-    /// * `error_manager` - A mutable reference to an `ErrorManager` where any errors found during
-    ///  the checks will be stored.
+    /// # Parameters
+    /// - `context`: The `CheckContext` representing the semantic context.
+    /// - `skip_types_undeclared`: Symbol kinds to ignore during undeclared symbol checking.
+    /// - `skip_symbols_unused`: Symbol kinds to ignore during unused symbol checking.
+    /// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` for diagnostics.
     ///
     /// # Returns
     ///
-    /// This function returns a `Result<bool, ParserInternalError>`.
-    /// - `Ok(true)` if no errors are found (i.e., the checks passed).
-    /// - `Ok(false)` if errors are found during any of the checks.
-    /// - `Err(ParserInternalError)` if an internal error occurs during the process.
+    /// `Ok(true)` if all checks succeed without errors,
+    /// `Ok(false)` if some checks fail,
+    /// or `Err(SemanticError)` if an internal error occurs.
     ///
     /// # Example
-    ///
     /// ```rust
-    /// let mut error_manager = ErrorManager::new();
-    /// let result = check_symbols(&annotated_syntax_tree, &skip_types, &skip_symbols, &mut error_manager);
-    /// match result {
-    ///     Ok(true) => println!("All checks passed."),
-    ///     Ok(false) => println!("Some checks failed."),
-    ///     Err(err) => println!("An internal error occurred: {}", err),
-    /// }
+    /// let mut diagnostic_manager = DiagnosticManager::new();
+    /// let result = Analyzer::check_symbols(&check_ctx, &[], &[], &mut diagnostic_manager);
     /// ```
     pub fn check_symbols(
         context: &CheckContext,
-        skip_types_undeclared: &[SymbolKind], // Types of symbols to ignore during undeclared symbol checking
-        skip_symbols_unused: &[SymbolKind],   // Symbols to ignore during unused symbol checking
+        skip_types_undeclared: &[SymbolKind],
+        skip_symbols_unused: &[SymbolKind],
         diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
         let mut checked = true;
 
-        // Check declared symbols in the annotated syntax arena
-        // This check ensures that declared symbols follow the correct syntax and declarations
+        // Verify declared symbols correctness
         checked &= semantic::checks::check_declared_symbols(context, diagnostic_manager)?;
 
-        // Check for undeclared symbols, skipping specific types of symbols
-        // This ensures that all symbols used in the arena are declared, except for those types in
-        // `skip_types_undeclared`
+        // Check undeclared symbols, skipping specified types
         checked &= semantic::checks::check_undeclared_symbols(
             context,
-            skip_types_undeclared, // Skip certain symbol types for undeclared checking
+            skip_types_undeclared,
             Provider::Analyzer,
             diagnostic_manager,
         )?;
 
-        // Check for unused symbols, skipping specific symbols
-        // This ensures that no declared symbols are unused, except for those in `skip_symbols_unused`
+        // Check for unused symbols, skipping specified symbols
         checked &= semantic::checks::check_unused_symbols(
             context,
-            skip_symbols_unused, // Skip certain symbols for unused checking
+            skip_symbols_unused,
             Provider::Analyzer,
             diagnostic_manager,
-
         )?;
 
-        // Return the result indicating whether all checks passed
         Ok(checked)
     }
 }

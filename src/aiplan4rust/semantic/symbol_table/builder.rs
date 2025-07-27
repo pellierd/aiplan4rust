@@ -137,7 +137,7 @@ impl SymbolTableBuilder {
             }
             found => {
                 // Return an error if the root node kind is not Domain or Problem
-                return Err(SymbolTableError::unexpected_ast_kind(
+                return Err(SymbolTableError::unexpected_node_kind(
                     root_ref.id(),
                     vec![AstKind::Domain, AstKind::Problem],
                     found,
@@ -617,7 +617,12 @@ impl SymbolTableBuilder {
             },
             n => {
                 // Invalid number of children for TypedItem node
-                return Err(SymbolTableError::invalid_typed_item_arity(node_ref.id(), n));
+                return Err(SymbolTableError::invalid_node_arity(
+                    node_ref.id(),              // node_id
+                    AstKind::TypedItem,         // node_type
+                    n,                          // actual child count
+                    vec![1, 2],    // expected arity
+                ));
             }
         };
 
@@ -676,7 +681,7 @@ impl SymbolTableBuilder {
 
             found => {
                 // Return an error for unexpected AST kinds instead of panicking
-                return Err(SymbolTableError::unexpected_ast_kind(
+                return Err(SymbolTableError::unexpected_node_kind(
                     node_ref.id(),
                     vec![
                         AstKind::PrimitiveType,
@@ -752,7 +757,7 @@ impl SymbolTableBuilder {
         let functor_id = node.try_child(0)?;
         let functor_ref = ast.arena().try_node_ref(functor_id)?;
         if functor_ref.node().kind() != AstKind::FunctionSymbol {
-            return Err(SymbolTableError::unexpected_ast_kind(
+            return Err(SymbolTableError::unexpected_node_kind(
                 functor_ref.id(),
                 vec![AstKind::FunctionSymbol],
                 functor_ref.node().kind(),
@@ -1141,7 +1146,7 @@ impl SymbolTableBuilder {
         match node.kind() {
             AstKind::Exists | AstKind::Forall => {},
             other => {
-                return Err(SymbolTableError::unexpected_ast_kind(
+                return Err(SymbolTableError::unexpected_node_kind(
                     node_ref.id(),
                     vec![AstKind::Exists, AstKind::Forall],
                     other,
@@ -1216,7 +1221,7 @@ impl SymbolTableBuilder {
         let predicate = &syntax_tree.try_node_ref(predicate_id)?;
 
         if predicate.node().kind() != AstKind::Predicate {
-            return Err(SymbolTableError::unexpected_ast_kind(
+            return Err(SymbolTableError::unexpected_node_kind(
                 predicate.id(),
                 vec![AstKind::Predicate],
                 predicate.node().kind(),
@@ -1341,9 +1346,11 @@ impl SymbolTableBuilder {
             }
             n => {
                 // Invalid arity for a TypedItem node
-                return Err(SymbolTableError::invalid_typed_item_arity(
+                return Err(SymbolTableError::invalid_node_arity(
                     typed_item_ref.id(),
+                    AstKind::TypedItem,
                     n,
+                    vec![1, 2],
                 ));
             }
         };
@@ -1364,7 +1371,7 @@ impl SymbolTableBuilder {
             }
             found => {
                 // Unexpected kind for symbol part of TypedItem
-                return Err(SymbolTableError::unexpected_ast_kind(
+                return Err(SymbolTableError::unexpected_node_kind(
                     elt.id(),
                     vec![AstKind::Constant, AstKind::Variable],
                     found,
@@ -1394,7 +1401,7 @@ impl SymbolTableBuilder {
     ///
     /// # Errors
     ///
-    /// Returns [`SymbolTableError::UnexpectedAstKind`] if:
+    /// Returns [`SymbolTableError::UnexpectedNodeKind`] if:
     /// - Any child node is not of kind `PrimitiveType`.
     /// - A referenced node or symbol is invalid in the arena.
     fn extract_type(
@@ -1416,7 +1423,7 @@ impl SymbolTableBuilder {
                 super_types.add_type(name);
             } else {
                 // Return a semantic error when the structure does not match expectations
-                return Err(SymbolTableError::unexpected_ast_kind(
+                return Err(SymbolTableError::unexpected_node_kind(
                     ty_ref.id(),
                     vec![AstKind::PrimitiveType],
                     ty_ref.node().kind(),

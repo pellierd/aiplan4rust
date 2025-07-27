@@ -6,9 +6,9 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManag
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::semantic::SemanticError;
+
+use std::collections::{HashMap, HashSet};
 
 /// Entry point for checking declared symbols in the symbol table for semantic issues
 /// such as duplicate declarations.
@@ -79,7 +79,7 @@ fn check_symbol_declarations(
                 continue;
             }
 
-            let ast_entry = context.ast().get_node(declaration.node_id()).unwrap();
+            let ast_entry = context.syntax_tree().get_node(declaration.node_id()).unwrap();
             let current_scope = declaration.scope();
 
             // Check for an existing declaration in an ancestor scope
@@ -107,7 +107,7 @@ fn check_symbol_declarations(
                     checked = false;
 
                     let scope_index = conflicting_scope.iter().last().unwrap();
-                    let scope = context.ast().get_node(*scope_index).unwrap();
+                    let scope = context.syntax_tree().get_node(*scope_index).unwrap();
 
                     let name = context.interner().try_resolve(symbol.ident())?;
                     let error = Diagnostic::new(

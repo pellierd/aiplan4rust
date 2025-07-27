@@ -3,7 +3,7 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
+use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
 use crate::aiplan4rust::lang::Ident;
@@ -117,11 +117,6 @@ impl Linker {
         mut domain: SemanticContext,
         mut problem: SemanticContext,
     ) -> Result<LinkerResult, LinkingError> {
-//        self.diagnostic_manager.add
-        /*println!("DOMAIN ****************************$");
-        println!("{}", domain.interner());
-        println!("PROBLEM ****************************$");
-        println!("{}", problem.interner());*/
 
         // Step 1: Merge the string interners from domain and problem to form a global interner
         let mut result = InternerMergeResult::from_domain_and_problem(
@@ -129,27 +124,19 @@ impl Linker {
             problem.interner(),
         );
         let global_interner = result.take_interner();
-        /*println!("GLOBAL ****************************$");
-        println!("{}", global_interner);*/
+
         // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
         let problem_ident_map = result.take_problem_ident_map();
-
-
         remap_problem_idents(&mut problem, &problem_ident_map);
-
-        println!("AVANNT ****************************$");
-        println!("{}", problem.symbol_table().to_string_with_interner(&global_interner));
 
         // Step 3: Resolve external references in the problem with respect to the domain
         resolve_external_references(&domain, &mut problem)?;
 
-        println!("APRES ****************************$");
-        println!("{}", problem.symbol_table().to_string_with_interner(&global_interner));
 
         // Step 4: Create a check context for the problem using the global interner
         // and perform semantic and structural linking checks on the problem
         let problem_ctx = CheckContext::new(
-            problem.ast(),
+            problem.syntax_tree(),
             problem.symbol_table(),
             &global_interner,
             problem.source_name(),
@@ -164,8 +151,8 @@ impl Linker {
 
         // Step 7: Construct the final linked semantic context
         let semantic_context = LinkedSemanticContext::new(
-            domain.take_ast(),
-            problem.take_ast(),
+            domain.take_syntax_tree(),
+            problem.take_syntax_tree(),
             domain.take_symbol_table(),
             problem.take_symbol_table(),
             global_interner,

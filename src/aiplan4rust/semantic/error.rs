@@ -1,3 +1,16 @@
+//! Module defining semantic-related error types used throughout the semantic analysis pipeline.
+//!
+//! This module centralizes error definitions for semantic checking, symbol table handling,
+//! type checking, and syntax tree validation.
+//!
+//! It includes specific error types that are shared across the semantic analysis stages:
+//! - `UnexpectedNodeKindError`: Represents errors when an AST node has an unexpected kind.
+//! - `InvalidNodeArityError`: Represents errors when an AST node has an invalid number of children.
+//!
+//! Additionally, the module provides a general enum, `SemanticError`, which wraps all
+//! these specific error types to enable convenient and consistent error handling across
+//! the semantic analysis pipeline.
+
 use thiserror::Error;
 
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
@@ -7,55 +20,157 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
+/// Error indicating an AST node has a kind different than expected.
+///
+/// This error is returned when a semantic check encounters an AST node whose kind
+/// does not match the expected kind(s). This typically means there is a structural or
+/// semantic inconsistency in the AST.
+///
+/// # Fields
+/// - `expected`: The list of acceptable AST kinds expected at this node.
+/// - `found`: The actual kind found at the node.
+/// - `node_id`: The unique identifier of the AST node in question.
 #[derive(Debug, Error)]
 #[error("Unexpected AST node kind at node {node_id:?}: expected {expected:?}, found {found:?}.")]
-pub struct UnexpectedAstKindError {
+pub struct UnexpectedNodeKindError {
     expected: Vec<AstKind>,
     found: AstKind,
     node_id: NodeId,
 }
 
-impl UnexpectedAstKindError {
+impl UnexpectedNodeKindError {
+    /// Creates a new `UnexpectedNodeKindError`.
+    ///
+    /// # Arguments
+    /// - `node_id`: The identifier of the node where the mismatch was found.
+    /// - `expected`: A vector of AST kinds that were expected at this node.
+    /// - `found`: The actual AST kind found at this node.
     pub fn new(node_id: NodeId, expected: Vec<AstKind>, found: AstKind) -> Self {
-        UnexpectedAstKindError { node_id, expected, found }
+        UnexpectedNodeKindError { node_id, expected, found }
     }
 }
 
+/// Error indicating an AST node has an invalid number of children.
+///
+/// This error is raised when the number of children nodes does not meet the expected arity
+/// for a given AST node kind, which usually violates the language grammar or semantic rules.
+///
+/// # Fields
+/// - `node_type`: The AST kind of the node.
+/// - `node_id`: The unique identifier of the node.
+/// - `child_count`: The actual number of children present.
+/// - `expected_arity`: The list of allowed numbers of children for this node kind.
+#[derive(Debug, thiserror::Error)]
+#[error("{node_type:?} node at {node_id:?} has an unexpected number of children: {child_count}. Expected one of {expected_arity:?}.")]
+pub struct InvalidNodeArityError {
+    node_id: NodeId,
+    node_type: AstKind,
+    child_count: usize,
+    expected_arity: Vec<usize>,
+}
+
+impl InvalidNodeArityError {
+    /// Constructs a new `InvalidNodeArityError`.
+    ///
+    /// # Arguments
+    /// - `node_type`: The kind of the AST node.
+    /// - `node_id`: The unique identifier of the node.
+    /// - `child_count`: The observed number of children nodes.
+    /// - `expected_arity`: The allowed numbers of children.
+    pub fn new(
+        node_id: NodeId,
+        node_type: AstKind,
+        child_count: usize,
+        expected_arity: Vec<usize>,
+    ) -> Self {
+        InvalidNodeArityError {
+            node_id,
+            node_type,
+            child_count,
+            expected_arity,
+        }
+    }
+}
+
+/// Represents all possible semantic errors that can occur during
+/// parsing, analysis, and type checking phases.
+///
+/// This enum aggregates various error types related to the syntax tree,
+/// symbol table, type checking, semantic checks, and specific AST node issues.
+///
+/// # Variants
+///
+/// - `SyntaxTree`: Errors related to the syntax tree construction or traversal.
+/// - `SymbolTable`: Errors originating from symbol table operations.
+/// - `TypeChecker`: Errors encountered during type checking phases.
+/// - `SemanticCheck`: Errors raised by semantic validation and checks.
+/// - `UnexpectedNodeKind`: Errors for AST nodes with an unexpected kind.
+/// - `InvalidNodeArity`: Errors for AST nodes with an invalid number of children.
 #[derive(Debug, Error)]
 pub enum SemanticError {
-    /// Generic internal error with a descriptive message.
-    #[error("Internal error: {0}")]
-    InternalError(String),
-
+    /// Errors related to the syntax tree.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
 
+    /// Errors from symbol table operations.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
 
+    /// Errors during type checking.
     #[error(transparent)]
     TypeChecker(#[from] TypeCheckError),
 
+    /// Errors raised by semantic checks.
     #[error(transparent)]
     SemanticCheck(#[from] SemanticCheckError),
 
+    /// Errors for unexpected AST node kinds.
     #[error(transparent)]
-    UnexpectedAstKind(#[from] UnexpectedAstKindError),
+    UnexpectedNodeKind(#[from] UnexpectedNodeKindError),
+
+    /// Errors for invalid number of children in an AST node.
+    #[error(transparent)]
+    InvalidNodeArity(#[from] InvalidNodeArityError),
 }
 
 impl SemanticError {
-    /// Helper to create an `InternalError` from any displayable message.
-    pub fn internal_error<S: Into<String>>(msg: S) -> Self {
-        SemanticError::InternalError(msg.into())
-    }
-
+    /// Helper constructor for creating a `SemanticError` variant for an unexpected AST kind.
+    ///
+    /// # Arguments
+    /// - `node_id`: The ID of the node where the error occurred.
+    /// - `expected`: The expected AST node kinds.
+    /// - `found`: The actual AST node kind found.
+    ///
+    /// # Returns
+    /// A `SemanticError` wrapping an `UnexpectedNodeKindError`.
     pub fn unexpected_ast_kind(
         node_id: NodeId,
         expected: Vec<AstKind>,
         found: AstKind,
     ) -> Self {
-        SemanticError::UnexpectedAstKind(
-            UnexpectedAstKindError::new(node_id, expected, found)
+        SemanticError::UnexpectedNodeKind(
+            UnexpectedNodeKindError::new(node_id, expected, found)
+        )
+    }
+
+    /// Helper constructor for creating a `SemanticError` variant for an invalid node arity.
+    ///
+    /// # Arguments
+    /// - `node_type`: The AST node kind where the error occurred.
+    /// - `node_id`: The ID of the node.
+    /// - `child_count`: The actual number of children.
+    /// - `expected_arity`: The list of acceptable number of children.
+    ///
+    /// # Returns
+    /// A `SemanticError` wrapping an `InvalidNodeArityError`.
+    pub fn invalid_node_arity(
+        node_id: NodeId,
+        node_type: AstKind,
+        child_count: usize,
+        expected_arity: Vec<usize>,
+    ) -> Self {
+        SemanticError::InvalidNodeArity(
+            InvalidNodeArityError::new(node_id, node_type, child_count, expected_arity)
         )
     }
 }

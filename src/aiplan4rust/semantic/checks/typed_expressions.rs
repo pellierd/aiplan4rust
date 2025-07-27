@@ -51,7 +51,7 @@ pub fn check_typed_expressions(
 ) -> Result<bool, SemanticCheckError> {
     let mut no_error = true;
 
-    for node in context.ast().preorder().values() {
+    for node in context.syntax_tree().preorder().values() {
         if is_equal_binary_comp(node) || is_assign(node) {
             let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
@@ -356,7 +356,7 @@ fn get_binary_operation_types(
     context: &CheckContext,
 ) -> Result<(Type, Type), SemanticCheckError> {
 
-    let ast = context.ast();
+    let ast = context.syntax_tree();
 
     // Try to get the first child node index and node
     let arg1_id = node.try_child(0)?;
@@ -594,7 +594,7 @@ fn get_function_term_type(
     context: &CheckContext,
 ) -> Result<Option<Type>, SemanticCheckError> {
     let functor_index = node.try_child(0)?;
-    let functor_entry = context.ast().try_node(functor_index)?;
+    let functor_entry = context.syntax_tree().try_node(functor_index)?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
         if functor_entry.try_ident()? == StringInterner::IDENT_TOTAL_TIME

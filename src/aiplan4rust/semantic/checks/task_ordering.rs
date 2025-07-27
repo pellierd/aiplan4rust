@@ -66,10 +66,10 @@ pub fn check_task_ordering(
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
-    for node in context.ast().preorder().values() {
+    for node in context.syntax_tree().preorder().values() {
         match node.kind() {
             AstKind::TaskOrderingConstraintDef => {
-                let task_ids = extract_task_ids(node, context.ast())?;
+                let task_ids = extract_task_ids(node, context.syntax_tree())?;
                 let mut matrix = build_task_order_matrix(&task_ids)?;
                 transitive_closure(&mut matrix);
                 if is_cyclic(&matrix) {

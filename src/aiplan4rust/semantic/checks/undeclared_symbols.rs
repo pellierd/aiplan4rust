@@ -175,7 +175,7 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
     // the right side of type_checker declarations in PDDL.For example, types like "car" or "vehicle"
     // might not be explicitly declared but are understood in the domain context.
     let check_usages_at_root_scope = |usage: &Usage| {
-        let root_id = context.ast().try_root_id().unwrap();
+        let root_id = context.syntax_tree().try_root_id().unwrap();
         let root_scope = Scope::new(root_id, None);
         symbol
             .usages()

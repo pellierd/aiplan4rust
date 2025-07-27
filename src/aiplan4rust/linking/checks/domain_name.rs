@@ -33,28 +33,10 @@ pub fn check_domain_name(
 ) -> Result<bool, LinkingError> {
 
     // --- 1. Resolve the domain name declared in the domain AST ---
-    // Tries to extract the domain name from the domain's symbol table.
-    // If not found, returns an internal syntax error.
-    let declared = match domain.symbol_table().resolve_domain_name_declaration()? {
-        Some(name) => name,
-        None => {
-            return Err(LinkingError::InternalError(
-                "Domain name declaration not found in domain AST".to_string(),
-            ));
-        }
-    };
+    let declared = domain.symbol_table().try_resolve_unique_declaration(SymbolKind::DomainName)?;
 
     // --- 2. Resolve the domain name referenced in the problem AST ---
-    // Tries to extract the expected domain name from the problem file.
-    // If not found, returns an internal syntax error.
-    let referenced = match problem.symbol_table().resolve_domain_name_declaration()? {
-        Some(name) => name,
-        None => {
-            return Err(LinkingError::InternalError(
-                "Domain name declaration not found in problem AST".to_string(),
-            ));
-        }
-    };
+    let referenced =  problem.symbol_table().try_resolve_unique_declaration(SymbolKind::DomainName)?;
 
     // --- 3. Compare both domain names ---
     // If the names don't match, emit a diagnostic warning.
@@ -71,7 +53,7 @@ pub fn check_domain_name(
 
                 // --- 5. Retrieve the corresponding AST entry ---
                 // Needed to determine the span (location) for the warning.
-                match problem.ast().get_node(domain_name_declaration.node_id()) {
+                match problem.syntax_tree().get_node(domain_name_declaration.node_id()) {
                     Some(ast) => {
 
                         // --- 6. Emit a warning about the mismatch ---

@@ -75,31 +75,10 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 /// [`thiserror`]: https://docs.rs/thiserror
 #[derive(Debug, Error)]
 pub enum TypeCheckError {
-    /// Generic internal error with a descriptive message.
-    ///
-    /// Used when an invariant is broken, unexpected state is reached, or other
-    /// non-recoverable logic errors occur during type checking.
-    #[error("Internal error: {0}")]
-    InternalError(String),
 
     /// Error originating from the symbol table layer.
     ///
     /// Allows symbol table construction errors to be transparently surfaced during type checking.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
-}
-
-impl TypeCheckError {
-    /// Creates a new [`InternalError`] from a displayable message.
-    ///
-    /// This is a convenience constructor for reporting unexpected conditions during type checking.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// return Err(TypeCheckError::internal_error("expected integer type"));
-    /// ```
-    pub fn internal_error<S: Into<String>>(msg: S) -> Self {
-        TypeCheckError::InternalError(msg.into())
-    }
 }

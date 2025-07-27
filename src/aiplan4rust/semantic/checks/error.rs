@@ -6,7 +6,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
-use crate::aiplan4rust::semantic::UnexpectedAstKindError;
+use crate::aiplan4rust::semantic::UnexpectedNodeKindError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -33,7 +33,7 @@ pub enum SemanticCheckError {
     Interner(#[from] InternerError),
 
     #[error(transparent)]
-    UnexpectedAstKind(#[from] UnexpectedAstKindError),
+    UnexpectedAstKind(#[from] UnexpectedNodeKindError),
 
     #[error("No type declared for operand {operand_index} in binary operation at node {node_id:?}.")]
     MissingOperandType {
@@ -100,7 +100,7 @@ impl SemanticCheckError {
         found: AstKind,
     ) -> Self {
         // On utilise maintenant la struct commune UnexpectedAstKindError
-        UnexpectedAstKindError::new(node_id, expected, found).into()
+        UnexpectedNodeKindError::new(node_id, expected, found).into()
     }
 
     pub fn missing_operand_type(node_id: NodeId, operand_index: usize) -> Self {

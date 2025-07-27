@@ -1,34 +1,66 @@
+//! Module providing the `AnalyzerResult` type that encapsulates the outcome of semantic analysis.
+//!
+//! This structure combines an optional semantically annotated syntax context (`SemanticContext`)
+//! with a diagnostic manager (`DiagnosticManager`) that collects errors and warnings encountered
+//! during the analysis process.
+//!
+//! It serves as the primary container for the result of semantic checks,
+//! allowing callers to access the enriched AST or handle errors accordingly.
+//!
+//! # Key Concepts
+//!
+//! - `SemanticContext`: Represents the annotated syntax tree enriched with semantic information such as symbol tables, requirements, etc.
+//! - `DiagnosticManager`: Collects and manages diagnostics (errors, warnings, notes) produced during analysis.
+//!
+//! # Usage
+//!
+//! ```rust
+//! use aiplan4rust::semantic::{SemanticContext, AnalyzerResult};
+//! use aiplan4rust::diagnostic::DiagnosticManager;
+//!
+//! // Create or obtain a SemanticContext and DiagnosticManager from analysis
+//! let semantic_context = Some(SemanticContext::new(...));
+//! let diagnostics = DiagnosticManager::new();
+//!
+//! // Construct the result
+//! let result = AnalyzerResult::new(semantic_context, diagnostics);
+//!
+//! // Access the semantic context if available
+//! if let Some(ctx) = result.semantic_context() {
+//!     println!("Semantic analysis succeeded.");
+//! }
+//!
+//! // Inspect diagnostics
+//! if !result.diagnostic_manager().is_empty() {
+//!     for diagnostic in result.diagnostic_manager().diagnostics() {
+//!         println!("{}", diagnostic);
+//!     }
+//! }
+//! ```
+//!
+//! # Error Handling
+//!
+//! The `AnalyzerResult` provides methods to query and mutate the contained semantic context
+//! and diagnostic manager, facilitating robust error reporting and recovery strategies.
+
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic::SemanticContext;
 
 use std::fmt;
 
-
-/// `AnalyzerResult` represents the result of a semantic analysis, which contains
-/// an annotated syntax arena and an associated error manager.
+/// Represents the outcome of semantic analysis, including the annotated semantic context and diagnostic information.
 ///
-/// This structure is used to store the result of the analysis, whether it's successful
-/// or contains errors that need to be handled.
+/// This structure holds an optional `SemanticContext` that represents the enriched syntax tree
+/// with semantic information, and a `DiagnosticManager` that collects errors and warnings
+/// encountered during analysis.
 ///
 /// # Fields
-/// - `annotated_syntax_tree`: An optional `AnnotatedSyntaxTree` that represents the
-///   result of the semantic analysis. It will be `Some(AnnotatedSyntaxTree)` if
-///   the analysis was successful, or `None` if an error occurred during the analysis.
-/// - `error_manager`: The `ErrorManager` that collects any errors encountered
-///   during the analysis process.
+/// - `context`: Optional semantic context produced by the analysis.
+/// - `diagnostic_manager`: Collects diagnostics (errors, warnings, notes) during analysis.
 ///
 /// # Methods
-/// - `new`: Creates a new instance of `AnalyzerResult` with an optional annotated
-///   syntax arena and an error manager.
-/// - `annotated_syntax_tree`: Returns an immutable reference to the annotated syntax arena,
-///   or `None` if the arena is unavailable.
-/// - `annotated_syntax_tree_mut`: Returns a mutable reference to the annotated syntax arena,
-///   or `None` if the arena is unavailable.
-/// - `error_manager`: Returns an immutable reference to the error manager.
-/// - `error_manager_mut`: Returns a mutable reference to the error manager.
-/// - `is_some`: Checks whether an annotated syntax arena is present.
-/// - `is_none`: Checks whether an annotated syntax arena is absent.
-
+/// Provides accessors and mutators for the semantic context and diagnostic manager,
+/// as well as convenience methods to check presence or absence of the semantic context.
 #[derive(Debug, Clone)]
 pub struct AnalyzerResult {
     context: Option<SemanticContext>,
@@ -36,14 +68,14 @@ pub struct AnalyzerResult {
 }
 
 impl AnalyzerResult {
-    /// Creates a new `AnalyzerResult` with an optional annotated syntax arena and an error manager.
+    /// Creates a new `AnalyzerResult` instance.
     ///
     /// # Arguments
-    /// - `annotated_syntax_tree`: The annotated syntax arena associated with this analysis result.
-    /// - `error_manager`: The error manager that collects all errors encountered during the analysis.
+    /// - `context`: An optional `SemanticContext` representing the semantic analysis output.
+    /// - `diagnostic_manager`: A `DiagnosticManager` that collects any diagnostics.
     ///
     /// # Returns
-    /// An `AnalyzerResult` containing the provided values.
+    /// A new `AnalyzerResult` encapsulating the analysis result and diagnostics.
     pub fn new(
         context: Option<SemanticContext>,
         diagnostic_manager: DiagnosticManager,
@@ -54,101 +86,85 @@ impl AnalyzerResult {
         }
     }
 
-    /// Returns an immutable reference to the annotated syntax arena.
+    /// Returns an immutable reference to the semantic context, if present.
     ///
     /// # Returns
-    /// `Some(&AnnotatedSyntaxTree)` if the arena exists, otherwise `None`.
+    /// `Some(&SemanticContext)` if available, or `None` if analysis failed.
     pub fn semantic_context(&self) -> Option<&SemanticContext> {
         self.context.as_ref()
     }
 
-    /// Takes and returns the `SemanticContext` from the current instance, if present.
-    ///
-    /// This method mutably borrows the instance and replaces the internal context
-    /// with `None`, effectively transferring ownership of the `SemanticContext`
-    /// to the caller.
+    /// Returns a mutable reference to the semantic context, if present.
     ///
     /// # Returns
-    ///
-    /// `Some(SemanticContext)` if it was available, or `None` if it was already taken.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// if let Some(sem_ctx) = analyzer_result.take_semantic_context() {
-    ///     // Use the semantic context
-    /// }
-    /// ```
-    pub fn take_semantic_context(&mut self) -> Option<SemanticContext> {
-        self.context.take()
-    }
-
-
-    /// Returns a mutable reference to the annotated syntax arena.
-    ///
-    /// # Returns
-    /// `Some(&mut AnnotatedSyntaxTree)` if the arena exists, otherwise `None`.
+    /// `Some(&mut SemanticContext)` if available, or `None` if analysis failed.
     pub fn semantic_context_mut(&mut self) -> Option<&mut SemanticContext> {
         self.context.as_mut()
     }
 
-    /// Returns an immutable reference to the error manager.
+    /// Takes ownership of the semantic context out of the `AnalyzerResult`, leaving `None` in its place.
     ///
     /// # Returns
-    /// A reference to the `ErrorManager`.
+    /// `Some(SemanticContext)` if it was present, otherwise `None`.
+    pub fn take_semantic_context(&mut self) -> Option<SemanticContext> {
+        self.context.take()
+    }
+
+    /// Returns an immutable reference to the diagnostic manager.
+    ///
+    /// # Returns
+    /// Reference to the `DiagnosticManager` collecting errors and warnings.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
     }
 
-    /// Returns a mutable reference to the error manager.
+    /// Returns a mutable reference to the diagnostic manager.
     ///
     /// # Returns
-    /// A mutable reference to the `ErrorManager`.
+    /// Mutable reference to the `DiagnosticManager`.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
     }
 
-    /// Takes ownership of the diagnostic manager, leaving an empty one in its place.
+    /// Takes ownership of the diagnostic manager out of the `AnalyzerResult`, leaving a default empty one in its place.
+    ///
+    /// # Returns
+    /// The owned `DiagnosticManager`.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         std::mem::take(&mut self.diagnostic_manager)
     }
 
-    /// Checks whether an annotated syntax arena is present.
-    ///
-    /// # Returns
-    /// `true` if the annotated syntax arena exists, `false` otherwise.
+    /// Returns `true` if a semantic context is present.
     pub fn is_some(&self) -> bool {
         self.context.is_some()
     }
 
-    /// Checks whether an annotated syntax arena is absent.
-    ///
-    /// # Returns
-    /// `true` if the annotated syntax arena is absent, `false` otherwise.
+    /// Returns `true` if no semantic context is present.
     pub fn is_none(&self) -> bool {
         self.context.is_none()
     }
 }
 
 impl fmt::Display for AnalyzerResult {
+    /// Formats the analyzer result for user-friendly output.
+    ///
+    /// Displays the semantic context if present, followed by any diagnostics.
+    /// If no semantic context is present, it reports that analysis failed and lists diagnostics.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.context {
             Some(context) => {
-                // If the annotated syntax arena exists, display the arena and any errors.
                 write!(f, "Semantic analysis successful:\n{}", context)?;
 
-                // Check if there are any errors in the error manager.
                 if !self.diagnostic_manager().is_empty() {
-                    write!(f, "\nErrors encountered during analysis:\n")?;
+                    write!(f, "\nDiagnostics during analysis:\n")?;
                     for diagnostic in self.diagnostic_manager().diagnostics() {
                         write!(f, "{}\n", diagnostic)?;
                     }
                 } else {
-                    write!(f, "\nNo errors detected.")?;
+                    write!(f, "\nNo diagnostics reported.")?;
                 }
             }
             None => {
-                // If no annotated syntax arena is available, display analysis failure and errors.
                 write!(f, "Semantic analysis failed:\n")?;
                 for diagnostic in self.diagnostic_manager().diagnostics() {
                     write!(f, "{}\n", diagnostic)?;

@@ -1,5 +1,15 @@
+//! Defines the `Origin` enum for representing the provenance of a symbol table.
+//!
+//! A symbol table's `Origin` indicates whether its entries came from a domain file,
+//! a problem file, or a combination of both. This is useful for tooling, diagnostics,
+//! and semantic validation stages, allowing contextual understanding of symbol sources.
+//!
+//! The `Origin` can also be converted into a `SymbolOrigin`, which is used
+//! on a per-symbol basis.
+
 use std::fmt;
 use serde::{Deserialize, Serialize};
+
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 
 /// Represents the origin of a symbol table, indicating the provenance of its symbols.
@@ -13,16 +23,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 ///
 /// - `Domain`: The table was constructed exclusively from the domain AST.
 /// - `Problem`: The table was constructed exclusively from the problem AST.
-/// - `Merged`: The table results from linking/merging domain and problem symbols.
-///   Note that individual symbols within may have a more specific origin.
 /// - `Unknown`: Default or unspecified origin; used as a placeholder.
-///
-/// # Conversion to `SymbolOrigin`
-///
-/// This enum can be converted into a `SymbolOrigin` (which marks
-/// individual symbols) via the `From` trait. Note that the `Merged` variant
-/// maps to `SymbolOrigin::Unknown`, as merged tables don't correspond to
-/// a single symbol origin.
 ///
 /// # Example
 ///
@@ -34,16 +35,13 @@ use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Origin {
-    /// Built from a domain file.
+    /// Symbol table built from a domain file.
     Domain,
 
-    /// Built from a problem file.
+    /// Symbol table built from a problem file.
     Problem,
 
-    /// Result of merging a domain and a problem symbol table.
-    Merged,
-
-    /// Unspecified or default origin.
+    /// Unknown or unspecified origin.
     Unknown,
 }
 
@@ -56,28 +54,39 @@ impl Default for Origin {
     }
 }
 
-
 impl fmt::Display for Origin {
+    /// Formats the `Origin` as a human-readable string.
+    ///
+    /// The output is:
+    /// - `"domain"` for `Origin::Domain`
+    /// - `"problem"` for `Origin::Problem`
+    /// - `"unspecified"` for `Origin::Unknown`
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let label = match self {
             Origin::Domain => "domain",
             Origin::Problem => "problem",
-            Origin::Merged => "merged (domain + problem)",
-            Origin::Unknown => "unspecified",
+            Origin::Unknown => "unknown",
         };
         write!(f, "{label}")
     }
 }
 
-/// Converts a `SymbolTableOrigin` to a `SymbolOrigin` for individual symbols.
+/// Converts an `Origin` (table-level) to a `SymbolOrigin` (per-symbol granularity).
 ///
-/// Note: `Merged` maps to `Unknown` since merged tables combine multiple origins.
+/// # Mapping
+///
+/// - `Origin::Domain` → `SymbolOrigin::Domain`
+/// - `Origin::Problem` → `SymbolOrigin::Problem`
+/// - `Origin::Unknown` → `SymbolOrigin::Unknown`
+///
+/// The `Merged` variant maps to `Unknown` because merged tables contain symbols from
+/// multiple origins, and cannot be mapped to a single `SymbolOrigin`.
 impl From<Origin> for SymbolOrigin {
     fn from(origin: Origin) -> Self {
         match origin {
             Origin::Domain => SymbolOrigin::Domain,
             Origin::Problem => SymbolOrigin::Problem,
-            Origin::Merged | Origin::Unknown => SymbolOrigin::Unknown,
+            Origin::Unknown => SymbolOrigin::Unknown,
         }
     }
 }

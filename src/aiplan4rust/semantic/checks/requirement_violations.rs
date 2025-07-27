@@ -20,7 +20,7 @@ pub fn check_requirement_violations(
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
-    for (index, node) in context.ast().preorder().with_id() {
+    for (index, node) in context.syntax_tree().preorder().with_id() {
         match node.kind() {
             AstKind::PrimitiveType | AstKind::TypesDef => {
                 checked &= report_requirement_violation(
@@ -78,7 +78,7 @@ pub fn check_requirement_violations(
             }
 
             AstKind::Or => {
-                let parent = context.ast().get_parent(index).unwrap();
+                let parent = context.syntax_tree().get_parent(index).unwrap();
                 if parent.kind() != AstKind::MethodPreconditionDef
                     && parent.kind() != AstKind::PreconditionDef
                     && parent.kind() != AstKind::EffectDef
