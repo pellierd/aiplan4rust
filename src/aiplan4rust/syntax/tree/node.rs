@@ -10,10 +10,10 @@ use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 pub trait SyntaxNode: ArenaNode + Display {
-    /// The type used to represent the syntax's kind.
+    /// The type_checker used to represent the syntax's kind.
     type Kind: Copy + Debug + Display;
 
-    /// The type used to represent the semantic content of the syntax.
+    /// The type_checker used to represent the semantic content of the syntax.
     type Content: SyntaxContent;
 
     /// Returns the kind of the syntax.

@@ -1,9 +1,8 @@
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry,Usage};
-use crate::aiplan4rust::semantic::symbol_table::SymbolTableOrigin;
+use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstKind};
 use crate::aiplan4rust::lang::Type;
@@ -33,7 +32,7 @@ use crate::aiplan4rust::syntax::tree::NodeRef;
 /// - `LessEq`: Checks if the value is less than or equal to the expected value.
 /// - `GreaterEq`: Checks if the value is greater than or equal to the expected value.
 ///
-/// `Comparator` makes it easy to express core comparison operations in a type-safe manner.
+/// `Comparator` makes it easy to express core comparison operations in a type_checker-safe manner.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 #[allow(dead_code)]
 enum Comparator {
@@ -49,7 +48,7 @@ enum Comparator {
 ///
 /// `SymbolTableBuilder` encapsulates the logic for traversing an [`ArenaAst`]
 /// and populating a `SymbolTable` with symbols extracted from the arena. It
-/// identifies the root syntax type (e.g., Domain or Problem), determines the source
+/// identifies the root syntax type_checker (e.g., Domain or Problem), determines the source
 /// of the symbol table, and initializes it accordingly.
 ///
 /// This pattern separates the concerns of AST traversal and symbol table
@@ -90,51 +89,51 @@ impl SymbolTableBuilder {
         &mut self.table
     }
 
-    /// Builds a complete [`Table`] from the given abstract syntax arena.
+    /// Builds a complete [`SymbolTable`] from the given abstract syntax tree.
     ///
     /// This method:
-    /// - Retrieves the root syntax of the AST.
-    /// - Ensures that the root is either a `Domain` or `Problem`.
-    /// - Sets the table's source accordingly.
-    /// - Initializes the table using the AST contents.
+    /// - Retrieves the root node of the AST.
+    /// - Ensures that the root is either a `Domain` or a `Problem`.
+    /// - Sets the symbol table's origin and root ID accordingly.
+    /// - Initializes the symbol table by traversing the AST.
     ///
     /// # Arguments
     ///
-    /// * `ast` - A reference to the [`ArenaAst`] representing the parsed syntax arena.
+    /// * `ast` - A reference to the [`Ast`] representing the parsed abstract syntax tree.
     ///
     /// # Errors
     ///
-    /// Returns a [`AiplanError`] if:
-    /// - The AST has no root syntax.
-    /// - The root syntax is not a valid entry point (Domain or Problem).
-    /// - An error occurs during symbol initialization.
+    /// Returns a [`SymbolTableError`] if:
+    /// - The AST has no root node (`MissingRootNode`).
+    /// - The root node is not a valid entry point (`UnexpectedAstKind`, expected `Domain` or `Problem`).
+    /// - An error occurs during symbol initialization from the AST (`SymbolInitializationError`, etc.).
     ///
     /// # Returns
     ///
-    /// A fully initialized `SymbolTable` on success.
-    pub fn build(&mut self, ast: &Ast) -> Result<SymbolTable, AiplanError> {
+    /// A fully initialized [`SymbolTable`] on success.
 
+    pub fn build(&mut self, ast: &Ast) -> Result<SymbolTable, SymbolTableError> {
         // Retrieve the root of the AST and handle the case where it is missing
-        let root_ref = ast.arena().root_node_ref().ok_or_else(|| {
-            AiplanError::InternalError("AST root syntax is missing".to_string())
-        })?;
+        let root_ref = ast.arena().try_root_node_ref()?;
+
         let root_node = root_ref.node();
+
         // Determine the root kind and set the source of the symbol table
         match root_node.kind() {
             AstKind::Domain => {
                 self.table_mut().set_origin(SymbolTableOrigin::Domain);
-                self.table_mut().set_root_id(root_ref.id())
-
+                self.table_mut().set_root_id(root_ref.id());
             }
             AstKind::Problem => {
                 self.table_mut().set_origin(SymbolTableOrigin::Problem);
-                self.table_mut().set_root_id(root_ref.id())
+                self.table_mut().set_root_id(root_ref.id());
             }
-            _ => {
-                return Err(AiplanError::InternalError(format!(
-                    "Invalid AST: root syntax is not a Domain or Problem, found: {}",
-                    root_node.kind()
-                )));
+            found => {
+                return Err(SymbolTableError::unexpected_ast_kind(
+                    root_ref.id(),
+                    vec![AstKind::Domain, AstKind::Problem],
+                    found,
+                ));
             }
         }
 
@@ -144,6 +143,7 @@ impl SymbolTableBuilder {
         // Return the constructed symbol table
         Ok(std::mem::take(&mut self.table))
     }
+
 
     /// Initializes the symbol table by processing nodes from the Abstract Syntax Tree (AST).
     ///
@@ -174,7 +174,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), SymbolTableError> {
         let scope = Scope::new(node_ref.id(), None);
         self.init_from(node_ref, ast, scope)?;
         Ok(())
@@ -228,8 +228,8 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Determine the type of the AST syntax and apply appropriate processing
+    ) -> Result<(), SymbolTableError> {
+        // Determine the type_checker of the AST syntax and apply appropriate processing
         match node_ref.node().kind() {
             // Handle declarations: These simply register symbols without additional processing
             AstKind::DomainName
@@ -355,26 +355,7 @@ impl SymbolTableBuilder {
         scope: Scope,
         types: Option<Type>,
         arguments: Option<TypedList>,
-    ) -> Result<(), AiplanError> {
-        // Assert that the AST kind is valid
-        /*Self::assert_ast_kind(
-            node_ref.syntax(),
-            &[
-                AstKind::DomainName,
-                AstKind::PrimitiveType,
-                AstKind::ProblemName,
-                AstKind::Constant,
-                AstKind::Variable,
-                AstKind::Predicate,
-                AstKind::FunctionSymbol,
-                AstKind::ActionSymbol,
-                AstKind::DASymbol,
-                // Add for HDDL
-                AstKind::MethodSymbol,
-                AstKind::TaskSymbol,
-                AstKind::TaskID,
-            ],
-        )?;*/
+    ) -> Result<(), SymbolTableError> {
 
         // Extract the symbol information from the AST
         let symbol_ref = ast.arena().try_symbol_ref(node_ref.id())?;
@@ -439,29 +420,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Assert that the AST syntax is of a valid kind for symbol usage.
-        /*Self::assert_ast_kind(
-            node_ref.syntax(),
-            &[
-                AstKind::DomainName,
-                AstKind::ProblemName,
-                AstKind::Constant,
-                AstKind::Variable,
-                AstKind::AtomicFormula,
-                AstKind::FunctionTerm,
-                AstKind::Task,
-            ],
-        )?;*/
-
-        // Handle specific cases for AtomicFormula and FunctionTerm, which need to have a child.
-        /*if matches!(
-                node_ref.syntax().kind(),
-                AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
-            ) {
-            Self::assert_ast_children_number(node_ref.syntax(), 1, Comparator::GreaterEq)?;
-        }*/
-
+    ) -> Result<(), SymbolTableError> {
         let symbol_ref = if matches!(
             node_ref.node().kind(),
             AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
@@ -472,7 +431,7 @@ impl SymbolTableBuilder {
             ast.arena().try_symbol_ref(node_ref.id())?
         };
 
-        // Extract symbol name and type based on the AST syntax's kind.
+        // Extract symbol name and type_checker based on the AST syntax's kind.
         //let symbol_ref= ast.try_symbol_ref(node_ref.id())?;
         let ident = symbol_ref.ident();
 
@@ -526,9 +485,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Ensure the AST syntax is of the expected type 'TypedList'
-        //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TypedList])?;
+    ) -> Result<(), SymbolTableError> {
 
         let children = node_ref.node().children();
 
@@ -546,8 +503,8 @@ impl SymbolTableBuilder {
     /// Initializes symbol declarations from a `TypedItem` syntax syntax.
     ///
     /// A `TypedItem` syntax typically represents a declaration where a list of symbols (e.g.,
-    /// constants or variables) is associated with a type (e.g., `?x ?y - location`). This function
-    /// parses both the symbol list and the type annotation and registers the symbols in the
+    /// constants or variables) is associated with a type_checker (e.g., `?x ?y - location`). This function
+    /// parses both the symbol list and the type_checker annotation and registers the symbols in the
     /// internal symbol table.
     ///
     /// # Parameters
@@ -561,7 +518,7 @@ impl SymbolTableBuilder {
     ///
     /// - Verifies that the syntax kind is `TypedItem`.
     /// - Extracts the children of the syntax:
-    ///   - If there is only one child, treats it as an untyped declaration (empty type list).
+    ///   - If there is only one child, treats it as an untyped declaration (empty type_checker list).
     ///   - If there are exactly two children, parses the second child to extract the associated
     ///     types.
     ///   - Returns an error if the number of children is anything other than 1 or 2.
@@ -574,24 +531,21 @@ impl SymbolTableBuilder {
     /// Returns `ParserInternalError` if:
     /// - The syntax is not of kind `TypedItem`.
     /// - The number of children is invalid (not 1 or 2).
-    /// - Parsing the type annotation fails.
+    /// - Parsing the type_checker annotation fails.
     /// - Adding the declarations to the symbol table fails.
     ///
     /// # Example
     ///
     /// ```text
-    /// (?x ?y - location)  // symbols: ?x, ?y; type: location
-    /// (?z)                // symbol: ?z; no associated type
+    /// (?x ?y - location)  // symbols: ?x, ?y; type_checker: location
+    /// (?z)                // symbol: ?z; no associated type_checker
     /// ```
     fn init_from_typed_item(
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Ensure the syntax is of the expected kind
-        //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TypedItem])?;
-
+    ) -> Result<(), SymbolTableError> {
         // Get its children
         let children = node_ref.node().children();
 
@@ -599,11 +553,11 @@ impl SymbolTableBuilder {
         let types = match children.len() {
             1 => Type::new(),
             2 => self.init_from_type(&ast.arena().try_node_ref(children[1])?, ast, scope.clone())?,
-            _ => {
-                return Err(AiplanError::InternalError(format!(
-                    "TypedItem syntax has unexpected number of children: {}",
-                    children.len()
-                )))
+            n => {
+                return Err(SymbolTableError::invalid_typed_item_arity(
+                    node_ref.id(),
+                    n,
+                ));
             }
         };
         // Process the first element of the pair
@@ -612,7 +566,7 @@ impl SymbolTableBuilder {
 
     /// Helper function to process an individual element of the `TypedList`.
     ///
-    /// This function adds the element to the symbol table based on its type, such as
+    /// This function adds the element to the symbol table based on its type_checker, such as
     /// `PrimitiveType`, `Constant`, `Variable`, or handles nested elements like
     /// `AtomicFunctionSkeleton`.
     ///
@@ -622,12 +576,12 @@ impl SymbolTableBuilder {
     ///   to be one of the accepted kinds (e.g., `PrimitiveType`, `Constant`, `Variable`, or `AtomicFunctionSkeleton`).
     /// - `ast`: The full abstract syntax arena (`ArenaAst`) that contains the syntax.
     /// - `scope`: The current scope in which the symbol is being declared or used.
-    /// - `types`: A vector of type identifiers associated with the element.
+    /// - `types`: A vector of type_checker identifiers associated with the element.
     ///
     /// # Behavior
     ///
     /// - Validates that the AST syntax kind is one of the expected types.
-    /// - If the element is a constant, variable, or primitive type, it adds a declaration symbol
+    /// - If the element is a constant, variable, or primitive type_checker, it adds a declaration symbol
     ///   to the symbol table with the provided types.
     /// - If the element is an atomic function skeleton, it recursively initializes it accordingly.
     /// - The function assumes all other syntax kinds are invalid and will panic if encountered.
@@ -642,18 +596,8 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         types: Type,
-    ) -> Result<(), AiplanError> {
-        // Validate that the syntax kind is one of the expected AST kinds
-        /*Self::assert_ast_kind(
-            node_ref.syntax(),
-            &[
-                AstKind::PrimitiveType,
-                AstKind::Constant,
-                AstKind::Variable,
-                AstKind::AtomicFunctionSkeleton,
-            ],
-        )?;*/
-
+    ) -> Result<(), SymbolTableError> {
+        // Ensure the node_ref is of a valid kind for typed item elements
         match node_ref.node().kind() {
             AstKind::PrimitiveType | AstKind::Constant | AstKind::Variable => {
                 // For constants and variables, add a declaration symbol with the provided types
@@ -665,9 +609,18 @@ impl SymbolTableBuilder {
                 self.init_from_atomic_function_skeleton(node_ref, ast, scope.clone(), types.clone())?;
             }
 
-            _ => {
-                // This should never happen due to the earlier assertion
-                unreachable!("Unexpected AST node type: {:?}", node_ref.node().kind());
+            found => {
+                // Return a structured error instead of unreachable panic
+                return Err(SymbolTableError::unexpected_ast_kind(
+                    node_ref.id(),
+                    vec![
+                        AstKind::PrimitiveType,
+                        AstKind::Constant,
+                        AstKind::Variable,
+                        AstKind::AtomicFunctionSkeleton,
+                    ],
+                    found,
+                ));
             }
         }
 
@@ -688,7 +641,7 @@ impl SymbolTableBuilder {
     /// - `node_ref`: The AST syntax reference corresponding to the `AtomicFunctionSkeleton`.
     /// - `ast`: Reference to the complete AST (`ArenaAst`) containing the syntax.
     /// - `scope`: The current scope in which the function is declared; used for symbol resolution.
-    /// - `types`: A vector of type identifiers associated with the function.
+    /// - `types`: A vector of type_checker identifiers associated with the function.
     ///
     /// # Returns
     /// - `Ok(())` on successful processing and symbol table update.
@@ -724,26 +677,25 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         types: Type,
-    ) -> Result<(), AiplanError> {
-        // Check that the AST syntax is of the expected type 'Function'
-        //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::AtomicFunctionSkeleton])?;
-
-        // Ensure the syntax has at least two children (function symbol and arguments)
-        //Self::assert_ast_children_number(node_ref.syntax(), 2, Comparator::GreaterEq)?;
-
-        let children = node_ref.node().children();
+    ) -> Result<(), SymbolTableError> {
+        let node = node_ref.node();
 
         // Retrieve the first child and validate it as a 'FunctionSymbol'
-        let functor_ref = ast.arena().try_node_ref(children[0])?;
+        let functor_id = node.try_child(0)?;
+        let functor_ref = ast.arena().try_node_ref(functor_id)?;
         if functor_ref.node().kind() != AstKind::FunctionSymbol {
-            return Err(AiplanError::InternalError(format!(
-                "First child of 'Function' must match the expected kind. Encountered: '{:?}'",
-                functor_ref.node().kind()
-            )))
+            return Err(SymbolTableError::unexpected_ast_kind(
+                functor_ref.id(),
+                vec![AstKind::FunctionSymbol],
+                functor_ref.node().kind(),
+            ));
         }
 
-        let arguments = &ast.arena().try_node_ref(children[1])?;
-        // Initialize the symbol table for the arguments;
+        // Retrieve and process the arguments list
+        let arguments_id = node.try_child(1)?;
+        let arguments = &ast.arena().try_node_ref(arguments_id)?;
+
+        // Initialize the symbol table for the arguments
         self.init_from_typed_list(
             arguments,
             ast,
@@ -751,8 +703,7 @@ impl SymbolTableBuilder {
         )?;
 
         // Extract the arguments and calculate the arity
-        let arguments =
-            self.extract_arguments_from_typed_list(arguments, ast)?;
+        let arguments = self.extract_arguments_from_typed_list(arguments, ast)?;
 
         // Add the declaration to the symbol table
         self.add_declaration_symbol(
@@ -765,6 +716,7 @@ impl SymbolTableBuilder {
 
         Ok(())
     }
+
 
     /// Initializes the symbol table for an action definition.
     ///
@@ -800,7 +752,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), SymbolTableError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -848,7 +800,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), SymbolTableError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -892,7 +844,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), SymbolTableError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -935,7 +887,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), SymbolTableError> {
         self.init_from_def(
             node_ref,
             ast,
@@ -993,7 +945,7 @@ impl SymbolTableBuilder {
         _valid_kinds: &[AstKind],
         _expected_children: usize,
         has_body: bool,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), SymbolTableError> {
         // Ensure the AST syntax is of the correct kind
         //Self::assert_ast_kind(node_ref.syntax(), valid_kinds)?;
 
@@ -1069,20 +1021,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Ensure the AST syntax is of the correct kind (AtomicFormula or FunctionTerm)
-        /*Self::assert_ast_kind(
-            node_ref.syntax(),
-            &[
-                AstKind::AtomicFormula,
-                AstKind::FunctionTerm,
-                AstKind::Task,
-            ],
-        )?;*/
-
-        // Ensure the syntax has at least one child (the symbol)
-        //Self::assert_ast_children_number(node_ref.syntax(), 1, Comparator::GreaterEq)?;
-
+    ) -> Result<(), SymbolTableError> {
         // Retrieve and register the first child (symbol)
         self.add_symbol_usage(node_ref, ast, scope.clone())?; // should be removed
 
@@ -1133,12 +1072,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Check if the AST syntax is of kind 'Exists' or 'Forall'
-        //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::Exists, AstKind::Forall])?;
-
-        // Ensure the AST has exactly 2 children (variables and inner expr)
-        //Self::assert_ast_children_number(node_ref.syntax(), 2, Comparator::Equal)?;
+    ) -> Result<(), SymbolTableError> {
 
         let children = node_ref.node().children();
         // Retrieve the children (variables and inner expr)
@@ -1194,15 +1128,11 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
+    ) -> Result<(), SymbolTableError> {
         let children = node_ref.node().children();
-
-        // Ensure the AST has at least two children (predicate and arguments)
-        //Self::assert_ast_children_number(node_ref.syntax(), 2, Comparator::Equal)?;
 
         // Ensure the first child is of kind 'Predicate'
         let predicate = &ast.arena().try_node_ref(children[0])?;
-        //Self::assert_ast_kind(predicate.syntax(), &[AstKind::Predicate])?;
 
         // Retrieve and process arguments
         let arguments = &ast.arena().try_node_ref(children[1])?;
@@ -1250,16 +1180,14 @@ impl SymbolTableBuilder {
     /// ```rust
     /// let arguments = symbol_table.extract_arguments_from_typed_list(node_ref, &ast)?;
     /// for arg in arguments {
-    ///     println!("Argument: {:?} with type {:?}", arg.name, arg.type_);
+    ///     println!("Argument: {:?} with type_checker {:?}", arg.name, arg.type_);
     /// }
     /// ```
     fn extract_arguments_from_typed_list(
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList, AiplanError> {
-        // Ensure the AST syntax is of kind TypedList
-        //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TypedList])?;
+    ) -> Result<TypedList, SymbolTableError> {
 
         let mut typed_arguments = TypedList::new();
         for typed_item_id in node_ref.node().children() {
@@ -1273,9 +1201,9 @@ impl SymbolTableBuilder {
     ///
     /// A `TypedItem` typically has:
     /// - A first child syntax: either a `Constant` or `Variable`.
-    /// - An optional second child syntax: the associated type(s).
+    /// - An optional second child syntax: the associated type_checker(s).
     ///
-    /// This function validates the structure, extracts the type information,
+    /// This function validates the structure, extracts the type_checker information,
     /// and returns a vector of `TypedSymbol`s containing the name and associated types.
     ///
     /// # Errors
@@ -1283,7 +1211,7 @@ impl SymbolTableBuilder {
     /// - The syntax is not of kind `TypedItem`.
     /// - The first child is not a `Constant` or `Variable`.
     /// - The number of children is not 1 or 2.
-    /// - Extracting the type(s) fails.
+    /// - Extracting the type_checker(s) fails.
     ///
     /// # Example
     /// ```rust
@@ -1296,48 +1224,50 @@ impl SymbolTableBuilder {
         &mut self,
         typed_item_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList, AiplanError> {
-        // Ensure the syntax is of the correct kind
-        //Self::assert_ast_kind(typed_item_ref.syntax(), &[AstKind::TypedItem])?;
+    ) -> Result<TypedList, SymbolTableError> {
 
         let children = typed_item_ref.node().children();
 
-        // Extract types if available, or use an empty vector
+        // Check the number of children to extract types or fallback to empty vector
         let types = match children.len() {
             1 => Type::new(),
             2 => self.extract_type(&ast.arena().try_node_ref(children[1])?, ast)?,
-            _ => {
-                return Err(AiplanError::InternalError(format!(
-                    "TypedItem must have 1 or 2 children, got {}",
-                    children.len()
-                )))
+            n => {
+                return Err(SymbolTableError::invalid_typed_item_arity(
+                    typed_item_ref.id(),
+                    n,
+                ));
             }
         };
 
         let mut typed_arguments = TypedList::new();
         let elt = ast.arena().try_node_ref(children[0])?;
 
+        // Ensure the first child is either a Constant or Variable node
         match elt.node().kind() {
             AstKind::Constant | AstKind::Variable => {
                 let symbol_ref = ast.arena().try_symbol_ref(elt.id())?;
                 let name = symbol_ref.ident();
                 typed_arguments.push(TypedSymbol::new(name, types.clone()));
             }
-            _ => {
-                return Err(AiplanError::InternalError(format!(
-                    "Expected Constant or Variable in TypedItem, found {:?}",
-                    elt.node().kind()
-                )));
+            found => {
+                // Return error if the node kind is unexpected
+                return Err(SymbolTableError::UnexpectedAstKind {
+                    expected: vec![AstKind::Constant, AstKind::Variable],
+                    found,
+                    node_id: elt.id(),
+                });
             }
         }
 
         Ok(typed_arguments)
     }
 
-    /// Extracts type names from a `Type` AST syntax without recording symbol usage.
+
+    /// Extracts type_checker names from a `Type` AST syntax without recording symbol usage.
     ///
     /// This function validates that the given AST syntax is of kind `Type` and
-    /// extracts all contained primitive type identifiers.
+    /// extracts all contained primitive type_checker identifiers.
     ///
     /// # Arguments
     ///
@@ -1346,7 +1276,7 @@ impl SymbolTableBuilder {
     ///
     /// # Returns
     ///
-    /// Returns a vector of type identifiers (`Ident`) wrapped in `Ok` if successful,
+    /// Returns a vector of type_checker identifiers (`Ident`) wrapped in `Ok` if successful,
     /// or a `ParserInternalError` if the syntax is invalid or contains unexpected children.
     ///
     /// # Errors
@@ -1356,45 +1286,48 @@ impl SymbolTableBuilder {
         &mut self,
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<Type, AiplanError> {
-        // Ensure the provided AST syntax is of kind `Type`
-        //Self::assert_ast_kind(type_ref.syntax(), &[AstKind::Type])?;
+    ) -> Result<Type, SymbolTableError> {
 
-        let interner = ast.interner();
         let arena = ast.arena();
 
         let mut super_types = Type::new();
-        for ty in type_ref.node().children() {
-            let ty_ref = ast.arena().try_node_ref(*ty)?;
-            if let AstKind::PrimitiveType = ty_ref.node().kind() {
-                let symbol_ref = ast.arena().try_symbol_ref(ty_ref.id())?;
+
+        for ty_id in type_ref.node().children() {
+            let ty_ref = arena.try_node_ref(*ty_id)?;
+
+            // Expecting each child to be a PrimitiveType node
+            if ty_ref.node().kind() == AstKind::PrimitiveType {
+                let symbol_ref = arena.try_symbol_ref(ty_ref.id())?;
                 let name = symbol_ref.ident();
                 super_types.add_type(name);
             } else {
-                return Err(AiplanError::InternalError(format!(
-                    "Unexpected AST syntax inside Type: {}",
-                    ty_ref.node().kind(),
-                )));
+                // Return an error if an unexpected AST node kind is found
+                return Err(SymbolTableError::UnexpectedAstKind {
+                    expected: vec![AstKind::PrimitiveType],
+                    found: ty_ref.node().kind(),
+                    node_id: ty_ref.id(),
+                });
             }
         }
 
         Ok(super_types)
     }
 
-    /// Initializes type information and records symbol usage in the given scope.
+
+    /// Initializes type_checker information and records symbol usage in the given scope.
     ///
     /// This function validates that the AST syntax is of kind `Type`, extracts the contained
-    /// primitive type identifiers, and registers each as a symbol usage within the specified scope.
+    /// primitive type_checker identifiers, and registers each as a symbol usage within the specified scope.
     ///
     /// # Arguments
     ///
     /// * `type_ref` - A reference to an AST syntax expected to be of kind `Type`.
     /// * `ast` - The AST arena containing all nodes.
-    /// * `scope` - The scope in which the type symbols are used.
+    /// * `scope` - The scope in which the type_checker symbols are used.
     ///
     /// # Returns
     ///
-    /// Returns a vector of type identifiers (`Ident`) wrapped in `Ok` if successful,
+    /// Returns a vector of type_checker identifiers (`Ident`) wrapped in `Ok` if successful,
     /// or a `ParserInternalError` if the syntax is invalid or contains unexpected children.
     ///
     /// # Errors
@@ -1406,11 +1339,10 @@ impl SymbolTableBuilder {
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<Type, AiplanError> {
-        //Self::assert_ast_kind(type_ref.syntax(), &[AstKind::Type])?;
-        let super_types = self.extract_type(type_ref, ast)?; // Reuse `extract_type` to get type names
+    ) -> Result<Type, SymbolTableError> {
+        let super_types = self.extract_type(type_ref, ast)?; // Reuse `extract_type` to get type_checker names
 
-        // Register each type as a symbol usage in the given scope
+        // Register each type_checker as a symbol usage in the given scope
         for ty in type_ref.node().children() {
             let ty_ref = ast.arena().try_node_ref(*ty)?;
             self.add_symbol_usage(&ty_ref, ast, scope.clone())?;
@@ -1445,14 +1377,10 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Ensure the AST syntax is a tagged task
-        //Self::assert_ast_kind(node_ref.syntax(), &[AstKind::TaggedTask])?;
-        //Self::assert_ast_children_number(node_ref.syntax(), 2, Comparator::Equal)?;
+    ) -> Result<(), SymbolTableError> {
 
         let children = node_ref.node().children();
         let task_id = ast.arena().try_node_ref(children[0])?;
-        //Self::assert_ast_kind(task_id.syntax(), &[AstKind::TaskID])?;
 
         // Add the task identifier as a declaration symbol
         self.add_declaration_symbol(&task_id, ast, scope.clone(), None, None)?;
@@ -1493,13 +1421,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<(), AiplanError> {
-        // Ensure the AST syntax is a tagged task
-        /*Self::assert_ast_kind(
-            node_ref.syntax(),
-            &[AstKind::TaskOrderingConstraint],
-        )?;*/
-        //Self::assert_ast_children_number(node_ref.syntax(), 2, Comparator::Equal)?;
+    ) -> Result<(), SymbolTableError> {
 
         let children = node_ref.node().children();
         let t1 = ast.arena().try_node_ref(children[0])?;
@@ -1507,139 +1429,8 @@ impl SymbolTableBuilder {
         self.add_symbol_usage(&t1, ast, scope.clone())?;
 
         let t2 = ast.arena().try_node_ref(children[1])?;
-        //Self::assert_ast_kind(t2.syntax(), &[AstKind::TaskID])?;
         self.add_symbol_usage(&t2, ast, scope.clone())?;
 
         Ok(())
-    }
-
-    /// Asserts that the AST syntax's kind is contained within the provided set of valid kinds.
-    ///
-    /// This function checks if the kind of the provided AST syntax matches one of the valid kinds
-    /// in the `valid_kinds` slice. If the AST syntax's kind is one of the allowed kinds, the function
-    /// returns `Ok(())`. Otherwise, it returns a `ParserInternalError` specifying the invalid
-    /// syntax's kind and the expected kinds.
-    ///
-    /// # Parameters
-    /// - `syntax`: The AST syntax to check. This syntax should have a specific kind that needs validation.
-    /// - `valid_kinds`: A slice of valid AST kinds that the syntax is allowed to have.
-    ///
-    /// # Returns
-    /// - `Ok(())` if the AST syntax's kind matches one of the valid kinds.
-    /// - `Err(ParserInternalError)` if the AST syntax's kind is not valid, including an error message
-    ///   with the actual and expected kinds.
-    ///
-    /// # Example
-    /// ```rust
-    /// let result = Self::assert_ast_kind(syntax, &[AstKind::Predicate, AstKind::DomainName]);
-    /// match result {
-    ///     Ok(()) => println!("Valid AST syntax!"),
-    ///     Err(e) => println!("Error: {}", e),
-    /// }
-    /// ```
-    fn assert_ast_kind(
-        node: &AstNode,
-        valid_kinds: &[AstKind],
-    ) -> Result<(), AiplanError> {
-        match node.kind() {
-            // Case where the AST syntax's kind is one of the defined types (Predicate, DomainName, etc.)
-            AstKind::DomainName
-            | AstKind::ProblemName
-            | AstKind::Requirement
-            | AstKind::PrimitiveType
-            | AstKind::Constant
-            | AstKind::Variable
-            | AstKind::Predicate
-            | AstKind::FunctionSymbol
-            | AstKind::ActionSymbol
-            | AstKind::DASymbol
-            | AstKind::PrefName
-            | AstKind::Number
-            | AstKind::Assign
-            | AstKind::FComp
-            | AstKind::Metric
-            | AstKind::Operation
-            | AstKind::Parallel
-            | AstKind::Serial
-            // Add for HDDL
-            | AstKind::MethodSymbol
-            | AstKind::TaskSymbol
-            | AstKind::TaskID => {
-                // Check if the AST syntax's kind matches one of the valid kinds
-                if valid_kinds.iter().any(|_k| matches!(node.kind(), _k)) {
-                    Ok(())
-                } else {
-                    Err(AiplanError::InternalError(format!(
-                        "Unexpected AST syntax '{:?}'. Expected one of {:?}.",
-                        node.kind(),
-                        valid_kinds
-                    )))
-                }
-            }
-            // Standard case: check if the syntax's kind is in valid_kinds
-            kind if valid_kinds.contains(&kind) => Ok(()),
-            // Case where the type is not expected
-            kind => Err(AiplanError::InternalError(format!(
-                "Unexpected AST syntax '{:?}'. Expected one of {:?}.",
-                kind, valid_kinds
-            ))),
-        }
-    }
-
-    /// Verifies that the number of children in an AST syntax satisfies a specified comparison
-    /// with an expected length.
-    ///
-    /// This function checks if the number of children (direct descendants) of the given AST syntax
-    /// matches the expected length according to the provided `Comparator`.
-    /// If the comparison fails, it returns a `ParserInternalError` detailing the mismatch.
-    ///
-    /// # Parameters
-    /// - `syntax`: The AST syntax whose children count is being validated.
-    /// - `expected_len`: The expected number of children.
-    /// - `comparator`: The comparison operator used to validate the children count:
-    ///   - `Comparator::Equal`: number of children should be exactly equal to `expected_len`.
-    ///   - `Comparator::NotEqual`: number of children should not be equal to `expected_len`.
-    ///   - `Comparator::Less`: number of children should be less than `expected_len`.
-    ///   - `Comparator::Greater`: number of children should be greater than `expected_len`.
-    ///   - `Comparator::LessEq`: number of children should be less than or equal to `expected_len`.
-    ///   - `Comparator::GreaterEq`: number of children should be greater than or equal to `expected_len`.
-    ///
-    /// # Returns
-    /// - `Ok(())` if the number of children satisfies the comparison.
-    /// - `Err(ParserInternalError)` if the validation fails, including details of the expected and actual counts.
-    ///
-    /// # Example
-    /// ```rust
-    /// let syntax = get_some_ast_node();
-    /// Self::assert_ast_children_number(&syntax, 3, Comparator::GreaterEq).unwrap(); // passes if syntax has 3 or more children
-    /// Self::assert_ast_children_number(&syntax, 2, Comparator::Equal).unwrap_err(); // fails if syntax doesn't have exactly 2 children
-    /// ```
-    fn assert_ast_children_number(
-        node: &AstNode,
-        expected_len: usize,
-        comparator: Comparator,
-    ) -> Result<(), AiplanError> {
-        let children_len = node.children().len();
-
-        let is_valid = match comparator {
-            Comparator::Equal => children_len == expected_len,
-            Comparator::Less => children_len < expected_len,
-            Comparator::Greater => children_len > expected_len,
-            Comparator::LessEq => children_len <= expected_len,
-            Comparator::GreaterEq => children_len >= expected_len,
-            Comparator::NotEqual => children_len != expected_len,
-        };
-
-        if is_valid {
-            Ok(())
-        } else {
-            Err(AiplanError::InternalError(format!(
-                "Expected {} children for AST syntax of kind '{:?}', found {}. Expected comparison: '{:?}'.",
-                expected_len,
-                node.kind(),
-                children_len,
-                comparator
-            )))
-        }
     }
 }

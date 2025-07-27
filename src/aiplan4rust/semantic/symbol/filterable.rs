@@ -11,7 +11,7 @@ use std::fmt::Display;
 /// This trait allows a unified interface for both `Declaration` and `Usage` types,
 /// providing access to the kind of the symbol and its scope. It is useful for
 /// grouping declarations and usages in a manner that allows filtering based on
-/// symbol attributes such as type (`SymbolKind`) and scope (`Scope`).
+/// symbol attributes such as type_checker (`SymbolKind`) and scope (`Scope`).
 ///
 /// # Required Methods
 ///

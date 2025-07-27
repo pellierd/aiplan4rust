@@ -1,5 +1,4 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::lang::Requirement::{
     ConditionalEffects, DerivedPredicates, DisjunctivePreconditions, DurativeActions, Equality,
     ExistentialPreconditions, Fluents, NegativePreconditions, NumericFluents, ObjectFluents,
@@ -9,7 +8,7 @@ use crate::aiplan4rust::lang::BinaryComp;
 use crate::aiplan4rust::lang::Requirement;
 
 use std::collections::HashSet;
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::tree::SyntaxNode;
 
@@ -18,7 +17,7 @@ pub fn check_requirement_violations(
     requirements: &HashSet<Requirement>,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
     for (index, node) in context.ast().preorder().with_id() {

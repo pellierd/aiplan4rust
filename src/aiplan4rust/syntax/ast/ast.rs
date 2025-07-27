@@ -1,6 +1,6 @@
 //! High-Level Abstract Syntax Tree (AST) Representation for `aiplan4rust`
 //!
-//! This module defines the [`Ast`] type, a container that encapsulates the tree components
+//! This module defines the [`Ast`] type_checker, a container that encapsulates the tree components
 //! of an abstract syntax arena (AST) generated during the parsing phase of PDDL or HDDL documents.
 //! It centralizes both syntactic structure and parsing metadata for downstream tasks
 //! such as analysis, transformation, code generation, or pretty-printing.

@@ -13,7 +13,7 @@
 //! # Exposed types
 //!
 //! - [`StringInterner`]: The main string interner implementation.
-//! - [`InternerMergeResult`]: Result type for interner merge operations.
+//! - [`InternerMergeResult`]: Result type_checker for interner merge operations.
 //! - [`InternerDisplay`]: Utilities for displaying/formatting interners.
 //! - [`InternerError`]: Enum representing errors related to interning.
 //!

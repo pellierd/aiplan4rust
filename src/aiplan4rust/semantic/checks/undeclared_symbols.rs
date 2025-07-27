@@ -2,9 +2,8 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::lang::Requirement::Adl;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
@@ -56,7 +55,7 @@ pub fn check_undeclared_symbols(
     skip_symbols: &[SymbolKind],
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
     let symbol_table = context.symbol_table();
@@ -104,7 +103,7 @@ pub fn check_undeclared_symbols(
 /// * `annotated_syntax_tree` - A reference to the `AnnotatedSyntaxTree` that provides access to
 ///   the problem’s requirements and other metadata affecting symbol definitions.
 /// * `usage_kind` - The kind of symbol usage, which determines the context in which the symbol
-///   is being used, such as a task, action, or primitive type.
+///   is being used, such as a task, action, or primitive type_checker.
 /// * `skip_symbols` - A list of symbol kinds (e.g., `SymbolKind::Action`) that should be
 ///   skipped during the check.
 ///
@@ -173,7 +172,7 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
 
     // For PrimitiveType, we also check usages at the root scope.
     // This is necessary because PrimitiveType can be used without declaration if it appears on
-    // the right side of type declarations in PDDL.For example, types like "car" or "vehicle"
+    // the right side of type_checker declarations in PDDL.For example, types like "car" or "vehicle"
     // might not be explicitly declared but are understood in the domain context.
     let check_usages_at_root_scope = |usage: &Usage| {
         let root_id = context.ast().try_root_id().unwrap();

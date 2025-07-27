@@ -84,7 +84,7 @@ pub enum Requirement {
     Fluents,
     /// Supports numeric state variables and arithmetic expr.
     NumericFluents,
-    /// Supports function with type that differ from number
+    /// Supports function with type_checker that differ from number
     ObjectFluents,
     /// A general requirement encompassing `NegativePreconditions`, `DisjunctivePreconditions`,
     /// `Equality`, `ExistentialPreconditions`, `UniversalPreconditions`, and `ConditionalEffects`.

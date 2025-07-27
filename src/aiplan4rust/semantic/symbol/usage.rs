@@ -195,7 +195,7 @@ impl InternerDisplay for Usage {
     ///
     /// # Arguments
     ///
-    /// * `w` - A mutable reference to a type implementing `fmt::Write`, where the output is written.
+    /// * `w` - A mutable reference to a type_checker implementing `fmt::Write`, where the output is written.
     /// * `interner` - A `StringInterner` used to resolve the interned identifier string.
     ///
     /// # Returns

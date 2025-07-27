@@ -1,7 +1,7 @@
 //! Module for normalization pass to detect and remove duplicate `PrimitiveType` children within `Type` nodes in the AST.
 //!
 //! This module provides functionality to:
-//! - Traverse the abstract syntax arena (AST) and detect duplicate type identifiers inside `Type` nodes.
+//! - Traverse the abstract syntax arena (AST) and detect duplicate type_checker identifiers inside `Type` nodes.
 //! - Emit diagnostic warnings immediately upon detecting duplicates.
 //! - Remove duplicate `PrimitiveType` children from `Type` nodes to normalize the AST.
 //!
@@ -11,7 +11,7 @@
 //! # Overview
 //!
 //! In the domain-specific language AST, `Type` nodes can have children that represent primitive types.
-//! It is invalid or redundant for a `Type` syntax to contain duplicate primitive type identifiers
+//! It is invalid or redundant for a `Type` syntax to contain duplicate primitive type_checker identifiers
 //! (e.g., `(either t1 t1)`).
 //!
 //! This module ensures the AST is normalized by:
@@ -76,7 +76,7 @@ use crate::aiplan4rust::syntax::Span;
 ///    found within `Type` nodes via the provided `diagnostic_manager`.
 /// 2. It then removes those duplicate `PrimitiveType` nodes from the AST, modifying it in place.
 ///
-/// This helps ensure that `Type` nodes do not contain redundant type specifications (e.g., `(either t1 t1)`).
+/// This helps ensure that `Type` nodes do not contain redundant type_checker specifications (e.g., `(either t1 t1)`).
 ///
 /// # Parameters
 ///
@@ -124,7 +124,7 @@ pub fn normalize_either_type(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, NormalizationError> {
     let arena = ast.arena();
-    // Step 1: Detect and report duplicate type warnings without modifying the AST
+    // Step 1: Detect and report duplicate type_checker warnings without modifying the AST
     report_either_type_duplicate_warnings(arena, ast, diagnostic_manager)?;
 
     // Step 2: Mutably borrow arena to remove duplicates and track if modifications were made

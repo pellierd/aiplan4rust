@@ -1,5 +1,5 @@
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
@@ -7,18 +7,18 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, NodeId};
 
-/// Checks the type correctness of typed expr in the syntax arena, including comparisons,
+/// Checks the type_checker correctness of typed expr in the syntax arena, including comparisons,
 /// assignments, and arithmetic operations.
 ///
 /// This function traverses the annotated syntax arena to verify that expr have compatible
 /// types according to their operation kind. It supports:
-/// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type compatibility.
+/// - Equality checks (`=`) and simple assignments (`assign`), ensuring operand type_checker compatibility.
 /// - Other comparisons (`>`, `<`, `>=`, `<=`) and arithmetic assignments (`+=`, `-=`, `*=`, `/=`),
 ///   ensuring operands are numeric or compatible.
 ///
@@ -27,13 +27,13 @@ use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, NodeId};
 ///
 /// # Parameters
 /// - `ast_old`: The annotated syntax arena containing AST nodes and symbol information.
-/// - `type_checker`: A `TypeChecker` instance used for type resolution and compatibility validation.
+/// - `type_checker`: A `TypeChecker` instance used for type_checker resolution and compatibility validation.
 /// - `source`: The diagnostic source context, indicating where diagnostics originate.
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager for collecting errors.
 ///
 /// # Returns
 /// - `Ok(true)` if all typed expr are correct.
-/// - `Ok(false)` if one or more type mismatches were found and reported.
+/// - `Ok(false)` if one or more type_checker mismatches were found and reported.
 /// - `Err(ParserInternalError)` if an internal error occurred during processing.
 ///
 /// # Example
@@ -48,7 +48,7 @@ pub fn check_typed_expressions(
     type_checker: &TypeChecker,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
     let mut no_error = true;
 
     for node in context.ast().preorder().values() {
@@ -69,7 +69,7 @@ pub fn check_typed_expressions(
             let (ty1, ty2) = get_binary_operation_types(node, context)?;
 
             // Call check_other_cases function to handle these cases
-            no_error &= check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager)?;
+            no_error &= check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager);
         }
     }
 
@@ -110,10 +110,10 @@ fn is_numeric_expression(node: &AstNode) -> bool {
         )
 }
 
-/// Checks the type compatibility of operands in equality (`=`) or assignment (`assign`) expr.
+/// Checks the type_checker compatibility of operands in equality (`=`) or assignment (`assign`) expr.
 ///
 /// This function verifies that the types of both operands involved in an equality or assignment
-/// operation are compatible. Equality comparisons (`=`) require operands of the same type,
+/// operation are compatible. Equality comparisons (`=`) require operands of the same type_checker,
 /// while assignment operations (`assign`) may allow some flexibility depending on the domain,
 /// such as assigning numeric values or specific user-defined types.
 ///
@@ -122,12 +122,12 @@ fn is_numeric_expression(node: &AstNode) -> bool {
 ///
 /// # Parameters
 /// - `annotated_syntax_tree`: The annotated syntax arena containing the AST and symbol information.
-/// - `type_checker`: The type checker used to validate type compatibility.
+/// - `type_checker`: The type_checker checker used to validate type_checker compatibility.
 /// - `syntax`: The syntax syntax representing the equality or assignment operation.
-/// - `ty1`: The type(s) of the left-hand side operand.
-/// - `ty2`: The type(s) of the right-hand side operand.
+/// - `ty1`: The type_checker(s) of the left-hand side operand.
+/// - `ty2`: The type_checker(s) of the right-hand side operand.
 /// - `source`: The diagnostic source context indicating where diagnostics originate.
-/// - `diagnostic_manager`: The diagnostic manager used to log any type mismatches.
+/// - `diagnostic_manager`: The diagnostic manager used to log any type_checker mismatches.
 ///
 /// # Returns
 /// - `Ok(true)` if the operand types are compatible.
@@ -156,7 +156,7 @@ fn check_equal_and_assignment_expression(
     ty2: &Type,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
     let mut no_error = true;
 
     if !type_checker.have_common_supertype(&ty1, &ty2)? {
@@ -174,14 +174,14 @@ fn check_equal_and_assignment_expression(
     Ok(no_error)
 }
 
-/// Reports a type mismatch error for an expr involving two type lists.
+/// Reports a type_checker mismatch error for an expr involving two type_checker lists.
 ///
 /// This function creates and adds a diagnostic error indicating that the two sets
 /// of types involved in an expr are incompatible.
 ///
 /// # Parameters
-/// - `ty1`: The first type list involved in the expr.
-/// - `ty2`: The second type list involved in the expr.
+/// - `ty1`: The first type_checker list involved in the expr.
+/// - `ty2`: The second type_checker list involved in the expr.
 /// - `source`: The diagnostic source context indicating where diagnostics originate.
 /// - `filename`: The filename where the error occurred.
 /// - `span`: The span of the syntax syntax causing the error.
@@ -220,28 +220,28 @@ fn report_type_mismatch_in_expression(
 }
 
 /// Checks whether the operand types in a numeric comparison or assignment expr
-/// are compatible with numeric operations (i.e., of type `number`).
+/// are compatible with numeric operations (i.e., of type_checker `number`).
 ///
 /// This function is used specifically for expr involving numeric comparisons
 /// (e.g., `greater`, `less`, `>=`, `<=`) and numeric assignment operations
 /// (e.g., `increase`, `decrease`, `scale-up`, `scale-down`). For such expr
-/// to be valid, both operands must have the `number` type.
+/// to be valid, both operands must have the `number` type_checker.
 ///
-/// If either operand does not have the `number` type, the function logs a
-/// type mismatch error.
+/// If either operand does not have the `number` type_checker, the function logs a
+/// type_checker mismatch error.
 ///
 /// # Parameters
 /// - `annotated_syntax_tree`: The annotated syntax arena containing the AST and metadata.
 /// - `syntax`: The syntax syntax representing the numeric expr.
-/// - `ty1`: A reference to a vector of strings representing the type of the left operand.
-/// - `ty2`: A reference to a vector of strings representing the type of the right operand.
+/// - `ty1`: A reference to a vector of strings representing the type_checker of the left operand.
+/// - `ty2`: A reference to a vector of strings representing the type_checker of the right operand.
 /// - `source`: The diagnostic source indicating where this check is performed.
-/// - `diagnostic_manager`: The error manager used to report type errors.
+/// - `diagnostic_manager`: The error manager used to report type_checker errors.
 ///
 /// # Returns
-/// - `Ok(true)` if both operands have the `number` type.
-/// - `Ok(false)` if a type mismatch is found and an error is logged.
-/// - `Err(ParserInternalError)` if an internal error occurs during type checking.
+/// - `Ok(true)` if both operands have the `number` type_checker.
+/// - `Ok(false)` if a type_checker mismatch is found and an error is logged.
+/// - `Err(ParserInternalError)` if an internal error occurs during type_checker checking.
 ///
 /// # Example
 /// ```rust
@@ -263,7 +263,7 @@ fn check_numeric_expression(
     ty2: &Type,
     source: Provider,
     diagnostic_manager:&mut DiagnosticManager
-) -> Result<bool, AiplanError> {
+) -> bool {
     let mut no_error = true;
 
     // Handle Greater, Less, etc.
@@ -279,13 +279,13 @@ fn check_numeric_expression(
         );
     }
 
-    Ok(no_error)
+    no_error
 }
 
 /// Reports a diagnostic error when numeric expr have invalid operand types.
 ///
 /// This helper function creates and adds a diagnostic indicating that the operand types
-/// in a numeric expr are invalid (i.e., not of type `number`).
+/// in a numeric expr are invalid (i.e., not of type_checker `number`).
 ///
 /// # Parameters
 /// - `source`: The diagnostic source indicating where the error arises.
@@ -338,14 +338,14 @@ fn report_invalid_types_in_numeric_expression(
 ///
 /// # Returns
 /// A `Result` containing a pair of vectors of strings:
-/// - The first vector represents the type(s) of the left operand.
-/// - The second vector represents the type(s) of the right operand.
+/// - The first vector represents the type_checker(s) of the left operand.
+/// - The second vector represents the type_checker(s) of the right operand.
 ///
 /// # Errors
-/// This function returns a `ParserInternalError` in the following cases:
+/// This function returns a `SemanticCheckError` in the following cases:
 /// - The syntax does not have exactly two children (binary operations must have two).
 /// - One of the children is missing in the syntax arena.
-/// - One of the operands has no associated type in the symbol table.
+/// - One of the operands has no associated type_checker in the symbol table.
 ///
 /// # Example
 /// ```rust
@@ -354,37 +354,38 @@ fn report_invalid_types_in_numeric_expression(
 fn get_binary_operation_types(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<(Type, Type), AiplanError> {
-    // Validate that there are exactly 2 children
-    if node.children().len() != 2 {
-        return Err(AiplanError::InternalError(
-            "Binary operations must have exactly two children.".to_string(),
-        ));
-    }
-    let ast = context.ast();
-    let arg1 = ast
-        .get_node(node.children()[0])
-        .ok_or_else(|| AiplanError::InternalError("Missing first argument.".to_string()))?;
-    let arg2 = ast
-        .get_node(node.children()[1])
-        .ok_or_else(|| AiplanError::InternalError("Missing second argument.".to_string()))?;
+) -> Result<(Type, Type), SemanticCheckError> {
 
-    let ty1 = get_type(node.children()[0], arg1, context)?.ok_or_else(|| {
-        AiplanError::InternalError("No type declared for the first argument.".to_string())
+    let ast = context.ast();
+
+    // Try to get the first child node index and node
+    let arg1_id = node.try_child(0)?;
+    let arg1 = ast.try_node(arg1_id)?;
+
+    // Try to get the second child node index and node
+    let arg2_id = node.try_child(1)?;
+    let arg2 = ast.try_node(arg2_id)?;
+
+    // Get the type of the first operand, or return a specific error if missing
+    let ty1 = get_type(arg1_id, arg1, context)?.ok_or_else(|| {
+        SemanticCheckError::missing_operand_type(arg1_id, 0)
     })?;
-    let ty2 = get_type(node.children()[1], arg2, context)?.ok_or_else(|| {
-        AiplanError::InternalError("No type declared for the second argument.".to_string())
+
+    // Get the type of the second operand, or return a specific error if missing
+    let ty2 = get_type(arg2_id, arg2, context)?.ok_or_else(|| {
+        SemanticCheckError::missing_operand_type(arg2_id, 1)
     })?;
 
     Ok((ty1, ty2))
 }
 
-/// Determines the type of a syntax syntax based on its kind.
+
+/// Determines the type_checker of a syntax syntax based on its kind.
 ///
 /// This function supports several kinds of nodes: numbers, variables, constants,
-/// and function terms. It delegates type resolution to specialized helper functions
-/// depending on the syntax kind. The function is used during type checking to retrieve
-/// the declared or inferred type of an expr or symbol.
+/// and function terms. It delegates type_checker resolution to specialized helper functions
+/// depending on the syntax kind. The function is used during type_checker checking to retrieve
+/// the declared or inferred type_checker of an expr or symbol.
 ///
 /// # Parameters
 /// - `index`: The index of the current syntax in the syntax arena.
@@ -394,8 +395,8 @@ fn get_binary_operation_types(
 ///
 /// # Returns
 /// A `Result` containing:
-/// - `Some(Vec<String>)` if the syntax has an associated type.
-/// - `None` if the type is undefined but not erroneous (e.g., optional typing).
+/// - `Some(Vec<String>)` if the syntax has an associated type_checker.
+/// - `None` if the type_checker is undefined but not erroneous (e.g., optional typing).
 /// - `Err(ParserInternalError)` if the syntax kind is invalid or cannot be typed.
 ///
 /// # Errors
@@ -409,8 +410,8 @@ fn get_binary_operation_types(
 pub fn get_type(
     index: NodeId,
     node: &AstNode,
-    context: &CheckContext
-) -> Result<Option<Type>, AiplanError> {
+    context: &CheckContext,
+) -> Result<Option<Type>, SemanticCheckError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         AstKind::Number => get_number_type(),
@@ -424,40 +425,41 @@ pub fn get_type(
         // Case 4: Function Term
         AstKind::FunctionTerm => get_function_term_type(index, node, context),
 
-        // Default case: Unexpected AST syntax
-        _ => Err(AiplanError::InternalError(format!(
-            "Unexpected AST syntax kind found: {}",
-            node.kind()
-        ))),
+        // Default case: Unexpected AST syntax kind
+        found_kind => Err(SemanticCheckError::unexpected_ast_kind(
+            AstKind::Number,
+            found_kind,
+            index,
+        )),
     }
 }
 
-/// Returns the predefined type for numeric values.
+/// Returns the predefined type_checker for numeric values.
 ///
 /// This helper function is used when an AST syntax represents a numeric literal.
-/// It returns the predefined type associated with numbers (i.e., `NUMBER_TYPE`),
-/// wrapped in a `Vec<String>` to be consistent with other type representations
-/// in the type checking system.
+/// It returns the predefined type_checker associated with numbers (i.e., `NUMBER_TYPE`),
+/// wrapped in a `Vec<String>` to be consistent with other type_checker representations
+/// in the type_checker checking system.
 ///
 /// # Returns
 /// A `Result` containing:
-/// - `Ok(Some(vec!["number"]))` if the type resolution is successful.
+/// - `Ok(Some(vec!["number"]))` if the type_checker resolution is successful.
 /// - `Err(ParserInternalError)` is not expected in this implementation, but
-///   the return type remains consistent with other type-checking helpers.
+///   the return type_checker remains consistent with other type_checker-checking helpers.
 ///
 /// # Example
 /// ```rust
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
-fn get_number_type() -> Result<Option<Type>, AiplanError> {
+fn get_number_type() -> Result<Option<Type>, SemanticCheckError> {
     Ok(Some(Type::number().clone()))
 }
 
-/// Retrieves the type of a variable symbol from the symbol table.
+/// Retrieves the type_checker of a variable symbol from the symbol table.
 ///
-/// This function resolves the type of a variable used in the AST by consulting the
+/// This function resolves the type_checker of a variable used in the AST by consulting the
 /// symbol table. If the variable is the special `DURATION_VARIABLE` and the domain
-/// declares the `:durative-actions` requirement, the type is directly inferred as
+/// declares the `:durative-actions` requirement, the type_checker is directly inferred as
 /// `number`. Otherwise, it delegates the lookup to `get_declaration_type`.
 ///
 /// # Parameters
@@ -468,14 +470,14 @@ fn get_number_type() -> Result<Option<Type>, AiplanError> {
 ///
 /// # Returns
 /// A `Result` containing:
-/// - `Ok(Some(types))`: A vector of type names if the variable was successfully resolved.
-/// - `Ok(Some(types))`: A vector of type names if the variable was successfully resolved.
-/// - `Ok(None)`: If the variable is declared but without a type (unusual).
+/// - `Ok(Some(types))`: A vector of type_checker names if the variable was successfully resolved.
+/// - `Ok(Some(types))`: A vector of type_checker names if the variable was successfully resolved.
+/// - `Ok(None)`: If the variable is declared but without a type_checker (unusual).
 /// - `Err(ParserInternalError)`: If the variable has conflicting declarations or is undeclared.
 ///
 /// # Special Case
 /// - If the symbol is `?duration` and the domain has the `:durative-actions` requirement,
-///   the function directly returns `Some(["number"])` as its type.
+///   the function directly returns `Some(["number"])` as its type_checker.
 ///
 /// # Example
 /// ```rust
@@ -485,16 +487,16 @@ fn get_variable_type(
     index: NodeId,
     symbol: Ident,
     context: &CheckContext,
-) -> Result<Option<Type>, AiplanError> {
+) -> Result<Option<Type>, SemanticCheckError> {
     if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
         return get_number_type();
     }
     get_declaration_type(index, context)
 }
 
-/// Retrieves the type of a constant symbol from the symbol table.
+/// Retrieves the type_checker of a constant symbol from the symbol table.
 ///
-/// This function resolves the type of a constant declared in the domain or problem file.
+/// This function resolves the type_checker of a constant declared in the domain or problem file.
 /// It delegates the actual lookup to `get_declaration_type`, which handles symbol table
 /// access and conflict resolution.
 ///
@@ -506,8 +508,8 @@ fn get_variable_type(
 ///
 /// # Returns
 /// A `Result` containing:
-/// - `Ok(Some(types))`: A vector of type names if the constant was successfully resolved.
-/// - `Ok(None)`: If the constant exists but has no declared type.
+/// - `Ok(Some(types))`: A vector of type_checker names if the constant was successfully resolved.
+/// - `Ok(None)`: If the constant exists but has no declared type_checker.
 /// - `Err(ParserInternalError)`: If the constant is not declared or declared inconsistently.
 ///
 /// # Example
@@ -518,7 +520,7 @@ fn get_constant_type(
     index: NodeId,
     _symbol: Ident,
     context: &CheckContext,
-) -> Result<Option<Type>, AiplanError> {
+) -> Result<Option<Type>, SemanticCheckError> {
     get_declaration_type(index, context)
 }
 
@@ -535,7 +537,7 @@ fn get_constant_type(
 ///
 /// # Returns
 /// Returns a `Result` containing:
-/// - `Ok(Some(types))`: A vector of type names if a single declaration with types is found.
+/// - `Ok(Some(types))`: A vector of type_checker names if a single declaration with types is found.
 /// - `Ok(None)`: If no declaration is found or the declaration has no types.
 /// - `Err(ParserInternalError)`: If multiple declarations are found for the same usage, indicating
 ///   a conflict.
@@ -552,54 +554,46 @@ fn get_constant_type(
 fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
-) -> Result<Option<Type>, AiplanError> {
+) -> Result<Option<Type>, SemanticCheckError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id)? {
         Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
         None => Ok(None),
     }
 }
 
-/// Helper to handle `FunctionTerm` and retrieve its type.
+/// Helper to handle a `FunctionTerm` node and retrieve its type.
 ///
-/// This function checks if the first child of the `FunctionTerm` syntax is a valid functor,
-/// retrieves its symbol, and determines the type associated with the function term.
-/// Specifically, it handles the special case where the functor is a `TOTAL_TIME` symbol and
-/// ensures the presence of the `NumericFluents` requirement for the `number` type.
-/// If the functor is invalid or missing, an error is returned.
+/// This function checks if the first child of the `FunctionTerm` AST node is a valid functor,
+/// retrieves its corresponding AST entry, and determines the type associated with the function term.
+/// It specifically handles the special case where the functor is the `TOTAL_TIME` symbol and
+/// ensures the presence of the `NumericFluents` requirement before returning the number type.
+///
+/// If the functor is missing, invalid, or not of kind `FunctionSymbol`, an error is returned.
 ///
 /// # Parameters
-/// - `index`: The index of the symbol in the symbol table. This is used for symbol lookup.
-/// - `syntax`: A reference to the AST entry representing the function term to analyze.
-/// - `annotated_syntax_tree`: A reference to the annotated syntax arena, providing access to the
-///   syntax arena and symbol table.
+/// - `index`: The AST node ID of the `FunctionTerm`.
+/// - `node`: Reference to the `FunctionTerm` AST node.
+/// - `context`: Semantic checking context, providing access to the AST, symbol table, and requirements.
 ///
 /// # Returns
-/// This function returns a `Result` containing:
-/// - `Ok(Some(types))`: A vector of type names if the functor is valid, and its type is determined.
-/// - `Ok(None)`: If the function term has no functor, or no type is declared for it.
-/// - `Err(ParserInternalError)`: If the functor is missing, invalid, or the child is not a
-///  `FunctionSymbol`.
+/// - `Ok(Some(type))`: The type of the function term if determined successfully.
+/// - `Ok(None)`: If the function term has no functor or no type could be inferred.
+/// - `Err(SemanticCheckError)`: If the functor is missing, invalid, or of an unexpected kind.
+///
+/// # Errors
+/// Returns `SemanticCheckError::unexpected_ast_kind` if the functor's AST node kind is not `FunctionSymbol`.
 ///
 /// # Example
 /// ```rust
-/// let ty = get_function_term_type(10, &syntax, &annotated_syntax_tree)?;
+/// let ty = get_function_term_type(node_id, &function_term_node, &context)?;
 /// ```
 fn get_function_term_type(
     index: NodeId,
     node: &AstNode,
-    context: &CheckContext
-) -> Result<Option<Type>, AiplanError> {
-    let children = node.children();
-    if children.is_empty() {
-        return Err(AiplanError::InternalError(
-            "Function term has no functor (empty children).".to_string(),
-        ));
-    }
-
-    let functor_index = children[0];
-    let functor_entry = context.ast().get_node(functor_index).ok_or_else(|| {
-        AiplanError::InternalError(format!("No AST entry found for index {}.", functor_index))
-    })?;
+    context: &CheckContext,
+) -> Result<Option<Type>, SemanticCheckError> {
+    let functor_index = node.try_child(0)?;
+    let functor_entry = context.ast().try_node(functor_index)?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
         if functor_entry.try_ident()? == StringInterner::IDENT_TOTAL_TIME
@@ -610,7 +604,9 @@ fn get_function_term_type(
         return get_declaration_type(index, context);
     }
 
-    Err(AiplanError::InternalError(
-        "First child of function term is not a FunctionSymbol.".to_string(),
+    Err(SemanticCheckError::unexpected_ast_kind(
+        AstKind::FunctionSymbol,
+        functor_entry.kind(),
+        index,
     ))
 }

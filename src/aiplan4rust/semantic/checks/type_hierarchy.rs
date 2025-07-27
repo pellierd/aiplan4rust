@@ -2,22 +2,21 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 
 use std::collections::HashMap;
 use std::collections::HashSet;
 use bimap::BiMap;
 
-/// Checks the type hierarchy for inheritance cycles and emits diagnostics if any are found.
+/// Checks the type_checker hierarchy for inheritance cycles and emits diagnostics if any are found.
 ///
-/// This function analyzes the type inheritance graph to detect circular dependencies among
+/// This function analyzes the type_checker inheritance graph to detect circular dependencies among
 /// declared PDDL types. If any cycles are found, it emits detailed diagnostics for each involved
-/// type using the provided `DiagnosticManager`.
+/// type_checker using the provided `DiagnosticManager`.
 ///
 /// # Parameters
 /// - `ast_old`: A reference to the `AnnotatedSyntaxTree`, which provides access to all
@@ -27,14 +26,14 @@ use bimap::BiMap;
 ///   error diagnostics.
 ///
 /// # Returns
-/// - `Ok(true)`: No type inheritance cycles were found; the type hierarchy is valid.
+/// - `Ok(true)`: No type_checker inheritance cycles were found; the type_checker hierarchy is valid.
 /// - `Ok(false)`: One or more cycles were detected and reported via diagnostics.
 /// - `Err(ParserInternalError)`: An internal error occurred, such as a missing declaration
 ///   or unresolved reference, preventing the analysis from completing.
 ///
 /// # Algorithm Steps
 /// 1. Collect all `PrimitiveType` declarations from the root scope.
-/// 2. Assign each type a unique numeric index via a bidirectional map.
+/// 2. Assign each type_checker a unique numeric index via a bidirectional map.
 /// 3. Construct a directed adjacency matrix representing direct inheritance relationships.
 /// 4. Compute the transitive closure of the graph to expose indirect inheritance.
 /// 5. Detect cycles in the graph using Johnson’s algorithm.
@@ -44,7 +43,7 @@ use bimap::BiMap;
 /// # Errors
 /// This function may return a `ParserInternalError` if critical internal data is missing
 /// (such as symbol declarations or span information), or if structural assumptions about
-/// the type graph are violated.
+/// the type_checker graph are violated.
 ///
 /// # Example
 /// ```rust
@@ -54,17 +53,17 @@ use bimap::BiMap;
 ///     &mut diagnostic_manager,
 /// );
 /// match result {
-///     Ok(true) => println!("No type cycles detected."),
-///     Ok(false) => println!("Cycles detected in type hierarchy."),
+///     Ok(true) => println!("No type_checker cycles detected."),
+///     Ok(false) => println!("Cycles detected in type_checker hierarchy."),
 ///     Err(err) => eprintln!("Internal error: {:?}", err),
 /// }
 pub fn check_type_hierarchy(
     context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
 
-    // Step 1: Collect all type declarations from the root scope (PrimitiveType only)
+    // Step 1: Collect all type_checker declarations from the root scope (PrimitiveType only)
     let types = context
         .symbol_table()
         .collect_declarations(
@@ -73,7 +72,7 @@ pub fn check_type_hierarchy(
             Some(&context.symbol_table().root_scope()),
         );
 
-    // Step 2: Build a bidirectional mapping between type names and unique numeric indices
+    // Step 2: Build a bidirectional mapping between type_checker names and unique numeric indices
     let type_bimap = build_type_bimap(&types);
 
     // Step 3: Construct the inheritance adjacency matrix (direct parent-child relationships)
@@ -82,7 +81,7 @@ pub fn check_type_hierarchy(
     // Step 4: Compute the transitive closure to reveal indirect inheritance paths
     compute_transitive_closure(&mut hierarchy);
 
-    // Step 5: Detect cycles in the type graph using Johnson’s algorithm
+    // Step 5: Detect cycles in the type_checker graph using Johnson’s algorithm
     let all_cycles = johnson_find_cycles(&hierarchy);
 
     // Step 6: Filter out trivial/self cycles and remove redundant ones
@@ -102,15 +101,15 @@ pub fn check_type_hierarchy(
     Ok(filtered_cycles.is_empty())
 }
 
-/// Reports diagnostics for cyclic type declarations detected in the type hierarchy.
+/// Reports diagnostics for cyclic type_checker declarations detected in the type_checker hierarchy.
 ///
-/// For each detected cycle (represented as a vector of type indices), this function reconstructs
-/// detailed cycle information by mapping indices to their corresponding type declarations.
+/// For each detected cycle (represented as a vector of type_checker indices), this function reconstructs
+/// detailed cycle information by mapping indices to their corresponding type_checker declarations.
 /// It then emits a diagnostic error describing the cycle and indicating its source location.
 ///
 /// # Parameters
-/// - `cycles`: A slice of cycles, where each cycle is a list of type indices forming a loop.
-/// - `type_bimap`: A bidirectional map between type names and their unique numeric indices.
+/// - `cycles`: A slice of cycles, where each cycle is a list of type_checker indices forming a loop.
+/// - `type_bimap`: A bidirectional map between type_checker names and their unique numeric indices.
 /// - `types`: A slice of references to `Declaration` objects representing all declared types.
 /// - `filename`: The name of the source file where the declarations appear.
 /// - `source`: The `DiagnosticSource` identifying the analysis phase that detected the cycle.
@@ -137,7 +136,7 @@ pub fn check_type_hierarchy(
 /// );
 ///
 /// if let Err(e) = result {
-///     eprintln!("Error reporting type cycles: {:?}", e);
+///     eprintln!("Error reporting type_checker cycles: {:?}", e);
 /// }
 /// ```
 fn report_cyclic_type_declaration_error(
@@ -147,7 +146,7 @@ fn report_cyclic_type_declaration_error(
     filename: &str,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), AiplanError> {
+) -> Result<(), SemanticCheckError> {
 
     // Build a fast lookup map from symbol names to declarations
     let type_map: HashMap<Ident, &Declaration> = types
@@ -159,7 +158,7 @@ fn report_cyclic_type_declaration_error(
     for cycle in cycles {
         let mut cycle_detail = Vec::with_capacity(cycle.len());
 
-        // Convert type indices to symbols, and then to their declarations
+        // Convert type_checker indices to symbols, and then to their declarations
         for &index in cycle {
             if let Some(symbol) = type_bimap.get_by_right(&index) {
                 if let Some(declaration) = type_map.get(symbol) {
@@ -170,15 +169,13 @@ fn report_cyclic_type_declaration_error(
 
         // If no valid declarations were found, report an internal error
         if cycle_detail.is_empty() {
-            return Err(AiplanError::InternalError(
-                "Cycle detail cannot be empty".to_string(),
-            ));
+            return Err(SemanticCheckError::empty_cycle_detail());
         }
 
         // Use the span of the first declaration in the cycle for the diagnostic location
         let first_span = cycle_detail[0].span().clone();
 
-        // Emit a diagnostic describing the cyclic type declarations
+        // Emit a diagnostic describing the cyclic type_checker declarations
         let error = Diagnostic::new(
             DiagnosticKind::CyclicTypeDeclarationError { cycle: cycle_detail },
             source,
@@ -427,7 +424,7 @@ fn canonical_cycle(cycle: &[usize]) -> Vec<usize> {
 /// This function updates the given square matrix in place. After execution, `matrix[i][j]`
 /// will be `true` if there exists any path (direct or indirect) from syntax `i` to syntax `j`.
 ///
-/// This is useful in type systems to compute all inherited types (i.e., whether a type
+/// This is useful in type_checker systems to compute all inherited types (i.e., whether a type_checker
 /// transitively inherits from another).
 ///
 /// # Parameters
@@ -467,33 +464,33 @@ fn compute_transitive_closure(matrix: &mut Vec<Vec<bool>>) {
     }
 }
 
-/// Builds a direct inheritance adjacency matrix from a set of type declarations.
+/// Builds a direct inheritance adjacency matrix from a set of type_checker declarations.
 ///
 /// This function constructs a square boolean matrix representing the direct
-/// inheritance relationships between types. Each type is assigned a unique index
+/// inheritance relationships between types. Each type_checker is assigned a unique index
 /// via the `type_bimap`, and the matrix is constructed such that:
 ///
-/// - `matrix[i][j] == true` if the type at index `i` **directly inherits** from the type at index
+/// - `matrix[i][j] == true` if the type_checker at index `i` **directly inherits** from the type_checker at index
 ///   `j`.
 /// - `matrix[i][j] == false` otherwise.
 ///
-/// If a type declaration does not specify any parent types, it is assumed to
-/// implicitly inherit from the special `"object"` type (if it exists in the map).
+/// If a type_checker declaration does not specify any parent types, it is assumed to
+/// implicitly inherit from the special `"object"` type_checker (if it exists in the map).
 ///
 /// # Parameters
 ///
-/// - `type_bimap`: A mapping from type names to their unique integer indices.
+/// - `type_bimap`: A mapping from type_checker names to their unique integer indices.
 ///   This must include all types used in the declarations, and should include `"object"`
 ///   for correct handling of root types.
-/// - `declarations`: A map of type names to their `Declaration` objects. Each declaration
+/// - `declarations`: A map of type_checker names to their `Declaration` objects. Each declaration
 ///   may include a list of parent types (i.e., superclasses or supertypes).
 ///
 /// # Returns
 ///
 /// A `Result` containing:
-/// - On success: A square matrix `matrix[i][j]` where each row and column corresponds to a type,
+/// - On success: A square matrix `matrix[i][j]` where each row and column corresponds to a type_checker,
 ///   as defined in `type_bimap`. The matrix has the following meaning:
-///     - `matrix[i][j] == true` ⇒ type at index `i` inherits directly from type at index `j`
+///     - `matrix[i][j] == true` ⇒ type_checker at index `i` inherits directly from type_checker at index `j`
 ///     - `matrix[i][j] == false` ⇒ no direct inheritance between these two types
 /// - On failure: `ParserInternalError` if an index is out of bounds (indicating inconsistency).
 ///
@@ -511,55 +508,50 @@ fn compute_transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 fn build_type_adjacency_matrix(
     type_bimap: &BiMap<Ident, usize>,
     declarations: &Vec<&Declaration>,
-) -> Result<Vec<Vec<bool>>, AiplanError> {
+) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
     let n = type_bimap.len();
 
-    // Preallocate a square adjacency matrix of size n x n initialized with false
+    // Preallocate adjacency matrix n x n with false
     let mut matrix = vec![vec![false; n]; n];
 
-    // Get the index of the special "object" type once to reuse later
+    // Get index of the special "object" type once
     let object_index = type_bimap.get_by_left(&StringInterner::IDENT_OBJECT).copied();
 
-    // Iterate over all declared types and their declarations
     for declaration in declarations {
-        // Try to get the index for the current type name from the bimap
         let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol_ident()) else {
-            // If the type is not found in the map (should not happen if map is consistent), skip
+            // If type is not found in map, just skip (consistency assumption)
             continue;
         };
 
-        // Validate type_idx is within matrix bounds
+        // Check type index bounds
         if type_idx >= n {
-            return Err(AiplanError::InternalError(format!(
-                "Index {} for type '{}' is out of bounds (max {})",
-                type_idx, declaration.symbol_ident(), n - 1
-            )));
+            return Err(SemanticCheckError::type_index_out_of_bounds(
+                type_idx,
+                declaration.symbol_ident(),
+                n - 1,
+            ));
         }
 
         match declaration.types() {
             Some(parents) => {
-                // For each parent type, set an edge in the adjacency matrix
                 for parent in parents.iter() {
                     if let Some(&parent_idx) = type_bimap.get_by_left(parent) {
-                        // Validate parent_idx is within bounds
+                        // Check parent index bounds
                         if parent_idx >= n {
-                            return Err(AiplanError::InternalError(format!(
-                                "Index {} for parent type '{}' is out of bounds (max {})",
-                                parent_idx, parent, n - 1
-                            )));
+                            return Err(SemanticCheckError::parent_index_out_of_bounds(
+                                parent_idx,
+                                parent.clone(),
+                                n - 1,
+                            ));
                         }
-                        matrix[type_idx][parent_idx] = true; // type -> parent edge
+                        matrix[type_idx][parent_idx] = true;
                     }
                 }
             }
             None => {
-                // If no parent declared, implicitly link to the "object" type if present
                 if let Some(j) = object_index {
                     if j >= n {
-                        return Err(AiplanError::InternalError(format!(
-                            "Index {} for special object type is out of bounds (max {})",
-                            j, n - 1
-                        )));
+                        return Err(SemanticCheckError::object_index_out_of_bounds(j, n - 1));
                     }
                     matrix[type_idx][j] = true;
                 }
@@ -570,25 +562,25 @@ fn build_type_adjacency_matrix(
     Ok(matrix)
 }
 
-/// Builds a `BiMap` that assigns a unique index to each type name found in the declarations.
+/// Builds a `BiMap` that assigns a unique index to each type_checker name found in the declarations.
 ///
 /// This function avoids unnecessary `String` cloning by checking membership before insertion.
 /// It collects:
 /// - All declared types (keys in `declarations`)
 /// - All parent types referenced in each declaration (if any)
-/// - The special `"object"` type, added if not already present
+/// - The special `"object"` type_checker, added if not already present
 ///
 /// The returned `BiMap<String, usize>` enables:
-/// - Efficient lookup from type name to index (`left` map)
-/// - Efficient reverse lookup from index to type name (`right` map)
+/// - Efficient lookup from type_checker name to index (`left` map)
+/// - Efficient reverse lookup from index to type_checker name (`right` map)
 ///
 /// # Arguments
 ///
-/// * `declarations` - A `HashMap` mapping type names to their `Declaration` objects.
+/// * `declarations` - A `HashMap` mapping type_checker names to their `Declaration` objects.
 ///
 /// # Returns
 ///
-/// A `BiMap<String, usize>` mapping type names to unique indices assigned in insertion order.
+/// A `BiMap<String, usize>` mapping type_checker names to unique indices assigned in insertion order.
 ///
 /// # Example
 ///
@@ -600,25 +592,25 @@ fn build_type_adjacency_matrix(
 fn build_type_bimap(
     declarations: &Vec<&Declaration>,
 ) -> BiMap<Ident, usize> {
-    // Create an empty BiMap to store type names (String) and their unique indices (usize)
+    // Create an empty BiMap to store type_checker names (String) and their unique indices (usize)
     let mut temp_map: BiMap<Ident, usize> = BiMap::new();
 
-    // Iterate over each type declaration in the input map
+    // Iterate over each type_checker declaration in the input map
     for declaration in declarations {
-        // If the type name is not already in the BiMap, insert it with a new unique index
+        // If the type_checker name is not already in the BiMap, insert it with a new unique index
         if !temp_map.contains_left(&declaration.symbol_ident()) {
             let len = temp_map.len();        // Current size of the map used as next index
-            temp_map.insert(declaration.symbol_ident().clone(), len); // Insert the type name with the index
+            temp_map.insert(declaration.symbol_ident().clone(), len); // Insert the type_checker name with the index
         }
 
         // If the declaration has parent types (e.g., inherited types)
         if let Some(parents) = declaration.types() {
-            // Iterate over each parent type
+            // Iterate over each parent type_checker
             for parent in parents.iter() {
-                // Insert the parent type into the map if it's not already present
+                // Insert the parent type_checker into the map if it's not already present
                 if !temp_map.contains_left(parent) {
                     let len = temp_map.len();      // Get next index based on current size
-                    temp_map.insert(parent.clone(), len); // Insert parent type with index
+                    temp_map.insert(parent.clone(), len); // Insert parent type_checker with index
                 }
             }
         }
@@ -630,6 +622,6 @@ fn build_type_bimap(
         temp_map.insert(StringInterner::IDENT_OBJECT, len); // Insert OBJECT_TYPE as a key
     }
 
-    // Return the completed BiMap mapping type names to unique indices
+    // Return the completed BiMap mapping type_checker names to unique indices
     temp_map
 }

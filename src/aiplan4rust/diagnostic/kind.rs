@@ -212,23 +212,23 @@ impl Kind {
                 format!("Domain name '{}' does not match problem name '{}'.", domain_name, problem_name)
             }
             Kind::WarningAmbiguousTypePredicateSymbol { symbol, .. } => {
-                format!("Ambiguous symbol '{}': declared both as a type and a predicate in the same scope.", symbol)
+                format!("Ambiguous symbol '{}': declared both as a type_checker and a predicate in the same scope.", symbol)
             }
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration { argument, .. } => {
-                format!("Upcasting detected: argument '{}' has broader type(s) than declared.",
+                format!("Upcasting detected: argument '{}' has broader type_checker(s) than declared.",
                 argument)
             }
             Kind::DuplicateEitherTypeWarning { .. } => {
-                "Duplicate primitive types found in an 'either' type declaration.".to_string()
+                "Duplicate primitive types found in an 'either' type_checker declaration.".to_string()
             }
             Kind::ImplicitEitherTypeDeclarationWarning { ty, ..} => {
                 format!(
-                    "Implicit 'either' type declaration for {}.",
+                    "Implicit 'either' type_checker declaration for {}.",
                     ty,
                 )
             }
             Kind::CyclicTypeDeclarationError { ..} => {
-                "Cycle detected in type declarations, causing an invalid hierarchy.".to_string()
+                "Cycle detected in type_checker declarations, causing an invalid hierarchy.".to_string()
             }
             Kind::CrossConflictSymbolDeclarationError { .. } => {
                 "Symbol declaration in problem conflicts with domain declaration.".to_string()
@@ -300,7 +300,7 @@ impl Kind {
                 Some(format!("Requirement '{}' is already declared. You can safely remove the duplicate.", requirement))
             }
             Kind::DuplicatedTypeDeclaration { .. } => {
-                Some("This type is already declared. Consider removing the duplicate.".to_string())
+                Some("This type_checker is already declared. Consider removing the duplicate.".to_string())
             }
             Kind::CustomError(_) => None,
             Kind::UnDefinedFunction { symbol } => {
@@ -317,14 +317,14 @@ impl Kind {
             }
             Kind::TypeMismatchInExpression { ty1, ty2 } => {
                 Some(format!(
-                    "Incompatible types: {:?} is not related to {:?} by the type hierarchy.",
+                    "Incompatible types: {:?} is not related to {:?} by the type_checker hierarchy.",
                     Self::format_types(ty1),
                     Self::format_types(ty2)
                 ))
             }
             Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
                 Some(format!(
-                    "Numeric expr require operands of type 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
+                    "Numeric expr require operands of type_checker 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
                     Self::format_types(ty1), Self::format_types(ty2)
                 ))
             }
@@ -396,7 +396,7 @@ impl Kind {
                         usage.symbol_ident()
                     )),
                     SymbolKind::Variable => Some(format!(
-                        "Variable '{}' is not declared. Declare it using the correct syntax (e.g., '?x - type').",
+                        "Variable '{}' is not declared. Declare it using the correct syntax (e.g., '?x - type_checker').",
                         usage.symbol_ident()
                     )),
                 }
@@ -434,14 +434,14 @@ impl Kind {
             }
             Kind::WarningAmbiguousTypePredicateSymbol { symbol} => {
                 Some(format!(
-                    "The symbol '{}' is declared both as a type and a predicate in the same scope. This can lead to confusion. Consider renaming one of them.",
+                    "The symbol '{}' is declared both as a type_checker and a predicate in the same scope. This can lead to confusion. Consider renaming one of them.",
                     symbol
                 ))
             }
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration {argument, type_declared, type_used} => {
                 Some(format!(
-                    "The argument '{}' uses type(s) '{}', which are supertypes of the declared type(s) '{}'. \
-                        Consider using the exact or a more specific type.",
+                    "The argument '{}' uses type_checker(s) '{}', which are supertypes of the declared type_checker(s) '{}'. \
+                        Consider using the exact or a more specific type_checker.",
                     argument,
                     Self::format_types(type_declared),
                     Self::format_types(type_used)
@@ -449,19 +449,19 @@ impl Kind {
             }
             Kind::DuplicateEitherTypeWarning { duplicate_types } => {
                 let listed_types = if duplicate_types.len() == 1 {
-                    format!("type '{}'", duplicate_types[0])
+                    format!("type_checker '{}'", duplicate_types[0])
                 } else {
                     format!("types '{}'", duplicate_types.join("', '"))
                 };
                 Some(format!(
-                    "Duplicate {} found in an 'either' type declaration; these duplicates have been removed.",
+                    "Duplicate {} found in an 'either' type_checker declaration; these duplicates have been removed.",
                     listed_types,
                 ))
             }
             Kind::CyclicTypeDeclarationError { cycle } => {
                 let cycle_symbols: Vec<Ident> = cycle.iter().map(|decl| decl.symbol_ident()).collect();
                 Some(format!(
-                    "Cycle detected in type hierarchy: {:?}. Remove cyclic inheritance to fix.",
+                    "Cycle detected in type_checker hierarchy: {:?}. Remove cyclic inheritance to fix.",
                     cycle_symbols
                 ))
             }
@@ -475,7 +475,7 @@ impl Kind {
             }
             Kind::ImplicitEitherTypeDeclarationWarning { ty, .. } => {
                 Some(format!(
-                    "The type `{}` was declared more than once with different parent types. These conflicting declarations were automatically merged into an implicit `(either ...)` type declaration.",
+                    "The type_checker `{}` was declared more than once with different parent types. These conflicting declarations were automatically merged into an implicit `(either ...)` type_checker declaration.",
                     ty,
                 ))
             }
@@ -518,7 +518,7 @@ impl Kind {
 
 
     /// Format a vector of types for display.
-    /// - If there is only one type, it returns the type as-is.
+    /// - If there is only one type_checker, it returns the type_checker as-is.
     /// - If there are multiple types, it returns them in the form `(either t1 t2 ...)`.
     fn format_types(types: &[String]) -> String {
         match types.len() {

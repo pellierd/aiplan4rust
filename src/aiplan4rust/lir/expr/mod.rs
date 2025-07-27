@@ -16,7 +16,7 @@
 //!   kinds of expression nodes (logical operators, symbols, predicates, etc.).
 //! - [`transform`]: Contains utilities and functions for transforming
 //!   or rewriting expressions.
-//! - [`expr`]: Defines the `Expr` type, a wrapper around an expression
+//! - [`expr`]: Defines the `Expr` type_checker, a wrapper around an expression
 //!   arena (syntax tree) that holds `ExprNode` instances and provides
 //!   expression-level operations.
 //! - [`error`]: Defines error types related to expression parsing,

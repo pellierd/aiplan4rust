@@ -1,6 +1,6 @@
 //! Utilities for merging [`StringInterner`] instances and managing identifier mappings.
 //!
-//! This module provides the [`InternerMergeResult`] type, which encapsulates
+//! This module provides the [`InternerMergeResult`] type_checker, which encapsulates
 //! the result of merging two [`StringInterner`]s — typically a domain and a problem interner.
 //!
 //! # Purpose
@@ -10,7 +10,7 @@
 //! This module supports that by merging strings and providing a mapping from problem identifiers
 //! to their corresponding identifiers in the merged global interner.
 //!
-//! # Main type
+//! # Main type_checker
 //!
 //! - [`InternerMergeResult`]: Holds the merged interner and a mapping from problem [`Ident`]
 //!   to global [`Ident`], enabling translation between the two contexts.

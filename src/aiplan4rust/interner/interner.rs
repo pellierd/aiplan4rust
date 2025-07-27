@@ -211,7 +211,7 @@ impl StringInterner {
     /// Interns a statically known string without checking for duplicates.
     ///
     /// This method is intended to be used internally to insert predefined
-    /// strings (such as reserved keywords or type names) into the interner
+    /// strings (such as reserved keywords or type_checker names) into the interner
     /// at a fixed position. It **does not** check whether the string already
     /// exists in the pool — calling this function multiple times with the same
     /// string will result in duplicate entries.

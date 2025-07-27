@@ -6,7 +6,7 @@
 //! - The `Token` enum, representing all possible lexical tokens encountered in domain/problem files,
 //!   including keywords, identifiers, numbers, operators, logical expressions, requirements, and comments.
 //! - Integration with the `logos` crate for efficient lexical analysis using regex-based token recognition.
-//! - Handling of lexical errors via the `LexicalError` type.
+//! - Handling of lexical errors via the `LexicalError` type_checker.
 //!
 //! The module supports parsing of complex PDDL features like durative actions, temporal constraints,
 //! and HTN-specific HDDL constructs.
@@ -302,15 +302,15 @@ pub const MINIMIZE: &str = "minimize";
 pub const MAXIMIZE: &str = "maximize";
 
 // Special
-/// Represents the "object" type in PDDL. It is used to specify that a variable represents an object
-/// type.
+/// Represents the "object" type_checker in PDDL. It is used to specify that a variable represents an object
+/// type_checker.
 pub const OBJECT_TYPE: &str = "object";
 
-/// Represents the "number" type in PDDL. It is used to specify that a variable represents a number
-/// type.
+/// Represents the "number" type_checker in PDDL. It is used to specify that a variable represents a number
+/// type_checker.
 pub const NUMBER_TYPE: &str = "number";
 
-/// Represents the "undefined" type in PDDL. It is used to specify that a variable type is not
+/// Represents the "undefined" type_checker in PDDL. It is used to specify that a variable type_checker is not
 /// defined.
 pub const UNDEFINED: &str = "undefined";
 
@@ -365,7 +365,7 @@ pub const HTN: &str = ":htn";
 ///
 /// This enum is used to categorize and parse the different types of tokens that can be encountered
 /// in a domain specification, such as keywords, identifiers, numbers, operators, and special
-/// symbols. Each variant corresponds to a specific type of token that the lexer can identify, and
+/// symbols. Each variant corresponds to a specific type_checker of token that the lexer can identify, and
 /// some variants include regular expr and logic for parsing token values.
 ///
 /// This enum leverages the `Logos` crate for efficient lexical analysis, utilizing custom regex
@@ -383,7 +383,7 @@ pub const HTN: &str = ":htn";
 #[derive(Logos, Clone, Debug, PartialEq)]
 // Skip whitespace characters like spaces, tabs, newlines, and form feeds.
 #[logos(skip r"[ \r\t\n\f]+")]
-// Lexical errors are handled by the `LexicalError` type.
+// Lexical errors are handled by the `LexicalError` type_checker.
 #[logos(error = LexicalError)]
 // Subpatterns for matching specific token types.
 #[logos(subpattern letter = r"[a-zA-Z]")]
@@ -654,7 +654,7 @@ impl Token {
     /// The `symbols` function takes a `Token` as input and returns a string
     /// that represents its textual form. This allows converting different
     /// variants of a `Token` into a string that can be used for display, logging,
-    /// or further processing in parsing or code generation. Each token type is
+    /// or further processing in parsing or code generation. Each token type_checker is
     /// mapped to a specific string, whether it's an identifier, keyword, operator, or error.
     ///
     /// # Arguments

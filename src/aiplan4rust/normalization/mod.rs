@@ -8,12 +8,12 @@
 //!
 //! Normalization eliminates syntactic ambiguities, resolves implicit constructs, and ensures
 //! structural uniformity of AST nodes. This is crucial for downstream components such as
-//! the type checker, lifted IR builder, and planner logic.
+//! the type_checker checker, lifted IR builder, and planner logic.
 //!
 //! Key goals of normalization include:
 //!
 //! - Flattening or rewriting nested constructs (e.g., desugaring `TypedList` and `EitherType`).
-//! - Deduplicating or merging repeated entries (e.g., `:requirements`, type definitions).
+//! - Deduplicating or merging repeated entries (e.g., `:requirements`, type_checker definitions).
 //! - Ensuring valid and well-scoped definitions are available to semantic analyzers.
 //!
 //! ## Structure
@@ -24,7 +24,7 @@
 //!   - [`typed_list`] — Expands and validates `TypedList` declarations.
 //!   - [`either_type`] — Rewrites `either` expressions into concrete disjunctions.
 //!   - [`require_def`] — Deduplicates and validates domain-level requirements.
-//!   - [`type_def`] — Consolidates type hierarchies and removes redundancies.
+//!   - [`type_def`] — Consolidates type_checker hierarchies and removes redundancies.
 //!
 //! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all normalization passes.
 //!
@@ -50,7 +50,7 @@
 //!
 //! - [`Normalizer`] — Main entry point to apply normalization.
 //! - [`NormalizerResult`] — The resulting structure returned after normalization.
-//! - [`NormalizationError`] — The fatal error type used when normalization cannot proceed.
+//! - [`NormalizationError`] — The fatal error type_checker used when normalization cannot proceed.
 //!
 //! ## Example
 //!

@@ -1,6 +1,6 @@
 //! Module providing an arena-based tree structure for managing hierarchical nodes.
 //!
-//! This module defines the `ArenaTree` struct, which stores nodes of type `T` implementing
+//! This module defines the `ArenaTree` struct, which stores nodes of type_checker `T` implementing
 //! the [`ArenaNode`] trait in a flat vector, enabling efficient parent-child relationships
 //! through indices.
 //!
@@ -14,7 +14,7 @@
 //! - `ArenaTree<T>`: Main tree structure managing nodes.
 //! - `ArenaNode`: Trait required for nodes to track parent/children.
 //! - `NodeId`: Unique identifier for nodes.
-//! - `ArenaError`: Error type for arena operations.
+//! - `ArenaError`: Error type_checker for arena operations.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -24,7 +24,7 @@ use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::core::arena::node_ref::{NodeRef, NodeRefMut};
 use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
 
-/// A flat arena-based tree structure for storing nodes of type `T`.
+/// A flat arena-based tree structure for storing nodes of type_checker `T`.
 ///
 /// The nodes are stored internally in a contiguous `Vec<T>`. Each node must implement the [`ArenaNode`] trait,
 /// which enables parent-child relationships to be represented through indices rather than pointers.
@@ -33,7 +33,7 @@ use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
 ///
 /// # Type Parameters
 ///
-/// - `T`: The node type, which must implement the [`ArenaNode`] trait.
+/// - `T`: The node type_checker, which must implement the [`ArenaNode`] trait.
 ///
 /// # Examples
 ///
@@ -171,6 +171,17 @@ impl<T: ArenaNode> ArenaTree<T> {
             Some(root_id) => self.get_node_ref(root_id),
             None => None,
         }
+    }
+
+    /// Attempts to return an immutable [`NodeRef`] to the root node.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`ArenaError`] if the root ID is not set or if the root node cannot be found.
+    pub fn try_root_node_ref(&self) -> Result<NodeRef<'_, T>, ArenaError> {
+        let root_id = self.try_root_id()?;
+        self.get_node_ref(root_id)
+            .ok_or_else(|| ArenaError::root_node_not_found(root_id.as_usize()))
     }
 
     /// Returns the root node ID if set.

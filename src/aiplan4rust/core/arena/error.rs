@@ -1,31 +1,3 @@
-//! Error types for operations on arena-based tree structures.
-//!
-//! This module defines the [`ArenaError`] enum, representing possible failure
-//! modes when interacting with nodes in an arena-managed tree. These errors
-//! include invalid accesses, missing nodes or parents, out-of-bounds indices,
-//! and internal consistency violations.
-//!
-//! # Usage
-//!
-//! When performing operations on an arena tree (such as retrieving parents,
-//! children, or nodes by ID), these errors signal problems like missing nodes,
-//! incorrect assumptions about tree shape, or attempts to access invalid indices.
-//!
-//! Each variant provides context useful for debugging and error handling.
-//!
-//! # Example
-//!
-//! ```rust
-//! use crate::aiplan4rust::core::arena::ArenaError;
-//!
-//! fn example(id: usize) -> Result<(), ArenaError> {
-//!     if id == 0 {
-//!         Err(ArenaError::node_not_found(id))
-//!     } else {
-//!         Ok(())
-//!     }
-//! }
-//! ```
 use thiserror::Error;
 
 /// Represents errors that can occur when interacting with an [`Arena`]-based tree structure.
@@ -51,6 +23,12 @@ pub enum ArenaError {
     /// This can happen when attempting to access the root of a tree that was not initialized properly.
     #[error("Root ID is missing in the arena")]
     MissingRootId,
+
+    /// The root node was expected but not found.
+    ///
+    /// This can happen when the root ID is set but the corresponding node is absent from the arena.
+    #[error("Root node with id {0} not found in the arena")]
+    RootNodeNotFound(usize),
 
     /// A node ID was out of bounds for the current arena state.
     ///
@@ -95,6 +73,11 @@ impl ArenaError {
     /// Creates a [`MissingRootId`] error.
     pub fn missing_root_id() -> Self {
         Self::MissingRootId
+    }
+
+    /// Creates a [`RootNodeNotFound`] error.
+    pub fn root_node_not_found(id: usize) -> Self {
+        Self::RootNodeNotFound(id)
     }
 
     /// Creates a [`NodeIdOutOfBounds`] error.

@@ -47,7 +47,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 pub struct NamedTypedList {
     /// Name of the predicate or function.
     name: Ident,
-    /// Signature describing parameter types and optional return type.
+    /// Signature describing parameter types and optional return type_checker.
     parameters: TypedList,
 }
 

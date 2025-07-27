@@ -1,4 +1,4 @@
-use crate::aiplan4rust::AiplanError;
+
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Declaration;
@@ -7,7 +7,7 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableOrigin};
+use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 use linked_hash_map::LinkedHashMap;
@@ -60,7 +60,6 @@ impl Default for Table {
         }
     }
 }
-
 
 impl Table {
     /// Creates a new, empty `SymbolTable` with the given origin.
@@ -502,70 +501,65 @@ impl Table {
             .collect()
     }
 
-    /// Retrieves the declaration associated with a usage identified by a specific AST syntax index.
+    /// Retrieves the declaration associated with a usage identified by a specific AST syntax node ID.
     ///
     /// This function searches all symbols and their usages in the symbol table to find a usage
-    /// that matches the given AST syntax index. It then filters the declarations of the matching
+    /// that matches the given AST node ID. It then filters the declarations of the matching
     /// symbol to find those whose scope contains the usage's scope.
     ///
     /// # Parameters
-    /// - `index`: The AST syntax index representing the usage to look up.
+    /// - `node_id`: The AST `NodeId` representing the usage to resolve.
     ///
     /// # Returns
-    /// - `Ok(Some(&Declaration))`: Exactly one matching declaration found.
-    /// - `Ok(None)`: No matching usage or declaration found for the given xx.
-    /// - `Err(ParserInternalError)`: Multiple declarations match the usage, indicating ambiguity.
+    /// - `Ok(Some(&Declaration))`: If exactly one matching declaration was found.
+    /// - `Ok(None)`: If no matching usage or declaration was found.
+    /// - `Err(SymbolTableError)`: If multiple declarations match the usage, indicating ambiguity.
     ///
     /// # Errors
-    /// Returns an error if multiple declarations correspond to the same usage index, signaling
-    /// an invalid state.
+    /// Returns [`SymbolTableError::MultipleDeclarationsForUsage`] if more than one declaration
+    /// matches the given usage node. This signals an ambiguous resolution.
     ///
     /// # Examples
     /// ```rust
-    /// let declaration = symbol_table.fetch_declaration_by_usage(42)?;
+    /// let declaration = symbol_table.resolve_declaration_by_usage(node_id)?;
     /// match declaration {
-    ///     Some(decl) => println!("Declaration found: {:?}", decl),
-    ///     None => println!("No declaration found for usage 42"),
+    ///     Some(decl) => println!("Declaration: {:?}", decl),
+    ///     None => println!("No declaration found."),
     /// }
     /// ```
     pub fn resolve_declaration_by_usage(
         &self,
         node_id: NodeId,
-    ) -> Result<Option<&Declaration>, AiplanError> {
-        // Iterate over every symbol stored in the symbol table
+    ) -> Result<Option<&Declaration>, SymbolTableError> {
+        // Iterate over all symbols in the symbol table
         for symbol in self.symbols.values() {
-            // Cache declarations of the current symbol for efficient reuse
             let declarations = symbol.declarations();
 
-            // Iterate through all usages of this symbol
+            // Check each usage for a match with the target node_id
             for usage in symbol.usages() {
-                // Check if the usage's AST index matches the requested index
                 if usage.node_id() == node_id {
-                    // Filter declarations to those whose scope is compatible with the usage's scope
-                    let filtered: Vec<&Declaration> = declarations
+                    // Filter to declarations whose scope encloses the usage's scope
+                    let matching: Vec<&Declaration> = declarations
                         .iter()
                         .filter(|decl| usage.scope().starts_with(decl.scope()))
                         .collect();
 
-                    // Handle the filtered results based on how many matches were found
-                    match filtered.len() {
-                        0 => return Ok(None),            // No declaration matches this usage
-                        1 => return Ok(Some(filtered[0])), // Exactly one declaration found, return it
+                    return match matching.len() {
+                        0 => Ok(None),
+                        1 => Ok(Some(matching[0])),
                         _ => {
-                            // Multiple matching declarations found, which is an error case
-                            return Err(AiplanError::InternalError(format!(
-                                "Multiple declarations found for usage at AST index {}.",
-                                node_id
-                            )));
+                            // Convert Vec<&T> to Vec<T> for owned error variant
+                            let candidates = matching.into_iter().cloned().collect();
+                            Err(SymbolTableError::multiple_declarations(node_id, candidates))
                         }
-                    }
+                    };
                 }
             }
         }
 
-        // No usage matching the given AST index was found, so return None
         Ok(None)
     }
+
 
     /// Resolves the most appropriate declaration for a given symbol usage.
     ///
@@ -625,7 +619,7 @@ impl Table {
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         scope: &Scope,
-    ) -> Result<Option<&Declaration>, AiplanError> {
+    ) -> Result<Option<&Declaration>, SymbolTableError> {
         // Define a closure to fetch and validate declarations for a specific SymbolKind
         let resolve_candidates = |kind: SymbolKind| {
             // Fetch declarations matching symbol_name, kind, and scope
@@ -665,7 +659,7 @@ impl Table {
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
-    ) -> Result<Option<&'a Declaration>, AiplanError> {
+    ) -> Result<Option<&'a Declaration>, SymbolTableError> {
         // Match on the usage kind to determine the appropriate validation strategy
         match usage_kind {
             // For PrimitiveType or Predicate kinds, use specific validation logic
@@ -688,7 +682,7 @@ impl Table {
 
     /// Determines whether a declaration kind is compatible with a usage kind.
     ///
-    /// Used to allow limited polymorphism (e.g., using a `Predicate` in a type context).
+    /// Used to allow limited polymorphism (e.g., using a `Predicate` in a type_checker context).
     ///
     /// # Returns
     /// `true` if the declaration kind is allowed for the given usage kind.
@@ -729,7 +723,7 @@ impl Table {
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
-    ) -> Result<Option<&'a Declaration>, AiplanError> {
+    ) -> Result<Option<&'a Declaration>, SymbolTableError> {
         // Collect all declarations that exactly match the usage kind
         let matching: Vec<_> = declarations.iter().filter(|d| d.symbol_kind() == *usage_kind).collect();
 
@@ -766,7 +760,7 @@ impl Table {
     fn validate_task_declarations<'a>(
         symbol_name: &Ident,
         declarations: &[&'a Declaration],
-    ) -> Result<Option<&'a Declaration>, AiplanError> {
+    ) -> Result<Option<&'a Declaration>, SymbolTableError> {
         // If there is more than one declaration, return an error indicating ambiguity
         if declarations.len() > 1 {
             return Err(Self::multiple_declarations_error(
@@ -804,7 +798,7 @@ impl Table {
     /// # Errors
     /// Returns an error when multiple `DomainName` symbols are found, indicating
     /// that the annotated syntax arena (AST) is structurally invalid.
-    pub fn resolve_domain_name_declaration(&self) -> Result<Option<&SymbolEntry>, AiplanError> {
+    pub fn resolve_domain_name_declaration(&self) -> Result<Option<&SymbolEntry>, SymbolTableError> {
         self.resolve_unique_declaration(SymbolKind::DomainName)
     }
 
@@ -823,7 +817,7 @@ impl Table {
     /// # Errors
     /// Returns an error when multiple `ProblemName` symbols are found, indicating
     /// that the annotated syntax arena (AST) is structurally invalid.
-    pub fn resolve_problem_name_declaration(&self) -> Result<Option<&SymbolEntry>, AiplanError> {
+    pub fn resolve_problem_name_declaration(&self) -> Result<Option<&SymbolEntry>, SymbolTableError> {
         self.resolve_unique_declaration(SymbolKind::ProblemName)
     }
 
@@ -840,9 +834,9 @@ impl Table {
     /// - `kind`: The kind of symbol to resolve, typically one that is expected to be unique.
     ///
     /// # Returns
-    /// - `Ok(Some(&Symbol))` if a single symbol of the specified kind is found.
+    /// - `Ok(Some(&SymbolEntry))` if a single symbol of the specified kind is found.
     /// - `Ok(None)` if no symbol of that kind exists.
-    /// - `Err(ParserInternalError)` if multiple symbols of the same kind are found.
+    /// - `Err(SymbolTableError::NonUniqueSymbolDeclaration)` if multiple symbols of the same kind are found.
     ///
     /// # Errors
     /// Returns an error if multiple declarations of the same `SymbolKind` are found,
@@ -850,43 +844,49 @@ impl Table {
     fn resolve_unique_declaration(
         &self,
         kind: SymbolKind,
-    ) -> Result<Option<&SymbolEntry>, AiplanError> {
+    ) -> Result<Option<&SymbolEntry>, SymbolTableError> {
         let symbols = self.collect_symbol_with_declaration(None, Some(&kind), None);
 
         match symbols.len() {
             0 => Ok(None),
             1 => Ok(Some(symbols[0])),
-            _ => Err(AiplanError::InternalError(format!(
-                "Malformed Annotated Syntax Tree: multiple declarations found for symbol kind {:?}: {:?}",
-                kind, symbols,
-            ))),
+            _ => {
+                // Clone entries to pass owned values into the error
+                let owned_symbols: Vec<SymbolEntry> = symbols.iter().map(|&s| s.clone()).collect();
+                Err(SymbolTableError::non_unique_symbol_declaration(kind, owned_symbols))
+            }
         }
     }
 
 
-    /// Constructs a `ParserInternalError` indicating that multiple declarations exist
+    /// Constructs a `SymbolTableError` indicating that multiple declarations exist
     /// for a symbol where only one was expected.
     ///
-    /// This is typically used in resolution contexts where ambiguity from multiple
+    /// This function is typically used in resolution contexts where ambiguity from multiple
     /// declarations of the same symbol name and kind is not permitted.
     ///
+    /// The returned error contains the raw `Ident` rather than a resolved string. This allows
+    /// error formatting or resolution to be deferred until the interner is available.
+    ///
     /// # Parameters
-    /// - `symbol_name`: The name of the symbol that caused the ambiguity.
-    /// - `usage_kind`: The kind the symbol was expected to match (e.g., `Predicate`, `Task`).
-    /// - `count`: The number of declarations found, which exceeded the allowed amount.
+    /// - `symbol_name`: The unresolved `Ident` of the symbol that caused the ambiguity.
+    /// - `usage_kind`: The expected kind of the symbol (e.g., `Predicate`, `Task`).
+    /// - `count`: The number of declarations found, which is invalid if greater than one.
     ///
     /// # Returns
-    /// A `ParserInternalError` describing the ambiguity in symbol declarations.
+    /// A `SymbolTableError::MultipleSymbolDeclarations` describing the ambiguity.
     fn multiple_declarations_error(
         symbol_name: &Ident,
         usage_kind: &SymbolKind,
         count: usize,
-    ) -> AiplanError {
-        AiplanError::InternalError(format!(
-            "Symbol '{}' with kind '{:?}' has {} declarations, which is invalid.",
-            symbol_name, usage_kind, count
-        ))
+    ) -> SymbolTableError {
+        SymbolTableError::MultipleSymbolDeclarations {
+            ident: *symbol_name,
+            usage_kind: usage_kind.clone(),
+            count,
+        }
     }
+
 
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         // Étape 1 : remap interne des Symbol
@@ -933,7 +933,7 @@ impl Table {
     ///
     /// # Errors
     /// Returns `ParserInternalError` if semantic errors or other parsing issues are detected during building.
-    pub fn from_ast(ast: &Ast) -> Result<Table, AiplanError> {
+    pub fn from_ast(ast: &Ast) -> Result<Table, SymbolTableError> {
         let mut builder = SymbolTableBuilder::new();
         let symbol_table = builder.build(ast)?;
         Ok(symbol_table)

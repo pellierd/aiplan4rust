@@ -1,4 +1,4 @@
-//! Module defining the `ParserResult` type, representing the outcome of a PDDL parsing operation.
+//! Module defining the `ParserResult` type_checker, representing the outcome of a PDDL parsing operation.
 //!
 //! This structure combines the parsed abstract syntax tree (AST) and diagnostics produced during parsing,
 //! enabling easy inspection of success or failure along with detailed error/warning information.
@@ -14,7 +14,7 @@ use std::fmt;
 /// - An optional [`Ast`] containing the parsed abstract syntax tree if parsing succeeded.
 /// - A [`DiagnosticManager`] holding diagnostics (errors, warnings, notes) generated during parsing.
 ///
-/// This struct serves as a unified return type for the parsing phase,
+/// This struct serves as a unified return type_checker for the parsing phase,
 /// allowing straightforward success checks and detailed diagnostics inspection.
 ///
 /// # Example

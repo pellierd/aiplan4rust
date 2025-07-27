@@ -9,17 +9,17 @@
 //! ## Available Passes
 //!
 //! - [`normalize_typed_list`] — Flattens and validates all `TypedList` nodes by ensuring each
-//!   `TypedItem` has exactly one element and an optional type.
+//!   `TypedItem` has exactly one element and an optional type_checker.
 //! - [`normalize_type_def`] — Merges `TypedItem` nodes within `TypesDef` that share the same
 //!   `PrimitiveType` key, deduplicating and combining their types.
 //! - [`normalize_require_def`] — Removes duplicate requirement declarations from the `RequireDef` syntax
 //!   and reports them as diagnostics.
 //! - [`normalize_either_type`] — Normalizes `Type` nodes that use implicit union (either) types by
-//!   sorting and deduplicating type elements.
+//!   sorting and deduplicating type_checker elements.
 //!
 //! ## Usage
 //!
-//! These functions are intended to be called after parsing and before type-checking
+//! These functions are intended to be called after parsing and before type_checker-checking
 //! or interpretation. Each pass assumes a valid AST and may depend on earlier
 //! passes. For example, [`normalize_type_def`] assumes that [`normalize_typed_list`] has already
 //! been applied.

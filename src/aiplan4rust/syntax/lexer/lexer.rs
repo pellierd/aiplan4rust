@@ -1,7 +1,7 @@
 //! This module defines a `Lexer` struct that tokenizes an input string using the `logos` crate,
 //! producing a stream of spanned tokens with lexical error handling.
 //!
-//! The `Spanned` type alias represents a `Result` containing a tuple with start and end locations
+//! The `Spanned` type_checker alias represents a `Result` containing a tuple with start and end locations
 //! alongside a token or a lexical error. This allows tracking the precise position of each token
 //! in the input text.
 //!
@@ -25,7 +25,7 @@ use crate::aiplan4rust::syntax::lexer::Token;
 
 /// Type alias for a `Result` that includes token location information (start and end positions).
 ///
-/// This type represents a spanned token, which includes the location in the input string,
+/// This type_checker represents a spanned token, which includes the location in the input string,
 /// the token itself, and any possible errors associated with lexing. The location is represented
 /// by the start and end positions in the input string.
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;

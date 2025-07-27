@@ -5,7 +5,7 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// Represents all possible errors that can occur while working with the AST
 /// or its related parsing context.
 ///
-/// This error type encapsulates lower-level issues such as arena allocation failures,
+/// This error type_checker encapsulates lower-level issues such as arena allocation failures,
 /// syntax tree errors, as well as internal logic errors that may arise during AST
 /// construction or transformation.
 #[derive(Error, Debug)]

@@ -62,10 +62,10 @@ impl TypedList {
         Self { symbols: Vec::new() }
     }
 
-    /// Returns an empty instance of the type.
+    /// Returns an empty instance of the type_checker.
     ///
     /// This is a convenience method that creates a default (empty) value.
-    /// It relies on the `Default` trait implementation for this type.
+    /// It relies on the `Default` trait implementation for this type_checker.
     ///
     /// # Examples
     ///
@@ -231,7 +231,7 @@ impl fmt::Display for TypedList {
 /// Implements `DisplayWithInterner` for `TypedList`.
 ///
 /// A `TypedList` is a collection of `TypedSymbol`s, each potentially associated
-/// with a type. The output is a parenthesized, space-separated list of symbols
+/// with a type_checker. The output is a parenthesized, space-separated list of symbols
 /// with their types, suitable for debugging or display.
 ///
 /// # Example
@@ -290,7 +290,7 @@ impl SyntaxDisplay for TypedList {
     /// # Arguments
     ///
     /// * `f` - The formatter to write into.
-    /// * `interner` - The `StringInterner` used to resolve symbol and type names.
+    /// * `interner` - The `StringInterner` used to resolve symbol and type_checker names.
     ///
     /// # Returns
     ///

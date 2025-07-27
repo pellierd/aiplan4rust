@@ -1,9 +1,8 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
@@ -64,7 +63,7 @@ pub fn check_task_ordering(
     context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
 
     for node in context.ast().preorder().values() {
@@ -73,7 +72,7 @@ pub fn check_task_ordering(
                 let task_ids = extract_task_ids(node, context.ast())?;
                 let mut matrix = build_task_order_matrix(&task_ids)?;
                 transitive_closure(&mut matrix);
-                if is_cyclic(&matrix)? {
+                if is_cyclic(&matrix) {
                     checked = false;
                     report_cyclic_task_ordering_error(
                         source,
@@ -135,7 +134,7 @@ fn report_cyclic_task_ordering_error(
 /// Extracts all TaskID values from the given syntax arena syntax and its children.
 ///
 /// This function traverses the syntax arena starting from the provided syntax, recursively extracting
-/// all TaskID values found within it. The function searches for nodes of type `TaskID` and adds the
+/// all TaskID values found within it. The function searches for nodes of type_checker `TaskID` and adds the
 /// associated string identifiers to a vector. If a syntax does not contain a `TaskID`, the function
 /// recursively searches its children.
 ///
@@ -182,18 +181,10 @@ fn report_cyclic_task_ordering_error(
 fn extract_task_ids(
     node: &AstNode,
     tree: &SyntaxTree<AstNode>,
-) -> Result<Vec<Ident>, AiplanError> {
+) -> Result<Vec<Ident>, SemanticCheckError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {
-        let child_node = match tree.get_node(*child_index) {
-            Some(child) => child,
-            None => {
-                return Err(AiplanError::InternalError(format!(
-                    "Entry not found for child index: {}",
-                    child_index
-                )))
-            }
-        };
+        let child_node = tree.try_node(*child_index)?;
         match child_node.kind() {
             AstKind::TaskID => {
                 vec_task_id.push(child_node.try_ident()?);
@@ -265,13 +256,7 @@ fn extract_task_ids(
 ///
 /// - Each consecutive pair of task IDs in the input slice represents an ordering constraint where
 ///   the first task must precede the second.
-fn build_task_order_matrix(task_ids: &Vec<Ident>) -> Result<Vec<Vec<bool>>, AiplanError> {
-    // Ensure the number of task IDs is even, as we expect pairs of tasks
-    if task_ids.len() % 2 != 0 {
-        return Err(AiplanError::InternalError(
-            "task_ids length must be even".to_string(),
-        ));
-    }
+fn build_task_order_matrix(task_ids: &Vec<Ident>) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
 
     // Build a map from task IDs to unique indices
     let map = build_task_index_map(task_ids);
@@ -461,16 +446,13 @@ fn transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 ///
 /// The check for cycles is performed by inspecting the diagonal elements of the matrix.
 /// If any of the diagonal elements are `true`, it indicates a cycle (self-dependency).
-fn is_cyclic(matrix: &[Vec<bool>]) -> Result<bool, AiplanError> {
-    if !is_square(matrix) {
-        return Err(AiplanError::InternalError("Matrix is not square".to_string()));
-    }
+fn is_cyclic(matrix: &[Vec<bool>]) -> bool {
     for i in 0..matrix.len() {
         if matrix[i][i] {
-            return Ok(true);
+            return true;
         }
     }
-    Ok(false)
+    false
 }
 
 /// Checks if a matrix is square.

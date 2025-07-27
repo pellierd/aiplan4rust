@@ -3,7 +3,7 @@
 //! This module defines the `SyntaxDisplay` trait for formatting structures
 //! with configurable indentation and identifier resolution via a `StringInterner`.
 //!
-//! It allows formatting a type into a string considering indentation level
+//! It allows formatting a type_checker into a string considering indentation level
 //! and an interner to resolve interned identifiers.
 //!
 //! # Example

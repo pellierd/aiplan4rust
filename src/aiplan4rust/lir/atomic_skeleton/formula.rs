@@ -33,9 +33,9 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 /// - The list of typed parameters (its arguments).
 ///
 /// Unlike functions, predicates always return a Boolean value (implicitly true or false),
-/// so their return type is always `None`.
+/// so their return type_checker is always `None`.
 ///
-/// This type internally uses [`NamedTypedList`] to factor out the shared representation
+/// This type_checker internally uses [`NamedTypedList`] to factor out the shared representation
 /// of the identifier and its parameters.
 ///
 /// # Examples
@@ -74,7 +74,7 @@ impl Formula {
     ///
     /// # Returns
     ///
-    /// A `Formula` instance whose return type is always `None`.
+    /// A `Formula` instance whose return type_checker is always `None`.
     pub fn new(name: Ident, parameters: TypedList) -> Self {
         let header = NamedTypedList::new(name, parameters);
         Self { header }

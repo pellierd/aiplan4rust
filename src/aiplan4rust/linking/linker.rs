@@ -1,5 +1,4 @@
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::linking::LinkerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
@@ -11,7 +10,7 @@ use crate::aiplan4rust::lang::Ident;
 
 use std::collections::HashMap;
 use std::mem::take;
-
+use crate::aiplan4rust::linking::error::LinkingError;
 
 /// The `Linker` is responsible for performing the linking phase
 /// of the AIPlan4Rust compilation pipeline.
@@ -81,7 +80,7 @@ impl Linker {
         domain: SemanticContext,
         problem: SemanticContext,
         diagnostic_manager: DiagnosticManager
-    ) -> Result<LinkerResult, AiplanError> {
+    ) -> Result<LinkerResult, LinkingError> {
         self.diagnostic_manager = diagnostic_manager;
         self.link(domain, problem)
     }
@@ -117,7 +116,7 @@ impl Linker {
         &mut self,
         mut domain: SemanticContext,
         mut problem: SemanticContext,
-    ) -> Result<LinkerResult, AiplanError> {
+    ) -> Result<LinkerResult, LinkingError> {
 //        self.diagnostic_manager.add
         /*println!("DOMAIN ****************************$");
         println!("{}", domain.interner());
@@ -250,7 +249,7 @@ pub fn perform_linking_checks(
     domain: &SemanticContext,
     problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, LinkingError> {
 
     // Check that the domain name matches the problem's declared domain
     linking::checks::check_domain_name(domain, problem, Provider::Linker, diagnostic_manager)?;
@@ -279,9 +278,9 @@ pub fn perform_linking_checks(
         diagnostic_manager,
     )?;
 
-    // If structural checks passed, perform type-dependent semantic checks
+    // If structural checks passed, perform type_checker-dependent semantic checks
     if check {
-        // Initialize a type checker with the domain's symbol table
+        // Initialize a type_checker checker with the domain's symbol table
         let type_checker = TypeChecker::new(&domain.symbol_table());
 
         // Validate signatures of declared symbols
@@ -291,7 +290,7 @@ pub fn perform_linking_checks(
             diagnostic_manager,
         )?;
 
-        // Verify the type correctness of expr in the problem
+        // Verify the type_checker correctness of expr in the problem
         semantic::checks::check_typed_expressions(
             problem,
             &type_checker,
@@ -348,7 +347,7 @@ pub fn perform_linking_checks(
 pub fn resolve_external_references(
     domain: &SemanticContext,
     problem: &mut SemanticContext,
-) -> Result<(), AiplanError> {
+) -> Result<(), LinkingError> {
     // Collect declared and undeclared symbols in the problem relative to the domain symbol table
     let mut declared = Vec::new();
     let mut undeclared = Vec::new();
@@ -418,7 +417,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
     domain_symbol_table: &'a SymbolTable,
     declared: &mut Vec<(Ident, Declaration)>,
     undeclared: &mut Vec<(Ident, &'a Usage)>,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, LinkingError> {
     let problem_symbol_table = problem.symbol_table();
     let mut all_resolved = true;
 

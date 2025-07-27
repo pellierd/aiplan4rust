@@ -1,4 +1,4 @@
-//! Defines the [`LirBuilderResult`] type, which encapsulates the outcome of the
+//! Defines the [`LirBuilderResult`] type_checker, which encapsulates the outcome of the
 //! IR (Intermediate Representation) building phase in the AI planning pipeline.
 //!
 //! A [`LirBuilderResult`] contains:

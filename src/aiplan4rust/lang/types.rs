@@ -3,15 +3,15 @@
 //! This module provides a representation of types as non-empty lists of atomic identifiers,
 //! supporting both simple atomic types and union types (referred to as `either` in PDDL).
 //!
-//! The design enables efficient and flexible modeling of type expressions commonly found
-//! in planning domain definitions, where a type can be:
-//! - A single atomic type (e.g., `vehicle`)
+//! The design enables efficient and flexible modeling of type_checker expressions commonly found
+//! in planning domain definitions, where a type_checker can be:
+//! - A single atomic type_checker (e.g., `vehicle`)
 //! - A union of multiple atomic types (e.g., `either car truck`)
 //!
 //! The internal representation uses a flat vector of `Ident` to store the constituent atomic types,
 //! simplifying processing while preserving expressiveness.
 //!
-//! Typical usage includes parsing, type checking, and semantic analysis of planning domain languages.
+//! Typical usage includes parsing, type_checker checking, and semantic analysis of planning domain languages.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -25,17 +25,17 @@ use std::fmt::Formatter;
 use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
 
-/// Represents a type in a planning problem IR.
+/// Represents a type_checker in a planning problem IR.
 ///
-/// A type is always represented as a non-empty list of atomic type identifiers.
-/// If the list contains a single identifier, it represents an atomic (primitive) type.
+/// A type_checker is always represented as a non-empty list of atomic type_checker identifiers.
+/// If the list contains a single identifier, it represents an atomic (primitive) type_checker.
 /// If it contains multiple identifiers, it represents a union (called `either` in PDDL) of types.
 ///
 /// This structure allows easy representation of both simple and union types
 /// while keeping the internal model flat and efficient.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Type {
-    /// Non-empty list of atomic type identifiers.
+    /// Non-empty list of atomic type_checker identifiers.
     members: Vec<Ident>,
 }
 
@@ -96,10 +96,10 @@ impl Type {
         &NUMBER_TYPE
     }
 
-    /// Returns an empty instance of the type.
+    /// Returns an empty instance of the type_checker.
     ///
     /// This is a convenience method that creates a default (empty) value.
-    /// It relies on the `Default` trait implementation for this type.
+    /// It relies on the `Default` trait implementation for this type_checker.
     ///
     /// # Examples
     ///
@@ -111,24 +111,24 @@ impl Type {
         Self::default()
     }
 
-    /// Adds a new atomic or primitive type identifier to this type.
+    /// Adds a new atomic or primitive type_checker identifier to this type_checker.
     ///
     /// # Arguments
     ///
-    /// * `member` - The atomic or primitive type identifier to add.
+    /// * `member` - The atomic or primitive type_checker identifier to add.
     pub fn add_type(&mut self, member: Ident) {
         self.members.push(member);
     }
 
-    /// Creates a new atomic type from a single atomic type identifier.
+    /// Creates a new atomic type_checker from a single atomic type_checker identifier.
     ///
     /// # Arguments
     ///
-    /// * `id` - The identifier of the atomic type.
+    /// * `id` - The identifier of the atomic type_checker.
     ///
     /// # Returns
     ///
-    /// A `Type` instance representing an atomic type.
+    /// A `Type` instance representing an atomic type_checker.
     ///
     /// # Examples
     ///
@@ -141,11 +141,11 @@ impl Type {
         Type { members: vec![id] }
     }
 
-    /// Creates a new union type (either) from multiple atomic type identifiers.
+    /// Creates a new union type_checker (either) from multiple atomic type_checker identifiers.
     ///
     /// # Arguments
     ///
-    /// * `ids` - A non-empty vector of atomic type identifiers to union.
+    /// * `ids` - A non-empty vector of atomic type_checker identifiers to union.
     ///
     /// # Panics
     ///
@@ -167,22 +167,22 @@ impl Type {
         Type { members: ids }
     }
 
-    /// Returns `true` if this type is atomic (contains exactly one member).
+    /// Returns `true` if this type_checker is atomic (contains exactly one member).
     pub fn is_atomic_type(&self) -> bool {
         self.members.len() == 1
     }
 
-    /// Returns `true` if this type is a union (called `either` in PDDL) of atomic types.
+    /// Returns `true` if this type_checker is a union (called `either` in PDDL) of atomic types.
     pub fn is_either_type(&self) -> bool {
         self.members.len() > 1
     }
 
-    /// Returns `true` if the type has no members.
+    /// Returns `true` if the type_checker has no members.
     pub fn is_empty(&self) -> bool {
         self.members.is_empty()
     }
 
-    /// Returns the number of atomic type identifiers contained in this `Type`.
+    /// Returns the number of atomic type_checker identifiers contained in this `Type`.
     ///
     /// # Returns
     ///
@@ -206,7 +206,7 @@ impl Type {
         self.members.into_iter()
     }
 
-    /// Returns a slice containing all the atomic type identifiers in this `Type`.
+    /// Returns a slice containing all the atomic type_checker identifiers in this `Type`.
     ///
     /// This provides a read-only view of the underlying members,
     /// allowing iteration and access without exposing the internal `Vec`.
@@ -237,7 +237,7 @@ impl fmt::Display for Type {
 }
 
 impl InternerDisplay for Type {
-    /// Formats the type by resolving its member identifiers using the string interner.
+    /// Formats the type_checker by resolving its member identifiers using the string interner.
     ///
     /// # Arguments
     /// * `w` - The formatter to write to.
@@ -272,9 +272,9 @@ impl InternerDisplay for Type {
 ///
 /// This trait formats a `Type` for PDDL-like syntax display.
 ///
-/// - If the type has no members, it produces no output.
-/// - If the type has a single member, it prints the member name.
-/// - If the type has multiple members, it prints `(either t1 t2 ...)`.
+/// - If the type_checker has no members, it produces no output.
+/// - If the type_checker has a single member, it prints the member name.
+/// - If the type_checker has multiple members, it prints `(either t1 t2 ...)`.
 ///
 /// # Examples
 ///
@@ -290,7 +290,7 @@ impl InternerDisplay for Type {
 /// t.fmt_planning(&mut s, &interner).unwrap();
 /// assert_eq!(s, "");
 ///
-/// // Example 2: single type
+/// // Example 2: single type_checker
 /// let id = interner.get_or_intern("robot");
 /// t.members.push(id);
 /// let mut s = String::new();
@@ -341,12 +341,12 @@ impl SyntaxDisplay for Type {
 ///
 /// This implementation iterates over the children of the given AST node,
 /// retrieves each child from the syntax tree, and adds its identifier
-/// to the type representation if the content is not empty.
+/// to the type_checker representation if the content is not empty.
 ///
 /// # Parameters
 ///
-/// - `subtree`: A reference to a [`SyntaxSubtree`] that holds a node representing the type
-///   structure (e.g., a list of type identifiers) and the full syntax tree.
+/// - `subtree`: A reference to a [`SyntaxSubtree`] that holds a node representing the type_checker
+///   structure (e.g., a list of type_checker identifiers) and the full syntax tree.
 ///
 /// # Returns
 ///

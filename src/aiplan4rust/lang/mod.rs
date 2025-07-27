@@ -11,7 +11,7 @@
 //!
 //! # Re-exported Modules and Types
 //!
-//! - [`Type`]: Represents a type or a union of types.
+//! - [`Type`]: Represents a type_checker or a union of types.
 //! - [`TypedSymbol`]: A named symbol with one or more associated types.
 //! - [`TypedList`]: A list of typed symbols (commonly used for parameters, variables, etc.).
 //! - [`Ident`]: Interned identifier used uniformly across syntax and semantic layers.

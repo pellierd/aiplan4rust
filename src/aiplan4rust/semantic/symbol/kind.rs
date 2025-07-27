@@ -4,7 +4,7 @@ use std::fmt;
 
 /// Enum representing the different kinds of symbols in the system.
 ///
-/// This enum categorizes the symbols based on their role or type within a domain, problem, or plan.
+/// This enum categorizes the symbols based on their role or type_checker within a domain, problem, or plan.
 /// It is used to distinguish between different symbol types when processing or analyzing a symbol.
 ///
 /// # Variants
@@ -41,7 +41,7 @@ pub enum Kind {
     /// Represents a predicate symbol (typically used for logical conditions).
     Predicate,
 
-    /// Represents a basic data type (e.g., integer, boolean).
+    /// Represents a basic data type_checker (e.g., integer, boolean).
     PrimitiveType,
 
     /// Represents the name of the problem being solved (e.g., a problem definition).

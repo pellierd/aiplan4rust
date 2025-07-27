@@ -14,7 +14,7 @@
 //! It derives common utility traits such as `Clone`, `Copy`, `Debug`, `Eq`, `Hash`,
 //! and also supports serialization through Serde.
 //!
-//! This type is typically used in goal representations, metric definitions, or solver configurations.
+//! This type_checker is typically used in goal representations, metric definitions, or solver configurations.
 
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;

@@ -3,7 +3,7 @@
 //! This module defines the [`Content`] enum, which represents the semantic content
 //! associated with an AST (Abstract Syntax Tree) syntax node.
 //!
-//! Each variant of [`Content`] corresponds to a specific type of content that can be
+//! Each variant of [`Content`] corresponds to a specific type_checker of content that can be
 //! attached to a syntax node in the arena, such as an identifier, a floating-point literal,
 //! or various language-specific operators.
 //!

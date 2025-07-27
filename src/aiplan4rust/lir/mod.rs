@@ -16,7 +16,7 @@
 //! - [`task_network`]: Defines `LiftedTaskNetwork` representing collections of tasks.
 //! - [`initial_task_network`]: Represents the initial task network as input to planners.
 //! - [`atomic_skeleton`]: Contains atomic or fundamental building blocks of LIR.
-//! - [`builder_result`]: Defines `LirBuilderResult`, the result type for builder operations.
+//! - [`builder_result`]: Defines `LirBuilderResult`, the result type_checker for builder operations.
 //! - [`error`]: Contains error types related to LIR construction and validation.
 //!
 //! # Public Exports
@@ -27,8 +27,8 @@
 //! - `LiftedMethod`: Lifted method abstraction.
 //! - `LiftedTaskNetwork`: Lifted task network abstraction.
 //! - `InitialTaskNetwork`: Initial task network representation.
-//! - `LirBuilderResult`: Result type returned from builder operations.
-//! - `LirError`: Error type for LIR-related errors.
+//! - `LirBuilderResult`: Result type_checker returned from builder operations.
+//! - `LirError`: Error type_checker for LIR-related errors.
 //!
 //! # Example
 //!

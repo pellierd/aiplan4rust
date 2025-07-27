@@ -1,10 +1,10 @@
-//! Module defining `TypedSymbol`, a semantic symbol with associated type information.
+//! Module defining `TypedSymbol`, a semantic symbol with associated type_checker information.
 //!
 //! This module provides the `TypedSymbol` struct, which represents an identified symbol
 //! (such as a variable or function name) together with one or more associated types.
 //!
 //! The main purpose of this struct is to model typed entities in a planning domain,
-//! where each symbol carries semantic meaning and type constraints.
+//! where each symbol carries semantic meaning and type_checker constraints.
 //!
 //! Features:
 //! - Construction from an identifier and associated types.
@@ -31,7 +31,7 @@ use crate::aiplan4rust::lang::error::LangError;
 /// with one or more associated types.
 ///
 /// This struct models a semantic symbol (such as a variable or function)
-/// along with its associated type(s).
+/// along with its associated type_checker(s).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol {
     symbol: Ident,
@@ -44,7 +44,7 @@ impl TypedSymbol {
     /// # Arguments
     ///
     /// * `symbol` - The main symbol identifier.
-    /// * `types` - The associated type(s) for the symbol.
+    /// * `types` - The associated type_checker(s) for the symbol.
     ///
     /// # Returns
     ///
@@ -58,7 +58,7 @@ impl TypedSymbol {
         self.symbol
     }
 
-    /// Returns a reference to the associated type(s).
+    /// Returns a reference to the associated type_checker(s).
     pub fn types(&self) -> &Type {
         &self.ty
     }
@@ -109,7 +109,7 @@ impl fmt::Display for TypedSymbol {
 }
 
 impl InternerDisplay for TypedSymbol {
-    /// Formats the symbol and its associated type using the string interner.
+    /// Formats the symbol and its associated type_checker using the string interner.
     ///
     /// # Arguments
     /// * `w` - The formatter to write to.
@@ -128,7 +128,7 @@ impl InternerDisplay for TypedSymbol {
             None => write!(w, "<uninterned:{}>", self.symbol)?,
         }
 
-        // If type is not empty, format it after a separator
+        // If type_checker is not empty, format it after a separator
         if !self.ty.is_empty() {
             write!(w, " - ")?;
             self.ty.fmt_with_interner(w, interner)?;
@@ -140,11 +140,11 @@ impl InternerDisplay for TypedSymbol {
 
 /// Displays a `TypedSymbol` in PDDL syntax.
 ///
-/// A `TypedSymbol` represents a named variable or constant optionally associated with a type.
+/// A `TypedSymbol` represents a named variable or constant optionally associated with a type_checker.
 /// The output follows this format:
-/// - If the type is empty: just the symbol name.
-/// - If the type is present: `symbol - type`.
-/// - If the type has multiple members: `symbol - (either t1 t2 ...)`.
+/// - If the type_checker is empty: just the symbol name.
+/// - If the type_checker is present: `symbol - type_checker`.
+/// - If the type_checker has multiple members: `symbol - (either t1 t2 ...)`.
 ///
 /// # Example
 /// ```text
@@ -168,7 +168,7 @@ impl SyntaxDisplay for TypedSymbol {
             None => write!(f, "<uninterned:{}>", self.symbol)?,
         }
 
-        // If the type is not empty, print " - " followed by the type
+        // If the type_checker is not empty, print " - " followed by the type_checker
         if !self.ty.is_empty() {
             write!(f, " - ")?;
             self.ty.fmt_syntax(f, interner)?;
@@ -186,12 +186,12 @@ impl SyntaxDisplay for TypedSymbol {
 /// - The referenced node **must** be of kind `TypedItem`.
 /// - The node is expected to have **at most two children**:
 ///   - The **first child** is the symbol (mandatory).
-///   - The **second child** is the type (optional).
+///   - The **second child** is the type_checker (optional).
 /// - If the second child is absent, a `TypedSymbol` with an empty [`Type`] is returned.
 ///
 /// # Errors
 ///
-/// Returns an [`AiplanError`] if accessing the children or parsing the symbol/type fails.
+/// Returns an [`AiplanError`] if accessing the children or parsing the symbol/type_checker fails.
 ///
 /// # Example
 ///

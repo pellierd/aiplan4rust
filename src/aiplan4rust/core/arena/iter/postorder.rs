@@ -4,7 +4,7 @@
 //! trees stored in an arena. These iterators yield nodes along with
 //! optional metadata such as node IDs and depth.
 //!
-//! Traversals are generic over node type `T` implementing the `ArenaNode` trait.
+//! Traversals are generic over node type_checker `T` implementing the `ArenaNode` trait.
 //!
 //! # Examples
 //!

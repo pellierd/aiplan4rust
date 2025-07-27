@@ -92,7 +92,7 @@ impl Diagnostic {
 impl Diagnostic {
     /// Converts a `ParseError` into a `Diagnostic`.
     ///
-    /// Formats the error message based on the type of `ParseError` encountered (e.g., unrecognized token, invalid token, etc.)
+    /// Formats the error message based on the type_checker of `ParseError` encountered (e.g., unrecognized token, invalid token, etc.)
     /// and includes the source location and file path (if available).
     ///
     /// # Arguments

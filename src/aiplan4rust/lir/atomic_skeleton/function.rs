@@ -1,7 +1,7 @@
 //! Function Signature Representation (`AtomicFunctionSkeleton`)
 //!
 //! This module defines the [`Function`] struct, which represents the signature of a PDDL function.
-//! Functions have a name, typed parameters, and a return type.
+//! Functions have a name, typed parameters, and a return type_checker.
 //!
 //! This structure is re-exported as [`AtomicFunctionSkeleton`] from the parent module.
 //!
@@ -36,10 +36,10 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// A `Function` is defined by:
 /// - An identifier (its name),
 /// - A list of typed parameters (its arguments),
-/// - A return type (e.g., `Number`, `Object`, etc.).
+/// - A return type_checker (e.g., `Number`, `Object`, etc.).
 ///
 /// This structure is the functional counterpart to [`Formula`] (which represents predicates),
-/// except that it carries a return type instead of being implicitly Boolean.
+/// except that it carries a return type_checker instead of being implicitly Boolean.
 ///
 /// Internally, it reuses [`NamedTypedList`] to encapsulate the name and arguments.
 ///
@@ -76,23 +76,23 @@ pub struct Function {
     /// The internal signature: name and parameters.
     header: NamedTypedList,
 
-    /// The return type of the function.
+    /// The return type_checker of the function.
     ty: Type,
 }
 
 impl Function {
-    /// Creates a new `Function` from name, parameters, and return type.
+    /// Creates a new `Function` from name, parameters, and return type_checker.
     ///
     /// # Parameters
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
-    /// - `ty`: The return type of the function.
+    /// - `ty`: The return type_checker of the function.
     pub fn new(name: Ident, parameters: TypedList, ty: Type) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature, ty }
     }
 
-    /// Returns a reference to the return type.
+    /// Returns a reference to the return type_checker.
     pub fn return_type(&self) -> &Type {
         &self.ty
     }
@@ -121,12 +121,12 @@ impl DerefMut for Function {
 /// The AST node must follow this structure:
 /// - **Child 0**: Function identifier (`Ident`)
 /// - **Child 1**: Typed parameter list
-/// - **Child 2**: Return type
+/// - **Child 2**: Return type_checker
 ///
 /// # Returns
 ///
 /// - `Ok(Function)` on success.
-/// - `Err(AiplanError)` if any required child is missing or if type resolution fails.
+/// - `Err(AiplanError)` if any required child is missing or if type_checker resolution fails.
 ///
 /// # Example
 ///
@@ -185,7 +185,7 @@ impl SyntaxDisplay for Function {
         // Write the separator " - "
         write!(f, " - ")?;
 
-        // Write the type by converting it to string and then writing to formatter
+        // Write the type_checker by converting it to string and then writing to formatter
         let ty_str = self.ty.to_syntax_string(interner);
         write!(f, "{}", ty_str)?;
 

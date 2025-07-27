@@ -2,9 +2,8 @@ use std::collections::HashSet;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::SymbolTable;
+use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -17,7 +16,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
 /// and generation timestamp.
 ///
 /// It is the main output of the semantic analysis stage and acts as the interface
-/// between parsing and later phases such as type checking, optimization, or code generation.
+/// between parsing and later phases such as type_checker checking, optimization, or code generation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     /// The AST stored in an arena for efficient indexing and traversal.
@@ -73,7 +72,7 @@ impl Context {
     ///
     /// # Returns
     /// * A new `AnnotatedSyntaxTree` created from the provided `ast_old`.
-    pub fn from(ast: &mut Ast) -> Result<Self, AiplanError> {
+    pub fn from(ast: &mut Ast) -> Result<Self, SemanticError> {
 
         let symbol_table = SymbolTable::from_ast(ast)?;
         let arena = ast.take_arena();
@@ -103,7 +102,7 @@ impl Context {
     /// # Returns
     ///
     /// A `HashSet` of all declared and implied `Requirement` instances.
-    fn extract_requirements(arena: &SyntaxTree<AstNode>) -> Result<HashSet<Requirement>, AiplanError> {
+    fn extract_requirements(arena: &SyntaxTree<AstNode>) -> Result<HashSet<Requirement>, SemanticError> {
         let mut requirements = HashSet::new();
 
         // Step 1: Find the first `RequireDef` syntax in the AST
@@ -160,8 +159,8 @@ impl Context {
         self.ast.get_node(id)
     }
 
-    pub fn try_node(&self, id: NodeId) -> Result<&AstNode, AiplanError> {
-        Ok(self.ast.try_node(id)?) // TODO: handle error properly Ok add for refactoring
+    pub fn try_node(&self, id: NodeId) -> Result<&AstNode, SemanticError> {
+        Ok(self.ast.try_node(id)?)
     }
 
     /// Returns a reference to the internal AST arena.

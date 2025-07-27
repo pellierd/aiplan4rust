@@ -1021,7 +1021,7 @@ pub fn check_initial_task_network(ast: &Ast, node: &AstNode) -> Result<(), WellF
 ///   a `TypedItemElements` node and a `Type` node, which are checked accordingly.
 /// - If `node` is `TypedItemElements`, it ensures it has at least one child, and all children
 ///   are among the `expected` kinds provided.
-/// - If `node` is a `Type`, it validates the type node (leaf node).
+/// - If `node` is a `Type`, it validates the type_checker node (leaf node).
 /// - For any unexpected node kinds, it returns an error.
 ///
 /// # Recursion

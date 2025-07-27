@@ -1,7 +1,7 @@
 //! Task Signature Representation (`AtomicTaskSkeleton`)
 //!
 //! This module defines the [`Task`] struct, which represents the signature of a high-level
-//! planning task in HDDL. Tasks have a name and typed parameters, but no return type.
+//! planning task in HDDL. Tasks have a name and typed parameters, but no return type_checker.
 //!
 //! This structure is re-exported as [`AtomicTaskSkeleton`] from the parent module.
 //!

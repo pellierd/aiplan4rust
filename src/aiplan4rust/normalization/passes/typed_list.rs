@@ -2,16 +2,16 @@
 //!
 //! This module provides functionality to recursively normalize all `TypedList` nodes
 //! within an AST subtree by transforming them so that each `TypedItem` syntax contains
-//! exactly one element along with its optional type annotation.
+//! exactly one element along with its optional type_checker annotation.
 //!
 //! The normalization process involves a depth-first traversal starting from the root
 //! syntax of the AST. For each `TypedList` syntax encountered:
 //! - It verifies that each child is a `TypedItem` syntax containing at least one child.
 //! - Extracts the first child as the element (which must be a valid element kind).
-//! - Optionally clones the second child if present, representing the type annotation.
-//! - Rebuilds the `TypedItem` nodes so that each contains exactly one element plus an optional type.
+//! - Optionally clones the second child if present, representing the type_checker annotation.
+//! - Rebuilds the `TypedItem` nodes so that each contains exactly one element plus an optional type_checker.
 //!
-//! This transformation ensures that after normalization, type annotations are duplicated
+//! This transformation ensures that after normalization, type_checker annotations are duplicated
 //! per element, which simplifies subsequent semantic analysis and code generation.
 //!
 //! # Example of the transformation
@@ -75,8 +75,8 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// For each `TypedList` syntax encountered, it:
 /// - Validates that each child is a `TypedItem` syntax with at least one child.
 /// - Extracts the first child as the element (which must be one of the valid element kinds).
-/// - Optionally clones the second child if present, representing the type annotation.
-/// - Rebuilds each `TypedItem` syntax to contain exactly one element plus an optional type.
+/// - Optionally clones the second child if present, representing the type_checker annotation.
+/// - Rebuilds each `TypedItem` syntax to contain exactly one element plus an optional type_checker.
 ///
 /// After normalizing a `TypedList` syntax, its children are pushed onto the stack to continue
 /// the normalization recursively.
@@ -136,7 +136,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 ///
 /// This function uses an explicit stack to avoid deep recursion and possible stack overflow
 /// on very large ASTs. It is typically the first normalization step before semantic analysis,
-/// type inference, or code generation.
+/// type_checker inference, or code generation.
 pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
     if !ast.arena().is_empty() {
         normalize_typed_list_node(ast)?
@@ -150,14 +150,14 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// of the entire AST. Each time it encounters a `TypedList` syntax, it:
 ///
 /// 1. Retrieves and clears its current children (`TypedItem` nodes).
-/// 2. For each `TypedItem`, extracts all contained elements along with the optional type annotation.
+/// 2. For each `TypedItem`, extracts all contained elements along with the optional type_checker annotation.
 /// 3. Creates a new `TypedItem` syntax for each individual element, preserving the original span
-///   and optional type annotation.
+///   and optional type_checker annotation.
 /// 4. Replaces the original `TypedList` children with these normalized `TypedItem` nodes.
 ///
 /// The normalization guarantees that after processing:
 /// - Each `TypedItem` syntax contains **exactly one element**.
-/// - Shared type annotations are duplicated appropriately for each element.
+/// - Shared type_checker annotations are duplicated appropriately for each element.
 ///
 /// # Arguments
 ///
@@ -191,7 +191,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
 ///
 /// This normalization step is important to simplify downstream processing,
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
-/// type checking and code generation phases.
+/// type_checker checking and code generation phases.
 fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
     let root_id = ast.arena().try_root_id()?;
     let arena = ast.arena_mut();
@@ -215,12 +215,12 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
 
 
 /// Normalizes the children of a `TypedList` syntax by expanding each `TypedItem`
-/// so that each new `TypedItem` syntax contains exactly one element and an optional type.
+/// so that each new `TypedItem` syntax contains exactly one element and an optional type_checker.
 ///
 /// This function performs the tree normalization step for `TypedList` nodes:
 /// - It extracts the existing children (which are `TypedItem` nodes that may contain multiple
 ///   elements).
-/// - For each old `TypedItem`, it creates one new `TypedItem` per element, preserving optional type
+/// - For each old `TypedItem`, it creates one new `TypedItem` per element, preserving optional type_checker
 ///   and span.
 /// - It replaces the old children with the newly created normalized `TypedItem` nodes.
 ///
@@ -263,7 +263,7 @@ fn normalize_typed_list_node_children(
     let mut new_typed_items = Vec::with_capacity(old_typed_items.len());
 
     // 2. For each old TypedItem, extract its elements and create new TypedItem nodes,
-    //    each with exactly one element and the optional type preserved.
+    //    each with exactly one element and the optional type_checker preserved.
     for typed_item_id in old_typed_items {
         let (element_ids, type_id_opt, span) =
             extract_typed_item_data(arena, typed_item_id)?;
@@ -321,11 +321,11 @@ fn is_typed_list_node(
     Ok(node.kind() == AstKind::TypedList)
 }
 
-/// Extracts the child element IDs, optional type ID, and span from a `TypedItem` syntax.
+/// Extracts the child element IDs, optional type_checker ID, and span from a `TypedItem` syntax.
 ///
 /// This function is used during normalization to decompose a `TypedItem` syntax into:
 /// - the IDs of its contained elements (which may be multiple before normalization),
-/// - an optional type syntax,
+/// - an optional type_checker syntax,
 /// - and the span information.
 ///
 /// # Arguments
@@ -337,7 +337,7 @@ fn is_typed_list_node(
 ///
 /// * `Ok((element_ids, type_id_opt, span))` -
 ///     - `element_ids`: A vector of the IDs of the element nodes contained in this `TypedItem`.
-///     - `type_id_opt`: An optional ID of the associated type syntax.
+///     - `type_id_opt`: An optional ID of the associated type_checker syntax.
 ///     - `span`: The span information of the `TypedItem`.
 ///
 /// * `Err(NormalizationError)` - If the syntax is missing expected children or is invalid.
@@ -363,7 +363,7 @@ fn extract_typed_item_data(
     // The first child must be the elements syntax
     let elements_id = typed_item_node.try_child(0)?;
 
-    // The second child, if it exists, is the optional type annotation
+    // The second child, if it exists, is the optional type_checker annotation
     let type_id_opt = typed_item_node.get_child(1);
 
     // Clone the span metadata
@@ -379,7 +379,7 @@ fn extract_typed_item_data(
     Ok((element_ids, type_id_opt, span))
 }
 
-/// Creates a new `TypedItem` syntax containing exactly one element and optionally a type.
+/// Creates a new `TypedItem` syntax containing exactly one element and optionally a type_checker.
 ///
 /// This function is used during normalization of `TypedList` nodes to reconstruct
 /// each `TypedItem` in a uniform structure.
@@ -387,7 +387,7 @@ fn extract_typed_item_data(
 /// # Arguments
 ///
 /// * `element_id` - The syntax ID of the single element to include.
-/// * `type_id_opt` - An optional syntax ID representing the type annotation.
+/// * `type_id_opt` - An optional syntax ID representing the type_checker annotation.
 /// * `span` - The source span associated with the new syntax.
 /// * `parent_id` - The parent syntax ID, typically referring to the `TypedList`.
 ///
@@ -403,7 +403,7 @@ fn create_typed_item_node(
     // Initialize children with the mandatory element syntax
     let mut children = vec![element_id];
 
-    // If a type is provided, append it as the second child
+    // If a type_checker is provided, append it as the second child
     if let Some(type_id) = type_id_opt {
         children.push(type_id);
     }

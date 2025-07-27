@@ -65,7 +65,7 @@
 //! For convenience, these types and traits are publicly re-exported:
 //! - [`Language`] — Language selector enum
 //! - [`Parser`] — Main parser interface
-//! - [`ParserResult`] — Parser output type
+//! - [`ParserResult`] — Parser output type_checker
 //! - [`Span`] — Source span utility
 //! - [`SyntaxDisplay`] — Trait for AST formatting
 //! - [`FastLineTable`] — File line tracking utility

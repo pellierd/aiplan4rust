@@ -125,7 +125,7 @@ pub fn check_quantified_expression(ast: &Ast, node: &AstNode) -> Result<(), Well
 /// - If the node is of kind `TypedList`, verifies that all its children are `TypedItem` nodes.
 /// - If the node is of kind `TypedItem`, validates that it has exactly two children:
 ///   the first being one of the expected kinds (such as a typed element like variable, constant,
-///   primitive type, or atomic formula skeleton), and the second a `Type` node.
+///   primitive type_checker, or atomic formula skeleton), and the second a `Type` node.
 /// - Returns an error if the node kind is neither `TypedList` nor `TypedItem`.
 ///
 /// # Arguments
@@ -153,7 +153,7 @@ pub fn check_typed_list_of(
             syntax::checks::check_typed_list(ast, node)?;
         }
         AstKind::TypedItem => {
-            // TypedItem should have exactly two children: a typed element (variable, constant, primitive type,
+            // TypedItem should have exactly two children: a typed element (variable, constant, primitive type_checker,
             // or atomic formula skeleton) and a Type node
             normalization::checks::check_typed_item(ast, node)?;
             return Ok(())

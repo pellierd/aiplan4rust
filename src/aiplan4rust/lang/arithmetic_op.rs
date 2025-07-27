@@ -146,7 +146,7 @@ impl SyntaxDisplay for ArithmeticOp {
     /// # Arguments
     ///
     /// * `f` - The formatter to write the output to.
-    /// * `_interner` - The string interner, unused for this type.
+    /// * `_interner` - The string interner, unused for this type_checker.
     ///
     /// # Returns
     ///

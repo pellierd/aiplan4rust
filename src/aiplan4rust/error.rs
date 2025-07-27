@@ -1,8 +1,10 @@
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::normalization::NormalizationError;
+use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -33,6 +35,11 @@ pub enum AiplanError {
     #[error(transparent)]
     Interner(#[from] InternerError),
 
+    #[error(transparent)]
+    Semantic(#[from] SemanticError),
+
+    #[error(transparent)]
+    Linking(#[from] LinkingError),
     // autres variantes à venir...
 }
 
@@ -65,6 +72,12 @@ impl From<AiplanError> for ArenaError {
             }
             AiplanError::Normalization(ne) => {
                 ArenaError::InternalError(format!("Normalization error wrapped: {}", ne))
+            }
+            AiplanError::Semantic(se) => {
+                ArenaError::InternalError(format!("Semantic error wrapped: {}", se))
+            }
+            AiplanError::Linking(le) => {
+                ArenaError::InternalError(format!("Linking error wrapped: {}", le))
             }
         }
     }

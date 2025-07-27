@@ -204,7 +204,7 @@ pub fn render_with_indent(
                 write!(f, "{}<missing_child>", indent_str)?;
             }
 
-            // Handle optional second child (type)
+            // Handle optional second child (type_checker)
             if let Some(ty_id) = node.get_child(1) {
                 write!(f, " - ")?;
                 if let Some(ty_node) = arena.get_node(ty_id) {
@@ -222,9 +222,9 @@ pub fn render_with_indent(
                 1 => {
                     let ty_node_id = node.children()[0];
                     if let Some(ty_node) = arena.get_node(ty_node_id) {
-                        // Write indentation before the single type
+                        // Write indentation before the single type_checker
                         write!(f, "{}", indent_str)?;
-                        // Recursively format the type content with the current indentation
+                        // Recursively format the type_checker content with the current indentation
                         ty_node
                             .content()
                             .fmt_syntax_with_indent(f, interner, indent)
@@ -240,7 +240,7 @@ pub fn render_with_indent(
                     for child_id in node.children() {
                         write!(f, " ")?;
                         if let Some(ty_node) = arena.get_node(*child_id) {
-                            // Format each type content recursively, no extra indent here since on the same line
+                            // Format each type_checker content recursively, no extra indent here since on the same line
                             ty_node
                                 .content()
                                 .fmt_syntax_with_indent(f, interner, indent)?;
@@ -681,7 +681,7 @@ pub fn render_with_indent(
         }
 
         AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
-            // Write the type of subtask with current indentation
+            // Write the type_checker of subtask with current indentation
             write!(f, "{}", indent_str)?;
             node.kind().fmt_syntax(f, interner)?;
             writeln!(f)?;

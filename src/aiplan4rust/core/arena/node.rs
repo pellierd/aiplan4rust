@@ -40,7 +40,7 @@ use crate::aiplan4rust::core::arena::{ArenaError, NodeId};
 
 /// A generic trait representing syntax stored within an arena (`TreeArena`).
 ///
-/// This trait defines the minimal interface any syntax node type must implement
+/// This trait defines the minimal interface any syntax node type_checker must implement
 /// to be used in an arena-managed tree structure. It includes methods for
 /// navigating parent-child relationships, modifying the arena, accessing content,
 /// and extracting semantic information like identifiers and symbols.
@@ -55,7 +55,7 @@ use crate::aiplan4rust::core::arena::{ArenaError, NodeId};
 ///
 /// # Notes
 ///
-/// - The trait expects an associated `Content` type implementing [`NodeContent`]
+/// - The trait expects an associated `Content` type_checker implementing [`NodeContent`]
 ///   that holds semantic data.
 /// - Default methods like `try_parent` and `try_child` return proper errors
 ///   instead of panicking.

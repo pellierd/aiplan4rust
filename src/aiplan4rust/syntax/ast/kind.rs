@@ -46,7 +46,7 @@ pub enum Kind {
     /// A function symbol, typically for mathematical or logical functions.
     FunctionSymbol,
 
-    /// A primitive data type (e.g., integer, boolean).
+    /// A primitive data type_checker (e.g., integer, boolean).
     PrimitiveType,
 
     /// The name of the domain in a planning description.
@@ -76,13 +76,13 @@ pub enum Kind {
     /// A specific requirement or constraint for the domain/problem.
     Requirement,
 
-    /// A type declaration used to define object types.
+    /// A type_checker declaration used to define object types.
     Type,
 
     /// A list of typed elements (multiple `TypedItem`s).
     TypedList,
 
-    /// A single typed element, pairing names with a type.
+    /// A single typed element, pairing names with a type_checker.
     TypedItem,
 
     /// The untyped element part within a typed item.

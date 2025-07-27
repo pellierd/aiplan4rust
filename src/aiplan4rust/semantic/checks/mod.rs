@@ -10,6 +10,7 @@ pub mod type_hierarchy;
 
 pub mod unused_symbols;
 pub mod context;
+pub mod error;
 
 pub use declared_symbols::check_declared_symbols;
 pub use declared_symbol_signatures::check_declared_symbol_signatures;
@@ -20,3 +21,4 @@ pub use typed_expressions::check_typed_expressions;
 pub use undeclared_symbols::check_undeclared_symbols;
 pub use unused_symbols::check_unused_symbols;
 pub use context::Context as CheckContext;
+pub use error::SemanticCheckError;

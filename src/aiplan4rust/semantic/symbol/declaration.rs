@@ -75,14 +75,14 @@ impl Declaration {
     /// Creates a new `Declaration` instance.
     ///
     /// Constructs a `Declaration` that represents the declaration of a symbol within
-    /// a given scope, along with optional type information and arguments.
+    /// a given scope, along with optional type_checker information and arguments.
     ///
     /// # Parameters
     ///
     /// - `symbol_ref`: A reference to the symbol being declared.
     /// - `scope`: The scope in which this declaration is valid (e.g., function, module).
     /// - `origin`: The origin or source of the declaration (e.g., domain or problem).
-    /// - `types`: An optional list of types associated with the symbol (e.g., return types or type
+    /// - `types`: An optional list of types associated with the symbol (e.g., return types or type_checker
     ///   annotations).
     /// - `arguments`: An optional list of typed symbols representing the parameters or arguments,
     ///   possibly grouped by parameter lists.
@@ -235,7 +235,7 @@ impl Declaration {
     ///
     /// If the declaration has a list of types, this function formats them and writes them
     /// to the formatter. The types are displayed in a parenthesized list. If there is only
-    /// one type, it is directly displayed. If there are multiple types, they are prefixed
+    /// one type_checker, it is directly displayed. If there are multiple types, they are prefixed
     /// with the word "either" and separated by spaces.
     ///
     /// # Arguments
@@ -259,7 +259,7 @@ impl Declaration {
             if types.is_empty() {
                 write!(f, ")")?;
             } else if types.len() == 1 {
-                // Directly format the single type
+                // Directly format the single type_checker
                 if let Some(single_type) = types.iter().next() {
                     write!(f, "{})", single_type)?;
                 }
@@ -311,22 +311,22 @@ impl Declaration {
         Ok(())
     }
 
-    /// Formats the type information of the declaration using a `StringInterner`
+    /// Formats the type_checker information of the declaration using a `StringInterner`
     /// to resolve interned identifiers into human-readable strings.
     ///
     /// This function writes a formatted representation of the declaration's types
     /// into the given formatter. The formatting follows these rules:
     /// - If there are no types, it writes `", types: ()"`.
-    /// - If there is a single type, it writes it directly: `", types: (type_name)"`.
+    /// - If there is a single type_checker, it writes it directly: `", types: (type_name)"`.
     /// - If there are multiple types, it writes them in PDDL's `either` syntax:
     ///   `", types: (either type1 type2 ...)"`.
     ///
-    /// If a type identifier cannot be resolved by the interner, it is printed as `<uninterned:ID>`.
+    /// If a type_checker identifier cannot be resolved by the interner, it is printed as `<uninterned:ID>`.
     ///
     /// # Arguments
     ///
     /// * `w` - The formatter to write the output to.
-    /// * `interner` - The `StringInterner` used to resolve interned type identifiers.
+    /// * `interner` - The `StringInterner` used to resolve interned type_checker identifiers.
     ///
     /// # Returns
     ///

@@ -1,8 +1,8 @@
-//! Unique identifier type backed by `usize` for use in interning and indexing.
+//! Unique identifier type_checker backed by `usize` for use in interning and indexing.
 //!
 //! The `Ident` struct wraps a `usize` value representing a unique identifier,
 //! typically used as an index into an interner (such as `StringInterner`) or
-//! other structures requiring compact, type-safe identifiers.
+//! other structures requiring compact, type_checker-safe identifiers.
 //!
 //! # Sentinel value
 //!
@@ -58,11 +58,11 @@ use std::fmt::Formatter;
 ///
 /// This struct wraps a `usize` that acts as an index or identifier in contexts
 /// such as a string interner. It provides methods to access the underlying value
-/// and enables type-safe handling of identifiers.
+/// and enables type_checker-safe handling of identifiers.
 ///
 /// The `Default` implementation uses `usize::MAX` as a special sentinel value to
 /// indicate an uninitialized or invalid identifier. Since `usize` is an unsigned
-/// type and cannot hold negative values, `usize::MAX` (the maximum possible
+/// type_checker and cannot hold negative values, `usize::MAX` (the maximum possible
 /// value for a `usize`) is chosen as a stand-in for "no valid id".
 ///
 /// Users should be aware of this sentinel when checking the validity of an

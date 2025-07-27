@@ -8,7 +8,7 @@
 //! **Important:**
 //! This module does *not* perform any semantic validation.
 //! It only guarantees that the AST structure follows basic syntactic rules and node composition constraints.
-//! Semantic correctness, type checking, and domain-specific validations are out of scope here and must be
+//! Semantic correctness, type_checker checking, and domain-specific validations are out of scope here and must be
 //! handled in separate validation phases.
 //!
 //! # Example

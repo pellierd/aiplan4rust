@@ -6,7 +6,7 @@
 //!
 //! # Overview
 //! - Wraps calls to LALRPOP parser instances (`PDDLParser`, `HDDLParser`).
-//! - Converts LALRPOP-specific errors into a unified `ParserError` type.
+//! - Converts LALRPOP-specific errors into a unified `ParserError` type_checker.
 //! - Manages the parse context, including the root syntax ID.
 //! - Simplifies higher-level usage by exposing straightforward parsing functions.
 //!

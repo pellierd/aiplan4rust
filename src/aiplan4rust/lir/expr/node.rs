@@ -176,7 +176,7 @@ impl SyntaxNode for ExprNode {
     }
 
     /// Attempts to interpret this node as a symbol reference if its kind corresponds to
-    /// a symbol type. Returns `None` if not applicable.
+    /// a symbol type_checker. Returns `None` if not applicable.
     ///
     /// # Errors
     ///

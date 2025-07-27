@@ -1,6 +1,5 @@
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
-use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::semantic::{SemanticContext, TypeChecker};
+use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
@@ -68,7 +67,7 @@ impl Analyzer {
     /// # Note
     /// Because the AST is passed as mutable, this function can efficiently
     /// consume parts of the AST (such as the interner) to avoid duplication.
-    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, AiplanError> {
+    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
         self.perform_analysis(ast)
     }
 
@@ -93,7 +92,7 @@ impl Analyzer {
         &mut self,
         ast: &mut Ast,
         diagnostic_manager: DiagnosticManager,
-    ) -> Result<AnalyzerResult, AiplanError> {
+    ) -> Result<AnalyzerResult, SemanticError> {
         self.diagnostic_manager = diagnostic_manager;
         self.perform_analysis(ast)
     }
@@ -122,25 +121,27 @@ impl Analyzer {
     fn perform_analysis(
         &mut self,
         ast: &mut Ast,
-    ) -> Result<AnalyzerResult, AiplanError> {
+    ) -> Result<AnalyzerResult, SemanticError> {
 
         let context = SemanticContext::from(ast)?;
         let check_ctx = CheckContext::from_semantic_context(&context);
 
         // Step 2: Determine kind and apply semantic checks
-        let root =  context.ast().try_root()?;
-        match root.kind() {
+        let root_ref =  context.ast().try_root_node_ref()?;
+        // Match on the root kind and handle unexpected kinds with the semantic error
+        match root_ref.node().kind() {
             AstKind::Domain => {
                 Self::check_domain(&check_ctx, &mut self.diagnostic_manager)?;
             }
             AstKind::Problem => {
                 Self::check_problem(&check_ctx, &mut self.diagnostic_manager)?;
             }
-            _ => {
-                return Err(AiplanError::InternalError(format!(
-                    "Unexpected AST syntax kind found: {}",
-                    root.kind()
-                )));
+            found => {
+                return Err(SemanticError::unexpected_ast_kind(
+                    root_ref.id(),
+                    vec![AstKind::Domain, AstKind::Problem],
+                    found,
+                ));
             }
         }
 
@@ -163,7 +164,7 @@ impl Analyzer {
     /// This function performs several checks specific to the domain section of the syntax arena:
     /// 1. It first checks the declared symbols against the given exclusions for unused symbols.
     /// 2. If the symbol check passes, it proceeds to check for atomic formula correctness.
-    /// 3. Then, it checks the functional expr correctness using the type information from the
+    /// 3. Then, it checks the functional expr correctness using the type_checker information from the
     ///   symbol table.
     ///
     /// # Parameters
@@ -188,7 +189,7 @@ impl Analyzer {
     fn check_domain(
         context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
-    ) -> Result<bool, AiplanError> {
+    ) -> Result<bool, SemanticError> {
         // Skip unused symbols of kind Constant during the checks
         let skip_symbols_unused = &[SymbolKind::Constant];
 
@@ -197,7 +198,7 @@ impl Analyzer {
         let mut checked= Self::check_symbols(
             context,
             &[],                 // No symbols to skip for declared symbols check
-            skip_symbols_unused, // Skip symbols of type Constant for unused symbol check
+            skip_symbols_unused, // Skip symbols of type_checker Constant for unused symbol check
             diagnostic_manager,
         )?;
 
@@ -211,17 +212,17 @@ impl Analyzer {
         if checked {
 
 
-            // Create a type checker using the symbol table from the annotated syntax arena
+            // Create a type_checker checker using the symbol table from the annotated syntax arena
             let type_checker = TypeChecker::new(context.symbol_table());
 
-            // Check atomic formulas in the domain using the type checker
+            // Check atomic formulas in the domain using the type_checker checker
             checked &= semantic::checks::check_declared_symbol_signatures(
                 context,
                 &type_checker,
                 diagnostic_manager,
             )?;
 
-            // Check functional expr in the domain using the type checker
+            // Check functional expr in the domain using the type_checker checker
             checked &= semantic::checks::check_typed_expressions(
                 context,
                 &type_checker,
@@ -265,7 +266,7 @@ impl Analyzer {
     fn check_problem(
         context: &CheckContext,
         diagnostic_manager: &mut DiagnosticManager
-    ) -> Result<bool, AiplanError> {
+    ) -> Result<bool, SemanticError> {
         let skip_types_undeclared = &[
             SymbolKind::PrimitiveType,
             SymbolKind::Constant,
@@ -332,7 +333,7 @@ impl Analyzer {
         skip_types_undeclared: &[SymbolKind], // Types of symbols to ignore during undeclared symbol checking
         skip_symbols_unused: &[SymbolKind],   // Symbols to ignore during unused symbol checking
         diagnostic_manager: &mut DiagnosticManager,
-    ) -> Result<bool, AiplanError> {
+    ) -> Result<bool, SemanticError> {
         let mut checked = true;
 
         // Check declared symbols in the annotated syntax arena

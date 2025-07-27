@@ -66,6 +66,10 @@ impl<T: SyntaxNode> SyntaxTree<T>
         self.arena.root_node_ref()
     }
 
+    pub fn try_root_node_ref(&self) -> Result<NodeRef<'_, T>, SyntaxTreeError> {
+        Ok(self.arena.try_root_node_ref()?)
+    }
+
     pub fn root_id(&self) -> Option<NodeId> {
         self.arena.root_id()
     }

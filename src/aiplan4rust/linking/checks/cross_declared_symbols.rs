@@ -3,13 +3,13 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::SymbolOrigin;
 use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::linking::error::LinkingError;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
 ///
@@ -72,7 +72,7 @@ pub fn check_cross_declared_symbols(
     problem: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, LinkingError> {
     // Step 1: Initialize a flag to track overall success of the check.
     let mut checked = true;
 
@@ -235,7 +235,7 @@ fn report_cross_conflict_symbol_error(
     context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-)  -> Result<(), AiplanError> {
+)  -> Result<(), LinkingError> {
     let symbol = declaration.symbol_ident();
     let symbol_name = context.interner().try_resolve(symbol)?;
     let error = Diagnostic::new(

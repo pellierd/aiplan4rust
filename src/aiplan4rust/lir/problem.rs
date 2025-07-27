@@ -242,9 +242,9 @@ impl Problem {
         &mut self.types
     }
 
-    /// Adds a single type.
+    /// Adds a single type_checker.
     ///
-    /// If the type already exists, it is not added again.
+    /// If the type_checker already exists, it is not added again.
     ///
     /// # Example
     ///

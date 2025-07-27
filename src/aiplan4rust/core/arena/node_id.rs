@@ -1,11 +1,11 @@
 //! Unique node identifiers for arena-managed tree structures.
 //!
-//! This module defines the [`NodeId`] type, which wraps a `usize` index to uniquely
+//! This module defines the [`NodeId`] type_checker, which wraps a `usize` index to uniquely
 //! identify nodes stored within an arena (a contiguous node storage).
 //!
 //! # Key Features
 //!
-//! - Provides strong typing and clarity by wrapping raw indices in a distinct type.
+//! - Provides strong typing and clarity by wrapping raw indices in a distinct type_checker.
 //! - Defines a sentinel invalid ID (`usize::MAX`) for easy validation checks.
 //! - Implements common traits for copying, hashing, serialization, and debugging.
 //! - Supports (de)serialization as strings for better readability in serialized forms.
@@ -14,7 +14,7 @@
 //! # Usage
 //!
 //! `NodeId` is the primary way to refer to nodes in arena-based trees, ensuring
-//! type safety and preventing accidental misuse of raw indices.
+//! type_checker safety and preventing accidental misuse of raw indices.
 //!
 //! Typical operations include creating new IDs, validating their correctness,
 //! and converting them to and from raw indices or serialized forms.
@@ -43,7 +43,7 @@ use serde::de::Error;
 /// A unique identifier for nodes within an arena.
 ///
 /// `NodeId` wraps a `usize` index used to uniquely identify nodes in
-/// an arena-managed tree structure. It provides type safety and utility
+/// an arena-managed tree structure. It provides type_checker safety and utility
 /// methods for working with node identifiers.
 ///
 /// # Sentinel value

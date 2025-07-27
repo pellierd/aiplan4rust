@@ -15,7 +15,7 @@
 //! 1. `normalize_typed_list`: Converts complex typed list syntax into a uniform structure.
 //! 2. `normalize_either_type`: Resolves `either` types into disjunctions or intersections.
 //! 3. `normalize_require_def`: Processes `:requirements` to ensure semantic validity.
-//! 4. `normalize_type_def`: Normalizes type hierarchies and definitions.
+//! 4. `normalize_type_def`: Normalizes type_checker hierarchies and definitions.
 //!
 //! Each pass may emit diagnostics and may return a [`NormalizationError`] if it encounters
 //! an unrecoverable issue.

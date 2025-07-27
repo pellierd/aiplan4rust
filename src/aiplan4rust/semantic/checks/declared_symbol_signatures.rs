@@ -1,12 +1,12 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::core::arena::ArenaNode;
-use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 
@@ -47,7 +47,7 @@ pub fn check_declared_symbol_signatures(
     context: &CheckContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
     let symbol_table = context.symbol_table();
     let mut no_error = true;
 
@@ -121,7 +121,7 @@ pub fn check_declared_symbol_signatures(
 /// * `usage` - The usage of the symbol in the AST.
 /// * `symbol_table` - The table containing the symbols for reference.
 /// * `ast_old` - The AST table for resolving entries and their types.
-/// * `type_checker` - A type checker used to validate the matching types.
+/// * `type_checker` - A type_checker checker used to validate the matching types.
 ///
 /// # Returns
 ///
@@ -134,10 +134,8 @@ fn match_declaration_with_usage(
     context: &CheckContext,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
-    let ast_usage = context.ast().get_node(usage.node_id()).ok_or_else(|| {
-        AiplanError::InternalError(format!("AST entry not found for usage '{}'", usage.node_id()))
-    })?;
+) -> Result<bool, SemanticCheckError> {
+    let ast_usage = context.ast().try_node(usage.node_id())?;
 
     for (index, argument_index) in ast_usage.children().iter().skip(1).enumerate() {
         let argument = context.ast().get_node(*argument_index).unwrap();
@@ -146,11 +144,12 @@ fn match_declaration_with_usage(
             AstKind::Variable => SymbolKind::Variable,
             AstKind::Constant => SymbolKind::Constant,
             AstKind::FunctionTerm => SymbolKind::Function,
-            _ => {
-                return Err(AiplanError::InternalError(format!(
-                    "Unexpected AST kind encountered: {}",
-                    argument.kind()
-                )))
+            found => {
+                return Err(SemanticCheckError::unexpected_ast_kind(
+                    AstKind::Variable,  // ou un AstKind générique si tu veux, sinon adapter
+                    found,
+                    usage.node_id(),
+                ));
             }
         };
 
@@ -164,7 +163,7 @@ fn match_declaration_with_usage(
             kind,
             index,
             type_checker,
-            diagnostic_manager
+            diagnostic_manager,
         )? {
             return Ok(false);
         }
@@ -173,7 +172,7 @@ fn match_declaration_with_usage(
     Ok(true)
 }
 
-/// Matches a specific argument in the declaration to its expected type.
+/// Matches a specific argument in the declaration to its expected type_checker.
 ///
 /// This function verifies that the argument in the usage corresponds to the declaration,
 /// ensuring that types match correctly and the argument is within valid bounds.
@@ -186,7 +185,7 @@ fn match_declaration_with_usage(
 /// * `name` - The name of the argument being matched.
 /// * `kind` - The kind of the argument, such as `SymbolKind::Variable` or `SymbolKind::Function`.
 /// * `index` - The index of the argument in the argument list.
-/// * `type_checker` - A type checker to validate type consistency.
+/// * `type_checker` - A type_checker checker to validate type_checker consistency.
 ///
 /// # Returns
 ///
@@ -203,7 +202,7 @@ fn match_argument(
     index: usize,
     type_checker: &TypeChecker,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, AiplanError> {
+) -> Result<bool, SemanticCheckError> {
     // Retrieve the symbol name associated with the argument from the annotated syntax arena
     let name = context.ast().try_node(NodeId::new(argument_index))?.try_ident()?;
 
@@ -212,11 +211,7 @@ fn match_argument(
     let symbol_declaration = match symbol_table.resolve_declaration(&name, &kind, usage.scope())? {
         Some(decl) => decl,
         None => {
-            return Err(AiplanError::InternalError(format!(
-                "No declaration found for symbol '{}' in scope {}.",
-                name,
-                usage.scope()
-            )))
+            return Err(SemanticCheckError::missing_declaration(name, usage.scope().clone()));
         }
     };
 
@@ -224,39 +219,28 @@ fn match_argument(
     let declared_arguments = match declaration.arguments() {
         Some(args) => args,
         None => {
-            return Err(AiplanError::InternalError(format!(
-                "Failed to retrieve arguments for declaration in scope {}",
-                declaration.scope()
-            )))
+            return Err(SemanticCheckError::missing_declaration_arguments(declaration.scope().clone()));
         }
     };
 
-    // Retrieve the type of the i-th declared argument (the one we are matching)
+    // Retrieve the type_checker of the i-th declared argument (the one we are matching)
     let ty1 = match declared_arguments.get(index) {
         Some(arg) => arg.types(),
         None => {
-            return Err(AiplanError::InternalError(format!(
-                "Argument index {} out of bounds for declaration in scope {}",
-                index,
-                declaration.scope()
-            )))
+            return Err(SemanticCheckError::argument_index_out_of_bounds(index, declaration.scope().clone()));
         }
     };
 
-    // Retrieve the type of the symbol from the declaration found in the symbol table
+    // Retrieve the type_checker of the symbol from the declaration found in the symbol table
     let ty2 = match symbol_declaration.types() {
         Some(types) => types,
         None => {
-            return Err(AiplanError::InternalError(format!(
-                "Failed to retrieve types for symbol '{}' in scope {}",
-                name,
-                usage.scope()
-            )))
+            return Err(SemanticCheckError::missing_symbol_types(name, usage.scope().clone()));
         }
     };
 
     // Special case: allow a primitive task `(t ?x)` declared in a method
-    // where `?x` has type A to match an action `a` where `?x` has type B,
+    // where `?x` has type_checker A to match an action `a` where `?x` has type_checker B,
     // as long as B is a supertype of A. This permits upcasting at usage time.
     //
     // Semantically this is questionable and should be handled explicitly during grounding.
@@ -275,15 +259,8 @@ fn match_argument(
         && usage.symbol_kind() == SymbolKind::Task
     {
         // Add a warning diagnostic for this special case
-        let interner = context.interner();
-        let ty1_str: Vec<String> = ty1
-            .iter()
-            .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
-            .collect();
-        let ty2_str: Vec<String> = ty2
-            .iter()
-            .map(|id| interner.try_resolve(*id).unwrap_or("<invalid>").to_string())
-            .collect();
+        let ty1_str = type_to_strings(&ty1, context)?;
+        let ty2_str = type_to_strings(&ty2, context)?;
 
         let warning = Diagnostic::new(
             DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration {
@@ -298,9 +275,19 @@ fn match_argument(
         diagnostic_manager.add_diagnostic(warning);
 
         // Accept the match if ty1 is a supertype of ty2 (ty1 :> ty2)
-        return type_checker.is_any_supertype_of(ty1, ty2);
+        return Ok(type_checker.is_any_supertype_of(ty1, ty2)?);
     }
 
     // Normal case: return the result of the subtype check
     Ok(is_subtype)
+}
+
+fn type_to_strings(type_ids: &Type, context: &CheckContext) -> Result<Vec<String>, SemanticCheckError> {
+    let mut result = Vec::with_capacity(type_ids.len());
+    for id in type_ids.iter() {
+        let s = context.interner()
+            .try_resolve(*id)?;
+        result.push(s.to_string());
+    }
+    Ok(result)
 }

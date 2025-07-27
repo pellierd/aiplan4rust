@@ -5,7 +5,7 @@
 //! (such as task networks, methods, and actions) into a more canonical or simplified form
 //! suitable for subsequent reasoning, compilation, or execution.
 //!
-//! This error type encapsulates several categories of failure:
+//! This error type_checker encapsulates several categories of failure:
 //! - [`SyntaxTreeError`]: Structural or semantic issues found in the syntax tree.
 //! - [`ArenaError`]: Memory allocation or referencing problems within the arena-based storage.
 //! - [`InternerError`]: Failures related to symbol interning or resolution.

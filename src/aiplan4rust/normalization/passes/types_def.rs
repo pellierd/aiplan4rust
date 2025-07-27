@@ -1,18 +1,18 @@
-//! Module responsible for normalizing and merging type declarations in the AST.
+//! Module responsible for normalizing and merging type_checker declarations in the AST.
 //!
 //! This module provides functions to process and clean up the abstract syntax arena (AST)
-//! related to type declarations. Its main purpose is to:
+//! related to type_checker declarations. Its main purpose is to:
 //!
-//! - Detect and warn about implicit "either" type declarations, which may indicate ambiguous or
-//!   overlapping type definitions.
-//! - Merge duplicate type declarations sharing the same primitive type key to simplify and
+//! - Detect and warn about implicit "either" type_checker declarations, which may indicate ambiguous or
+//!   overlapping type_checker definitions.
+//! - Merge duplicate type_checker declarations sharing the same primitive type_checker key to simplify and
 //!   consolidate the AST.
 //!
 //! # Key Functions
 //!
 //! - [`normalize_type_def`]: The primary function that coordinates normalization by reporting
 //!   warnings and merging duplicates.
-//! - [`report_implicit_either_type_warning`]: Scans type declarations to find implicit either types
+//! - [`report_implicit_either_type_warning`]: Scans type_checker declarations to find implicit either types
 //!   and generates warnings.
 //! - [`merge_duplicate_type_declarations`]: Merges `TypedItem` nodes with identical keys, updating
 //!   the AST accordingly.
@@ -51,23 +51,23 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::tree::SyntaxNode;
 use crate::aiplan4rust::syntax::Span;
 
-/// Normalizes type declarations in the AST by merging all `TypedItem` nodes
+/// Normalizes type_checker declarations in the AST by merging all `TypedItem` nodes
 /// that share the same `PrimitiveType` key.
 ///
 /// This function assumes that:
 /// - The AST is already **valid** (i.e., produced by a correct parser and validated).
 /// - All `TypedList` nodes have already been **normalized** (via the `normalize_typed_list` pass),
-///   meaning that each `TypedItem` contains exactly one element and an optional type.
+///   meaning that each `TypedItem` contains exactly one element and an optional type_checker.
 ///
 /// It performs the following operations:
 /// 1. Locates the `TypedList` syntax inside the `TypesDef` syntax of the AST.
 /// 2. Extracts all `TypedItem` nodes from the `TypedList`.
 /// 3. For each `TypedItem`, extracts:
 ///     - Its key (`PrimitiveType` string),
-///     - Its optional type annotation (`Type` syntax),
-///     - The set of contained type names,
+///     - Its optional type_checker annotation (`Type` syntax),
+///     - The set of contained type_checker names,
 ///     - Its source span (for diagnostics).
-/// 4. Tracks where each type was declared (to identify duplicates).
+/// 4. Tracks where each type_checker was declared (to identify duplicates).
 /// 5. Merges `TypedItem`s that share the same key by:
 ///     - Appending the contents of each `Type` syntax to the existing one if already present.
 /// 6. Reports diagnostics if multiple declarations for the same key are detected.
@@ -80,9 +80,9 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// # Returns
 ///
-/// - `Ok(true)` if the AST was modified (i.e., at least one type was merged).
+/// - `Ok(true)` if the AST was modified (i.e., at least one type_checker was merged).
 /// - `Ok(false)` if no changes were needed.
-/// - `Err(NormalizationError)` if validation or extraction of any type fails.
+/// - `Err(NormalizationError)` if validation or extraction of any type_checker fails.
 ///
 /// # Errors
 ///
@@ -106,7 +106,7 @@ use crate::aiplan4rust::syntax::Span;
 /// let mut diagnostics = DiagnosticManager::new();
 /// let changed = normalize_type_def(&mut ast, &mut diagnostics)?;
 /// if changed {
-///     println!("Merged type declarations.");
+///     println!("Merged type_checker declarations.");
 /// }
 /// ```
 pub fn normalize_type_def(
@@ -119,7 +119,7 @@ pub fn normalize_type_def(
         None => return Ok(false),
     };
 
-    // Report warnings for implicit either type declarations in the TypesDef syntax
+    // Report warnings for implicit either type_checker declarations in the TypesDef syntax
     report_implicit_either_type_warning(types_def_id, ast, diagnostic_manager)?;
 
     // Merge duplicate TypedItem declarations sharing the same PrimitiveType key
@@ -128,11 +128,11 @@ pub fn normalize_type_def(
     Ok(modified)
 }
 
-/// Scans the type declarations under the given syntax and reports warnings
-/// for implicit 'either' type declarations detected.
+/// Scans the type_checker declarations under the given syntax and reports warnings
+/// for implicit 'either' type_checker declarations detected.
 ///
 /// # Arguments
-/// * `types_def_id` - The NodeId of the type definitions syntax in the AST.
+/// * `types_def_id` - The NodeId of the type_checker definitions syntax in the AST.
 /// * `ast` - Reference to the AST arena for accessing nodes and their data.
 /// * `diagnostic_manager` - Mutable reference to the diagnostic manager to record warnings.
 ///
@@ -141,10 +141,10 @@ pub fn normalize_type_def(
 /// * `Err(NormalizationError)` if any AST access fails.
 ///
 /// # Behavior
-/// Iterates over all type declarations within the `types_def_id` syntax.
-/// For each type, it collects the primitive type identifier and the set of
-/// super type identifiers. If a primitive type is encountered more than once,
-/// it triggers a warning for implicit 'either' type declaration at that type's span.
+/// Iterates over all type_checker declarations within the `types_def_id` syntax.
+/// For each type_checker, it collects the primitive type_checker identifier and the set of
+/// super type_checker identifiers. If a primitive type_checker is encountered more than once,
+/// it triggers a warning for implicit 'either' type_checker declaration at that type_checker's span.
 fn report_implicit_either_type_warning(
     types_def_id: NodeId,
     ast: &Ast,
@@ -153,30 +153,30 @@ fn report_implicit_either_type_warning(
     // Get immutable access to the arena containing the AST nodes
     let arena = ast.arena();
 
-    // Retrieve the syntax representing the entire type definitions
+    // Retrieve the syntax representing the entire type_checker definitions
     let typed_def_node = arena.try_node(types_def_id)?;
 
     // Get the first child which holds the list of typed declarations
     let typed_list_id = typed_def_node.try_child(0)?;
     let typed_list = arena.try_node(typed_list_id)?;
 
-    // Map to keep track of seen primitive type identifiers and their super types
+    // Map to keep track of seen primitive type_checker identifiers and their super types
     let mut seen = HashMap::new();
 
-    // Iterate over all type declaration nodes
+    // Iterate over all type_checker declaration nodes
     for typed_item_id in typed_list.children() {
         let type_item = arena.try_node(*typed_item_id)?;
 
-        // Extract the primitive type identifier syntax and get its Ident
+        // Extract the primitive type_checker identifier syntax and get its Ident
         let primitive_type_id = type_item.try_child(0)?;
         let primitive_type = arena.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
 
-        // Extract the syntax containing super types of this primitive type if they exist
+        // Extract the syntax containing super types of this primitive type_checker if they exist
         let super_type_idents = match type_item.get_child(1) {
             Some(ty_id) => {
                 let ty = arena.try_node(ty_id)?;
-                // Collect all super type identifiers into a set
+                // Collect all super type_checker identifiers into a set
                 let mut super_type_idents = HashSet::new();
                 for super_type_id in ty.children() {
                     let super_type = arena.try_node(*super_type_id)?;
@@ -188,28 +188,28 @@ fn report_implicit_either_type_warning(
             None => HashSet::new(),
         };
 
-        // Check if we've already seen this primitive type before
+        // Check if we've already seen this primitive type_checker before
         if seen.contains_key(&primitive_type_ident) {
-            // Generate a warning diagnostic for implicit either type declaration
+            // Generate a warning diagnostic for implicit either type_checker declaration
             let warning =
                 new_implicit_either_type_warning(primitive_type_ident, primitive_type.span(), ast)?;
             // Add the warning to the diagnostic manager
             diagnostic_manager.add_diagnostic(warning);
         } else {
-            // Record this primitive type and its super types as seen
+            // Record this primitive type_checker and its super types as seen
             seen.insert(primitive_type_ident, super_type_idents);
         }
     }
 
-    // Successfully processed all type declarations without errors
+    // Successfully processed all type_checker declarations without errors
     Ok(())
 }
 
-/// Creates a warning diagnostic for an implicit 'either' type declaration.
+/// Creates a warning diagnostic for an implicit 'either' type_checker declaration.
 ///
 /// # Arguments
-/// * `type_ident` - The identifier of the type for which the warning is generated.
-/// * `span` - The source code span where the implicit type declaration occurs.
+/// * `type_ident` - The identifier of the type_checker for which the warning is generated.
+/// * `span` - The source code span where the implicit type_checker declaration occurs.
 /// * `ast` - Reference to the AST arena, used to resolve the identifier to its string name.
 ///
 /// # Returns
@@ -217,14 +217,14 @@ fn report_implicit_either_type_warning(
 /// * `Err(NormalizationError)` if resolving the identifier fails.
 ///
 /// # Purpose
-/// This function generates a diagnostic warning indicating that an 'either' type
+/// This function generates a diagnostic warning indicating that an 'either' type_checker
 /// was implicitly declared, which may require attention from the user.
 fn new_implicit_either_type_warning(
     type_ident: Ident,
     span: &Span,
     ast: &Ast,
 ) -> Result<Diagnostic, NormalizationError> {
-    // Resolve the string name of the type identifier using the AST's interner
+    // Resolve the string name of the type_checker identifier using the AST's interner
     let type_name = ast.interner().try_resolve(type_ident)?;
 
     // Build the diagnostic object with relevant information
@@ -241,16 +241,16 @@ fn new_implicit_either_type_warning(
     Ok(diagnostic)
 }
 
-/// Merges duplicate type declarations in the AST by combining their supertype children.
+/// Merges duplicate type_checker declarations in the AST by combining their supertype children.
 ///
-/// This normalization pass traverses a list of type declarations found under the provided
-/// `types_def_id` node in the AST. If multiple type declarations use the same primitive identifier
-/// (e.g., multiple `(type robot ...)` blocks with the same name), their child nodes are merged
+/// This normalization pass traverses a list of type_checker declarations found under the provided
+/// `types_def_id` node in the AST. If multiple type_checker declarations use the same primitive identifier
+/// (e.g., multiple `(type_checker robot ...)` blocks with the same name), their child nodes are merged
 /// into a single consolidated declaration.
 ///
 /// # Parameters
 ///
-/// - `types_def_id`: The [`NodeId`] of the parent syntax node containing the list of type declarations.
+/// - `types_def_id`: The [`NodeId`] of the parent syntax node containing the list of type_checker declarations.
 /// - `ast`: A mutable reference to the [`Ast`] arena representing the syntax tree.
 ///
 /// # Returns
@@ -262,9 +262,9 @@ fn new_implicit_either_type_warning(
 /// # Behavior
 ///
 /// - Scans the children of `types_def_id`, which is expected to contain a `(types ...)` list.
-/// - For each type declaration:
-///   - Extracts the primitive type name (e.g., `robot`, `vehicle`, etc.).
-///   - Checks for prior declarations with the same type name.
+/// - For each type_checker declaration:
+///   - Extracts the primitive type_checker name (e.g., `robot`, `vehicle`, etc.).
+///   - Checks for prior declarations with the same type_checker name.
 ///   - If found, merges their supertype children, removing duplicates while preserving order.
 ///   - Removes the redundant declaration node from the parent's children list.
 ///
@@ -284,9 +284,9 @@ fn new_implicit_either_type_warning(
 /// let changed = merge_duplicate_type_declarations(types_def_id, &mut ast)?;
 ///
 /// if changed {
-///     println!("✅ Duplicate type declarations were successfully merged.");
+///     println!("✅ Duplicate type_checker declarations were successfully merged.");
 /// } else {
-///     println!("ℹ️ No duplicate type declarations found.");
+///     println!("ℹ️ No duplicate type_checker declarations found.");
 /// }
 /// # Ok(())
 /// # }
@@ -303,7 +303,7 @@ fn new_implicit_either_type_warning(
 /// # Assumptions
 ///
 /// - The `types_def_id` node must have a `List` kind and represent a `(types ...)` clause.
-/// - All type declarations are immediate children of this node.
+/// - All type_checker declarations are immediate children of this node.
 /// - Duplicate detection is based on matching the primitive name (e.g., `robot`, `agent`).
 ///
 /// # See Also
@@ -333,14 +333,14 @@ pub fn merge_duplicate_type_declarations(
     // Retrieve the syntax containing the types definitions
     let typed_def_node = arena.try_node(types_def_id)?;
 
-    // The first child of this syntax is assumed to be the list syntax holding all type declarations
+    // The first child of this syntax is assumed to be the list syntax holding all type_checker declarations
     let typed_list_id = typed_def_node.try_child(0)?;
     let typed_list = arena.try_node_mut(typed_list_id)?;
 
     // Track whether any modifications happen (merges performed)
     let mut modified = false;
 
-    // Map primitive type identifiers to their first encountered declaration NodeId
+    // Map primitive type_checker identifiers to their first encountered declaration NodeId
     let mut seen: HashMap<Ident, NodeId> = HashMap::new();
 
     // Collect IDs of duplicate declarations that need to be removed later
@@ -355,10 +355,10 @@ pub fn merge_duplicate_type_declarations(
             continue;
         }
 
-        // Get the current type declaration syntax
+        // Get the current type_checker declaration syntax
         let type_item = arena.try_node(typed_item_id)?;
 
-        // Extract the primitive type syntax and its identifier
+        // Extract the primitive type_checker syntax and its identifier
         let primitive_type_id = type_item.try_child(0)?;
         let primitive_type = arena.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
@@ -366,11 +366,11 @@ pub fn merge_duplicate_type_declarations(
         if let Some(&existing_item_id) = seen.get(&primitive_type_ident) {
             // Duplicate found: merge this declaration's children into the existing one
 
-            // Get the existing declaration syntax and its "super type" children syntax
+            // Get the existing declaration syntax and its "super type_checker" children syntax
             let existing_item = arena.try_node(existing_item_id)?;
             let existing_super_type_id = existing_item.try_child(1)?;
 
-            // Get the current duplicate's "super type" children syntax
+            // Get the current duplicate's "super type_checker" children syntax
             let current_super_type_id = type_item.try_child(1)?;
 
             // Retrieve nodes representing the children lists
@@ -401,7 +401,7 @@ pub fn merge_duplicate_type_declarations(
             // Remember that we modified the AST
             modified = true;
         } else {
-            // First time seeing this primitive type; record its declaration syntax
+            // First time seeing this primitive type_checker; record its declaration syntax
             seen.insert(primitive_type_ident, typed_item_id);
         }
     }

@@ -6,7 +6,7 @@
 //! # Main function
 //!
 //! [`render`] prints a `task` node in a readable representation, optionally showing
-//! a prefix indicating the node type and indentation reflecting the hierarchy.
+//! a prefix indicating the node type_checker and indentation reflecting the hierarchy.
 //!
 //! # Arguments
 //!
