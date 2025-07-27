@@ -58,12 +58,12 @@ pub fn check_domain_name(
 
     // --- 3. Compare both domain names ---
     // If the names don't match, emit a diagnostic warning.
-    if declared.name() != referenced.name() {
+    if declared.ident() != referenced.ident() {
 
         // --- 4. Locate the AST syntax for the referenced domain name ---
         // Try to find the declaration in the problem's symbol table.
         match problem.symbol_table().resolve_declaration(
-            &referenced.name(),
+            &referenced.ident(),
             &SymbolKind::DomainName,
             &problem.symbol_table().root_scope(),
         )? {
@@ -77,8 +77,8 @@ pub fn check_domain_name(
                         // --- 6. Emit a warning about the mismatch ---
                         // Includes both names in the diagnostic message.
 
-                        let domain_name = domain.interner().try_resolve(declared.name())?;
-                        let problem_domain_name = problem.interner().try_resolve(referenced.name())?;
+                        let domain_name = domain.interner().try_resolve(declared.ident())?;
+                        let problem_domain_name = problem.interner().try_resolve(referenced.ident())?;
                         let warning = Diagnostic::new(
                             DiagnosticKind::DomainProblemNameMismatch {
                                 domain_name: domain_name.to_string(),

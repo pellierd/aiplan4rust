@@ -1,60 +1,81 @@
-use serde::Deserialize;
-use serde::Serialize;
+//! Defines the different kinds of symbols used within the AI planning system.
+//!
+//! This module provides the `Kind` enum, which categorizes symbols based on their roles,
+//! such as actions, predicates, variables, and domain-specific constructs.
+//! These classifications facilitate semantic analysis, symbol resolution,
+//! and other processing steps during planning and compilation.
+
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Enum representing the different kinds of symbols in the system.
+/// Enum representing the various kinds of symbols in the system.
 ///
-/// This enum categorizes the symbols based on their role or type_checker within a domain, problem, or plan.
-/// It is used to distinguish between different symbol types when processing or analyzing a symbol.
+/// This enum classifies symbols according to their roles or types within a domain, problem,
+/// or plan context. It helps distinguish different symbol types when processing,
+/// analyzing, or generating plans.
 ///
 /// # Variants
+///
+/// - `Action`: Represents an action in the domain (a specific task or operation).
+/// - `DASymbol`: Represents a durative action symbol used in temporal domains.
+/// - `Method`: Represents a method symbol, defining complex task decompositions.
+/// - `Task`: Represents a task symbol, usually part of hierarchical task networks.
+/// - `TaskID`: Represents a unique identifier for tasks.
+/// - `Constant`: Represents an immutable constant value.
+/// - `DomainName`: Represents the domain's name symbol.
+/// - `Function`: Represents a function or functor symbol.
+/// - `Predicate`: Represents predicate symbols for logical conditions.
+/// - `PrimitiveType`: Represents basic data types (e.g., integer, boolean).
+/// - `ProblemName`: Represents the name of the planning problem.
+/// - `Requirement`: Represents domain or problem requirements or constraints.
+/// - `Variable`: Represents variables that can hold values during execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Kind {
     /// Represents an action in the domain (e.g., a specific task or operation).
     Action,
 
-    /// Represents a symbol used in the domain description (e.g., a symbol specific to a domain
-    /// model).
+    /// Represents a durative action symbol (used in temporal domains).
     DASymbol,
 
-    /// Represents a symbol associated with a method in the domain, used for defining methods
-    /// that perform actions or tasks, often related to processes or operations in the domain.
+    /// Represents a method used to define decompositions or procedural tasks.
     Method,
 
-    /// Represents a symbol associated with a task in the domain, typically used to define a
-    /// specific task or operation that can be planned and executed within the system.
+    /// Represents a task symbol (typically used in hierarchical task networks).
     Task,
 
-    /// Represents a unique identifier for a task in the domain, used for referencing tasks
-    /// within the domain model.
+    /// Represents a unique identifier for a task.
     TaskID,
 
     /// Represents a constant value that does not change.
     Constant,
 
-    /// Represents the name of a domain.
+    /// Represents the name of the domain.
     DomainName,
 
-    /// Represents a function symbol.
+    /// Represents a function or functor symbol.
     Function,
 
-    /// Represents a predicate symbol (typically used for logical conditions).
+    /// Represents a predicate symbol (used for logical conditions).
     Predicate,
 
-    /// Represents a basic data type_checker (e.g., integer, boolean).
+    /// Represents a primitive data type (e.g., integer, boolean).
     PrimitiveType,
 
-    /// Represents the name of the problem being solved (e.g., a problem definition).
+    /// Represents the name of the problem being solved.
     ProblemName,
 
-    /// Represents a requirement or constraint within a domain or problem context.
+    /// Represents a requirement or constraint in the domain or problem.
     Requirement,
 
-    /// Represents a variable that can hold different values during execution.
+    /// Represents a variable that can hold values during plan execution.
     Variable,
 }
 
 impl fmt::Display for Kind {
+    /// Formats the `Kind` enum as a human-readable string.
+    ///
+    /// Each variant is converted to a descriptive name, suitable for error messages,
+    /// logs, or user-facing output.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Kind::Action => write!(f, "Action"),
@@ -67,7 +88,6 @@ impl fmt::Display for Kind {
             Kind::DomainName => write!(f, "Domain Name"),
             Kind::ProblemName => write!(f, "Problem Name"),
             Kind::Requirement => write!(f, "Requirement"),
-            // Add for HDDL
             Kind::Method => write!(f, "Method"),
             Kind::Task => write!(f, "Task"),
             Kind::TaskID => write!(f, "TaskID"),

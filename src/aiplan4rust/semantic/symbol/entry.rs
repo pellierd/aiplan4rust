@@ -1,163 +1,161 @@
+//! This module defines the `SymbolEntry` struct, which represents a symbol in a planning domain context.
+//!
+//! A `SymbolEntry` tracks the symbol's unique identifier (`Ident`), all its declarations, and usages within a domain or problem.
+//! It provides methods to add declarations/usages, merge symbols, remap identifiers, and format output for debugging or display purposes.
+//!
+//! The module leverages hash sets to ensure uniqueness of declarations and usages, and supports serialization via Serde.
+//! It integrates with a string interner for efficient symbol name handling.
+
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::hash::Hash;
-use std::hash::Hasher;
+use std::hash::{Hash, Hasher};
 
-
-/// Represents a symbol in a given context, with its associated declarations and usages.
+/// Represents a symbol in a given context, with associated declarations and usages.
 ///
-/// The `Symbol` struct is used to store the name, declarations, and usages of a symbol within a
-/// domain. It provides functionality for adding declarations and usages, checking for uniqueness,
-/// and formatting the symbol's name.
+/// A symbol is identified by a unique identifier (`Ident`) and maintains collections of
+/// declarations and usages in the domain. Declarations represent where the symbol
+/// is introduced, and usages represent where it is referenced.
+///
+/// This struct supports adding declarations and usages (ensuring uniqueness), merging
+/// with other symbols of the same identifier, remapping identifiers, and formatted display.
 ///
 /// # Fields
 ///
-/// - `name`: The unique name of the symbol. This name is used to identify the symbol in the system.
-/// - `declarations`: A vector of declarations where the symbol is declared. A symbol can have
-///   multiple declarations.
-/// - `usages`: A vector of usages of the symbol in various parts of the system. A symbol can be
-///   used in many places.
+/// - `ident`: The unique identifier of the symbol.
+/// - `declarations`: The set of declarations for this symbol.
+/// - `usages`: The set of usages of this symbol.
 ///
-/// # Methods
-///
-/// - `new`: Creates a new `Symbol` instance with a given name.
-/// - `name`: Returns the unique name of the symbol.
-/// - `declarations`: Returns a reference to the list of declarations of the symbol.
-/// - `usages`: Returns a reference to the list of usages of the symbol.
-/// - `add_declaration`: Adds a new declaration for the symbol if it does not already exist.
-/// - `add_usage`: Adds a new usage for the symbol if it does not already exist.
-/// - `get_formatted_name`: Returns the part of the name before the first '/' character, if it
-///   exists.
-///
-/// # Example
+/// # Examples
 ///
 /// ```rust
-/// let mut symbol = Symbol::new("exampleSymbol");
-/// symbol.add_ (declaration);
-/// symbol.add_usage(usage);
+/// let mut symbol = SymbolEntry::new("example".into());
+/// // add declarations and usages...
 /// println!("{}", symbol);
 /// ```
-
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SymbolEntry {
-    /// The unique name of the symbol.
-    name: Ident,
+    /// The unique identifier of the symbol.
+    ident: Ident,
 
-    /// The AST syntax where the symbol is declared (only once).
+    /// The set of declarations where this symbol is introduced.
     declarations: HashSet<Declaration>,
 
-    /// The list of AST nodes where the symbol is used.
+    /// The set of usages where this symbol is referenced.
     usages: HashSet<Usage>,
 }
 
-// Manually implement the `Hash` trait for `Symbol`, using only the `name` field.
 impl Hash for SymbolEntry {
+    /// Computes the hash of the symbol based solely on its `ident`.
+    ///
+    /// This ensures that symbols with the same identifier hash identically,
+    /// regardless of their declarations or usages.
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state); // Only hash the `name` field
+        self.ident.hash(state);
     }
 }
 
 impl SymbolEntry {
-    /// Creates a new `Symbol` with the given name.
+    /// Creates a new `SymbolEntry` with the specified identifier.
     ///
     /// # Arguments
     ///
-    /// * `name` - A string slice that holds the name of the symbol.
+    /// * `ident` - The unique identifier for the symbol.
     ///
     /// # Returns
     ///
-    /// Returns a new `Symbol` instance with the specified name, and empty declarations and usages
-    /// lists.
-    pub fn new(name: Ident) -> Self {
+    /// A new `SymbolEntry` instance with empty declarations and usages.
+    pub fn new(ident: Ident) -> Self {
         SymbolEntry {
-            name: name,
+            ident,
             declarations: HashSet::new(),
             usages: HashSet::new(),
         }
     }
 
-    /// Returns the name of the symbol.
+    /// Returns the symbol's identifier.
     ///
     /// # Returns
     ///
-    /// A reference to the `String` containing the symbol's name.
-    pub fn name(&self) -> Ident {
-        self.name
+    /// The unique identifier of the symbol.
+    pub fn ident(&self) -> Ident {
+        self.ident
     }
 
-    /// Returns the list of declarations for the symbol.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the list of `Declaration` objects.
+    /// Returns a reference to the set of declarations of this symbol.
     pub fn declarations(&self) -> &HashSet<Declaration> {
         &self.declarations
     }
 
-    /// Returns a mutable reference to the list of declarations for the symbol.
+    /// Returns a mutable reference to the set of declarations.
     pub fn declarations_mut(&mut self) -> &mut HashSet<Declaration> {
         &mut self.declarations
     }
 
-    /// Returns the list of usages for the symbol.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the list of `Usage` objects.
+    /// Returns a reference to the set of usages of this symbol.
     pub fn usages(&self) -> &HashSet<Usage> {
         &self.usages
     }
 
-    /// Adds a declaration for the symbol if it is not already present.
+    /// Adds a new declaration for this symbol, if it is not already present.
     ///
     /// # Arguments
     ///
-    /// * `declaration` - The `Declaration` to be added.
+    /// * `declaration` - The declaration to add.
     ///
     /// # Returns
     ///
-    /// `true` if the declaration was added, `false` if it was already present.
+    /// `true` if the declaration was added (was not present before), otherwise `false`.
     pub fn add_declaration(&mut self, declaration: Declaration) -> bool {
         self.declarations.insert(declaration)
     }
 
-    /// Adds a usage for the symbol if it is not already present.
+    /// Adds a new usage of this symbol, if it is not already present.
     ///
     /// # Arguments
     ///
-    /// * `usage` - The `Usage` to be added.
+    /// * `usage` - The usage to add.
     ///
     /// # Returns
     ///
-    /// `true` if the usage was added, `false` if it was already present.
+    /// `true` if the usage was added (was not present before), otherwise `false`.
     pub fn add_usage(&mut self, usage: Usage) -> bool {
         self.usages.insert(usage)
     }
 
+    /// Remaps identifiers in this symbol's ident, declarations, and usages according to the given mapping.
+    ///
+    /// This is useful for renaming or aliasing symbols consistently.
+    ///
+    /// # Arguments
+    ///
+    /// * `map` - A mapping from old `Ident`s to new `Ident`s.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        // Remap du nom principal
-        if let Some(new_name) = map.get(&self.name) {
-            self.name = new_name.clone();
+        // Remap main symbol identifier
+        if let Some(new_ident) = map.get(&self.ident) {
+            self.ident = *new_ident;
         }
 
-        // Extraire, modifier et reconstruire declarations
-        self.declarations = self.declarations.drain()
+        // Remap identifiers in declarations
+        self.declarations = self
+            .declarations
+            .drain()
             .map(|mut decl| {
                 decl.remap_idents(map);
                 decl
             })
             .collect();
 
-        // Extraire, modifier et reconstruire usages
-        self.usages = self.usages.drain()
+        // Remap identifiers in usages
+        self.usages = self
+            .usages
+            .drain()
             .map(|mut usage| {
                 usage.remap_idents(map);
                 usage
@@ -165,12 +163,19 @@ impl SymbolEntry {
             .collect();
     }
 
-    /// Attempts to merge another symbol into this one by combining declarations and usages.
+    /// Merges another `SymbolEntry` into this one by combining declarations and usages.
     ///
-    /// Returns `true` if the symbols had the same name and were merged successfully.
-    /// Returns `false` if the symbol names differ and the merge was not performed.
+    /// Only merges if both symbols have the same identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The other symbol to merge.
+    ///
+    /// # Returns
+    ///
+    /// `true` if merged successfully, `false` if identifiers differ and no merge was performed.
     pub fn merge_with(&mut self, other: SymbolEntry) -> bool {
-        if self.name != other.name {
+        if self.ident != other.ident {
             return false;
         }
         self.declarations.extend(other.declarations);
@@ -180,16 +185,28 @@ impl SymbolEntry {
 }
 
 impl fmt::Display for SymbolEntry {
+    /// Formats the symbol entry, listing its ident, declarations, and usages.
+    ///
+    /// Example output:
+    ///
+    /// ```text
+    /// [Symbol: 'move']
+    ///  - Declarations (2):
+    ///    - Declaration details...
+    ///    - Declaration details...
+    ///  - Usages (3):
+    ///    - Usage details...
+    ///    - Usage details...
+    ///    - Usage details...
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "[Symbol: \'{}\']", self.name)?;
+        writeln!(f, "[Symbol: '{}']", self.ident)?;
 
-        // Display declarations
         writeln!(f, " - Declarations ({}):", self.declarations.len())?;
         for decl in &self.declarations {
             writeln!(f, "   - {}", decl)?;
         }
 
-        // Display usages
         writeln!(f, " - Usages ({}):", self.usages.len())?;
         for usage in &self.usages {
             writeln!(f, "   - {}", usage)?;
@@ -200,49 +217,32 @@ impl fmt::Display for SymbolEntry {
 }
 
 impl InternerDisplay for SymbolEntry {
-    /// Formats the symbol information along with its declarations and usages,
-    /// resolving interned identifiers via the provided `StringInterner`.
+    /// Formats the symbol entry using a `StringInterner` to resolve interned identifiers.
     ///
-    /// This method writes a human-readable representation of the symbol, including
-    /// its name, declarations, and usages, to the given formatter.
+    /// This method provides a human-readable output of the symbol, its declarations, and usages,
+    /// with symbol names resolved to their string forms via the interner.
     ///
     /// # Arguments
     ///
-    /// * `f` - Formatter to write the output to.
-    /// * `interner` - The `StringInterner` used to resolve identifier names within declarations and usages.
-    ///
-    /// # Example output
-    ///
-    /// ```text
-    /// [Symbol: 'move']
-    ///  - Declarations (2):
-    ///    - Declaration details here...
-    ///    - Declaration details here...
-    ///  - Usages (3):
-    ///    - Usage details here...
-    ///    - Usage details here...
-    ///    - Usage details here...
-    /// ```
+    /// * `w` - The formatter to write to.
+    /// * `interner` - The `StringInterner` used to resolve symbol identifiers.
     fn fmt_with_interner(
         &self,
         w: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        // Display the symbol name
-        match interner.resolve(self.name) {
+        match interner.resolve(self.ident) {
             Some(name) => writeln!(w, "[Symbol: '{}']", name)?,
-            None => writeln!(w, "[Symbol: <uninterned:{}>]", self.name)?,
+            None => writeln!(w, "[Symbol: <uninterned:{}>]", self.ident)?,
         }
 
-        // Display declarations
         writeln!(w, " - Declarations ({}):", self.declarations.len())?;
         for decl in &self.declarations {
             write!(w, "   - ")?;
-            decl.fmt_with_interner(w, interner)?; // Appel direct à la méthode qui écrit dans `f`
-            writeln!(w)?; // fin de ligne
+            decl.fmt_with_interner(w, interner)?;
+            writeln!(w)?;
         }
 
-        // Display usages
         writeln!(w, " - Usages ({}):", self.usages.len())?;
         for usage in &self.usages {
             write!(w, "   - ")?;

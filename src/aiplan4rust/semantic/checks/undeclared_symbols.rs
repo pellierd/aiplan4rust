@@ -244,7 +244,7 @@ fn is_pddl_builtin_symbol(
     symbol: &SymbolEntry,
     context: &CheckContext,
 ) -> bool {
-    match symbol.name() {
+    match symbol.ident() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
         StringInterner::IDENT_OBJECT
             if context.requirements().contains(&Typing)

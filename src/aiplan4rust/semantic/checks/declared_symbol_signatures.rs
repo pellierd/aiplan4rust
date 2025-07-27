@@ -77,7 +77,7 @@ pub fn check_declared_symbol_signatures(
                 )? {
                     no_error &= false;
                     let entry = context.ast().get_node(usage.node_id()).unwrap();
-                    let name = context.interner().try_resolve(symbol.name())?;
+                    let name = context.interner().try_resolve(symbol.ident())?;
                     let diagnostic_kind = match declaration.symbol_kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
                             symbol: name.to_string(),

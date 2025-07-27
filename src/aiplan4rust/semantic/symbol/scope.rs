@@ -1,5 +1,13 @@
-use crate::aiplan4rust::syntax::tree::NodeId;
+//! Module `scope`.
+//!
+//! This module defines the [`Scope`] struct, representing a lexical or semantic scope within
+//! an Abstract Syntax Tree (AST). The scope is modeled as a stack of [`NodeId`]s corresponding
+//! to AST nodes that define nested scopes.
+//!
+//! Scopes can be nested by extending an existing scope's stack with additional nodes.
+//! This allows tracking the hierarchical context in which symbols or expressions occur.
 
+use crate::aiplan4rust::syntax::tree::NodeId;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
@@ -7,20 +15,19 @@ use std::hash::Hash;
 
 /// Represents a lexical or semantic scope within the AST.
 ///
-/// The `Scope` struct tracks a stack of `NodeId`s corresponding to AST nodes that
-/// define the current scope. Scopes can be nested by extending the stack with nodes
-/// from parent scopes.
+/// A `Scope` tracks a stack of [`NodeId`]s corresponding to AST nodes that define
+/// the current nested scope. Each `NodeId` identifies a syntax node that delimits
+/// a scope (such as a function, block, or module).
 ///
 /// # Fields
 ///
-/// * `stack` - A vector of `NodeId`s representing the nodes included in this scope,
-///   ordered from outermost to innermost.
+/// - `stack`: A vector of `NodeId`s ordered from outermost (first) to innermost (last).
 ///
 /// # Example
 ///
 /// ```rust
 /// let root_scope = Scope::root();
-/// let new_scope = Scope::new(NodeId::new(42), Some(root_scope));
+/// let new_scope = Scope::new(NodeId::new(42), Some(&root_scope));
 /// ```
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Scope {
@@ -28,22 +35,25 @@ pub struct Scope {
 }
 
 impl Scope {
-    /// Creates a new `Scope` starting with the given AST syntax ID.
+    /// Creates a new `Scope` starting with the given AST syntax node ID.
     ///
-    /// If a parent scope is provided, the new scope inherits all syntax IDs from
-    /// the parent's stack before adding the new syntax ID.
+    /// If a parent scope is provided, the new scope inherits all nodes from the
+    /// parent's stack before adding the new syntax ID, effectively nesting scopes.
     ///
-    /// # Parameters
-    /// - `ast`: The AST syntax ID to start the scope with.
-    /// - `parent`: An optional reference to a parent scope to inherit from.
+    /// # Arguments
+    ///
+    /// * `ast` - The AST syntax node ID to start this scope with.
+    /// * `parent` - An optional reference to a parent `Scope` to inherit nodes from.
     ///
     /// # Returns
-    /// A new `Scope` instance.
+    ///
+    /// A new `Scope` instance with the combined stack.
     ///
     /// # Example
+    ///
     /// ```rust
-    /// let root_scope = Scope::root();
-    /// let new_scope = Scope::new(NodeId::new(42), Some(root_scope));
+    /// let root_scope = Scope::new(NodeId::new(1), None);
+    /// let nested_scope = Scope::new(NodeId::new(2), Some(&root_scope));
     /// ```
     pub fn new(ast: NodeId, parent: Option<&Scope>) -> Self {
         let mut scope = Scope { stack: Vec::new() };
@@ -55,18 +65,21 @@ impl Scope {
         scope
     }
 
-    /// Checks if `self` scope starts with the given `prefix` scope.
+    /// Checks whether this scope starts with the given `prefix` scope.
     ///
-    /// This compares the internal `stack` vectors to see if `self` begins with
-    /// all elements of `prefix` in order.
+    /// This tests if the current scope's stack begins with all elements of
+    /// the `prefix` scope's stack, in order.
     ///
-    /// # Parameters
-    /// - `prefix`: The scope to check as a prefix.
+    /// # Arguments
+    ///
+    /// * `prefix` - The scope to test as a prefix.
     ///
     /// # Returns
-    /// `true` if `self` starts with `prefix`, otherwise `false`.
+    ///
+    /// `true` if this scope starts with `prefix`, otherwise `false`.
     ///
     /// # Example
+    ///
     /// ```rust
     /// let a = Scope::new(NodeId::new(1), None);
     /// let b = Scope::new(NodeId::new(2), Some(&a));
@@ -76,12 +89,16 @@ impl Scope {
         self.stack.starts_with(&prefix.stack)
     }
 
-    /// Returns an iterator over the syntax IDs contained in the scope.
+    /// Returns an iterator over the `NodeId`s contained in this scope.
+    ///
+    /// The iterator yields references to the syntax node IDs from outermost to innermost.
     ///
     /// # Returns
-    /// An iterator yielding references to `NodeId`s in the scope.
+    ///
+    /// An iterator over `&NodeId`.
     ///
     /// # Example
+    ///
     /// ```rust
     /// for node_id in scope.iter() {
     ///     println!("{:?}", node_id);
@@ -90,19 +107,17 @@ impl Scope {
     pub fn iter(&self) -> impl Iterator<Item = &NodeId> {
         self.stack.iter()
     }
-
 }
 
-/// Implements the iterator trait for the `Scope` struct.
+/// Implements the iterator trait for `Scope`.
 ///
-/// This implementation allows iterating over the `NodeId`s stored in the `stack` vector,
-/// by popping and returning the last element on each call to `next()`.
-/// Thus, the iteration proceeds from the most recently added element to the oldest.
+/// This iterator consumes the scope by popping `NodeId`s from the end of the internal
+/// stack on each call to `next()`, returning them from innermost to outermost.
 ///
 /// # Note
 ///
-/// This iteration modifies the internal `stack` by removing elements as they are iterated over.
-/// After a complete iteration, the `stack` will be empty.
+/// Iterating this way modifies the `Scope` by emptying its internal stack.
+/// After complete iteration, the scope will be empty.
 ///
 /// # Example
 ///
@@ -112,7 +127,7 @@ impl Scope {
 /// while let Some(node_id) = scope.next() {
 ///     println!("NodeId: {:?}", node_id);
 /// }
-/// // After the loop, scope.stack is empty.
+/// // At this point, scope.stack is empty.
 /// ```
 impl Iterator for Scope {
     type Item = NodeId;
@@ -125,32 +140,27 @@ impl Iterator for Scope {
 impl fmt::Display for Scope {
     /// Formats the `Scope` by displaying its stack of `NodeId`s.
     ///
-    /// Each `NodeId` is displayed using its own `Display` implementation.
-    /// The `NodeId`s are printed in order, separated by commas and enclosed in square brackets.
+    /// The output is a comma-separated list of node IDs enclosed in square brackets,
+    /// ordered from outermost to innermost.
     ///
     /// # Example
+    ///
     /// ```rust
     /// let scope = Scope { stack: vec![NodeId(1), NodeId(2), NodeId(3)] };
     /// println!("{}", scope); // prints: [1, 2, 3]
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Start the list with an opening bracket
         write!(f, "[")?;
 
         let mut first = true;
-
-        // Iterate over all NodeIds in the stack
         for node_id in &self.stack {
-            // Add a comma before each item except the first
             if !first {
                 write!(f, ", ")?;
             }
-            // Write the NodeId using its Display implementation
             write!(f, "{}", node_id.as_usize())?;
             first = false;
         }
 
-        // Close the list with a closing bracket
         write!(f, "]")
     }
 }

@@ -1,3 +1,19 @@
+//! # Symbol Usage Tracking Module
+//!
+//! This module defines the [`Usage`] struct, which represents a concrete use of a symbol
+//! in the abstract syntax tree (AST). Each usage includes metadata such as the symbol's
+//! identifier, the context of its use (scope, origin), and its precise location in source code.
+//!
+//! [`Usage`]s are collected during semantic analysis and used for:
+//! - Reference resolution
+//! - Error reporting
+//! - Refactoring tools
+//! - Scope checking
+//!
+//! The module also provides formatting capabilities with and without interners
+//! (see [`InternerDisplay`]) and supports identifier remapping, which is useful
+//! for name rewriting or alpha-renaming in transformations.
+
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -11,47 +27,28 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
 
-/// Represents a specific usage of a symbol within the Abstract Syntax Tree (AST).
+/// Represents a concrete use of a symbol within the Abstract Syntax Tree (AST).
 ///
-/// This struct encapsulates detailed information about where and how a symbol is referenced
-/// during the compilation or analysis process. It tracks the symbol's reference, the
-/// lexical scope of the usage, the origin of the symbol usage (such as the file or module),
-/// the precise location in the source code, and the AST syntax associated with this usage.
+/// `Usage` stores metadata about a specific occurrence of a symbol reference in source code.
+/// This includes the symbol being used, the lexical scope of its use, its origin (e.g., domain or problem),
+/// the location in the source (`Span`), and the corresponding AST node (`NodeId`).
 ///
-/// # Fields
+/// This structure is used during semantic analysis and symbol resolution to trace how and where
+/// symbols are used throughout the program.
 ///
-/// - `symbol_ref`: A reference to the symbol being used. This links the usage back to the symbol's
-///   definition.
-/// - `scope`: The lexical or logical scope (such as a function or block) in which the symbol is
-///   used.
-/// - `origin`: The origin or source of the usage, indicating the file, module, or context from
-///   which this usage arises.
-/// - `span`: The source code span that highlights the exact location of the usage in the source
-///   code (e.g., line and column range).
-/// - `ast`: The AST syntax index (NodeId) corresponding to this particular usage occurrence.
-///
-/// # Derives
-///
-/// This struct implements the following traits:
-/// - `Debug`: Enables formatted printing useful for debugging.
-/// - `Clone`: Allows creating deep copies of `Usage` instances.
-/// - `Eq` and `PartialEq`: Support for equality comparisons.
-/// - `Hash`: Enables use in hash-based collections like `HashMap` or `HashSet`.
-/// - `Serialize` and `Deserialize`: Allow serializing to and deserializing from formats such as
-///   JSON, enabling persistence or inter-process communication.
-///
-/// # Example
+/// # Examples
 ///
 /// ```
-/// # use your_crate::{Usage, SymbolRef, Scope, SymbolOrigin, Span, NodeId};
-/// let usage = Usage {
-///     symbol_ref: SymbolRef::new(...),
-///     scope: Scope::Function,
-///     origin: SymbolOrigin::File("src/main.rs".into()),
-///     span: Span::new(10, 20),
-///     ast: NodeId(42),
-/// };
-/// println!("{:?}", usage);
+/// use your_crate::{Usage, SymbolRef, Scope, SymbolOrigin, Span, NodeId};
+///
+/// let usage = Usage::new(
+///     SymbolRef::new(...),
+///     Scope::Global,
+///     SymbolOrigin::Domain,
+///     Span::new(5, 10),
+///     NodeId(42),
+/// );
+/// println!("{}", usage);
 /// ```
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
@@ -61,29 +58,30 @@ pub struct Usage {
     /// The scope where the symbol is used (e.g., function, block).
     scope: Scope,
 
-    /// The source of the usage (e.g., file or module).
+    /// The origin or source (e.g., domain, problem) where the usage comes from.
     origin: SymbolOrigin,
 
-    /// The source code span corresponding to this usage.
+    /// The span in the source code corresponding to this usage.
     span: Span,
 
-    /// The AST syntax index where the symbol usage occurs.
-    ast: NodeId,
+    /// The AST node identifier where the symbol usage occurs.
+    node_id: NodeId,
 }
+
 impl Usage {
-    /// Constructs a new `Usage` instance.
+    /// Creates a new `Usage` instance.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
-    /// * `symbol_ref` - Reference to the symbol being used.
-    /// * `scope` - The scope in which this symbol usage occurs.
-    /// * `source` - The origin of this usage, indicating where the symbol comes from (e.g., domain or problem).
-    /// * `span` - The span in the source code corresponding to this usage.
-    /// * `ast` - The identifier of the AST syntax where this usage appears.
+    /// - `symbol_ref`: A reference to the symbol being used.
+    /// - `scope`: The lexical or logical scope in which the usage occurs.
+    /// - `source`: The origin of the usage (e.g., domain or problem file).
+    /// - `span`: The span in source code where the symbol is used.
+    /// - `ast`: The AST node identifier (`NodeId`) corresponding to this usage.
     ///
     /// # Returns
     ///
-    /// A new `Usage` struct initialized with the given parameters.
+    /// A new `Usage` struct.
     pub fn new(
         symbol_ref: SymbolRef,
         scope: Scope,
@@ -96,66 +94,52 @@ impl Usage {
             scope,
             origin: source,
             span,
-            ast,
+            node_id: ast,
         }
     }
+
+    /// Returns a reference to the underlying `SymbolRef`.
     pub fn symbol_ref(&self) -> &SymbolRef {
         &self.symbol_ref
     }
 
-    /// Returns the identifier (`Ident`) of the referenced symbol.
+    /// Returns the identifier of the referenced symbol.
     pub fn symbol_ident(&self) -> Ident {
         self.symbol_ref.ident()
     }
 
-    /// Returns the kind (`SymbolKind`) of the referenced symbol.
+    /// Returns the kind of the referenced symbol.
     pub fn symbol_kind(&self) -> SymbolKind {
         self.symbol_ref.kind()
     }
 
-    /// Returns a reference to the scope in which the symbol is used.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the [`Scope`] where the symbol usage occurs.
+    /// Returns a reference to the lexical scope of the usage.
     pub fn scope(&self) -> &Scope {
         &self.scope
     }
 
-    /// Returns a reference to the origin of the symbol usage.
-    ///
-    /// This indicates where the symbol was originally sourced from,
-    /// such as the domain or problem context.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the [`SymbolOrigin`] enum representing the symbol's provenance.
+    /// Returns the origin of the symbol usage (e.g., domain, problem).
     pub fn origin(&self) -> SymbolOrigin {
         self.origin
     }
 
-    /// Returns a reference to the span in the source code for this usage.
+    /// Returns a reference to the source code span for this usage.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
-    /// Returns the AST syntax identifier where the symbol is used.
-    ///
-    /// # Returns
-    ///
-    /// The [`NodeId`] corresponding to the AST syntax of this usage.
+    /// Returns the AST node identifier (`NodeId`) where the symbol is used.
     pub fn node_id(&self) -> NodeId {
-        self.ast
+        self.node_id
     }
 
-    /// Remaps the identifiers in this declaration using the provided map.
+    /// Remaps the identifier of the usage according to the provided mapping.
     ///
-    /// If the current symbol's identifier is found as a key in `map`,
-    /// it is replaced by the corresponding value.
+    /// If the symbol's identifier exists in the map, it is replaced with the mapped one.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
-    /// * `map` - A hash map from old `Ident` to new `Ident` to be applied.
+    /// - `map`: A mapping from old identifiers to new ones (`HashMap<Ident, Ident>`).
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol_ref.set_ident(new_ident.clone());
@@ -164,58 +148,45 @@ impl Usage {
 }
 
 impl fmt::Display for Usage {
-    /// Formats the `Usage` for display.
+    /// Formats the usage using standard formatting.
     ///
-    /// This implementation writes a human-readable string representing the usage,
-    /// including the AST syntax index, symbol kind, identifier, scope, and source.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the output to.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `fmt::Result` indicating success or failure.
+    /// The output includes the AST index, symbol kind, identifier, scope, and origin.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast.as_usize(), self.symbol_kind(), self.symbol_ident(), self.scope, self.origin
-        )?;
-        Ok(())
+            self.node_id.as_usize(),
+            self.symbol_kind(),
+            self.symbol_ident(),
+            self.scope,
+            self.origin
+        )
     }
 }
 
 impl InternerDisplay for Usage {
-
-    /// Formats the usage into the given writer, resolving interned strings via the interner.
+    /// Formats the usage using the given interner to resolve interned identifiers.
     ///
-    /// This method writes a human-readable representation of the usage, including its AST syntax index,
-    /// symbol kind, identifier (resolved from the interner), scope, and source.
+    /// # Parameters
     ///
-    /// # Arguments
-    ///
-    /// * `w` - A mutable reference to a type_checker implementing `fmt::Write`, where the output is written.
-    /// * `interner` - A `StringInterner` used to resolve the interned identifier string.
-    ///
-    /// # Returns
-    ///
-    /// Returns a `fmt::Result` indicating success or failure of the write operation.
+    /// - `f`: Formatter used to produce the output.
+    /// - `interner`: A `StringInterner` for resolving interned `Ident` values to strings.
     fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        let symbol_str = match interner.resolve(self.symbol_ident()) {
-            Some(name) => name,
-            None => "<uninterned>",
-        };
-
+        let symbol_str = interner
+            .resolve(self.symbol_ident())
+            .unwrap_or("<uninterned>");
         write!(
             f,
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
-            self.ast.as_usize(), self.symbol_kind(), symbol_str, self.scope, self.origin
-        )?;
-        Ok(())
+            self.node_id.as_usize(),
+            self.symbol_kind(),
+            symbol_str,
+            self.scope,
+            self.origin
+        )
     }
 }

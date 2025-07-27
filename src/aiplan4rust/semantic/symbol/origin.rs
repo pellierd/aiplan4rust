@@ -1,52 +1,62 @@
+//! Module `origin`.
+//!
+//! This module defines the [`Origin`] enum which represents the source or provenance
+//! of a symbol in the context of PDDL (Planning Domain Definition Language) parsing and analysis.
+//!
+//! Symbols can originate from different parts of a PDDL problem definition:
+//! - The domain file, which contains the general planning constructs (types, predicates, actions).
+//! - The problem file, which specifies a particular planning instance (objects, initial state, goal).
+//! - Or the origin might be unknown, typically due to incomplete parsing or errors.
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Display labels associated with each variant of `Origine`.
-pub const SYMBOL_SOURCE_DOMAIN: &str = "Domain";
-pub const SYMBOL_SOURCE_PROBLEM: &str = "Problem";
-pub const SYMBOL_SOURCE_UNKNOWN: &str = "Unknown";
+/// Display labels associated with each variant of [`Origin`].
+pub const SYMBOL_ORIGIN_DOMAIN: &str = "Domain";
+pub const SYMBOL_ORIGIN_PROBLEM: &str = "Problem";
+pub const SYMBOL_ORIGIN_UNKNOWN: &str = "Unknown";
 
-/// Describes the origin of a symbol in a PDDL (Planning Domain Definition Language) context.
+/// Describes the origin of a symbol in a PDDL context.
 ///
-/// Symbols used in PDDL planning problems may come from different sources:
-/// - The domain file, which defines general planning constructs (e.g., types, predicates, actions).
-/// - The problem file, which defines a specific planning instance (e.g., objects, initial state,
-///   goal).
-/// - Or an unknown context, typically resulting from parsing failures or incomplete input.
+/// This enum helps to track the provenance of symbols to improve
+/// error reporting, validation, and semantic analysis.
 ///
-/// This enum helps track the provenance of each symbol to assist in error reporting,
-/// validation, and analysis.
+/// # Variants
+///
+/// - `Domain`: Symbol originates from the domain file.
+/// - `Problem`: Symbol originates from the problem file.
+/// - `Unknown`: Origin is unknown or undetermined (default).
 ///
 /// # Example
 ///
 /// ```rust
-/// use aiplan4rust::symbol::origin::Origine;
+/// use aiplan4rust::symbol::origin::Origin;
 ///
-/// let origin = Origine::Domain;
+/// let origin = Origin::Domain;
 /// assert_eq!(origin.to_string(), "Domain");
 /// ```
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Serialize, Deserialize)]
 pub enum Origin {
-    /// The symbol originates from the domain file.
+    /// Symbol is defined in the domain file.
     Domain,
 
-    /// The symbol originates from the problem file.
+    /// Symbol is defined in the problem file.
     Problem,
 
-    /// The symbol's origin could not be determined (default).
+    /// Symbol origin is unknown or undetermined.
     #[default]
     Unknown,
 }
 
 impl fmt::Display for Origin {
-    /// Converts the `Origine` variant to a human-readable string.
+    /// Formats the `Origin` as a human-readable string.
     ///
-    /// This implementation uses predefined constants for consistency and easy maintenance.
+    /// Uses predefined string constants for consistent display labels.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let label = match self {
-            Origin::Domain => SYMBOL_SOURCE_DOMAIN,
-            Origin::Problem => SYMBOL_SOURCE_PROBLEM,
-            Origin::Unknown => SYMBOL_SOURCE_UNKNOWN,
+            Origin::Domain => SYMBOL_ORIGIN_DOMAIN,
+            Origin::Problem => SYMBOL_ORIGIN_PROBLEM,
+            Origin::Unknown => SYMBOL_ORIGIN_UNKNOWN,
         };
         write!(f, "{}", label)
     }

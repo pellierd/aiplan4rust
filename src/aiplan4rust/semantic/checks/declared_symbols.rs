@@ -93,7 +93,7 @@ fn check_symbol_declarations(
                 if (current_kind == SymbolKind::PrimitiveType && previous_kind == SymbolKind::Predicate)
                     || (current_kind == SymbolKind::Predicate && previous_kind == SymbolKind::PrimitiveType)
                 {
-                    let name = context.interner().try_resolve(symbol.name())?;
+                    let name = context.interner().try_resolve(symbol.ident())?;
                     let warning = Diagnostic::new(
                         DiagnosticKind::WarningAmbiguousTypePredicateSymbol {
                             symbol: name.to_string(),
@@ -109,7 +109,7 @@ fn check_symbol_declarations(
                     let scope_index = conflicting_scope.iter().last().unwrap();
                     let scope = context.ast().get_node(*scope_index).unwrap();
 
-                    let name = context.interner().try_resolve(symbol.name())?;
+                    let name = context.interner().try_resolve(symbol.ident())?;
                     let error = Diagnostic::new(
                         DiagnosticKind::DuplicatedSymbolDeclarationInScopeError {
                             symbol: name.to_string(),

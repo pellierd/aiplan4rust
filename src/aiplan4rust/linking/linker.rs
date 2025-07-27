@@ -425,7 +425,7 @@ fn collect_declared_and_undeclared_symbols<'a>(
         if symbol.declarations().is_empty() {
             for usage in symbol.usages() {
                 let domain_declaration_option = domain_symbol_table.resolve_declaration(
-                    &symbol.name(),
+                    &symbol.ident(),
                     &usage.symbol_kind(),
                     &domain_symbol_table.root_scope(),
                 )?;
@@ -435,9 +435,9 @@ fn collect_declared_and_undeclared_symbols<'a>(
                     domain_declaration.set_origin(SymbolOrigin::Domain);
                     domain_declaration.set_imported_scope(Some(domain_declaration.scope().clone()));
                     domain_declaration.set_scope(problem.symbol_table().root_scope().clone());
-                    declared.push((symbol.name(), domain_declaration));
+                    declared.push((symbol.ident(), domain_declaration));
                 } else {
-                    undeclared.push((symbol.name(), usage));
+                    undeclared.push((symbol.ident(), usage));
                     all_resolved = false;
                 }
             }

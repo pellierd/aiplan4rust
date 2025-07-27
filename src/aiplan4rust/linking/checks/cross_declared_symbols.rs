@@ -89,9 +89,9 @@ pub fn check_cross_declared_symbols(
                 && declaration.origin() == SymbolOrigin::Problem
             {
                 // Step 6: Check if there are relevant domain declarations for the symbol.
-                if has_relevant_domain_declarations(domain_symbol_table, symbol.name()) {
+                if has_relevant_domain_declarations(domain_symbol_table, symbol.ident()) {
                     // Step 7: Get the kinds of the relevant domain declarations.
-                    let domain_kinds: Vec<SymbolKind> = get_relevant_domain_kinds(domain_symbol_table, symbol.name());
+                    let domain_kinds: Vec<SymbolKind> = get_relevant_domain_kinds(domain_symbol_table, symbol.ident());
 
                     // Step 8: Check if the kind of the problem declaration exists in the domain kinds.
                     let same_kind_exists = domain_kinds.iter().any(|k| *k == declaration.symbol_kind());
