@@ -1,3 +1,38 @@
+//! Module `arena_error`
+//!
+//! This module defines the [`ArenaError`] enum, representing all possible error
+//! conditions that can arise when working with an [`Arena`]-based tree structure.
+//!
+//! The errors include issues such as missing nodes, invalid parent-child relationships,
+//! out-of-bounds accesses, and internal invariant violations.
+//!
+//! # Error Variants
+//!
+//! - [`NodeNotFound`]: Node with a given ID does not exist in the arena.
+//! - [`MissingRootId`]: Expected root node ID is missing.
+//! - [`RootNodeNotFound`]: Root node ID is set but node not found.
+//! - [`NodeIdOutOfBounds`]: Requested node ID is outside the valid range.
+//! - [`MissingParent`]: Expected parent node is absent (node is root).
+//! - [`ChildIndexOutOfBounds`]: Requested child index exceeds number of children.
+//! - [`InternalError`]: Generic internal error with a custom message.
+//!
+//! # Usage
+//!
+//! This error type is used throughout arena node operations to provide precise
+//! feedback on failure modes, aiding in debugging and robust error handling.
+//!
+//! # Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::core::arena::error::ArenaError;
+//!
+//! fn example() -> Result<(), ArenaError> {
+//!     Err(ArenaError::node_not_found(42))
+//! }
+//! ```
+//!
+//! [`Arena`]: crate::aiplan4rust::core::arena::Arena
+
 use thiserror::Error;
 
 /// Represents errors that can occur when interacting with an [`Arena`]-based tree structure.
