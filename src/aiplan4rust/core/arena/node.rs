@@ -185,4 +185,24 @@ pub trait ArenaNode: Clone + Debug {
     fn get_child(&self, index: usize) -> Option<NodeId> {
         self.children().get(index).copied()
     }
+
+    /// Returns the number of children (arity) this node has.
+    ///
+    /// # Returns
+    ///
+    /// The count of immediate child nodes.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # fn example<Syntax>(node: &Syntax)
+    /// # where Syntax: ArenaNode {
+    /// let num_children = node.arity();
+    /// println!("Number of children: {}", num_children);
+    /// # }
+    /// ```
+    fn arity(&self) -> usize {
+        self.children().len()
+    }
+
 }

@@ -608,7 +608,7 @@ impl SymbolTableBuilder {
         let node = node_ref.node();
 
         // Determine the types associated with the symbols
-        let types = match node.children().len() {
+        let types = match node.arity() {
             1 => Type::new(), // No type annotation, empty type vector
             2 => {
                 // Parse the type annotation from the second child
@@ -1332,7 +1332,7 @@ impl SymbolTableBuilder {
         let node = typed_item_ref.node();
 
         // Step 1: Extract the type information if present
-        let types = match node.children().len() {
+        let types = match node.arity() {
             1 => Type::new(), // No type specified → assume empty (default) type
             2 => {
                 let ty_id = node.try_child(1)?; // Get the type node

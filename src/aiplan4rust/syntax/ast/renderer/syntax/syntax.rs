@@ -217,7 +217,7 @@ pub fn render_with_indent(
         }
 
         AstKind::Type => {
-            match node.children().len() {
+            match node.arity() {
                 0 => write!(f, ""),
                 1 => {
                     let ty_node_id = node.children()[0];

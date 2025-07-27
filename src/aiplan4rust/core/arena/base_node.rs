@@ -23,7 +23,7 @@
 //! node.add_child(NodeId::new(3));
 //! node.set_parent(Some(NodeId::new(0)));
 //!
-//! assert_eq!(node.children().len(), 3);
+//! assert_eq!(node.arity(), 3);
 //! assert_eq!(node.parent(), Some(NodeId::new(0)));
 //! ```
 

@@ -1,3 +1,4 @@
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::core;
 use crate::aiplan4rust::validation::core::checks::{ContentKind, EXPRESSION};
@@ -10,7 +11,7 @@ use crate::WellFormedError;
 ///
 pub fn check_symbol(node: &AstNode) -> Result<(), WellFormedError> {
     core::checks::check_content(node, ContentKind::Ident)?;
-    core::checks::check_children_count(node.children().len(), 0, node)?;
+    core::checks::check_children_count(node.arity(), 0, node)?;
     Ok(())
 }
 
@@ -24,7 +25,7 @@ pub fn check_symbol(node: &AstNode) -> Result<(), WellFormedError> {
 /// Returns an error if the content is not a float or if the node has any children.
 pub fn check_number(node: &AstNode) -> Result<(), WellFormedError> {
     core::checks::check_content(node, ContentKind::Float)?;
-    core::checks::check_children_count(node.children().len(), 0, node)?;
+    core::checks::check_children_count(node.arity(), 0, node)?;
     Ok(())
 }
 
@@ -38,7 +39,7 @@ pub fn check_number(node: &AstNode) -> Result<(), WellFormedError> {
 /// Returns an error if the content is not a requirement or if the node has any children.
 pub fn check_requirement(node: &AstNode) -> Result<(), WellFormedError> {
     core::checks::check_content(node, ContentKind::Requirement)?;
-    core::checks::check_children_count(node.children().len(), 0, node)?;
+    core::checks::check_children_count(node.arity(), 0, node)?;
     Ok(())
 }
 
@@ -65,7 +66,7 @@ pub fn check_require_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedErro
 /// Returns an error if the node has fewer than one child,
 /// or if any child is not of kind `PrimitiveType`.
 pub fn check_type(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_min_children_count(node.children().len(), 1, node)?;
+    core::checks::check_min_children_count(node.arity(), 1, node)?;
     core::checks::check_all_children_kind(ast, node, &[AstKind::PrimitiveType])
 }
 
@@ -80,7 +81,7 @@ pub fn check_type(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
 /// Returns an error if the node has fewer than one child,
 /// or if the first child is not of kind `TypedList`.
 pub fn check_types_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_min_children_count(node.children().len(), 1, node)?;
+    core::checks::check_min_children_count(node.arity(), 1, node)?;
     let typed_list = core::checks::get_child_node(ast, node, 0)?;
     check_typed_list_of(ast, typed_list, &[AstKind::PrimitiveType])
 }
@@ -109,7 +110,7 @@ pub fn check_typed_list(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 /// Returns an error if the number of children is not 1 or 2,
 /// or if the children are not of the expected kinds.
 pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
@@ -133,7 +134,7 @@ pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 /// Returns an error if the node has fewer than one child,
 /// or if any child is not of one of the allowed kinds.
 pub fn check_typed_item_elements(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_min_children_count(node.children().len(), 1, node)?;
+    core::checks::check_min_children_count(node.arity(), 1, node)?;
     core::checks::check_all_children_kind(
         ast,
         node,
@@ -158,7 +159,7 @@ pub fn check_typed_item_elements(ast: &Ast, node: &AstNode) -> Result<(), WellFo
 /// Returns an error if the node does not have exactly one child,
 /// or if the child is not of kind `TypedList`.
 pub fn check_constants_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
 }
 
@@ -188,7 +189,7 @@ pub fn check_predicates_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedE
 /// or if the first child is not `Predicate`,
 /// or if the second child (if present) is not `TypedList`.
 pub fn check_atomic_formula_skeleton(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
@@ -214,7 +215,7 @@ pub fn check_atomic_formula_skeleton(ast: &Ast, node: &AstNode) -> Result<(), We
 /// Returns an error if the node does not have exactly one child,
 /// or if that child is not of kind `TypedList`.
 pub fn check_functions_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::TypedList])
 }
 
@@ -231,7 +232,7 @@ pub fn check_functions_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedEr
 /// Returns an error if the node does not have 1 or 2 children,
 /// or if the children are not of the expected kinds.
 pub fn check_atomic_function_skeleton(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
@@ -259,7 +260,7 @@ pub fn check_atomic_function_skeleton(ast: &Ast, node: &AstNode) -> Result<(), W
 /// Returns an error if the node does not have exactly three children,
 /// or if any child is not of the expected kind.
 pub fn check_action_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count(children_len, 3, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::ActionSymbol])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])?;
@@ -281,7 +282,7 @@ pub fn check_action_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 /// Returns an error if the children count is out of range or
 /// if any child does not match the expected kinds.
 pub fn check_action_def_body(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 0, 2, node)?;
 
     match children_len {
@@ -310,7 +311,7 @@ pub fn check_action_def_body(ast: &Ast, node: &AstNode) -> Result<(), WellFormed
 /// Returns an error if the children count is not exactly three,
 /// or if any child is not of the expected kind.
 pub fn check_method_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count(children_len, 3, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::MethodSymbol])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])?;
@@ -328,7 +329,7 @@ pub fn check_method_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 /// Returns an error if the node does not have exactly one child,
 /// or if the child is not of kind `TypedList`.
 pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count(children_len, 1, node)?;
     let typed_list = core::checks::get_child_node(ast, node, 0)?;
     check_typed_list_of(ast, typed_list, &[AstKind::Variable])
@@ -345,7 +346,7 @@ pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedE
 /// Returns an error if the children count is not between 2 and 3,
 /// or if the children are not of the expected kinds.
 pub fn check_method_def_body(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 2, 3, node)?;
 
     match children_len {
@@ -375,7 +376,7 @@ pub fn check_method_def_body(ast: &Ast, node: &AstNode) -> Result<(), WellFormed
 /// if the first child is not `TaskSymbol`,
 /// or if any child from index 1 onwards is not `Variable` or `Constant`.
 pub fn check_task(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_min_children_count(children_len, 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::TaskSymbol])?;
     core::checks::check_children_kind_from(ast, node, 1, &[AstKind::Variable, AstKind::Constant])
@@ -392,7 +393,7 @@ pub fn check_task(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
 /// Returns an error if the node does not have exactly one child,
 /// or if that child is not of kind `Expression`.
 pub fn check_precondition_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, EXPRESSION)
 }
 
@@ -407,7 +408,7 @@ pub fn check_precondition_def(ast: &Ast, node: &AstNode) -> Result<(), WellForme
 /// Returns an error if the node does not have exactly one child,
 /// or if that child is not of kind `Expression`.
 pub fn check_effect_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, EXPRESSION)
 }
 
@@ -424,7 +425,7 @@ pub fn check_effect_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 /// if the first child is not `FunctionSymbol`,
 /// or if any other child is not `Variable` or `Constant`.
 pub fn check_function_term(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_min_children_count(node.children().len(), 1, node)?;
+    core::checks::check_min_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::FunctionSymbol])?;
     core::checks::check_children_kind_from(ast, node, 1, &[AstKind::Variable, AstKind::Constant])
 }
@@ -442,7 +443,7 @@ pub fn check_function_term(ast: &Ast, node: &AstNode) -> Result<(), WellFormedEr
 /// if the first child is not `Predicate`,
 /// or if any other child is not `Variable` or `Constant`.
 pub fn check_atomic_formula(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_min_children_count(node.children().len(), 1, node)?;
+    core::checks::check_min_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::Predicate])?;
     core::checks::check_children_kind_from(ast, node, 1, &[AstKind::Variable, AstKind::Constant])
 }
@@ -469,7 +470,7 @@ pub fn check_all_children_expression(ast: &Ast, node: &AstNode) -> Result<(), We
 /// Returns an error if the node does not have exactly one child,
 /// or if the child is not of kind `Expression`.
 pub fn check_unary_child_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, EXPRESSION)
 }
 
@@ -484,7 +485,7 @@ pub fn check_unary_child_expression(ast: &Ast, node: &AstNode) -> Result<(), Wel
 /// Returns an error if the node has fewer than two children,
 /// or if either of the first two children is not of kind `Expression`.
 pub fn check_binary_child_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_min_children_count(node.children().len(), 2, node)?;
+    core::checks::check_min_children_count(node.arity(), 2, node)?;
     core::checks::check_child_kind(ast, node, 0, EXPRESSION)?;
     core::checks::check_child_kind(ast, node, 1, EXPRESSION)
 }
@@ -502,7 +503,7 @@ pub fn check_binary_child_expression(ast: &Ast, node: &AstNode) -> Result<(), We
 /// Returns an error if the node does not have at least two children,
 /// or if the children do not have the expected kinds.
 pub fn check_quantified_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_min_children_count(children_len, 2, node)?;
     let typed_list = core::checks::get_child_node(ast, node, 0)?;
     check_typed_list_of(ast, typed_list, &[AstKind::Variable])?;
@@ -524,7 +525,7 @@ pub fn check_quantified_expression(ast: &Ast, node: &AstNode) -> Result<(), Well
 /// - the first child is not a `PrefName`,
 /// - the second child is not an expression.
 pub fn check_preference_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_min_children_count(children_len, 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::PrefName])?;
     core::checks::check_child_kind(ast, node, 1, EXPRESSION)
@@ -544,7 +545,7 @@ pub fn check_preference_expression(ast: &Ast, node: &AstNode) -> Result<(), Well
 /// # Errors
 /// Returns an error if the node structure does not conform.
 pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 1, 2, node)?;
     match children_len {
         1 => {
@@ -588,7 +589,7 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
 /// # Errors
 /// Returns an error if the children do not match the expected kinds.
 pub fn check_assign_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 2, node)?;
+    core::checks::check_children_count(node.arity(), 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::FunctionTerm])?;
     core::checks::check_child_kind(ast, node, 1, &[
             AstKind::FComp,
@@ -611,7 +612,7 @@ pub fn check_assign_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForm
 /// Returns an error if the number of children is not 1 or 2,
 /// or if any child does not have kind `FComp`.
 pub fn check_arithmetic_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
@@ -634,7 +635,7 @@ pub fn check_arithmetic_expression(ast: &Ast, node: &AstNode) -> Result<(), Well
 /// # Errors
 /// Returns an error if the children do not match the expected kinds.
 pub fn check_within_hold_after_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count(children_len, 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
     core::checks::check_child_kind(ast, node, 1, EXPRESSION)
@@ -650,7 +651,7 @@ pub fn check_within_hold_after_expression(ast: &Ast, node: &AstNode) -> Result<(
 /// # Errors
 /// Returns an error if the children do not match the expected kinds.
 pub fn check_always_within_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count(children_len, 3, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
     core::checks::check_child_kind(ast, node, 1, EXPRESSION)?;
@@ -667,7 +668,7 @@ pub fn check_always_within_expression(ast: &Ast, node: &AstNode) -> Result<(), W
 /// # Errors
 /// Returns an error if the children do not match the expected kinds.
 pub fn check_hold_during_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count(children_len, 3, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::Number])?;
@@ -685,7 +686,7 @@ pub fn check_hold_during_expression(ast: &Ast, node: &AstNode) -> Result<(), Wel
 /// Returns an error if the node's children do not match the expected structure
 /// or if the `And` node's children are not among the allowed kinds.
 pub fn check_init_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
 
     let init_elements = core::checks::get_child_node(ast, node, 0)?;
@@ -718,7 +719,7 @@ pub fn check_init_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormed
 /// Returns an error if the children count is not exactly two,
 /// or if the children do not match the expected kinds.
 pub fn check_timed_initial_literal(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 2, node)?;
+    core::checks::check_children_count(node.arity(), 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::Number])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::FComp, AstKind::Not])
 
@@ -737,7 +738,7 @@ pub fn check_timed_initial_literal(ast: &Ast, node: &AstNode) -> Result<(), Well
 /// Returns an error if the children count is not exactly two,
 /// or if the children do not match the expected kinds.
 pub fn check_derived_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 2, node)?;
+    core::checks::check_children_count(node.arity(), 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::AtomicFormulaSkeleton])?;
     core::checks::check_child_kind(ast, node, 1, EXPRESSION)
 }
@@ -755,7 +756,7 @@ pub fn check_derived_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedErro
 /// or if the child is not of kind `And`,
 /// or if any of the `And` node's children are not `TaggedTask` or `Task`.
 pub fn check_ordered_subtask_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
     let tasks = core::checks::get_child_node(ast, node, 0)?;
     core::checks::check_all_children_kind(ast, tasks, &[AstKind::TaggedTask, AstKind::Task])
@@ -772,7 +773,7 @@ pub fn check_ordered_subtask_def(ast: &Ast, node: &AstNode) -> Result<(), WellFo
 /// Returns an error if the node does not have exactly two children,
 /// or if the children are not of the expected kinds.
 pub fn check_tagged_task(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 2, node)?;
+    core::checks::check_children_count(node.arity(), 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::TaskID])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::Task])
 }
@@ -790,7 +791,7 @@ pub fn check_tagged_task(ast: &Ast, node: &AstNode) -> Result<(), WellFormedErro
 /// or if the child is not of kind `And`,
 /// or if any child of the `And` node is not of kind `TaskOrderingConstraint`.
 pub fn check_task_ordering_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::And])?;
     let ordering = core::checks::get_child_node(ast, node, 0)?;
     core::checks::check_all_children_kind(ast, ordering, &[AstKind::TaskOrderingConstraint])
@@ -807,7 +808,7 @@ pub fn check_task_ordering_def(ast: &Ast, node: &AstNode) -> Result<(), WellForm
 /// Returns an error if the node does not have exactly two children,
 /// or if any child is not of kind `TaskID`.
 pub fn check_task_ordering_constraint(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 2, node)?;
+    core::checks::check_children_count(node.arity(), 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::TaskID])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::TaskID])
 }
@@ -835,7 +836,7 @@ pub fn check_task_ordering_constraint(ast: &Ast, node: &AstNode) -> Result<(), W
 /// Returns an error if the children count is not between 0 and 3,
 /// or if the children do not match the expected kinds.
 pub fn check_task_network_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 0, 3, node)?;
     match children_len {
         0 => Ok(()),
@@ -884,7 +885,7 @@ pub fn check_task_network_def(ast: &Ast, node: &AstNode) -> Result<(), WellForme
 /// Returns an error if the children count is not 2,
 /// or if the children do not match the expected kinds.
 pub fn check_task_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 2, node)?;
+    core::checks::check_children_count(node.arity(), 2, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::TaskSymbol])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])
 }
@@ -898,7 +899,7 @@ pub fn check_task_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> 
 /// # Errors
 /// Returns an error if the node has any children.
 pub fn check_total_time(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 0, node)
+    core::checks::check_children_count(node.arity(), 0, node)
 }
 
 /// Checks that an `IsViolated` node has exactly one child,
@@ -911,7 +912,7 @@ pub fn check_total_time(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 /// # Errors
 /// Returns an error if the child count is not 1 or the child kind is not `PrefName`.
 pub fn check_is_violated(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::PrefName])
 }
 
@@ -926,7 +927,7 @@ pub fn check_is_violated(ast: &Ast, node: &AstNode) -> Result<(), WellFormedErro
 /// Returns an error if the number of children is outside the allowed range
 /// or if any child is not `Serial` or `Parallel`.
 pub fn check_length_spec(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count_range(node.children().len(), 0, 2, node)?;
+    core::checks::check_children_count_range(node.arity(), 0, 2, node)?;
     core::checks::check_all_children_kind(ast, node, &[AstKind::Serial, AstKind::Parallel])
 }
 
@@ -941,7 +942,7 @@ pub fn check_length_spec(ast: &Ast, node: &AstNode) -> Result<(), WellFormedErro
 /// Returns an error if the child count is not exactly one or
 /// if the child is not a `Number`.
 pub fn check_serial_parallel_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 1, node)?;
+    core::checks::check_children_count(node.arity(), 1, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::Number])
 }
 
@@ -958,7 +959,7 @@ pub fn check_serial_parallel_expression(ast: &Ast, node: &AstNode) -> Result<(),
 /// Returns an error if the children count is not exactly three or
 /// if the children are not of the expected kinds.
 pub fn check_durative_action_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 3, node)?;
+    core::checks::check_children_count(node.arity(), 3, node)?;
     core::checks::check_child_kind(ast, node, 0, &[AstKind::DASymbol])?;
     core::checks::check_child_kind(ast, node, 1, &[AstKind::ParametersDef])?;
     core::checks::check_child_kind(ast, node, 2, &[AstKind::DADefBody])
@@ -975,7 +976,7 @@ pub fn check_durative_action_def(ast: &Ast, node: &AstNode) -> Result<(), WellFo
 /// Returns an error if the number of children is not three
 /// or if any child is not a valid expression.
 pub fn check_duartive_action_def_body(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count(node.children().len(), 3, node)?;
+    core::checks::check_children_count(node.arity(), 3, node)?;
     core::checks::check_child_kind(ast, node, 0, EXPRESSION)?;
     core::checks::check_child_kind(ast, node, 1, EXPRESSION)?;
     core::checks::check_child_kind(ast, node, 2, EXPRESSION)
@@ -992,8 +993,8 @@ pub fn check_duartive_action_def_body(ast: &Ast, node: &AstNode) -> Result<(), W
 /// # Errors
 /// Returns an error if the children count or kinds do not match the expected structure.
 pub fn check_initial_task_network(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_children_count_range(node.children().len(), 1, 2, node)?;
-    match node.children().len() {
+    core::checks::check_children_count_range(node.arity(), 1, 2, node)?;
+    match node.arity() {
         1 => {
             core::checks::check_child_kind(ast, node, 0, &[AstKind::TaskNetworkDef])
         }
@@ -1057,7 +1058,7 @@ pub fn check_typed_list_of(
         }
         AstKind::TypedItemElements => {
             // TypedItemElements must have at least one child
-            core::checks::check_min_children_count(node.children().len(), 1, node)?;
+            core::checks::check_min_children_count(node.arity(), 1, node)?;
             // All children must be of the expected kinds passed in the `expected` slice
             core::checks::check_all_children_kind(ast, node, expected)?;
             // Return early because TypedItemElements are leaf nodes for this validation

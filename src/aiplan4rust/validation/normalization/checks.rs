@@ -1,3 +1,4 @@
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::core::WellNormalizedError;
 use crate::aiplan4rust::validation::{core, normalization, syntax};
@@ -35,7 +36,7 @@ use crate::WellFormedError;
 /// ```
 
 pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
@@ -76,7 +77,7 @@ pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
 /// Returns an error if the node has fewer than one child,
 /// or if the first child is not of kind `TypedList`.
 pub fn check_types_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    core::checks::check_min_children_count(node.children().len(), 1, node)?;
+    core::checks::check_min_children_count(node.arity(), 1, node)?;
     let typed_list = core::checks::get_child_node(ast, node, 0)?;
     normalization::checks::check_typed_list_of(ast, typed_list, &[AstKind::PrimitiveType])
 }
@@ -92,7 +93,7 @@ pub fn check_types_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError>
 /// Returns an error if the node does not have exactly one child,
 /// or if the child is not of kind `TypedList`.
 pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_children_count(children_len, 1, node)?;
     let typed_list = core::checks::get_child_node(ast, node, 0)?;
     normalization::checks::check_typed_list_of(ast, typed_list, &[AstKind::Variable])
@@ -111,7 +112,7 @@ pub fn check_parameters_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedE
 /// Returns an error if the node does not have at least two children,
 /// or if the children do not have the expected kinds.
 pub fn check_quantified_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.children().len();
+    let children_len = node.arity();
     core::checks::check_min_children_count(children_len, 2, node)?;
     let typed_list = core::checks::get_child_node(ast, node, 0)?;
     normalization::checks::check_typed_list_of(ast, typed_list, &[AstKind::Variable])?;

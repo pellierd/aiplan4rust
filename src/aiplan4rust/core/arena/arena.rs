@@ -711,7 +711,7 @@ where
 
             // Recursively format all children
             for (i, child_id) in node.children().iter().enumerate() {
-                let is_last_child = i == node.children().len() - 1;
+                let is_last_child = i == node.arity() - 1;
                 if let Some(child_node) = arena.get_node(*child_id) {
                     fmt_node(arena, f, child_node, child_id.as_usize(), indent + 1, is_last_child)?;
                 } else {
