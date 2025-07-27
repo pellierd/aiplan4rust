@@ -1,3 +1,58 @@
+//! Provides semantic type checking for domain-specific symbols.
+//!
+//! This module defines the [`TypeChecker`] struct and its associated logic used for validating type
+//! relationships in PDDL-like languages. It ensures that type declarations and usages are consistent,
+//! and computes type hierarchies such as subtype and supertype relations.
+//!
+//! # Overview
+//!
+//! The type checking logic relies on a [`SymbolTable`] containing type declarations and their
+//! hierarchical relationships. The [`TypeChecker`] uses this information to answer questions like:
+//!
+//! - Is type `A` a subtype of `B`?
+//! - Do types `A` and `B` share a common supertype?
+//! - What is the transitive closure of supertypes for a given type?
+//!
+//! This is useful in validating domain semantics and ensuring type correctness across
+//! predicates, actions, and object declarations.
+//!
+//! # Key Components
+//!
+//! - [`TypeChecker`] — The main struct performing the actual type hierarchy analysis.
+//! - [`TypeCheckError`] — Error type used when type resolution fails unexpectedly.
+//!
+//! # Features
+//!
+//! - Type hierarchy traversal via `ascending_type_closure`.
+//! - Built-in PDDL type recognition (e.g., `object`, `number`).
+//! - Caching of computed type closures to improve performance.
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use aiplan4rust::semantic::type_checker::TypeChecker;
+//! use aiplan4rust::semantic::symbol_table::SymbolTable;
+//!
+//! let symbol_table = SymbolTable::new();
+//! let checker = TypeChecker::new(&symbol_table);
+//!
+//! let ty1 = vec!["Animal".into()];
+//! let ty2 = vec!["Dog".into()];
+//! let result = checker.is_any_subtype_of(&ty1, &ty2)?;
+//! assert!(result);
+//! ```
+//!
+//! # See Also
+//!
+//! - [`SymbolTable`](crate::aiplan4rust::semantic::symbol_table::SymbolTable)
+//! - [`SymbolKind`](crate::aiplan4rust::semantic::symbol::SymbolKind)
+//! - [`Ident`](crate::aiplan4rust::lang::Ident)
+//! - [`Type`](crate::aiplan4rust::lang::Type)
+//!
+//! # Notes
+//!
+//! This module assumes that the symbol table has been fully populated before type checking.
+
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -12,25 +67,36 @@ use std::cell::{Ref, RefCell};
 /// PDDL Built-in symbols.
 const PDDL_BUILTIN_TYPES: [Ident; 2] = [StringInterner::IDENT_OBJECT, StringInterner::IDENT_NUMBER];
 
-/// A struct for performing type_checker checking within a given domain.
+/// A struct for performing type checking within a given domain.
 ///
-/// This struct holds a reference to the `domain_symbol_table`, which contains the symbol declarations
-/// and type_checker information used to verify the types of symbols within the domain. The `TypeChecker` is
-/// responsible for checking type_checker compatibility, resolving type_checker hierarchies, and ensuring that symbols
-/// are correctly used according to their defined types.
+/// The `TypeChecker` is responsible for verifying subtype and supertype relationships between
+/// types defined in a domain. It works in conjunction with a [`SymbolTable`] that holds symbol
+/// declarations and type definitions, and provides utilities for validating type compatibility
+/// between objects, actions, and predicates.
 ///
 /// # Fields
 ///
-/// * `domain_symbol_table` - A reference to the `SymbolTable` that contains the symbol declarations
-///   for the domain. This is used to resolve type_checker information and check the type_checker hierarchy of symbols
-///   during type_checker checking.
+/// * `domain_symbol_table` - A reference to the [`SymbolTable`] containing the domain's symbol
+///   declarations and type hierarchy.
+/// * `type_closure_cache` - A cache for storing computed transitive closures of supertypes
+///   for efficient repeated lookups.
 ///
 /// # Derives
 ///
 /// The `TypeChecker` struct derives the following traits:
-/// - `Debug`: Enables the ability to format the `TypeChecker` instance for debugging purposes.
-/// - `Clone`: Allows cloning of `TypeChecker` instances, enabling multiple instances to share
-///   the same `domain_symbol_table` without ownership issues.
+/// - [`Debug`]: Enables formatting for debugging.
+/// - [`Clone`]: Allows cloning instances while sharing the same symbol table reference.
+///
+/// # Example
+/// ```rust
+/// use aiplan4rust::semantic::type_checker::TypeChecker;
+/// use aiplan4rust::semantic::symbol_table::SymbolTable;
+///
+/// let symbol_table = SymbolTable::new();
+/// let checker = TypeChecker::new(&symbol_table);
+/// let result = checker.is_any_subtype_of(&vec!["Vehicle".into()], &vec!["Car".into()]);
+/// assert_eq!(result.unwrap(), true);
+/// ```
 #[derive(Debug, Clone)]
 pub struct TypeChecker<'a> {
     domain_symbol_table: &'a SymbolTable,
@@ -38,22 +104,18 @@ pub struct TypeChecker<'a> {
 }
 
 impl<'a> TypeChecker<'a> {
-    /// Constructs a new `TypeChecker` instance.
+    /// Creates a new `TypeChecker` instance using the given domain symbol table.
     ///
-    /// This function initializes a `TypeChecker` with a reference to the `domain_symbol_table`.
-    /// The `domain_symbol_table` plays a crucial role in retrieving the type_checker hierarchy associated
-    /// with the symbols, which is essential for performing type_checker checking and matching symbols
-    /// with their expected types.
+    /// The symbol table provides access to all type declarations and their relationships.
+    /// This is essential for checking subtyping relationships, common supertypes, and type closure.
     ///
     /// # Arguments
     ///
-    /// * `domain_symbol_table` - A reference to the `SymbolTable` that contains the symbol
-    ///   declarations and is used to retrieve the type_checker hierarchy. This table is key for resolving
-    ///   type_checker information  for symbols and their relationships in the context of the given domain.
+    /// * `domain_symbol_table` - A reference to the symbol table that defines the domain's type hierarchy.
     ///
     /// # Returns
     ///
-    /// A new instance of `TypeChecker` initialized with the provided `domain_symbol_table`.
+    /// A new instance of `TypeChecker` with caching enabled for transitive type closure.
     pub fn new(domain_symbol_table: &'a SymbolTable) -> Self {
         TypeChecker {
             domain_symbol_table,
@@ -61,58 +123,31 @@ impl<'a> TypeChecker<'a> {
         }
     }
 
-    /// Checks if any type_checker in the second set (`ty2`) is a subtype of any type_checker in the first set
-    /// (`ty1`) within the given scope.
+    /// Returns `true` if any type in `ty2` is a subtype of any type in `ty1`.
     ///
-    /// This function determines whether there exists at least one type_checker in `ty2` that is a subtype
-    /// of any type_checker in `ty1`. It uses the ascending type_checker closure to consider all supertypes of each
-    /// type_checker in `ty2`, and checks if any of these supertypes match a type_checker in `ty1`.
+    /// This checks whether the second list of types (e.g., expected or declared types) contains
+    /// any type that is a descendant of at least one type in the first list.
     ///
     /// # Arguments
-    /// * `ty1` - A reference to a vector of strings representing the first set of types
-    ///   (supertypes).
-    /// * `ty2` - A reference to a vector of strings representing the second set of types (potential
-    ///   subtypes).
+    ///
+    /// * `ty1` - Set of potential supertypes.
+    /// * `ty2` - Set of potential subtypes.
     ///
     /// # Returns
-    /// * `Ok(true)` if any type_checker in `ty2` is a subtype of any type_checker in `ty1`.
-    /// * `Ok(false)` if no such subtype relation is found.
-    /// * `Err(ParserInternalError)` if an error occurs while computing the ascending type_checker closure.
     ///
-    /// # Algorithm
-    /// The function first converts `ty1` into a `HashSet` to optimize lookup performance.
-    /// Then, for each type_checker in `ty2`, it retrieves its ascending type_checker closure (the type_checker and all its
-    /// supertypes). If any element of this closure is found in `ty1`, the function returns
-    /// `Ok(true)`. If no matches are found after processing all types in `ty2`, it returns
-    /// `Ok(false)`.
-    ///
-    /// # Example
-    /// ```rust
-    /// let ty1 = vec!["Animal".to_string(), "Vehicle".to_string()];
-    /// let ty2 = vec!["Dog".to_string()];
-    /// let result = type_checker.is_any_subtype_of(&ty1, &ty2);
-    /// match result {
-    ///     Ok(true) => { /* Dog is a subtype of Animal or Vehicle */ },
-    ///     Ok(false) => { /* No subtype relation found */ },
-    ///     Err(e) => { /* Handle error */ },
-    /// }
-    /// ```
-    ///
-    /// # Notes
-    /// This function depends on the correctness of the `ascending_type_closure` method to properly
-    /// reflect the type_checker hierarchy and ensure accurate subtype detection.
+    /// * `Ok(true)` if any type in `ty2` is a subtype of any type in `ty1`.
+    /// * `Ok(false)` if no subtype relation exists.
+    /// * `Err(TypeCheckError)` if an internal resolution error occurs.
     pub fn is_any_subtype_of(
         &self,
         ty1: &Type,
         ty2: &Type,
     ) -> Result<bool, TypeCheckError> {
-        let ty1_set: HashSet<_> = ty1.iter().collect(); // références, pas de clone
+        let ty1_set: HashSet<_> = ty1.iter().collect();
 
         for ty in ty2.iter() {
             let closure = self.ascending_type_closure(*ty)?;
-
-            // Check if any element in closure is in ty1_set
-            if closure.iter().any(|closure_ty| ty1_set.contains(closure_ty)) {
+            if closure.iter().any(|t| ty1_set.contains(t)) {
                 return Ok(true);
             }
         }
@@ -120,68 +155,35 @@ impl<'a> TypeChecker<'a> {
         Ok(false)
     }
 
-
-    /// Checks if any type_checker in `ty1` is a supertype of any type_checker in `ty2` within the given scope.
+    /// Returns `true` if any type in `ty1` is a supertype of any type in `ty2`.
     ///
-    /// This function leverages `is_any_subtype_of` by inverting the parameters to determine
-    /// if `ty1` contains any supertype of the types in `ty2`.
+    /// This is equivalent to checking whether any type in `ty2` is a subtype of any type in `ty1`.
     ///
     /// # Arguments
-    /// * `ty1` - A reference to a vector of strings representing the candidate supertype set.
-    /// * `ty2` - A reference to a vector of strings representing the candidate subtype set.
+    ///
+    /// * `ty1` - Set of potential supertypes.
+    /// * `ty2` - Set of potential subtypes.
     ///
     /// # Returns
-    /// * `Ok(true)` if there exists at least one type_checker in `ty1` that is a supertype of any type_checker in
-    ///   `ty2`.
-    /// * `Ok(false)` if no such supertype relationship exists.
-    /// * `Err(ParserInternalError)` if an error occurs during subtype checking.
     ///
-    /// # Example
-    /// ```rust
-    /// let ty1 = vec!["TypeA".to_string()];
-    /// let ty2 = vec!["TypeB".to_string(), "TypeC".to_string()];
-    /// let result = type_checker.is_any_supertype_of(&ty1, &ty2);
-    /// match result {
-    ///     Ok(true) => { /* ty1 has a supertype of ty2 */ },
-    ///     Ok(false) => { /* no supertype relationship found */ },
-    ///     Err(e) => { /* handle error */ },
-    /// }
-    /// ```
+    /// Same as [`is_any_subtype_of`] but with arguments reversed.
     pub fn is_any_supertype_of(
         &self,
         ty1: &Type,
         ty2: &Type,
     ) -> Result<bool, TypeCheckError> {
-        // We check if any type_checker in ty2 is a subtype of any type_checker in ty1
         self.is_any_subtype_of(ty2, ty1)
     }
 
-    /// Checks if there is any subtype or supertype relationship between two sets of types.
+    /// Returns `true` if any type in `ty1` is a subtype or supertype of any type in `ty2`.
     ///
-    /// This function returns `Ok(true)` if any type_checker in `ty1` is either a subtype or a supertype
-    /// of any type_checker in `ty2` within the given scope. It leverages the existing functions
-    /// `is_any_subtype_of` and `is_any_supertype_of` to perform these checks.
-    ///
-    /// # Arguments
-    /// * `ty1` - A reference to a vector of strings representing the first set of types.
-    /// * `ty2` - A reference to a vector of strings representing the second set of types.
+    /// Combines both [`is_any_subtype_of`] and [`is_any_supertype_of`] checks.
     ///
     /// # Returns
-    /// * `Ok(true)` if any subtype or supertype relationship exists between the two sets.
-    /// * `Ok(false)` if no such relationship exists.
-    /// * `Err(ParserInternalError)` if an error occurs during the subtype or supertype checks.
     ///
-    /// # Example
-    /// ```rust
-    /// let ty1 = vec!["TypeA".to_string()];
-    /// let ty2 = vec!["TypeB".to_string()];
-    /// let result = type_checker.is_any_sub_or_supertype_of(&ty1, &ty2);
-    /// match result {
-    ///     Ok(true) => { /* there is a subtype or supertype relationship */ },
-    ///     Ok(false) => { /* no subtype or supertype relationship */ },
-    ///     Err(e) => { /* handle error */ },
-    /// }
-    /// ```
+    /// * `Ok(true)` if at least one relationship exists.
+    /// * `Ok(false)` otherwise.
+    /// * `Err(TypeCheckError)` if an error occurs in type resolution.
     pub fn is_any_sub_or_supertype_of(
         &self,
         ty1: &Type,
@@ -190,55 +192,31 @@ impl<'a> TypeChecker<'a> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
 
-    /// Checks if two sets of types share at least one core supertype.
+    /// Returns `true` if two sets of types share at least one common supertype.
     ///
-    /// For each type_checker in `ty1` and `ty2`, the function retrieves the ascending closure of supertypes
-    /// (i.e., all supertypes inherited directly or indirectly), then determines if there is any
-    /// supertype present in both sets.
-    ///
-    /// # Arguments
-    ///
-    /// * `ty1` - A reference to a vector of strings representing the first set of types.
-    /// * `ty2` - A reference to a vector of strings representing the second set of types.
+    /// This function computes the transitive closure of all supertypes for each type
+    /// in `ty1` and `ty2`, and then checks if there's any intersection.
     ///
     /// # Returns
     ///
-    /// * `Ok(true)` if at least one core supertype is found.
-    /// * `Ok(false)` otherwise.
-    /// * `Err(ParserInternalError)` if an error occurs while retrieving the supertypes closure.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let types_a = vec!["TypeA".to_string(), "TypeB".to_string()];
-    /// let types_b = vec!["TypeC".to_string()];
-    /// let result = my_struct.have_common_supertype(&types_a, &types_b);
-    /// match result {
-    ///     Ok(true) => println!("Types share a core supertype"),
-    ///     Ok(false) => println!("No core supertype found"),
-    ///     Err(e) => println!("Error: {:?}", e),
-    /// }
-    /// ```
-    ///
-    /// # Notes
-    ///
-    /// This function uses `ascending_type_closure` to get the full set of supertypes for a given
-    /// type_checker.
+    /// * `Ok(true)` if a shared supertype is found.
+    /// * `Ok(false)` if the sets are disjoint in the hierarchy.
+    /// * `Err(TypeCheckError)` on resolution failure.
     pub fn have_common_supertype(
         &self,
         ty1: &Type,
         ty2: &Type,
     ) -> Result<bool, TypeCheckError> {
         let mut supertypes1 = HashSet::new();
-
         for t1 in ty1.iter() {
-            let closure1 = self.ascending_type_closure(*t1)?;
-            supertypes1.extend(closure1.iter().cloned());
+            supertypes1.extend(self.ascending_type_closure(*t1)?.iter().cloned());
         }
 
         for t2 in ty2.iter() {
-            let closure2 = self.ascending_type_closure(*t2)?;
-            if closure2.iter().any(|s| supertypes1.contains(s)) {
+            if self.ascending_type_closure(*t2)?
+                .iter()
+                .any(|t| supertypes1.contains(t))
+            {
                 return Ok(true);
             }
         }
@@ -246,126 +224,80 @@ impl<'a> TypeChecker<'a> {
         Ok(false)
     }
 
-    /// Computes the ascending type_checker closure for a given primitive type_checker.
+    /// Returns all supertypes (including itself) of the given type.
     ///
-    /// This function returns the set of all supertypes (including the type_checker itself)
-    /// reachable by traversing the type_checker hierarchy upwards starting from the specified
-    /// primitive type_checker. It uses a cache to avoid recomputing closures for previously
-    /// processed types.
+    /// Performs a depth-first traversal of the type hierarchy starting from
+    /// the provided primitive type, and collects all supertypes.
     ///
-    /// The closure includes the type_checker itself, its immediate supertypes, their supertypes,
-    /// and so on, stopping at built-in PDDL types which are not further traversed.
+    /// # Arguments
     ///
-    /// # Parameters
-    /// - `primitive_type`: The name of the primitive type_checker whose ascending closure is computed.
+    /// * `primitive_type` - The base type from which the closure is computed.
     ///
     /// # Returns
-    /// - `Ok(Ref<HashSet<String>>)` containing the cached or newly computed set of supertypes as
-    ///   strings.
-    /// - `Err(ParserInternalError)` if an error occurs while resolving declarations in the symbol
-    ///   table.
+    ///
+    /// * `Ok(Ref<HashSet<Ident>>)` containing the closure.
+    /// * `Err(TypeCheckError)` if type resolution fails.
     ///
     /// # Caching
-    /// The computed closure is cached internally in `type_closure_cache` to improve
-    /// performance for repeated queries.
     ///
-    /// # Behavior
-    /// - If the closure for `primitive_type` is already cached, it is returned immediately.
-    /// - Otherwise, the function performs a depth-first search up the type_checker hierarchy,
-    ///   collecting all reachable supertypes.
-    /// - Built-in PDDL types are treated as terminal nodes and not traversed further.
-    ///
-    /// # Example
-    /// ```rust
-    /// let closure = symbol_table.ascending_type_closure("my_type")?;
-    /// for supertype in closure.iter() {
-    ///     println!("Supertype: {}", supertype);
-    /// }
-    /// ```
-    ///
-    /// # Errors
-    /// Returns a `ParserInternalError` if resolving the declaration of any supertype
-    /// fails unexpectedly.
-    ///
-    /// # Notes
-    /// The returned reference is tied to the internal cache and should not outlive
-    /// the `SymbolTable` instance.
-    ///
-    /// ```
-
+    /// If the closure for the type has already been computed, the cached result is reused.
     pub fn ascending_type_closure(
         &self,
         primitive_type: Ident,
     ) -> Result<Ref<HashSet<Ident>>, TypeCheckError> {
         {
-            // First, try to return the cached value without recalculating
             let cache_ref = self.type_closure_cache.borrow();
             if cache_ref.contains_key(&primitive_type) {
-                return Ok(Ref::map(cache_ref, |cache| {
-                    cache.get(&primitive_type).unwrap()
-                }));
+                return Ok(Ref::map(cache_ref, |c| c.get(&primitive_type).unwrap()));
             }
         }
 
-        // Otherwise, we need to compute the closure
         let mut super_types = HashSet::new();
-        let mut to_visit = Vec::with_capacity(8);
-        to_visit.push(primitive_type);
+        let mut to_visit = vec![primitive_type];
 
-        // Traverse the type_checker hierarchy upwards
-        while let Some(current_type) = to_visit.pop() {
-            // Insert the current type_checker; if it was already visited, skip it
-            if !super_types.insert(current_type) {
+        while let Some(current) = to_visit.pop() {
+            if !super_types.insert(current) {
                 continue;
             }
 
-            // Skip built-in PDDL types, no need to traverse further
-            if TypeChecker::is_pddl_builtin_types(current_type) {
+            if TypeChecker::is_pddl_builtin_types(current) {
                 continue;
             }
 
-            // Resolve the declaration for the current type_checker in the root scope
             let declaration = self.domain_symbol_table.resolve_declaration(
-                &current_type,
+                &current,
                 &SymbolKind::PrimitiveType,
                 &self.domain_symbol_table.root_scope(),
             )?;
 
-            match declaration {
-                Some(declaration) => {
-                    // If the declaration has supertypes, add them to the stack for traversal
-                    if let Some(s_types) = declaration.types() {
-                        to_visit.extend_from_slice(s_types.as_slice());
-                    }
+            if let Some(decl) = declaration {
+                if let Some(supertypes) = decl.types() {
+                    to_visit.extend(supertypes.iter().cloned());
                 }
-                None => continue, // No declaration found, skip
             }
         }
 
-        // Insert the computed closure into the cache
         self.type_closure_cache
             .borrow_mut()
             .insert(primitive_type, super_types);
 
-        // Return a reference to the cached closure
         let cache_ref = self.type_closure_cache.borrow();
-        Ok(Ref::map(cache_ref, |cache| {
-            cache.get(&primitive_type).unwrap()
-        }))
+        Ok(Ref::map(cache_ref, |c| c.get(&primitive_type).unwrap()))
     }
 
-    /// Checks if the given type_checker is a PDDL built-in symbol.
+    /// Checks if the given type is a built-in PDDL type.
     ///
-    /// This function checks if the provided type_checker string matches any of the predefined
-    /// built-in symbols in the PDDL language. The set of PDDL built-in symbols is
-    /// stored in the constant `PDDL_BUILTIN_SYMBOLS`.
+    /// Built-in types are terminal in the type hierarchy and should not be resolved
+    /// or traversed further during closure computation.
     ///
     /// # Arguments
-    /// * `ty` - A reference to a string representing the type_checker to check.
+    ///
+    /// * `ty` - The identifier to check.
     ///
     /// # Returns
-    /// * `bool` - `true` if the type_checker is a PDDL built-in symbol, `false` otherwise.
     ///
+    /// * `true` if the type is built-in.
+    /// * `false` otherwise.
     pub fn is_pddl_builtin_types(ty: Ident) -> bool {
         PDDL_BUILTIN_TYPES.contains(&ty)
     }
