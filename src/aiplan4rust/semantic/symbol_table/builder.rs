@@ -1141,11 +1141,11 @@ impl SymbolTableBuilder {
         match node.kind() {
             AstKind::Exists | AstKind::Forall => {},
             other => {
-                return Err(SymbolTableError::UnexpectedAstKind {
-                    expected: vec![AstKind::Exists, AstKind::Forall],
-                    found: other,
-                    node_id: node_ref.id(),
-                });
+                return Err(SymbolTableError::unexpected_ast_kind(
+                    node_ref.id(),
+                    vec![AstKind::Exists, AstKind::Forall],
+                    other,
+                ));
             }
         }
 
@@ -1216,11 +1216,11 @@ impl SymbolTableBuilder {
         let predicate = &syntax_tree.try_node_ref(predicate_id)?;
 
         if predicate.node().kind() != AstKind::Predicate {
-            return Err(SymbolTableError::UnexpectedAstKind {
-                expected: vec![AstKind::Predicate],
-                found: predicate.node().kind(),
-                node_id: predicate.id(),
-            });
+            return Err(SymbolTableError::unexpected_ast_kind(
+                predicate.id(),
+                vec![AstKind::Predicate],
+                predicate.node().kind(),
+            ));
         }
 
         // Step 2: Get the argument list node (second child)
@@ -1364,11 +1364,11 @@ impl SymbolTableBuilder {
             }
             found => {
                 // Unexpected kind for symbol part of TypedItem
-                return Err(SymbolTableError::UnexpectedAstKind {
-                    expected: vec![AstKind::Constant, AstKind::Variable],
+                return Err(SymbolTableError::unexpected_ast_kind(
+                    elt.id(),
+                    vec![AstKind::Constant, AstKind::Variable],
                     found,
-                    node_id: elt.id(),
-                });
+                ));
             }
         }
 
@@ -1416,11 +1416,11 @@ impl SymbolTableBuilder {
                 super_types.add_type(name);
             } else {
                 // Return a semantic error when the structure does not match expectations
-                return Err(SymbolTableError::UnexpectedAstKind {
-                    expected: vec![AstKind::PrimitiveType],
-                    found: ty_ref.node().kind(),
-                    node_id: ty_ref.id(),
-                });
+                return Err(SymbolTableError::unexpected_ast_kind(
+                    ty_ref.id(),
+                    vec![AstKind::PrimitiveType],
+                    ty_ref.node().kind(),
+                ));
             }
         }
 

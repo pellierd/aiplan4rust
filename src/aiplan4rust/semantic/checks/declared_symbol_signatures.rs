@@ -146,9 +146,9 @@ fn match_declaration_with_usage(
             AstKind::FunctionTerm => SymbolKind::Function,
             found => {
                 return Err(SemanticCheckError::unexpected_ast_kind(
-                    AstKind::Variable,  // ou un AstKind générique si tu veux, sinon adapter
-                    found,
                     usage.node_id(),
+                    vec![AstKind::Variable, AstKind::Constant, AstKind::FunctionTerm], // tous les attendus
+                    found,
                 ));
             }
         };

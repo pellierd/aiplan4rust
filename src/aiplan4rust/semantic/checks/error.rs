@@ -3,14 +3,14 @@ use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
+use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
+use crate::aiplan4rust::semantic::UnexpectedAstKindError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
-/// Represents errors that can occur during symbol table construction or resolution.
 #[derive(Debug, Error)]
 pub enum SemanticCheckError {
     /// Generic internal error with a descriptive message.
@@ -32,13 +32,8 @@ pub enum SemanticCheckError {
     #[error(transparent)]
     Interner(#[from] InternerError),
 
-
-    #[error("Unexpected AST node kind at node {node_id:?}: expected {expected:?}, found {found:?}.")]
-    UnexpectedAstKind {
-        expected: AstKind,
-        found: AstKind,
-        node_id: NodeId,
-    },
+    #[error(transparent)]
+    UnexpectedAstKind(#[from] UnexpectedAstKindError),
 
     #[error("No type declared for operand {operand_index} in binary operation at node {node_id:?}.")]
     MissingOperandType {
@@ -99,13 +94,19 @@ impl SemanticCheckError {
         SemanticCheckError::InternalError(msg.into())
     }
 
-    pub fn unexpected_ast_kind(expected: AstKind, found: AstKind, node_id: NodeId) -> Self {
-        SemanticCheckError::UnexpectedAstKind { expected, found, node_id }
+    pub fn unexpected_ast_kind(
+        node_id: NodeId,
+        expected: Vec<AstKind>,
+        found: AstKind,
+    ) -> Self {
+        // On utilise maintenant la struct commune UnexpectedAstKindError
+        UnexpectedAstKindError::new(node_id, expected, found).into()
     }
 
     pub fn missing_operand_type(node_id: NodeId, operand_index: usize) -> Self {
         SemanticCheckError::MissingOperandType { node_id, operand_index }
     }
+
     pub fn missing_declaration(symbol: Ident, scope: Scope) -> Self {
         SemanticCheckError::MissingDeclaration { symbol, scope }
     }

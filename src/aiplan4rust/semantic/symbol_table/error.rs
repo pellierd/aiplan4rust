@@ -1,7 +1,9 @@
 use thiserror::Error;
+
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolEntry, SymbolKind};
+use crate::aiplan4rust::semantic::UnexpectedAstKindError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -45,12 +47,8 @@ pub enum SymbolTableError {
         count: usize,
     },
 
-    #[error("Unexpected AST node kind at node {node_id:?}: expected {expected:?}, found {found:?}.")]
-    UnexpectedAstKind {
-        expected: Vec<AstKind>,
-        found: AstKind,
-        node_id: NodeId,
-    },
+    #[error(transparent)]  // Utilisation de l'erreur commune UnexpectedAstKindError
+    UnexpectedAstKind(#[from] UnexpectedAstKindError),
 
     #[error("TypedItem at node {node_id:?} has an unexpected number of children: {child_count}. Expected 1 or 2.")]
     InvalidTypedItemArity {
@@ -69,6 +67,7 @@ impl SymbolTableError {
     pub fn multiple_declarations(node_id: NodeId, candidates: Vec<Declaration>) -> Self {
         SymbolTableError::MultipleDeclarationsForUsage { node_id, candidates }
     }
+
     pub fn non_unique_symbol_declaration(
         kind: SymbolKind,
         candidates: Vec<SymbolEntry>,
@@ -81,11 +80,7 @@ impl SymbolTableError {
         expected: Vec<AstKind>,
         found: AstKind,
     ) -> Self {
-        SymbolTableError::UnexpectedAstKind {
-            expected,
-            found,
-            node_id,
-        }
+        UnexpectedAstKindError::new(node_id, expected, found).into()
     }
 
     pub fn invalid_typed_item_arity(node_id: NodeId, child_count: usize) -> Self {

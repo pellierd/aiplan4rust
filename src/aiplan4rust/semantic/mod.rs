@@ -12,4 +12,5 @@ pub use analyzer::Analyzer;
 pub use symbol_table::SymbolTable;
 pub use type_checker::type_checker::TypeChecker;
 pub use error::SemanticError;
+pub use error::UnexpectedAstKindError;
 pub use context::Context as SemanticContext;

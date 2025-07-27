@@ -8,13 +8,27 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 #[derive(Debug, Error)]
+#[error("Unexpected AST node kind at node {node_id:?}: expected {expected:?}, found {found:?}.")]
+pub struct UnexpectedAstKindError {
+    expected: Vec<AstKind>,
+    found: AstKind,
+    node_id: NodeId,
+}
+
+impl UnexpectedAstKindError {
+    pub fn new(node_id: NodeId, expected: Vec<AstKind>, found: AstKind) -> Self {
+        UnexpectedAstKindError { node_id, expected, found }
+    }
+}
+
+#[derive(Debug, Error)]
 pub enum SemanticError {
     /// Generic internal error with a descriptive message.
     #[error("Internal error: {0}")]
     InternalError(String),
 
     #[error(transparent)]
-    SyntaxTee(#[from] SyntaxTreeError),
+    SyntaxTree(#[from] SyntaxTreeError),
 
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
@@ -25,12 +39,8 @@ pub enum SemanticError {
     #[error(transparent)]
     SemanticCheck(#[from] SemanticCheckError),
 
-    #[error("Unexpected AST node kind at node {node_id:?}: expected {expected:?}, found {found:?}.")]
-    UnexpectedAstKind {
-        expected: Vec<AstKind>,
-        found: AstKind,
-        node_id: NodeId,
-    },
+    #[error(transparent)]
+    UnexpectedAstKind(#[from] UnexpectedAstKindError),
 }
 
 impl SemanticError {
@@ -44,10 +54,8 @@ impl SemanticError {
         expected: Vec<AstKind>,
         found: AstKind,
     ) -> Self {
-        SemanticError::UnexpectedAstKind {
-            expected,
-            found,
-            node_id,
-        }
+        SemanticError::UnexpectedAstKind(
+            UnexpectedAstKindError::new(node_id, expected, found)
+        )
     }
 }

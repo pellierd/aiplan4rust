@@ -427,12 +427,13 @@ pub fn get_type(
 
         // Default case: Unexpected AST syntax kind
         found_kind => Err(SemanticCheckError::unexpected_ast_kind(
-            AstKind::Number,
-            found_kind,
             index,
+            vec![AstKind::Number, AstKind::Variable, AstKind::Constant, AstKind::FunctionTerm],
+            found_kind,
         )),
     }
 }
+
 
 /// Returns the predefined type_checker for numeric values.
 ///
@@ -605,8 +606,8 @@ fn get_function_term_type(
     }
 
     Err(SemanticCheckError::unexpected_ast_kind(
-        AstKind::FunctionSymbol,
-        functor_entry.kind(),
         index,
+        vec![AstKind::FunctionSymbol],
+        functor_entry.kind(),
     ))
 }
