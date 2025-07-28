@@ -134,7 +134,7 @@ pub fn normalize_require_def(
 ///
 /// # Arguments
 ///
-/// * `arena` - Reference to the AST arena containing the nodes.
+/// * `syntax_tree` - Reference to the syntax tree containing the nodes.
 /// * `require_def_id` - The `NodeId` of the `RequireDef` syntax to inspect.
 /// * `source_name` - The name of the source file (used for context in diagnostics).
 /// * `diagnostic_manager` - Mutable reference to the diagnostic manager where warnings are added.
@@ -148,20 +148,20 @@ pub fn normalize_require_def(
 ///
 /// ```rust
 /// report_duplicate_requirements_warnings(
-///     &ast.arena(),
+///     &ast.syntax_tree(),
 ///     require_def_id,
 ///     "domain.pddl",
 ///     &mut diagnostic_manager,
 /// )?;
 /// ```
 pub fn report_duplicate_requirements_warnings(
-    arena: &SyntaxTree<AstNode>,
+    syntax_tree: &SyntaxTree<AstNode>,
     require_def_id: NodeId,
     source_name: &str,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationError> {
     // Try to get the RequireDef syntax by its ID. Return error if not found.
-    let require_def_node = arena.try_node(require_def_id)?;
+    let require_def_node = syntax_tree.try_node(require_def_id)?;
 
     // Create a HashSet to track seen requirements and a Vec to collect duplicates.
     let mut seen = HashSet::new();
@@ -170,7 +170,7 @@ pub fn report_duplicate_requirements_warnings(
     // Iterate over all children of the RequireDef syntax.
     for &child_id in require_def_node.children() {
         // Get the child syntax reference by its ID.
-        let child = arena.get_node(child_id).unwrap();
+        let child = syntax_tree.get_node(child_id).unwrap();
 
         // Attempt to parse the child syntax as a requirement.
         if let Ok(req) = child.try_requirement() {
@@ -238,22 +238,22 @@ pub fn new_duplicate_requirement_warning(
     )
 }
 
-/// Removes duplicate requirement children from the `RequireDef` syntax in the arena.
+/// Removes duplicate requirement children from the `RequireDef` syntax in the syntax tree.
 ///
 /// Returns `Ok(true)` if any duplicates were removed, otherwise `Ok(false)`.
 ///
 /// # Arguments
-/// * `arena_mut` - Mutable reference to the arena containing the AST nodes.
+/// * `syntax_tree` - Mutable reference to the syntax tree containing the AST nodes.
 /// * `require_def_id` - The `NodeId` of the `RequireDef` syntax.
 ///
 /// # Errors
 /// Returns an error if the syntax with `require_def_id` or its children cannot be accessed mutably.
 pub fn remove_requirement_duplicates(
-    arena_mut: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut SyntaxTree<AstNode>,
     require_def_id: NodeId,
 ) -> Result<bool, NormalizationError> {
     // Get mutable reference to RequireDef syntax
-    let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
+    let require_def_node_mut = syntax_tree.try_node_mut(require_def_id)?;
 
     // Copy the children IDs to avoid mutable borrow conflicts
     let old_children = require_def_node_mut.children().to_vec();
@@ -267,7 +267,7 @@ pub fn remove_requirement_duplicates(
 
     // Iterate over children and keep only unique requirements
     for &child_id in &old_children {
-        let child = arena_mut.try_node_mut(child_id)?;
+        let child = syntax_tree.try_node_mut(child_id)?;
         match child.try_requirement() {
             Ok(req) if seen.insert(req) => new_children.push(child_id),
             Ok(_) => modified = true, // duplicate found and skipped
@@ -276,7 +276,7 @@ pub fn remove_requirement_duplicates(
     }
 
     // Re-borrow RequireDef syntax mutably to set filtered children
-    let require_def_node_mut = arena_mut.try_node_mut(require_def_id)?;
+    let require_def_node_mut = syntax_tree.try_node_mut(require_def_id)?;
     require_def_node_mut.set_children(new_children);
 
     Ok(modified)

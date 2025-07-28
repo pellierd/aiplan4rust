@@ -26,15 +26,24 @@
 //! # Examples
 //!
 //! ```rust,ignore
-//! use crate::ast::AstArena;
-//! use crate::diagnostics::DiagnosticManager;
+//! use crate::aiplan4rust::syntax::ast::Ast;
+//! use crate::aiplan4rust::diagnostic::DiagnosticManager;
+//! use crate::your_module::normalize_type_def;  // replace with actual module path
 //!
-//! let mut ast = parse_source_code(source)?;
-//! normalize_typed_list(&mut ast)?; // prerequisite normalization
+//! // Assume `ast` is parsed and initially normalized (e.g., typed lists normalized).
+//! let mut ast: Ast = parse_source_code(source)?;
 //! let mut diagnostics = DiagnosticManager::new();
+//!
+//! // Perform type definition normalization with diagnostics collection.
 //! let changed = normalize_type_def(&mut ast, &mut diagnostics)?;
+//!
 //! if changed {
 //!     println!("Type declarations merged successfully.");
+//! }
+//!
+//! // Inspect diagnostics for warnings or errors generated during normalization.
+//! for diagnostic in diagnostics.diagnostics() {
+//!     println!("Diagnostic: {}", diagnostic);
 //! }
 //! ```
 
@@ -151,35 +160,35 @@ fn report_implicit_either_type_warning(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationError> {
     // Get immutable access to the arena containing the AST nodes
-    let arena = ast.syntax_tree();
+    let syntax_tree = ast.syntax_tree();
 
     // Retrieve the syntax representing the entire type_checker definitions
-    let typed_def_node = arena.try_node(types_def_id)?;
+    let typed_def_node = syntax_tree.try_node(types_def_id)?;
 
     // Get the first child which holds the list of typed declarations
     let typed_list_id = typed_def_node.try_child(0)?;
-    let typed_list = arena.try_node(typed_list_id)?;
+    let typed_list = syntax_tree.try_node(typed_list_id)?;
 
     // Map to keep track of seen primitive type_checker identifiers and their super types
     let mut seen = HashMap::new();
 
     // Iterate over all type_checker declaration nodes
     for typed_item_id in typed_list.children() {
-        let type_item = arena.try_node(*typed_item_id)?;
+        let type_item = syntax_tree.try_node(*typed_item_id)?;
 
         // Extract the primitive type_checker identifier syntax and get its Ident
         let primitive_type_id = type_item.try_child(0)?;
-        let primitive_type = arena.try_node(primitive_type_id)?;
+        let primitive_type = syntax_tree.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
 
         // Extract the syntax containing super types of this primitive type_checker if they exist
         let super_type_idents = match type_item.get_child(1) {
             Some(ty_id) => {
-                let ty = arena.try_node(ty_id)?;
+                let ty = syntax_tree.try_node(ty_id)?;
                 // Collect all super type_checker identifiers into a set
                 let mut super_type_idents = HashSet::new();
                 for super_type_id in ty.children() {
-                    let super_type = arena.try_node(*super_type_id)?;
+                    let super_type = syntax_tree.try_node(*super_type_id)?;
                     let super_type_ident = super_type.try_ident()?;
                     super_type_idents.insert(super_type_ident);
                 }
@@ -284,9 +293,9 @@ fn new_implicit_either_type_warning(
 /// let changed = merge_duplicate_type_declarations(types_def_id, &mut ast)?;
 ///
 /// if changed {
-///     println!("✅ Duplicate type_checker declarations were successfully merged.");
+///     println!(" Duplicate type_checker declarations were successfully merged.");
 /// } else {
-///     println!("ℹ️ No duplicate type_checker declarations found.");
+///     println!("️ No duplicate type_checker declarations found.");
 /// }
 /// # Ok(())
 /// # }
@@ -327,15 +336,15 @@ pub fn merge_duplicate_type_declarations(
     types_def_id: NodeId,
     ast: &mut Ast,
 ) -> Result<bool, NormalizationError> {
-    // Get mutable access to the arena holding all AST nodes
-    let arena = ast.syntax_tree_mut();
+    // Get mutable access to the syntax tree holding all AST nodes
+    let syntax_tree = ast.syntax_tree_mut();
 
     // Retrieve the syntax containing the types definitions
-    let typed_def_node = arena.try_node(types_def_id)?;
+    let typed_def_node = syntax_tree.try_node(types_def_id)?;
 
     // The first child of this syntax is assumed to be the list syntax holding all type_checker declarations
     let typed_list_id = typed_def_node.try_child(0)?;
-    let typed_list = arena.try_node_mut(typed_list_id)?;
+    let typed_list = syntax_tree.try_node_mut(typed_list_id)?;
 
     // Track whether any modifications happen (merges performed)
     let mut modified = false;
@@ -356,26 +365,26 @@ pub fn merge_duplicate_type_declarations(
         }
 
         // Get the current type_checker declaration syntax
-        let type_item = arena.try_node(typed_item_id)?;
+        let type_item = syntax_tree.try_node(typed_item_id)?;
 
         // Extract the primitive type_checker syntax and its identifier
         let primitive_type_id = type_item.try_child(0)?;
-        let primitive_type = arena.try_node(primitive_type_id)?;
+        let primitive_type = syntax_tree.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
 
         if let Some(&existing_item_id) = seen.get(&primitive_type_ident) {
             // Duplicate found: merge this declaration's children into the existing one
 
             // Get the existing declaration syntax and its "super type_checker" children syntax
-            let existing_item = arena.try_node(existing_item_id)?;
+            let existing_item = syntax_tree.try_node(existing_item_id)?;
             let existing_super_type_id = existing_item.try_child(1)?;
 
             // Get the current duplicate's "super type_checker" children syntax
             let current_super_type_id = type_item.try_child(1)?;
 
             // Retrieve nodes representing the children lists
-            let existing_super_type = arena.try_node(existing_super_type_id)?;
-            let current_super_type = arena.try_node(current_super_type_id)?;
+            let existing_super_type = syntax_tree.try_node(existing_super_type_id)?;
+            let current_super_type = syntax_tree.try_node(current_super_type_id)?;
 
             // Start merged list with existing children
             let mut merged_children = existing_super_type.children().to_vec();
@@ -392,7 +401,7 @@ pub fn merge_duplicate_type_declarations(
             }
 
             // Update the existing declaration's children to the merged list
-            let existing_super_type_mut = arena.try_node_mut(existing_super_type_id)?;
+            let existing_super_type_mut = syntax_tree.try_node_mut(existing_super_type_id)?;
             existing_super_type_mut.set_children(merged_children);
 
             // Mark this duplicate declaration for removal later
@@ -408,7 +417,7 @@ pub fn merge_duplicate_type_declarations(
 
     // After processing all declarations, remove all duplicates in one operation
     if modified {
-        let typed_list_mut = arena.try_node_mut(typed_list_id)?;
+        let typed_list_mut = syntax_tree.try_node_mut(typed_list_id)?;
 
         // Filter out all nodes marked as duplicates from the children list
         typed_list_mut.set_children(

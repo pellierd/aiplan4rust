@@ -64,13 +64,13 @@
 //! match normalizer.normalize(ast) {
 //!     Ok(result) => {
 //!         if result.changed() {
-//!             println!("✅ AST was normalized and updated.");
+//!             println!("AST was normalized and updated.");
 //!         }
 //!         for diag in result.diagnostics() {
-//!             eprintln!("⚠️  Diagnostic: {}", diag);
+//!             eprintln!("  Diagnostic: {}", diag);
 //!         }
 //!     }
-//!     Err(err) => eprintln!("❌ Normalization failed: {:?}", err),
+//!     Err(err) => eprintln!(" Normalization failed: {:?}", err),
 //! }
 //! ```
 //!

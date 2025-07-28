@@ -34,10 +34,10 @@
 //!
 //! ```rust
 //! use crate::aiplan4rust::normalization::passes::either_type::normalize_either_type;
-//! use crate::aiplan4rust::syntax::ast::AstArena;
+//! use crate::aiplan4rust::syntax::ast::Ast;
 //! use crate::aiplan4rust::diagnostic::DiagnosticManager;
 //!
-//! let mut ast = AstArena::new(...);
+//! let mut ast = Ast::new(...);
 //! let mut diagnostic_manager = DiagnosticManager::new();
 //!
 //! match normalize_either_type(&mut ast, &mut diagnostic_manager) {
@@ -80,7 +80,7 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// # Parameters
 ///
-/// - `ast`: A mutable reference to the `AstArena` representing the abstract syntax arena to normalize.
+/// - `ast`: A mutable reference to the `Ast` representing the abstract syntax tree to normalize.
 /// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` used to collect and report
 ///   warnings about duplicate types.
 ///
@@ -100,11 +100,11 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// ```rust
 /// use crate::aiplan4rust::normalization::passes::either_type::normalize_either_type;
-/// use crate::aiplan4rust::syntax::ast::AstArena;
+/// use crate::aiplan4rust::syntax::ast::Ast;
 /// use crate::aiplan4rust::diagnostic::DiagnosticManager;
 /// use crate::aiplan4rust::parser::ParserInternalError;
 ///
-/// let mut ast = AstArena::new(...);
+/// let mut ast = Ast::new(...);
 /// let mut diagnostic_manager = DiagnosticManager::new();
 ///
 /// match normalize_either_type(&mut ast, &mut diagnostic_manager) {
@@ -123,20 +123,20 @@ pub fn normalize_either_type(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, NormalizationError> {
-    let arena = ast.syntax_tree();
+    let syntax_tree = ast.syntax_tree();
     // Step 1: Detect and report duplicate type_checker warnings without modifying the AST
-    report_either_type_duplicate_warnings(arena, ast, diagnostic_manager)?;
+    report_either_type_duplicate_warnings(syntax_tree, ast, diagnostic_manager)?;
 
-    // Step 2: Mutably borrow arena to remove duplicates and track if modifications were made
-    let arena = ast.syntax_tree_mut();
-    let modified = remove_either_type_duplicates(arena)?;
+    // Step 2: Mutably borrow syntax tree to remove duplicates and track if modifications were made
+    let syntax_tree = ast.syntax_tree_mut();
+    let modified = remove_either_type_duplicates(syntax_tree)?;
 
     Ok(modified)
 }
 
 /// Traverses the AST to detect and report duplicate identifiers within 'Type' nodes.
 ///
-/// This function performs a preorder traversal over the AST nodes contained in the provided `arena`.
+/// This function performs a preorder traversal over the AST nodes contained in the provided syntax tree.
 /// For each syntax of kind `Type`, it inspects its immediate children to identify duplicates among
 /// `PrimitiveType` children, specifically by checking their identifier (`Ident`) content. If duplicates
 /// are found, it reports these as warnings through the provided `diagnostic_manager`.
@@ -145,9 +145,9 @@ pub fn normalize_either_type(
 ///
 /// # Parameters
 ///
-/// - `arena`: Reference to the arena arena containing `AstArenaNode` nodes. This is the structure
+/// - `syntax_tree`: Reference to the syntax tree containing `AstNode` nodes. This is the structure
 ///   holding the AST nodes to traverse.
-/// - `ast`: Reference to the AST arena, used to resolve `Ident` to human-readable strings.
+/// - `ast`: Reference to the AST, used to resolve `Ident` to human-readable strings.
 /// - `diagnostic_manager`: Mutable reference to the diagnostic manager, used to emit warnings about duplicates.
 ///
 /// # Returns
@@ -165,7 +165,7 @@ pub fn normalize_either_type(
 /// # Example
 ///
 /// ```ignore
-/// let result = report_either_type_duplicate_warnings(&arena, &ast, &mut diagnostic_manager);
+/// let result = report_either_type_duplicate_warnings(&syntax_tree, &ast, &mut diagnostic_manager);
 /// if let Err(e) = result {
 ///     eprintln!("Error during duplicate detection: {:?}", e);
 /// }
@@ -180,7 +180,7 @@ pub fn normalize_either_type(
 ///
 /// - `report_duplicate_either_type_warning_bis` – helper function that actually formats and sends diagnostics.
 fn report_either_type_duplicate_warnings(
-    arena: &SyntaxTree<AstNode>,
+    syntax_tree: &SyntaxTree<AstNode>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationError> {
@@ -188,7 +188,7 @@ fn report_either_type_duplicate_warnings(
     let source_name = ast.source_name();
 
     // Traverse all nodes in the AST in preorder (parent before children)
-    for node in arena.preorder().values() {
+    for node in syntax_tree.preorder().values() {
         // Skip nodes that are not of kind Type, since duplicates only matter there
         if node.kind() != AstKind::Type {
             continue;
@@ -202,7 +202,7 @@ fn report_either_type_duplicate_warnings(
         // Iterate over immediate children of the current Type syntax
         for &child_id in node.children() {
             // Get an immutable reference to the child syntax
-            let child = arena.try_node(child_id)?;
+            let child = syntax_tree.try_node(child_id)?;
 
             // Check if the child syntax is a PrimitiveType (the relevant syntax kind for IDs)
             if child.kind() == AstKind::PrimitiveType {
@@ -242,7 +242,7 @@ fn report_either_type_duplicate_warnings(
 /// # Parameters
 ///
 /// - `duplicate_ids`: Vector of `Ident` representing the duplicate identifiers detected.
-/// - `ast`: Reference to the AST arena for resolving identifiers.
+/// - `ast`: Reference to the AST for resolving identifiers.
 /// - `source`: Source filename or identifier where the duplicates were found.
 /// - `span`: The source code span indicating the location of the duplicate identifiers.
 ///
@@ -294,14 +294,14 @@ fn new_duplicate_either_type_warning(
 ///
 /// # Parameters
 ///
-/// - `arena`: A mutable reference to the arena arena containing `AstArenaNode` nodes. This is
+/// - `syntax_tree`: A mutable reference to the syntax tree containing `AstNode` nodes. This is
 ///   the data structure representing the AST.
 ///
 /// # Returns
 ///
 /// - `Ok(true)` if any duplicates were removed (i.e., the AST was modified).
 /// - `Ok(false)` if no duplicates were found and the AST remains unchanged.
-/// - `Err(NormalizationError)` if an error occurs while accessing nodes in the arena.
+/// - `Err(NormalizationError)` if an error occurs while accessing nodes in the syntax tree.
 ///
 /// # Behavior
 ///
@@ -313,7 +313,7 @@ fn new_duplicate_either_type_warning(
 /// # Example
 ///
 /// ```ignore
-/// let modified = remove_either_type_duplicates(&mut arena)?;
+/// let modified = remove_either_type_duplicates(&mut syntax_tree)?;
 /// if modified {
 ///     println!("Duplicates removed from the AST.");
 /// } else {
@@ -334,14 +334,14 @@ fn new_duplicate_either_type_warning(
 ///
 /// - `normalize_either_type` – calls this function as part of its normalization pipeline.
 fn remove_either_type_duplicates(
-    arena: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut SyntaxTree<AstNode>,
 ) -> Result<bool, NormalizationError> {
     let mut modified = false;
-    let mut stack = vec![arena.try_root_id()?];
+    let mut stack = vec![syntax_tree.try_root_id()?];
 
     while let Some(node_id) = stack.pop() {
         // Obtain an immutable reference to the current syntax for reading
-        let node = arena.try_node(node_id)?;
+        let node = syntax_tree.try_node(node_id)?;
         // Clone the children IDs to avoid borrowing issues when mutating later
         let children_ids = node.children().to_vec();
         // Cache the syntax kind for quick checks
@@ -355,7 +355,7 @@ fn remove_either_type_duplicates(
 
             // Iterate over all children to filter out duplicate PrimitiveType identifiers
             for &child_id in &children_ids {
-                let child = arena.try_node(child_id)?;
+                let child = syntax_tree.try_node(child_id)?;
                 match child.kind() {
                     AstKind::PrimitiveType => {
                         if let AstContent::Ident(id) = child.content() {
@@ -376,7 +376,7 @@ fn remove_either_type_duplicates(
             }
 
             // After reading and processing children, obtain mutable reference to update syntax
-            let node_mut = arena.try_node_mut(node_id)?;
+            let node_mut = syntax_tree.try_node_mut(node_id)?;
             node_mut.set_children(retained);
         }
 

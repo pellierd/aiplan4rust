@@ -339,12 +339,12 @@ impl TryFrom<&mut Ast> for Context {
     /// ```
     fn try_from(ast: &mut Ast) -> Result<Self, Self::Error> {
         let symbol_table = SymbolTable::try_from(&*ast)?;
-        let arena = ast.take_syntax_tree();
-        let requirements = Self::extract_requirements(&arena)?;
+        let syntax_tree = ast.take_syntax_tree();
+        let requirements = Self::extract_requirements(&syntax_tree)?;
         let interner = ast.take_interner();
 
         Ok(Context::new(
-            arena,
+            syntax_tree,
             ast.source_name().to_string(),
             requirements,
             symbol_table,

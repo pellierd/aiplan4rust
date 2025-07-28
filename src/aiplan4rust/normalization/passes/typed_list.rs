@@ -194,17 +194,17 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// type_checker checking and code generation phases.
 fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
     let root_id = ast.syntax_tree().try_root_id()?;
-    let arena = ast.syntax_tree_mut();
+    let syntax_tree = ast.syntax_tree_mut();
     let mut stack = vec![root_id];
 
     while let Some(node_id) = stack.pop() {
         // Check if the current syntax is a TypedList syntax and normalize its children if so.
-        if is_typed_list_node(arena, node_id)? {
-            normalize_typed_list_node_children(arena, node_id)?;
+        if is_typed_list_node(syntax_tree, node_id)? {
+            normalize_typed_list_node_children(syntax_tree, node_id)?;
         }
 
         // Push children onto the stack in reverse order to maintain depth-first traversal.
-        let node = arena.try_node(node_id)?;
+        let node = syntax_tree.try_node(node_id)?;
         for &child_id in node.children().iter().rev() {
             stack.push(child_id);
         }
@@ -226,7 +226,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
 ///
 /// # Arguments
 ///
-/// * `arena` - Mutable reference to the AST arena containing the nodes.
+/// * `syntax_tree` - Mutable reference to the syntax tree containing the nodes.
 /// * `node_id` - The ID of the `TypedList` syntax whose children are to be normalized.
 ///
 /// # Returns
@@ -237,7 +237,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// # Errors
 ///
 /// This function returns an error if:
-/// - The given `node_id` is invalid or not found in the arena.
+/// - The given `node_id` is invalid or not found in the syntax tree.
 /// - Child nodes or required data are missing or inconsistent.
 ///
 /// # Panics
@@ -247,15 +247,15 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// # Example
 ///
 /// ```ignore
-/// normalize_typed_list_node_children(arena, typed_list_node_id)?;
+/// normalize_typed_list_node_children(syntax_tree, typed_list_node_id)?;
 /// ```
 fn normalize_typed_list_node_children(
-    arena: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut SyntaxTree<AstNode>,
     node_id: NodeId,
 ) -> Result<(), NormalizationError> {
     // 1. Retrieve and clear the current children of the TypedList syntax.
     let old_typed_items = {
-        let node = arena.try_node_mut(node_id)?;
+        let node = syntax_tree.try_node_mut(node_id)?;
         std::mem::take(node.children_mut())
     };
 
@@ -266,7 +266,7 @@ fn normalize_typed_list_node_children(
     //    each with exactly one element and the optional type_checker preserved.
     for typed_item_id in old_typed_items {
         let (element_ids, type_id_opt, span) =
-            extract_typed_item_data(arena, typed_item_id)?;
+            extract_typed_item_data(syntax_tree, typed_item_id)?;
 
         for element_id in element_ids {
             let new_node = create_typed_item_node(
@@ -275,13 +275,13 @@ fn normalize_typed_list_node_children(
                 span.clone(),
                 node_id,
             );
-            let new_id = arena.alloc(new_node);
+            let new_id = syntax_tree.alloc(new_node);
             new_typed_items.push(new_id);
         }
     }
 
     // 3. Replace the old children with the newly normalized TypedItem nodes.
-    let node = arena.try_node_mut(node_id)?;
+    let node = syntax_tree.try_node_mut(node_id)?;
     *node.children_mut() = new_typed_items;
 
     Ok(())
@@ -294,7 +294,7 @@ fn normalize_typed_list_node_children(
 ///
 /// # Arguments
 ///
-/// * `arena` - Mutable reference to the AST arena containing the nodes.
+/// * `syntax_tree` - Mutable reference to the syntax tree containing the nodes.
 /// * `node_id` - The ID of the syntax to check.
 ///
 /// # Returns
@@ -304,20 +304,20 @@ fn normalize_typed_list_node_children(
 ///
 /// # Errors
 ///
-/// Returns `NormalizationError` if the syntax ID is invalid or cannot be found in the arena.
+/// Returns `NormalizationError` if the syntax ID is invalid or cannot be found in the syntax tree.
 ///
 /// # Example
 ///
 /// ```ignore
-/// if is_typed_list_node(arena, some_node_id)? {
+/// if is_typed_list_node(syntax_tree, some_node_id)? {
 ///     // handle TypedList syntax
 /// }
 /// ```
 fn is_typed_list_node(
-    arena: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut SyntaxTree<AstNode>,
     node_id: NodeId,
 ) -> Result<bool, NormalizationError> {
-    let node = arena.try_node(node_id)?;
+    let node = syntax_tree.try_node(node_id)?;
     Ok(node.kind() == AstKind::TypedList)
 }
 
@@ -330,7 +330,7 @@ fn is_typed_list_node(
 ///
 /// # Arguments
 ///
-/// * `arena` - Reference to the `TreeArena` containing the AST nodes.
+/// * `syntax_tree` - Reference to the syntax tree containing the AST nodes.
 /// * `typed_item_id` - The syntax ID of the `TypedItem` to extract.
 ///
 /// # Returns
@@ -351,14 +351,14 @@ fn is_typed_list_node(
 /// # Example
 ///
 /// ```ignore
-/// let (element_ids, type_id, span) = extract_typed_item_data(arena, typed_item_id)?;
+/// let (element_ids, type_id, span) = extract_typed_item_data(syntax_tree, typed_item_id)?;
 /// ```
 fn extract_typed_item_data(
-    arena: &SyntaxTree<AstNode>,
+    syntax_tree: &SyntaxTree<AstNode>,
     typed_item_id: NodeId,
 ) -> Result<(Vec<NodeId>, Option<NodeId>, Span), NormalizationError> {
     // Retrieve the TypedItem syntax
-    let typed_item_node = arena.try_node(typed_item_id)?;
+    let typed_item_node = syntax_tree.try_node(typed_item_id)?;
 
     // The first child must be the elements syntax
     let elements_id = typed_item_node.try_child(0)?;
@@ -370,7 +370,7 @@ fn extract_typed_item_data(
     let span = typed_item_node.span().clone();
 
     // Retrieve the elements syntax, which contains multiple element children
-    let elements_node = arena.try_node(elements_id)?;
+    let elements_node = syntax_tree.try_node(elements_id)?;
 
     // Collect the IDs of all contained elements
     let element_ids = elements_node.children().to_vec();
@@ -393,7 +393,7 @@ fn extract_typed_item_data(
 ///
 /// # Returns
 ///
-/// A new `AstArenaNode` instance representing the normalized `TypedItem`.
+/// A new `AstNode` instance representing the normalized `TypedItem`.
 fn create_typed_item_node(
     element_id: NodeId,
     type_id_opt: Option<NodeId>,

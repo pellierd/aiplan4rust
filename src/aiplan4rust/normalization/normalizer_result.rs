@@ -1,6 +1,41 @@
+//! Module for AST normalization results and diagnostics management.
+//!
+//! This module defines the [`NormalizerResult`] struct, which encapsulates
+//! the outcome of an AST normalization phase in the `aiplan4rust` pipeline.
+//!
+//! # Purpose
+//!
+//! `NormalizerResult` bundles together:
+//! - The normalized [`Ast`] if normalization was successful.
+//! - A [`DiagnosticManager`] that collects warnings, errors, and info messages
+//!   generated during normalization.
+//!
+//! This allows users to proceed with semantic analysis only if normalization
+//! succeeded, while also accessing any diagnostics that arose.
+//!
+//! # Usage
+//!
+//! After parsing and normalization, the `NormalizerResult` instance provides access
+//! to the normalized AST and the diagnostics to handle errors or warnings.
+//!
+//! # Example
+//!
+//! ```rust
+//! let result: NormalizerResult = normalizer.normalize(ast)?;
+//!
+//! if let Some(normalized_ast) = result.ast() {
+//!     // Proceed with normalized AST
+//! }
+//!
+//! for diagnostic in result.diagnostic_manager().diagnostics() {
+//!     println!("Diagnostic: {}", diagnostic);
+//! }
+//! ```
+
+use std::fmt;
+
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::syntax::ast::Ast;
-use std::fmt;
 
 /// Represents the result of the AST normalization phase.
 ///
