@@ -77,8 +77,8 @@ pub fn check_domain_name(
         let ast = problem.syntax_tree().try_node(domain_name_declaration.node_id())?;
 
         // --- 6. Emit a warning about the mismatch ---
-        let domain_name = domain.interner().try_resolve(declared.ident())?;
-        let problem_domain_name = problem.interner().try_resolve(referenced.ident())?;
+        let domain_name = domain.interner().try_resolve_ident(declared.ident())?;
+        let problem_domain_name = problem.interner().try_resolve_ident(referenced.ident())?;
         let warning = Diagnostic::new(
             DiagnosticKind::DomainProblemNameMismatch {
                 domain_name: domain_name.to_string(),

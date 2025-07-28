@@ -389,7 +389,7 @@ impl Declaration {
             match types.as_slice() {
                 [] => { /* no types */ }
                 [single] => {
-                    match interner.resolve(*single) {
+                    match interner.resolve_ident(*single) {
                         Some(name) => write!(w, "{}", name)?,
                         None => write!(w, "<uninterned:{}>", single)?,
                     }
@@ -397,7 +397,7 @@ impl Declaration {
                 _ => {
                     write!(w, "either")?;
                     for ty in types.iter() {
-                        match interner.resolve(*ty) {
+                        match interner.resolve_ident(*ty) {
                             Some(name) => write!(w, " {}", name)?,
                             None => write!(w, " <uninterned:{}>", ty)?,
                         }
@@ -502,7 +502,7 @@ impl InternerDisplay for Declaration {
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        let name_str = match interner.resolve(self.symbol_ident()) {
+        let name_str = match interner.resolve_ident(self.symbol_ident()) {
             Some(name) => name,
             None => "<uninterned>",
         };

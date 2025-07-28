@@ -139,8 +139,8 @@ impl InternerMergeResult {
         let mut interner = domain_interner.clone();
         let mut problem_ident_map = HashMap::new();
 
-        for (old_id, s) in problem_interner.iter() {
-            let new_id = interner.intern(s.to_string());
+        for (old_id, s) in problem_interner.iter_ident_entries() {
+            let new_id = interner.intern_ident(s.to_string());
             problem_ident_map.insert(old_id, new_id);
         }
 

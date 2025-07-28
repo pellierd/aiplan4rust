@@ -22,7 +22,7 @@
 //! # Usage Example
 //!
 //! ```rust
-//! # use crate::aiplan4rust::StringInterner;
+//! use crate::aiplan4rust::StringInterner;
 //! let mut interner = StringInterner::new();
 //! let id1 = interner.intern("hello".to_string());
 //! let id2 = interner.intern("world".to_string());
@@ -94,10 +94,10 @@ use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, O
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct StringInterner {
     /// Pool holding all interned strings as owned boxed strings.
-    string_pool: Vec<Box<str>>,
+    ident_string_pool: Vec<Box<str>>,
 
     /// Map from interned `'static` string slices to their unique index.
-    string_index: HashMap<&'static str, usize>,
+    ident_index_map: HashMap<&'static str, usize>,
 }
 
 impl StringInterner {
@@ -195,15 +195,15 @@ impl StringInterner {
     /// ```
     pub fn new() -> Self {
         let mut interner = StringInterner {
-            string_pool: Vec::new(),
-            string_index: HashMap::new(),
+            ident_string_pool: Vec::new(),
+            ident_index_map: HashMap::new(),
         };
 
         // Always intern these in the same order as their constant Ident declarations
-        interner.intern_reserved(OBJECT_TYPE);       // index 0
-        interner.intern_reserved(NUMBER_TYPE);       // index 1
-        interner.intern_reserved(DURATION_VARIABLE); // index 2
-        interner.intern_reserved(TOTAL_TIME);        // index 3
+        interner.intern_reserved_ident(OBJECT_TYPE);       // index 0
+        interner.intern_reserved_ident(NUMBER_TYPE);       // index 1
+        interner.intern_reserved_ident(DURATION_VARIABLE); // index 2
+        interner.intern_reserved_ident(TOTAL_TIME);        // index 3
 
         interner
     }
@@ -242,10 +242,10 @@ impl StringInterner {
     /// let ident = interner.intern_reserved(TYPE_OBJECT);
     /// assert_eq!(ident.as_usize(), 0);
     /// ```
-    fn intern_reserved(&mut self, s: &'static str) -> Ident {
-        let idx = self.string_pool.len();
-        self.string_pool.push(Box::from(s));
-        self.string_index.insert(s, idx);
+    fn intern_reserved_ident(&mut self, s: &'static str) -> Ident {
+        let idx = self.ident_string_pool.len();
+        self.ident_string_pool.push(Box::from(s));
+        self.ident_index_map.insert(s, idx);
         Ident::new(idx)
     }
 
@@ -253,17 +253,17 @@ impl StringInterner {
     ///
     /// If the string is already interned, returns its existing `Ident`.
     /// Otherwise, adds the string to the pool and returns a new `Ident`.
-    pub fn intern(&mut self, s: String) -> Ident {
-        if let Some(&idx) = self.string_index.get(s.as_str()) {
+    pub fn intern_ident(&mut self, s: String) -> Ident {
+        if let Some(&idx) = self.ident_index_map.get(s.as_str()) {
             return Ident::new(idx);
         }
 
         let boxed: Box<str> = s.into_boxed_str();
         let static_str: &'static str = Box::leak(boxed);
 
-        let idx = self.string_pool.len();
-        self.string_pool.push(static_str.into());
-        self.string_index.insert(static_str, idx);
+        let idx = self.ident_string_pool.len();
+        self.ident_string_pool.push(static_str.into());
+        self.ident_index_map.insert(static_str, idx);
 
         Ident::new(idx)
     }
@@ -284,8 +284,8 @@ impl StringInterner {
     /// assert_eq!(interner.get_str(ident), Some("hello"));
     /// assert_eq!(interner.get_str(Ident::new(9999)), None);
     /// ```
-    pub fn resolve(&self, ident: Ident) -> Option<&str> {
-        self.string_pool.get(ident.as_usize()).map(|s| s.as_ref())
+    pub fn resolve_ident(&self, ident: Ident) -> Option<&str> {
+        self.ident_string_pool.get(ident.as_usize()).map(|s| s.as_ref())
     }
 
     /// Returns the interned string associated with the given `Ident`.
@@ -316,35 +316,35 @@ impl StringInterner {
     /// assert!(interner.try_resolve(invalid_id).is_err());
     /// ```
     ///
-    pub fn try_resolve(&self, ident: Ident) -> Result<&str, InternerError> {
-        self.resolve(ident).ok_or_else(|| {
+    pub fn try_resolve_ident(&self, ident: Ident) -> Result<&str, InternerError> {
+        self.resolve_ident(ident).ok_or_else(|| {
             InternerError::InvalidIdent {
                 ident_index: ident.as_usize(),
-                interner_size: self.string_pool.len(),
+                interner_size: self.ident_string_pool.len(),
             }
         })
     }
 
 
     /// Lookup an interned string and get its Ident if it exists (no insertion).
-    pub fn lookup(&self, s: &str) -> Option<Ident> {
-        self.string_index.get(s).copied().map(Ident::new)
+    pub fn lookup_ident(&self, s: &str) -> Option<Ident> {
+        self.ident_index_map.get(s).copied().map(Ident::new)
     }
 
     /// Returns an iterator over the interned `Ident`s (the indices).
     /// Returns an iterator over all interned identifiers (`Ident`).
-    pub fn keys(&self) -> impl Iterator<Item = Ident> + '_ {
-        (0..self.string_pool.len()).map(Ident::new)
+    pub fn ident_keys(&self) -> impl Iterator<Item = Ident> + '_ {
+        (0..self.ident_string_pool.len()).map(Ident::new)
     }
 
     /// Returns an iterator over interned strings (`&str`).
-    pub fn values(&self) -> impl Iterator<Item = &str> + '_ {
-        self.string_pool.iter().map(|s| s.as_ref())
+    pub fn ident_values(&self) -> impl Iterator<Item = &str> + '_ {
+        self.ident_string_pool.iter().map(|s| s.as_ref())
     }
 
     /// Returns an iterator over `(Ident, &str)` pairs.
-    pub fn iter(&self) -> impl Iterator<Item = (Ident, &str)> + '_ {
-        self.string_pool
+    pub fn iter_ident_entries(&self) -> impl Iterator<Item = (Ident, &str)> + '_ {
+        self.ident_string_pool
             .iter()
             .enumerate()
             .map(|(i, s)| (Ident::new(i), s.as_ref()))
@@ -357,7 +357,7 @@ impl Serialize for StringInterner {
     ///
     /// The `string_index` is not serialized as it can be reconstructed.
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        self.string_pool.serialize(serializer)
+        self.ident_string_pool.serialize(serializer)
     }
 }
 
@@ -380,7 +380,7 @@ impl<'de> Deserialize<'de> for StringInterner {
             string_pool.push(static_str.into());
         }
 
-        Ok(Self { string_pool, string_index })
+        Ok(Self { ident_string_pool: string_pool, ident_index_map: string_index })
     }
 }
 
@@ -389,7 +389,7 @@ impl fmt::Display for StringInterner {
     /// each string on its own line for better readability.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "StringInterner {{")?;
-        for (idx, s) in self.string_pool.iter().enumerate() {
+        for (idx, s) in self.ident_string_pool.iter().enumerate() {
             writeln!(f, "  [{}]: {}", idx, s)?;
         }
         write!(f, "}}")

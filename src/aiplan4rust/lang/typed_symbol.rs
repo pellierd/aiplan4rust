@@ -123,7 +123,7 @@ impl InternerDisplay for TypedSymbol {
         interner: &StringInterner,
     ) -> std::fmt::Result {
         // Format the symbol name
-        match interner.resolve(self.symbol) {
+        match interner.resolve_ident(self.symbol) {
             Some(name) => write!(w, "{}", name)?,
             None => write!(w, "<uninterned:{}>", self.symbol)?,
         }
@@ -163,7 +163,7 @@ impl SyntaxDisplay for TypedSymbol {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         // Print the name of the symbol
-        match interner.resolve(self.symbol) {
+        match interner.resolve_ident(self.symbol) {
             Some(name) => write!(f, "{}", name)?,
             None => write!(f, "<uninterned:{}>", self.symbol)?,
         }

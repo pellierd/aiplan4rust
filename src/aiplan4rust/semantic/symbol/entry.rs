@@ -231,7 +231,7 @@ impl InternerDisplay for SymbolEntry {
         w: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        match interner.resolve(self.ident) {
+        match interner.resolve_ident(self.ident) {
             Some(name) => writeln!(w, "[Symbol: '{}']", name)?,
             None => writeln!(w, "[Symbol: <uninterned:{}>]", self.ident)?,
         }

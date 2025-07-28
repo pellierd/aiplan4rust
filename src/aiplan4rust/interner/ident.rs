@@ -197,7 +197,7 @@ impl InternerDisplay for Ident {
     ///
     /// A `fmt::Result` indicating success or failure.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        if let Some(name) = interner.resolve(*self) {
+        if let Some(name) = interner.resolve_ident(*self) {
             write!(f, "{}", name)
         } else {
             write!(f, "{}", StringInterner::UNKNOWN_INTERNED_STRING)
@@ -241,7 +241,7 @@ impl SyntaxDisplay for Ident {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
 
-        if let Some(name) = interner.resolve(*self) {
+        if let Some(name) = interner.resolve_ident(*self) {
             write!(f, "{}", name)
         } else {
             write!(f, "<uninterned:{}>", *self)

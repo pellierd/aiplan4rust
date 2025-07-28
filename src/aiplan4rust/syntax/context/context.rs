@@ -250,7 +250,7 @@ impl ParseContext {
     /// assert_eq!(id1, id2);
     /// ```
     pub fn intern(&self, s: String) -> Ident {
-        self.interner.borrow_mut().intern(s)
+        self.interner.borrow_mut().intern_ident(s)
     }
 
     /// Provides shared access to the underlying string interner.

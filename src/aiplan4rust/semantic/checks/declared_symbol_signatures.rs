@@ -77,7 +77,7 @@ pub fn check_declared_symbol_signatures(
                 )? {
                     no_error &= false;
                     let entry = context.syntax_tree().get_node(usage.node_id()).unwrap();
-                    let name = context.interner().try_resolve(symbol.ident())?;
+                    let name = context.interner().try_resolve_ident(symbol.ident())?;
                     let diagnostic_kind = match declaration.symbol_kind() {
                         SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
                             symbol: name.to_string(),
@@ -286,7 +286,7 @@ fn type_to_strings(type_ids: &Type, context: &CheckContext) -> Result<Vec<String
     let mut result = Vec::with_capacity(type_ids.len());
     for id in type_ids.iter() {
         let s = context.interner()
-            .try_resolve(*id)?;
+            .try_resolve_ident(*id)?;
         result.push(s.to_string());
     }
     Ok(result)

@@ -177,7 +177,7 @@ impl InternerDisplay for Usage {
         interner: &StringInterner,
     ) -> fmt::Result {
         let symbol_str = interner
-            .resolve(self.symbol_ident())
+            .resolve_ident(self.symbol_ident())
             .unwrap_or("<uninterned>");
         write!(
             f,

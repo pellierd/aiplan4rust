@@ -184,7 +184,7 @@ impl InternerDisplay for Content {
                     f,
                     "\"{}\"",
                     interner
-                        .resolve(*idx)
+                        .resolve_ident(*idx)
                         .unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING)
                 )
             }

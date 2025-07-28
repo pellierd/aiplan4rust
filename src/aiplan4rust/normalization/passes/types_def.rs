@@ -234,7 +234,7 @@ fn new_implicit_either_type_warning(
     ast: &Ast,
 ) -> Result<Diagnostic, NormalizationPassError> {
     // Resolve the string name of the type_checker identifier using the AST's interner
-    let type_name = ast.interner().try_resolve(type_ident)?;
+    let type_name = ast.interner().try_resolve_ident(type_ident)?;
 
     // Build the diagnostic object with relevant information
     let diagnostic = Diagnostic::new(

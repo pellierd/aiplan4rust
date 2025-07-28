@@ -14,7 +14,6 @@
 //! - [`Type`]: Represents a type_checker or a union of types.
 //! - [`TypedSymbol`]: A named symbol with one or more associated types.
 //! - [`TypedList`]: A list of typed symbols (commonly used for parameters, variables, etc.).
-//! - [`Ident`]: Interned identifier used uniformly across syntax and semantic layers.
 //! - [`Requirement`]: Declared requirements that affect parsing and validation.
 //! - [`ArithmeticOp`]: Arithmetic operations (`+`, `-`, `*`, `/`) used in expressions.
 //! - [`AssignOp`]: Assignment-style operations for modifying fluent values.
@@ -40,7 +39,6 @@
 pub mod types;
 pub mod typed_symbol;
 pub mod typed_list;
-pub mod ident;
 pub mod requirement;
 pub mod arithmetic_op;
 pub mod assign_op;
@@ -51,7 +49,7 @@ pub mod error;
 pub use types::Type;
 pub use typed_symbol::TypedSymbol;
 pub use typed_list::TypedList;
-pub use ident::Ident;
+pub use crate::aiplan4rust::interner::ident::Ident;
 pub use requirement::Requirement;
 pub use arithmetic_op::ArithmeticOp;
 pub use assign_op::AssignOp;

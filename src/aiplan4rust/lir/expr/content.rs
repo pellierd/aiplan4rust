@@ -120,7 +120,7 @@ impl InternerDisplay for Content {
     ) -> fmt::Result {
         match self {
             Content::Ident(idx) => {
-                let resolved = interner.resolve(*idx).unwrap_or("(unknown)");
+                let resolved = interner.resolve_ident(*idx).unwrap_or("(unknown)");
                 write!(f, "Iden(\"{}\")", resolved)
             }
             _ => fmt::Display::fmt(self, f),

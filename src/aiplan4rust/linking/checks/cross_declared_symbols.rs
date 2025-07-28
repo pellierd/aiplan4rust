@@ -158,7 +158,7 @@ fn report_cross_conflict_symbol_error(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), LinkingCheckError> {
     let symbol = declaration.symbol_ident();
-    let symbol_name = context.interner().try_resolve(symbol)?;
+    let symbol_name = context.interner().try_resolve_ident(symbol)?;
     let error = Diagnostic::new(
         DiagnosticKind::CrossConflictSymbolDeclarationError {
             symbol: symbol_name.to_string(),

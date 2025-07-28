@@ -255,7 +255,7 @@ impl InternerDisplay for Type {
                 if i > 0 {
                     write!(w, " ")?;
                 }
-                match interner.resolve(*ty) {
+                match interner.resolve_ident(*ty) {
                     Some(type_name) => write!(w, "{}", type_name)?,
                     None => write!(w, "<uninterned:{}>", ty)?,
                 }
@@ -316,7 +316,7 @@ impl SyntaxDisplay for Type {
             0 => write!(f, "object"), // Pas de .to_string()
             1 => {
                 let ty = self.members[0];
-                match interner.resolve(ty) {
+                match interner.resolve_ident(ty) {
                     Some(type_name) => write!(f, "{}", type_name),
                     None => write!(f, "<uninterned:{}>", ty),
                 }
@@ -325,7 +325,7 @@ impl SyntaxDisplay for Type {
                 write!(f, "(either")?;
                 for ty in &self.members {
                     write!(f, " ")?;
-                    match interner.resolve(*ty) {
+                    match interner.resolve_ident(*ty) {
                         Some(type_name) => write!(f, "{}", type_name)?,
                         None => write!(f, "<uninterned:{}>", ty)?,
                     }

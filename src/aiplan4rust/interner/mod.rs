@@ -30,6 +30,7 @@ pub mod interner;
 pub mod merged_result;
 pub mod display;
 pub mod error;
+pub mod ident;
 
 pub use interner::StringInterner;
 pub use merged_result::InternerMergeResult;
