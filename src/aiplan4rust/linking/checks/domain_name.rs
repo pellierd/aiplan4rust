@@ -44,49 +44,32 @@ pub fn check_domain_name(
 
         // --- 4. Locate the AST syntax for the referenced domain name ---
         // Try to find the declaration in the problem's symbol table.
-        match problem.symbol_table().resolve_declaration(
+        let domain_name_declaration = problem.symbol_table().try_resolve_declaration(
             &referenced.ident(),
             &SymbolKind::DomainName,
             &problem.symbol_table().root_scope(),
-        )? {
-            Some(domain_name_declaration) => {
+        )?;
 
-                // --- 5. Retrieve the corresponding AST entry ---
-                // Needed to determine the span (location) for the warning.
-                match problem.syntax_tree().get_node(domain_name_declaration.node_id()) {
-                    Some(ast) => {
+        // --- 5. Retrieve the corresponding AST entry ---
+        // Needed to determine the span (location) for the warning.
+        let ast = problem.syntax_tree().try_node(domain_name_declaration.node_id())?;
 
-                        // --- 6. Emit a warning about the mismatch ---
-                        // Includes both names in the diagnostic message.
+        // --- 6. Emit a warning about the mismatch ---
+        // Includes both names in the diagnostic message.
 
-                        let domain_name = domain.interner().try_resolve(declared.ident())?;
-                        let problem_domain_name = problem.interner().try_resolve(referenced.ident())?;
-                        let warning = Diagnostic::new(
-                            DiagnosticKind::DomainProblemNameMismatch {
-                                domain_name: domain_name.to_string(),
-                                problem_name: problem_domain_name.to_string(),
-                            },
-                            source,
-                            problem.source_name().to_string(),
-                            ast.span().clone(),
-                        );
-                        diagnostic_manager.add_diagnostic(warning);
-                    }
-                    None => {
-                        // AST entry is missing for the declaration — this should not happen
-                        return Err(LinkingError::InternalError(
-                            "AST entry for domain name declaration not found in problem AST.".to_string(),
-                        ));
-                    }
-                }
-            }
-            None => {
-                // No declaration found for the domain name in the problem's symbol table
-                return Err(LinkingError::InternalError(
-                    "Domain name declaration not found in problem symbol table".to_string(),
-                ));
-            }
-        }
+        let domain_name = domain.interner().try_resolve(declared.ident())?;
+        let problem_domain_name = problem.interner().try_resolve(referenced.ident())?;
+        let warning = Diagnostic::new(
+            DiagnosticKind::DomainProblemNameMismatch {
+                domain_name: domain_name.to_string(),
+                problem_name: problem_domain_name.to_string(),
+            },
+            source,
+            problem.source_name().to_string(),
+            ast.span().clone(),
+        );
+        diagnostic_manager.add_diagnostic(warning);
+
     }
 
     // --- 7. Names match or warning has been emitted; return success ---

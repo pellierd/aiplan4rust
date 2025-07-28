@@ -20,9 +20,6 @@ pub enum AstError {
     #[error("Expected Requirement, but content was not a requirement")]
     NotARequirement,
 
-    /// A general internal error for unexpected or invalid states.
-    #[error("Internal AST error: {0}")]
-    InternalError(String),
 }
 
 impl AstError {
@@ -32,10 +29,4 @@ impl AstError {
         AstError::NotARequirement
     }
 
-    /// Creates a new `AstError::InternalError` with a given message.
-    ///
-    /// Useful for signaling unexpected logic errors or invariant violations.
-    pub fn internal_error(msg: impl Into<String>) -> Self {
-        AstError::InternalError(msg.into())
-    }
 }

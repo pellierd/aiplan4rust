@@ -36,11 +36,6 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// and internal logic failures.
 #[derive(Debug, Error)]
 pub enum NormalizationError {
-    /// A catch-all for unexpected internal errors during normalization.
-    ///
-    /// This variant is typically used when a more specific error kind is not available.
-    #[error("Internal error: {0}")]
-    InternalError(String),
 
     /// An error originating from the syntax tree layer.
     ///
@@ -62,20 +57,4 @@ pub enum NormalizationError {
     /// or if interned data is used incorrectly.
     #[error(transparent)]
     Interner(#[from] InternerError),
-}
-
-impl NormalizationError {
-    /// Constructs an [`InternalError`] variant with a custom message.
-    ///
-    /// Use this when no specific error variant applies but you want to report
-    /// a meaningful failure during normalization.
-    ///
-    /// # Arguments
-    /// * `msg` - A string describing the internal error.
-    ///
-    /// # Returns
-    /// A `NormalizationError::InternalError` instance.
-    pub fn internal_error<S: Into<String>>(msg: S) -> Self {
-        NormalizationError::InternalError(msg.into())
-    }
 }

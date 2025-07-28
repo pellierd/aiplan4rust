@@ -14,7 +14,6 @@
 //! - [`NodeIdOutOfBounds`]: Requested node ID is outside the valid range.
 //! - [`MissingParent`]: Expected parent node is absent (node is root).
 //! - [`ChildIndexOutOfBounds`]: Requested child index exceeds number of children.
-//! - [`InternalError`]: Generic internal error with a custom message.
 //!
 //! # Usage
 //!
@@ -91,12 +90,6 @@ pub enum ArenaError {
     /// - `child_count`: The number of available children.
     #[error("Child index {index} is out of bounds: only {child_count} children exist")]
     ChildIndexOutOfBounds { index: usize, child_count: usize },
-
-    /// A catch-all internal error used when no specific variant applies.
-    ///
-    /// This should only be used for unrecoverable or inconsistent internal state.
-    #[error("Internal error: {0}")]
-    InternalError(String),
 }
 
 impl ArenaError {
@@ -130,8 +123,4 @@ impl ArenaError {
         Self::ChildIndexOutOfBounds { index, child_count }
     }
 
-    /// Creates an [`InternalError`] with a custom message.
-    pub fn internal_error(message: impl Into<String>) -> Self {
-        Self::InternalError(message.into())
-    }
 }

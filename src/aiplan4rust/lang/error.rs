@@ -1,3 +1,26 @@
+//! Module `lang_error`
+//!
+//! This module defines the [`LangError`] enum, representing errors specific to the `lang` module.
+//!
+//! It encapsulates errors arising from language processing components,
+//! including those propagated from the syntax tree system, as well as internal errors.
+//!
+//! # Error Variants
+//!
+//! - [`SyntaxTree`]: Wraps errors originating from the syntax tree subsystem.
+//! - [`InternalError`]: Represents generic internal errors with a descriptive message.
+//!
+//! # Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::lang::LangError;
+//! use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+//!
+//! fn example() -> Result<(), LangError> {
+//!     let syntax_error = SyntaxTreeError::some_variant();
+//!     Err(LangError::from(syntax_error))
+//! }
+//! ```
 use thiserror::Error;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
@@ -16,23 +39,4 @@ pub enum LangError {
     /// An error originating from the syntax tree system.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
-
-    /// A generic internal error with a descriptive message.
-    #[error("Internal Error: {0}")]
-    InternalError(String),
-}
-
-impl LangError {
-    /// Creates a new [`InternalError`] with the given message.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use crate::aiplan4rust::lang::LangError;
-    /// let err = LangError::internal_error("Something went wrong");
-    /// assert_eq!(format!("{}", err), "Internal Error: Something went wrong");
-    /// ```
-    pub fn internal_error(message: impl Into<String>) -> Self {
-        Self::InternalError(message.into())
-    }
 }

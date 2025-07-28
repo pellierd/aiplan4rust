@@ -3,15 +3,16 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 #[derive(Debug, Error)]
 pub enum LinkingError {
-    /// Generic internal error with a descriptive message.
-    #[error("Internal error: {0}")]
-    InternalError(String),
 
     #[error(transparent)]
-    SemanticError(#[from] SemanticError),
+    Semantic(#[from] SemanticError),
+
+    #[error(transparent)]
+    SyntaxTree(#[from] SyntaxTreeError),
 
     #[error(transparent)]
     SemanticCheckError(#[from] SemanticCheckError),
@@ -21,12 +22,4 @@ pub enum LinkingError {
 
     #[error(transparent)]
     Interner(#[from] InternerError),
-}
-
-impl LinkingError {
-    /// Helper to create an `InternalError` from any displayable message.
-    pub fn internal_error<S: Into<String>>(msg: S) -> Self {
-        LinkingError::InternalError(msg.into())
-    }
-
 }

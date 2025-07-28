@@ -49,36 +49,3 @@ impl AiplanError {
         AiplanError::InternalError(msg.into())
     }
 }
-
-impl From<AiplanError> for ArenaError {
-    fn from(e: AiplanError) -> Self {
-        match e {
-            AiplanError::Arena(ae) => ae,
-            AiplanError::Syntax(se) => {
-                ArenaError::InternalError(format!("Syntax error wrapped: {}", se))
-            }
-            AiplanError::SyntaxTree(ste) => {
-                ArenaError::InternalError(format!("SyntaxTree error wrapped: {}", ste))
-            }
-            AiplanError::Ast(ast) => {
-                ArenaError::InternalError(format!("AST error wrapped: {}", ast))
-            }
-            AiplanError::InternalError(msg) => ArenaError::InternalError(msg),
-            AiplanError::Interner(ie) => {
-                ArenaError::InternalError(format!("Interner error wrapped: {}", ie))
-            }
-            AiplanError::Lir(le) => {
-                ArenaError::InternalError(format!("LIR error wrapped: {}", le))
-            }
-            AiplanError::Normalization(ne) => {
-                ArenaError::InternalError(format!("Normalization error wrapped: {}", ne))
-            }
-            AiplanError::Semantic(se) => {
-                ArenaError::InternalError(format!("Semantic error wrapped: {}", se))
-            }
-            AiplanError::Linking(le) => {
-                ArenaError::InternalError(format!("Linking error wrapped: {}", le))
-            }
-        }
-    }
-}

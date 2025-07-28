@@ -37,16 +37,9 @@ pub enum SyntaxTreeError {
     #[error("Expected SymbolRef, but content was not a SymbolRef")]
     NotASymbolRef,
 
-    /// A general internal error for unexpected conditions.
-    #[error("Internal AST error: {0}")]
-    InternalError(String),
 }
 
 impl SyntaxTreeError {
-    /// Creates a new internal error with a custom message.
-    pub fn internal_error(msg: impl Into<String>) -> Self {
-        SyntaxTreeError::InternalError(msg.into())
-    }
 
     /// Creates an error indicating content was not an identifier as expected.
     pub fn not_an_ident() -> Self {

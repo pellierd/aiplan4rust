@@ -13,9 +13,6 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 
 #[derive(Debug, Error)]
 pub enum SemanticCheckError {
-    /// Generic internal error with a descriptive message.
-    #[error("Internal error: {0}")]
-    InternalError(String),
 
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
@@ -89,11 +86,6 @@ pub enum SemanticCheckError {
 }
 
 impl SemanticCheckError {
-    /// Helper to create an `InternalError` from any displayable message.
-    pub fn internal_error<S: Into<String>>(msg: S) -> Self {
-        SemanticCheckError::InternalError(msg.into())
-    }
-
     pub fn unexpected_ast_kind(
         node_id: NodeId,
         expected: Vec<AstKind>,

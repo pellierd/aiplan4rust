@@ -21,25 +21,4 @@ pub enum ParseContextError {
     #[error("Syntax tree error: {0}")]
     SyntaxTree(#[from] SyntaxTreeError),
 
-    /// A generic internal error that should not occur under normal circumstances.
-    ///
-    /// Use this variant to indicate logic errors, invariant violations,
-    /// or other unexpected states in the parsing context.
-    #[error("Internal AST error: {0}")]
-    InternalError(String),
-}
-
-impl ParseContextError {
-    /// Creates a new [`ParseContextError::InternalError`] with the given message.
-    ///
-    /// This helper is intended for signaling unexpected or inconsistent parser states
-    /// that require developer attention.
-    ///
-    /// # Example
-    /// ```
-    /// let err = ParseContextError::internal_error("Unexpected null node");
-    /// ```
-    pub fn internal_error(msg: impl Into<String>) -> Self {
-        ParseContextError::InternalError(msg.into())
-    }
 }

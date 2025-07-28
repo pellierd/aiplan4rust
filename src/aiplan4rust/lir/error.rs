@@ -51,9 +51,6 @@ pub enum LirError {
     #[error("Unexpected AstKind in TaskNetwork conversion: {0:?}")]
     TaskNetworkAstKindError(AstKind),
 
-    /// Generic internal error with a descriptive message.
-    #[error("Internal error: {0}")]
-    InternalError(String),
 }
 
 impl LirError {
@@ -82,12 +79,4 @@ impl LirError {
         LirError::TaskNetworkAstKindError(kind)
     }
 
-    /// Creates a generic internal error with a custom message.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - A descriptive message explaining the internal error.
-    pub fn internal_error(msg: impl Into<String>) -> Self {
-        LirError::InternalError(msg.into())
-    }
 }

@@ -50,9 +50,6 @@ pub enum ExprError {
         kind: AstKind,
     },
 
-    /// Generic internal error representing unexpected states or logic errors.
-    #[error("Internal error: {0}")]
-    InternalError(String),
 }
 
 impl ExprError {
@@ -82,16 +79,4 @@ impl ExprError {
         ExprError::UnsupportedKind { kind }
     }
 
-    /// Creates an `InternalError` with a custom error message.
-    ///
-    /// # Arguments
-    ///
-    /// * `msg` - A descriptive message explaining the internal error.
-    ///
-    /// # Returns
-    ///
-    /// A new `ExprError` representing a generic internal error.
-    pub fn internal_error(msg: impl Into<String>) -> Self {
-        ExprError::InternalError(msg.into())
-    }
 }
