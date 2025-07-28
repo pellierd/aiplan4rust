@@ -1,6 +1,37 @@
+//! Module responsible for performing the semantic linking phase of the AIPlan4Rust compilation pipeline.
+//!
+//! The linking phase connects the semantic contexts of a planning domain and a problem,
+//! resolving identifiers, verifying consistency, and producing a combined linked semantic context.
+//!
+//! This module provides the `Linker` struct which:
+//! - Merges string interners from domain and problem contexts to unify identifier spaces.
+//! - Remaps identifiers in the problem to the global interner.
+//! - Resolves external references from the problem against the domain.
+//! - Performs semantic and structural consistency checks.
+//! - Produces a `LinkerResult` encapsulating the linked semantic context and diagnostics.
+//!
+//! # Key Types
+//!
+//! - [`Linker`]: Main struct performing linking.
+//! - [`LinkerResult`]: Encapsulates linking output and diagnostics.
+//!
+//! # Key Functions
+//!
+//! - [`Linker::link`]: Performs full semantic linking and verification.
+//! - [`perform_linking_checks`]: Runs semantic and structural verification passes.
+//!
+//! # Usage Example
+//!
+//! ```rust
+//! let mut linker = Linker::new();
+//! let result = linker.link(domain_context, problem_context)?;
+//! if let Some(linked_task) = result.context() {
+//!     // Use the linked semantic context...
+//! }
+//! ```
+
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
-use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::linking::LinkerResult;
+use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 use crate::aiplan4rust::interner::InternerMergeResult;
@@ -11,22 +42,21 @@ use crate::aiplan4rust::lang::Ident;
 use std::collections::HashMap;
 use std::mem::take;
 use crate::aiplan4rust::linking::error::LinkingError;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 
-/// The `Linker` is responsible for performing the linking phase
-/// of the AIPlan4Rust compilation pipeline.
+/// The `Linker` struct is responsible for performing the linking phase
+/// between domain and problem semantic contexts.
 ///
-/// It takes care of:
-/// 1. Resolving symbols between the domain and problem definitions,
-/// 2. Performing semantic and structural consistency checks,
-/// 3. Producing a `LinkerResult` which includes the linked domain/problem
-///    pair (`LinkedSemanticContext`) and diagnostic information.
+/// Linking resolves identifiers, checks semantic and structural consistency,
+/// and produces a combined [`LinkedSemanticContext`] along with diagnostics.
 ///
 /// # Example
+///
 /// ```rust
 /// let mut linker = Linker::new();
 /// let result = linker.link(domain_context, problem_context)?;
-/// if let Some(linked) = result.task() {
-///     // use the linked planning task...
+/// if let Some(linked) = result.context() {
+///     // use the linked semantic context...
 /// }
 /// ```
 #[derive(Debug)]
@@ -127,7 +157,7 @@ impl Linker {
 
         // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
         let problem_ident_map = result.take_problem_ident_map();
-        remap_problem_idents(&mut problem, &problem_ident_map);
+        remap_problem_idents(&mut problem, &problem_ident_map)?;
 
         // Step 3: Resolve external references in the problem with respect to the domain
         resolve_external_references(&domain, &mut problem)?;
@@ -167,23 +197,31 @@ impl Linker {
 
 /// Remaps identifiers in the problem's AST and symbol table using the provided mapping.
 ///
-/// This function updates all identifiers in the problem’s AST and symbol table
-/// to their corresponding identifiers in the global interner space according to
-/// the `problem_ident_map`.
+/// This function updates all identifier references within the problem's AST and symbol table
+/// to their corresponding global identifiers, based on the `problem_ident_map`.
 ///
-/// **Note:** This function does not modify or replace the underlying string interner itself;
-/// it only updates the identifier references within the problem to align with the global interner.
+/// It ensures that the problem’s identifiers are correctly aligned with the global interner,
+/// facilitating consistent symbol resolution across linked semantic contexts.
+///
+/// **Important:** This function does **not** modify the string interner itself; it only updates
+/// the identifier references (e.g., indices or keys) in the problem's AST and symbol table.
 ///
 /// # Arguments
 ///
-/// * `problem` - Mutable reference to the problem semantic context.
-/// * `problem_ident_map` - A mapping from the problem's local identifiers to the global identifiers.
+/// * `problem` - A mutable reference to the problem semantic context whose identifiers will be remapped.
+/// * `problem_ident_map` - A `HashMap` mapping local problem identifiers (`Ident`) to their
+///   corresponding global identifiers.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if remapping succeeded for both AST and symbol table, otherwise returns
+/// a `SymbolTableError` if remapping the symbol table fails.
 fn remap_problem_idents(
     problem: &mut SemanticContext,
     problem_ident_map: &HashMap<Ident, Ident>,
-) {
+) -> Result<(), SymbolTableError> {
     problem.ast_mut().remap_idents(problem_ident_map);
-    problem.symbol_table_mut().remap_idents(problem_ident_map);
+    problem.symbol_table_mut().remap_idents(problem_ident_map)
 }
 
 /// Performs semantic and structural linking checks between a domain and a problem.

@@ -1,3 +1,23 @@
+//! Module handling the result of the semantic linking phase between domain and problem ASTs.
+//!
+//! This module defines the [`LinkerResult`] struct, which encapsulates the outcome
+//! of the linking process that associates semantic information between a planning domain
+//! and problem representation.
+//!
+//! The linking process attempts to create a [`LinkedSemanticContext`] that combines
+//! the domain and problem ASTs in a semantically consistent way. Alongside the linked context,
+//! a [`DiagnosticManager`] collects any warnings, errors, or informational messages
+//! generated during linking.
+//!
+//! # Typical Usage
+//!
+//! After performing linking, users receive a `LinkerResult` that:
+//! - Contains an optional linked semantic context (present if linking succeeded).
+//! - Provides access to diagnostics for troubleshooting or reporting.
+//!
+//! The result can be inspected to decide whether to continue further analysis or
+//! to handle errors accordingly.
+
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 
@@ -6,8 +26,8 @@ use std::fmt;
 /// Represents the result of the semantic linking process between a domain and a problem.
 ///
 /// A `LinkerResult` encapsulates:
-/// - An optional `LinkedSemanticContext`, produced by successful linking.
-/// - A `DiagnosticManager` containing diagnostics and errors encountered during linking.
+/// - An optional [`LinkedSemanticContext`], produced by successful linking.
+/// - A [`DiagnosticManager`] containing diagnostics and errors encountered during linking.
 ///
 /// # Fields
 /// - `context`: An optional `LinkedSemanticContext` produced by the linker. `None` if linking failed.
@@ -21,6 +41,7 @@ pub struct LinkerResult {
     context: Option<LinkedSemanticContext>,
     diagnostic_manager: DiagnosticManager,
 }
+
 
 impl LinkerResult {
     /// Creates a new `LinkerResult`.
@@ -104,6 +125,21 @@ impl LinkerResult {
 }
 
 impl fmt::Display for LinkerResult {
+    /// Formats the `LinkerResult` for display.
+    ///
+    /// This method prints a summary of the linking process:
+    /// - If linking succeeded (i.e., context is `Some`), it displays the linked context
+    ///   and any diagnostics collected during linking.
+    /// - If linking failed (i.e., context is `None`), it prints the failure message
+    ///   and all diagnostics.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output to.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure of the write operation.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.context {
             Some(context) => {

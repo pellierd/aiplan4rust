@@ -157,7 +157,7 @@ impl LirBuilder {
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
     ) -> Result<(), LirError> {
-        let domain_tree = context.domain_ast();
+        let domain_tree = context.domain_syntax_tree();
 
         for node in domain_tree.preorder().values() {
             let subtree = SyntaxSubtree::new(node, domain_tree);
@@ -213,7 +213,7 @@ impl LirBuilder {
         context: &LinkedSemanticContext,
         ir: &mut LiftedProblem,
     ) -> Result<(), LirError> {
-        let problem_tree = context.problem_ast();
+        let problem_tree = context.problem_syntax_tree();
 
         for node in problem_tree.preorder().values() {
             let subtree = SyntaxSubtree::new(node, problem_tree);
