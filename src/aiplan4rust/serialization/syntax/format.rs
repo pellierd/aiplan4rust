@@ -26,8 +26,8 @@
 use std::fmt;
 use std::str::FromStr;
 
-use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::serialization::syntax::PlanningExtension; // Adjust if you have a specific Extension enum for syntax
+use crate::aiplan4rust::serialization::SerializationError;
+use crate::aiplan4rust::serialization::syntax::PlanningExtension;
 
 /// This module defines the `Format` enum representing supported syntax serialization formats,
 /// specifically for syntax languages such as HDDL and PDDL.
@@ -102,14 +102,14 @@ impl From<PlanningExtension> for Format {
 /// let g = Format::from_str(".pddl")?;
 /// ```
 impl FromStr for Format {
-    type Err = AiplanError;
+    type Err = SerializationError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let normalized = s.trim_start_matches('.').to_ascii_lowercase();
         match normalized.as_str() {
             "hddl" => Ok(Format::Hddl),
             "pddl" => Ok(Format::Pddl),
-            other => Err(AiplanError::InternalError(format!("Unknown syntax format: {}", other))),
+            other => Err(SerializationError::unsupported_format(other)),
         }
     }
 }

@@ -9,7 +9,7 @@
 use std::fmt::{self, Display};
 use std::str::FromStr;
 
-use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::PlanningFormat;
 
 /// Enumeration of supported syntax language file extensions.
@@ -80,14 +80,32 @@ impl From<PlanningFormat> for Extension {
 /// assert_eq!(ext, Extension::Pddl);
 /// ```
 impl FromStr for Extension {
-    type Err = AiplanError;
+    type Err = SerializationError;
 
+    /// Parses a string slice into an `Extension` enum variant.
+    ///
+    /// This function accepts file extensions with or without a leading dot,
+    /// and performs a case-insensitive match to determine the correct variant.
+    ///
+    /// Supported extensions:
+    /// - "pddl"
+    /// - "hddl"
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - A string slice representing the file extension (e.g., ".pddl", "hddl").
+    ///
+    /// # Returns
+    ///
+    /// Returns `Ok(Extension)` if the input matches a known extension,
+    /// otherwise returns a `SerializationError::UnsupportedExtensionError`
+    /// indicating that the extension is not supported.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let normalized = s.trim_start_matches('.').to_ascii_lowercase();
         match normalized.as_str() {
             "pddl" => Ok(Extension::Pddl),
             "hddl" => Ok(Extension::Hddl),
-            other => Err(AiplanError::InternalError(format!("Unknown syntax extension: {}", other))),
+            other => Err(SerializationError::unsupported_extension(other)),
         }
     }
 }

@@ -5,6 +5,7 @@ use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::normalization::NormalizationError;
 use crate::aiplan4rust::semantic::SemanticError;
+use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -40,6 +41,9 @@ pub enum AiplanError {
 
     #[error(transparent)]
     Linking(#[from] LinkingError),
+
+    #[error(transparent)]
+    Serialization(#[from] SerializationError),
     // autres variantes à venir...
 }
 

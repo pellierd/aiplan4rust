@@ -1,8 +1,25 @@
+//! Module defining supported serialization formats.
+//!
+//! This module provides the `Format` enum representing various serialization
+//! formats such as JSON, YAML, TOML, CBOR, and MessagePack. It supports
+//! conversion from file extensions, string parsing, and string formatting.
+//!
+//! The `Format` enum integrates with the `clap` crate for command-line parsing
+//! and provides utility methods for format identification.
+//!
+//! # Supported Formats
+//! - JSON (default)
+//! - YAML
+//! - TOML
+//! - CBOR (binary, typically encoded as hex string for textual use)
+//! - MessagePack (binary, typically encoded as hex string for textual use)
+
+use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::serialization::serde::SerdeExtension;
+
 use std::fmt;
 use std::str::FromStr;
 use clap::ValueEnum;
-use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::serialization::serde::SerdeExtension;
 
 /// Represents supported serialization formats (JSON, YAML).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum)]

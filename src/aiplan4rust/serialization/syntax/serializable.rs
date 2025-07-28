@@ -1,106 +1,176 @@
+//! Module providing the `Serializable` trait for syntax structures requiring an interner.
+//!
+//! This module defines the `Serializable` trait, which enables serialization and
+//! deserialization of AST-like structures that rely on a [`StringInterner`] for symbol management.
+//!
+//! # Supported Formats
+//!
+//! The trait supports serialization and deserialization to/from multiple formats, including:
+//! - JSON
+//! - YAML
+//! - TOML
+//! - CBOR
+//! - MessagePack
+//!
+//! # Error Handling
+//!
+//! Format inference from file paths uses [`SerializationError`], which includes:
+//! - `MissingExtensionError` for paths without extensions.
+//! - `UnsupportedExtensionError` for unrecognized file extensions.
+//!
+//! # Usage
+//!
+//! Implementors of `Serializable` must provide implementations for:
+//! - Serializing to string or file,
+//! - Deserializing from string or file,
+//! - Inferring format from file path.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use crate::aiplan4rust::serialization::Serializable;
+//! use crate::aiplan4rust::interner::StringInterner;
+//!
+//! // Assuming `MyAst` implements Serializable:
+//! let interner = StringInterner::new();
+//! let ast = MyAst::new();
+//! let serialized = ast.serialize_to_string(&interner)?;
+//! let deserialized = MyAst::deserialize_from_str(&serialized, &mut interner)?;
+//! ```
+//!
+//! [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
+//! [`SerializationError`]: crate::aiplan4rust::serialization::SerializationError
 
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::PlanningFormat;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Trait for serializing and deserializing syntax structures that require an [`Interner`].
 ///
-/// This trait allows serialization to and deserialization from multiple Serde-supported formats,
-/// with support for providing an `Interner` as contextual information.
-///
-/// Supported formats:
+/// This trait provides functionality to serialize objects into various formats and
+/// deserialize objects from strings or files. The supported serialization formats include:
 /// - JSON
 /// - YAML
 /// - TOML
 /// - CBOR
 /// - MessagePack
 ///
-/// Errors are returned as [`AiplanError`].
+/// Serialization and deserialization require an [`StringInterner`] to correctly
+/// handle symbol resolution during the process.
+///
+/// # Error Handling
+///
+/// All methods return an [`SerializationError`] wrapped in a `Result`.
+/// - Serialization and deserialization failures return [`SerializationError`].
+/// - Format inference failures return [`SerializationError`], specifically:
+///   - [`SerializationError::MissingExtensionError`] if the file has no extension.
+///   - [`SerializationError::UnsupportedExtensionError`] if the extension is unknown.
+///
+/// [`Interner`]: crate::aiplan4rust::interner::StringInterner
 pub trait Serializable: SyntaxDisplay {
-    /// Serializes the object into a string in the specified format.
+    /// Serializes the object into a string using the provided `interner`.
     ///
     /// # Arguments
     ///
-    /// * `interner` - The interner to use for symbol resolution during serialization.
-    /// * `format` - The desired output format.
+    /// * `interner` - The `StringInterner` instance used for symbol resolution.
     ///
     /// # Returns
     ///
-    /// A `String` representing the serialized object, or an error if serialization fails.
+    /// A `String` containing the serialized representation of the object.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`SerializationError`] if serialization fails.
     fn serialize_to_string(
         &self,
         interner: &StringInterner,
-    ) -> Result<String, AiplanError>;
+    ) -> Result<String, SerializationError>;
 
-    /// Serializes the object and writes it to a file in the specified format.
+    /// Serializes the object and writes the output to a file at the specified path.
     ///
     /// # Arguments
     ///
-    /// * `interner` - The interner to use for symbol resolution.
-    /// * `format` - The desired output format.
-    /// * `path` - The output file path.
+    /// * `interner` - The `StringInterner` used for symbol resolution.
+    /// * `path` - The file system path where the serialized data will be written.
     ///
     /// # Returns
     ///
-    /// `Ok(())` on success, or an error if serialization or writing fails.
+    /// `Ok(())` if the serialization and write succeed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`SerializationError`] if serialization or file writing fails.
     fn serialize_to_file(
         &self,
         interner: &StringInterner,
         path: &str,
-    ) -> Result<(), AiplanError>;
+    ) -> Result<(), SerializationError>;
 
-    /// Deserializes an object from a string in the specified format.
+    /// Deserializes an instance from a string slice.
     ///
     /// # Arguments
     ///
-    /// * `s` - String slice containing the serialized data.
-    /// * `interner` - The interner to use for resolving symbols.
-    /// * `format` - The format of the serialized data.
+    /// * `s` - A string slice containing serialized data.
+    /// * `interner` - A mutable reference to a `StringInterner` for resolving symbols.
     ///
     /// # Returns
     ///
-    /// The deserialized object, or an error if deserialization fails.
+    /// The deserialized instance of the implementing type.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`SerializationError`] if deserialization fails.
     fn deserialize_from_str(
         s: &str,
         interner: &mut StringInterner,
-    ) -> Result<Self, AiplanError>
+    ) -> Result<Self, SerializationError>
     where
         Self: Sized;
 
-    /// Deserializes an object from a file in the specified format.
+    /// Deserializes an instance from a file.
     ///
     /// # Arguments
     ///
-    /// * `path` - Path to the input file.
-    /// * `interner` - The interner to use for resolving symbols.
-    /// * `format` - The format of the serialized data.
+    /// * `path` - Path to the file containing serialized data.
+    /// * `interner` - A mutable reference to a `StringInterner` for resolving symbols.
     ///
     /// # Returns
     ///
-    /// The deserialized object, or an error if deserialization fails.
+    /// The deserialized instance of the implementing type.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`SerializationError`] if reading the file or deserialization fails.
     fn deserialize_from_file(
         path: &str,
         interner: &mut StringInterner,
-    ) -> Result<Self, AiplanError>
+    ) -> Result<Self, SerializationError>
     where
         Self: Sized;
 
-    /// Infers the serialization format from the file path extension.
+    /// Infers the serialization format from a file path's extension.
     ///
     /// # Arguments
     ///
-    /// * `path` - The file path.
+    /// * `path` - The file path whose extension is used to determine the format.
     ///
     /// # Returns
     ///
-    /// The corresponding `Format`, or an error if the extension is missing or unsupported.
-    fn format_from_path(path: &str) -> Result<PlanningFormat, AiplanError> {
+    /// A `PlanningFormat` representing the inferred format.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`SerializationError`] if:
+    /// - The file has no extension (`MissingExtensionError`).
+    /// - The extension is not recognized as a supported format (`UnsupportedExtensionError`).
+    fn format_from_path(path: &str) -> Result<PlanningFormat, SerializationError> {
         let ext = std::path::Path::new(path)
             .extension()
             .and_then(|e| e.to_str())
-            .ok_or_else(|| AiplanError::InternalError("File has no extension".to_string()))?;
+            .ok_or_else(|| SerializationError::missing_extension())?;
 
         ext.parse::<PlanningFormat>()
+            .map_err(|_| SerializationError::unsupported_extension(ext))
     }
 }
