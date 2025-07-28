@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use crate::common::io::{read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_symbol_table_to_file};
 use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
 use aiplan4rust::aiplan4rust::semantic::SemanticContext;
@@ -87,7 +89,7 @@ pub fn parse_and_check_ast(
     }
 }
 
-// Normalizes a raw AST and checks its correctness, returning the normalized AST along with the updated diagnostic manager.
+/// Normalizes a raw AST and checks its correctness, returning the normalized AST along with the updated diagnostic manager.
 ///
 /// This function runs the normalization process on the provided raw AST, validating the resulting normalized AST.
 /// It writes diagnostic information and, in case of errors, writes the normalized AST and diagnostic details to files

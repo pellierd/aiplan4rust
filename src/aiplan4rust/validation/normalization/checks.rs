@@ -1,3 +1,39 @@
+//! Provides validation checks for specific AST node kinds related to typing and parameters.
+//!
+//! This module implements structural validation rules for nodes like `TypedItem`, `TypesDef`,
+//! `ParametersDef`, and quantified expressions (`Forall`, `Exists`). It also provides recursive
+//! checks for typed lists, ensuring proper child kinds and arities according to language rules.
+//!
+//! # Overview
+//!
+//! - `check_typed_item`: Validates that a `TypedItem` node has either one or two children with correct kinds.
+//! - `check_types_def`: Ensures `TypesDef` nodes have at least one child and that the first child is a `TypedList`.
+//! - `check_parameters_def`: Verifies `ParametersDef` nodes have exactly one `TypedList` child.
+//! - `check_quantified_expression`: Checks quantifier nodes have a `TypedList` and an expression as children.
+//! - `check_typed_list_of`: Recursively validates a typed list subtree for proper node kinds and structure.
+//!
+//! # Usage
+//!
+//! These functions typically operate on references to the AST and specific nodes,
+//! returning detailed errors if validation fails. They rely on core and normalization
+//! helper functions for checking children count, kinds, and retrieving nodes.
+//!
+//! # Errors
+//!
+//! All validation functions return `Result<(), WellFormedError>` or `Result<(), WellNormalizedError>`,
+//! detailing the cause of any structural inconsistency encountered during validation.
+//!
+//! # Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::validation::normalization::{check_typed_item, check_types_def};
+//! # let ast = ...; // Your AST instance
+//! # let node = ...; // Your AST node
+//! if let Err(e) = check_typed_item(&ast, &node) {
+//!     eprintln!("Invalid TypedItem node: {}", e);
+//! }
+//! ```
+
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::core::WellNormalizedError;
@@ -34,15 +70,13 @@ use crate::WellFormedError;
 ///     eprintln!("TypedItem node is invalid: {:?}", e);
 /// }
 /// ```
-
 pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
     let children_len = node.arity();
     core::checks::check_children_count_range(children_len, 1, 2, node)?;
 
     match children_len {
         1 => {
-            core::checks::check_child_kind(ast, node, 0,
-                                           &[
+            core::checks::check_child_kind(ast, node, 0, &[
                     AstKind::PrimitiveType,
                     AstKind::Constant,
                     AstKind::Variable,
@@ -52,8 +86,7 @@ pub fn check_typed_item(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError
             Ok(())
         }
         2 => {
-            core::checks::check_child_kind(ast, node, 0,
-                                           &[
+            core::checks::check_child_kind(ast, node, 0,&[
                     AstKind::PrimitiveType,
                     AstKind::Constant,
                     AstKind::Variable,

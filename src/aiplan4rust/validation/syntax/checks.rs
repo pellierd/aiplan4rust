@@ -1,3 +1,26 @@
+//! Validation functions for AST nodes.
+//!
+//! This module provides example validation functions for various AST node types,
+//! illustrating how to check node content and structure according to expected rules.
+//!
+//! The provided functions serve as reference implementations for common AST node checks,
+//! such as verifying node content kinds and child counts.
+//!
+//! These examples can be extended or adapted for other node types as needed.
+//!
+//! # Examples of node validations included:
+//! - Symbol nodes: must have identifier content and no children.
+//! - Number nodes: must contain a float value and no children.
+//! - Requirement nodes: must contain a requirement value and no children.
+//! - etc.
+//!
+//! # Usage
+//!
+//! Call these functions with AST nodes to ensure they conform to expected syntax and semantics.
+//!
+//! # Notes
+//! These validations rely on core utilities from the `core::checks` module.
+
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::core;
