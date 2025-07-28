@@ -1,3 +1,32 @@
+//! This module defines the `Language` enum and related constants used to
+//! identify and parse different planning languages.
+//!
+//! Planning languages specify the syntax and semantics for describing planning
+//! domains and problems in automated planning systems.
+//!
+//! Currently supported languages:
+//! - PDDL (Planning Domain Definition Language): The classical language for
+//!   expressing planning domains and problems.
+//! - HDDL (Hierarchical Domain Definition Language): An extension of PDDL
+//!   that supports hierarchical task structures for HTN planning.
+//!
+//! The `Language` enum supports parsing from string identifiers such as
+//! `"pddl"` and `"hddl"` (case-insensitive).
+//!
+//! # Examples
+//!
+//! ```rust
+//! use aiplan4rust::parser::Language;
+//! use std::str::FromStr;
+//!
+//! let lang: Language = "hddl".parse().unwrap();
+//! assert_eq!(lang, Language::HDDL);
+//! ```
+//!
+//! # Constants
+//! - [`PDDL_LANGUAGE`]: The string literal `"pddl"` used as a language identifier.
+//! - [`HDDL_LANGUAGE`]: The string literal `"hddl"` used as a language identifier.
+
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 

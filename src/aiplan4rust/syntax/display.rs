@@ -31,9 +31,40 @@
 use std::fmt::Write;
 use crate::aiplan4rust::interner::StringInterner;
 
+/// Default number of characters used per indentation level.
+///
+/// This constant is used by [`SyntaxDisplay`] implementations as the default
+/// indent width, typically 2 spaces.
 pub const DEFAULT_INDENT_WIDTH: usize = 2;
+
+/// Default character used for indentation.
+///
+/// This constant is used by [`SyntaxDisplay`] implementations as the default
+/// indent character, typically a space `' '`.
 pub const DEFAULT_INDENT_CHAR: char = ' ';
 
+/// Writes indentation to the provided formatter.
+///
+/// The indentation written consists of `level * DEFAULT_INDENT_WIDTH`
+/// occurrences of the `DEFAULT_INDENT_CHAR`.
+///
+/// # Arguments
+///
+/// * `f` - The formatter to write to.
+/// * `level` - The indentation level (number of indent units).
+///
+/// # Errors
+///
+/// Returns any error encountered while writing to the formatter.
+///
+/// # Example
+///
+/// ```rust
+/// use std::fmt::Write;
+/// let mut s = String::new();
+/// write_indent(&mut s, 3).unwrap();
+/// assert_eq!(s, "      "); // 6 spaces if DEFAULT_INDENT_WIDTH=2
+/// ```
 pub fn write_indent(f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::Result {
     for _ in 0..(level * DEFAULT_INDENT_WIDTH) {
         write!(f, "{}", DEFAULT_INDENT_CHAR)?;
@@ -77,7 +108,7 @@ pub trait SyntaxDisplay {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```rust
     /// let indent = MyType::make_indent(3); // "      " (6 spaces if indent_width=2)
     /// ```
     fn make_indent(level: usize) -> String {
@@ -108,6 +139,8 @@ pub trait SyntaxDisplay {
     ) -> std::fmt::Result;
 
     /// Formats the value with zero indentation.
+    ///
+    /// Convenience method equivalent to `fmt_syntax_with_indent(f, interner, 0)`.
     fn fmt_syntax(
         &self,
         f: &mut std::fmt::Formatter<'_>,
@@ -119,6 +152,15 @@ pub trait SyntaxDisplay {
     /// Attempts to format the value into a `String` with a given indent level.
     ///
     /// Returns an error if formatting fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `interner` - the interner used to resolve interned strings
+    /// * `indent` - the indentation level
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the formatted `String` or a formatting error.
     fn try_to_syntax_string_with_indent(
         &self,
         interner: &StringInterner,
@@ -143,6 +185,15 @@ pub trait SyntaxDisplay {
     /// Formats the value into a `String` with a given indent level.
     ///
     /// Panics if formatting fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `interner` - the interner used to resolve interned strings
+    /// * `indent` - the indentation level
+    ///
+    /// # Returns
+    ///
+    /// The formatted `String`.
     fn to_syntax_string_with_indent(
         &self,
         interner: &StringInterner,
@@ -156,6 +207,16 @@ pub trait SyntaxDisplay {
     }
 
     /// Attempts to format the value into a `String` with zero indentation.
+    ///
+    /// Returns an error if formatting fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `interner` - the interner used to resolve interned strings
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the formatted `String` or a formatting error.
     fn try_to_syntax_string(
         &self,
         interner: &StringInterner,
@@ -169,6 +230,14 @@ pub trait SyntaxDisplay {
     /// Formats the value into a `String` with zero indentation.
     ///
     /// Panics if formatting fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `interner` - the interner used to resolve interned strings
+    ///
+    /// # Returns
+    ///
+    /// The formatted `String`.
     fn to_syntax_string(
         &self,
         interner: &StringInterner,
@@ -195,6 +264,19 @@ pub(crate) struct DisplaySyntaxWrapper<'a, T: ?Sized> {
 }
 
 impl<'a, T: SyntaxDisplay + ?Sized> std::fmt::Display for DisplaySyntaxWrapper<'a, T> {
+    /// Formats the wrapped value by delegating to its [`SyntaxDisplay::fmt_syntax_with_indent`] implementation.
+    ///
+    /// This method is called when using the standard Rust formatting macros (e.g., `format!`, `println!`)
+    /// on a `DisplaySyntaxWrapper`. It forwards the formatting request to the inner value,
+    /// passing the stored interner and indentation level.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the formatted output.
+    ///
+    /// # Returns
+    ///
+    /// A [`std::fmt::Result`] indicating success or failure of the formatting operation.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.value.fmt_syntax_with_indent(f, self.interner, self.indent)
     }
