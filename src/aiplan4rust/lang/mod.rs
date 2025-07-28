@@ -1,7 +1,7 @@
 //! Fundamental language components used across syntax and semantics.
 //!
 //! This module defines essential building blocks that are shared between
-//! multiple stages of the planning language infrastructure, including:
+//! multiple stages of the syntax language infrastructure, including:
 //! - **Parsing and syntax trees (AST)**,
 //! - **Semantic representation (IR)**,
 //! - **Validation, transformation, and optimization**.

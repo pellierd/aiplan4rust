@@ -2,7 +2,7 @@
 //!
 //! This module provides the `TypedList` struct, which is a wrapper around a vector of
 //! `TypedSymbol` items. It offers convenient management and access of typed symbols
-//! in a PDDL-like planning domain context.
+//! in a PDDL-like syntax domain context.
 //!
 //! `TypedList` supports common collection operations through `Deref` to the underlying
 //! slice, making iteration and manipulation ergonomic.

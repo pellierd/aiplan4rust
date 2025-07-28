@@ -1,4 +1,4 @@
-//! Module for representing symbol declarations in the AI planning Rust syntax and semantic analysis.
+//! Module for representing symbol declarations in the AI syntax Rust syntax and semantic analysis.
 //!
 //! This module defines the `Declaration` struct, which models the declaration of a symbol in the
 //! abstract syntax tree (AST) arena, enriched with semantic information such as scope, origin,

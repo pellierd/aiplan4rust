@@ -1,7 +1,7 @@
 //! Task Signature Representation (`AtomicTaskSkeleton`)
 //!
 //! This module defines the [`Task`] struct, which represents the signature of a high-level
-//! planning task in HDDL. Tasks have a name and typed parameters, but no return type_checker.
+//! syntax task in HDDL. Tasks have a name and typed parameters, but no return type_checker.
 //!
 //! This structure is re-exported as [`AtomicTaskSkeleton`] from the parent module.
 //!
@@ -26,7 +26,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
-/// Represents a planning task declaration in HDDL.
+/// Represents a syntax task declaration in HDDL.
 ///
 /// A `Task` has:
 /// - A name (identifier)

@@ -1,7 +1,7 @@
 
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::serialization::planning::PlanningFormat;
+use crate::aiplan4rust::serialization::syntax::PlanningFormat;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Trait for serializing and deserializing syntax structures that require an [`Interner`].

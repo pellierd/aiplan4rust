@@ -1,7 +1,7 @@
 //! Expression module for the AI Plan Rust project.
 //!
 //! This module provides the core types and functionality to represent,
-//! manipulate, and analyze logical and planning expressions within
+//! manipulate, and analyze logical and syntax expressions within
 //! the system. It includes representations of expression nodes,
 //! kinds, contents, transformations, errors, and higher-level expression
 //! arenas.

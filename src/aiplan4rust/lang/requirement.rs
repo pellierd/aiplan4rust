@@ -11,7 +11,7 @@
 //! - Converting to static string representations (`as_str`).
 //! - Standard formatting with `Display`.
 //! - Formatting with an interner via `InternerDisplay` (trivial pass-through here).
-//! - Pretty-printing for planning syntax with indentation (`SyntaxDisplay`).
+//! - Pretty-printing for syntax syntax with indentation (`SyntaxDisplay`).
 //!
 //! # Example
 //!
@@ -59,7 +59,7 @@ use std::fmt::Formatter;
 /// The `Requirement` enum represents the various features that a PDDL (Planning Domain Definition
 /// Language) or HDDL (Hierarchical Domain Definition Language) domain or problem can declare using
 /// the `:requirements` keyword. Each variant corresponds to a specific feature that influences the
-/// expressiveness of the planning formalism.
+/// expressiveness of the syntax formalism.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Requirement {
     /// Represents the basic STRIPS formalism, which supports only add and delete effects.
@@ -103,7 +103,7 @@ pub enum Requirement {
     Preferences,
     /// Enables global constraints on plans.
     Constraints,
-    /// Supports cost-based planning, where actions have associated costs.
+    /// Supports cost-based syntax, where actions have associated costs.
     ActionCosts,
     /// Represents the marker for Hierarchical Task Network (HTN) definitions in HDDL.
     Hierarchy,
@@ -255,7 +255,7 @@ impl InternerDisplay for Requirement {
 /// assert_eq!(s, "Mandatory");
 /// ```
 impl SyntaxDisplay for Requirement {
-    /// Formats the `Requirement` for planning syntax display.
+    /// Formats the `Requirement` for syntax syntax display.
     ///
     /// Delegates the formatting to the `Display` trait implementation.
     ///

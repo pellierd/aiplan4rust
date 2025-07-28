@@ -1,4 +1,4 @@
-//! This module defines the `Extension` enum representing supported planning language
+//! This module defines the `Extension` enum representing supported syntax language
 //! file extensions and provides conversions to/from strings as well as mappings
 //! to the corresponding `PlanningFormat`.
 //!
@@ -10,9 +10,9 @@ use std::fmt::{self, Display};
 use std::str::FromStr;
 
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::serialization::planning::PlanningFormat;
+use crate::aiplan4rust::serialization::syntax::PlanningFormat;
 
-/// Enumeration of supported planning language file extensions.
+/// Enumeration of supported syntax language file extensions.
 ///
 /// # Variants
 ///
@@ -87,7 +87,7 @@ impl FromStr for Extension {
         match normalized.as_str() {
             "pddl" => Ok(Extension::Pddl),
             "hddl" => Ok(Extension::Hddl),
-            other => Err(AiplanError::InternalError(format!("Unknown planning extension: {}", other))),
+            other => Err(AiplanError::InternalError(format!("Unknown syntax extension: {}", other))),
         }
     }
 }

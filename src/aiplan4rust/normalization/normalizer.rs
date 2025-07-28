@@ -1,5 +1,5 @@
 //! Provides the [`Normalizer`] struct, which performs normalization of an [`Ast`] (Abstract Syntax Tree)
-//! as part of the AI planning pipeline.
+//! as part of the AI syntax pipeline.
 //!
 //! Normalization is a crucial preprocessing stage that transforms the parsed AST into a cleaner,
 //! canonical form suitable for later compilation, optimization, or reasoning. It ensures consistency

@@ -1,6 +1,6 @@
 //! Module responsible for performing the semantic linking phase of the AIPlan4Rust compilation pipeline.
 //!
-//! The linking phase connects the semantic contexts of a planning domain and a problem,
+//! The linking phase connects the semantic contexts of a syntax domain and a problem,
 //! resolving identifiers, verifying consistency, and producing a combined linked semantic context.
 //!
 //! This module provides the `Linker` struct which:

@@ -1,11 +1,11 @@
-//! This module defines the tree data structures for representing **lifted** planning problems
-//! in hierarchical task network (HTN) and classical planning domains.
+//! This module defines the tree data structures for representing **lifted** syntax problems
+//! in hierarchical task network (HTN) and classical syntax domains.
 //!
-//! The primary struct [`Problem`] models a **lifted planning problem**, meaning
+//! The primary struct [`Problem`] models a **lifted syntax problem**, meaning
 //! that actions, methods, predicates, and tasks are represented with parameters (variables)
 //! rather than fully instantiated ground elements.
 //!
-//! It captures all components necessary to specify a planning problem instance at
+//! It captures all components necessary to specify a syntax problem instance at
 //! the lifted level:
 //!
 //! - The **domain and problem identifiers** (`Ident`).
@@ -13,13 +13,13 @@
 //! - The **types**, **constants**, and **objects** defining the domain vocabulary.
 //! - The **lifted predicates** and **functions**, expressed as atomic formula skeletons.
 //! - The **lifted actions** and **methods**, representing parametrized operators and HTN methods.
-//! - The **lifted tasks**, forming the task skeletons for hierarchical planning.
+//! - The **lifted tasks**, forming the task skeletons for hierarchical syntax.
 //! - The **initial state** and **goal conditions** expressed as symbolic expressions (`Expr`).
 //! - The **global domain constraints** and **problem-specific constraints**.
 //! - The **metric and length specifications** for optimization and bounding.
 //! - The **initial task network**, describing the starting point of hierarchical tasks.
 //!
-//! This lifted representation enables symbolic reasoning and efficient planning
+//! This lifted representation enables symbolic reasoning and efficient syntax
 //! by deferring grounding (instantiation) to a later phase.
 //!
 //! The module supports serialization/deserialization with `serde` for persistence and interoperability.
@@ -37,7 +37,7 @@
 //! assert_eq!(problem.problem_name().as_str(), "tower");
 //! ```
 //!
-//! This module is essential for representing lifted HTN and classical planning problems
+//! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
 use std::collections::HashSet;
@@ -51,7 +51,7 @@ use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
-/// Represents a planning problem within a domain.
+/// Represents a syntax problem within a domain.
 ///
 /// This struct contains the domain and problem identifiers,
 /// along with the requirements, types, constants, predicates, functions,
@@ -74,35 +74,35 @@ pub struct Problem {
     /// The identifier of the problem.
     problem_name: Ident,
 
-    /// The set of requirements for this planning problem.
+    /// The set of requirements for this syntax problem.
     requirements: HashSet<Requirement>,
 
-    /// The set of types defined in this planning problem.
+    /// The set of types defined in this syntax problem.
     types: HashSet<TypedSymbol>,
 
-    /// The set of constants defined in this planning problem.
+    /// The set of constants defined in this syntax problem.
     constants: HashSet<TypedSymbol>,
 
-    /// The list of predicates in the planning problem.
+    /// The list of predicates in the syntax problem.
     predicates: Vec<AtomicFormulaSkeleton>,
 
-    /// The list of functions in the planning problem.
+    /// The list of functions in the syntax problem.
     functions: Vec<AtomicFunctionSkeleton>,
 
     /// The constraints defined in the domain, i.e., the global constraints
     /// No constraints are represented by an empty and `Expr'.
     domain_constraints: Expr,
 
-    /// The list of tasks defined in this planning problem.
+    /// The list of tasks defined in this syntax problem.
     tasks: Vec<AtomicTaskSkeleton>,
 
-    /// The list of actions defined in this planning problem.
+    /// The list of actions defined in this syntax problem.
     actions: Vec<LiftedAction>,
 
-    /// The list of methods defined in this planning problem.
+    /// The list of methods defined in this syntax problem.
     methods: Vec<LiftedMethod>,
 
-    /// The set of objects defined in this planning problem.
+    /// The set of objects defined in this syntax problem.
     objects: HashSet<TypedSymbol>,
 
     /// The initial state of the problem.

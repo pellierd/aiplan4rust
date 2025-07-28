@@ -1,18 +1,18 @@
 //! Lifted Intermediate Representation (LIR) module for AI Planning.
 //!
 //! This module defines the core components and abstractions for representing
-//! AI planning problems in a lifted (parameterized) intermediate representation.
+//! AI syntax problems in a lifted (parameterized) intermediate representation.
 //! It supports the construction, manipulation, and querying of lifted
-//! planning structures such as actions, methods, task networks, and problems.
+//! syntax structures such as actions, methods, task networks, and problems.
 //!
 //! # Submodules
 //!
 //! - [`builder`]: Provides the `LirBuilder` for constructing LIR entities
 //!   using a builder pattern.
 //! - [`expr`]: Contains definitions related to expressions used within the LIR.
-//! - [`problem`]: Defines the `LiftedProblem` struct representing a lifted planning problem.
+//! - [`problem`]: Defines the `LiftedProblem` struct representing a lifted syntax problem.
 //! - [`action`]: Defines the `LiftedAction` struct for parameterized actions.
-//! - [`method`]: Contains `LiftedMethod` representing hierarchical planning methods.
+//! - [`method`]: Contains `LiftedMethod` representing hierarchical syntax methods.
 //! - [`task_network`]: Defines `LiftedTaskNetwork` representing collections of tasks.
 //! - [`initial_task_network`]: Represents the initial task network as input to planners.
 //! - [`atomic_skeleton`]: Contains atomic or fundamental building blocks of LIR.
@@ -39,8 +39,8 @@
 //! // Use builder to create lifted problems, actions, and methods.
 //! ```
 //!
-//! This module is foundational for hierarchical and lifted AI planning,
-//! enabling complex task decompositions and parameterized planning domains.
+//! This module is foundational for hierarchical and lifted AI syntax,
+//! enabling complex task decompositions and parameterized syntax domains.
 
 pub mod builder;
 pub mod expr;

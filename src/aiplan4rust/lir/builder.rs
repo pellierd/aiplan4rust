@@ -1,5 +1,5 @@
 //! This module defines the `LirBuilder` struct and associated functions to
-//! transform a linked and semantically verified planning domain and problem
+//! transform a linked and semantically verified syntax domain and problem
 //! into a lifted intermediate representation (`LiftedProblem`).
 //!
 //! # Overview
@@ -11,7 +11,7 @@
 //! - Extracts problem elements such as objects, initial state, goals, and metrics.
 //!
 //! The resulting `LiftedProblem`:
-//! - Is a structured, reusable, and symbolic representation of the planning problem.
+//! - Is a structured, reusable, and symbolic representation of the syntax problem.
 //! - Remains "lifted", i.e., it uses symbolic references rather than grounded
 //!   enumerations of instances.
 //!
@@ -22,7 +22,7 @@
 //! - Frontends for visualization or debugging.
 //!
 //! # Important Notes
-//! - This module does not perform planning or solving itself.
+//! - This module does not perform syntax or solving itself.
 //! - The input semantic context must already be validated and linked.
 //!
 //! # Main Components
@@ -54,7 +54,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
-/// planning domain/problem into a *lifted intermediate representation* (LiftedProblem).
+/// syntax domain/problem into a *lifted intermediate representation* (LiftedProblem).
 ///
 /// # What does it do?
 /// - It takes as input a `LinkedSemanticContext`, which contains:
@@ -76,7 +76,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 ///   - A visualization frontend.
 ///
 /// # Note
-/// This module **does not** perform any planning by itself.
+/// This module **does not** perform any syntax by itself.
 /// It only prepares data for later use.
 /// The input has already been verified to be semantically correct.
 #[derive(Debug, Default)]

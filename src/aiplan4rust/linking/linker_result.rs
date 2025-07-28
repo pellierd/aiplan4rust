@@ -1,7 +1,7 @@
 //! Module handling the result of the semantic linking phase between domain and problem ASTs.
 //!
 //! This module defines the [`LinkerResult`] struct, which encapsulates the outcome
-//! of the linking process that associates semantic information between a planning domain
+//! of the linking process that associates semantic information between a syntax domain
 //! and problem representation.
 //!
 //! The linking process attempts to create a [`LinkedSemanticContext`] that combines

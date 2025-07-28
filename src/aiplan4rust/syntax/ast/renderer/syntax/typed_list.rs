@@ -1,5 +1,5 @@
 //! This module provides a function to render an Abstract Syntax Tree (AST) node
-//! into a formatted string output, suitable for displaying planning domain
+//! into a formatted string output, suitable for displaying syntax domain
 //! definitions or problem descriptions in a pretty-printed manner.
 //!
 //! The `render` function recursively processes an AST node and its children,

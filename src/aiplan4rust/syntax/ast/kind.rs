@@ -1,5 +1,5 @@
 //! The `kind` module: defines the `Kind` enum representing syntax kinds
-//! used in the abstract syntax tree (AST) for planning domain/problem
+//! used in the abstract syntax tree (AST) for syntax domain/problem
 //! languages like PDDL and HDDL.
 //!
 //! This includes implementations of the standard `Display` trait and
@@ -24,11 +24,11 @@ use std::fmt;
 /// Represents the different kinds of nodes in an Abstract Syntax Tree (AST).
 ///
 /// This enum models various components found in do©main or problem specifications
-/// of planning problems, typically for domain-specific languages such as PDDL.
+/// of syntax problems, typically for domain-specific languages such as PDDL.
 ///
-/// Each variant corresponds to a specific syntactic or semantic element of a planning
+/// Each variant corresponds to a specific syntactic or semantic element of a syntax
 /// problem description. This structured representation facilitates parsing, manipulation,
-/// and analysis within planning frameworks.
+/// and analysis within syntax frameworks.
 ///
 /// # Usage Examples
 ///
@@ -37,7 +37,7 @@ use std::fmt;
 /// - Supporting extensions like the HDDL dialect with tasks, methods, and constraints.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub enum Kind {
-    /// A constant value in the planning problem (literal or fixed value).
+    /// A constant value in the syntax problem (literal or fixed value).
     Constant,
 
     /// A variable placeholder used in actions or predicates.
@@ -49,10 +49,10 @@ pub enum Kind {
     /// A primitive data type_checker (e.g., integer, boolean).
     PrimitiveType,
 
-    /// The name of the domain in a planning description.
+    /// The name of the domain in a syntax description.
     DomainName,
 
-    /// The name of the problem in a planning description.
+    /// The name of the problem in a syntax description.
     ProblemName,
 
     /// A predicate symbol used in logical expr or conditions.
@@ -169,7 +169,7 @@ pub enum Kind {
     /// Preference condition indicating a preferred solution.
     Preference,
 
-    /// Conditional timing (when) in temporal planning.
+    /// Conditional timing (when) in temporal syntax.
     When,
 
     /// Binary function comparison (e.g., `<`, `<=`, `=`, `!=`).

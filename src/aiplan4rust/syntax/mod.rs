@@ -1,8 +1,8 @@
-//! The `aiplan4rust` crate provides tree components for parsing PDDL and HDDL planning domain languages.
+//! The `aiplan4rust` crate provides tree components for parsing PDDL and HDDL syntax domain languages.
 //!
 //! # Overview
 //! This crate enables reading, parsing, and structured error reporting of PDDL and HDDL files,
-//! which are commonly used in AI planning systems. It offers high-level abstractions over the
+//! which are commonly used in AI syntax systems. It offers high-level abstractions over the
 //! parser pipeline, lexical analysis, abstract syntax tree (AST) arena representations, and diagnostic rendering.
 //!
 //! # Features
@@ -51,7 +51,7 @@
 //! - The [`Language`] enum must be explicitly specified when parsing to distinguish between PDDL and HDDL.
 //!
 //! # Modules
-//! - [`language`] — Definitions of supported planning languages (PDDL/HDDL)
+//! - [`language`] — Definitions of supported syntax languages (PDDL/HDDL)
 //! - [`lexer`] — Tokenizer for input streams
 //! - [`parser`] — Entrypoint to the parsing pipeline
 //! - [`parser_result`] — Output wrapper from the parsing process

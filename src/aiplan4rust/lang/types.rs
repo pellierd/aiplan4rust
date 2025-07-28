@@ -1,17 +1,17 @@
-//! Module defining the `Type` abstraction for planning problem intermediate representation (IR).
+//! Module defining the `Type` abstraction for syntax problem intermediate representation (IR).
 //!
 //! This module provides a representation of types as non-empty lists of atomic identifiers,
 //! supporting both simple atomic types and union types (referred to as `either` in PDDL).
 //!
 //! The design enables efficient and flexible modeling of type_checker expressions commonly found
-//! in planning domain definitions, where a type_checker can be:
+//! in syntax domain definitions, where a type_checker can be:
 //! - A single atomic type_checker (e.g., `vehicle`)
 //! - A union of multiple atomic types (e.g., `either car truck`)
 //!
 //! The internal representation uses a flat vector of `Ident` to store the constituent atomic types,
 //! simplifying processing while preserving expressiveness.
 //!
-//! Typical usage includes parsing, type_checker checking, and semantic analysis of planning domain languages.
+//! Typical usage includes parsing, type_checker checking, and semantic analysis of syntax domain languages.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -25,7 +25,7 @@ use std::fmt::Formatter;
 use once_cell::sync::Lazy;
 use serde::{Serialize, Deserialize};
 
-/// Represents a type_checker in a planning problem IR.
+/// Represents a type_checker in a syntax problem IR.
 ///
 /// A type_checker is always represented as a non-empty list of atomic type_checker identifiers.
 /// If the list contains a single identifier, it represents an atomic (primitive) type_checker.

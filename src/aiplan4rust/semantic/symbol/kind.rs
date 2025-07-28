@@ -1,9 +1,9 @@
-//! Defines the different kinds of symbols used within the AI planning system.
+//! Defines the different kinds of symbols used within the AI syntax system.
 //!
 //! This module provides the `Kind` enum, which categorizes symbols based on their roles,
 //! such as actions, predicates, variables, and domain-specific constructs.
 //! These classifications facilitate semantic analysis, symbol resolution,
-//! and other processing steps during planning and compilation.
+//! and other processing steps during syntax and compilation.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -26,7 +26,7 @@ use std::fmt;
 /// - `Function`: Represents a function or functor symbol.
 /// - `Predicate`: Represents predicate symbols for logical conditions.
 /// - `PrimitiveType`: Represents basic data types (e.g., integer, boolean).
-/// - `ProblemName`: Represents the name of the planning problem.
+/// - `ProblemName`: Represents the name of the syntax problem.
 /// - `Requirement`: Represents domain or problem requirements or constraints.
 /// - `Variable`: Represents variables that can hold values during execution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

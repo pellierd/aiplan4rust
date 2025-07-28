@@ -1,7 +1,7 @@
 //! # Semantic Analyzer Module
 //!
 //! This module provides the `Analyzer` struct and related functionality to perform semantic analysis
-//! on abstract syntax trees (ASTs) generated from parsing AI planning domain and problem specifications.
+//! on abstract syntax trees (ASTs) generated from parsing AI syntax domain and problem specifications.
 //!
 //! ## Overview
 //!

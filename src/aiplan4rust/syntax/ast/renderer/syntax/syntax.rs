@@ -511,7 +511,7 @@ pub fn render_with_indent(
             // Write the opening parenthesis with current indentation
             write!(f, "{}(", indent_str)?;
 
-            // Write the operator keyword using planning syntax formatting
+            // Write the operator keyword using syntax syntax formatting
             write!(f, "{}", node.content().to_string())?;
 
             // Format each child syntax, separated by spaces
@@ -538,7 +538,7 @@ pub fn render_with_indent(
             // Write the opening parenthesis with current indentation
             write!(f, "{}(", indent_str)?;
 
-            // Write the operator keyword using planning syntax formatting
+            // Write the operator keyword using syntax syntax formatting
             node.kind().fmt_syntax(f, interner)?;
 
             // Format each child syntax, separated by spaces

@@ -4,8 +4,8 @@
 //! of a symbol in the context of PDDL (Planning Domain Definition Language) parsing and analysis.
 //!
 //! Symbols can originate from different parts of a PDDL problem definition:
-//! - The domain file, which contains the general planning constructs (types, predicates, actions).
-//! - The problem file, which specifies a particular planning instance (objects, initial state, goal).
+//! - The domain file, which contains the general syntax constructs (types, predicates, actions).
+//! - The problem file, which specifies a particular syntax instance (objects, initial state, goal).
 //! - Or the origin might be unknown, typically due to incomplete parsing or errors.
 
 use serde::{Deserialize, Serialize};

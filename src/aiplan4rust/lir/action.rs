@@ -1,4 +1,4 @@
-//! Module defining the `Action` struct, representing an instantaneous action in a lifted planning domain.
+//! Module defining the `Action` struct, representing an instantaneous action in a lifted syntax domain.
 //!
 //! An `Action` includes a name, parameters, a precondition, and an effect expression.
 //! Both precondition and effect are always present, defaulting to an empty expression (an `Or` with no children) if unspecified.

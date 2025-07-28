@@ -1,8 +1,8 @@
 //! Defines the [`LirBuilderResult`] type_checker, which encapsulates the outcome of the
-//! IR (Intermediate Representation) building phase in the AI planning pipeline.
+//! IR (Intermediate Representation) building phase in the AI syntax pipeline.
 //!
 //! A [`LirBuilderResult`] contains:
-//! - An optional [`LiftedProblem`] representing the successfully constructed IR of the planning problem.
+//! - An optional [`LiftedProblem`] representing the successfully constructed IR of the syntax problem.
 //! - A [`DiagnosticManager`] collecting diagnostics such as errors, warnings, and informational messages
 //!   encountered during IR construction.
 //!

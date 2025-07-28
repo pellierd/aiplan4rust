@@ -1,5 +1,5 @@
 //! This module defines the `InitialTaskNetwork` struct, representing
-//! an initial task network in a hierarchical task network planning domain.
+//! an initial task network in a hierarchical task network syntax domain.
 //!
 //! The `InitialTaskNetwork` consists of a list of typed parameters and
 //! a lifted task network describing the tasks and their relationships.

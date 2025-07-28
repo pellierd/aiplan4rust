@@ -1,4 +1,4 @@
-//! This module defines the `SymbolEntry` struct, which represents a symbol in a planning domain context.
+//! This module defines the `SymbolEntry` struct, which represents a symbol in a syntax domain context.
 //!
 //! A `SymbolEntry` tracks the symbol's unique identifier (`Ident`), all its declarations, and usages within a domain or problem.
 //! It provides methods to add declarations/usages, merge symbols, remap identifiers, and format output for debugging or display purposes.

@@ -1,5 +1,5 @@
 //! Module defining the `Optimization` enum used to represent optimization goals
-//! in a planning or constraint-solving context.
+//! in a syntax or constraint-solving context.
 //!
 //! This module provides a simple abstraction over optimization directives commonly
 //! used in domain-specific languages or IRs (Intermediate Representations). Specifically,
@@ -144,7 +144,7 @@ impl InternerDisplay for Optimization {
 /// assert_eq!(s, "Enabled");
 /// ```
 impl SyntaxDisplay for Optimization {
-    /// Formats the `Optimization` for planning syntax display.
+    /// Formats the `Optimization` for syntax syntax display.
     ///
     /// Delegates to the `Display` trait implementation.
     ///

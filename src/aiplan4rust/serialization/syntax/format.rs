@@ -1,5 +1,5 @@
 //! This module defines the `Format` enum, representing supported syntax serialization formats
-//! for planning languages, specifically HDDL and PDDL.
+//! for syntax languages, specifically HDDL and PDDL.
 //!
 //! It includes functionality to:
 //! - Convert from file extensions (`PlanningExtension`) to `Format`,
@@ -27,10 +27,10 @@ use std::fmt;
 use std::str::FromStr;
 
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::serialization::planning::PlanningExtension; // Adjust if you have a specific Extension enum for syntax
+use crate::aiplan4rust::serialization::syntax::PlanningExtension; // Adjust if you have a specific Extension enum for syntax
 
 /// This module defines the `Format` enum representing supported syntax serialization formats,
-/// specifically for planning languages such as HDDL and PDDL.
+/// specifically for syntax languages such as HDDL and PDDL.
 ///
 /// It provides conversions between file extensions and formats,
 /// parsing from strings, and string display implementations.

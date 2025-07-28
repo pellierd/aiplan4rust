@@ -1,14 +1,14 @@
 //! This module defines the `Language` enum and related constants used to
-//! identify and parse different planning languages.
+//! identify and parse different syntax languages.
 //!
-//! Planning languages specify the syntax and semantics for describing planning
-//! domains and problems in automated planning systems.
+//! Planning languages specify the syntax and semantics for describing syntax
+//! domains and problems in automated syntax systems.
 //!
 //! Currently supported languages:
 //! - PDDL (Planning Domain Definition Language): The classical language for
-//!   expressing planning domains and problems.
+//!   expressing syntax domains and problems.
 //! - HDDL (Hierarchical Domain Definition Language): An extension of PDDL
-//!   that supports hierarchical task structures for HTN planning.
+//!   that supports hierarchical task structures for HTN syntax.
 //!
 //! The `Language` enum supports parsing from string identifiers such as
 //! `"pddl"` and `"hddl"` (case-insensitive).
@@ -36,7 +36,7 @@ pub const PDDL_LANGUAGE: &str = "pddl";
 /// Constant representing the "hddl" language identifier (used in parsing).
 pub const HDDL_LANGUAGE: &str = "hddl";
 
-/// An enum representing different types of planning languages.
+/// An enum representing different types of syntax languages.
 ///
 /// This enum is used to identify the expected language of the domain/problem being parsed.
 /// It currently supports:

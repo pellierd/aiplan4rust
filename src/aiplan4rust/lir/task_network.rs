@@ -1,10 +1,10 @@
 //! Task Network Representation
 //!
-//! This module defines the [`TaskNetwork`] struct used in hierarchical planning.
+//! This module defines the [`TaskNetwork`] struct used in hierarchical syntax.
 //! A task network specifies a partially ordered set of tasks to execute, and may
 //! include additional ordering and logical constraints that influence execution.
 //!
-//! This structure is fundamental to HDDL-like planning languages, where a method
+//! This structure is fundamental to HDDL-like syntax languages, where a method
 //! decomposes a high-level task into a network of subtasks.
 //!
 //! # Structure
@@ -54,7 +54,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// - `ordering_constraints`: an expression representing constraints on the order in which tasks should be performed.
 /// - `logical_constraints`: an expression representing additional logical constraints on the tasks.
 ///
-/// This structure is used to model task networks in planning domains,
+/// This structure is used to model task networks in syntax domains,
 /// where tasks might have partial or total ordering and other logical dependencies.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct TaskNetwork {

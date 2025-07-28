@@ -1,5 +1,5 @@
 //! Defines the [`NormalizationError`] enum, which represents errors that may occur
-//! during the normalization phase of the AI planning compilation pipeline.
+//! during the normalization phase of the AI syntax compilation pipeline.
 //!
 //! The normalization phase is responsible for converting parsed and lifted syntax
 //! (such as task networks, methods, and actions) into a more canonical or simplified form

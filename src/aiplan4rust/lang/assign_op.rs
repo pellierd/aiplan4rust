@@ -1,7 +1,7 @@
-//! Assignment operations used in planning and mathematical modeling.
+//! Assignment operations used in syntax and mathematical modeling.
 //!
 //! This module defines the `AssignOp` enum representing various assignment
-//! and value modification operations applicable to variables in planning
+//! and value modification operations applicable to variables in syntax
 //! problems or formal models, such as PDDL numeric effects.
 //!
 //! # Variants
@@ -31,7 +31,7 @@
 //!
 //! # Integration
 //!
-//! Works seamlessly with lexer tokens and syntax display for planning languages.
+//! Works seamlessly with lexer tokens and syntax display for syntax languages.
 
 use crate::aiplan4rust::syntax::lexer::token::ASSIGN;
 use crate::aiplan4rust::syntax::lexer::token::DECREASE;
@@ -47,10 +47,10 @@ use serde::Serialize;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Represents assignment operations that can be used in planning and mathematical models.
+/// Represents assignment operations that can be used in syntax and mathematical models.
 ///
 /// This enum defines various types of assignment or modification operations that can be applied
-/// to variables or parameters in a planning problem or formal model.
+/// to variables or parameters in a syntax problem or formal model.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum AssignOp {
     /// Basic assignment operation (sets a value).
@@ -70,7 +70,7 @@ pub enum AssignOp {
 /// This implementation provides a user-friendly string representation
 /// for each variant of `AssignOp`. It allows the enum to be formatted
 /// as readable text when printed or logged, which is helpful for
-/// debugging and displaying the operator in planning syntax.
+/// debugging and displaying the operator in syntax syntax.
 ///
 /// Each variant is mapped to a corresponding constant string:
 /// - `AssignOp::Assign` -> `ASSIGN`

@@ -3,7 +3,7 @@
 //! This module provides the `TypedSymbol` struct, which represents an identified symbol
 //! (such as a variable or function name) together with one or more associated types.
 //!
-//! The main purpose of this struct is to model typed entities in a planning domain,
+//! The main purpose of this struct is to model typed entities in a syntax domain,
 //! where each symbol carries semantic meaning and type_checker constraints.
 //!
 //! Features:

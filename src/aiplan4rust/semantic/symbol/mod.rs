@@ -1,4 +1,4 @@
-//! Symbol management module for the AI planning Rust framework.
+//! Symbol management module for the AI syntax Rust framework.
 //!
 //! This module provides core components and abstractions for handling symbols in the
 //! language's semantic analysis and AST representation.

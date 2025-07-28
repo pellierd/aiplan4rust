@@ -21,7 +21,7 @@
 //! }
 //! ```
 //!
-//! This lexer is a fundamental component for building parsers and interpreters for automated planning
+//! This lexer is a fundamental component for building parsers and interpreters for automated syntax
 //! domains and problems specified in PDDL/HDDL formats.
 //!
 

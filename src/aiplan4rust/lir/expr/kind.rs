@@ -1,5 +1,5 @@
 //! Module defining the `Kind` enum representing the classification of expression components
-//! in the LIR (Logical Intermediate Representation) for AI planning.
+//! in the LIR (Logical Intermediate Representation) for AI syntax.
 //!
 //! # Overview
 //!

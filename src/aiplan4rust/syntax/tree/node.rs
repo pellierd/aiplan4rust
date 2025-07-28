@@ -422,7 +422,7 @@ pub trait SyntaxNode: ArenaNode + Display {
             .collect()
     }
 
-    /// Formats the syntax using a specific planning syntax style,
+    /// Formats the syntax using a specific syntax syntax style,
     /// applying the given indentation level.
     ///
     /// This method is similar to `fmt_with`, but formats the syntax
@@ -457,7 +457,7 @@ pub trait SyntaxNode: ArenaNode + Display {
         Self: Sized,
         <Self as SyntaxNode>::Content: SyntaxContent;
 
-    /// Formats the syntax using a specific planning syntax style without indentation.
+    /// Formats the syntax using a specific syntax syntax style without indentation.
     ///
     /// This is a convenience method that delegates to
     /// [`fmt_syntax_with_indent`] with an indent level of 0.
@@ -491,7 +491,7 @@ pub trait SyntaxNode: ArenaNode + Display {
     }
 
 
-    /// Converts the syntax node to a string using a specific planning syntax format,
+    /// Converts the syntax node to a string using a specific syntax syntax format,
     /// applying the given indentation level.
     ///
     /// This method wraps the syntax node in a temporary formatter struct,

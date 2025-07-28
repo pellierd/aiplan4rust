@@ -1,7 +1,7 @@
 //! This module defines the `LinkedSemanticContext` struct and associated functionality.
 //!
 //! The `LinkedSemanticContext` represents the result of linking the semantic information
-//! of a domain and a problem in an AI planning context.
+//! of a domain and a problem in an AI syntax context.
 //!
 //! It holds the combined Abstract Syntax Trees (ASTs) for both the domain and the problem,
 //! their corresponding symbol tables, and a unified string interner that manages identifiers

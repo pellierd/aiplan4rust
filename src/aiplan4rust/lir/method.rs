@@ -1,9 +1,9 @@
-//! This module defines the `Method` struct, representing a lifted method in a hierarchical task network (HTN) planning domain.
+//! This module defines the `Method` struct, representing a lifted method in a hierarchical task network (HTN) syntax domain.
 //!
 //! A `Method` describes how a complex task can be decomposed into subtasks under certain preconditions,
 //! encapsulating the method's name, parameters, the task it refines, its preconditions, and the resulting task network.
 //!
-//! This is a tree abstraction for expressing domain methods in HTN planning.
+//! This is a tree abstraction for expressing domain methods in HTN syntax.
 //!
 //! # Overview
 //! - `header`: The method’s name and typed parameters (via `NamedTypedList`).
