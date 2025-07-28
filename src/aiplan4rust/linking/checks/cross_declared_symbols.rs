@@ -21,7 +21,7 @@
 //!
 //! # Errors
 //!
-//! Functions return `LinkingError` on internal failures such as missing declarations
+//! Functions return `LinkingCheckError` on internal failures such as missing declarations
 //! or interner resolution errors.
 //!
 //! # Diagnostics
@@ -34,7 +34,7 @@ use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, SymbolOrigin};
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::linking::error::LinkingError;
+use crate::aiplan4rust::linking::checks::LinkingCheckError;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
 ///
@@ -55,13 +55,13 @@ use crate::aiplan4rust::linking::error::LinkingError;
 ///
 /// - `Ok(true)` if no conflicting declarations were detected.
 /// - `Ok(false)` if conflicts were found and reported.
-/// - `Err(LinkingError)` if an internal error occurs during checking.
+/// - `Err(LinkingCheckError)` if an internal error occurs during checking.
 pub fn check_cross_declared_symbols(
     domain: &SemanticContext,
     problem: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, LinkingError> {
+) -> Result<bool, LinkingCheckError> {
     let mut checked = true;
     let domain_symbol_table = domain.symbol_table();
     let problem_symbol_table = problem.symbol_table();
@@ -149,14 +149,14 @@ fn get_relevant_domain_kinds(
 ///
 /// # Returns
 ///
-/// Returns a `Result<(), LinkingError>` indicating success or failure in error reporting.
+/// Returns a `Result<(), LinkingCheckError>` indicating success or failure in error reporting.
 fn report_cross_conflict_symbol_error(
     declaration: &Declaration,
     domain_kinds: Vec<SymbolKind>,
     context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), LinkingError> {
+) -> Result<(), LinkingCheckError> {
     let symbol = declaration.symbol_ident();
     let symbol_name = context.interner().try_resolve(symbol)?;
     let error = Diagnostic::new(

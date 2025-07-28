@@ -18,9 +18,9 @@
 //!
 //! Functions return linking-related errors (e.g., `LinkingError`) if essential declarations are missing
 //! or internal inconsistencies are detected.
-//!
+
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::linking::error::LinkingError;
+use crate::aiplan4rust::linking::checks::error::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -46,7 +46,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 /// # Returns
 ///
 /// * `Ok(true)` if the check completes successfully (regardless of whether names match).
-/// * `Err(LinkingError)` if domain name declarations or AST entries are missing.
+/// * `Err(LinkingCheckError)` if domain name declarations or AST entries are missing.
 ///
 /// # Diagnostics
 ///
@@ -56,7 +56,7 @@ pub fn check_domain_name(
     problem: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, LinkingError> {
+) -> Result<bool, LinkingCheckError> {
     // --- 1. Resolve the domain name declared in the domain AST ---
     let declared = domain.symbol_table().try_resolve_unique_declaration(SymbolKind::DomainName)?;
 

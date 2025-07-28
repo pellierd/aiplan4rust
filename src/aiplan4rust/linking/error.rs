@@ -1,30 +1,28 @@
 //! Defines the `LinkingError` enum representing possible errors
 //! encountered during the linking phase of the AIPlan4Rust compilation pipeline.
 //!
-//! This enum aggregates errors from various subsystems involved in linking,
-//! including semantic analysis, syntax tree processing, symbol table management,
-//! and string interning.
+//! This enum consolidates errors from various subsystems involved in linking,
+//! including semantic analysis, linking-specific checks, semantic consistency checks,
+//! and symbol table operations.
 //!
 //! # Variants
 //!
-//! - [`Semantic`]: Wraps errors originating from semantic analysis.
-//! - [`SyntaxTree`]: Wraps errors related to the abstract syntax tree (AST) structure.
-//! - [`SemanticCheckError`]: Wraps errors encountered during semantic checks.
+//! - [`Semantic`]: Wraps errors from the core semantic analysis phase.
+//! - [`LinkingCheck`]: Wraps errors arising from linking-specific validations.
+//! - [`SemanticCheckError`]: Wraps errors from semantic consistency checks.
 //! - [`SymbolTable`]: Wraps errors related to symbol table operations.
-//! - [`Interner`]: Wraps errors from the string interner subsystem.
 //!
-//! # Usage
+//! # Integration
 //!
 //! This enum implements the `std::error::Error` trait via `thiserror::Error`,
-//! allowing transparent error conversions and easy integration with Rust's
+//! enabling seamless error composition and propagation within Rust's
 //! error handling ecosystem.
 
 use thiserror::Error;
-use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents all possible errors that can occur during the linking phase.
 ///
@@ -36,24 +34,19 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// from the corresponding subsystem.
 #[derive(Debug, Error)]
 pub enum LinkingError {
-
     /// Error arising from semantic analysis failures.
     #[error(transparent)]
     Semantic(#[from] SemanticError),
 
-    /// Error related to syntax tree construction or manipulation.
+    /// Error arising from linking-specific checks.
     #[error(transparent)]
-    SyntaxTree(#[from] SyntaxTreeError),
+    LinkingCheck(#[from] LinkingCheckError),
 
-    /// Error encountered during semantic checking phase.
+    /// Error encountered during semantic consistency checking.
     #[error(transparent)]
     SemanticCheckError(#[from] SemanticCheckError),
 
     /// Error from symbol table operations such as lookup or insertion.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
-
-    /// Error originating from string interner operations.
-    #[error(transparent)]
-    Interner(#[from] InternerError),
 }
