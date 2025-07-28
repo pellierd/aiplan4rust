@@ -916,12 +916,11 @@ pub fn check_task_def(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> 
 /// Checks that a `TotalTime` node has no children.
 ///
 /// # Arguments
-/// * `ast` - Reference to the AST containing the node.
 /// * `node` - The AST node to validate.
 ///
 /// # Errors
 /// Returns an error if the node has any children.
-pub fn check_total_time(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
+pub fn check_total_time(node: &AstNode) -> Result<(), WellFormedError> {
     core::checks::check_children_count(node.arity(), 0, node)
 }
 

@@ -65,7 +65,7 @@ impl Frontend {
 
                 match linker_result.take_linked_semantic_context() {
                     Some(linked_semantic_context) => {
-                        let interner = linked_semantic_context.interner();
+                        //let interner = linked_semantic_context.interner();
                         //println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
                         //println!("Linking successful, building LIR...");
                         //println!("{}", linked_semantic_context.problem().to_planning_string(linked_semantic_context.interner()));
@@ -169,7 +169,6 @@ impl Frontend {
                             }
                         }
 
-                        let interner = normalized_ast.interner();
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                         // Analyze the normalized AST with the diagnostics.
@@ -213,7 +212,7 @@ impl Frontend {
 
         // Tentative de linking entre le domain et le problem
         let mut linker = Linker::new();
-        let mut linker_result = linker.link_with_diagnostic_manager(
+        let linker_result = linker.link_with_diagnostic_manager(
             lifted_domain,
             lifted_problem,
             diagnostic_manager

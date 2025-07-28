@@ -493,6 +493,7 @@ fn is_cyclic(matrix: &[Vec<bool>]) -> bool {
 /// # Notes
 ///
 /// An empty matrix (with no rows) is considered non-square by this function.
+#[allow(dead_code)]
 fn is_square(matrix: &[Vec<bool>]) -> bool {
     let size = matrix.len();
     matrix.iter().all(|row| row.len() == size)

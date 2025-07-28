@@ -301,7 +301,7 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
             syntax::checks::check_task_def(ast, node)
         }
         AstKind::TotalTime => {
-            syntax::checks::check_total_time(ast, node)
+            syntax::checks::check_total_time(node)
         }
         AstKind::IsViolated => {
             syntax::checks::check_is_violated(ast, node)

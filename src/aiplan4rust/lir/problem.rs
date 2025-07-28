@@ -597,7 +597,7 @@ impl Display for Problem {
 }
 
 impl InternerDisplay for Problem {
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
         writeln!(f, "Problem {{")?;
         writeln!(f, "  domain_name: {}", self.domain_name)?;
         writeln!(f, "  problem_name: {}", self.problem_name)?;
