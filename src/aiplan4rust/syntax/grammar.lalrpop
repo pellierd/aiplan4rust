@@ -1208,7 +1208,7 @@ pub Subtask: Result<NodeId, ParseContextError> = {
         let rest = rest?;
         match name {
             Ok(name_value) => {
-                match rest.first().map(|node| context.borrow_arena().get_node(*node).unwrap().kind()) {
+                match rest.first().map(|node| context.borrow_syntax_tree().get_node(*node).unwrap().kind()) {
                     Some(AstKind::TaskSymbol) => {
                         let task_id = context.alloc_node(AstKind::TaskID, name_value, Vec::new(), start_name, end_name);
                         let task = context.alloc_node(AstKind::Task, AstContent::None, rest, end_name, end_rest);

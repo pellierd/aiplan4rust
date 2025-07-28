@@ -142,7 +142,7 @@ impl<'a> Parser<'a> {
                     Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
                 } else {
                     // Take ownership of the arena holding parsed nodes
-                    let arena = context.take_arena();
+                    let arena = context.take_syntax_tree();
                     // Create an AST instance from the arena, interner, source name, and timestamp
                     let mut ast = Ast::new(
                         arena,
