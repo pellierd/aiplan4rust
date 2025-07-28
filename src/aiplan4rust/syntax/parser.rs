@@ -1,19 +1,21 @@
 //! Parser module responsible for analyzing PDDL/HDDL syntax and producing ASTs along with diagnostics.
 //!
 //! This module provides the `Parser` struct, which handles lexing, parsing, and diagnostics management
-//! for PDDL or HDDL source code. It integrates with the underlying lexer, parser (via LALRPOP), and diagnostic system
-//! to provide detailed parsing results and error reporting.
+//! for PDDL or HDDL source code. It integrates with the underlying lexer, parser (via LALRPOP), and
+//! diagnostic system to provide detailed parsing results and error reporting.
 
 use lalrpop_util::ErrorRecovery;
 use std::mem;
 use std::time::SystemTime;
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
-use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError};
-use crate::aiplan4rust::syntax::lexer::token::Token;
-use crate::aiplan4rust::syntax::{FastLineTable, Language, ParseContext, ParserResult, SyntaxError};
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
+use crate::aiplan4rust::syntax::lexer::token::Token;
+use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError};
+use crate::aiplan4rust::syntax::{
+    FastLineTable, Language, ParseContext, ParserResult, SyntaxError,
+};
 
 /// Parses PDDL or HDDL source code into an abstract syntax tree (AST),
 /// while managing and reporting diagnostics (errors, warnings, notes).
@@ -106,7 +108,8 @@ impl<'a> Parser<'a> {
         // Store the source code string slice for diagnostics context
         self.source = Some(source);
         // Register the source text with the diagnostic manager
-        self.diagnostic_manager.add_source(source_name.to_string(), source.to_string());
+        self.diagnostic_manager
+            .add_source(source_name.to_string(), source.to_string());
 
         // Create a new lexer instance from the source text to tokenize input
         let lexer = Lexer::new(source);
@@ -129,49 +132,59 @@ impl<'a> Parser<'a> {
         self.handle_syntax_diagnostics(&context.borrow_errors_mut(), &fast_line_table);
 
         // If any error-level diagnostics were added, parsing failed—return no AST but diagnostics
-        if self.diagnostic_manager().has_diagnostics_of_severity(Severity::Error) {
-            return Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)));
+        if self
+            .diagnostic_manager()
+            .has_diagnostics_of_severity(Severity::Error)
+        {
+            return Ok(ParserResult::new(
+                None,
+                mem::take(&mut self.diagnostic_manager),
+            ));
         }
 
         // Process the result of the parsing operation
         match parse_result {
             Ok(_) => {
                 // Double-check if any errors were added during parsing
-                if self.diagnostic_manager().has_diagnostics_of_severity(Severity::Error) {
+                if self
+                    .diagnostic_manager()
+                    .has_diagnostics_of_severity(Severity::Error)
+                {
                     // Return failure with diagnostics if errors are present
-                    Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+                    Ok(ParserResult::new(
+                        None,
+                        mem::take(&mut self.diagnostic_manager),
+                    ))
                 } else {
                     // Take ownership of the arena holding parsed nodes
                     let arena = context.take_syntax_tree();
                     // Create an AST instance from the arena, interner, source name, and timestamp
-                    let mut ast = Ast::new(
-                        arena,
-                        interner,
-                        source_name.to_string(),
-                        SystemTime::now(),
-                    );
+                    let mut ast =
+                        Ast::new(arena, interner, source_name.to_string(), SystemTime::now());
                     // Initialize line/column span info for AST nodes using the line table
                     ast.init_span(&fast_line_table)?;
 
                     // Return the successful parse result with AST and diagnostics
-                    Ok(ParserResult::new(Some(ast), mem::take(&mut self.diagnostic_manager)))
+                    Ok(ParserResult::new(
+                        Some(ast),
+                        mem::take(&mut self.diagnostic_manager),
+                    ))
                 }
             }
             Err(e) => match e.as_parse_error() {
                 Some(parse_err) => {
-                    let diagnostic = Diagnostic::from_parse_error(
-                        parse_err,
-                        Some(source_name),
-                        &fast_line_table,
-                    );
+                    let diagnostic =
+                        Diagnostic::from((parse_err, Some(source_name), &fast_line_table));
                     self.diagnostic_manager.add_diagnostic(diagnostic);
-                    Ok(ParserResult::new(None, mem::take(&mut self.diagnostic_manager)))
+                    Ok(ParserResult::new(
+                        None,
+                        mem::take(&mut self.diagnostic_manager),
+                    ))
                 }
                 None => Err(e),
-            }
+            },
         }
     }
-
 
     /// Converts LALRPOP parsing errors into diagnostics and adds them to the diagnostic manager.
     ///
@@ -191,7 +204,7 @@ impl<'a> Parser<'a> {
     ) {
         for error_recovery in lalrpop_errors {
             let diagnostic =
-                Diagnostic::from_parse_error(&error_recovery.error, self.source_name, fast_line_table);
+                Diagnostic::from((&error_recovery.error, self.source_name, fast_line_table));
             self.diagnostic_manager.add_diagnostic(diagnostic);
         }
     }

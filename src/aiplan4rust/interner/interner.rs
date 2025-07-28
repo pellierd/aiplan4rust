@@ -22,7 +22,7 @@
 //! # Usage Example
 //!
 //! ```rust
-//! # use your_crate::StringInterner;
+//! # use crate::aiplan4rust::StringInterner;
 //! let mut interner = StringInterner::new();
 //! let id1 = interner.intern("hello".to_string());
 //! let id2 = interner.intern("world".to_string());

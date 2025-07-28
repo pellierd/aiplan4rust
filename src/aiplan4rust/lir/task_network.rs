@@ -18,8 +18,8 @@
 //! # Construction Example
 //!
 //! ```rust
-//! use aiplan4rust::lir::task_network::TaskNetwork;
-//! use aiplan4rust::lir::expr::Expr;
+//! use crate::aiplan4rust::lir::task_network::TaskNetwork;
+//! use crate::aiplan4rust::lir::expr::Expr;
 //!
 //! let network = TaskNetwork::new(
 //!     Expr::empty_and(),

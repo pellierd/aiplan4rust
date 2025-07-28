@@ -90,82 +90,6 @@ impl Diagnostic {
 }
 
 impl Diagnostic {
-    /// Converts a `ParseError` into a `Diagnostic`.
-    ///
-    /// Formats the error message based on the type_checker of `ParseError` encountered (e.g., unrecognized token, invalid token, etc.)
-    /// and includes the source location and file path (if available).
-    ///
-    /// # Arguments
-    /// * `error` - The `ParseError` to be converted, containing the error details.
-    /// * `file_path` - Optional path to the source file as a string slice.
-    /// * `fast_line_table` - A `FastLineTable` instance for span calculation.
-    ///
-    /// # Returns
-    /// A `Diagnostic` representing the parse error.
-    pub fn from_parse_error(
-        error: &ParseError<usize, Token, LexicalError>,
-        file_path: Option<&str>,
-        fast_line_table: &FastLineTable,
-    ) -> Self {
-        let file_path = file_path.unwrap_or("").to_string();
-
-        match error {
-            ParseError::UnrecognizedToken {
-                token: (start, t, end),
-                expected,
-            } => {
-                let clean_expected = Self::clean_expected(expected);
-                Diagnostic::new(
-                    DiagnosticKind::UnexpectedToken {
-                        token: t.to_string(),
-                        expected: clean_expected,
-                    },
-                    Provider::Lexer,
-                    file_path,
-                    fast_line_table.get_span(*start, *end),
-                )
-            }
-            ParseError::InvalidToken { location } => {
-                Diagnostic::new(
-                    DiagnosticKind::InvalidToken,
-                    Provider::Lexer,
-                    file_path,
-                    fast_line_table.get_span(*location, *location),
-                )
-            }
-            ParseError::User { error } => {
-                let content = error.to_string();
-                Diagnostic::new(
-                    DiagnosticKind::CustomError(content),
-                    Provider::Lexer,
-                    file_path,
-                    fast_line_table.get_span(0, 0),
-                )
-            }
-            ParseError::UnrecognizedEof { location, expected } => {
-                let clean_expected = Self::clean_expected(expected);
-                Diagnostic::new(
-                    DiagnosticKind::UnexpectedEof { expected: clean_expected },
-                    Provider::Lexer,
-                    file_path,
-                    fast_line_table.get_span(*location, *location),
-                )
-            }
-            ParseError::ExtraToken {
-                token: (start, t, end),
-            } => {
-                Diagnostic::new(
-                    DiagnosticKind::ExtraToken {
-                        token: t.to_string(),
-                    },
-                    Provider::Lexer,
-                    file_path,
-                    fast_line_table.get_span(*start, *end),
-                )
-            }
-        }
-    }
-
     /// Cleans the expected tokens list by removing quotes.
     fn clean_expected(expected: &[String]) -> Vec<String> {
         expected.iter().map(|s| s.replace('"', "")).collect()
@@ -187,5 +111,94 @@ impl fmt::Display for Diagnostic {
             self.span.begin_line(),
             self.span.begin_column()
         )
+    }
+}
+
+impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a FastLineTable)> for Diagnostic {
+    /// Converts a LALRPOP `ParseError` along with optional file path and a `FastLineTable`
+    /// into a `Diagnostic` struct, which holds detailed error information suitable
+    /// for reporting and displaying to the user.
+    ///
+    /// This implementation maps different variants of `ParseError` to appropriate
+    /// diagnostic kinds and computes the source span for error highlighting.
+    ///
+    /// # Arguments
+    /// * `value` - A tuple containing:
+    ///     - Reference to the `ParseError` to convert.
+    ///     - Optional file path as a string slice.
+    ///     - Reference to a `FastLineTable` used for calculating source spans.
+    ///
+    /// # Returns
+    /// A `Diagnostic` instance representing the detailed error.
+    fn from(
+        value: (&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a FastLineTable),
+    ) -> Self {
+        let (error, file_path_opt, fast_line_table) = value;
+        // Use provided file path or default to empty string if none given
+        let file_path = file_path_opt.unwrap_or("").to_string();
+
+        match error {
+            // Handles unexpected tokens by including the token and expected set
+            ParseError::UnrecognizedToken {
+                token: (start, t, end),
+                expected,
+            } => {
+                // Clean expected tokens by removing quotes for better message display
+                let clean_expected = Diagnostic::clean_expected(expected);
+                Diagnostic::new(
+                    DiagnosticKind::UnexpectedToken {
+                        token: t.to_string(),
+                        expected: clean_expected,
+                    },
+                    Provider::Lexer,
+                    file_path,
+                    // Calculate the span using FastLineTable for accurate error location
+                    fast_line_table.get_span(*start, *end),
+                )
+            }
+            // Handles invalid token errors at a specific location
+            ParseError::InvalidToken { location } => {
+                Diagnostic::new(
+                    DiagnosticKind::InvalidToken,
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(*location, *location),
+                )
+            }
+            // Handles user-defined errors with arbitrary messages
+            ParseError::User { error } => {
+                let content = error.to_string();
+                Diagnostic::new(
+                    DiagnosticKind::CustomError(content),
+                    Provider::Lexer,
+                    file_path,
+                    // No span information available, use empty span (0,0)
+                    fast_line_table.get_span(0, 0),
+                )
+            }
+            // Handles unexpected EOF errors and lists expected tokens
+            ParseError::UnrecognizedEof { location, expected } => {
+                let clean_expected = Diagnostic::clean_expected(expected);
+                Diagnostic::new(
+                    DiagnosticKind::UnexpectedEof { expected: clean_expected },
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(*location, *location),
+                )
+            }
+            // Handles extra token errors, providing the token string
+            ParseError::ExtraToken {
+                token: (start, t, end),
+            } => {
+                Diagnostic::new(
+                    DiagnosticKind::ExtraToken {
+                        token: t.to_string(),
+                    },
+                    Provider::Lexer,
+                    file_path,
+                    fast_line_table.get_span(*start, *end),
+                )
+            }
+        }
     }
 }
