@@ -20,6 +20,13 @@ pub enum LexicalError {
 }
 
 impl Default for LexicalError {
+    /// Returns the default lexical error variant.
+    ///
+    /// This is typically used to provide a fallback error value.
+    ///
+    /// # Returns
+    ///
+    /// `LexicalError::InvalidToken` indicating an invalid token error by default.
     fn default() -> Self {
         LexicalError::InvalidToken
     }

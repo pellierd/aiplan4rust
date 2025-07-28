@@ -57,6 +57,25 @@ impl<'input> Lexer<'input> {
 impl<'input> Iterator for Lexer<'input> {
     type Item = Spanned<Token, usize, LexicalError>;
 
+    /// Advances the lexer and returns the next token with its span.
+    ///
+    /// This method attempts to fetch the next token from the internal token stream.
+    /// - If the stream is exhausted, it returns `None`.
+    /// - If the lexer encounters a lexical error, it returns a `Token::Error`
+    ///   wrapping the erroneous slice as a string, along with its span.
+    /// - Otherwise, it returns the successfully parsed token with its span.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Ok((start, token, end)))` on successful tokenization,
+    ///   where `start` and `end` mark the byte offsets of the token in the input.
+    /// - `Some(Err(LexicalError))` if a lexical error occurred (wrapped inside `Token::Error` here).
+    /// - `None` when the end of input is reached.
+    ///
+    /// # Debug Logging
+    ///
+    /// Logs debug messages indicating when tokens or errors are emitted,
+    /// including the token’s symbol and span.
     fn next(&mut self) -> Option<Self::Item> {
         match self.token_stream.next() {
             None => {
