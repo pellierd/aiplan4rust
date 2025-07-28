@@ -1,42 +1,114 @@
+//! Subtree abstraction for syntax trees.
+//!
+//! This module defines the [`SyntaxSubtree`] type, a lightweight wrapper that represents
+//! a focused view over a node and its parent [`SyntaxTree`]. This abstraction is useful
+//! in contexts where operations require access to both a specific node and the tree
+//! structure it belongs to—such as analysis, transformation, or conversion logic.
+//!
+//! # Purpose
+//!
+//! [`SyntaxSubtree`] enables ergonomic access to a node in context, reducing the need
+//! for repetitive `(node, tree)` tuple passing. It is particularly useful when implementing
+//! traits like `TryFrom<Subtree<_>>` or writing recursive analyzers over localized parts of the tree.
+//!
+//! # Example
+//!
+//! ```rust
+//! use aiplan4rust::syntax::tree::{SyntaxTree, SyntaxNode};
+//! use aiplan4rust::syntax::tree::subtree::SyntaxSubtree;
+//!
+//! fn process_subtree<T: SyntaxNode>(sub: SyntaxSubtree<'_, T>) {
+//!     println!("Node kind: {:?}", sub.node().kind());
+//!     // You can also inspect the tree:
+//!     let root = sub.tree().root_node();
+//! }
+//! ```
+//!
+//! # See Also
+//! - [`SyntaxTree`]: Represents the full abstract syntax tree.
+//! - [`SyntaxNode`]: Trait implemented by all nodes within the tree.
+
 use std::fmt;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 
-/// A lightweight wrapper representing a subpart (subtree) of a `SyntaxTree`,
-/// centered on a given node and its surrounding context.
+/// A lightweight wrapper representing a subtree within a [`SyntaxTree`],
+/// anchored at a specific syntax node.
 ///
-/// Useful for implementing `TryFrom<Subtree<_>>` and reducing tuple boilerplate.
-#[derive(Copy, Clone)]
+/// This structure is primarily used to conveniently pass around a node and
+/// its context (`SyntaxTree`), for example when implementing conversions
+/// like `TryFrom<Subtree<_>>` or performing localized analysis.
+#[derive(Debug, Clone, Copy)]
 pub struct SyntaxSubtree<'a, T: SyntaxNode> {
+    /// The node representing the root of the subtree.
     pub node: &'a T,
+    /// The full syntax tree containing the node.
     pub tree: &'a SyntaxTree<T>,
 }
 
 impl<'a, T: SyntaxNode> SyntaxSubtree<'a, T> {
-    /// Creates a new `SyntaxSubtree` from a node and its parent syntax tree.
+    /// Creates a new `SyntaxSubtree` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `node` - A reference to the root node of the subtree.
+    /// * `tree` - A reference to the full syntax tree containing the node.
+    ///
+    /// # Returns
+    ///
+    /// A new `SyntaxSubtree` structure encapsulating the node and its tree.
     pub fn new(node: &'a T, tree: &'a SyntaxTree<T>) -> Self {
         Self { node, tree }
     }
 
-    /// Returns a reference to the node.
+    /// Returns a reference to the node this subtree wraps.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the root node of this subtree.
     pub fn node(&self) -> &'a T {
         self.node
     }
 
-    /// Returns a reference to the full syntax tree.
+    /// Returns a reference to the syntax tree that contains this subtree.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the full `SyntaxTree` in which the node resides.
     pub fn tree(&self) -> &'a SyntaxTree<T> {
         self.tree
     }
 }
 
-impl<'a, T: SyntaxNode> fmt::Debug for SyntaxSubtree<'a, T> {
+impl<'a, T: SyntaxNode + fmt::Display> fmt::Display for SyntaxSubtree<'a, T> {
+    /// Formats the `SyntaxSubtree` for user-friendly display purposes.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter used to write the display representation.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating whether formatting was successful.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("SyntaxSubtree")
-            .field("node", &self.node)
-            .finish()
+        writeln!(f, "SyntaxSubtree {{")?;
+        writeln!(f, "  node: {},", self.node)?;
+        writeln!(f, "  tree info:")?;
+        writeln!(f, "    total nodes: {}", self.tree.len())?;
+        writeln!(f, "    root id: {:?}", self.tree.root_id())?;
+        write!(f, "}}")
     }
 }
 
 impl<'a, T: SyntaxNode> From<(&'a T, &'a SyntaxTree<T>)> for SyntaxSubtree<'a, T> {
+    /// Converts a tuple `(node, tree)` into a `SyntaxSubtree`.
+    ///
+    /// # Arguments
+    ///
+    /// * `(node, tree)` - A tuple containing a reference to a node and its corresponding syntax tree.
+    ///
+    /// # Returns
+    ///
+    /// A `SyntaxSubtree` containing both the node and tree reference.
     fn from((node, tree): (&'a T, &'a SyntaxTree<T>)) -> Self {
         SyntaxSubtree::new(node, tree)
     }

@@ -1,3 +1,35 @@
+//! Module for defining the `SyntaxContent` trait, which represents
+//! the semantic content of syntax nodes in the syntax tree.
+//!
+//! This trait provides a uniform interface for extracting
+//! various semantic types such as identifiers, literals,
+//! operators, and directives from syntax node content.
+//!
+//! It also supports remapping identifiers within the content,
+//! which is useful during syntax transformations or renaming phases.
+//!
+//! The trait requires implementors to support cloning, debugging,
+//! and formatted display via the `InternerDisplay` trait, which
+//! enables resolving interned strings.
+//!
+//! # Semantic Content Extraction
+//!
+//! Implementors provide methods to optionally retrieve content as:
+//! - Identifiers (`Ident`)
+//! - Floating-point literals (`OrderedFloat<f64>`)
+//! - Binary comparison operators (`BinaryComp`)
+//! - Assignment operators (`AssignOp`)
+//! - Arithmetic operators (`ArithmeticOp`)
+//! - Optimization directives (`Optimization`)
+//!
+//! Additionally, methods are provided to attempt extraction that return
+//! detailed errors (`SyntaxTreeError`) when the expected content is absent or mismatched.
+//!
+//! # Identifier Remapping
+//!
+//! The `remap_idents` method allows updating identifiers according to a
+//! provided mapping, facilitating tasks like renaming or symbol resolution.
+
 use std::collections::HashMap;
 use std::fmt::Debug;
 use ordered_float::OrderedFloat;
@@ -5,6 +37,21 @@ use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
+/// Trait representing the semantic content of a syntax node.
+///
+/// Types implementing this trait can express the specific kind
+/// of content they hold, such as identifiers, literals, or operators,
+/// and provide methods for extracting these in a type-safe manner.
+///
+/// The trait also supports remapping of identifiers via a
+/// supplied mapping, useful during syntax tree transformations.
+///
+/// # Requirements
+///
+/// Implementors must also implement:
+/// - [`InternerDisplay`] to support pretty-printing with identifier interning.
+/// - [`Clone`] for safe copying.
+/// - [`Debug`] for debugging purposes.
 pub trait SyntaxContent:  InternerDisplay + Clone + Debug {
     /// Returns the content as an identifier if available.
     fn as_ident(&self) -> Option<Ident>;

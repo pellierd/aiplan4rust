@@ -17,8 +17,8 @@
 
 use thiserror::Error;
 use lalrpop_util::ParseError;
+
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
-use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
