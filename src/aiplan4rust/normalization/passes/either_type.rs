@@ -123,12 +123,12 @@ pub fn normalize_either_type(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, NormalizationError> {
-    let arena = ast.arena();
+    let arena = ast.syntax_tree();
     // Step 1: Detect and report duplicate type_checker warnings without modifying the AST
     report_either_type_duplicate_warnings(arena, ast, diagnostic_manager)?;
 
     // Step 2: Mutably borrow arena to remove duplicates and track if modifications were made
-    let arena = ast.arena_mut();
+    let arena = ast.syntax_tree_mut();
     let modified = remove_either_type_duplicates(arena)?;
 
     Ok(modified)

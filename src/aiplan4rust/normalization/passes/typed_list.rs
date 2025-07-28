@@ -138,7 +138,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// on very large ASTs. It is typically the first normalization step before semantic analysis,
 /// type_checker inference, or code generation.
 pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
-    if !ast.arena().is_empty() {
+    if !ast.syntax_tree().is_empty() {
         normalize_typed_list_node(ast)?
     }
     Ok(())
@@ -193,8 +193,8 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
 /// type_checker checking and code generation phases.
 fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
-    let root_id = ast.arena().try_root_id()?;
-    let arena = ast.arena_mut();
+    let root_id = ast.syntax_tree().try_root_id()?;
+    let arena = ast.syntax_tree_mut();
     let mut stack = vec![root_id];
 
     while let Some(node_id) = stack.pop() {

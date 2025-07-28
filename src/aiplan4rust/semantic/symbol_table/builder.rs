@@ -122,7 +122,7 @@ impl SymbolTableBuilder {
     /// A fully initialized [`SymbolTable`] on success.
     pub fn build(&mut self, ast: &Ast) -> Result<SymbolTable, SymbolTableError> {
         // Attempt to retrieve the root node of the AST, returning error if none exists
-        let root_ref = ast.arena().try_root_node_ref()?;
+        let root_ref = ast.syntax_tree().try_root_node_ref()?;
         let root_node = root_ref.node();
 
         // Match the root node kind and configure the symbol table's origin and root ID accordingly
@@ -310,7 +310,7 @@ impl SymbolTableBuilder {
             // For any other kinds, recursively process all child nodes to cover nested syntax
             _ => {
                 for child in node_ref.node().children() {
-                    self.init_from(&ast.arena().try_node_ref(*child)?, ast, scope.clone())?;
+                    self.init_from(&ast.syntax_tree().try_node_ref(*child)?, ast, scope.clone())?;
                 }
             }
         }
@@ -359,7 +359,7 @@ impl SymbolTableBuilder {
 
         // Extract the symbol reference from the AST node ID.
         // This retrieves symbol metadata such as the identifier name and kind.
-        let symbol_ref = ast.arena().try_symbol_ref(node_ref.id())?;
+        let symbol_ref = ast.syntax_tree().try_symbol_ref(node_ref.id())?;
 
         // Obtain the symbol's identifier (name) from the symbol reference.
         let ident = symbol_ref.ident();
@@ -459,12 +459,12 @@ impl SymbolTableBuilder {
             // Retrieve the first child node ID
             let first_child_id = node_ref.node().children()[0];
             // Get a reference to the first child node
-            let first_node_ref = ast.arena().try_node_ref(first_child_id)?;
+            let first_node_ref = ast.syntax_tree().try_node_ref(first_child_id)?;
             // Extract the symbol reference from the first child node
-            ast.arena().try_symbol_ref(first_node_ref.id())?
+            ast.syntax_tree().try_symbol_ref(first_node_ref.id())?
         } else {
             // For other kinds, get the symbol reference directly from this node
-            ast.arena().try_symbol_ref(node_ref.id())?
+            ast.syntax_tree().try_symbol_ref(node_ref.id())?
         };
 
         // Extract the identifier (name) of the symbol
@@ -544,7 +544,7 @@ impl SymbolTableBuilder {
         }
 
         for &child_id in children {
-            let child_ref = ast.arena().try_node_ref(child_id)?;
+            let child_ref = ast.syntax_tree().try_node_ref(child_id)?;
             self.init_from_typed_item(&child_ref, ast, scope.clone())?;
         }
 
@@ -604,7 +604,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
-        let syntax_tree = ast.arena();
+        let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
         // Determine the types associated with the symbols
@@ -755,7 +755,7 @@ impl SymbolTableBuilder {
 
         // Retrieve and validate the first child as a FunctionSymbol
         let functor_id = node.try_child(0)?;
-        let functor_ref = ast.arena().try_node_ref(functor_id)?;
+        let functor_ref = ast.syntax_tree().try_node_ref(functor_id)?;
         if functor_ref.node().kind() != AstKind::FunctionSymbol {
             return Err(SymbolTableError::unexpected_node_kind(
                 functor_ref.id(),
@@ -766,7 +766,7 @@ impl SymbolTableBuilder {
 
         // Retrieve the argument list node (second child)
         let arguments_id = node.try_child(1)?;
-        let arguments = &ast.arena().try_node_ref(arguments_id)?;
+        let arguments = &ast.syntax_tree().try_node_ref(arguments_id)?;
 
         // Initialize symbols for the argument list in a new nested scope
         self.init_from_typed_list(
@@ -1022,7 +1022,7 @@ impl SymbolTableBuilder {
         scope: Scope,
         has_body: bool,
     ) -> Result<(), SymbolTableError> {
-        let syntax_tree = ast.arena();
+        let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
         // Extract the definition name (first child) and prepare to add it as a declaration
@@ -1091,7 +1091,7 @@ impl SymbolTableBuilder {
 
         // Process the remaining children (arguments)
         for child in node_ref.node().children() {
-            self.init_from(&ast.arena().try_node_ref(*child)?, ast, scope.clone())?;
+            self.init_from(&ast.syntax_tree().try_node_ref(*child)?, ast, scope.clone())?;
         }
 
         Ok(())
@@ -1139,7 +1139,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
-        let syntax_tree = ast.arena();
+        let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
         // Ensure the node is a quantified expression: `Exists` or `Forall`
@@ -1213,7 +1213,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
-        let syntax_tree = ast.arena();
+        let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
         // Step 1: Get and validate the predicate node (first child)
@@ -1289,7 +1289,7 @@ impl SymbolTableBuilder {
     ) -> Result<TypedList, SymbolTableError> {
         let mut typed_arguments = TypedList::new();
         for typed_item_id in node_ref.node().children() {
-            let typed_item_ref = &ast.arena().try_node_ref(*typed_item_id)?;
+            let typed_item_ref = &ast.syntax_tree().try_node_ref(*typed_item_id)?;
             typed_arguments.extend(self.extract_arguments_from_typed_item(typed_item_ref, ast)?);
         }
         Ok(typed_arguments)
@@ -1333,7 +1333,7 @@ impl SymbolTableBuilder {
         typed_item_ref: &NodeRef<AstNode>,
         ast: &Ast,
     ) -> Result<TypedList, SymbolTableError> {
-        let syntax_tree = ast.arena();
+        let syntax_tree = ast.syntax_tree();
         let node = typed_item_ref.node();
 
         // Step 1: Extract the type information if present
@@ -1409,7 +1409,7 @@ impl SymbolTableBuilder {
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
     ) -> Result<Type, SymbolTableError> {
-        let arena = ast.arena();
+        let arena = ast.syntax_tree();
         let mut super_types = Type::new();
 
         // Iterate over each child of the Type node (expected to be PrimitiveType)
@@ -1467,7 +1467,7 @@ impl SymbolTableBuilder {
 
         // --- Register each primitive type as a symbol usage ---
         for ty in type_ref.node().children() {
-            let ty_ref = ast.arena().try_node_ref(*ty)?;  // Get reference to each type node
+            let ty_ref = ast.syntax_tree().try_node_ref(*ty)?;  // Get reference to each type node
             self.add_symbol_usage(&ty_ref, ast, scope.clone())?; // Track usage in the current scope
         }
 
@@ -1505,7 +1505,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
-        let syntax_tree = ast.arena();
+        let syntax_tree = ast.syntax_tree();
         let node = node_ref.node();
 
         // --- Extract the tag identifier child (expected to be a TaskID) ---
@@ -1557,7 +1557,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
-        let syntax_tree = ast.arena();
+        let syntax_tree = ast.syntax_tree();
 
         // --- Extract the first child node (expected to be a TaskID) ---
         let t1_id = node_ref.node().try_child(0)?; // Error if no first child

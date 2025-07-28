@@ -201,7 +201,7 @@ pub fn get_node<'a>(
     parent: &AstNode,
     node_id: usize,
 ) -> Result<&'a AstNode, WellFormedError> {
-    match ast.arena().get_node(NodeId::new(node_id)) {
+    match ast.syntax_tree().get_node(NodeId::new(node_id)) {
         Some(node) => Ok(node),
         None => Err(WellFormedError::MissingChildNode {
             child_id: NodeId::new(node_id),

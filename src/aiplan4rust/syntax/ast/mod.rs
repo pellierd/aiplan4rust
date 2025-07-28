@@ -10,47 +10,54 @@
 //! - [`node`]: Defines the internal structure of AST nodes.
 //! - [`kind`]: Enumerates the kinds of AST nodes (e.g., keyword, identifier).
 //! - [`content`]: Defines the data payload associated with AST nodes.
-//! - [`iterators`]: Contains pre-order and post-order traversal iter.
+//!
+//! # Traversal
+//!
+//! AST traversal uses the generic iterators provided by the underlying arena allocator,
+//! which are publicly accessible through the [`syntax_tree`] field of the [`Ast`] struct.
+//! This includes iterators such as:
+//!
+//! - Pre-order traversal (parent before children).
+//! - Post-order traversal (children before parent).
+//!
+//! These iterators enable efficient walking of the [`AstNode`] tree.
 //!
 //! # Re-exports
 //!
 //! To simplify access to key types, several items are re-exported:
 //!
-//! - [`AstNode`] — alias of `syntax::Node`
+//! - [`AstNode`] — alias of `node::AstNode`
 //! - [`AstKind`] — alias of `kind::Kind`
 //! - [`AstContent`] — alias of `content::Content`
-//! - [`Ast`] — the full parsed AST structure
+//! - [`Ast`] — the full parsed AST structure defined in `ast`
+//! - [`AstError`] — error types related to AST operations
 //!
 //! # Example
 //!
 //! ```rust
 //! use aiplan4rust::syntax::{Ast, AstNode, AstKind};
 //!
-//! let ast: Ast = /* parse something */;
-//! let root: &AstNode = ast.root();
+//! let ast: Ast = /* ... */;
+//! let root = ast.root();
 //!
-//! println!("Root kind: {:?}", root.kind());
-//! ```
-//!
-//! # Traversal
-//!
-//! Use the iter in [`iterators`] to walk through the AST:
-//!
-//! ```rust
-//! use aiplan4rust::syntax::iter::PreorderIter;
-//!
-//! let iter = PreorderIter::new(ast.root());
-//! for (syntax, depth) in iter {
-//!     println!("{}- {:?}", "  ".repeat(depth), syntax.kind());
+//! // Traversal using iterators publicly exposed via syntax_tree
+//! for (node, depth) in ast.syntax_tree().preorder() {
+//!     println!("{}- {:?}", "  ".repeat(depth), node.kind());
 //! }
 //! ```
+//!
+//! # See Also
+//!
+//! - [`AstNode`] for individual AST nodes.
+//! - [`AstKind`] for node kind classifications.
+//! - [`AstContent`] for node payloads.
+//! - [`AstError`] for error handling related to AST.
+//! - [`syntax_tree`] field in [`Ast`] for access to arena and iterators.
+//!
 
-// Submodules
 pub mod content;
 pub mod kind;
-
 pub mod ast;
-
 pub mod node;
 pub mod renderer;
 pub mod error;
@@ -61,5 +68,4 @@ pub use content::Content as AstContent;
 pub use ast::Ast;
 pub use error::AstError;
 pub use node::AstNode;
-
-pub use renderer::syntax::syntax::render_with_indent;
+pub use renderer::syntax::render_with_indent;

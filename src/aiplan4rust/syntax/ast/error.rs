@@ -11,7 +11,6 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// Errors that can arise during AST manipulation.
 #[derive(Error, Debug)]
 pub enum AstError {
-
     /// Wraps errors originating from the syntax tree subsystem.
     #[error("Syntax tree error: {0}")]
     SyntaxTree(#[from] SyntaxTreeError),
@@ -23,7 +22,6 @@ pub enum AstError {
 }
 
 impl AstError {
-
     /// Creates a new `AstError::NotARequirement`.
     pub fn not_a_requirement() -> Self {
         AstError::NotARequirement

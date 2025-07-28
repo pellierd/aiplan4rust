@@ -140,7 +140,7 @@ impl fmt::Display for NormalizerResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ast {
             Some(ast) => {
-                writeln!(f, "Normalized AST:\n{}", ast.arena())?;
+                writeln!(f, "Normalized AST:\n{}", ast.syntax_tree())?;
             }
             None => {
                 writeln!(f, "No AST available (normalization failed).")?;

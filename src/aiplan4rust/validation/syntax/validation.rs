@@ -37,7 +37,7 @@ use crate::aiplan4rust::validation::{core, syntax};
 /// # Note
 /// This function only checks structural correctness, not semantic validity.
 pub fn is_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
-    match ast.arena().root_node() {
+    match ast.syntax_tree().root_node() {
         Some(root) => check_well_formed_from(root, ast),
         None => Ok(()), // No root node means empty tree which can be considered well-formed
     }
@@ -58,7 +58,7 @@ pub fn is_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
 /// # Note
 /// This function only checks structural correctness, not semantic validity.
 pub fn check_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
-    match ast.arena().root_node() {
+    match ast.syntax_tree().root_node() {
         Some(root) => check_well_formed_from(root, ast),
         None => Ok(()),
     }

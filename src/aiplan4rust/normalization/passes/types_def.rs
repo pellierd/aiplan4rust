@@ -151,7 +151,7 @@ fn report_implicit_either_type_warning(
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationError> {
     // Get immutable access to the arena containing the AST nodes
-    let arena = ast.arena();
+    let arena = ast.syntax_tree();
 
     // Retrieve the syntax representing the entire type_checker definitions
     let typed_def_node = arena.try_node(types_def_id)?;
@@ -328,7 +328,7 @@ pub fn merge_duplicate_type_declarations(
     ast: &mut Ast,
 ) -> Result<bool, NormalizationError> {
     // Get mutable access to the arena holding all AST nodes
-    let arena = ast.arena_mut();
+    let arena = ast.syntax_tree_mut();
 
     // Retrieve the syntax containing the types definitions
     let typed_def_node = arena.try_node(types_def_id)?;

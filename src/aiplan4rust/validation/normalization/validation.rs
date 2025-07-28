@@ -45,7 +45,7 @@ use crate::aiplan4rust::validation::{core, normalization, syntax};
 /// * `Ok(())` if the AST is well normalized.
 /// * `Err(WellNormalizedError)` if any normalization rule is violated.
 pub fn is_well_normalized(ast: &Ast) -> Result<(), WellNormalizedError> {
-    match ast.arena().root_node() {
+    match ast.syntax_tree().root_node() {
         Some(root) => check_well_normalized_from(root, ast),
         None => Ok(()), // An empty AST is considered well normalized.
     }

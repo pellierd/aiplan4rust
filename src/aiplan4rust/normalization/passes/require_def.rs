@@ -114,14 +114,14 @@ pub fn normalize_require_def(
 
     // Report duplicate requirement warnings (immutable borrow)
     report_duplicate_requirements_warnings(
-        ast.arena(),
+        ast.syntax_tree(),
         require_def_id,
         ast.source_name(),
         diagnostic_manager,
     )?;
 
     // Remove duplicate requirements (mutable borrow)
-    let modified = remove_requirement_duplicates(ast.arena_mut(), require_def_id)?;
+    let modified = remove_requirement_duplicates(ast.syntax_tree_mut(), require_def_id)?;
 
     Ok(modified)
 }
