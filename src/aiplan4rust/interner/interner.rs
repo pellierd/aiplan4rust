@@ -7,17 +7,18 @@
 //!
 //! # Interning Mechanism
 //!
-//! Interned strings are stored in a vector (`string_pool`) as owned boxed strings (`Box<str>`).
+//! Interned strings are stored in two pools (`ident_string_pool` and `literal_string_pool`) as owned boxed strings (`Box<str>`).
 //! These boxed strings are leaked to obtain `'static` lifetime references, which serve
-//! as keys in a hashmap (`string_index`) mapping from `&'static str` to unique indices.
+//! as keys in hashmaps (`ident_index_map` and `literal_index_map`) mapping from `&'static str` to unique indices.
 //!
 //! # Features
 //!
 //! - Avoids duplicate storage of strings by returning indices for repeated strings.
 //! - Enables fast retrieval of interned strings by their indices.
+//! - Separates storage for identifier strings and literal strings for clarity and potential optimizations.
 //! - Supports serialization and deserialization through Serde:
-//!   - On serialization, only the string pool is saved.
-//!   - On deserialization, the index map is rebuilt from the pool.
+//!   - On serialization, only the string pools are saved.
+//!   - On deserialization, the index maps are rebuilt from the pools.
 //!
 //! # Usage Example
 //!
@@ -38,15 +39,13 @@
 //!
 //! # Display
 //!
-//! Implements the `Display` trait to output all interned strings, joined by commas,
-//! which is useful for debugging and inspection.
+//! Implements the `Display` trait to output all interned strings (both identifiers and literals),
+//! each string on its own line with its index, which is useful for debugging and inspection.
 //!
 
 use std::collections::HashMap;
-use std::fmt;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use crate::aiplan4rust::interner::error::InternerError;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::interner::{Ident, InternerError, Literal};
 use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
@@ -55,23 +54,26 @@ use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, O
 /// This reduces memory usage by avoiding duplicate string allocations and
 /// enables fast equality checks and lookups via the numeric indices.
 ///
-/// Interned strings are stored in a pool as owned boxed strings (`Box<str>`) that
-/// are leaked to obtain `'static` lifetimes, ensuring their references remain
-/// valid for the lifetime of the interner.
+/// The interner maintains separate pools and maps for identifiers and literals:
 ///
-/// The interner maintains:
-/// - A `string_pool` vector holding all interned strings in order.
-/// - A `string_index` hashmap mapping each interned string slice (`&'static str`)
-///   to its unique index.
+/// - `ident_string_pool`: A vector of all interned identifier strings stored as owned boxed strings (`Box<str>`).
+/// - `ident_index_map`: A hashmap mapping interned identifier string slices (`&'static str`) to their unique indices.
+/// - `literal_string_pool`: A vector of all interned literal strings stored as owned boxed strings.
+/// - `literal_index_map`: A hashmap mapping interned literal string slices to their unique indices.
+///
+/// Interned strings are leaked to obtain `'static` lifetimes for the string slices,
+/// which are used as keys in the hashmaps.
 ///
 /// # Features
-/// - Efficient string interning without cloning on repeated strings.
-/// - Retrieval of strings by their index.
-/// - Serialization and deserialization support using Serde:
-///   - Only the string pool is serialized (as `Vec<Box<str>>`).
-///   - On deserialization, the string index is reconstructed from the pool.
 ///
-/// # Usage
+/// - Efficiently avoids duplicate string storage by returning indices for repeated strings.
+/// - Allows fast retrieval of interned strings by index.
+/// - Supports Serde serialization and deserialization:
+///   - Serialization stores only the string pools (`Vec<Box<str>>`).
+///   - Deserialization reconstructs the index maps from the pools.
+///
+/// # Example
+///
 /// ```rust
 /// let mut interner = StringInterner::new();
 /// let idx1 = interner.intern("hello".to_string());
@@ -80,24 +82,26 @@ use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, O
 /// assert_eq!(interner.get_str(idx2), Some("world"));
 /// ```
 ///
-/// # Notes
-/// Interned strings are leaked to provide `'static` references, so the memory
-/// is not reclaimed until the interner is dropped.
+/// # Memory Note
 ///
-/// The design assumes the interner is long-lived or used in contexts where
-/// leaked memory is acceptable.
+/// The interner leaks memory by design to produce `'static` string slices,
+/// so memory is reclaimed only when the interner itself is dropped.
 ///
-/// # Display
-/// The interner implements `Display` trait to show all interned strings
-/// joined by commas, useful for debugging.
+/// This is suitable for long-lived interners or contexts where leaking is acceptable.
 ///
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct StringInterner {
-    /// Pool holding all interned strings as owned boxed strings.
+    /// Pool holding all interned identifier strings as owned boxed strings.
     ident_string_pool: Vec<Box<str>>,
 
-    /// Map from interned `'static` string slices to their unique index.
+    /// Map from interned identifier `'static` string slices to their unique indices.
     ident_index_map: HashMap<&'static str, usize>,
+
+    /// Pool holding all interned literal strings as owned boxed strings.
+    literal_string_pool: Vec<Box<str>>,
+
+    /// Map from interned literal `'static` string slices to their unique indices.
+    literal_index_map: HashMap<&'static str, usize>,
 }
 
 impl StringInterner {
@@ -197,6 +201,8 @@ impl StringInterner {
         let mut interner = StringInterner {
             ident_string_pool: Vec::new(),
             ident_index_map: HashMap::new(),
+            literal_string_pool: Vec::new(),
+            literal_index_map: HashMap::new(),
         };
 
         // Always intern these in the same order as their constant Ident declarations
@@ -307,7 +313,7 @@ impl StringInterner {
     /// # Examples
     ///
     /// ```rust
-    /// # use your_crate::{StringInterner, Ident, InternerError};
+    /// use crate::aiplan4rust::interner::{StringInterner, Ident, InternerError};
     /// let mut interner = StringInterner::new();
     /// let id = interner.intern("example".to_string());
     /// assert_eq!(interner.try_resolve(id).unwrap(), "example");
@@ -318,13 +324,9 @@ impl StringInterner {
     ///
     pub fn try_resolve_ident(&self, ident: Ident) -> Result<&str, InternerError> {
         self.resolve_ident(ident).ok_or_else(|| {
-            InternerError::InvalidIdent {
-                ident_index: ident.as_usize(),
-                interner_size: self.ident_string_pool.len(),
-            }
+            InternerError::invalid_ident(ident.as_usize(), self.ident_string_pool.len())
         })
     }
-
 
     /// Lookup an interned string and get its Ident if it exists (no insertion).
     pub fn lookup_ident(&self, s: &str) -> Option<Ident> {
@@ -350,48 +352,177 @@ impl StringInterner {
             .map(|(i, s)| (Ident::new(i), s.as_ref()))
     }
 
+
+    /// Interns a literal string (e.g., numbers, constants) and returns a `Literal`.
+    ///
+    /// If the string is already interned as a literal, it reuses its index.
+    /// Otherwise, it inserts the string into the literal pool and returns a new `Literal`.
+    ///
+    /// # Example
+    /// ```
+    /// let mut interner = StringInterner::new();
+    /// let lit = interner.intern_literal("42");
+    /// assert_eq!(interner.get_literal(lit), Some("42"));
+    /// ```
+    pub fn intern_literal<S: Into<String>>(&mut self, s: S) -> Literal {
+        let s = s.into();
+        if let Some(&idx) = self.literal_index_map.get(s.as_str()) {
+            return Literal::new(idx);
+        }
+
+        let boxed: Box<str> = s.into_boxed_str();
+        let static_str: &'static str = Box::leak(boxed);
+
+        let idx = self.literal_string_pool.len();
+        self.literal_string_pool.push(static_str.into());
+        self.literal_index_map.insert(static_str, idx);
+
+        Literal::new(idx)
+    }
+
+    /// Resolves a literal `Literal` into its string value.
+    ///
+    /// # Returns
+    /// - `Some(&str)` if the index is valid
+    /// - `None` otherwise
+    pub fn resolve_literal(&self, lit: Literal) -> Option<&str> {
+        self.literal_string_pool.get(lit.as_usize()).map(|s| s.as_ref())
+    }
+
+    /// Try resolving a literal and returns a result.
+    ///
+    /// # Errors
+    /// Returns `Err(InternerError)` if the literal is invalid or out of bounds.
+    pub fn try_resolve_literal(&self, literal: Literal) -> Result<&str, InternerError> {
+        self.resolve_literal(literal).ok_or_else(|| {
+            InternerError::invalid_literal(literal.as_usize(), self.literal_string_pool.len())
+        })
+    }
+
+    /// Looks up a literal and returns its identifier if already interned.
+    pub fn lookup_literal(&self, s: &str) -> Option<Literal> {
+        self.literal_index_map.get(s).copied().map(Literal::new)
+    }
+
+    /// Returns an iterator over all literal `Literal`s.
+    pub fn literal_keys(&self) -> impl Iterator<Item = Literal> + '_ {
+        (0..self.literal_string_pool.len()).map(Literal::new)
+    }
+
+    /// Returns an iterator over all interned literals (`&str`).
+    pub fn literal_values(&self) -> impl Iterator<Item = &str> + '_ {
+        self.literal_string_pool.iter().map(|s| s.as_ref())
+    }
+
+    /// Returns an iterator over `(Literal, &str)` pairs for literals.
+    pub fn iter_literal_entries(&self) -> impl Iterator<Item = (Literal, &str)> + '_ {
+        self.literal_string_pool
+            .iter()
+            .enumerate()
+            .map(|(i, s)| (Literal::new(i), s.as_ref()))
+    }
+
 }
 
 impl Serialize for StringInterner {
-    /// Serializes only the string pool (`Vec<Box<str>>`) using Serde.
+    /// Serializes only the interned string pools of the `StringInterner`.
     ///
-    /// The `string_index` is not serialized as it can be reconstructed.
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        self.ident_string_pool.serialize(serializer)
+    /// This implementation serializes the `ident_string_pool` and the
+    /// `literal_string_pool`, which hold all interned strings and literals respectively.
+    ///
+    /// The `ident_index_map` and `literal_index_map` are **not** serialized because
+    /// they can be reconstructed from the pools during deserialization.
+    ///
+    /// # Arguments
+    ///
+    /// * `serializer` - The serializer instance used to serialize the data.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` indicating success or failure of the serialization process.
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // Serialize both string pools as a tuple
+        (&self.ident_string_pool, &self.literal_string_pool).serialize(serializer)
     }
 }
 
 impl<'de> Deserialize<'de> for StringInterner {
-    /// Deserializes the `string_pool` from a `Vec<String>` and reconstructs
-    /// the `string_index` mapping.
+    /// Deserializes the two string pools (`ident_string_pool` and `literal_string_pool`)
+    /// from a tuple `(Vec<String>, Vec<String>)` and reconstructs their corresponding
+    /// index maps (`ident_index_map` and `literal_index_map`).
     ///
-    /// This ensures that after deserialization, the interner has both the pool
-    /// and the index ready for lookups.
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
-        let vec: Vec<String> = Vec::deserialize(deserializer)?;
+    /// # Arguments
+    ///
+    /// * `deserializer` - The deserializer instance.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` wrapping the reconstructed `StringInterner` or an error.
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        // Deserialize a tuple of two vectors of strings (for ident and literal pools)
+        let (ident_vec, literal_vec): (Vec<String>, Vec<String>) = Deserialize::deserialize(deserializer)?;
 
-        let mut string_pool = Vec::with_capacity(vec.len());
-        let mut string_index = HashMap::with_capacity(vec.len());
+        // Helper function to convert Vec<String> into pool and map
+        fn build_pool_and_map(vec: Vec<String>) -> (Vec<Box<str>>, HashMap<&'static str, usize>) {
+            let mut pool = Vec::with_capacity(vec.len());
+            let mut index_map = HashMap::with_capacity(vec.len());
 
-        for (idx, s) in vec.into_iter().enumerate() {
-            let boxed: Box<str> = s.into_boxed_str();
-            let static_str: &'static str = Box::leak(boxed);
-            string_index.insert(static_str, idx);
-            string_pool.push(static_str.into());
+            for (idx, s) in vec.into_iter().enumerate() {
+                let boxed: Box<str> = s.into_boxed_str();
+                let static_str: &'static str = Box::leak(boxed);
+                index_map.insert(static_str, idx);
+                pool.push(static_str.into());
+            }
+
+            (pool, index_map)
         }
 
-        Ok(Self { ident_string_pool: string_pool, ident_index_map: string_index })
+        let (ident_string_pool, ident_index_map) = build_pool_and_map(ident_vec);
+        let (literal_string_pool, literal_index_map) = build_pool_and_map(literal_vec);
+
+        Ok(Self {
+            ident_string_pool,
+            ident_index_map,
+            literal_string_pool,
+            literal_index_map,
+        })
     }
 }
 
-impl fmt::Display for StringInterner {
-    /// Formats the interner as a table with indices and strings,
-    /// each string on its own line for better readability.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl std::fmt::Display for StringInterner {
+    /// Formats the `StringInterner` by displaying both the `ident_string_pool` and the `literal_string_pool`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - A mutable reference to a [`std::fmt::Formatter`] used to write the formatted output.
+    ///
+    /// # Returns
+    ///
+    /// A [`std::fmt::Result`] indicating whether the formatting succeeded or failed.
+    ///
+    /// # Behavior
+    ///
+    /// The method writes the contents of both string pools, showing indices and strings line-by-line,
+    /// for easier readability when printed.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "StringInterner {{")?;
+
+        writeln!(f, "  Ident String Pool:")?;
         for (idx, s) in self.ident_string_pool.iter().enumerate() {
-            writeln!(f, "  [{}]: {}", idx, s)?;
+            writeln!(f, "    [{}]: {}", idx, s)?;
         }
-        write!(f, "}}")
+
+        writeln!(f, "  Literal String Pool:")?;
+        for (idx, s) in self.literal_string_pool.iter().enumerate() {
+            writeln!(f, "    [{}]: {}", idx, s)?;
+        }
+
+        writeln!(f, "}}")
     }
 }

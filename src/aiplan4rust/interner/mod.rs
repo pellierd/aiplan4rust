@@ -31,8 +31,13 @@ pub mod merged_result;
 pub mod display;
 pub mod error;
 pub mod ident;
+pub mod literal;
+pub mod id;
 
 pub use interner::StringInterner;
 pub use merged_result::InternerMergeResult;
 pub use display::InternerDisplay;
 pub use error::InternerError;
+pub use id::Id as InternerId;
+pub use literal::Literal;
+pub use ident::Ident;

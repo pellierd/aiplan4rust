@@ -1,112 +1,85 @@
-//! Unique identifier type_checker backed by `usize` for use in interning and indexing.
+//! This module defines the `Ident` type, an interned identifier used throughout the compiler.
 //!
-//! The `Ident` struct wraps a `usize` value representing a unique identifier,
-//! typically used as an index into an interner (such as `StringInterner`) or
-//! other structures requiring compact, type_checker-safe identifiers.
+//! # Overview
 //!
-//! # Sentinel value
+//! `Ident` is a lightweight wrapper around a `usize` index, used to reference interned strings
+//! in a global [`StringInterner`].
 //!
-//! The special value `usize::MAX` is reserved as an invalid or uninitialized
-//! identifier, since `usize` is unsigned and cannot hold negative values.
-//! The `Default` implementation returns this sentinel value.
+//! It provides:
+//! - Safe handling of identifiers (`usize::MAX` is used to represent an invalid identifier).
+//! - Traits to convert, display, and work with interner-aware formats.
 //!
-//! Users should check validity with the `is_valid()` method before using an `Ident`.
+//! The interned model improves memory efficiency and comparison speed when working with large
+//! volumes of identifier strings.
 //!
 //! # Features
 //!
-//! - Construct from a `usize` or convert back to `usize`.
-//! - Implements `Display` to show the identifier as `#<value>`.
-//! - Implements `InternerDisplay` for formatting with a `StringInterner`,
-//!   falling back to a constant placeholder if unresolved.
-//! - Implements `SyntaxDisplay` for pretty printing with indentation and
-//!   fallback placeholder when unresolved.
+//! - Implements `Copy`, `Clone`, `PartialEq`, `Eq`, `Hash`, and `Serialize` / `Deserialize`
+//! - Interacts with interners through the [`InternerId`], [`InternerDisplay`], and [`SyntaxDisplay`] traits
+//! - Provides clear conversion with `From<usize>` and `From<Ident>`
 //!
 //! # Examples
 //!
 //! ```rust
-//! use your_crate::Ident;
+//! use crate::aiplan4rust::interner::StringInterner;
+//! use crate::aiplan4rust::interner::Ident;
 //!
-//! let id = Ident::new(42);
-//! assert_eq!(id.as_usize(), 42);
+//! let mut interner = StringInterner::default();
+//! let id = interner.intern("foo");
+//!
 //! assert!(id.is_valid());
-//!
-//! let default_id = Ident::default();
-//! assert_eq!(default_id.as_usize(), usize::MAX);
-//! assert!(!default_id.is_valid());
-//!
-//! println!("{}", id);  // prints "#42"
+//! assert_eq!(interner.resolve_ident(id), Some("foo"));
 //! ```
 //!
-//! Interner usage example (assuming an existing `StringInterner`):
+//! # Invalid Identifiers
 //!
-//! ```rust
-//! # use your_crate::{Ident, StringInterner};
-//! let interner = StringInterner::new();
-//! let id = Ident::new(0);
-//! let s = id.to_string_with_interner(&interner);
-//! ```
-
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
-
-use serde::{Deserialize, Serialize};
+//! An `Ident` is considered invalid if its internal value is equal to `usize::MAX`. This sentinel
+//! value is returned by `Ident::default()` and `Ident::invalid_value()`.
+//!
+//! # Related Traits
+//!
+//! - [`InternerId`] for abstract ID behavior
+//! - [`InternerDisplay`] for interner-aware formatting
+//! - [`SyntaxDisplay`] for pretty-printing with indentation
+//!
+//! [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
+//! [`InternerId`]: crate::aiplan4rust::interner::InternerId
+//! [`InternerDisplay`]: crate::aiplan4rust::interner::InternerDisplay
+//! [`SyntaxDisplay`]: crate::aiplan4rust::syntax::SyntaxDisplay
 
 use std::fmt;
 use std::fmt::Formatter;
+use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerId, StringInterner};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxDisplay};
 
-/// Represents a unique identifier as an unsigned integer.
+/// An interned identifier represented by a `usize` index.
 ///
-/// This struct wraps a `usize` that acts as an index or identifier in contexts
-/// such as a string interner. It provides methods to access the underlying value
-/// and enables type_checker-safe handling of identifiers.
-///
-/// The `Default` implementation uses `usize::MAX` as a special sentinel value to
-/// indicate an uninitialized or invalid identifier. Since `usize` is an unsigned
-/// type_checker and cannot hold negative values, `usize::MAX` (the maximum possible
-/// value for a `usize`) is chosen as a stand-in for "no valid id".
-///
-/// Users should be aware of this sentinel when checking the validity of an
-/// `Ident`. For example, an `Ident` with value `usize::MAX` can be treated as
-/// "empty" or "unset".
-///
-/// # Example
-///
-/// ```
-/// let id = Ident::new(42);
-/// println!("Identifier: {}", id);
-/// let raw_value = id.as_usize();
-/// assert_eq!(raw_value, 42);
-/// ```
-///
-/// # Default behavior
-///
-/// ```
-/// let default_id = Ident::default();
-/// assert_eq!(default_id.value, usize::MAX);
-/// ```
+/// `Ident` is typically used with a `StringInterner` to refer to interned strings
+/// in a compact, efficient way. It wraps a single `usize` value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Ident {
-    /// The integer value representing the identifier.
     value: usize,
 }
 
 impl Default for Ident {
-    /// Returns an `Ident` with the sentinel value `usize::MAX`.
+    /// Creates an invalid `Ident` with the sentinel value `usize::MAX`.
     ///
-    /// This value is used to represent an invalid or uninitialized identifier,
-    /// since `usize` cannot hold negative values.
+    /// # Returns
+    ///
+    /// An invalid `Ident` useful for default initialization.
     fn default() -> Self {
         Ident { value: usize::MAX }
     }
 }
 
 impl Ident {
-    /// Creates a new identifier from a `usize` value.
+    /// Creates a new `Ident` with the specified `usize` value.
     ///
     /// # Arguments
     ///
-    /// * `value` - The integer to be used as the identifier.
+    /// * `value` - The underlying identifier index.
     ///
     /// # Returns
     ///
@@ -115,87 +88,99 @@ impl Ident {
         Ident { value }
     }
 
-    /// Returns the underlying integer value of the identifier.
+    /// Returns the internal `usize` value.
     ///
-    /// # Example
+    /// # Returns
     ///
-    /// ```
-    /// let id = Ident::new(7);
-    /// assert_eq!(id.as_usize(), 7);
-    /// ```
+    /// The raw `usize` value wrapped by this `Ident`.
+    pub fn value(&self) -> usize {
+        self.value
+    }
+
+    /// Converts the identifier to a `usize`.
+    ///
+    /// # Returns
+    ///
+    /// The same value as [`Self::value()`], for convenience.
     pub fn as_usize(&self) -> usize {
         self.value
     }
 
-    /// Returns `true` if this identifier holds a valid (initialized) value.
-    ///
-    /// # Example
-    /// ```
-    /// let ident = Ident::default();
-    /// assert!(!ident.is_valid());
-    ///
-    /// let ident = Ident { value: 42 };
-    /// assert!(ident.is_valid());
-    /// ```
-    pub fn is_valid(&self) -> bool {
-        self.value != usize::MAX
-    }
-}
-
-/// Implements the standard `Display` trait for `Ident`.
-///
-/// This implementation formats the `Ident` by displaying its internal numeric
-/// `value` prefixed with a `#` symbol. This representation is mainly for debugging
-/// or simple identification purposes.
-///
-/// # Example
-///
-/// ```
-/// let ident = Ident { value: 42 };
-/// assert_eq!(format!("{}", ident), "#42");
-/// ```
-impl std::fmt::Display for Ident {
-    /// Formats the identifier as `#<value>`.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the output to.
+    /// Checks whether the identifier is valid.
     ///
     /// # Returns
     ///
-    /// A `fmt::Result` indicating success or failure.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    /// `true` if the identifier is not equal to [`usize::MAX`], `false` otherwise.
+    pub fn is_valid(&self) -> bool {
+        self.value != usize::MAX
+    }
+
+    /// Returns the sentinel value representing an invalid identifier.
+    ///
+    /// # Returns
+    ///
+    /// The constant `usize::MAX`.
+    pub fn invalid_value() -> usize {
+        usize::MAX
+    }
+
+}
+
+impl InternerId for Ident {
+    /// Returns the internal `usize` value.
+    fn value(&self) -> usize {
+        self.value()
+    }
+
+    /// Creates a new identifier from a raw `usize`.
+    fn new(value: usize) -> Self {
+        Self::new(value)
+    }
+
+    /// Returns the invalid sentinel value (`usize::MAX`).
+    fn invalid_value() -> usize {
+        Self::invalid_value()
+    }
+
+    /// Returns whether the identifier is valid.
+    fn is_valid(&self) -> bool {
+        self.is_valid()
+    }
+
+    /// Returns the identifier as a `usize`.
+    fn as_usize(&self) -> usize {
+        self.as_usize()
+    }
+}
+
+impl fmt::Display for Ident {
+    /// Formats the identifier as `#<value>`, e.g., `#42`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter.
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating success or error.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "#{}", self.value)
     }
 }
 
-/// Implements the `DisplayWithInterner` trait for `Ident`.
-///
-/// This allows formatting an `Ident` by resolving its internal
-/// `usize` value to a string using the provided `StringInterner`.
-///
-/// If the interner cannot resolve the identifier, a fallback
-/// constant string `UNKNOWN_INTERNED_STRING` is displayed instead.
-///
-/// # Example
-///
-/// ```
-/// let ident = Ident { value: 42 };
-/// let interner = StringInterner::new();
-/// // Assuming interner has some strings interned
-/// let s = ident.to_string_with_interner(&interner);
-/// ```
 impl InternerDisplay for Ident {
-    /// Formats the `Ident` by resolving its interned string using the given `StringInterner`.
+    /// Formats the interned string corresponding to this identifier using a `StringInterner`.
+    ///
+    /// If the identifier has not been interned, prints a placeholder.
     ///
     /// # Arguments
     ///
-    /// * `f` - The formatter to write to.
-    /// * `interner` - The string interner to resolve the identifier.
+    /// * `f` - The formatter.
+    /// * `interner` - The `StringInterner` used to resolve the identifier.
     ///
     /// # Returns
     ///
-    /// A `fmt::Result` indicating success or failure.
+    /// A `fmt::Result`.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         if let Some(name) = interner.resolve_ident(*self) {
             write!(f, "{}", name)
@@ -205,42 +190,25 @@ impl InternerDisplay for Ident {
     }
 }
 
-/// Implements the `PlanningSyntaxDisplay` trait for `Ident`.
-///
-/// This implementation formats the `Ident` by using the provided
-/// `StringInterner` to resolve the interned string associated with its `value`.
-///
-/// If the interner cannot resolve the identifier, it writes a placeholder string
-/// in the format `<uninterned:{value}>` instead.
-///
-/// # Example
-///
-/// ```
-/// let ident = Ident { value: 42 };
-/// ident.fmt_planning(&mut formatter, &interner, 1)?;
-/// ```
 impl SyntaxDisplay for Ident {
-    /// Formats the `Ident` using the given formatter and interner,
-    /// applying indentation according to the `indent` level.
+    /// Formats the identifier with indentation and using the `StringInterner`.
     ///
     /// # Arguments
     ///
-    /// * `f` - The formatter to write to.
-    /// * `interner` - The string interner used for resolving the identifier.
-    /// * `indent` - The indentation level.
+    /// * `f` - The formatter.
+    /// * `interner` - The interner used to resolve names.
+    /// * `indent` - Indentation level (in 4-space units).
     ///
     /// # Returns
     ///
-    /// A `fmt::Result` indicating success or failure.
+    /// A `fmt::Result`.
     fn fmt_syntax_with_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-
+        write_indent(f, indent)?;
         if let Some(name) = interner.resolve_ident(*self) {
             write!(f, "{}", name)
         } else {
@@ -249,32 +217,31 @@ impl SyntaxDisplay for Ident {
     }
 }
 
-
-
 impl From<usize> for Ident {
     /// Converts a `usize` into an `Ident`.
     ///
-    /// # Example
+    /// # Arguments
     ///
-    /// ```
-    /// let id: Ident = 10usize.into();
-    /// assert_eq!(id.as_usize(), 10);
-    /// ```
+    /// * `value` - The raw identifier value.
+    ///
+    /// # Returns
+    ///
+    /// An `Ident` wrapping the given value.
     fn from(value: usize) -> Self {
         Ident::new(value)
     }
 }
 
 impl From<Ident> for usize {
-    /// Converts an `Ident` into a `usize`.
+    /// Converts an `Ident` back into a `usize`.
     ///
-    /// # Example
+    /// # Arguments
     ///
-    /// ```
-    /// let id = Ident::new(5);
-    /// let raw_value: usize = id.into();
-    /// assert_eq!(raw_value, 5);
-    /// ```
+    /// * `ident` - The identifier to convert.
+    ///
+    /// # Returns
+    ///
+    /// The raw `usize` value.
     fn from(ident: Ident) -> usize {
         ident.value
     }
