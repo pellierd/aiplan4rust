@@ -53,7 +53,7 @@ use std::collections::HashSet;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::normalization::NormalizationError;
+use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -91,7 +91,7 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// - `Ok(true)` if the AST was modified (i.e., at least one type_checker was merged).
 /// - `Ok(false)` if no changes were needed.
-/// - `Err(NormalizationError)` if validation or extraction of any type_checker fails.
+/// - `Err(NormalizationPassError)` if validation or extraction of any type_checker fails.
 ///
 /// # Errors
 ///
@@ -121,7 +121,7 @@ use crate::aiplan4rust::syntax::Span;
 pub fn normalize_type_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, NormalizationError> {
+) -> Result<bool, NormalizationPassError> {
     // Retrieve the syntax ID of the TypesDef syntax in the AST
     let types_def_id = match ast.find_node_id_of_kind(AstKind::TypesDef) {
         Some(id) => id,
@@ -147,7 +147,7 @@ pub fn normalize_type_def(
 ///
 /// # Returns
 /// * `Ok(())` on success.
-/// * `Err(NormalizationError)` if any AST access fails.
+/// * `Err(NormalizationPassError)` if any AST access fails.
 ///
 /// # Behavior
 /// Iterates over all type_checker declarations within the `types_def_id` syntax.
@@ -158,7 +158,7 @@ fn report_implicit_either_type_warning(
     types_def_id: NodeId,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), NormalizationError> {
+) -> Result<(), NormalizationPassError> {
     // Get immutable access to the arena containing the AST nodes
     let syntax_tree = ast.syntax_tree();
 
@@ -223,7 +223,7 @@ fn report_implicit_either_type_warning(
 ///
 /// # Returns
 /// * `Ok(Diagnostic)` containing the warning information if successful.
-/// * `Err(NormalizationError)` if resolving the identifier fails.
+/// * `Err(NormalizationPassError)` if resolving the identifier fails.
 ///
 /// # Purpose
 /// This function generates a diagnostic warning indicating that an 'either' type_checker
@@ -232,7 +232,7 @@ fn new_implicit_either_type_warning(
     type_ident: Ident,
     span: &Span,
     ast: &Ast,
-) -> Result<Diagnostic, NormalizationError> {
+) -> Result<Diagnostic, NormalizationPassError> {
     // Resolve the string name of the type_checker identifier using the AST's interner
     let type_name = ast.interner().try_resolve(type_ident)?;
 
@@ -266,7 +266,7 @@ fn new_implicit_either_type_warning(
 ///
 /// - `Ok(true)` if any duplicate declarations were found and merged.
 /// - `Ok(false)` if no duplicates were found and no changes were made.
-/// - `Err(NormalizationError)` if traversal or AST manipulation fails.
+/// - `Err(NormalizationPassError)` if traversal or AST manipulation fails.
 ///
 /// # Behavior
 ///
@@ -285,8 +285,8 @@ fn new_implicit_either_type_warning(
 /// # use aiplan4rust::syntax::tree::NodeId;
 /// # use aiplan4rust::syntax::ast::{Ast, AstArena};
 /// # use aiplan4rust::normalization::passes::merge_duplicate_type_declarations;
-/// # use aiplan4rust::normalization::NormalizationError;
-/// # fn example() -> Result<(), NormalizationError> {
+/// # use aiplan4rust::normalization::NormalizationPassError;
+/// # fn example() -> Result<(), NormalizationPassError> {
 /// let mut ast = AstArena::new();
 /// let types_def_id = NodeId::new(1); // ID pointing to the `(types ...)` declaration
 ///
@@ -303,7 +303,7 @@ fn new_implicit_either_type_warning(
 ///
 /// # Errors
 ///
-/// This function may return a [`NormalizationError`] if:
+/// This function may return a [`NormalizationPassError`] if:
 ///
 /// - The `types_def_id` does not point to a valid node or one without children.
 /// - Any referenced child node is malformed or of unexpected kind.
@@ -335,7 +335,7 @@ fn new_implicit_either_type_warning(
 pub fn merge_duplicate_type_declarations(
     types_def_id: NodeId,
     ast: &mut Ast,
-) -> Result<bool, NormalizationError> {
+) -> Result<bool, NormalizationPassError> {
     // Get mutable access to the syntax tree holding all AST nodes
     let syntax_tree = ast.syntax_tree_mut();
 

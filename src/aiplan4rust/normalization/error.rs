@@ -5,11 +5,11 @@
 //! (such as task networks, methods, and actions) into a more canonical or simplified form
 //! suitable for subsequent reasoning, compilation, or execution.
 //!
-//! This error type_checker encapsulates several categories of failure:
+//! This error type encapsulates failures originating from normalization passes, such as:
+//!
 //! - [`SyntaxTreeError`]: Structural or semantic issues found in the syntax tree.
-//! - [`ArenaError`]: Memory allocation or referencing problems within the arena-based storage.
+//! - [`ArenaError`]: Memory allocation or referencing problems within arena-based storage.
 //! - [`InternerError`]: Failures related to symbol interning or resolution.
-//! - Internal errors with descriptive messages, used when no specific variant fits.
 //!
 //! All error variants support automatic conversion from their underlying types,
 //! making [`NormalizationError`] convenient to propagate in `Result<T, _>` chains.
@@ -21,14 +21,17 @@
 //!
 //! fn normalize_something() -> Result<(), NormalizationError> {
 //!     // ...
-//!     Err(NormalizationError::internal_error("unexpected case"))
+//!     Err(NormalizationError::from(
+//!         aiplan4rust::normalization::passes::NormalizationPassError::Interner(
+//!             some_interner_error
+//!         )
+//!     ))
 //! }
 //! ```
 
 use thiserror::Error;
-use crate::aiplan4rust::core::arena::ArenaError;
-use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+
+use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 
 /// Represents errors that can occur during normalization.
 ///
@@ -42,19 +45,6 @@ pub enum NormalizationError {
     /// Typically indicates that an invalid or unexpected node was encountered
     /// while traversing or processing the syntax tree during normalization.
     #[error(transparent)]
-    Syntax(#[from] SyntaxTreeError),
+    NormalizationPass(#[from] NormalizationPassError),
 
-    /// An error from the arena storage system.
-    ///
-    /// Arena errors may occur when accessing nodes or allocating space
-    /// in the underlying memory structure used to represent syntax elements.
-    #[error(transparent)]
-    Arena(#[from] ArenaError),
-
-    /// An error related to symbol interning.
-    ///
-    /// This may happen when a symbol is not found in the interner,
-    /// or if interned data is used incorrectly.
-    #[error(transparent)]
-    Interner(#[from] InternerError),
 }

@@ -45,7 +45,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::normalization::NormalizationError;
+use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -78,7 +78,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 ///
 /// * `Ok(true)` if at least one duplicate requirement was removed.
 /// * `Ok(false)` if no duplicates were found or if no `RequireDef` syntax exists.
-/// * `Err(NormalizationError)` if the AST structure is not as expected (e.g., invalid syntax kinds).
+/// * `Err(NormalizationPassError)` if the AST structure is not as expected (e.g., invalid syntax kinds).
 ///
 /// # Assumptions
 ///
@@ -105,7 +105,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 pub fn normalize_require_def(
     ast: &mut Ast,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<bool, NormalizationError> {
+) -> Result<bool, NormalizationPassError> {
     // Early exit if no RequireDef syntax is found
     let require_def_id = match ast.find_node_id_of_kind(AstKind::RequireDef) {
         Some(id) => id,
@@ -142,7 +142,7 @@ pub fn normalize_require_def(
 /// # Returns
 ///
 /// * `Ok(())` on success.
-/// * `Err(NormalizationError)` if the `RequireDef` syntax cannot be found or accessed.
+/// * `Err(NormalizationPassError)` if the `RequireDef` syntax cannot be found or accessed.
 ///
 /// # Example
 ///
@@ -159,7 +159,7 @@ pub fn report_duplicate_requirements_warnings(
     require_def_id: NodeId,
     source_name: &str,
     diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), NormalizationError> {
+) -> Result<(), NormalizationPassError> {
     // Try to get the RequireDef syntax by its ID. Return error if not found.
     let require_def_node = syntax_tree.try_node(require_def_id)?;
 
@@ -251,7 +251,7 @@ pub fn new_duplicate_requirement_warning(
 pub fn remove_requirement_duplicates(
     syntax_tree: &mut SyntaxTree<AstNode>,
     require_def_id: NodeId,
-) -> Result<bool, NormalizationError> {
+) -> Result<bool, NormalizationPassError> {
     // Get mutable reference to RequireDef syntax
     let require_def_node_mut = syntax_tree.try_node_mut(require_def_id)?;
 

@@ -65,7 +65,7 @@ use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::core::arena::ArenaNode;
-use crate::aiplan4rust::normalization::NormalizationError;
+use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
@@ -137,7 +137,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// This function uses an explicit stack to avoid deep recursion and possible stack overflow
 /// on very large ASTs. It is typically the first normalization step before semantic analysis,
 /// type_checker inference, or code generation.
-pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
+pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationPassError> {
     if !ast.syntax_tree().is_empty() {
         normalize_typed_list_node(ast)?
     }
@@ -166,13 +166,13 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// # Returns
 ///
 /// * `Ok(())` if the normalization completes successfully.
-/// * `Err(NormalizationError)` if the AST contains unexpected syntax kinds, invalid children
+/// * `Err(NormalizationPassError)` if the AST contains unexpected syntax kinds, invalid children
 ///   indices, or any structural inconsistencies encountered during traversal.
 ///
 /// # Panics
 ///
 /// This function is designed to **never panic**. All errors related to AST structure
-/// or unexpected conditions are returned as `NormalizationError`.
+/// or unexpected conditions are returned as `NormalizationPassError`.
 ///
 /// # Traversal Details
 ///
@@ -192,7 +192,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// This normalization step is important to simplify downstream processing,
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
 /// type_checker checking and code generation phases.
-fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
+fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError> {
     let root_id = ast.syntax_tree().try_root_id()?;
     let syntax_tree = ast.syntax_tree_mut();
     let mut stack = vec![root_id];
@@ -232,7 +232,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
 /// # Returns
 ///
 /// * `Ok(())` if the normalization completes successfully.
-/// * `Err(NormalizationError)` if any syntax access or manipulation fails.
+/// * `Err(NormalizationPassError)` if any syntax access or manipulation fails.
 ///
 /// # Errors
 ///
@@ -242,7 +242,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
 ///
 /// # Panics
 ///
-/// This function does **not** panic. All errors are returned as `NormalizationError`.
+/// This function does **not** panic. All errors are returned as `NormalizationPassError`.
 ///
 /// # Example
 ///
@@ -252,7 +252,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationError> {
 fn normalize_typed_list_node_children(
     syntax_tree: &mut SyntaxTree<AstNode>,
     node_id: NodeId,
-) -> Result<(), NormalizationError> {
+) -> Result<(), NormalizationPassError> {
     // 1. Retrieve and clear the current children of the TypedList syntax.
     let old_typed_items = {
         let node = syntax_tree.try_node_mut(node_id)?;
@@ -316,7 +316,7 @@ fn normalize_typed_list_node_children(
 fn is_typed_list_node(
     syntax_tree: &mut SyntaxTree<AstNode>,
     node_id: NodeId,
-) -> Result<bool, NormalizationError> {
+) -> Result<bool, NormalizationPassError> {
     let node = syntax_tree.try_node(node_id)?;
     Ok(node.kind() == AstKind::TypedList)
 }
@@ -340,7 +340,7 @@ fn is_typed_list_node(
 ///     - `type_id_opt`: An optional ID of the associated type_checker syntax.
 ///     - `span`: The span information of the `TypedItem`.
 ///
-/// * `Err(NormalizationError)` - If the syntax is missing expected children or is invalid.
+/// * `Err(NormalizationPassError)` - If the syntax is missing expected children or is invalid.
 ///
 /// # Errors
 ///
@@ -356,7 +356,7 @@ fn is_typed_list_node(
 fn extract_typed_item_data(
     syntax_tree: &SyntaxTree<AstNode>,
     typed_item_id: NodeId,
-) -> Result<(Vec<NodeId>, Option<NodeId>, Span), NormalizationError> {
+) -> Result<(Vec<NodeId>, Option<NodeId>, Span), NormalizationPassError> {
     // Retrieve the TypedItem syntax
     let typed_item_node = syntax_tree.try_node(typed_item_id)?;
 
