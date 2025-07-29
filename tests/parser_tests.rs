@@ -1,4 +1,4 @@
-use aiplan4rust::Language;
+use aiplan4rust::{Language, Severity};
 use std::io::{Read, Write};
 use std::path::Path;
 use test_case::test_case;
@@ -28,23 +28,38 @@ use crate::common::io::delete_all_files_with_extension;
 pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
     let mut success = true;
 
+    // Clean up old diagnostic and AST files before testing
     delete_all_files_with_extension(domain_dir, "diag");
     delete_all_files_with_extension(domain_dir, "ast");
 
+    // Collect all domain files to be parsed
     let files = collect_domain_files(domain_dir);
 
     for file_path in files {
         match parse_and_check_ast(&file_path, language) {
-            Some((raw_ast, diagnostic_manager)) => {
-                // parsing and AST check succeeded
-                write_diagnostics_to_file(
-                    &diagnostic_manager,
-                    &file_path,
-                    "Parser Tests: parsing success",
-                );
+            Some(parser_result) => {
+                let diag_mgr = parser_result.diagnostic_manager();
+
+                if parser_result.is_success() {
+                    // Parsing succeeded with AST and no errors
+                    write_diagnostics_to_file(
+                        &diag_mgr,
+                        &file_path,
+                        "Parser Tests: parsing success",
+                    );
+                } else {
+                    // AST is missing or errors present in diagnostics → consider failure
+                    eprintln!("Parsing produced no AST or had errors for file {}", file_path.display());
+                    write_diagnostics_to_file(
+                        &diag_mgr,
+                        &file_path,
+                        "Parser Tests: parsing incomplete or errors found",
+                    );
+                    success = false;
+                }
             }
             None => {
-                // parse_and_check_raw_ast already handled error reporting
+                // Fatal error: parse_and_check_ast returned None and already reported
                 success = false;
             }
         }
@@ -52,6 +67,7 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
 
     success
 }
+
 
 /// Tests the syntax correctness of all HDDL domain files in the specified directory.
 ///

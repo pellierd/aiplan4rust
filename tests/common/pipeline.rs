@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::common::io::{read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_symbol_table_to_file};
 use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
 use aiplan4rust::aiplan4rust::semantic::SemanticContext;
@@ -9,11 +7,13 @@ use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{check_well_formed, Language, Normalizer, Parser, Severity};
 use std::path::Path;
 use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
+use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
+use aiplan4rust::aiplan4rust::syntax::ParserResult;
 
-/// Parses the source file to produce a raw AST and checks its well-formedness.
+/// Parses the source file to produce a ParserResult with a raw AST and checks its well-formedness.
 ///
-/// This function reads the source file, parses its content into an AST using the specified language,
-/// and then validates that the resulting AST is well-formed. It also manages diagnostic messages throughout
+/// This function reads the source file, parses its content into a `ParserResult` using the specified language,
+/// and then validates that the resulting AST, if present, is well-formed. It manages diagnostic messages throughout
 /// the process and writes diagnostic and AST files on errors to assist debugging.
 ///
 /// # Arguments
@@ -23,8 +23,8 @@ use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
 ///
 /// # Returns
 ///
-/// Returns `Some((Ast, DiagnosticManager))` with the raw AST and the diagnostic manager if parsing and validation succeed.
-/// Returns `None` if parsing fails, no AST is produced, or if the AST fails the well-formedness check.l11
+/// Returns `Some(ParserResult)` if parsing succeeded and the AST (if present) is well-formed.
+/// Returns `None` if parsing failed, no AST was produced, or if the AST fails the well-formedness check.
 ///
 /// # Side Effects
 ///
@@ -38,8 +38,8 @@ use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
 /// # Example
 ///
 /// ```rust
-/// if let Some((raw_ast, diag_manager)) = parse_and_check_ast(&file_path, &language) {
-///     // proceed with raw AST
+/// if let Some(parser_result) = parse_and_check_ast(&file_path, &language) {
+///     // proceed with parser_result
 /// } else {
 ///     // handle parse or validation failure
 /// }
@@ -47,15 +47,15 @@ use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
 pub fn parse_and_check_ast(
     file_path: &Path,
     language: &Language,
-) -> Option<(Ast, DiagnosticManager)> {
+) -> Option<ParserResult> {
     let content = read_file(file_path);
     let path_str = file_path.to_str().expect("File path is not valid UTF-8");
     let mut parser = Parser::new();
 
     match parser.parse(path_str, &content, language) {
         Ok(mut parser_result) => {
-            if let Some(raw_ast) = parser_result.take_ast() {
-                if let Err(e) = check_well_formed(&raw_ast) {
+            if let Some(raw_ast) = parser_result.ast() {
+                if let Err(e) = check_well_formed(raw_ast) {
                     eprintln!(
                         "Raw AST validation failed for {}:\n{}",
                         file_path.display(),
@@ -66,11 +66,10 @@ pub fn parse_and_check_ast(
                         file_path,
                         "Raw AST validation error",
                     );
-                    write_ast_to_file(&raw_ast, file_path, "Raw AST validation error");
+                    write_ast_to_file(raw_ast, file_path, "Raw AST validation error");
                     return None;
                 }
-                let diagnostic_manager = parser_result.take_diagnostic_manager();
-                Some((raw_ast, diagnostic_manager))
+                Some(parser_result)
             } else {
                 eprintln!("Parsing failed (no AST) for file {}", file_path.display());
                 write_diagnostics_to_file(
@@ -89,22 +88,23 @@ pub fn parse_and_check_ast(
     }
 }
 
-/// Normalizes a raw AST and checks its correctness, returning the normalized AST along with the updated diagnostic manager.
+/// Normalizes the AST contained in a `ParserResult` and checks its correctness,
+/// returning the normalization result.
 ///
-/// This function runs the normalization process on the provided raw AST, validating the resulting normalized AST.
-/// It writes diagnostic information and, in case of errors, writes the normalized AST and diagnostic details to files
-/// to facilitate debugging.
+/// This function runs the normalization process on the AST extracted from the given
+/// `ParserResult`, validating the resulting normalized AST.
+/// It writes diagnostic information and, in case of errors, writes the normalized AST
+/// and diagnostic details to files to facilitate debugging.
 ///
 /// # Arguments
 ///
-/// * `raw_ast` - The raw AST to be normalized.
-/// * `diagnostic_manager` - The diagnostic manager to accumulate messages during normalization.
+/// * `parser_result` - The result of parsing, containing the raw AST, diagnostics, and interner.
 /// * `file_path` - The path to the source file associated with the AST, used for naming output files.
 ///
 /// # Returns
 ///
-/// Returns `Some((Ast, DiagnosticManager))` containing the normalized AST and diagnostic manager if normalization
-/// succeeds without blocking errors. Returns `None` if normalization fails or errors are found.
+/// Returns `Some(NormalizerResult)` if normalization succeeds without blocking errors.
+/// Returns `None` if normalization fails or errors are found.
 ///
 /// # Side Effects
 ///
@@ -119,20 +119,19 @@ pub fn parse_and_check_ast(
 /// # Example
 ///
 /// ```rust
-/// if let Some((normalized_ast, diag_manager)) = normalize_and_check_ast(raw_ast, diagnostic_manager, &file_path) {
-///     // proceed with normalized AST
+/// if let Some(normalizer_result) = normalize_and_check_ast(parser_result, &file_path) {
+///     // proceed with normalizer_result
 /// } else {
 ///     // handle normalization failure
 /// }
 /// ```
 pub fn normalize_and_check_ast(
-    raw_ast: Ast,
-    diagnostic_manager: DiagnosticManager,
+    parser_result: ParserResult,
     file_path: &Path,
-) -> Option<(Ast, DiagnosticManager)> {
+) -> Option<NormalizerResult> {
     let mut normalizer = Normalizer::new();
 
-    match normalizer.normalize_with_diagnostic_manager(raw_ast, diagnostic_manager) {
+    match normalizer.normalize(parser_result) {
         Ok(mut normalizer_result) => {
             if let Some(normalized_ast) = normalizer_result.take_ast() {
                 if let Err(e) = check_well_normalized(&normalized_ast) {
@@ -161,14 +160,13 @@ pub fn normalize_and_check_ast(
                     );
                 }
 
-                let diag_mgr = normalizer_result.take_diagnostic_manager();
+                let diag_mgr = normalizer_result.diagnostic_manager();
                 if diag_mgr.has_diagnostics_of_severity(Severity::Error) {
                     eprintln!("Diagnostics errors found for file {}", file_path.display());
                     return None;
                 }
 
-                // On retourne l'AST normalisé et le gestionnaire de diagnostics
-                Some((normalized_ast, diag_mgr))
+                Some(normalizer_result)
             } else {
                 eprintln!(
                     "No normalized AST returned for file {}",
@@ -338,8 +336,9 @@ pub fn analyze_file(
     context: &str,       // e.g., "domain" or "problem"
     success: &mut bool,  // mutable reference to update success flag
 ) -> Option<(SemanticContext, DiagnosticManager)> {
-    let (raw_ast, diag_mgr) = match parse_and_check_ast(file_path, language) {
-        Some(res) => res,
+    // On récupère le ParserResult (option) avec l'AST brut et le gestionnaire de diagnostics
+    let parser_result = match parse_and_check_ast(file_path, language) {
+        Some(result) => result,
         None => {
             eprintln!("Parsing failed for {}", context);
             *success = false;
@@ -347,7 +346,8 @@ pub fn analyze_file(
         }
     };
 
-    let (norm_ast, diag_mgr) = match normalize_and_check_ast(raw_ast, diag_mgr, file_path) {
+    // Normalisation avec gestion des erreurs
+    let mut normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
         Some(res) => res,
         None => {
             eprintln!("Normalization failed for {}", context);
@@ -356,6 +356,19 @@ pub fn analyze_file(
         }
     };
 
+    // On récupère l'AST normalisé et le gestionnaire de diagnostics depuis le NormalizerResult
+    let norm_ast = match normalizer_result.take_ast() {
+        Some(ast) => ast,
+        None => {
+            eprintln!("No normalized AST found for {}", context);
+            *success = false;
+            return None;
+        }
+    };
+
+    let diag_mgr = normalizer_result.take_diagnostic_manager();
+
+    // Analyse sémantique avec gestion des erreurs
     let (semantic_ctx, diag_mgr) = match analyze(norm_ast, diag_mgr, file_path) {
         Some(res) => res,
         None => {
@@ -367,6 +380,7 @@ pub fn analyze_file(
 
     Some((semantic_ctx, diag_mgr))
 }
+
 
 /// Performs semantic linking between a domain and a problem semantic context.
 ///

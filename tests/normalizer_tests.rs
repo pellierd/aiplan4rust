@@ -48,21 +48,23 @@ pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool
 
     for file_path in files {
         // Parse and validate the raw AST from the file
-        let (raw_ast, diagnostic_manager) = match parse_and_check_ast(&file_path, language) {
+        let parser_result = match parse_and_check_ast(&file_path, language) {
             Some(result) => result,
             None => {
+                eprintln!("Parsing failed for file {}", file_path.display());
                 success = false;
                 continue; // Skip to the next file if parsing failed
             }
         };
 
-        // Normalize and validate the AST
-        if normalize_and_check_ast(raw_ast, diagnostic_manager, &file_path).is_none() {
+        // Normalize and validate the AST (note: normalize_and_check_ast now expects a ParserResult)
+        if normalize_and_check_ast(parser_result, &file_path).is_none() {
+            eprintln!("Normalization failed for file {}", file_path.display());
             success = false;
             continue; // Skip to the next file if normalization failed
         }
 
-        // If we reach here, the file passed all tests (nothing to do)
+        // If we reach here, the file passed normalization test successfully
     }
 
     success

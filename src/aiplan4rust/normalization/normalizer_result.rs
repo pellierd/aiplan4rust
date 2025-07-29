@@ -192,49 +192,57 @@ impl NormalizerResult {
         &mut self.diagnostic_manager
     }
 
-    /// Returns a reference to the `StringInterner` associated with the AST if present,
-    /// otherwise returns a reference to the local interner.
+    /// Returns a reference to the `StringInterner` associated with the AST
+    /// or the local interner if the AST is absent.
     ///
-    /// # Returns
+    /// # Panics
     ///
-    /// An `Option` containing a reference to the `StringInterner`, or `None` if neither is available.
-    pub fn interner(&self) -> Option<&StringInterner> {
+    /// Panics if neither the AST nor the local interner is present.
+    /// This should not happen if the invariant is respected.
+    pub fn interner(&self) -> &StringInterner {
         if let Some(ast) = &self.ast {
-            Some(ast.interner())
+            ast.interner()
         } else {
+            // Assuming self.interner is always Some, else panic
             self.interner.as_ref()
+                .expect("No interner available")
         }
     }
 
-    /// Returns a mutable reference to the `StringInterner` associated with the AST if present,
-    /// otherwise returns a mutable reference to the local interner.
+    /// Returns a mutable reference to the `StringInterner` associated with the AST
+    /// or the local interner if the AST is absent.
     ///
-    /// # Returns
+    /// # Panics
     ///
-    /// An `Option` containing a mutable reference to the `StringInterner`, or `None` if neither is available.
-    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+    /// Panics if neither the AST nor the local interner is present.
+    /// This should not happen if the invariant is respected.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
         if let Some(ast) = &mut self.ast {
-            Some(ast.interner_mut())
+            ast.interner_mut()
         } else {
             self.interner.as_mut()
+                .expect("No interner available")
         }
     }
 
-    /// Consumes and returns the `StringInterner` associated with the AST if present,
-    /// otherwise consumes and returns the local interner.
+    /// Consumes and returns the `StringInterner` associated with the AST
+    /// or the local interner if the AST is absent.
     ///
-    /// This leaves `None` in place of the interner in either location.
+    /// This leaves an empty `StringInterner` in place of the taken one.
     ///
-    /// # Returns
+    /// # Panics
     ///
-    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
-    pub fn take_interner(&mut self) -> Option<StringInterner> {
+    /// Panics if neither the AST nor the local interner is present.
+    /// This should not happen if the invariant is respected.
+    pub fn take_interner(&mut self) -> StringInterner {
         if let Some(ast) = &mut self.ast {
-            Some(std::mem::take(ast.interner_mut()))
+            std::mem::take(ast.interner_mut())
         } else {
             self.interner.take()
+                .expect("No interner available")
         }
     }
+
 
     /// Returns `true` if parsing produced a valid AST.
     pub fn is_success(&self) -> bool {

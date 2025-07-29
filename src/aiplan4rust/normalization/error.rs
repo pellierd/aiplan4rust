@@ -32,19 +32,30 @@
 use thiserror::Error;
 
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::validation::core::WellNormalizedError;
 
-/// Represents errors that can occur during normalization.
+/// Represents errors that can occur during the normalization process.
 ///
-/// This includes structural issues, allocation errors,
-/// and internal logic failures.
+/// These errors cover various failure scenarios such as structural
+/// problems in the AST, allocation failures, or violations of
+/// normalization invariants.
+///
+/// # Variants
+/// - `NormalizationPass`: Errors originating from specific normalization passes,
+///   typically caused by invalid or unexpected nodes in the syntax tree.
+/// - `WellNormalized`: Errors detected during the verification that the AST
+///   is well normalized after processing.
 #[derive(Debug, Error)]
 pub enum NormalizationError {
-
-    /// An error originating from the syntax tree layer.
+    /// An error originating from a normalization pass.
     ///
-    /// Typically indicates that an invalid or unexpected node was encountered
-    /// while traversing or processing the syntax tree during normalization.
+    /// This usually indicates that an invalid or unexpected node
+    /// was encountered during the traversal or transformation of
+    /// the syntax tree.
     #[error(transparent)]
     NormalizationPass(#[from] NormalizationPassError),
 
+    /// An error indicating that the AST failed the well-normalized check.
+    #[error(transparent)]
+    WellNormalized(#[from] WellNormalizedError),
 }

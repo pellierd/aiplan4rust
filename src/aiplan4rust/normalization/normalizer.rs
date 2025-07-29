@@ -48,6 +48,8 @@ use crate::aiplan4rust::normalization::error::NormalizationError;
 use crate::aiplan4rust::normalization::passes;
 use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::syntax::ast::Ast;
+use crate::aiplan4rust::syntax::ParserResult;
+use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
 /// Performs AST normalization by applying canonical transformation passes.
 ///
@@ -69,40 +71,46 @@ impl Normalizer {
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
-
-    /// Normalizes an AST by applying standard normalization passes.
+    /// Normalizes the result of parsing by applying standard normalization passes.
     ///
-    /// This method consumes the input AST, mutates it in-place, and returns a
-    /// [`NormalizerResult`] containing the normalized AST and any collected diagnostics.
-    ///
-    /// # Arguments
-    /// * `ast` - The [`Ast`] to normalize.
-    ///
-    /// # Returns
-    /// * `Ok(NormalizerResult)` if all passes succeed.
-    /// * `Err(NormalizationError)` if any pass fails irrecoverably.
-    pub fn normalize(&mut self, ast: Ast) -> Result<NormalizerResult, NormalizationError> {
-        self.perform_normalization(ast)
-    }
-
-    /// Normalizes an AST using an externally provided [`DiagnosticManager`].
-    ///
-    /// This method allows external control over how diagnostics are collected and reported.
-    /// The internal diagnostic manager is replaced with the supplied one.
+    /// This method consumes the input [`ParserResult`], extracts the AST if present,
+    /// applies normalization passes on it, and returns a [`NormalizerResult`] with the
+    /// normalized AST and any diagnostics. If the parsing result contains no AST,
+    /// normalization is skipped and an error is returned.
     ///
     /// # Arguments
-    /// * `ast` - The AST to normalize.
-    /// * `diagnostic_manager` - An externally created diagnostic manager.
+    ///
+    /// * `parser_result` - The [`ParserResult`] to normalize.
     ///
     /// # Returns
-    /// A result containing the normalized AST and diagnostics, or an error.
-    pub fn normalize_with_diagnostic_manager(
-        &mut self,
-        ast: Ast,
-        diagnostic_manager: DiagnosticManager,
-    ) -> Result<NormalizerResult, NormalizationError> {
-        self.diagnostic_manager = diagnostic_manager;
-        self.perform_normalization(ast)
+    ///
+    /// * `Ok(NormalizerResult)` if normalization succeeds.
+    /// * `Err(NormalizationError)` if the parsing result contains no AST or
+    ///   if any normalization pass fails irrecoverably.
+    pub fn normalize(&mut self, mut parser_result: ParserResult) -> Result<NormalizerResult, NormalizationError> {
+        match parser_result.take_ast() {
+            Some(raw_ast) => {
+                // Add diagnostics collected during parsing to the current diagnostic manager
+                self.diagnostic_manager.add_diagnostic_from(parser_result.take_diagnostic_manager());
+
+                // Perform normalization on the extracted raw AST
+                let normalizer_result = self.perform_normalization(raw_ast)?;
+
+                // If normalization produced a normalized AST, verify it is well-formed
+                if let Some(normalized_ast) = normalizer_result.ast() {
+                    check_well_normalized(normalized_ast)?;
+                }
+
+                // Return the successful normalization result
+                Ok(normalizer_result)
+            }
+            None => {
+                // If no AST was produced during parsing, create a failure NormalizerResult
+                let diagnostic_manager = parser_result.take_diagnostic_manager();
+                let interner = parser_result.take_interner();
+                Ok(NormalizerResult::failure(diagnostic_manager, interner))
+            }
+        }
     }
 
     /// Internal method: orchestrates the normalization pipeline.
