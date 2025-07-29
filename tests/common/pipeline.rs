@@ -6,7 +6,7 @@ use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{check_well_formed, AnalyzerResult, Language, Normalizer, Parser, Severity};
 use std::path::Path;
-use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
+use aiplan4rust::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
 use aiplan4rust::aiplan4rust::syntax::ParserResult;
 
@@ -335,107 +335,114 @@ pub fn analyze_file(
     Some(analyzer_result)
 }
 
-/// Performs semantic linking between a domain and a problem semantic context.
+/// Performs semantic linking between a domain and a problem.
 ///
-/// This function attempts to link the provided `domain_ctx` and `problem_ctx`
-/// semantic contexts using a `Linker`. It merges diagnostics from both contexts,
-/// performs linking, and writes resulting diagnostics to a `.linking.diag` file named
-/// `<problem>-<domain>.linking.diag` in the domain's parent directory.
+/// This function takes the results of semantic analysis (`AnalyzerResult`) for both
+/// the domain and the problem, performs semantic linking using the [`Linker`], and
+/// returns a [`LinkerResult`] if the linking process completes successfully without
+/// structural errors.
 ///
 /// # Parameters
 ///
-/// - `domain_ctx`: The semantic context representing the domain.
-/// - `problem_ctx`: The semantic context representing the problem.
-/// - `domain_manager`: The diagnostic manager containing diagnostics from domain parsing.
-/// - `problem_manager`: The diagnostic manager containing diagnostics from problem parsing.
-/// - `domain_path`: Path to the domain file, used for diagnostic file naming.
-/// - `problem_path`: Path to the problem file, used for diagnostic file naming.
+/// - `domain`: The `AnalyzerResult` of the domain file (already parsed, normalized, and analyzed).
+/// - `problem`: The `AnalyzerResult` of the problem file (already parsed, normalized, and analyzed).
+/// - `domain_path`: Path to the domain source file. Used to name the diagnostic output files.
+/// - `problem_path`: Path to the problem source file. Used to name the diagnostic output files.
 ///
 /// # Returns
 ///
-/// Returns `Some((LinkedSemanticContext, DiagnosticManager))` if linking succeeds without
-/// error-level diagnostics. Returns `None` if linking fails or any error-level diagnostics
-/// are reported.
+/// - `Some(LinkerResult)`: If linking completes successfully and produces a result,
+///   even if that result contains warnings or errors.
+/// - `None`: If a structural error occurs during linking, such as:
+///   - internal linking failure,
+///   - invalid or missing semantic context,
+///   - failure to merge identifier spaces.
 ///
 /// # Behavior
 ///
-/// - Always writes a `.linking.diag` file with the linking diagnostics.
-/// - If semantic linking fails (e.g., due to missing context), an error diagnostic file is written.
-/// - If linking produces error-level diagnostics, returns `None`.
+/// - Linking is performed via [`Linker::link`], which consumes both `AnalyzerResult`s.
+/// - All diagnostics generated during linking are written to disk as a `.linking.diag` file.
+/// - If semantic context is missing, a dedicated `.error.diag` file is also written.
+/// - If error-level diagnostics are present, the result is still written, but `None` is returned
+///   to indicate linking failure in the calling context.
 ///
 /// # Side Effects
 ///
-/// Writes diagnostic files to disk:
-/// - `<problem>-<domain>.linking.diag`: Contains linking diagnostics.
-/// - In case of failure: A separate error diagnostic file is written.
+/// Writes one or more diagnostic files to disk in the same directory as `domain_path`:
+/// - `<problem>-<domain>.linking.diag`: Contains all diagnostics from the linking process.
+/// - `<problem>-<domain>.error.diag`: If linking failed due to missing semantic context.
 ///
 /// # Example
 ///
 /// ```ignore
-/// let domain_ctx = ...; // obtained from semantic analysis
-/// let problem_ctx = ...;
-/// let domain_path = Path::new("path/to/domain.hddl");
-/// let problem_path = Path::new("path/to/problem.hddl");
+/// let domain_result = analyzer.analyze(...)?;
+/// let problem_result = analyzer.analyze(...)?;
 ///
-/// let result = link(domain_ctx, problem_ctx, domain_manager, problem_manager, domain_path, problem_path);
-/// if result.is_none() {
-///     eprintln!("Linking failed or had errors.");
+/// let result = link(domain_result, problem_result, Path::new("domain.hddl"), Path::new("problem.hddl"));
+///
+/// match result {
+///     Some(linker_result) => {
+///         if linker_result.diagnostic_manager().has_diagnostics_of_severity(Severity::Error) {
+///             eprintln!("Linking completed with errors.");
+///         } else {
+///             println!("Linking completed successfully.");
+///         }
+///     }
+///     None => {
+///         eprintln!("Linking failed due to structural errors or missing semantic context.");
+///     }
 /// }
 /// ```
+///
+/// # See Also
+/// - [`Linker`]
+/// - [`AnalyzerResult`]
+/// - [`LinkerResult`]
 pub fn link(
-    domain_ctx: SemanticContext,
-    problem_ctx: SemanticContext,
-    domain_manager: DiagnosticManager,
-    problem_manager: DiagnosticManager,
+    domain: AnalyzerResult,
+    problem: AnalyzerResult,
     domain_path: &Path,
     problem_path: &Path,
-) -> Option<(LinkedSemanticContext, DiagnosticManager)> {
-    let mut diagnostic_manager = DiagnosticManager::new();
-    diagnostic_manager.add_diagnostic_from(domain_manager);
-    diagnostic_manager.add_diagnostic_from(problem_manager);
-
+) -> Option<LinkerResult> {
     let mut linker = Linker::new();
 
-    // Call link_with_diagnostic_manager and convert Result to Option
-    let mut linker_result = linker
-        .link_with_diagnostic_manager(domain_ctx, problem_ctx, diagnostic_manager)
-        .ok()?; // convert Result to Option
+    // Attempt linking; convert structural errors to None
+    let mut linker_result = linker.link(domain, problem).ok()?;
 
-    match linker_result.take_linked_semantic_context() {
-        Some(linked_context) => {
-            // Always write the linking diagnostics file
-            write_linking_diag_to_file(
-                &linker_result.take_diagnostic_manager(),
-                domain_path,
-                problem_path,
-                "Linking tests",
-            );
+    // Always write diagnostics
+    write_linking_diag_to_file(
+        &linker_result.diagnostic_manager(),
+        domain_path,
+        problem_path,
+        "Linking tests",
+    );
 
-            let diagnostic_manager = linker_result.take_diagnostic_manager();
+    // Handle missing linked context
+    if linker_result.linked_semantic_context().is_none() {
+        eprintln!(
+            "Linking failed for domain {} and problem {}: missing semantic context",
+            domain_path.display(),
+            problem_path.display()
+        );
 
-            if diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
-                eprintln!("Linking reported errors for file {}", problem_path.display());
-                None
-            } else {
-                Some((linked_context, diagnostic_manager))
-            }
-        }
-        None => {
-            // Linking failed due to missing semantic context
-            eprintln!(
-                "Linking failed for domain {} and problem {}: missing context",
-                domain_path.display(),
-                problem_path.display()
-            );
+        write_error_diagnostic_file_for_domain_and_problem(
+            domain_path,
+            problem_path,
+            "Linking error",
+            "Missing semantic context",
+        );
 
-            write_error_diagnostic_file_for_domain_and_problem(
-                domain_path,
-                problem_path,
-                "Linking error",
-                "Missing semantic context",
-            );
-
-            None
-        }
+        return None;
     }
+
+    // Log and fail if hard errors are present
+    if linker_result
+        .diagnostic_manager()
+        .has_diagnostics_of_severity(Severity::Error)
+    {
+        eprintln!("Linking reported errors for file {}", problem_path.display());
+        return None;
+    }
+
+    Some(linker_result)
 }

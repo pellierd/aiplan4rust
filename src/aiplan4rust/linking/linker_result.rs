@@ -155,17 +155,16 @@ impl LinkerResult {
     /// Returns a reference to the `StringInterner` used during linking.
     ///
     /// If the `LinkedSemanticContext` is present, returns a reference to its internal interner.
-    /// Otherwise, falls back to the local interner stored in the `LinkerResult`.
+    /// Otherwise, returns a reference to the local interner stored in the `LinkerResult`.
     ///
-    /// # Returns
+    /// # Panics
     ///
-    /// `Some(&StringInterner)` if an interner is available, or `None` if both the context
-    /// and local interner are absent.
-    pub fn interner(&self) -> Option<&StringInterner> {
+    /// Panics if neither the context nor the local interner is present.
+    pub fn interner(&self) -> &StringInterner {
         if let Some(context) = &self.context {
-            Some(context.interner())
+            context.interner()
         } else {
-            self.interner.as_ref()
+            self.interner.as_ref().expect("No interner available")
         }
     }
 
@@ -174,15 +173,14 @@ impl LinkerResult {
     /// If the `LinkedSemanticContext` is present, returns a mutable reference to its internal interner.
     /// Otherwise, returns a mutable reference to the local interner stored in the `LinkerResult`.
     ///
-    /// # Returns
+    /// # Panics
     ///
-    /// `Some(&mut StringInterner)` if an interner is available, or `None` if both the context
-    /// and local interner are absent.
-    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+    /// Panics if neither the context nor the local interner is present.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
         if let Some(context) = &mut self.context {
-            Some(context.interner_mut())
+            context.interner_mut()
         } else {
-            self.interner.as_mut()
+            self.interner.as_mut().expect("No interner available")
         }
     }
 
@@ -194,16 +192,17 @@ impl LinkerResult {
     /// This operation leaves `None` in place of the interner (either in the context or locally),
     /// effectively transferring ownership.
     ///
-    /// # Returns
+    /// # Panics
     ///
-    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
-    pub fn take_interner(&mut self) -> Option<StringInterner> {
+    /// Panics if neither the context nor the local interner is present.
+    pub fn take_interner(&mut self) -> StringInterner {
         if let Some(context) = &mut self.context {
-            Some(std::mem::take(context.interner_mut()))
+            std::mem::take(context.interner_mut())
         } else {
-            self.interner.take()
+            self.interner.take().expect("No interner available")
         }
     }
+
 
     /// Returns `true` if the linking produced a semantic context (`Some`).
     ///

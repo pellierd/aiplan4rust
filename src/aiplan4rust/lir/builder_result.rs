@@ -62,29 +62,58 @@ pub struct BuilderResult {
 }
 
 impl BuilderResult {
-    /// Creates a new [`LirBuilderResult`] with the given lifted IR, diagnostics, and optional string interner.
+    /// Creates a successful [`LirBuilderResult`] with the given lifted problem
+    /// and diagnostic manager.
+    ///
+    /// The interner is not set in this case (`None`).
+    /// This constructor should be used when IR construction succeeds and
+    /// you have a valid lifted problem to return.
     ///
     /// # Parameters
-    /// - `lifted_problem`: An optional [`LiftedProblem`] representing the result of the IR construction.
-    ///   If IR construction succeeded, this will be `Some(...)`, otherwise `None`.
-    /// - `diagnostic_manager`: A [`DiagnosticManager`] instance holding all diagnostics (errors, warnings, notes)
-    ///   generated during the IR construction phase.
-    /// - `interner`: An optional [`StringInterner`] used during IR construction. This interner can be retrieved
-    ///   even in case of failure, to support consistent symbol reporting or debugging.
+    /// - `lifted_problem`: The successfully constructed [`LiftedProblem`].
+    /// - `diagnostic_manager`: Diagnostics generated during IR construction,
+    ///   which may include warnings or notes but no fatal errors.
     ///
     /// # Returns
-    /// A new [`LirBuilderResult`] instance containing the IR result, diagnostics, and interner.
-    pub fn new(
-        lifted_problem: Option<LiftedProblem>,
+    /// A [`LirBuilderResult`] representing a successful IR construction,
+    /// with no string interner attached.
+    pub fn success(
+        lifted_problem: LiftedProblem,
         diagnostic_manager: DiagnosticManager,
-        interner: Option<StringInterner>,
     ) -> Self {
         Self {
-            lifted_problem,
+            lifted_problem: Some(lifted_problem),
             diagnostic_manager,
-            interner,
+            interner: None,
         }
     }
+
+    /// Creates a failure [`LirBuilderResult`] with diagnostic manager and string interner,
+    /// but without a lifted problem.
+    ///
+    /// This constructor should be used when IR construction fails
+    /// and you want to preserve diagnostics and the string interner for reporting or debugging.
+    ///
+    /// # Parameters
+    /// - `diagnostic_manager`: Diagnostics generated during IR construction,
+    ///   including errors preventing IR construction.
+    /// - `interner`: The [`StringInterner`] used during IR construction,
+    ///   useful for consistent symbol reporting even on failure.
+    ///
+    /// # Returns
+    /// A [`LirBuilderResult`] representing a failed IR construction,
+    /// with diagnostics and the string interner preserved, but no IR result.
+    pub fn failure(
+        diagnostic_manager: DiagnosticManager,
+        interner: StringInterner,
+    ) -> Self {
+        Self {
+            lifted_problem: None,
+            diagnostic_manager,
+            interner: Some(interner),
+        }
+    }
+
 
     /// Returns a reference to the constructed IR, if available.
     ///
@@ -164,14 +193,13 @@ impl BuilderResult {
             self.interner.take()
         }
     }
-
     /// Returns `true` if the LIR was successfully built.
-    pub fn is_some(&self) -> bool {
+    pub fn is_success(&self) -> bool {
         self.lifted_problem.is_some()
     }
 
     /// Returns `true` if no LIR was built.
-    pub fn is_none(&self) -> bool {
+    pub fn is_failure(&self) -> bool {
         self.lifted_problem.is_none()
     }
 }

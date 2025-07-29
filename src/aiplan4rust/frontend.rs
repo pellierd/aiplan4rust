@@ -42,90 +42,46 @@ impl Frontend {
     /// # Errors
     /// - If the syntax arena of the domain or problem is `None`, an error is returned.
     /// - If the linking process fails, the error is returned.
-    pub fn parse_old(
-        &self,
-        domain_path: &str,
-        problem_path: &str,
-        language: &Language,
-    ) -> Result<LirBuilderResult, AiplanError> {
-        let mut diagnostic_manager = DiagnosticManager::new();
-
-        // Parse the domain file
-        let mut domain = self.parse_file(domain_path, language)?;
-        diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
-
-        // Parse the problem file
-        let mut problem = self.parse_file(problem_path, language)?;
-        diagnostic_manager.add_diagnostic_from(problem.take_diagnostic_manager());
-
-        match (domain.take_semantic_context(), problem.take_semantic_context()) {
-            (Some(domain_tree), Some(problem_tree)) => {
-
-                let mut linker = Linker::new();
-                let mut linker_result = linker.link_with_diagnostic_manager(domain_tree, problem_tree, diagnostic_manager)?;
-
-                match linker_result.take_linked_semantic_context() {
-                    Some(mut linked_semantic_context) => {
-                        let mut ir_builder = LirBuilder::new();
-                        let builder_result = ir_builder.build_with_diagnostic_manager(
-                            &mut linked_semantic_context,
-                            linker_result.take_diagnostic_manager()
-                        )?;
-                        //println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
- 
-                        Ok(builder_result)
-                    }
-                    None => {
-                        let diagnostic_manager = linker_result.take_diagnostic_manager();
-                        let interner = linker_result.take_interner();
-                        Ok(LirBuilderResult::new(None, diagnostic_manager, interner))
-                    }
-                }
-            }
-            _ => {
-                let domain_interner = domain.take_interner().unwrap_or_else(StringInterner::new);
-                let problem_interner = problem.take_interner().unwrap_or_else(StringInterner::new);
-                let mut result = InternerMergeResult::from_domain_and_problem(&domain_interner, &problem_interner);
-                let global_interner = result.take_interner();
-                Ok(LirBuilderResult::new(None, diagnostic_manager, Some(global_interner)))
-            },
-        }
-    }
-
+    /// Parses, analyzes, links, and builds an intermediate representation (LIR)
+    /// from a domain and a problem file.
+    ///
+    /// # Arguments
+    ///
+    /// * `domain_path` - Path to the domain file.
+    /// * `problem_path` - Path to the problem file.
+    /// * `language` - The language to parse (e.g. PDDL, HDDL).
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(LirBuilderResult)` on success, containing the LIR or diagnostics.
+    /// * `Err(AiplanError)` on failure during parsing, normalization, or analysis.
     pub fn parse(
         &self,
         domain_path: &str,
         problem_path: &str,
         language: &Language,
     ) -> Result<LirBuilderResult, AiplanError> {
-        // Parser les fichiers domaine et problème
+        // Step 1: Parse, normalize, and analyze both domain and problem files
         let domain = self.parse_file(domain_path, language)?;
         let problem = self.parse_file(problem_path, language)?;
 
-        // Créer le linker
+        // Step 2: Link domain and problem semantic contexts
         let mut linker = Linker::new();
+        let mut linker_result = linker.link(domain, problem)?;
 
-        // Lancer le linking avec les résultats d'analyse
-        let mut linker_result = linker.link_with_analyser_result(domain, problem)?;
-
-        // Traiter le résultat du linking
-        match linker_result.take_linked_semantic_context() {
-            Some(mut linked_semantic_context) => {
-                // Construire le LIR avec les diagnostics du linker
-                let mut ir_builder = LirBuilder::new();
-                let builder_result = ir_builder.build_with_diagnostic_manager(
-                    &mut linked_semantic_context,
-                    linker_result.take_diagnostic_manager(),
-                )?;
-
-                Ok(builder_result)
-            }
-            None => {
-                // Pas de contexte lié, on retourne les diagnostics et l'interner (fusionné)
-                let diagnostic_manager = linker_result.take_diagnostic_manager();
-                let interner = linker_result.take_interner();
-                Ok(LirBuilderResult::new(None, diagnostic_manager, interner))
-            }
+        // Step 3: If linking succeeded, build the LIR
+        if let Some(mut linked_semantic_context) = linker_result.take_linked_semantic_context() {
+            let mut ir_builder = LirBuilder::new();
+            let builder_result = ir_builder.build_with_diagnostic_manager(
+                &mut linked_semantic_context,
+                linker_result.take_diagnostic_manager(),
+            )?;
+            Ok(builder_result)
+        } else {
+            // Linking failed: return diagnostics and interner only
+            let diagnostic_manager = linker_result.take_diagnostic_manager();
+            let interner = linker_result.take_interner();
+            Ok(LirBuilderResult::failure(diagnostic_manager, interner))
         }
     }
 
@@ -202,33 +158,47 @@ impl Frontend {
         Ok(analyzer.analyze(&mut normalizer_result)?)
     }
 
-
+    /// Performs semantic linking between a previously analyzed domain and problem,
+    /// both loaded from serialized semantic context files.
+    ///
+    /// This function:
+    /// 1. Deserializes the domain and problem semantic contexts from the given file paths.
+    /// 2. Wraps them in `AnalyzerResult` containers with fresh `DiagnosticManager`s.
+    /// 3. Performs the semantic linking using the `Linker`.
+    ///
+    /// # Arguments
+    ///
+    /// * `lifted_domain_path` - Path to the serialized domain semantic context file (e.g., `.sem` or `.json`).
+    /// * `lifted_problem_path` - Path to the serialized problem semantic context file.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(LinkerResult)` if linking was successful or completed with diagnostics.
+    /// * `Err(AiplanError)` if deserialization or linking fails catastrophically.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` if either file fails to deserialize or if the linking logic produces an unrecoverable error.
     pub fn link(
         &self,
         lifted_domain_path: &str,
         lifted_problem_path: &str,
     ) -> Result<LinkerResult, AiplanError> {
-        let diagnostic_manager = DiagnosticManager::new();
-
-        // Désérialiser le fichier de domaine
+        // Deserialize the domain semantic context from file
         let lifted_domain = SemanticContext::deserialize_from_file_auto_format(lifted_domain_path)?;
+        let domain = AnalyzerResult::success(lifted_domain, DiagnosticManager::new());
 
-
-        // Désérialiser le fichier de problème
+        // Deserialize the problem semantic context from file
         let lifted_problem = SemanticContext::deserialize_from_file_auto_format(lifted_problem_path)?;
+        let problem = AnalyzerResult::success(lifted_problem, DiagnosticManager::new());
 
-        // Tentative de linking entre le domain et le problem
+        // Perform semantic linking between domain and problem contexts
         let mut linker = Linker::new();
-        let linker_result = linker.link_with_diagnostic_manager(
-            lifted_domain,
-            lifted_problem,
-            diagnostic_manager
-        )?;
+        let linker_result = linker.link(domain, problem)?;
 
-        // Retourner le résultat avec l'état de l'erreur accumulée
+        // Return the linker result (which includes semantic context and diagnostics)
         Ok(linker_result)
     }
-
 
     /// Reads the content of a source file into a `String`.
     ///

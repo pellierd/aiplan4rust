@@ -8,13 +8,49 @@ mod common;
 use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, get_file_stem_as_string, write_linking_diag_to_file};
 use crate::common::pipeline::{link, analyze_file};
 
+/// Tests the linker on all problem files found in the given domain directory.
+///
+/// This function performs the following steps:
+/// - Deletes all existing diagnostic (`.diag`), AST (`.ast`), and linking diagnostic (`.linking.diag`) files in the domain directory.
+/// - Collects all domain-related files and filters out the problem files.
+/// - For each problem file:
+///   - Attempts to find an associated domain file, either `domain.hddl` or `<problem>-domain.hddl`.
+///   - Analyzes both the domain and the problem files.
+///   - Runs semantic linking using the `link` function (which writes its own diagnostics).
+///   - Checks for linking errors and logs failures.
+///
+/// # Parameters
+///
+/// - `domain_dir`: Path to the directory containing domain and problem files.
+/// - `language`: The language context used during parsing and analysis.
+///
+/// # Returns
+///
+/// - `true` if all files linked successfully without errors.
+/// - `false` if any linking or analysis failure occurred.
+///
+/// # Side Effects
+///
+/// - Writes and deletes diagnostic files inside the provided domain directory.
+/// - Prints error messages to standard error for failures.
+///
+/// # Example
+///
+/// ```ignore
+/// let domain_dir = Path::new("path/to/domain");
+/// let language = Language::HDDL;
+/// let all_ok = test_linker_all_files(domain_dir, &language);
+/// if !all_ok {
+///     eprintln!("Some linking tests failed.");
+/// }
+/// ```
 pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
-    // Suppression des anciens fichiers
+    // Remove old diagnostic and AST files
     delete_all_files_with_extension(domain_dir, "diag");
     delete_all_files_with_extension(domain_dir, "ast");
     common::io::delete_all_files_with_extension(domain_dir, "linking.diag");
 
-    // Collecte des fichiers
+    // Collect all domain files
     let all_files = collect_domain_files(domain_dir);
     let mut problem_files = filter_problem_files(&all_files);
     problem_files.sort_by_key(|p| p.file_name().map(|f| f.to_os_string()));
@@ -24,7 +60,7 @@ pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
     for problem_path in problem_files {
         let problem_stem = get_file_stem_as_string(&problem_path);
 
-        // Sélection du fichier domaine
+        // Select domain file: either <problem>-domain.hddl or domain.hddl
         let domain_path1 = domain_dir.join("domain.hddl");
         let domain_path2 = domain_dir.join(format!("{}-domain.hddl", problem_stem));
         let domain_path = if domain_path2.exists() {
@@ -32,37 +68,30 @@ pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
         } else if domain_path1.exists() {
             domain_path1
         } else {
-            eprintln!("Aucun fichier domaine trouvé pour problème: {}", problem_path.display());
+            eprintln!("No domain file found for problem: {}", problem_path.display());
             success = false;
             continue;
         };
 
-        // Analyse domaine
-        let (domain_sem_ctx, domain_diag_mgr) = match analyze_file(&domain_path, language, "domaine", &mut success) {
+        // Analyze domain file
+        let domain = match analyze_file(&domain_path, language, "domain", &mut success) {
             Some(res) => res,
             None => continue,
         };
 
-        // Analyse problème
-        let (problem_sem_ctx, problem_diag_mgr) = match analyze_file(&problem_path, language, "problème", &mut success) {
+        // Analyze problem file
+        let problem = match analyze_file(&problem_path, language, "problem", &mut success) {
             Some(res) => res,
             None => continue,
         };
 
-        // Linking avec ta fonction `link()` (elle écrit elle-même les diagnostics)
-        let linking_result = link(
-            domain_sem_ctx,
-            problem_sem_ctx,
-            domain_diag_mgr,
-            problem_diag_mgr,
-            &domain_path,
-            &problem_path,
-        );
+        // Perform linking (this function writes its own diagnostics)
+        let linking_result = link(domain, problem, &domain_path, &problem_path);
 
-        // Vérification des erreurs de linking
+        // Check for linking errors
         if linking_result.is_none() {
             eprintln!(
-                "Le linking a échoué pour le problème {} et le domaine {}",
+                "Linking failed for problem {} and domain {}",
                 problem_path.display(),
                 domain_path.display()
             );

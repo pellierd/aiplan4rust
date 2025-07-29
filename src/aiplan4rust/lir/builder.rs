@@ -144,7 +144,7 @@ impl LirBuilder {
         self.extract_problem(context, &mut lifted_problem)?;
         let interner = context.take_interner();
         lifted_problem.set_interner(interner);
-        Ok(LirBuilderResult::new(Some(lifted_problem), std::mem::take(&mut self.diagnostic_manager), None))
+        Ok(LirBuilderResult::success(lifted_problem, std::mem::take(&mut self.diagnostic_manager)))
     }
 
     pub fn build_with_diagnostic_manager(
