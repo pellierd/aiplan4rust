@@ -166,53 +166,42 @@ impl Frontend {
     ///     Err(error) => { /* Handle error */ },
     /// }
     /// ```
+    /// Parses, normalizes, and analyzes a source file.
+    ///
+    /// This function performs the full pipeline:
+    /// - Reads the file content,
+    /// - Parses the content into an AST,
+    /// - Normalizes and checks the AST,
+    /// - Performs semantic analysis.
+    ///
+    /// # Parameters
+    /// - `source_path`: The path to the source file.
+    /// - `language`: The language to parse.
+    ///
+    /// # Returns
+    /// An `AnalyzerResult` if all steps succeed or partially succeed. Any fatal error
+    /// (like file read error or normalization failure) is returned as an `AiplanError`.
     pub fn parse_file(
         &self,
         source_path: &str,
         language: &Language,
     ) -> Result<AnalyzerResult, AiplanError> {
-        // Attempt to read the content of the source file.
+        // Read the file content
         let content = self.read_file(source_path)?;
 
-        // Create a new parser instance.
+        // Parse
         let mut parser = Parser::new();
-
-        // Parse the content, producing a ParserResult.
         let parser_result = parser.parse(source_path, &content, language)?;
 
-        // Create a normalizer instance.
+        // Normalize
         let mut normalizer = Normalizer::new();
-
-        // Normalize using the full ParserResult (AST + diagnostics + interner).
         let mut normalizer_result = normalizer.normalize(parser_result)?;
 
-        // Match on the normalized AST to decide how to continue.
-        match normalizer_result.take_ast() {
-            Some(mut normalized_ast) => {
-                // If normalized AST is present, perform well-formedness check.
-                check_well_normalized(&normalized_ast)?;
-
-                // Take diagnostics accumulated during normalization.
-                let diagnostic_manager = normalizer_result.take_diagnostic_manager();
-
-                // Analyze the normalized AST.
-                let mut analyzer = Analyzer::new();
-                let analysis_result = analyzer.analyze_with_diagnostic_manager(
-                    &mut normalized_ast,
-                    diagnostic_manager,
-                )?;
-
-                // Return the final analysis result.
-                Ok(analysis_result)
-            }
-            None => {
-                // If no AST, propagate diagnostics and interner to AnalyzerResult.
-                let diagnostic_manager = normalizer_result.take_diagnostic_manager();
-                let interner = normalizer_result.take_interner();
-                Ok(AnalyzerResult::failure(diagnostic_manager, interner))
-            }
-        }
+        // Analyze
+        let mut analyzer = Analyzer::new();
+        Ok(analyzer.analyze(&mut normalizer_result)?)
     }
+
 
     pub fn link(
         &self,

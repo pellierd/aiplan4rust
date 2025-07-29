@@ -57,12 +57,14 @@
 //! type errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
+use crate::aiplan4rust::normalization::NormalizerResult;
 use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
+use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
 ///
@@ -133,13 +135,13 @@ impl Analyzer {
         &self.diagnostic_manager
     }
 
-    /// Performs semantic analysis on the provided mutable AST.
+    /// Performs semantic analysis on the AST contained within a `NormalizerResult`.
     ///
-    /// This method takes ownership of parts of the AST (e.g., string interner) if needed,
-    /// allowing efficient modifications without cloning.
+    /// This method consumes or borrows parts of the `NormalizerResult` (e.g., normalized AST,
+    /// diagnostic manager, interner) as needed for efficient semantic analysis.
     ///
     /// # Parameters
-    /// - `ast`: Mutable reference to the abstract syntax tree to analyze.
+    /// - `normalizer_result`: The result of normalization containing the AST and diagnostics.
     ///
     /// # Returns
     ///
@@ -148,33 +150,29 @@ impl Analyzer {
     ///
     /// # Note
     ///
-    /// The AST may be mutated during analysis, and internal structures may be consumed.
-    pub fn analyze(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
-        self.perform_analysis(ast)
-    }
+    /// The AST inside the `NormalizerResult` may be mutated during analysis, and internal structures may be consumed.
+    pub fn analyze(&mut self, normalizer_result: &mut NormalizerResult) -> Result<AnalyzerResult, SemanticError> {
+        // Match on the normalized AST to decide how to continue.
+        match normalizer_result.take_ast() {
+            Some(mut ast) => {
 
-    /// Performs semantic analysis on the AST using a custom diagnostic manager.
-    ///
-    /// This allows injection of a specific `DiagnosticManager` to collect errors and warnings.
-    ///
-    /// # Parameters
-    /// - `ast`: Mutable reference to the AST to analyze.
-    /// - `diagnostic_manager`: The diagnostic manager to replace the current one.
-    ///
-    /// # Returns
-    ///
-    /// Returns an `AnalyzerResult` or a `SemanticError`.
-    ///
-    /// # Note
-    ///
-    /// The current internal diagnostic manager is replaced by the provided one.
-    pub fn analyze_with_diagnostic_manager(
-        &mut self,
-        ast: &mut Ast,
-        diagnostic_manager: DiagnosticManager,
-    ) -> Result<AnalyzerResult, SemanticError> {
-        self.diagnostic_manager = diagnostic_manager;
-        self.perform_analysis(ast)
+                // Take diagnostics accumulated during normalization.
+                let diagnostic_manager = normalizer_result.take_diagnostic_manager();
+                self.diagnostic_manager.add_diagnostic_from(diagnostic_manager);
+
+                // Analyze the normalized AST.
+                let analysis_result = self.perform_analysis(&mut ast)?;
+
+                // Return the final analysis result.
+                Ok(analysis_result)
+            }
+            None => {
+                // If no AST, propagate diagnostics and interner to AnalyzerResult.
+                let diagnostic_manager = normalizer_result.take_diagnostic_manager();
+                let interner = normalizer_result.take_interner();
+                Ok(AnalyzerResult::failure(diagnostic_manager, interner))
+            }
+        }
     }
 
     /// Internal method to perform semantic analysis on the AST.

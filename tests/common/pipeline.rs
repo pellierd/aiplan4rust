@@ -4,7 +4,7 @@ use aiplan4rust::aiplan4rust::semantic::SemanticContext;
 use aiplan4rust::aiplan4rust::syntax::ast::Ast;
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
-use aiplan4rust::{check_well_formed, Language, Normalizer, Parser, Severity};
+use aiplan4rust::{check_well_formed, AnalyzerResult, Language, Normalizer, Parser, Severity};
 use std::path::Path;
 use aiplan4rust::aiplan4rust::linking::LinkedSemanticContext;
 use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
@@ -132,8 +132,8 @@ pub fn normalize_and_check_ast(
     let mut normalizer = Normalizer::new();
 
     match normalizer.normalize(parser_result) {
-        Ok(mut normalizer_result) => {
-            if let Some(normalized_ast) = normalizer_result.take_ast() {
+        Ok(normalizer_result) => {
+            if let Some(normalized_ast) = normalizer_result.ast() {
                 if let Err(e) = check_well_normalized(&normalized_ast) {
                     eprintln!(
                         "Normalized AST validation failed for {}:\n{}",
@@ -196,47 +196,23 @@ pub fn normalize_and_check_ast(
     }
 }
 
-/// Analyzes a normalized AST using the provided diagnostic manager, performing semantic analysis,
-/// and returns the symbol table along with the updated diagnostic manager.
+
+/// Performs semantic analysis using the provided NormalizerResult.
 ///
-/// This function runs semantic analysis via an `Analyzer`. It writes diagnostics to a file.
-/// If any errors of severity `Error` are found, it also writes the AST and the symbol table to files
-/// to aid debugging.
-///
-/// # Arguments
-///
-/// * `normalized_ast` - The normalized AST to be analyzed.
-/// * `diagnostic_manager` - The initial diagnostic manager to use during analysis.
-/// * `file_path` - The path to the source file associated with the AST, used for naming output files.
+/// # Parameters
+/// - `normalizer_result`: Contains the normalized AST, diagnostics, and interner.
+/// - `file_path`: Used for logging and writing output files.
 ///
 /// # Returns
-///
-/// Returns `Some((SymbolTable, DiagnosticManager))` if semantic analysis succeeds without blocking errors.
-/// Returns `None` otherwise.
-///
-/// # Side Effects
-///
-/// - Writes a diagnostics file on each analysis.
-/// - On semantic errors (`Severity::Error`), also writes the AST and symbol table to `.ast` and `.symtab` files.
-/// - On critical failure (panic), writes the AST to a file.
-///
-/// # Panics
-///
-/// This function panics if writing to any of the output files fails.
-///
-/// # Example
-///
-/// ```rust
-/// let (symbol_table, diag_manager) = analyze_ast(normalized_ast, diagnostic_manager, &file_path)
-///     .e
+/// - `Some(AnalyzerResult)` if semantic analysis succeeded without blocking errors.
+/// - `None` if semantic analysis failed or reported blocking diagnostics.
 pub fn analyze(
-    mut normalized_ast: Ast,
-    diagnostic_manager: DiagnosticManager,
+    mut normalizer_result: NormalizerResult,
     file_path: &Path,
-) -> Option<(SemanticContext, DiagnosticManager)> {
+) -> Option<AnalyzerResult> {
     let mut analyzer = Analyzer::new();
 
-    match analyzer.analyze_with_diagnostic_manager(&mut normalized_ast, diagnostic_manager) {
+    match analyzer.analyze(&mut normalizer_result) {
         Ok(mut analyzer_result) => {
             let diag_mgr = analyzer_result.diagnostic_manager();
 
@@ -252,32 +228,25 @@ pub fn analyze(
                     file_path.display()
                 );
 
-                // Save AST
-                write_ast_to_file(&normalized_ast, file_path, "Analyzer error");
+                // Write AST if available
+                if let Some(ast) = normalizer_result.ast() {
+                    write_ast_to_file(ast, file_path, "Analyzer error");
 
-                // Save symbol table (non optional)
-                if let Some(sem_ctx) = analyzer_result.semantic_context() {
-                    let symtab = sem_ctx.symbol_table();
-                    write_symbol_table_to_file(
-                        symtab,
-                        file_path,
-                        "Analyzer error",
-                        normalized_ast.interner(),
-                    );
+                    // Write symbol table if context exists
+                    if let Some(sem_ctx) = analyzer_result.semantic_context() {
+                        let symtab = sem_ctx.symbol_table();
+                        write_symbol_table_to_file(
+                            symtab,
+                            file_path,
+                            "Analyzer error",
+                            ast.interner(),
+                        );
+                    }
                 }
 
                 None
             } else {
-                // No blocking errors: return the SemanticContext
-                if let Some(sem_ctx) = analyzer_result.take_semantic_context() {
-                    Some((sem_ctx, analyzer_result.take_diagnostic_manager()))
-                } else {
-                    eprintln!(
-                        "Semantic analysis did not produce a SemanticContext for file {}",
-                        file_path.display()
-                    );
-                    None
-                }
+                Some(analyzer_result)
             }
         }
         Err(e) => {
@@ -286,14 +255,17 @@ pub fn analyze(
                 file_path.display(),
                 e
             );
+
             write_error_diagnostic_file(
                 file_path,
                 "Analyzer tests: Semantic analysis error",
                 &e.to_string(),
             );
 
-            // Write AST even if analysis panics
-            write_ast_to_file(&normalized_ast, file_path, "Analyzer panic");
+            // Write AST even on panic
+            if let Some(ast) = normalizer_result.ast() {
+                write_ast_to_file(ast, file_path, "Analyzer panic");
+            }
 
             None
         }
@@ -302,85 +274,66 @@ pub fn analyze(
 
 /// Parses, normalizes, and performs semantic analysis on a file.
 ///
-/// This function processes the file at `file_path` using the specified `language`.
-/// It goes through three main phases:
-/// 1. Parsing and initial checking to produce a raw AST and diagnostics.
-/// 2. Normalizing the AST and updating diagnostics.
-/// 3. Semantic analysis producing a semantic context and updated diagnostics.
+/// This function processes the file at `file_path` using the specified `language`,
+/// and goes through the following three stages:
 ///
-/// The `context` parameter is a descriptive string (e.g., "domain" or "problem")
-/// used for error messages and logging.
+/// 1. **Parsing**: Converts the file contents into a raw AST with initial diagnostics.
+/// 2. **Normalization**: Transforms and validates the AST.
+/// 3. **Semantic analysis**: Builds the semantic context and final diagnostics.
 ///
-/// The `success` parameter is a mutable reference to a boolean flag that will be
-/// set to `false` if any step fails.
+/// The `context` parameter is used in error messages and diagnostics (e.g., "domain" or "problem").
+///
+/// The `success` flag will be set to `false` if any stage fails (parse, normalize, or analyze).
 ///
 /// # Arguments
 ///
-/// * `file_path` - The path to the file to analyze.
-/// * `language` - The language descriptor used for parsing and analysis.
-/// * `context` - A string slice describing the context (e.g., "domain", "problem").
-/// * `success` - A mutable reference to a boolean that indicates overall success.
+/// * `file_path` - Path to the file being processed.
+/// * `language` - Language definition used for parsing and validation.
+/// * `context` - Human-readable context used for error logging.
+/// * `success` - Mutable flag to indicate whether the analysis was fully successful.
 ///
 /// # Returns
 ///
-/// Returns `Some((SemanticContext, DiagnosticManager))` if all steps succeed,
-/// otherwise returns `None` and sets `success` to `false`.
-///
-/// # Errors
-///
-/// Prints an error message to standard error if parsing, normalization,
-/// or semantic analysis fails.
+/// Returns `Some(AnalyzerResult)` on full success, or `None` if any stage fails.
+/// On failure, `success` is set to `false` and errors are printed to stderr.
 pub fn analyze_file(
     file_path: &Path,
     language: &Language,
     context: &str,       // e.g., "domain" or "problem"
     success: &mut bool,  // mutable reference to update success flag
-) -> Option<(SemanticContext, DiagnosticManager)> {
-    // On récupère le ParserResult (option) avec l'AST brut et le gestionnaire de diagnostics
+) -> Option<AnalyzerResult> {
+    // Step 1: Parse the source file into an AST + diagnostics
     let parser_result = match parse_and_check_ast(file_path, language) {
         Some(result) => result,
         None => {
-            eprintln!("Parsing failed for {}", context);
+            eprintln!("Parsing failed for {}: {}", context, file_path.display());
             *success = false;
             return None;
         }
     };
 
-    // Normalisation avec gestion des erreurs
+    // Step 2: Normalize the parsed AST
     let mut normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
-        Some(res) => res,
+        Some(result) => result,
         None => {
-            eprintln!("Normalization failed for {}", context);
+            eprintln!("Normalization failed for {}: {}", context, file_path.display());
             *success = false;
             return None;
         }
     };
 
-    // On récupère l'AST normalisé et le gestionnaire de diagnostics depuis le NormalizerResult
-    let norm_ast = match normalizer_result.take_ast() {
-        Some(ast) => ast,
+    // Step 3: Perform semantic analysis
+    let mut analyzer_result = match analyze(normalizer_result, file_path) {
+        Some(result) => result,
         None => {
-            eprintln!("No normalized AST found for {}", context);
+            eprintln!("Semantic analysis failed for {}: {}", context, file_path.display());
             *success = false;
             return None;
         }
     };
 
-    let diag_mgr = normalizer_result.take_diagnostic_manager();
-
-    // Analyse sémantique avec gestion des erreurs
-    let (semantic_ctx, diag_mgr) = match analyze(norm_ast, diag_mgr, file_path) {
-        Some(res) => res,
-        None => {
-            eprintln!("Semantic analysis failed for {}", context);
-            *success = false;
-            return None;
-        }
-    };
-
-    Some((semantic_ctx, diag_mgr))
+    Some(analyzer_result)
 }
-
 
 /// Performs semantic linking between a domain and a problem semantic context.
 ///

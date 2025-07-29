@@ -18,29 +18,28 @@ pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
     let files = collect_domain_files(domain_dir);
 
     for file_path in files {
-        // Parse and check raw AST
-        let (raw_ast, diagnostic_manager) = match parse_and_check_ast(&file_path, language) {
+        // Parse and validate the raw AST from the file
+        let parser_result = match parse_and_check_ast(&file_path, language) {
             Some(result) => result,
             None => {
-                eprintln!("Échec du parsing de {}", file_path.display());
+                eprintln!("Parsing failed for file {}", file_path.display());
                 success = false;
-                continue;
+                continue; // Skip to the next file if parsing failed
             }
         };
 
-        // Normalize and check AST
-        let (normalized_ast, diagnostic_manager) =
-            match normalize_and_check_ast(raw_ast, diagnostic_manager, &file_path) {
-                Some(result) => result,
-                None => {
-                    eprintln!("Échec de la normalisation de {}", file_path.display());
-                    success = false;
-                    continue;
-                }
-            };
+        // Normalize and validate the AST (note: normalize_and_check_ast expects a ParserResult)
+        let normalizer_result = match normalize_and_check_ast(parser_result, &file_path) {
+            Some(result) => result,
+            None => {
+                eprintln!("Normalization failed for file {}", file_path.display());
+                success = false;
+                continue; // Skip to the next file if normalization failed
+            }
+        };
 
         // Analyze AST
-        if analyze(normalized_ast, diagnostic_manager, &file_path).is_none() {
+        if analyze(normalizer_result, &file_path).is_none() {
             eprintln!("Échec de l’analyse sémantique de {}", file_path.display());
             success = false;
             continue;
