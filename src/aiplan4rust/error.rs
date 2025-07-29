@@ -9,6 +9,7 @@ use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::validation::core::WellNormalizedError;
 
 #[derive(Debug, Error)]
 pub enum AiplanError {
@@ -44,6 +45,9 @@ pub enum AiplanError {
 
     #[error(transparent)]
     Serialization(#[from] SerializationError),
+
+    #[error(transparent)]
+    WellNormalize(#[from] WellNormalizedError),
     // autres variantes à venir...
 }
 

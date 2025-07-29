@@ -63,30 +63,44 @@ pub struct LinkerResult {
 }
 
 impl LinkerResult {
-    /// Creates a new `LinkerResult`.
+    /// Creates a successful `LinkerResult` with a linked context.
+    ///
+    /// The interner is taken from the context automatically.
     ///
     /// # Arguments
     ///
-    /// * `context` - An optional `LinkedSemanticContext` produced by the linking process.
-    ///   Use `Some(context)` if linking succeeded, or `None` if it failed.
-    /// * `diagnostic_manager` - The `DiagnosticManager` that accumulates all diagnostics
-    ///   (errors, warnings, notes) generated during linking.
-    /// * `interner` - An optional `StringInterner` used during the linking phase.
-    ///   This is preserved whether linking succeeded or failed, and allows introspection
-    ///   or display of diagnostics using symbolic identifiers.
+    /// * `context` - The successfully linked semantic context.
+    /// * `diagnostic_manager` - The diagnostics collected during linking.
     ///
     /// # Returns
     ///
-    /// A new `LinkerResult` instance containing the linking outcome, diagnostics, and interner state.
-    pub fn new(
-        context: Option<LinkedSemanticContext>,
-        diagnostic_manager: DiagnosticManager,
-        interner: Option<StringInterner>,
-    ) -> Self {
+    /// A `LinkerResult` representing a successful linking operation.
+    pub fn success(context: LinkedSemanticContext, diagnostic_manager: DiagnosticManager) -> Self {
+        let interner = Some(context.interner().clone());
         LinkerResult {
-            context,
+            context: Some(context),
             diagnostic_manager,
             interner,
+        }
+    }
+
+    /// Creates a failure `LinkerResult` without a linked context.
+    ///
+    /// Requires explicit diagnostics and interner because no context is available.
+    ///
+    /// # Arguments
+    ///
+    /// * `diagnostic_manager` - The diagnostics collected during linking.
+    /// * `interner` - The interner used during linking.
+    ///
+    /// # Returns
+    ///
+    /// A `LinkerResult` representing a failed linking operation.
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+        LinkerResult {
+            context: None,
+            diagnostic_manager,
+            interner: Some(interner),
         }
     }
 
@@ -195,7 +209,7 @@ impl LinkerResult {
     ///
     /// # Returns
     /// `true` if linking succeeded and produced a context, `false` otherwise.
-    pub fn is_some(&self) -> bool {
+    pub fn is_success(&self) -> bool {
         self.context.is_some()
     }
 
@@ -203,7 +217,7 @@ impl LinkerResult {
     ///
     /// # Returns
     /// `true` if linking failed or produced no context, `false` otherwise.
-    pub fn is_none(&self) -> bool {
+    pub fn is_failure(&self) -> bool {
         self.context.is_none()
     }
 }

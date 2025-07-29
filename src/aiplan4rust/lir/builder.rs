@@ -101,43 +101,55 @@ impl LirBuilder {
 
     /// Entry point for generating a `LiftedProblem` IR from a `LinkedSemanticContext`.
     ///
-    /// This function performs the extraction of both the domain and problem parts
-    /// from the linked semantic context and constructs the corresponding IR representation.
+    /// This function performs extraction of both the domain and problem components
+    /// from the linked semantic context and builds the corresponding intermediate representation (IR).
     ///
     /// # Arguments
-    /// - `context`: Reference to the `LinkedSemanticContext` which contains
-    ///   the parsed and linked domain and problem semantic trees.
+    ///
+    /// - `context`: A mutable reference to the `LinkedSemanticContext` which contains
+    ///   the parsed and linked semantic trees for domain and problem.
     ///
     /// # Returns
-    /// - `Ok(LIRBuilderResult)` containing the constructed `LiftedProblem` IR
-    ///   and accumulated diagnostics if extraction succeeds.
-    /// - `Err(ParserInternalError)` if an error occurs during extraction.
+    ///
+    /// - `Ok(LirBuilderResult)`: Contains the constructed `LiftedProblem` IR wrapped in
+    ///   `Some` along with any diagnostics collected during the build process, if successful.
+    /// - `Err(LirError)`: An error indicating failure during the extraction or building phase.
     ///
     /// # Errors
+    ///
     /// This function propagates errors encountered during domain or problem extraction.
     ///
     /// # Examples
+    ///
     /// ```no_run
     /// let mut builder = IRBuilder::new();
-    /// let result = builder.build(&linked_context)?;
-    /// if let Some(ir) = result.lifted_problem() {
-    ///     // Use the IR here
+    /// let mut linked_context = /* obtain linked semantic context */;
+    /// match builder.build(&mut linked_context) {
+    ///     Ok(result) => {
+    ///         if let Some(ir) = result.lifted_problem() {
+    ///             // Use the IR here
+    ///         }
+    ///     }
+    ///     Err(e) => {
+    ///         eprintln!("Error during IR building: {:?}", e);
+    ///     }
     /// }
     /// ```
     pub fn build(
         &mut self,
-        context: &LinkedSemanticContext,
+        context: &mut LinkedSemanticContext,
     ) -> Result<LirBuilderResult, LirError> {
-        let mut lir = LiftedProblem::new();
-
-        self.extract_domain(context, &mut lir)?;
-        self.extract_problem(context, &mut lir)?;
-        Ok(LirBuilderResult::new(Some(lir), take(&mut self.diagnostic_manager)))
+        let mut lifted_problem = LiftedProblem::new();
+        self.extract_domain(context, &mut lifted_problem)?;
+        self.extract_problem(context, &mut lifted_problem)?;
+        let interner = context.take_interner();
+        lifted_problem.set_interner(interner);
+        Ok(LirBuilderResult::new(Some(lifted_problem), std::mem::take(&mut self.diagnostic_manager), None))
     }
 
     pub fn build_with_diagnostic_manager(
         &mut self,
-        context: &LinkedSemanticContext,
+        context: &mut LinkedSemanticContext,
         diagnostic_manager: DiagnosticManager
     ) -> Result<LirBuilderResult, LirError> {
         self.diagnostic_manager = diagnostic_manager;

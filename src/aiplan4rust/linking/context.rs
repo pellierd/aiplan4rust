@@ -197,6 +197,15 @@ impl LinkedSemanticContext {
         &mut self.interner
     }
 
+    /// Takes ownership of the internal `StringInterner`, leaving a new empty one in its place.
+    ///
+    /// # Returns
+    ///
+    /// The previously held `StringInterner`.
+    pub fn take_interner(&mut self) -> StringInterner {
+        std::mem::take(&mut self.interner)
+    }
+
     /// Returns a reference to the domain source identifier.
     ///
     /// # Returns

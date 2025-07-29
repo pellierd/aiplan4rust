@@ -51,23 +51,50 @@ use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
-/// Represents a syntax problem within a domain.
+/// Represents a lifted planning problem defined in PDDL syntax.
 ///
-/// This struct contains the domain and problem identifiers,
-/// along with the requirements, types, constants, predicates, functions,
-/// and actions defined for the problem.
+/// A `Problem` aggregates all syntactic constructs relevant to a specific problem instance,
+/// including domain and problem identifiers, type definitions, constants, predicates, actions,
+/// and constraints, along with the initial state and goal specifications.
 ///
-/// # Examples
+/// # Fields
+///
+/// - `interner`: String interner used to deduplicate identifiers and symbols.
+/// - `domain_name`: Identifier of the associated domain.
+/// - `problem_name`: Identifier of the problem instance.
+/// - `requirements`: Declared requirements (features) used in the problem.
+/// - `types`: Types declared in the problem (if any; may be inherited from the domain).
+/// - `constants`: Constants declared in the problem.
+/// - `predicates`: Predicate skeletons (signatures) available in the problem.
+/// - `functions`: Function skeletons (signatures) available in the problem.
+/// - `domain_constraints`: Global domain-level constraints (can be empty).
+/// - `tasks`: Decomposable task declarations used in HTN planning.
+/// - `actions`: Primitive actions available in the problem.
+/// - `methods`: HTN decomposition methods.
+/// - `objects`: Concrete objects defined in the problem instance.
+/// - `init`: The initial state, expressed as a logical expression.
+/// - `goal`: The goal condition to be achieved, as a logical expression.
+/// - `problem_constraints`: Problem-specific constraints (distinct from domain-level).
+/// - `metric_spec`: The optimization metric, such as `minimize` or `maximize` some expression.
+/// - `length_spec`: A deprecated field from PDDL 2.1 specifying plan length bounds.
+/// - `initial_task_network`: The initial task network for HTN planning (if applicable).
+///
+/// # Example
 ///
 /// ```
 /// let mut problem = PlanningProblem::new();
 /// problem.set_domain_name(Ident::new("my_domain"));
 /// problem.set_problem_name(Ident::new("my_problem"));
+///
 /// assert_eq!(problem.domain_name().as_str(), "my_domain");
 /// assert_eq!(problem.problem_name().as_str(), "my_problem");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
+
+    /// The interner used for string deduplication.
+    interner: StringInterner,
+
     /// The identifier of the domain.
     domain_name: Ident,
 
@@ -141,6 +168,7 @@ impl Problem {
     /// ```
     pub fn new() -> Self {
         Self {
+            interner: StringInterner::new(),
             domain_name: Ident::default(),
             problem_name: Ident::default(),
             requirements: HashSet::new(),
@@ -160,6 +188,35 @@ impl Problem {
             length_spec: Expr::empty_length_spec(),
             initial_task_network: InitialTaskNetwork::default(), // Add for HDDL
         }
+    }
+
+    /// Returns an immutable reference to the unified string interner.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the `StringInterner` used for identifier management.
+    pub fn interner(&self) -> &StringInterner {
+        &self.interner
+    }
+
+    /// Returns a mutable reference to the unified string interner.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the `StringInterner`.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
+        &mut self.interner
+    }
+
+    /// Sets the internal [`StringInterner`] used by this problem.
+    ///
+    /// This replaces the existing interner with the one provided.
+    ///
+    /// # Arguments
+    ///
+    /// * `interner` - The new [`StringInterner`] to assign to this problem.
+    pub fn set_interner(&mut self, interner: StringInterner) {
+        self.interner = interner;
     }
 
     /// Returns the identifier of the domain.

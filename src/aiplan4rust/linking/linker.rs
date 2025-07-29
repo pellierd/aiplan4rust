@@ -34,7 +34,7 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::interner::{InternerMergeResult, StringInterner};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
 use crate::aiplan4rust::lang::Ident;
@@ -42,7 +42,9 @@ use crate::aiplan4rust::lang::Ident;
 use std::collections::HashMap;
 use std::mem::take;
 use crate::aiplan4rust::linking::error::LinkingError;
+use crate::aiplan4rust::lir::LirBuilderResult;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::AnalyzerResult;
 
 /// The `Linker` struct is responsible for performing the linking phase
 /// between domain and problem semantic contexts.
@@ -115,6 +117,74 @@ impl Linker {
         self.link(domain, problem)
     }
 
+    pub fn link_with_analyser_result(
+        &mut self,
+        mut domain: AnalyzerResult,
+        mut problem: AnalyzerResult,
+    ) -> Result<LinkerResult, LinkingError> {
+
+        match (domain.take_semantic_context(), problem.take_semantic_context()) {
+            (Some(mut domain_ctx), Some(mut problem_ctx)) => {
+
+                // Step 1: Merge the string interners from domain and problem to form a global interner
+                let mut result = InternerMergeResult::from_domain_and_problem(
+                    domain_ctx.interner(),
+                    problem_ctx.interner(),
+                );
+                let global_interner = result.take_interner();
+
+                // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
+                let problem_ident_map = result.take_problem_ident_map();
+                remap_problem_idents(&mut problem_ctx, &problem_ident_map)?;
+                self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
+                let mut problem_diag_mgr = problem.take_diagnostic_manager();
+                problem_diag_mgr.remap_idents(&problem_ident_map);
+                self.diagnostic_manager.add_diagnostic_from(problem_diag_mgr);
+
+                // Step 3: Resolve external references in the problem with respect to the domain
+                resolve_external_references(&domain_ctx, &mut problem_ctx)?;
+
+                // Step 4: Create a check context for the problem using the global interner
+                // and perform semantic and structural linking checks on the problem
+                let problem_check_ctx = CheckContext::new(
+                    problem_ctx.syntax_tree(),
+                    problem_ctx.symbol_table(),
+                    &global_interner,
+                    problem_ctx.source_name(),
+                    problem_ctx.requirements(),
+                );
+                perform_linking_checks(&domain_ctx, &problem_check_ctx, &mut self.diagnostic_manager)?;
+
+                // Step 5: If errors, return early with diagnostics only
+                if self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
+                    return Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner));
+                }
+
+                // Step 7: Construct the final linked semantic context
+                let semantic_context = LinkedSemanticContext::new(
+                    domain_ctx.take_syntax_tree(),
+                    problem_ctx.take_syntax_tree(),
+                    domain_ctx.take_symbol_table(),
+                    problem_ctx.take_symbol_table(),
+                    global_interner,
+                    domain_ctx.source_name().to_string(),
+                    problem_ctx.source_name().to_string(),
+                );
+
+                // Step 8: Return the result with the semantic context and diagnostics
+                Ok(LinkerResult::success(semantic_context, take(&mut self.diagnostic_manager)))
+
+            }
+            _ => {
+                let domain_interner = domain.take_interner().unwrap_or_else(StringInterner::new);
+                let problem_interner = problem.take_interner().unwrap_or_else(StringInterner::new);
+                let mut result = InternerMergeResult::from_domain_and_problem(&domain_interner, &problem_interner);
+                let global_interner = result.take_interner();
+                Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner))
+            }
+        }
+    }
+
     /// Performs semantic linking between a domain and a problem context.
     ///
     /// This function carries out the following steps:
@@ -158,6 +228,7 @@ impl Linker {
         // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
         let problem_ident_map = result.take_problem_ident_map();
         remap_problem_idents(&mut problem, &problem_ident_map)?;
+        self.diagnostic_manager.remap_idents(&problem_ident_map);
 
         // Step 3: Resolve external references in the problem with respect to the domain
         resolve_external_references(&domain, &mut problem)?;
@@ -176,7 +247,7 @@ impl Linker {
 
         // Step 5: If errors, return early with diagnostics only
         if self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
-            return Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager), Some(global_interner)));
+            return Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner));
         }
 
         // Step 7: Construct the final linked semantic context
@@ -191,7 +262,7 @@ impl Linker {
         );
 
         // Step 8: Return the result with the semantic context and diagnostics
-        Ok(LinkerResult::new(Some(semantic_context), take(&mut self.diagnostic_manager), None))
+        Ok(LinkerResult::success(semantic_context, take(&mut self.diagnostic_manager)))
     }
 }
 

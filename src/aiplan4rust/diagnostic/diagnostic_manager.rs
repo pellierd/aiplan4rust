@@ -8,6 +8,7 @@
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
 use std::collections::HashMap;
 use itertools::Itertools;
+use crate::aiplan4rust::interner::Ident;
 
 /// Manages a collection of diagnostics and their associated source files.
 ///
@@ -123,6 +124,30 @@ impl DiagnosticManager {
     pub fn reset(&mut self) {
         self.diagnostics.clear();
         self.sources.clear();
+    }
+
+    /// Remaps all `Ident` values in the diagnostics managed by this `DiagnosticManager`.
+    ///
+    /// This is useful when merging or linking components (like domain and problem files)
+    /// that use different `Ident` instances but refer to the same logical symbols.
+    ///
+    /// This method applies the given mapping to each individual [`Diagnostic`] in the manager.
+    ///
+    /// # Arguments
+    ///
+    /// * `map` - A mapping of old [`Ident`]s to new [`Ident`]s.
+    ///
+    /// # Example
+    /// ```
+    /// let mut manager = DiagnosticManager::default();
+    /// let mut map = HashMap::new();
+    /// map.insert(old_id, new_id);
+    /// manager.remap(&map);
+    /// ```
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        for diagnostic in &mut self.diagnostics {
+            diagnostic.remap_idents(map);
+        }
     }
 
     /// Adds diagnostics and sources from another [`DiagnosticManager`].

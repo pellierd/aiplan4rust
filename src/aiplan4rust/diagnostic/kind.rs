@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement;
@@ -534,6 +535,62 @@ impl Kind {
             .map(|r| format!("'{}'", r)) // ou r.to_string() si implémenté
             .collect::<Vec<_>>()
             .join(", ")
+    }
+
+    /// Remap all `Ident`s in this diagnostic using the provided `map`.
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        match self {
+            Kind::DuplicatedSymbolDeclarationInScopeError {
+                declaration1,
+                declaration2,
+                ..
+            } => {
+                declaration1.remap_idents(map);
+                declaration2.remap_idents(map);
+            }
+
+            Kind::UndeclaredSymbolError { usage } => {
+                usage.remap_idents(map);
+            }
+
+            Kind::SymbolDeclaredAsKeywordError { declaration, .. }
+            | Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning { declaration, .. }
+            | Kind::UnusedSymbolWarning { declaration } => {
+                declaration.remap_idents(map);
+            }
+
+            Kind::CyclicTypeDeclarationError { cycle } => {
+                for decl in cycle {
+                    decl.remap_idents(map);
+                }
+            }
+
+            // Variantes qui n'ont pas de `Ident` ou ne nécessitent pas de remap :
+            Kind::UnexpectedToken { .. }
+            | Kind::UnexpectedEof { .. }
+            | Kind::InvalidToken
+            | Kind::ExtraToken { .. }
+            | Kind::DuplicatedRequirementDeclaration { .. }
+            | Kind::DuplicatedTypeDeclaration { .. }
+            | Kind::UnDefinedFunction { .. }
+            | Kind::UnDefinedPredicate { .. }
+            | Kind::UnDefinedCompoundTask { .. }
+            | Kind::UnDefinedPrimitiveTask { .. }
+            | Kind::TypeMismatchInExpression { .. }
+            | Kind::InvalidTypesInNumericExpression { .. }
+            | Kind::RequirementViolation { .. }
+            | Kind::CyclicTaskOrderingError
+            | Kind::DomainProblemNameMismatch { .. }
+            | Kind::WarningAmbiguousTypePredicateSymbol { .. }
+            | Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. }
+            | Kind::DuplicateEitherTypeWarning { .. }
+            | Kind::ImplicitEitherTypeDeclarationWarning { .. }
+            | Kind::CrossConflictSymbolDeclarationError { .. }
+            | Kind::DuplicateRequirementWarning { .. }
+            | Kind::CustomError(_) => {
+                // Pas de remap nécessaire ici
+            }
+        }
     }
 }
 

@@ -46,7 +46,7 @@
 //! [`InternerId`]: crate::aiplan4rust::interner::InternerId
 //! [`InternerDisplay`]: crate::aiplan4rust::interner::InternerDisplay
 //! [`SyntaxDisplay`]: crate::aiplan4rust::syntax::SyntaxDisplay
-
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
@@ -124,6 +124,40 @@ impl Ident {
         usize::MAX
     }
 
+    /// Remaps this `Ident` using a provided mapping table.
+    ///
+    /// If the identifier exists in the `map`, it is replaced by its corresponding mapped value.
+    /// This is typically used during interner merging or when resolving identifier renamings
+    /// between multiple contexts (e.g., domain and problem linkage).
+    ///
+    /// # Arguments
+    ///
+    /// * `map` - A mapping from old `Ident` values to new `Ident` values.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::collections::HashMap;
+    /// let mut id = Ident::from(1);
+    /// let mut map = HashMap::new();
+    /// map.insert(Ident::from(1), Ident::from(42));
+    /// id.remap(&map);
+    /// assert_eq!(id, Ident::from(42));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic.
+    ///
+    /// # Performance
+    ///
+    /// This method performs a single hash map lookup and a lightweight copy operation (if found),
+    /// as `Ident` is typically a `Copy` type backed by a `usize`.
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        if let Some(new) = map.get(self) {
+            *self = *new;
+        }
+    }
 }
 
 impl InternerId for Ident {
@@ -151,6 +185,7 @@ impl InternerId for Ident {
     fn as_usize(&self) -> usize {
         self.as_usize()
     }
+
 }
 
 impl fmt::Display for Ident {

@@ -14,7 +14,7 @@ use crate::aiplan4rust::validation::normalization::check_well_normalized;
 use std::fs::File;
 use std::io::Read;
 use std::string::String;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{InternerMergeResult, StringInterner};
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -42,7 +42,7 @@ impl Frontend {
     /// # Errors
     /// - If the syntax arena of the domain or problem is `None`, an error is returned.
     /// - If the linking process fails, the error is returned.
-    pub fn parse(
+    pub fn parse_old(
         &self,
         domain_path: &str,
         problem_path: &str,
@@ -65,14 +65,10 @@ impl Frontend {
                 let mut linker_result = linker.link_with_diagnostic_manager(domain_tree, problem_tree, diagnostic_manager)?;
 
                 match linker_result.take_linked_semantic_context() {
-                    Some(linked_semantic_context) => {
-                        //let interner = linked_semantic_context.interner();
-                        //println!("**************{}", linked_semantic_context.domain().to_string_with_interner(interner));
-                        //println!("Linking successful, building LIR...");
-                        //println!("{}", linked_semantic_context.problem().to_planning_string(linked_semantic_context.interner()));
+                    Some(mut linked_semantic_context) => {
                         let mut ir_builder = LirBuilder::new();
                         let builder_result = ir_builder.build_with_diagnostic_manager(
-                            &linked_semantic_context,
+                            &mut linked_semantic_context,
                             linker_result.take_diagnostic_manager()
                         )?;
                         //println!("{}", builder_result.lifted_problem().unwrap().to_string_with_interner(linked_semantic_context.interner()));
@@ -80,13 +76,59 @@ impl Frontend {
                         Ok(builder_result)
                     }
                     None => {
-                        Ok(LirBuilderResult::new(None, linker_result.take_diagnostic_manager()))
+                        let diagnostic_manager = linker_result.take_diagnostic_manager();
+                        let interner = linker_result.take_interner();
+                        Ok(LirBuilderResult::new(None, diagnostic_manager, interner))
                     }
                 }
             }
-            _ => Ok(LirBuilderResult::new(None, diagnostic_manager)),
+            _ => {
+                let domain_interner = domain.take_interner().unwrap_or_else(StringInterner::new);
+                let problem_interner = problem.take_interner().unwrap_or_else(StringInterner::new);
+                let mut result = InternerMergeResult::from_domain_and_problem(&domain_interner, &problem_interner);
+                let global_interner = result.take_interner();
+                Ok(LirBuilderResult::new(None, diagnostic_manager, Some(global_interner)))
+            },
         }
     }
+
+    pub fn parse(
+        &self,
+        domain_path: &str,
+        problem_path: &str,
+        language: &Language,
+    ) -> Result<LirBuilderResult, AiplanError> {
+        // Parser les fichiers domaine et problème
+        let domain = self.parse_file(domain_path, language)?;
+        let problem = self.parse_file(problem_path, language)?;
+
+        // Créer le linker
+        let mut linker = Linker::new();
+
+        // Lancer le linking avec les résultats d'analyse
+        let mut linker_result = linker.link_with_analyser_result(domain, problem)?;
+
+        // Traiter le résultat du linking
+        match linker_result.take_linked_semantic_context() {
+            Some(mut linked_semantic_context) => {
+                // Construire le LIR avec les diagnostics du linker
+                let mut ir_builder = LirBuilder::new();
+                let builder_result = ir_builder.build_with_diagnostic_manager(
+                    &mut linked_semantic_context,
+                    linker_result.take_diagnostic_manager(),
+                )?;
+
+                Ok(builder_result)
+            }
+            None => {
+                // Pas de contexte lié, on retourne les diagnostics et l'interner (fusionné)
+                let diagnostic_manager = linker_result.take_diagnostic_manager();
+                let interner = linker_result.take_interner();
+                Ok(LirBuilderResult::new(None, diagnostic_manager, interner))
+            }
+        }
+    }
+
 
     /// Parses the source file at the given path and performs semantic analysis on the parsed syntax
     /// arena.
@@ -141,12 +183,6 @@ impl Frontend {
         // Match on the AST extracted from parsing.
         match parser_result.take_ast() {
             Some(raw_ast) => {
-                //println!("********************** RAW AST *************************");
-                //println!("{}", raw_ast.arena().try_root()?.to_string_with_interner(raw_ast.arena(), raw_ast.interner()));
-
-                //println!("********************** RAW AST *************************");
-                //println!("{}", raw_ast.arena().try_root()?.to_syntax_string(raw_ast.arena(), raw_ast.interner()));
-
                 // Take diagnostics from parser result.
                 let diagnostic_manager = parser_result.take_diagnostic_manager();
 
@@ -158,18 +194,7 @@ impl Frontend {
 
                 match normalizer_result.take_ast() {
                     Some(mut normalized_ast) => {
-                        //println!("********************** NORMALIZED AST *************************");
-                        //println!("{}", normalized_ast.arena().try_root()?.to_string_with_interner(normalized_ast.arena(), normalized_ast.interner()));
-                        match check_well_normalized(&normalized_ast) {
-                            Ok(()) => {
-                                println!("AST is well-normalized.");
-                            }
-                            Err(e) => {
-                                println!("{}", normalized_ast.to_string_with_interner());
-                                panic!("AST normalization check failed: {}", e);
-                            }
-                        }
-
+                        check_well_normalized(&normalized_ast)?;
                         // Retrieve diagnostics accumulated during normalization.
                         let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                         // Analyze the normalized AST with the diagnostics.
@@ -192,8 +217,6 @@ impl Frontend {
                 let interner = parser_result.take_interner();
                 Ok(AnalyzerResult::new(None, diagnostic_manager, interner))
             }
-
-
         }
 
     }

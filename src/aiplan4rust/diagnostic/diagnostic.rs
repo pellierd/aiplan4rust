@@ -1,7 +1,9 @@
+use std::collections::HashMap;
 use std::fmt;
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::{DiagnosticKind, Provider};
+use crate::aiplan4rust::interner::Ident;
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
@@ -86,6 +88,35 @@ impl Diagnostic {
     /// Sets the span for this diagnostic.
     pub fn set_span(&mut self, span: Span) {
         self.span = span;
+    }
+
+    /// Remaps all `Ident` values inside this diagnostic using a provided identifier mapping.
+    ///
+    /// This is used to reconcile identifier differences between merged sources, such as
+    /// linking a domain and a problem where identifiers may need to be unified or replaced.
+    ///
+    /// Only the inner [`Kind`] is affected, since it may contain `Ident` values via
+    /// usages, declarations, types, or other structures. The other fields (`source`,
+    /// `filename`, and `span`) remain unchanged.
+    ///
+    /// # Arguments
+    ///
+    /// * `map` - A `HashMap` mapping old `Ident`s to new `Ident`s.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut diag = Diagnostic { /* ... */ };
+    /// let mut map = HashMap::new();
+    /// map.insert(old_id, new_id);
+    /// diag.remap(&map);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic.
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        self.kind.remap_idents(map);
     }
 }
 
