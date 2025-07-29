@@ -78,24 +78,54 @@ pub struct NormalizerResult {
 }
 
 impl NormalizerResult {
-    /// Constructs a new `NormalizerResult`.
+    /// Creates a new `NormalizerResult` representing a successful normalization.
     ///
-    /// # Arguments
+    /// # Parameters
     ///
-    /// * `ast` - An optional normalized AST. `Some(ast)` indicates successful normalization,
-    ///   while `None` indicates failure.
+    /// * `ast` - The normalized AST produced by the normalization process.
     /// * `diagnostic_manager` - The diagnostic manager capturing any diagnostics during normalization.
-    /// * `interner` - An optional `StringInterner` associated with the normalization process.
     ///
     /// # Returns
     ///
-    /// A new instance of `NormalizerResult`.
-    pub fn new(
-        ast: Option<Ast>,
+    /// A `NormalizerResult` instance indicating success with the normalized AST and no interner.
+    ///
+    /// # Behavior
+    ///
+    /// In a success scenario, the `interner` field is always `None`.
+    pub fn success(
+        ast: Ast,
         diagnostic_manager: DiagnosticManager,
-        interner: Option<StringInterner>,
     ) -> Self {
-        Self { ast, diagnostic_manager, interner }
+        Self {
+            ast: Some(ast),
+            diagnostic_manager,
+            interner: None,
+        }
+    }
+
+    /// Creates a new `NormalizerResult` representing a failure in normalization.
+    ///
+    /// # Parameters
+    ///
+    /// * `diagnostic_manager` - The diagnostic manager capturing errors and warnings.
+    /// * `interner` - The `StringInterner` associated with the normalization process, useful for error reporting or diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// A `NormalizerResult` instance indicating failure, with no AST and the given interner.
+    ///
+    /// # Behavior
+    ///
+    /// In a failure scenario, the `ast` field is always `None` and `interner` is set.
+    pub fn failure(
+        diagnostic_manager: DiagnosticManager,
+        interner: StringInterner,
+    ) -> Self {
+        Self {
+            ast: None,
+            diagnostic_manager,
+            interner: Some(interner),
+        }
     }
 
     /// Returns an immutable reference to the normalized AST.
@@ -204,6 +234,16 @@ impl NormalizerResult {
         } else {
             self.interner.take()
         }
+    }
+
+    /// Returns `true` if parsing produced a valid AST.
+    pub fn is_success(&self) -> bool {
+        self.ast.is_some()
+    }
+
+    /// Returns `true` if parsing failed and no AST was produced.
+    pub fn is_failure(&self) -> bool {
+        self.ast.is_none()
     }
 }
 
