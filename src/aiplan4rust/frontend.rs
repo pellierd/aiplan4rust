@@ -197,7 +197,7 @@ impl Frontend {
         }
 
     }
-    
+
     pub fn link(
         &self,
         lifted_domain_path: &str,

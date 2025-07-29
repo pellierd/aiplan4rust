@@ -22,40 +22,71 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 
 use std::fmt;
+use crate::aiplan4rust::interner::StringInterner;
 
 /// Represents the result of the semantic linking process between a domain and a problem.
 ///
 /// A `LinkerResult` encapsulates:
-/// - An optional [`LinkedSemanticContext`], produced by successful linking.
-/// - A [`DiagnosticManager`] containing diagnostics and errors encountered during linking.
+/// - An optional [`LinkedSemanticContext`] produced by successful linking.
+/// - A [`DiagnosticManager`] containing diagnostics collected during the linking phase.
+/// - An optional [`StringInterner`] used during linking, available even if linking fails.
 ///
 /// # Fields
-/// - `context`: An optional `LinkedSemanticContext` produced by the linker. `None` if linking failed.
-/// - `diagnostic_manager`: The `DiagnosticManager` that collected diagnostics during the linking.
+/// - `context`: An optional `LinkedSemanticContext` representing the unified semantic representation. `None` if linking failed.
+/// - `diagnostic_manager`: Accumulates warnings, errors, and other diagnostics from the linking process.
+/// - `interner`: A `StringInterner` that may contain symbols shared or unified during linking. Retained even on failure.
 ///
-/// # Use Cases
-/// Use this struct to inspect the result of linking, retrieve diagnostics,
-/// or check if linking succeeded (`is_some`) or failed (`is_none`).
+/// # Usage
+/// This struct allows consumers to:
+/// - Check if linking succeeded by inspecting `context`.
+/// - Retrieve all diagnostics via `diagnostic_manager`.
+/// - Access the symbol `interner`, regardless of success or failure.
+///
+/// # Example
+/// ```rust
+/// let linker_result = linker.link(domain_ctx, problem_ctx);
+///
+/// if let Some(linked_ctx) = linker_result.linked_semantic_context() {
+///     // Use the linked context
+/// } else {
+///     // Inspect diagnostics for failure reasons
+///     for diag in linker_result.diagnostic_manager().diagnostics() {
+///         println!("Link error: {}", diag);
+///     }
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct LinkerResult {
     context: Option<LinkedSemanticContext>,
     diagnostic_manager: DiagnosticManager,
+    interner: Option<StringInterner>,
 }
-
 
 impl LinkerResult {
     /// Creates a new `LinkerResult`.
     ///
     /// # Arguments
-    /// - `planning_task`: The result of the linking process (`Some` if successful, `None` if not).
-    /// - `diagnostic_manager`: The `DiagnosticManager` holding all diagnostics from the linking phase.
+    ///
+    /// * `context` - An optional `LinkedSemanticContext` produced by the linking process.
+    ///   Use `Some(context)` if linking succeeded, or `None` if it failed.
+    /// * `diagnostic_manager` - The `DiagnosticManager` that accumulates all diagnostics
+    ///   (errors, warnings, notes) generated during linking.
+    /// * `interner` - An optional `StringInterner` used during the linking phase.
+    ///   This is preserved whether linking succeeded or failed, and allows introspection
+    ///   or display of diagnostics using symbolic identifiers.
     ///
     /// # Returns
-    /// A new instance of `LinkerResult`.
-    pub fn new(planning_task: Option<LinkedSemanticContext>, diagnostic_manager: DiagnosticManager) -> Self {
+    ///
+    /// A new `LinkerResult` instance containing the linking outcome, diagnostics, and interner state.
+    pub fn new(
+        context: Option<LinkedSemanticContext>,
+        diagnostic_manager: DiagnosticManager,
+        interner: Option<StringInterner>,
+    ) -> Self {
         LinkerResult {
-            context: planning_task,
+            context,
             diagnostic_manager,
+            interner,
         }
     }
 
@@ -105,6 +136,59 @@ impl LinkerResult {
     /// The owned `DiagnosticManager` with all diagnostics collected during linking.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         std::mem::take(&mut self.diagnostic_manager)
+    }
+
+    /// Returns a reference to the `StringInterner` used during linking.
+    ///
+    /// If the `LinkedSemanticContext` is present, returns a reference to its internal interner.
+    /// Otherwise, falls back to the local interner stored in the `LinkerResult`.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&StringInterner)` if an interner is available, or `None` if both the context
+    /// and local interner are absent.
+    pub fn interner(&self) -> Option<&StringInterner> {
+        if let Some(context) = &self.context {
+            Some(context.interner())
+        } else {
+            self.interner.as_ref()
+        }
+    }
+
+    /// Returns a mutable reference to the `StringInterner` used during linking.
+    ///
+    /// If the `LinkedSemanticContext` is present, returns a mutable reference to its internal interner.
+    /// Otherwise, returns a mutable reference to the local interner stored in the `LinkerResult`.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&mut StringInterner)` if an interner is available, or `None` if both the context
+    /// and local interner are absent.
+    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+        if let Some(context) = &mut self.context {
+            Some(context.interner_mut())
+        } else {
+            self.interner.as_mut()
+        }
+    }
+
+    /// Consumes and returns the `StringInterner` used during linking.
+    ///
+    /// If the `LinkedSemanticContext` is present, the interner is taken from it using `mem::take`.
+    /// Otherwise, it is taken from the local interner field of the `LinkerResult`.
+    ///
+    /// This operation leaves `None` in place of the interner (either in the context or locally),
+    /// effectively transferring ownership.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
+    pub fn take_interner(&mut self) -> Option<StringInterner> {
+        if let Some(context) = &mut self.context {
+            Some(std::mem::take(context.interner_mut()))
+        } else {
+            self.interner.take()
+        }
     }
 
     /// Returns `true` if the linking produced a semantic context (`Some`).

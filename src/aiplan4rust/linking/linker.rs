@@ -176,7 +176,7 @@ impl Linker {
 
         // Step 5: If errors, return early with diagnostics only
         if self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
-            return Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager)));
+            return Ok(LinkerResult::new(None, take(&mut self.diagnostic_manager), Some(global_interner)));
         }
 
         // Step 7: Construct the final linked semantic context
@@ -191,7 +191,7 @@ impl Linker {
         );
 
         // Step 8: Return the result with the semantic context and diagnostics
-        Ok(LinkerResult::new(Some(semantic_context), take(&mut self.diagnostic_manager)))
+        Ok(LinkerResult::new(Some(semantic_context), take(&mut self.diagnostic_manager), None))
     }
 }
 
