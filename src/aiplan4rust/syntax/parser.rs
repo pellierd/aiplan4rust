@@ -139,6 +139,7 @@ impl<'a> Parser<'a> {
             return Ok(ParserResult::new(
                 None,
                 mem::take(&mut self.diagnostic_manager),
+                Some(interner),
             ));
         }
 
@@ -154,6 +155,7 @@ impl<'a> Parser<'a> {
                     Ok(ParserResult::new(
                         None,
                         mem::take(&mut self.diagnostic_manager),
+                        Some(interner),
                     ))
                 } else {
                     // Take ownership of the arena holding parsed nodes
@@ -168,6 +170,7 @@ impl<'a> Parser<'a> {
                     Ok(ParserResult::new(
                         Some(ast),
                         mem::take(&mut self.diagnostic_manager),
+                        None
                     ))
                 }
             }
@@ -179,6 +182,7 @@ impl<'a> Parser<'a> {
                     Ok(ParserResult::new(
                         None,
                         mem::take(&mut self.diagnostic_manager),
+                        Some(interner),
                     ))
                 }
                 None => Err(e),

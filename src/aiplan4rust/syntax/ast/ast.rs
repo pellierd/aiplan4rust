@@ -198,6 +198,15 @@ impl Ast {
         &self.interner
     }
 
+    /// Returns a mutable reference to the string interner.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`StringInterner`] used in the AST or local storage.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
+        &mut self.interner
+    }
+
     /// Consumes and returns the string interner, replacing it with an empty interner.
     ///
     /// # Returns

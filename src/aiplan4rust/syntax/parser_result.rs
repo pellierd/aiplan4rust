@@ -7,6 +7,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::syntax::ast::Ast;
 
 use std::fmt;
+use crate::aiplan4rust::interner::StringInterner;
 
 /// Represents the outcome of a PDDL syntax parsing operation.
 ///
@@ -30,19 +31,26 @@ use std::fmt;
 pub struct ParserResult {
     ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
+    interner: Option<StringInterner>,
 }
 
 impl ParserResult {
     /// Constructs a new `ParserResult`.
     ///
     /// # Parameters
-    /// - `ast`: Optional parsed AST; `None` indicates parsing failure.
-    /// - `diagnostic_manager`: Collection of diagnostics produced during parsing.
+    /// - `ast`: An optional parsed AST. `None` indicates that parsing failed.
+    /// - `diagnostic_manager`: The diagnostics collected during parsing.
+    /// - `interner`: An optional `StringInterner` used during parsing.
     ///
     /// # Returns
-    /// A new `ParserResult` instance.
-    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
-        Self { ast, diagnostic_manager }
+    ///
+    /// A new instance of `ParserResult`.
+    pub fn new(
+        ast: Option<Ast>,
+        diagnostic_manager: DiagnosticManager,
+        interner: Option<StringInterner>,
+    ) -> Self {
+        Self { ast, diagnostic_manager, interner }
     }
 
     /// Returns an immutable reference to the parsed AST, if available.
@@ -83,6 +91,51 @@ impl ParserResult {
     /// Takes ownership of the diagnostic manager, replacing it with a default empty one.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         std::mem::take(&mut self.diagnostic_manager)
+    }
+
+    /// Returns a reference to the `StringInterner` associated with the AST if present,
+    /// otherwise returns a reference to the local interner.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a reference to the `StringInterner`, or `None` if neither is available.
+    pub fn interner(&self) -> Option<&StringInterner> {
+        if let Some(ast) = &self.ast {
+            Some(ast.interner())
+        } else {
+            self.interner.as_ref()
+        }
+    }
+
+    /// Returns a mutable reference to the `StringInterner` associated with the AST if present,
+    /// otherwise returns a mutable reference to the local interner.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a mutable reference to the `StringInterner`, or `None` if neither is available.
+    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+        if let Some(ast) = &mut self.ast {
+            Some(ast.interner_mut())
+        } else {
+            self.interner.as_mut()
+        }
+    }
+
+    /// Takes ownership of the `StringInterner` associated with the AST if present,
+    /// otherwise takes ownership of the local interner.
+    ///
+    /// This will remove the interner from either the AST or local storage,
+    /// leaving `None` in its place if applicable.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
+    pub fn take_interner(&mut self) -> Option<StringInterner> {
+        if let Some(ast) = &mut self.ast {
+            Some(std::mem::take(ast.interner_mut()))
+        } else {
+            self.interner.take()
+        }
     }
 
     /// Returns `true` if parsing produced a valid AST.
