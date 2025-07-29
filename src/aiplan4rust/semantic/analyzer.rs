@@ -221,16 +221,14 @@ impl Analyzer {
 
         // Build the AnalyzerResult based on presence of errors
         if !self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
-            Ok(AnalyzerResult::new(
-                Some(context),
+            Ok(AnalyzerResult::success(
+                context,
                 std::mem::take(&mut self.diagnostic_manager),
-                None,
             ))
         } else {
-            Ok(AnalyzerResult::new(
-                None,
+            Ok(AnalyzerResult::failure(
                 std::mem::take(&mut self.diagnostic_manager),
-                Some(context.take_interner()),
+                context.take_interner(),
             ))
         }
     }

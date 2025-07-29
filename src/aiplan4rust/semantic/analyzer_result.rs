@@ -73,26 +73,35 @@ pub struct AnalyzerResult {
 }
 
 impl AnalyzerResult {
-    /// Creates a new `AnalyzerResult` instance.
+    /// Creates a successful `AnalyzerResult` with a semantic context.
     ///
     /// # Arguments
-    ///
-    /// - `context`: An optional [`SemanticContext`] representing the semantic analysis output.
-    /// - `diagnostic_manager`: A [`DiagnosticManager`] that collects any diagnostics.
-    /// - `interner`: An optional [`StringInterner`] associated with the analysis.
+    /// - `context`: The semantic context produced by the analysis.
+    /// - `diagnostic_manager`: The diagnostics collected during analysis.
     ///
     /// # Returns
-    ///
-    /// A new `AnalyzerResult` encapsulating the analysis result and diagnostics.
-    pub fn new(
-        context: Option<SemanticContext>,
-        diagnostic_manager: DiagnosticManager,
-        interner: Option<StringInterner>,
-    ) -> Self {
-        AnalyzerResult {
-            context,
+    /// An `AnalyzerResult` representing a successful semantic analysis.
+    pub fn success(context: SemanticContext, diagnostic_manager: DiagnosticManager) -> Self {
+        Self {
+            context: Some(context),
             diagnostic_manager,
-            interner,
+            interner: None,
+        }
+    }
+
+    /// Creates a failure `AnalyzerResult` without a semantic context.
+    ///
+    /// # Arguments
+    /// - `diagnostic_manager`: The diagnostics collected during analysis.
+    /// - `interner`: The interner used during analysis.
+    ///
+    /// # Returns
+    /// An `AnalyzerResult` representing a failed semantic analysis.
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+        Self {
+            context: None,
+            diagnostic_manager,
+            interner: Some(interner),
         }
     }
 
@@ -188,13 +197,13 @@ impl AnalyzerResult {
         }
     }
 
-    /// Returns `true` if a semantic context is present.
-    pub fn is_some(&self) -> bool {
+    /// Returns `true` if a semantic context is present (success).
+    pub fn is_success(&self) -> bool {
         self.context.is_some()
     }
 
-    /// Returns `true` if no semantic context is present.
-    pub fn is_none(&self) -> bool {
+    /// Returns `true` if no semantic context is present (failure).
+    pub fn is_failure(&self) -> bool {
         self.context.is_none()
     }
 }

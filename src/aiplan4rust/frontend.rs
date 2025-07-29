@@ -209,8 +209,7 @@ impl Frontend {
                 // If no AST, propagate diagnostics and interner to AnalyzerResult.
                 let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                 let interner = normalizer_result.take_interner();
-
-                Ok(AnalyzerResult::new(None, diagnostic_manager, Some(interner)))
+                Ok(AnalyzerResult::failure(diagnostic_manager, interner))
             }
         }
     }
