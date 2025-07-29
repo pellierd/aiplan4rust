@@ -35,6 +35,7 @@
 use std::fmt;
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
 
 /// Represents the result of the AST normalization phase.
@@ -71,6 +72,7 @@ use crate::aiplan4rust::syntax::ast::Ast;
 pub struct NormalizerResult {
     ast: Option<Ast>,
     diagnostic_manager: DiagnosticManager,
+    interner: Option<StringInterner>,
 }
 
 impl NormalizerResult {
@@ -85,8 +87,8 @@ impl NormalizerResult {
     /// # Returns
     ///
     /// A new instance of `NormalizerResult`.
-    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager) -> Self {
-        Self { ast, diagnostic_manager }
+    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager, interner: Option<StringInterner>) -> Self {
+        Self { ast, diagnostic_manager, interner }
     }
 
     /// Returns an immutable reference to the normalized AST.
@@ -151,6 +153,50 @@ impl NormalizerResult {
     /// Mutable reference to the internal `DiagnosticManager`.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         &mut self.diagnostic_manager
+    }
+
+    /// Returns a reference to the `StringInterner` associated with the AST if present,
+    /// otherwise returns a reference to the local interner.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a reference to the `StringInterner`, or `None` if neither is available.
+    pub fn interner(&self) -> Option<&StringInterner> {
+        if let Some(ast) = &self.ast {
+            Some(ast.interner())
+        } else {
+            self.interner.as_ref()
+        }
+    }
+
+    /// Returns a mutable reference to the `StringInterner` associated with the AST if present,
+    /// otherwise returns a mutable reference to the local interner.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a mutable reference to the `StringInterner`, or `None` if neither is available.
+    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+        if let Some(ast) = &mut self.ast {
+            Some(ast.interner_mut())
+        } else {
+            self.interner.as_mut()
+        }
+    }
+
+    /// Consumes and returns the `StringInterner` associated with the AST if present,
+    /// otherwise consumes and returns the local interner.
+    ///
+    /// This leaves `None` in place of the interner in either location.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
+    pub fn take_interner(&mut self) -> Option<StringInterner> {
+        if let Some(ast) = &mut self.ast {
+            Some(std::mem::take(ast.interner_mut()))
+        } else {
+            self.interner.take()
+        }
     }
 }
 
