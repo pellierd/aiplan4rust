@@ -14,6 +14,7 @@ use crate::aiplan4rust::validation::normalization::check_well_normalized;
 use std::fs::File;
 use std::io::Read;
 use std::string::String;
+use crate::aiplan4rust::interner::StringInterner;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -179,23 +180,24 @@ impl Frontend {
                         // Return the analysis result.
                         Ok(analysis_result)
                     }
-                    None => Self::create_error_result(normalizer_result.diagnostic_manager_mut()),
+                    None => {
+                        let diagnostic_manager = parser_result.take_diagnostic_manager();
+                        let interner = parser_result.take_interner();
+                        Ok(AnalyzerResult::new(None, diagnostic_manager, interner))
+                    },
                 }
             }
-            //None => Self::create_error_result(parser_result.diagnostic_manager_mut()),
-            None => Self::create_error_result(parser_result.diagnostic_manager_mut())
+            None => {
+                let diagnostic_manager = parser_result.take_diagnostic_manager();
+                let interner = parser_result.take_interner();
+                Ok(AnalyzerResult::new(None, diagnostic_manager, interner))
+            }
+
 
         }
 
-
     }
-
-    fn create_error_result(
-        diagnostic_manager: &mut DiagnosticManager,
-    ) -> Result<AnalyzerResult, AiplanError> {
-        Ok(AnalyzerResult::new(None, std::mem::take(diagnostic_manager)))
-    }
-
+    
     pub fn link(
         &self,
         lifted_domain_path: &str,

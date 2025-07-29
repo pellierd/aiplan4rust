@@ -44,13 +44,15 @@ use crate::aiplan4rust::syntax::ast::Ast;
 /// and the [`DiagnosticManager`] which collects all warnings, errors,
 /// or informational messages generated during normalization.
 ///
-/// The `NormalizerResult` is typically produced after parsing and normalization
+/// The `NormalizerResult` is typically produced after parsing and normalization,
 /// but before semantic analysis.
 ///
 /// # Structure
+///
 /// - `ast`: An optional normalized AST. This is `Some(ast)` if normalization
 ///   was successful, otherwise `None`.
 /// - `diagnostic_manager`: Holds diagnostics produced during normalization.
+/// - `interner`: An optional [`StringInterner`] associated with the normalized AST.
 ///
 /// # Usage
 ///
@@ -80,14 +82,19 @@ impl NormalizerResult {
     ///
     /// # Arguments
     ///
-    /// * `ast` - An optional normalized AST. `Some(ast)` if normalization succeeded,
-    ///   otherwise `None`.
-    /// * `diagnostic_manager` - The diagnostic manager capturing any diagnostics.
+    /// * `ast` - An optional normalized AST. `Some(ast)` indicates successful normalization,
+    ///   while `None` indicates failure.
+    /// * `diagnostic_manager` - The diagnostic manager capturing any diagnostics during normalization.
+    /// * `interner` - An optional `StringInterner` associated with the normalization process.
     ///
     /// # Returns
     ///
     /// A new instance of `NormalizerResult`.
-    pub fn new(ast: Option<Ast>, diagnostic_manager: DiagnosticManager, interner: Option<StringInterner>) -> Self {
+    pub fn new(
+        ast: Option<Ast>,
+        diagnostic_manager: DiagnosticManager,
+        interner: Option<StringInterner>,
+    ) -> Self {
         Self { ast, diagnostic_manager, interner }
     }
 

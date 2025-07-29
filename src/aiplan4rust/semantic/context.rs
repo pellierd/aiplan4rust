@@ -258,9 +258,22 @@ impl Context {
         &self.interner
     }
 
-    /// Sets a new string interner instance.
-    pub fn set_interner(&mut self, interner: StringInterner) {
-        self.interner = interner;
+    /// Returns a mutable reference to the string interner.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the [`StringInterner`].
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
+        &mut self.interner
+    }
+
+    /// Consumes and returns the `StringInterner`, leaving `None` in its place.
+    ///
+    /// # Returns
+    ///
+    /// The taken [`StringInterner`].
+    pub fn take_interner(&mut self) -> StringInterner {
+        std::mem::take(&mut self.interner)
     }
 }
 

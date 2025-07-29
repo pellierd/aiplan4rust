@@ -47,42 +47,52 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic::SemanticContext;
 
 use std::fmt;
+use crate::aiplan4rust::interner::StringInterner;
 
 /// Represents the outcome of semantic analysis, including the annotated semantic context and diagnostic information.
 ///
-/// This structure holds an optional `SemanticContext` that represents the enriched syntax tree
-/// with semantic information, and a `DiagnosticManager` that collects errors and warnings
-/// encountered during analysis.
+/// This structure holds an optional [`SemanticContext`] that represents the enriched syntax tree
+/// with semantic information, and a [`DiagnosticManager`] that collects errors, warnings,
+/// and notes encountered during analysis.
 ///
 /// # Fields
+///
 /// - `context`: Optional semantic context produced by the analysis.
 /// - `diagnostic_manager`: Collects diagnostics (errors, warnings, notes) during analysis.
+/// - `interner`: Optional [`StringInterner`] associated with the semantic context.
 ///
 /// # Methods
+///
 /// Provides accessors and mutators for the semantic context and diagnostic manager,
 /// as well as convenience methods to check presence or absence of the semantic context.
 #[derive(Debug, Clone)]
 pub struct AnalyzerResult {
     context: Option<SemanticContext>,
     diagnostic_manager: DiagnosticManager,
+    interner: Option<StringInterner>,
 }
 
 impl AnalyzerResult {
     /// Creates a new `AnalyzerResult` instance.
     ///
     /// # Arguments
-    /// - `context`: An optional `SemanticContext` representing the semantic analysis output.
-    /// - `diagnostic_manager`: A `DiagnosticManager` that collects any diagnostics.
+    ///
+    /// - `context`: An optional [`SemanticContext`] representing the semantic analysis output.
+    /// - `diagnostic_manager`: A [`DiagnosticManager`] that collects any diagnostics.
+    /// - `interner`: An optional [`StringInterner`] associated with the analysis.
     ///
     /// # Returns
+    ///
     /// A new `AnalyzerResult` encapsulating the analysis result and diagnostics.
     pub fn new(
         context: Option<SemanticContext>,
         diagnostic_manager: DiagnosticManager,
+        interner: Option<StringInterner>,
     ) -> Self {
         AnalyzerResult {
             context,
             diagnostic_manager,
+            interner,
         }
     }
 
@@ -132,6 +142,50 @@ impl AnalyzerResult {
     /// The owned `DiagnosticManager`.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         std::mem::take(&mut self.diagnostic_manager)
+    }
+
+    /// Returns a reference to the `StringInterner` associated with the semantic context if present,
+    /// otherwise returns a reference to the local interner.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a shared reference to the [`StringInterner`], or `None` if neither is available.
+    pub fn interner(&self) -> Option<&StringInterner> {
+        if let Some(context) = &self.context {
+            Some(context.interner())
+        } else {
+            self.interner.as_ref()
+        }
+    }
+
+    /// Returns a mutable reference to the `StringInterner` associated with the semantic context if present,
+    /// otherwise returns a mutable reference to the local interner.
+    ///
+    /// # Returns
+    ///
+    /// An `Option` containing a mutable reference to the [`StringInterner`], or `None` if neither is available.
+    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+        if let Some(context) = &mut self.context {
+            Some(context.interner_mut())
+        } else {
+            self.interner.as_mut()
+        }
+    }
+
+    /// Consumes and returns the `StringInterner` associated with the semantic context if present,
+    /// otherwise consumes and returns the local interner.
+    ///
+    /// This leaves `None` in place of the interner in either location.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
+    pub fn take_interner(&mut self) -> Option<StringInterner> {
+        if let Some(context) = &mut self.context {
+            Some(std::mem::take(context.interner_mut()))
+        } else {
+            self.interner.take()
+        }
     }
 
     /// Returns `true` if a semantic context is present.

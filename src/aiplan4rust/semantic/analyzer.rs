@@ -198,7 +198,7 @@ impl Analyzer {
     ) -> Result<AnalyzerResult, SemanticError> {
 
         // Build semantic context from AST
-        let context = SemanticContext::try_from(ast)?;
+        let mut context = SemanticContext::try_from(ast)?;
         let check_ctx = CheckContext::from(&context);
 
         // Determine root kind and run appropriate checks
@@ -224,11 +224,13 @@ impl Analyzer {
             Ok(AnalyzerResult::new(
                 Some(context),
                 std::mem::take(&mut self.diagnostic_manager),
+                None,
             ))
         } else {
             Ok(AnalyzerResult::new(
                 None,
                 std::mem::take(&mut self.diagnostic_manager),
+                Some(context.take_interner()),
             ))
         }
     }
