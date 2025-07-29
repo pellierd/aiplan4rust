@@ -136,10 +136,9 @@ impl<'a> Parser<'a> {
             .diagnostic_manager()
             .has_diagnostics_of_severity(Severity::Error)
         {
-            return Ok(ParserResult::new(
-                None,
+            return Ok(ParserResult::failure(
                 mem::take(&mut self.diagnostic_manager),
-                Some(interner),
+                interner,
             ));
         }
 
@@ -152,10 +151,9 @@ impl<'a> Parser<'a> {
                     .has_diagnostics_of_severity(Severity::Error)
                 {
                     // Return failure with diagnostics if errors are present
-                    Ok(ParserResult::new(
-                        None,
+                    Ok(ParserResult::failure(
                         mem::take(&mut self.diagnostic_manager),
-                        Some(interner),
+                        interner,
                     ))
                 } else {
                     // Take ownership of the arena holding parsed nodes
@@ -167,10 +165,9 @@ impl<'a> Parser<'a> {
                     ast.init_span(&fast_line_table)?;
 
                     // Return the successful parse result with AST and diagnostics
-                    Ok(ParserResult::new(
-                        Some(ast),
+                    Ok(ParserResult::success(
+                        ast,
                         mem::take(&mut self.diagnostic_manager),
-                        None
                     ))
                 }
             }
@@ -179,10 +176,9 @@ impl<'a> Parser<'a> {
                     let diagnostic =
                         Diagnostic::from((parse_err, Some(source_name), &fast_line_table));
                     self.diagnostic_manager.add_diagnostic(diagnostic);
-                    Ok(ParserResult::new(
-                        None,
+                    Ok(ParserResult::failure(
                         mem::take(&mut self.diagnostic_manager),
-                        Some(interner),
+                        interner,
                     ))
                 }
                 None => Err(e),

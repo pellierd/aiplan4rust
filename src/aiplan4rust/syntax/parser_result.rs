@@ -35,22 +35,36 @@ pub struct ParserResult {
 }
 
 impl ParserResult {
-    /// Constructs a new `ParserResult`.
+    /// Creates a successful `ParserResult` with a parsed AST.
     ///
-    /// # Parameters
-    /// - `ast`: An optional parsed AST. `None` indicates that parsing failed.
+    /// # Arguments
+    /// - `ast`: The successfully parsed AST.
     /// - `diagnostic_manager`: The diagnostics collected during parsing.
-    /// - `interner`: An optional `StringInterner` used during parsing.
     ///
     /// # Returns
+    /// A `ParserResult` representing a successful parsing operation.
+    pub fn success(ast: Ast, diagnostic_manager: DiagnosticManager) -> Self {
+        Self {
+            ast: Some(ast),
+            diagnostic_manager,
+            interner: None,
+        }
+    }
+
+    /// Creates a failure `ParserResult` without a parsed AST.
     ///
-    /// A new instance of `ParserResult`.
-    pub fn new(
-        ast: Option<Ast>,
-        diagnostic_manager: DiagnosticManager,
-        interner: Option<StringInterner>,
-    ) -> Self {
-        Self { ast, diagnostic_manager, interner }
+    /// # Arguments
+    /// - `diagnostic_manager`: The diagnostics collected during parsing.
+    /// - `interner`: The interner used during parsing.
+    ///
+    /// # Returns
+    /// A `ParserResult` representing a failed parsing operation.
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+        Self {
+            ast: None,
+            diagnostic_manager,
+            interner: Some(interner),
+        }
     }
 
     /// Returns an immutable reference to the parsed AST, if available.
@@ -139,12 +153,12 @@ impl ParserResult {
     }
 
     /// Returns `true` if parsing produced a valid AST.
-    pub fn is_some(&self) -> bool {
+    pub fn is_success(&self) -> bool {
         self.ast.is_some()
     }
 
     /// Returns `true` if parsing failed and no AST was produced.
-    pub fn is_none(&self) -> bool {
+    pub fn is_failure(&self) -> bool {
         self.ast.is_none()
     }
 }
@@ -153,7 +167,8 @@ impl fmt::Display for ParserResult {
     /// Formats the parser result as a human-readable string.
     ///
     /// If parsing succeeded, displays the AST followed by any diagnostics.
-    /// If parsing failed, displays all diagnostics related to the failure.
+    /// If parsing failed, displays all diagnostics related to the failure,
+    /// and, if available, the contents of the interner.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.ast {
             Some(ast) => {
@@ -171,6 +186,12 @@ impl fmt::Display for ParserResult {
                 write!(f, "Parsing failed:\n")?;
                 for diagnostic in self.diagnostic_manager().diagnostics() {
                     write!(f, "{}\n", diagnostic)?;
+                }
+
+                if let Some(interner) = &self.interner {
+                    write!(f, "\nInterner contents:\n")?;
+                    // Suppose que StringInterner impl Display ou tu adaptes selon l’API de ton interner
+                    write!(f, "{}", interner)?;
                 }
             }
         }
