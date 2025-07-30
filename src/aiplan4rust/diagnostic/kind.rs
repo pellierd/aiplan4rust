@@ -5,7 +5,6 @@ use crate::aiplan4rust::lang::{Ident, Type};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
-use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
@@ -32,24 +31,22 @@ pub enum Kind {
         ty1: Type,
         ty2: Type,
     },
-
-
     InvalidTypesInNumericExpression {
         ty1: Type,
         ty2: Type,
     },
-
-    // TO CHECK
     RequirementViolation {
         node_kind: AstKind,
         required: Vec<Requirement>,
     },
-    DuplicatedSymbolDeclarationInScopeError {
-        symbol: String,
+
+    DuplicatedSymbolDeclarationInScope {
+        symbol: Symbol,
         declaration1: Declaration,
         declaration2: Declaration,
-        scope: AstNode,
+        scope: AstKind,
     },
+    // TO CHECK
     CyclicTaskOrderingError,
     UndeclaredSymbolError {
         usage: Usage,
@@ -112,7 +109,7 @@ impl Kind {
             Kind::UnDefinedSymbol { .. } => "E1001".to_string(),
             Kind::TypeMismatchInExpression { .. } => "E1005".to_string(),
             Kind::InvalidTypesInNumericExpression { .. } => "E1006".to_string(),
-            Kind::DuplicatedSymbolDeclarationInScopeError { .. } => "E1007".to_string(),
+            Kind::DuplicatedSymbolDeclarationInScope { .. } => "E1007".to_string(),
             Kind::CyclicTaskOrderingError { .. } => "E1008".to_string(),
             Kind::UndeclaredSymbolError { .. } => "E1009".to_string(),
             Kind::SymbolDeclaredAsKeywordError { .. } => "E1010".to_string(),
@@ -176,14 +173,15 @@ impl Kind {
                     ty1_str, ty2_str
                 )
             }
-
-            // TO CHECK
             Kind::RequirementViolation { node_kind, .. } => {
-                format!("'{}' expr is not allowed in the current context.", node_kind)
+                format!("Expression type '{}' disallowed by current requirements.", node_kind)
             }
-            Kind::DuplicatedSymbolDeclarationInScopeError { symbol, .. } => {
-                format!("Duplicate declaration of symbol '{}'.", symbol)
+            Kind::DuplicatedSymbolDeclarationInScope { symbol, .. } => {
+                let name = symbol_to_string(symbol, interner);
+                format!("Symbol '{}' is declared multiple times in the same scope.", name)
             }
+            // TO CHECK
+
             Kind::CyclicTaskOrderingError => {
                 "Cyclic task-ordering constraint detected.".to_string()
             }
@@ -247,7 +245,7 @@ impl Kind {
             Kind::UnDefinedSymbol { .. } => Severity::Error,
             Kind::TypeMismatchInExpression { .. } => Severity::Error,
             Kind::InvalidTypesInNumericExpression { .. } => Severity::Error,
-            Kind::DuplicatedSymbolDeclarationInScopeError { .. } => Severity::Error,
+            Kind::DuplicatedSymbolDeclarationInScope { .. } => Severity::Error,
             Kind::CyclicTaskOrderingError => Severity::Error,
             Kind::UndeclaredSymbolError { .. } => Severity::Error,
             Kind::SymbolDeclaredAsKeywordError { .. } => Severity::Error,
@@ -284,7 +282,6 @@ impl Kind {
             Kind::CustomError(_) => None,
             Kind::UnDefinedSymbol { symbol } => {
                 let name = symbol_to_string(symbol, interner);
-
                 let msg = match symbol.kind() {
                     SymbolKind::Function => {
                         format!("Make sure that a function with call '{}' is defined in the block ':functions'", name)
@@ -325,24 +322,25 @@ impl Kind {
                     ty2_str
                 ))
             }
-
-            // TO CHECK
             Kind::RequirementViolation { node_kind, required } => {
                 Some(format!(
-                    "The use of '{}' requires one of the following requirements: {}.",
-                    node_kind,  // ou juste format!("{:?}", node_kind) si pas encore défini
-                    Self::format_requirements_list(&required)
+                    "Expression type '{}' requires one of these requirements: {}.",
+                    node_kind, // ou format!("{:?}", node_kind) si besoin
+                    format_requirements_list(&required)
                 ))
             }
-            Kind::DuplicatedSymbolDeclarationInScopeError { symbol, declaration1, declaration2, .. } => {
+            Kind::DuplicatedSymbolDeclarationInScope { symbol, declaration1, declaration2, scope } => {
+                let symbol_name = symbol_to_string(symbol, interner);
                 Some(format!(
-                    "The symbol '{}' is declared once as a '{}' and again as a '{}'. \
-                        Consider renaming one of the declarations or ensuring consistent usage.",
-                    symbol,
+                    "The symbol '{}' is declared twice in the '{}' scope: once as a '{}' and again as a '{}'. \
+                    Consider renaming one of the declarations or ensuring consistent usage.",
+                    symbol_name,
+                    scope,  // affiche le type de noeud qui définit le scope
                     declaration1.symbol_kind(),
                     declaration2.symbol_kind()
                 ))
             }
+            // TO CHECK
             Kind::CyclicTaskOrderingError => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
             Kind::UndeclaredSymbolError { usage} => {
                 match usage.symbol_kind() {
@@ -405,7 +403,7 @@ impl Kind {
                     "Symbol '{}' is reserved as '{}' in the language with requirements: {}. '{}' expected. Consider renaming it or using a different symbol.",
                     declaration.symbol_ident(),
                     declaration.symbol_kind(),
-                    Self::format_requirements_list(requirements),
+                    format_requirements_list(requirements),
                     expected_kind,
                 ))
             }
@@ -415,7 +413,7 @@ impl Kind {
                     "{} symbol '{}' is ambiguous as it is used as a keyword in the language with requirements: {}. Consider renaming it or using a different symbol.",
                     declaration.symbol_kind(),
                     declaration.symbol_ident(),
-                    Self::format_requirements_list(requirements),
+                    format_requirements_list(requirements),
                 ))
             }
             Kind::UnusedSymbolWarning {declaration} => {
@@ -527,14 +525,6 @@ impl Kind {
         }
     }
 
-    fn format_requirements_list(requirements: &[Requirement]) -> String {
-        requirements
-            .iter()
-            .map(|r| format!("'{}'", r)) // ou r.to_string() si implémenté
-            .collect::<Vec<_>>()
-            .join(", ")
-    }
-
     /// Remap all `Ident`s in this diagnostic using the provided `map`.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         match self {
@@ -547,9 +537,7 @@ impl Kind {
                 ty2.remap_idents(map);
             }
 
-            // TO CHECK
-
-            Kind::DuplicatedSymbolDeclarationInScopeError {
+            Kind::DuplicatedSymbolDeclarationInScope {
                 declaration1,
                 declaration2,
                 ..
@@ -557,6 +545,18 @@ impl Kind {
                 declaration1.remap_idents(map);
                 declaration2.remap_idents(map);
             }
+
+            Kind::UnexpectedToken { .. }
+            | Kind::UnexpectedEof { .. }
+            | Kind::InvalidToken
+            | Kind::ExtraToken { .. }
+            | Kind::RequirementViolation { .. } => {
+                // Pas de remap nécessaire ici
+            }
+
+            // TO CHECK
+
+
 
             Kind::UndeclaredSymbolError { usage } => {
                 usage.remap_idents(map);
@@ -575,12 +575,8 @@ impl Kind {
             }
 
             // Variantes qui n'ont pas de `Ident` ou ne nécessitent pas de remap :
-            Kind::UnexpectedToken { .. }
-            | Kind::UnexpectedEof { .. }
-            | Kind::InvalidToken
-            | Kind::ExtraToken { .. }
-            | Kind::RequirementViolation { .. }
-            | Kind::CyclicTaskOrderingError
+
+            Kind::CyclicTaskOrderingError
             | Kind::DomainProblemNameMismatch { .. }
             | Kind::WarningAmbiguousTypePredicateSymbol { .. }
             | Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. }
@@ -653,4 +649,28 @@ fn type_to_string(ty: &Type, interner: Option<&StringInterner>) -> String {
     } else {
         ty.to_string()
     }
+}
+
+/// Formats a slice of `Requirement`s into a comma-separated string,
+/// each requirement enclosed in single quotes.
+///
+/// # Parameters
+/// - `requirements`: Slice of `Requirement` items to format.
+///
+/// # Returns
+/// A `String` listing all requirements, each wrapped in single quotes
+/// and separated by commas.
+///
+/// # Example
+/// ```
+/// let reqs = vec![Requirement::A, Requirement::B];
+/// let formatted = format_requirements_list(&reqs);
+/// assert_eq!(formatted, "'A', 'B'");
+/// ```
+fn format_requirements_list(requirements: &[Requirement]) -> String {
+    requirements
+        .iter()
+        .map(|r| format!("'{}'", r))  // Assumes Requirement implements Display
+        .collect::<Vec<_>>()
+        .join(", ")
 }

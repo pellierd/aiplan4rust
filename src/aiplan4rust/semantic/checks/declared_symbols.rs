@@ -3,7 +3,7 @@
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
-use crate::aiplan4rust::semantic::symbol::Declaration;
+use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
@@ -107,15 +107,14 @@ fn check_symbol_declarations(
                     checked = false;
 
                     let scope_index = conflicting_scope.iter().last().unwrap();
-                    let scope = context.syntax_tree().get_node(*scope_index).unwrap();
+                    let scope_node = context.syntax_tree().get_node(*scope_index).unwrap();
 
-                    let name = context.interner().try_resolve_ident(symbol.ident())?;
                     let error = Diagnostic::new(
-                        DiagnosticKind::DuplicatedSymbolDeclarationInScopeError {
-                            symbol: name.to_string(),
+                        DiagnosticKind::DuplicatedSymbolDeclarationInScope {
+                            symbol: Symbol::new(symbol.ident(), declaration.symbol_kind()),
                             declaration1: previous_declaration.clone(),
                             declaration2: declaration.clone(),
-                            scope: scope.clone(),
+                            scope: scope_node.kind(),
                         },
                         Provider::Analyzer,
                         context.source_name().to_string(),
