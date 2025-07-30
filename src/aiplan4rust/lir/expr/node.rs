@@ -39,7 +39,7 @@
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
-use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
+use crate::aiplan4rust::semantic::symbol::{SymbolKind, Symbol};
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
@@ -175,13 +175,13 @@ impl SyntaxNode for ExprNode {
         self.inner.content_mut()
     }
 
-    /// Attempts to interpret this node as a symbol reference if its kind corresponds to
+    /// Attempts to interpret this node as a symbol if its kind corresponds to
     /// a symbol type_checker. Returns `None` if not applicable.
     ///
     /// # Errors
     ///
     /// Returns an error if identifier extraction fails.
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, SyntaxTreeError> {
+    fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError> {
         let kind = self.kind();
         let symbol_kind = match kind {
             ExprKind::PrimitiveType => SymbolKind::PrimitiveType,
@@ -195,7 +195,7 @@ impl SyntaxNode for ExprNode {
         };
 
         let ident = self.try_ident()?;
-        Ok(Some(SymbolRef::new(ident, symbol_kind)))
+        Ok(Some(Symbol::new(ident, symbol_kind)))
     }
 
     /// Recursively pretty-prints the syntax subtree rooted at this node,

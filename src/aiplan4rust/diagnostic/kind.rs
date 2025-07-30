@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Requirement;
@@ -6,8 +7,8 @@ use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use std::fmt;
 use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
 #[derive(Clone, Debug, PartialEq)]
@@ -23,23 +24,8 @@ pub enum Kind {
     ExtraToken {
         token: String,
     },
-    DuplicatedRequirementDeclaration {
-        requirement: Requirement
-    },
-    DuplicatedTypeDeclaration {
-        ty: String,
-    },
-    UnDefinedFunction {
-        symbol: String,
-    },
-    UnDefinedPredicate {
-        symbol: String,
-    },
-    UnDefinedCompoundTask {
-        symbol: String,
-    },
-    UnDefinedPrimitiveTask {
-        symbol: String,
+    UnDefinedSymbol {
+        symbol: Symbol,
     },
     TypeMismatchInExpression {
         ty1: Vec<String>,
@@ -115,16 +101,10 @@ impl Kind {
             Kind::UnexpectedEof{ .. } => "E0002".to_string(),
             Kind::InvalidToken => "E0003".to_string(),
             Kind::ExtraToken{ .. } => "E0004".to_string(),
-            // WARNING PARSER
-            Kind::DuplicatedRequirementDeclaration { .. } => "W0001".to_string(),
-            Kind::DuplicatedTypeDeclaration { .. } => "W0002".to_string(),
             // WARNING NORMALIZER
             Kind::DuplicateRequirementWarning { ..  } => "W2001".to_string(),
             // ERROR ANALYSER
-            Kind::UnDefinedFunction { .. } => "E1001".to_string(),
-            Kind::UnDefinedPredicate { .. } => "E1002".to_string(),
-            Kind::UnDefinedCompoundTask { .. } => "E1003".to_string(),
-            Kind::UnDefinedPrimitiveTask { .. } => "E1004".to_string(),
+            Kind::UnDefinedSymbol { .. } => "E1001".to_string(),
             Kind::TypeMismatchInExpression { .. } => "E1005".to_string(),
             Kind::InvalidTypesInNumericExpression { .. } => "E1006".to_string(),
             Kind::DuplicatedSymbolDeclarationInScopeError { .. } => "E1007".to_string(),
@@ -165,23 +145,16 @@ impl Kind {
             Kind::ExtraToken { token } => {
                 format!("Unexpected extra token '{}'.", token)
             }
-            Kind::DuplicatedRequirementDeclaration { requirement } => {
-                format!("Requirement '{}' is declared more than once.", requirement)
-            }
-            Kind::DuplicatedTypeDeclaration { ty } => {
-                format!("Type '{}' is declared multiple times.", ty)
-            }
-            Kind::UnDefinedFunction { symbol } => {
-                format!("Function '{}' is undefined", symbol)
-            }
-            Kind::UnDefinedPredicate { symbol } => {
-                format!("Predicate '{}' is undefined", symbol)
-            }
-            Kind::UnDefinedCompoundTask { symbol } => {
-                format!("Compound task '{}' is undefined", symbol)
-            }
-            Kind::UnDefinedPrimitiveTask { symbol } => {
-                format!("Primitive task '{}' is undefined", symbol)
+            Kind::UnDefinedSymbol { symbol } => {
+                let name = symbol_name(symbol, interner);
+
+                match symbol.kind() {
+                    SymbolKind::Function => format!("Function '{}' is undefined", name),
+                    SymbolKind::Predicate => format!("Predicate '{}' is undefined", name),
+                    SymbolKind::Task => format!("Compound task '{}' is undefined", name),
+                    SymbolKind::Action => format!("Primitive task '{}' is undefined", name),
+                    _ => format!("Symbol '{}' of kind {:?} is undefined", name, symbol.kind()),
+                }
             }
             Kind::TypeMismatchInExpression { .. } => {
                 "Type mismatch in expr.".to_string()
@@ -250,18 +223,12 @@ impl Kind {
             Kind::InvalidToken => Severity::Error,
             Kind::ExtraToken { .. } => Severity::Error,
             Kind::CustomError(_) => Severity::Error,
-            // PARSER WARNINGS
-            Kind::DuplicatedRequirementDeclaration { .. } => Severity::Warning,
-            Kind::DuplicatedTypeDeclaration { .. } => Severity::Warning,
 
             // NORMALIZER WARNINGS
             Kind::DuplicateRequirementWarning { .. } => Severity::Warning,
 
             // ANALYSER ERRORS
-            Kind::UnDefinedFunction { .. } => Severity::Error,
-            Kind::UnDefinedPredicate { .. } => Severity::Error,
-            Kind::UnDefinedCompoundTask { .. } => Severity::Error,
-            Kind::UnDefinedPrimitiveTask { .. } => Severity::Error,
+            Kind::UnDefinedSymbol { .. } => Severity::Error,
             Kind::TypeMismatchInExpression { .. } => Severity::Error,
             Kind::InvalidTypesInNumericExpression { .. } => Severity::Error,
             Kind::DuplicatedSymbolDeclarationInScopeError { .. } => Severity::Error,
@@ -286,7 +253,7 @@ impl Kind {
 
         }
     }
-    pub fn suggestion(&self) -> Option<String> {
+    pub fn suggestion(&self, interner: Option<&StringInterner>) -> Option<String> {
         match self {
             Kind::UnexpectedToken { expected, .. }
             | Kind::UnexpectedEof { expected } => {
@@ -298,24 +265,29 @@ impl Kind {
             Kind::InvalidToken => {
                 Some("Make sure there are no typos or invalid characters.".to_string())
             }
-            Kind::DuplicatedRequirementDeclaration { requirement} => {
-                Some(format!("Requirement '{}' is already declared. You can safely remove the duplicate.", requirement))
-            }
-            Kind::DuplicatedTypeDeclaration { .. } => {
-                Some("This type_checker is already declared. Consider removing the duplicate.".to_string())
-            }
             Kind::CustomError(_) => None,
-            Kind::UnDefinedFunction { symbol } => {
-                Some(format!("Make sure that a function with call '{}' is defined in the block ':functions'", symbol))
-            }
-            Kind::UnDefinedPredicate { symbol } => {
-                Some(format!("Make sure that a predicate named '{}' is defined in the block ':predicates'", symbol))
-            }
-            Kind::UnDefinedCompoundTask { symbol } => {
-                Some(format!("Make sure that a compound task '{}' is defined in the block ':tasks'", symbol))
-            }
-            Kind::UnDefinedPrimitiveTask { symbol } => {
-                Some(format!("Make sure that an action '{}' is defined", symbol))
+            Kind::UnDefinedSymbol { symbol } => {
+                // Retrieve the symbol name using the interner with fallback
+                let name = symbol_name(symbol, interner);
+
+                let msg = match symbol.kind() {
+                    SymbolKind::Function => {
+                        format!("Make sure that a function with call '{}' is defined in the block ':functions'", name)
+                    }
+                    SymbolKind::Predicate => {
+                        format!("Make sure that a predicate named '{}' is defined in the block ':predicates'", name)
+                    }
+                    SymbolKind::Task => {
+                        format!("Make sure that a compound task '{}' is defined in the block ':tasks'", name)
+                    }
+                    SymbolKind::Action => {
+                        format!("Make sure that an action '{}' is defined", name)
+                    }
+                    _ => {
+                        format!("Make sure that '{}' is defined", name)
+                    }
+                };
+                Some(msg)
             }
             Kind::TypeMismatchInExpression { ty1, ty2 } => {
                 Some(format!(
@@ -541,6 +513,13 @@ impl Kind {
     /// Remap all `Ident`s in this diagnostic using the provided `map`.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         match self {
+            Kind::UnDefinedSymbol { symbol } => {
+                symbol.remap_idents(map);
+            }
+
+
+            // TO CHECK
+
             Kind::DuplicatedSymbolDeclarationInScopeError {
                 declaration1,
                 declaration2,
@@ -571,12 +550,6 @@ impl Kind {
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
             | Kind::ExtraToken { .. }
-            | Kind::DuplicatedRequirementDeclaration { .. }
-            | Kind::DuplicatedTypeDeclaration { .. }
-            | Kind::UnDefinedFunction { .. }
-            | Kind::UnDefinedPredicate { .. }
-            | Kind::UnDefinedCompoundTask { .. }
-            | Kind::UnDefinedPrimitiveTask { .. }
             | Kind::TypeMismatchInExpression { .. }
             | Kind::InvalidTypesInNumericExpression { .. }
             | Kind::RequirementViolation { .. }
@@ -595,12 +568,12 @@ impl Kind {
     }
 }
 
-/*impl fmt::Display for Kind {
+impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = self.code();
-        let message = self.message();
+        let message = self.message(None);
         let severity = self.severity();
-        let suggestion = self.suggestion();
+        let suggestion = self.suggestion(None);
 
         match suggestion {
             Some(sugg) => write!(
@@ -614,4 +587,30 @@ impl Kind {
             None => write!(f, "[{}] ({}) {}", code, severity, message),
         }
     }
-}*/
+}
+
+/// Returns the name of the given symbol, optionally resolving it through a string interner.
+///
+/// # Parameters
+/// - `symbol`: Reference to the `Symbol` whose name is to be retrieved.
+/// - `interner`: Optional reference to a `StringInterner` used to resolve the symbol's identifier.
+///
+/// # Returns
+/// A `String` representing the resolved name of the symbol.
+/// - If the `interner` is provided and the identifier is found, returns the resolved string.
+/// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
+/// - If the `interner` is not provided, returns the raw identifier as a string.
+fn symbol_name(symbol: &Symbol, interner: Option<&StringInterner>) -> String {
+    if let Some(interner) = interner {
+        if let Some(resolved) = interner.resolve_ident(symbol.ident()) {
+            // Interner found and identifier resolved successfully
+            resolved.to_string()
+        } else {
+            // Interner present but identifier not found
+            format!("unknown({})", symbol.ident())
+        }
+    } else {
+        // Interner not present, return identifier directly as string
+        symbol.ident().to_string()
+    }
+}

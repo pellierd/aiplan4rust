@@ -78,20 +78,8 @@ pub fn check_declared_symbol_signatures(
                     no_error &= false;
                     let entry = context.syntax_tree().get_node(usage.node_id()).unwrap();
                     let name = context.interner().try_resolve_ident(symbol.ident())?;
-                    let diagnostic_kind = match declaration.symbol_kind() {
-                        SymbolKind::Predicate => DiagnosticKind::UnDefinedPredicate {
-                            symbol: name.to_string(),
-                        },
-                        SymbolKind::Function => DiagnosticKind::UnDefinedFunction {
-                            symbol: name.to_string()
-                        },
-                        SymbolKind::Task => DiagnosticKind::UnDefinedCompoundTask {
-                            symbol: name.to_string()
-                        },
-                        SymbolKind::Action => DiagnosticKind::UnDefinedPrimitiveTask {
-                            symbol: name.to_string()
-                        },
-                        _ => unreachable!(),
+                    let diagnostic_kind = DiagnosticKind::UnDefinedSymbol {
+                        symbol: declaration.symbol().clone(),
                     };
 
                     let error = Diagnostic::new(

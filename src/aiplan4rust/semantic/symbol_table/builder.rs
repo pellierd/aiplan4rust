@@ -359,7 +359,7 @@ impl SymbolTableBuilder {
 
         // Extract the symbol reference from the AST node ID.
         // This retrieves symbol metadata such as the identifier name and kind.
-        let symbol_ref = ast.syntax_tree().try_symbol_ref(node_ref.id())?;
+        let symbol_ref = ast.syntax_tree().try_symbol(node_ref.id())?;
 
         // Obtain the symbol's identifier (name) from the symbol reference.
         let ident = symbol_ref.ident();
@@ -461,10 +461,10 @@ impl SymbolTableBuilder {
             // Get a reference to the first child node
             let first_node_ref = ast.syntax_tree().try_node_ref(first_child_id)?;
             // Extract the symbol reference from the first child node
-            ast.syntax_tree().try_symbol_ref(first_node_ref.id())?
+            ast.syntax_tree().try_symbol(first_node_ref.id())?
         } else {
             // For other kinds, get the symbol reference directly from this node
-            ast.syntax_tree().try_symbol_ref(node_ref.id())?
+            ast.syntax_tree().try_symbol(node_ref.id())?
         };
 
         // Extract the identifier (name) of the symbol
@@ -1363,7 +1363,7 @@ impl SymbolTableBuilder {
 
         match elt.node().kind() {
             AstKind::Constant | AstKind::Variable => {
-                let symbol_ref = syntax_tree.try_symbol_ref(elt.id())?;
+                let symbol_ref = syntax_tree.try_symbol(elt.id())?;
                 let name = symbol_ref.ident();
 
                 // Create a TypedSymbol with extracted name and associated types
@@ -1418,7 +1418,7 @@ impl SymbolTableBuilder {
 
             // Expect each child to be of kind PrimitiveType
             if ty_ref.node().kind() == AstKind::PrimitiveType {
-                let symbol_ref = arena.try_symbol_ref(ty_ref.id())?; // Get the symbol associated with this type
+                let symbol_ref = arena.try_symbol(ty_ref.id())?; // Get the symbol associated with this type
                 let name = symbol_ref.ident();
                 super_types.add_type(name);
             } else {

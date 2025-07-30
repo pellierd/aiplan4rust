@@ -15,7 +15,7 @@
 //! for name rewriting or alpha-renaming in transformations.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
+use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -53,7 +53,7 @@ use std::fmt;
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct Usage {
     /// Reference to the symbol being used.
-    symbol_ref: SymbolRef,
+    symbol: Symbol,
 
     /// The scope where the symbol is used (e.g., function, block).
     scope: Scope,
@@ -73,7 +73,7 @@ impl Usage {
     ///
     /// # Parameters
     ///
-    /// - `symbol_ref`: A reference to the symbol being used.
+    /// - `symbol`: A reference to the symbol being used.
     /// - `scope`: The lexical or logical scope in which the usage occurs.
     /// - `source`: The origin of the usage (e.g., domain or problem file).
     /// - `span`: The span in source code where the symbol is used.
@@ -83,14 +83,14 @@ impl Usage {
     ///
     /// A new `Usage` struct.
     pub fn new(
-        symbol_ref: SymbolRef,
+        symbol: Symbol,
         scope: Scope,
         source: SymbolOrigin,
         span: Span,
         ast: NodeId,
     ) -> Self {
         Usage {
-            symbol_ref,
+            symbol,
             scope,
             origin: source,
             span,
@@ -98,19 +98,19 @@ impl Usage {
         }
     }
 
-    /// Returns a reference to the underlying `SymbolRef`.
-    pub fn symbol_ref(&self) -> &SymbolRef {
-        &self.symbol_ref
+    /// Returns a reference to the underlying `Symbol`.
+    pub fn symbol(&self) -> &Symbol {
+        &self.symbol
     }
 
     /// Returns the identifier of the referenced symbol.
     pub fn symbol_ident(&self) -> Ident {
-        self.symbol_ref.ident()
+        self.symbol.ident()
     }
 
     /// Returns the kind of the referenced symbol.
     pub fn symbol_kind(&self) -> SymbolKind {
-        self.symbol_ref.kind()
+        self.symbol.kind()
     }
 
     /// Returns a reference to the lexical scope of the usage.
@@ -142,7 +142,7 @@ impl Usage {
     /// - `map`: A mapping from old identifiers to new ones (`HashMap<Ident, Ident>`).
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
-            self.symbol_ref.set_ident(new_ident.clone());
+            self.symbol.set_ident(new_ident.clone());
         }
     }
 }

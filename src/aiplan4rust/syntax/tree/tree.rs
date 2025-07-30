@@ -25,7 +25,7 @@ use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::core::arena::node_ref::NodeRefMut;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::semantic::symbol::SymbolRef;
+use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -259,16 +259,16 @@ where
         Ok(self.arena.try_node_ref_mut(id)?)
     }
 
-    /// Attempts to extract a [`SymbolRef`] from the node with the given ID.
+    /// Attempts to extract a [`Symbol`] from the node with the given ID.
     ///
     /// # Arguments
     /// * `id` - Node ID to retrieve a symbol from.
     ///
     /// # Returns
     /// `Ok(SymbolRef)` or [`SyntaxTreeError`] if the node is invalid or has no symbol.
-    pub fn try_symbol_ref(&self, id: NodeId) -> Result<SymbolRef, SyntaxTreeError> {
+    pub fn try_symbol(&self, id: NodeId) -> Result<Symbol, SyntaxTreeError> {
         let node = self.try_node(id)?;
-        Ok(node.try_symbol_ref()?)
+        Ok(node.try_symbol()?)
     }
 
     /// Returns the number of nodes in the tree.

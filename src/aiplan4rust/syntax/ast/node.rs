@@ -18,7 +18,7 @@
 //! - Used in semantic analysis and symbol resolution.
 //!
 //! # Errors
-//! Methods like [`AstNode::try_requirement`] and [`AstNode::as_symbol_ref`] may return
+//! Methods like [`AstNode::try_requirement`] and [`AstNode::as_symbol`] may return
 //! [`AstError`] or [`SyntaxTreeError`] when semantic constraints are violated.
 
 use std::collections::HashMap;
@@ -29,7 +29,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
-use crate::aiplan4rust::semantic::symbol::{SymbolKind, SymbolRef};
+use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
 use crate::aiplan4rust::syntax::Span;
@@ -242,10 +242,10 @@ impl SyntaxNode for AstNode {
     /// such as identifiers (e.g. predicates, types, tasks).
     ///
     /// # Returns
-    /// - `Ok(Some(SymbolRef))` if the node's kind maps to a symbol kind and has an associated identifier.
+    /// - `Ok(Some(Symbol))` if the node's kind maps to a symbol kind and has an associated identifier.
     /// - `Ok(None)` if the node kind is not symbol-bearing.
     /// - `Err(SyntaxTreeError)` if the node is malformed or missing an expected identifier.
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, SyntaxTreeError> {
+    fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError> {
         let symbol_kind = match self.kind() {
             AstKind::DomainName => SymbolKind::DomainName,
             AstKind::PrimitiveType => SymbolKind::PrimitiveType,
@@ -263,7 +263,7 @@ impl SyntaxNode for AstNode {
         };
 
         let ident = self.try_ident()?;
-        Ok(Some(SymbolRef::new(ident, symbol_kind)))
+        Ok(Some(Symbol::new(ident, symbol_kind)))
     }
 
     /// Replaces the identifier of this node with a remapped value, if applicable.

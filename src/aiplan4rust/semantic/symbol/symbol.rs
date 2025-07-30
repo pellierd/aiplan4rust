@@ -9,6 +9,7 @@
 //! The struct is immutable (except when explicitly modified via setters), hashable,
 //! and suitable for use as a key in maps or sets.
 
+use std::collections::HashMap;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::lang::Ident;
 use std::fmt;
@@ -76,6 +77,30 @@ impl Symbol {
     /// * `kind` — The new symbol kind to assign.
     pub fn set_kind(&mut self, kind: SymbolKind) {
         self.kind = kind;
+    }
+
+    /// Remaps the symbol's identifier based on the provided mapping.
+    ///
+    /// If the current identifier exists as a key in the `map`, it will be replaced
+    /// by the corresponding mapped identifier. Otherwise, it remains unchanged.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A reference to a `HashMap` that maps old `Ident` values to new `Ident` values.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let mut symbol = Symbol { ident: old_ident, kind: some_kind };
+    /// let mut mapping = HashMap::new();
+    /// mapping.insert(old_ident, new_ident);
+    /// symbol.remap_idents(&mapping);
+    /// ```
+    ///
+    /// After calling this method, `symbol.ident` will be updated to `new_ident` if
+    /// `old_ident` was present in the mapping.
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        self.ident().remap_idents(map);
     }
 }
 

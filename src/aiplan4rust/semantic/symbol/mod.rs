@@ -46,4 +46,4 @@ pub use entry::SymbolEntry;
 pub use kind::Kind as SymbolKind;
 pub use usage::Usage;
 pub use origin::Origin as SymbolOrigin;
-pub use symbol::Symbol as SymbolRef;
+pub use symbol::Symbol;

@@ -36,7 +36,7 @@ use ordered_float::OrderedFloat;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
-use crate::aiplan4rust::semantic::symbol::SymbolRef;
+use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
@@ -187,9 +187,9 @@ pub trait SyntaxNode: ArenaNode + Display {
     ///
     /// # Returns
     ///
-    /// A `Result<Option<SymbolRef>, SyntaxTreeError>` containing the symbol reference
+    /// A `Result<Option<Symbol>, SyntaxTreeError>` containing the symbol reference
     /// if it exists, or an error if the extraction failed.
-    fn as_symbol_ref(&self) -> Result<Option<SymbolRef>, SyntaxTreeError>;
+    fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError>;
 
     /// Attempts to extract an identifier from the syntax’s content.
     ///
@@ -251,14 +251,14 @@ pub trait SyntaxNode: ArenaNode + Display {
         self.content().try_optimization()
     }
 
-    /// Attempts to extract a symbol reference from the syntax’s content.
+    /// Attempts to extract a symbol  from the syntax’s content.
     ///
     /// # Returns
     ///
-    /// A `Result<SymbolRef, SyntaxTreeError>` containing the symbol reference if successful,
-    /// or an error if extraction failed or no symbol reference is present.
-    fn try_symbol_ref(&self) -> Result<SymbolRef, SyntaxTreeError> {
-        self.as_symbol_ref()?.ok_or_else(|| SyntaxTreeError::not_a_symbol_ref())
+    /// A `Result<Symbol, SyntaxTreeError>` containing the symbol if successful,
+    /// or an error if extraction failed or no symbol is present.
+    fn try_symbol(&self) -> Result<Symbol, SyntaxTreeError> {
+        self.as_symbol()?.ok_or_else(|| SyntaxTreeError::not_a_symbol_ref())
     }
 
     /// Applies identifier remapping to the content of the syntax using the provided map.

@@ -150,7 +150,7 @@ impl<'a> Renderer<'a> {
                 }
             }
 
-            if let Some(suggestion) = kind.suggestion() {
+            if let Some(suggestion) = kind.suggestion(Some(interner)) {
                 if color {
                     output.push_str(&format!(
                         "{} {}\n",

@@ -47,7 +47,7 @@
 
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::semantic::symbol::{SymbolRef, SymbolOrigin};
+use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -94,7 +94,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Declaration {
     /// Reference to the symbol declared.
-    symbol: SymbolRef,
+    symbol: Symbol,
 
     /// The scope of the declaration.
     scope: Scope,
@@ -154,7 +154,7 @@ impl Declaration {
     /// );
     /// ```
     pub fn new(
-        symbol_ref: SymbolRef,
+        symbol: Symbol,
         scope: Scope,
         origin: SymbolOrigin,
         types: Option<Type>,
@@ -164,7 +164,7 @@ impl Declaration {
         imported_scope: Option<Scope>,
     ) -> Self {
         Declaration {
-            symbol: symbol_ref,
+            symbol,
             scope,
             origin,
             types,
@@ -177,7 +177,7 @@ impl Declaration {
 
 
     /// Returns a reference to the [`SymbolRef`] associated with this usage.
-    pub fn symbol_ref(&self) -> &SymbolRef {
+    pub fn symbol(&self) -> &Symbol {
         &self.symbol
     }
 
