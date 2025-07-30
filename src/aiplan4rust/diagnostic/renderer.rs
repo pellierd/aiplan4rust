@@ -3,17 +3,20 @@ use crate::aiplan4rust::diagnostic::Severity;
 
 use std::io::{self, Write};
 use colored::*;
+use crate::aiplan4rust::interner::StringInterner;
 
 pub struct Renderer<'a> {
     diagnostic_manager: &'a DiagnosticManager,
+    interner: &'a StringInterner,
     output: Box<dyn Write>,
 }
 
 impl<'a> Renderer<'a> {
 
-    pub fn new(diagnostic_manager: &'a DiagnosticManager) -> Self {
+    pub fn new(diagnostic_manager: &'a DiagnosticManager, interner: &'a StringInterner) -> Self {
         Renderer {
             diagnostic_manager,
+            interner,
             output: Box::new(io::stdout()),
         }
     }
@@ -29,11 +32,12 @@ impl<'a> Renderer<'a> {
     pub fn display(&mut self) {
         // On prend une référence mutable au writer en dehors de l'appel
         let writer = &mut self.output;
-        Renderer::write_to(self.diagnostic_manager, writer, true).expect("Failed to write diagnostics to output");
+        Renderer::write_to(self.diagnostic_manager, self.interner, writer, true).expect("Failed to write diagnostics to output");
     }
 
     pub fn write_to<W: Write>(
         diagnostic_manager: &DiagnosticManager,
+        interner: &StringInterner,
         writer: &mut W,
         color: bool,
     ) -> io::Result<()> {
@@ -63,7 +67,7 @@ impl<'a> Renderer<'a> {
                 _ => format!("{}", kind.code()),
             };
 
-            output.push_str(&format!("{}: {}\n", severity_str, kind.message()));
+            output.push_str(&format!("{}: {}\n", severity_str, kind.message(Some(interner))));
 
             // Flèche droite --> en bleu clair ou sans couleur
             let arrow = if color {

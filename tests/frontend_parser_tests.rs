@@ -81,7 +81,7 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
             Ok(builder_result) => {
                 // Write diagnostics to file
                 let mut buffer = Vec::new();
-                Renderer::write_to(builder_result.diagnostic_manager(), &mut buffer, false)
+                Renderer::write_to(builder_result.diagnostic_manager(), builder_result.interner(), &mut buffer, false)
                     .expect("Failed to write diagnostics");
                 diag_file.write_all(&buffer).expect("Failed to write to diag file");
 

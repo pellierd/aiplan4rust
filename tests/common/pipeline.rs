@@ -63,6 +63,7 @@ pub fn parse_and_check_ast(
                     );
                     write_diagnostics_to_file(
                         parser_result.diagnostic_manager(),
+                        parser_result.interner(),
                         file_path,
                         "Raw AST validation error",
                     );
@@ -74,6 +75,7 @@ pub fn parse_and_check_ast(
                 eprintln!("Parsing failed (no AST) for file {}", file_path.display());
                 write_diagnostics_to_file(
                     parser_result.diagnostic_manager(),
+                    parser_result.interner(),
                     file_path,
                     "Parsing failed (no AST)",
                 );
@@ -143,6 +145,7 @@ pub fn normalize_and_check_ast(
                     eprintln!("{}", normalized_ast.to_string_with_interner());
                     write_diagnostics_to_file(
                         normalizer_result.diagnostic_manager(),
+                        normalizer_result.interner(),
                         file_path,
                         "Normalized AST validation error",
                     );
@@ -155,6 +158,7 @@ pub fn normalize_and_check_ast(
                 } else {
                     write_diagnostics_to_file(
                         normalizer_result.diagnostic_manager(),
+                        normalizer_result.interner(),
                         file_path,
                         "Normalization success",
                     );
@@ -174,6 +178,7 @@ pub fn normalize_and_check_ast(
                 );
                 write_diagnostics_to_file(
                     normalizer_result.diagnostic_manager(),
+                    normalizer_result.interner(),
                     file_path,
                     "Normalized AST validation failed (no AST)",
                 );
@@ -218,6 +223,7 @@ pub fn analyze(
 
             write_diagnostics_to_file(
                 diag_mgr,
+                analyzer_result.interner(),
                 file_path,
                 "Analyzer tests: Semantic analysis result",
             );
@@ -412,6 +418,7 @@ pub fn link(
     // Always write diagnostics
     write_linking_diag_to_file(
         &linker_result.diagnostic_manager(),
+        linker_result.interner(),
         domain_path,
         problem_path,
         "Linking tests",

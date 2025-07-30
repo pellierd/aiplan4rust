@@ -44,6 +44,7 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
                     // Parsing succeeded with AST and no errors
                     write_diagnostics_to_file(
                         &diag_mgr,
+                        parser_result.interner(),
                         &file_path,
                         "Parser Tests: parsing success",
                     );
@@ -52,6 +53,7 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
                     eprintln!("Parsing produced no AST or had errors for file {}", file_path.display());
                     write_diagnostics_to_file(
                         &diag_mgr,
+                        parser_result.interner(),
                         &file_path,
                         "Parser Tests: parsing incomplete or errors found",
                     );

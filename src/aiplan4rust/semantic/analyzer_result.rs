@@ -153,47 +153,44 @@ impl AnalyzerResult {
         std::mem::take(&mut self.diagnostic_manager)
     }
 
-    /// Returns a reference to the `StringInterner` associated with the semantic context if present,
-    /// otherwise returns a reference to the local interner.
+    /// Returns a reference to the `StringInterner` used for symbol resolution.
     ///
-    /// # Returns
-    ///
-    /// An `Option` containing a shared reference to the [`StringInterner`], or `None` if neither is available.
-    pub fn interner(&self) -> Option<&StringInterner> {
+    /// This function panics if neither the semantic context nor the local interner is present.
+    pub fn interner(&self) -> &StringInterner {
         if let Some(context) = &self.context {
-            Some(context.interner())
+            context.interner()
         } else {
-            self.interner.as_ref()
+            self.interner
+                .as_ref()
+                .expect("Expected a StringInterner to be present")
         }
     }
 
-    /// Returns a mutable reference to the `StringInterner` associated with the semantic context if present,
-    /// otherwise returns a mutable reference to the local interner.
+    /// Returns a mutable reference to the `StringInterner` used for symbol resolution.
     ///
-    /// # Returns
-    ///
-    /// An `Option` containing a mutable reference to the [`StringInterner`], or `None` if neither is available.
-    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+    /// This function panics if neither the semantic context nor the local interner is present.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
         if let Some(context) = &mut self.context {
-            Some(context.interner_mut())
+            context.interner_mut()
         } else {
-            self.interner.as_mut()
+            self.interner
+                .as_mut()
+                .expect("Expected a mutable StringInterner to be present")
         }
     }
 
-    /// Consumes and returns the `StringInterner` associated with the semantic context if present,
-    /// otherwise consumes and returns the local interner.
+    /// Consumes and returns the `StringInterner` used for symbol resolution.
     ///
-    /// This leaves `None` in place of the interner in either location.
+    /// This function panics if neither the semantic context nor the local interner is present.
     ///
-    /// # Returns
-    ///
-    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
-    pub fn take_interner(&mut self) -> Option<StringInterner> {
+    /// After calling this, the corresponding interner field becomes `None`.
+    pub fn take_interner(&mut self) -> StringInterner {
         if let Some(context) = &mut self.context {
-            Some(std::mem::take(context.interner_mut()))
+            std::mem::take(context.interner_mut())
         } else {
-            self.interner.take()
+            self.interner
+                .take()
+                .expect("Expected a StringInterner to take")
         }
     }
 

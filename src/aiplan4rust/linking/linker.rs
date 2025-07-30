@@ -170,8 +170,8 @@ impl Linker {
                 Ok(LinkerResult::success(semantic_context, take(&mut self.diagnostic_manager)))
             }
             _ => {
-                let domain_interner = domain.take_interner().unwrap_or_else(StringInterner::new);
-                let problem_interner = problem.take_interner().unwrap_or_else(StringInterner::new);
+                let domain_interner = domain.take_interner();
+                let problem_interner = problem.take_interner();
                 let mut result = InternerMergeResult::from_domain_and_problem(&domain_interner, &problem_interner);
                 let global_interner = result.take_interner();
                 Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner))

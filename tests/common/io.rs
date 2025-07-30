@@ -193,6 +193,7 @@ pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
 /// Panics if the `.diag` file cannot be created or written.
 pub fn write_diagnostics_to_file(
     diagnostic_manager: &DiagnosticManager,
+    interner: &StringInterner,
     file_path: &Path,
     context: &str,
 ) {
@@ -220,7 +221,7 @@ pub fn write_diagnostics_to_file(
         .unwrap_or_else(|_| panic!("Failed to write header to diag file: {}", diag_path.display()));
 
     let mut buffer = Vec::new();
-    Renderer::write_to(diagnostic_manager, &mut buffer, false)
+    Renderer::write_to(diagnostic_manager, interner, &mut buffer, false)
         .expect("Failed to write diagnostics");
 
     diag_file
@@ -437,8 +438,54 @@ pub fn write_symbol_table_to_file(
         .unwrap_or_else(|_| panic!("Failed to write symbol table to file: {}", symtab_path.display()));
 }
 
+/// Writes linking diagnostics to a `.linking.diag` file next to the given problem file.
+///
+/// This function collects diagnostics from the [`DiagnosticManager`] and writes them to a
+/// human-readable text file, including metadata such as file paths, context string, and
+/// current UTC timestamp. The output file is named after the problem file with the suffix
+/// `.linking.diag`.
+///
+/// # Parameters
+///
+/// - `diagnostic_manager`: A reference to the [`DiagnosticManager`] holding the diagnostics to output.
+/// - `interner`: A reference to the [`StringInterner`] used to resolve symbol identifiers for readable output.
+/// - `domain_path`: Path to the domain PDDL file (for display purposes only).
+/// - `problem_path`: Path to the problem PDDL file. The output file will be written in the same directory,
+///   using the problem file's stem followed by `.linking.diag`.
+/// - `context`: A user-defined label or description for the current operation or invocation context.
+///
+/// # Panics
+///
+/// This function will panic if:
+///
+/// - The diagnostic output file cannot be created.
+/// - Writing the header or diagnostics to the file fails.
+///
+/// # Output
+///
+/// A file named `<problem_stem>.linking.diag` will be created in the same directory as the
+/// problem file. This file contains:
+/// - A structured header (with context, file paths, and timestamp),
+/// - Followed by the rendered diagnostics.
+///
+/// # Example
+///
+/// ```no_run
+/// write_linking_diag_to_file(
+///     &diagnostic_manager,
+///     &interner,
+///     Path::new("domain.pddl"),
+///     Path::new("problem.pddl"),
+///     "Linking phase",
+/// );
+/// // Creates a file like `problem.linking.diag` with diagnostic output.
+/// ```
+///
+/// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
+/// [`StringInterner`]: crate::symbols::StringInterner
 pub fn write_linking_diag_to_file(
     diagnostic_manager: &DiagnosticManager,
+    interner: &StringInterner,
     domain_path: &Path,
     problem_path: &Path,
     context: &str,
@@ -481,7 +528,7 @@ pub fn write_linking_diag_to_file(
 
     // Convert diagnostics to a string using the Renderer
     let mut buffer = Vec::new();
-    Renderer::write_to(diagnostic_manager, &mut buffer, false)
+    Renderer::write_to(diagnostic_manager, interner, &mut buffer, false)
         .expect("Failed to write diagnostics");
 
     diag_file

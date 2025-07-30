@@ -7,6 +7,7 @@ use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use std::fmt;
+use crate::aiplan4rust::interner::StringInterner;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
 #[derive(Clone, Debug, PartialEq)]
@@ -150,7 +151,7 @@ impl Kind {
     }
 
     // Centraliser le message d'erreur directement dans l'enum
-    pub fn message(&self) -> String {
+    pub fn message(&self, interner: Option<&StringInterner>) -> String {
         match self {
             Kind::UnexpectedToken { token, .. } => {
                 format!("Unexpected token '{}'.", token)
@@ -594,7 +595,7 @@ impl Kind {
     }
 }
 
-impl fmt::Display for Kind {
+/*impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = self.code();
         let message = self.message();
@@ -613,4 +614,4 @@ impl fmt::Display for Kind {
             None => write!(f, "[{}] ({}) {}", code, severity, message),
         }
     }
-}
+}*/

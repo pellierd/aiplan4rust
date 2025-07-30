@@ -146,53 +146,43 @@ impl BuilderResult {
 
     /// Returns a reference to the `StringInterner` used during IR construction.
     ///
-    /// If the [`LiftedProblem`] is present, this returns a reference to its internal interner.
-    /// Otherwise, it falls back to the local interner stored in the [`BuilderResult`].
-    ///
-    /// # Returns
-    ///
-    /// `Some(&StringInterner)` if an interner is available, or `None` if both the IR and local interner are absent.
-    pub fn interner(&self) -> Option<&StringInterner> {
+    /// Panics if neither the `LiftedProblem` nor the local interner is present.
+    pub fn interner(&self) -> &StringInterner {
         if let Some(lifted_problem) = &self.lifted_problem {
-            Some(lifted_problem.interner())
+            lifted_problem.interner()
         } else {
-            self.interner.as_ref()
+            self.interner
+                .as_ref()
+                .expect("Expected an interner to be present in BuilderResult")
         }
     }
 
     /// Returns a mutable reference to the `StringInterner` used during IR construction.
     ///
-    /// If the [`LiftedProblem`] is present, this returns a mutable reference to its internal interner.
-    /// Otherwise, it returns a mutable reference to the local interner stored in the [`BuilderResult`].
-    ///
-    /// # Returns
-    ///
-    /// `Some(&mut StringInterner)` if an interner is available, or `None` if both the IR and local interner are absent.
-    pub fn interner_mut(&mut self) -> Option<&mut StringInterner> {
+    /// Panics if neither the `LiftedProblem` nor the local interner is present.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
         if let Some(lifted_problem) = &mut self.lifted_problem {
-            Some(lifted_problem.interner_mut())
+            lifted_problem.interner_mut()
         } else {
-            self.interner.as_mut()
+            self.interner
+                .as_mut()
+                .expect("Expected a mutable interner to be present in BuilderResult")
         }
     }
 
     /// Consumes and returns the `StringInterner` used during IR construction.
     ///
-    /// If the [`LiftedProblem`] is present, the interner is taken from it using [`std::mem::take`].
-    /// Otherwise, it is taken from the local interner field of the [`BuilderResult`].
-    ///
-    /// This operation sets the corresponding interner field to `None`.
-    ///
-    /// # Returns
-    ///
-    /// An `Option<StringInterner>` containing the taken interner, or `None` if neither is present.
-    pub fn take_interner(&mut self) -> Option<StringInterner> {
+    /// Panics if neither the `LiftedProblem` nor the local interner is present.
+    pub fn take_interner(&mut self) -> StringInterner {
         if let Some(lifted_problem) = &mut self.lifted_problem {
-            Some(std::mem::take(lifted_problem.interner_mut()))
+            std::mem::take(lifted_problem.interner_mut())
         } else {
-            self.interner.take()
+            self.interner
+                .take()
+                .expect("Expected an interner to take from BuilderResult")
         }
     }
+
     /// Returns `true` if the LIR was successfully built.
     pub fn is_success(&self) -> bool {
         self.lifted_problem.is_some()
