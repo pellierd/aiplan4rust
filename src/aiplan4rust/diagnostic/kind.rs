@@ -1,52 +1,119 @@
 use std::collections::HashMap;
 use std::fmt;
+
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::lang::{Ident, Type};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
-
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
-// Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Kind {
+    /// Errors related to token parsing from the lexer and lalrpop parser.
+    /// The string values are preserved because these errors originate from raw tokens.
+
+    /// Unexpected token encountered during parsing.
+    /// `token` is the actual token found, `expected` lists the tokens that were expected.
     UnexpectedToken {
         token: String,
         expected: Vec<String>,
     },
+
+    /// Unexpected end of file encountered during parsing.
+    /// `expected` lists the tokens that were expected before EOF.
     UnexpectedEof {
         expected: Vec<String>,
     },
+
+    /// Invalid token detected by the lexer or parser.
     InvalidToken,
+
+    /// Extra token found where none was expected.
+    /// `token` is the unexpected token encountered.
     ExtraToken {
         token: String,
     },
+
+    /// Error indicating that a symbol is used with a signature that does not match any declaration.
+    ///
+    /// This occurs when the symbol's usage signature (types of arguments and return type)
+    /// is incompatible or undefined compared to its declaration.
+    ///
+    /// # Note
+    /// It would be desirable to enhance this error by identifying the first argument
+    /// in the signature that causes the mismatch, to provide more precise diagnostics.
     InvalidSymbolSignature {
         declaration: Declaration,
         usage: Usage,
     },
+
+    /// Represents an error where two types in an expression do not match as expected.
+    ///
+    /// This error is raised when the expression involves incompatible types that
+    /// cannot be reconciled, indicating a type mismatch.
     TypeMismatchInExpression {
         ty1: Type,
         ty2: Type,
     },
+
+    /// Represents an error where two types used in a numeric expression are incompatible.
+    ///
+    /// This error occurs when an operation expecting numeric types receives types
+    /// that are not valid for numeric computations (e.g., mixing incompatible or non-numeric types).
     InvalidTypesInNumericExpression {
         ty1: Type,
         ty2: Type,
     },
+
+    /// Indicates that an expression node uses a feature or construct that violates
+    /// the PDDL requirements currently active in the context.
+    ///
+    /// # Fields
+    ///
+    /// - `node_kind`: The kind of AST node (expression) that triggered the violation.
+    /// - `required`: A list of `Requirement`s that are needed for this node kind to be valid.
+    ///
+    /// This warning helps identify when a construct is used without the necessary
+    /// PDDL requirements enabled, e.g., using numeric fluents without declaring
+    /// `:numeric-fluents` in the domain requirements.
     RequirementViolation {
         node_kind: AstKind,
         required: Vec<Requirement>,
     },
+    /// Represents an error where a symbol is declared more than once within the same scope.
+    ///
+    /// # Fields
+    ///
+    /// - `symbol`: The duplicated symbol causing the conflict.
+    /// - `original_declaration`: The first declaration of the symbol.
+    /// - `conflicting_declaration`: The second (conflicting) declaration of the symbol.
+    /// - `scope`: The AST node kind that defines the scope in which the duplication occurs
+    ///   (e.g., predicate, action, forall expression).
+    ///
+    /// This error indicates that a symbol name has been declared multiple times in the same scope,
+    /// which is not allowed and may lead to ambiguous or erroneous behavior.
     DuplicatedSymbolDeclarationInScope {
         symbol: Symbol,
-        declaration1: Declaration,
-        declaration2: Declaration,
+        original_declaration: Declaration,
+        conflicting_declaration: Declaration,
         scope: AstKind,
     },
-    CyclicTaskOrdering, // can be more explicit
+
+    /// Represents an error where task ordering constraints form a cycle,
+    /// making the ordering invalid or unsatisfiable.
+    ///
+    /// This error indicates that there is a loop in the dependency graph
+    /// of tasks or ordering constraints, which prevents proper scheduling.
+    ///
+    /// # Note
+    /// It would be beneficial to enhance this error by computing and reporting
+    /// the actual cycle detected. Providing the cycle details would help users
+    /// to understand and fix the problem more easily.
+    CyclicTaskOrdering,
 
     /// Error indicating the use of a symbol that has not been declared in the current scope.
     ///
@@ -143,6 +210,7 @@ pub enum Kind {
     UnusedSymbol {
         declaration: Declaration,
     },
+
     DomainProblemNameMismatch {
         domain_name: String,
         problem_name: String,
@@ -422,7 +490,7 @@ impl Kind {
                     format_requirements_list(&required)
                 ))
             }
-            Kind::DuplicatedSymbolDeclarationInScope { symbol, declaration1, declaration2, scope } => {
+            Kind::DuplicatedSymbolDeclarationInScope { symbol, original_declaration: declaration1, conflicting_declaration: declaration2, scope } => {
                 let symbol_name = symbol_to_string(symbol, interner);
                 Some(format!(
                     "The symbol '{}' is declared twice in the '{}' scope: once as a '{}' and again as a '{}'. \
@@ -638,8 +706,8 @@ impl Kind {
             }
 
             Kind::DuplicatedSymbolDeclarationInScope {
-                declaration1,
-                declaration2,
+                original_declaration: declaration1,
+                conflicting_declaration: declaration2,
                 ..
             } => {
                 declaration1.remap_idents(map);

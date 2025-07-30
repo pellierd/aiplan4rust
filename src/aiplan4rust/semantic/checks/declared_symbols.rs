@@ -112,8 +112,8 @@ fn check_symbol_declarations(
                     let error = Diagnostic::new(
                         DiagnosticKind::DuplicatedSymbolDeclarationInScope {
                             symbol: Symbol::new(symbol.ident(), declaration.symbol_kind()),
-                            declaration1: previous_declaration.clone(),
-                            declaration2: declaration.clone(),
+                            original_declaration: previous_declaration.clone(),
+                            conflicting_declaration: declaration.clone(),
                             scope: scope_node.kind(),
                         },
                         Provider::Analyzer,
