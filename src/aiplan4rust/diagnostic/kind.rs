@@ -33,11 +33,13 @@ pub enum Kind {
         ty2: Type,
     },
 
-    // TO CHECK
+
     InvalidTypesInNumericExpression {
-        ty1: Vec<String>,
-        ty2: Vec<String>,
+        ty1: Type,
+        ty2: Type,
     },
+
+    // TO CHECK
     RequirementViolation {
         node_kind: AstKind,
         required: Vec<Requirement>,
@@ -166,12 +168,16 @@ impl Kind {
                     ty1_str, ty2_str
                 )
             }
+            Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
+                let ty1_str = type_to_string(ty1, interner);
+                let ty2_str = type_to_string(ty2, interner);
+                format!(
+                    "Invalid operand types for numeric expression: '{}' and '{}'. Operands must be numeric types.",
+                    ty1_str, ty2_str
+                )
+            }
 
             // TO CHECK
-
-            Kind::InvalidTypesInNumericExpression { .. } => {
-                "Invalid operand types in numeric expr.".to_string()
-            }
             Kind::RequirementViolation { node_kind, .. } => {
                 format!("'{}' expr is not allowed in the current context.", node_kind)
             }
@@ -308,13 +314,19 @@ impl Kind {
                     ty2_str
                 ))
             }
-            // TO CHECK
+
             Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
+                let ty1_str = type_to_string(ty1, interner);
+                let ty2_str = type_to_string(ty2, interner);
+
                 Some(format!(
-                    "Numeric expr require operands of type_checker 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
-                    Self::format_types(ty1), Self::format_types(ty2)
+                    "Numeric expressions require operands of type 'number', but found '{}' and '{}'. Ensure both operands are numeric types.",
+                    ty1_str,
+                    ty2_str
                 ))
             }
+
+            // TO CHECK
             Kind::RequirementViolation { node_kind, required } => {
                 Some(format!(
                     "The use of '{}' requires one of the following requirements: {}.",
@@ -529,7 +541,11 @@ impl Kind {
             Kind::UnDefinedSymbol { symbol } => {
                 symbol.remap_idents(map);
             }
-
+            Kind::TypeMismatchInExpression { ty1, ty2 }
+            | Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
+                ty1.remap_idents(map);
+                ty2.remap_idents(map);
+            }
 
             // TO CHECK
 
@@ -563,8 +579,6 @@ impl Kind {
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
             | Kind::ExtraToken { .. }
-            | Kind::TypeMismatchInExpression { .. }
-            | Kind::InvalidTypesInNumericExpression { .. }
             | Kind::RequirementViolation { .. }
             | Kind::CyclicTaskOrderingError
             | Kind::DomainProblemNameMismatch { .. }

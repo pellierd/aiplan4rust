@@ -13,6 +13,7 @@
 //!
 //! Typical usage includes parsing, type_checker checking, and semantic analysis of syntax domain languages.
 
+use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::Ident;
@@ -216,6 +217,20 @@ impl Type {
     /// A slice of `Ident` representing the members of this `Type`.
     pub fn as_slice(&self) -> &[Ident] {
         &self.members
+    }
+
+    /// Remaps the identifiers of the `Type` based on the provided mapping.
+    ///
+    /// For each identifier in `members`, calls its own `remap_idents` method to
+    /// update the identifier according to the mapping.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A reference to a `HashMap` mapping old `Ident` values to new `Ident` values.
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        for ident in &mut self.members {
+            ident.remap_idents(map);
+        }
     }
 }
 

@@ -290,22 +290,8 @@ fn report_invalid_types_in_numeric_expression(
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
-
-    // Shoudl be removed when symbol table refactoring will be done
-    let interner = context.interner(); // Ou ajuster selon ton accès à l'interner
-
-    let ty1: Vec<String> = ty1
-        .iter()
-        .map(|id| interner.try_resolve_ident(*id).unwrap_or("<invalid>").to_string())
-        .collect();
-
-    let ty2: Vec<String> = ty2
-        .iter()
-        .map(|id| interner.try_resolve_ident(*id).unwrap_or("<invalid>").to_string())
-        .collect();
-
     let error = Diagnostic::new(
-        DiagnosticKind::InvalidTypesInNumericExpression { ty1, ty2 },
+        DiagnosticKind::InvalidTypesInNumericExpression { ty1: ty1.clone(), ty2: ty2.clone() },
         source,
         context.source_name().to_string(),
         span,
