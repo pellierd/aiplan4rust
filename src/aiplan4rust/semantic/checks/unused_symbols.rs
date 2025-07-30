@@ -125,7 +125,7 @@ fn report_unused_symbol_warning(
 ) {
 
     let warning = Diagnostic::new(
-        DiagnosticKind::UnusedSymbolWarning {
+        DiagnosticKind::UnusedSymbol {
             declaration: declaration.clone(),
         },
         source,
@@ -285,7 +285,7 @@ fn check_pddl_builtin_symbol_declaration(
     };
 
     if declaration.symbol_kind() != expected_kind {
-        report_symbol_declared_as_keyword_error(
+        report_symbol_conflicts_with_keyword_error(
             declaration,
             expected_kind,
             requirements,
@@ -297,6 +297,7 @@ fn check_pddl_builtin_symbol_declaration(
     } else {
         report_symbol_declared_ambiguous_as_keyword_warning(
             declaration,
+            expected_kind,
             requirements,
             context.source_name(),
             source,
@@ -339,6 +340,7 @@ fn check_pddl_builtin_symbol_declaration(
 /// ```
 fn report_symbol_declared_ambiguous_as_keyword_warning(
     declaration: &Declaration,
+    expected_kind: SymbolKind,
     requirements: Vec<Requirement>,
     filename: &str,
     source: Provider,
@@ -346,8 +348,9 @@ fn report_symbol_declared_ambiguous_as_keyword_warning(
 ) {
     diagnostic_manager.add_diagnostic(
         Diagnostic::new(
-            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeywordWarning {
+            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeyword {
                 declaration: declaration.clone(),
+                expected_kind,
                 requirements,
             },
             source,
@@ -389,7 +392,7 @@ fn report_symbol_declared_ambiguous_as_keyword_warning(
 ///     &mut diagnostic_manager,
 /// );
 /// ```
-fn report_symbol_declared_as_keyword_error(
+fn report_symbol_conflicts_with_keyword_error(
     declaration: &Declaration,
     expected_kind: SymbolKind,
     requirements: Vec<Requirement>,
@@ -398,7 +401,7 @@ fn report_symbol_declared_as_keyword_error(
     diagnostic_manager: &mut DiagnosticManager,
 ) {
     diagnostic_manager.add_diagnostic(Diagnostic::new(
-        DiagnosticKind::SymbolDeclaredAsKeywordError {
+        DiagnosticKind::SymbolConflictsWithKeyword {
             declaration: declaration.clone(),
             expected_kind,
             requirements,

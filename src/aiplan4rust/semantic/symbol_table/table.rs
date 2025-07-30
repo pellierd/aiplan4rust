@@ -860,7 +860,7 @@ impl Table {
     /// Resolves a unique symbol of a specific kind assumed to be singular in the AST.
     ///
     /// This internal utility function is designed to resolve symbols that are expected
-    /// to appear only once per annotated syntax arena, such as `DomainName` or `ProblemName`.
+    /// to appear only once per AST, such as `DomainName` or `ProblemName`.
     /// It collects all symbols of the specified kind and returns:
     /// - The symbol if exactly one is found.
     /// - `None` if no symbol is found.

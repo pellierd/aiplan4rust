@@ -309,7 +309,7 @@ fn report_undeclared_symbol_error(
     diagnostic_manager: &mut DiagnosticManager,
 ) {
     let error = Diagnostic::new(
-        DiagnosticKind::UndeclaredSymbolError {
+        DiagnosticKind::UndeclaredSymbol {
             usage: usage.clone(),
         },
         source,

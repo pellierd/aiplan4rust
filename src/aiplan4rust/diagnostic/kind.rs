@@ -24,8 +24,9 @@ pub enum Kind {
     ExtraToken {
         token: String,
     },
-    UnDefinedSymbol {
-        symbol: Symbol,
+    InvalidSymbolSignature {
+        declaration: Declaration,
+        usage: Usage,
     },
     TypeMismatchInExpression {
         ty1: Type,
@@ -39,34 +40,119 @@ pub enum Kind {
         node_kind: AstKind,
         required: Vec<Requirement>,
     },
-
     DuplicatedSymbolDeclarationInScope {
         symbol: Symbol,
         declaration1: Declaration,
         declaration2: Declaration,
         scope: AstKind,
     },
-    // TO CHECK
-    CyclicTaskOrderingError,
-    UndeclaredSymbolError {
+    CyclicTaskOrdering, // can be more explicit
+
+    /// Error indicating the use of a symbol that has not been declared in the current scope.
+    ///
+    /// This error occurs when a symbol (such as a function, predicate, variable, or action)
+    /// is referenced before it has been introduced or declared. It helps catch typos,
+    /// missing declarations, or scoping issues.
+    ///
+    /// ### Fields:
+    /// - `usage`: Contains detailed information about the usage of the undeclared symbol,
+    ///    including its identifier, kind (e.g., function, predicate), and the context where it is used.
+    ///
+    /// ### Example:
+    /// ```pddl
+    /// (not (unknown_predicate)) ;; Error: 'unknown_predicate' is undeclared
+    /// ```
+    UndeclaredSymbol {
         usage: Usage,
     },
-    SymbolDeclaredAsKeywordError {
+
+    /// Error raised when a user-defined symbol conflicts with a reserved PDDL keyword,
+    /// depending on the active `:requirements`.
+    ///
+    /// Some identifiers in PDDL (like `object`, `number`, `?duration`, etc.) have a
+    /// special meaning when certain features are enabled. Declaring a symbol with such
+    /// an identifier leads to this error if the declaration does not match the expected usage.
+    ///
+    /// For example, declaring a new type named `object` is invalid when `:typing` is enabled,
+    /// since `object` is a built-in primitive type in that context.
+    ///
+    /// ### Fields:
+    /// - `declaration`: The user’s declaration that introduces the conflicting symbol.
+    /// - `expected_kind`: The `SymbolKind` that this identifier represents in PDDL when
+    ///   used as a keyword (e.g., `PrimitiveType`, `Function`, `Variable`, etc.).
+    /// - `requirements`: The list of `Requirement`s (PDDL features) that cause this identifier
+    ///   to be reserved. This helps the user understand under which conditions the conflict arises.
+    ///
+    /// ### Example:
+    /// ```pddl
+    /// (:types object) ;; Error: 'object' is reserved when :typing or :adl is required
+    /// ```
+    SymbolConflictsWithKeyword {
         declaration: Declaration,
         expected_kind: SymbolKind,
         requirements: Vec<Requirement>,
     },
-    SymbolDeclaredAmbiguouslyAsKeywordWarning {
+
+    /// Represents a warning when a symbol is declared in a way that ambiguously overlaps
+    /// with a reserved PDDL language keyword, but its kind matches the expected type.
+    ///
+    /// This situation typically occurs when a symbol uses a name reserved by the language,
+    /// but the symbol's kind aligns with what is expected for that name, given the current
+    /// domain requirements. While not a strict error, this usage may lead to confusion or
+    /// unintended behavior, especially if certain domain requirements are not enabled.
+    ///
+    /// # Fields
+    ///
+    /// - `declaration`: The `Declaration` of the symbol in question.
+    /// - `expected_kind`: The `SymbolKind` that the symbol is expected to have based on
+    ///   the reserved keyword semantics and domain requirements.
+    /// - `requirements`: A list of `Requirement`s indicating which PDDL features or
+    ///   domain requirements must be enabled for this usage to be considered valid.
+    ///
+    /// # Example
+    ///
+    /// If the symbol `?duration` is declared as a variable but the `DurativeActions`
+    /// requirement is not enabled, this warning might be triggered to indicate
+    /// potential ambiguity with the built-in keyword `duration`.
+    SymbolDeclaredAmbiguouslyAsKeyword {
         declaration: Declaration,
+        expected_kind: SymbolKind,
         requirements: Vec<Requirement>,
     },
-    UnusedSymbolWarning {
+
+    /// Represents a warning or error indicating that a symbol
+    /// declared in the code is never used.
+    ///
+    /// # Fields
+    ///
+    /// - `declaration`: The declaration of the symbol that has been
+    ///   detected as unused. This includes information such as the symbol's
+    ///   name, kind (e.g., variable, function), and its location.
+    ///
+    /// # Purpose
+    ///
+    /// This is useful for identifying dead code or declarations that
+    /// can be removed or need to be reviewed for correctness.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// // Suppose `declaration` is a symbol declared but never used:
+    /// let unused = Kind::UnusedSymbol { declaration };
+    /// ```
+    UnusedSymbol {
         declaration: Declaration,
     },
     DomainProblemNameMismatch {
         domain_name: String,
         problem_name: String,
     },
+    // TO CHECK
+
+
+
+
+
     WarningAmbiguousTypePredicateSymbol {
         symbol: String,
     },
@@ -106,17 +192,17 @@ impl Kind {
             // WARNING NORMALIZER
             Kind::DuplicateRequirementWarning { ..  } => "W2001".to_string(),
             // ERROR ANALYSER
-            Kind::UnDefinedSymbol { .. } => "E1001".to_string(),
+            Kind::InvalidSymbolSignature { .. } => "E1001".to_string(),
             Kind::TypeMismatchInExpression { .. } => "E1005".to_string(),
             Kind::InvalidTypesInNumericExpression { .. } => "E1006".to_string(),
             Kind::DuplicatedSymbolDeclarationInScope { .. } => "E1007".to_string(),
-            Kind::CyclicTaskOrderingError { .. } => "E1008".to_string(),
-            Kind::UndeclaredSymbolError { .. } => "E1009".to_string(),
-            Kind::SymbolDeclaredAsKeywordError { .. } => "E1010".to_string(),
+            Kind::CyclicTaskOrdering { .. } => "E1008".to_string(),
+            Kind::UndeclaredSymbol { .. } => "E1009".to_string(),
+            Kind::SymbolConflictsWithKeyword { .. } => "E1010".to_string(),
             Kind::CyclicTypeDeclarationError { .. } => "E1011".to_string(),
             // WARNINGS ANALYSER
-            Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning { .. } => "W1010".to_string(),
-            Kind::UnusedSymbolWarning { .. } => "W1011".to_string(),
+            Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => "W1010".to_string(),
+            Kind::UnusedSymbol { .. } => "W1011".to_string(),
             Kind::RequirementViolation { .. } => "W10012".to_string(),
             Kind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
@@ -147,14 +233,15 @@ impl Kind {
             Kind::ExtraToken { token } => {
                 format!("Unexpected extra token '{}'.", token)
             }
-            Kind::UnDefinedSymbol { symbol } => {
+            Kind::InvalidSymbolSignature { declaration, usage } => {
+                let symbol = declaration.symbol();
                 let name = symbol_to_string(symbol, interner);
                 match symbol.kind() {
-                    SymbolKind::Function => format!("Function '{}' is undefined", name),
-                    SymbolKind::Predicate => format!("Predicate '{}' is undefined", name),
-                    SymbolKind::Task => format!("Compound task '{}' is undefined", name),
-                    SymbolKind::Action => format!("Primitive task '{}' is undefined", name),
-                    _ => format!("Symbol '{}' of kind {:?} is undefined", name, symbol.kind()),
+                    SymbolKind::Function => format!("Function '{}' does not match any declared signature.", name),
+                    SymbolKind::Predicate => format!("Predicate '{}' does not match any declared signature.", name),
+                    SymbolKind::Task => format!("Compound task '{}' does not match any declared signature.", name),
+                    SymbolKind::Action => format!("Primitive task '{}' does not match any declared signature.", name),
+                    _ => format!("Symbol '{}' of kind {:?} does not match any declared signature.", name, symbol.kind()),
                 }
             }
             Kind::TypeMismatchInExpression { ty1, ty2 } => {
@@ -180,23 +267,29 @@ impl Kind {
                 let name = symbol_to_string(symbol, interner);
                 format!("Symbol '{}' is declared multiple times in the same scope.", name)
             }
-            // TO CHECK
-
-            Kind::CyclicTaskOrderingError => {
+            Kind::CyclicTaskOrdering => {
                 "Cyclic task-ordering constraint detected.".to_string()
             }
-            Kind::UndeclaredSymbolError { usage} => {
-                format!("{} symbol '{}' undeclared.", usage.symbol_ident(), usage.symbol_kind())
+            Kind::UndeclaredSymbol { usage } => {
+                let name = symbol_to_string(&usage.symbol(), interner);
+                format!("{} symbol '{}' is undeclared.", usage.symbol_kind(), name)
             }
-            Kind::SymbolDeclaredAsKeywordError {declaration, ..} => {
-                format!("Symbol '{}' used as a language keyword", declaration.symbol_ident())
+            Kind::SymbolConflictsWithKeyword { declaration, .. } => {
+                let name = symbol_to_string(&declaration.symbol(), interner);
+                format!("Symbol '{}' is used as a language keyword", name)
             }
-            Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning {declaration, ..} => {
-                format!("Symbol '{}' is ambiguous as a language keyword", declaration.symbol_ident())
+
+            Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. } => {
+                let name = symbol_to_string(&declaration.symbol(), interner);
+                format!("Symbol '{}' is ambiguous as a language keyword", name)
             }
-            Kind::UnusedSymbolWarning { declaration } => {
-                format!("{} Symbol '{}' is unused", declaration.symbol_kind(), declaration.symbol_ident())
+            Kind::UnusedSymbol { declaration } => {
+                let name = symbol_to_string(&declaration.symbol(), interner);
+                format!("{} symbol '{}' is unused", declaration.symbol_kind(), name)
             }
+
+            // TO CHECK
+
             Kind::DomainProblemNameMismatch { domain_name, problem_name } => {
                 format!("Domain name '{}' does not match problem name '{}'.", domain_name, problem_name)
             }
@@ -242,17 +335,17 @@ impl Kind {
             Kind::DuplicateRequirementWarning { .. } => Severity::Warning,
 
             // ANALYSER ERRORS
-            Kind::UnDefinedSymbol { .. } => Severity::Error,
+            Kind::InvalidSymbolSignature { .. } => Severity::Error,
             Kind::TypeMismatchInExpression { .. } => Severity::Error,
             Kind::InvalidTypesInNumericExpression { .. } => Severity::Error,
             Kind::DuplicatedSymbolDeclarationInScope { .. } => Severity::Error,
-            Kind::CyclicTaskOrderingError => Severity::Error,
-            Kind::UndeclaredSymbolError { .. } => Severity::Error,
-            Kind::SymbolDeclaredAsKeywordError { .. } => Severity::Error,
+            Kind::CyclicTaskOrdering => Severity::Error,
+            Kind::UndeclaredSymbol { .. } => Severity::Error,
+            Kind::SymbolConflictsWithKeyword { .. } => Severity::Error,
             Kind::CyclicTypeDeclarationError { .. } => Severity::Error,
             // ANALYSER WARNINGS
-            Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning { .. } => Severity::Warning,
-            Kind::UnusedSymbolWarning { .. } => Severity::Warning,
+            Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => Severity::Warning,
+            Kind::UnusedSymbol { .. } => Severity::Warning,
             Kind::RequirementViolation { .. } => Severity::Warning,
             Kind::WarningAmbiguousTypePredicateSymbol { .. } => Severity::Warning,
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => Severity::Warning,
@@ -279,24 +372,24 @@ impl Kind {
             Kind::InvalidToken => {
                 Some("Make sure there are no typos or invalid characters.".to_string())
             }
-            Kind::CustomError(_) => None,
-            Kind::UnDefinedSymbol { symbol } => {
+            Kind::InvalidSymbolSignature { declaration  , usage } => {
+                let symbol = declaration.symbol();
                 let name = symbol_to_string(symbol, interner);
                 let msg = match symbol.kind() {
                     SymbolKind::Function => {
-                        format!("Make sure that a function with call '{}' is defined in the block ':functions'", name)
+                        format!("Ensure a function named '{}' with the correct signature is declared in the ':functions' block.", name)
                     }
                     SymbolKind::Predicate => {
-                        format!("Make sure that a predicate named '{}' is defined in the block ':predicates'", name)
+                        format!("Ensure a predicate named '{}' with the correct signature is declared in the ':predicates' block.", name)
                     }
                     SymbolKind::Task => {
-                        format!("Make sure that a compound task '{}' is defined in the block ':tasks'", name)
+                        format!("Ensure a compound task '{}' with the correct signature is declared in the ':tasks' block.", name)
                     }
                     SymbolKind::Action => {
-                        format!("Make sure that an action '{}' is defined un a block ':action'", name)
+                        format!("Ensure an action '{}' with the correct signature is declared in the ':action' block.", name)
                     }
                     _ => {
-                        format!("Make sure that '{}' is defined", name)
+                        format!("Ensure '{}' with the correct signature is declared properly.", name)
                     }
                 };
                 Some(msg)
@@ -340,89 +433,93 @@ impl Kind {
                     declaration2.symbol_kind()
                 ))
             }
-            // TO CHECK
-            Kind::CyclicTaskOrderingError => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
-            Kind::UndeclaredSymbolError { usage} => {
+            Kind::CyclicTaskOrdering => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
+            Kind::UndeclaredSymbol { usage } => {
+                let name = symbol_to_string(&usage.symbol(), interner);
                 match usage.symbol_kind() {
                     SymbolKind::Function => Some(format!(
-                        "Function '{}' is not declared. Please declare it before use in the ':functions' block.",
-                        usage.symbol_ident()
+                        "Function '{}' is not declared. Declare it in the ':functions' section.",
+                        name
                     )),
                     SymbolKind::Predicate => Some(format!(
-                        "Predicate '{}' is not declared. Please declare it before use in ':predicates' block.",
-                        usage.symbol_ident()
+                        "Predicate '{}' is not declared. Declare it in the ':predicates' section.",
+                        name
                     )),
                     SymbolKind::Action => Some(format!(
-                        "Action '{}' is not declared. Please define it using the ':action' keyword.",
-                        usage.symbol_ident()
+                        "Action '{}' is not declared. Define it using the ':action' keyword.",
+                        name
                     )),
                     SymbolKind::DASymbol => Some(format!(
-                        "Durative action '{}' is not declared. Please define it using the ':durative-action' keyword.",
-                        usage.symbol_ident()
+                        "Durative action '{}' is not declared. Define it using the ':durative-action' keyword.",
+                        name
                     )),
                     SymbolKind::Method => Some(format!(
-                        "Method '{}' is not declared. Please define it in the ':methods' keyword.",
-                        usage.symbol_ident()
+                        "Method '{}' is not declared. Define it in the ':methods' section.",
+                        name
                     )),
                     SymbolKind::Task => Some(format!(
-                        "Task '{}' is not declared. Please ensure it's defined using the ':task' keyword.",
-                        usage.symbol_ident()
+                        "Task '{}' is not declared. Define it using the ':task' keyword.",
+                        name
                     )),
                     SymbolKind::TaskID => Some(format!(
-                        "Task identifier '{}' is not declared. Verify it's correctly assigned in your task network.",
-                        usage.symbol_ident()
+                        "Task identifier '{}' is not declared. Check the task network for missing definitions.",
+                        name
                     )),
                     SymbolKind::Constant => Some(format!(
-                        "Constant '{}' is not declared. Declare it in the ':constants' section in domain files of in ':object' in problem files.",
-                        usage.symbol_ident()
+                        "Constant '{}' is not declared. Declare it in the ':constants' section (domain) or ':objects' section (problem).",
+                        name
                     )),
                     SymbolKind::DomainName => Some(format!(
-                        "Domain '{}' is not recognized. Make sure the domain name is correctly defined.",
-                        usage.symbol_ident()
+                        "Domain '{}' is not recognized. Make sure it matches the ':domain' declaration.",
+                        name
                     )),
                     SymbolKind::PrimitiveType => Some(format!(
-                        "Type '{}' is not declared. Ensure it's defined in the ':types' section.",
-                        usage.symbol_ident()
+                        "Type '{}' is not declared. Declare it in the ':types' section.",
+                        name
                     )),
                     SymbolKind::ProblemName => Some(format!(
-                        "Problem '{}' is not declared. Verify the problem file or declaration.",
-                        usage.symbol_ident()
+                        "Problem '{}' is not recognized. Ensure the problem name is correctly defined.",
+                        name
                     )),
                     SymbolKind::Requirement => Some(format!(
                         "Requirement '{}' is not recognized. Check for typos or unsupported features.",
-                        usage.symbol_ident()
+                        name
                     )),
                     SymbolKind::Variable => Some(format!(
-                        "Variable '{}' is not declared. Declare it using the correct syntax (e.g., '?x - type_checker').",
-                        usage.symbol_ident()
+                        "Variable '{}' is not declared. You likely need to add it to the ':parameters' list of the enclosing definition (e.g., '?x - type').",
+                        name
                     )),
                 }
             }
-            Kind::SymbolDeclaredAsKeywordError { declaration, expected_kind, requirements } => {
+            Kind::SymbolConflictsWithKeyword { declaration, expected_kind, requirements } => {
+                let name = symbol_to_string(declaration.symbol(), interner);
+                let reqs = format_requirements_list(requirements);
                 Some(format!(
-                    "Symbol '{}' is reserved as '{}' in the language with requirements: {}. '{}' expected. Consider renaming it or using a different symbol.",
-                    declaration.symbol_ident(),
-                    declaration.symbol_kind(),
-                    format_requirements_list(requirements),
-                    expected_kind,
+                    "Symbol '{}' conflicts with a reserved keyword under requirements: {}. It must be declared as a {:?} (e.g., type, function, variable).",
+                    name,
+                    reqs,
+                    expected_kind
                 ))
             }
 
-            Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning { declaration, requirements } => {
+            Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, expected_kind, requirements } => {
+                let name = symbol_to_string(declaration.symbol(), interner);
+                let reqs = format_requirements_list(requirements);
                 Some(format!(
-                    "{} symbol '{}' is ambiguous as it is used as a keyword in the language with requirements: {}. Consider renaming it or using a different symbol.",
-                    declaration.symbol_kind(),
-                    declaration.symbol_ident(),
-                    format_requirements_list(requirements),
+                    "Symbol '{}' is ambiguous because it is used as a language keyword with requirements: {}. Consider renaming or using a different symbol.",
+                    name,
+                    reqs
                 ))
             }
-            Kind::UnusedSymbolWarning {declaration} => {
+            Kind::UnusedSymbol { declaration } => {
+                let name = symbol_to_string(declaration.symbol(), interner);
                 Some(format!(
                     "{} symbol '{}' is declared but not used. Consider removing it to clean up your code.",
                     declaration.symbol_kind(),
-                    declaration.symbol_kind()
+                    name
                 ))
             }
+            // TO CHECK
             Kind::DomainProblemNameMismatch { domain_name, .. } => {
                 Some(format!(
                     "Ensure that the domain name in the problem file matches the domain definition: expected '{}'.",
@@ -482,6 +579,8 @@ impl Kind {
                     duplicate_requirements.iter().map(|r| r.to_string()).collect::<Vec<_>>().join(", ")
                 ))
             }
+
+            Kind::CustomError(_) => None,
         }
     }
 
@@ -528,8 +627,9 @@ impl Kind {
     /// Remap all `Ident`s in this diagnostic using the provided `map`.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         match self {
-            Kind::UnDefinedSymbol { symbol } => {
-                symbol.remap_idents(map);
+            Kind::InvalidSymbolSignature { declaration, usage } => {
+                declaration.remap_idents(map);
+                usage.remap_idents(map);
             }
             Kind::TypeMismatchInExpression { ty1, ty2 }
             | Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
@@ -546,6 +646,15 @@ impl Kind {
                 declaration2.remap_idents(map);
             }
 
+            Kind::UndeclaredSymbol { usage } => {
+                usage.remap_idents(map);
+            }
+
+            Kind::SymbolConflictsWithKeyword { declaration, .. }
+            | Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. } => {
+                declaration.remap_idents(map);
+            }
+
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
@@ -558,13 +667,7 @@ impl Kind {
 
 
 
-            Kind::UndeclaredSymbolError { usage } => {
-                usage.remap_idents(map);
-            }
-
-            Kind::SymbolDeclaredAsKeywordError { declaration, .. }
-            | Kind::SymbolDeclaredAmbiguouslyAsKeywordWarning { declaration, .. }
-            | Kind::UnusedSymbolWarning { declaration } => {
+            Kind::UnusedSymbol { declaration } => {
                 declaration.remap_idents(map);
             }
 
@@ -576,7 +679,7 @@ impl Kind {
 
             // Variantes qui n'ont pas de `Ident` ou ne nécessitent pas de remap :
 
-            Kind::CyclicTaskOrderingError
+            Kind::CyclicTaskOrdering
             | Kind::DomainProblemNameMismatch { .. }
             | Kind::WarningAmbiguousTypePredicateSymbol { .. }
             | Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. }

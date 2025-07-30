@@ -123,7 +123,7 @@ fn report_cyclic_task_ordering_error(
     diagnostic_manager: &mut DiagnosticManager,
 ) {
     let error = Diagnostic::new(
-        DiagnosticKind::CyclicTaskOrderingError,
+        DiagnosticKind::CyclicTaskOrdering,
         source,
         filename.to_string(),
         span.clone(),
