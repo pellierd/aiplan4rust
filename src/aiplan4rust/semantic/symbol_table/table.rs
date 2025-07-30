@@ -1051,7 +1051,8 @@ impl InternerDisplay for Table {
     ///
     /// # Example
     /// ```rust
-    /// use some_crate::{Table, StringInterner, InternerDisplay};
+    /// use crate::aiplan4rust::semantic::symbol_table::Table;
+    /// use crate::aiplan4rust::interner::{StringInterner, InternerDisplay};
     ///
     /// let table = Table::new();
     /// let interner = StringInterner::new();

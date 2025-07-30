@@ -39,10 +39,10 @@ use std::fmt;
 /// # Examples
 ///
 /// ```
-/// use your_crate::{Usage, SymbolRef, Scope, SymbolOrigin, Span, NodeId};
+/// use crate::aiplan::semantic::symbol::{Usage, SymbolRef, Scope, SymbolOrigin, Span, NodeId};
 ///
 /// let usage = Usage::new(
-///     SymbolRef::new(...),
+///     Symbol::new(...),
 ///     Scope::Global,
 ///     SymbolOrigin::Domain,
 ///     Span::new(5, 10),

@@ -13,7 +13,10 @@ use std::collections::HashMap;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::lang::Ident;
 use std::fmt;
+use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxDisplay};
 
 /// Represents a reference to a declared symbol, consisting of its identifier and kind.
 ///
@@ -110,5 +113,56 @@ impl fmt::Display for Symbol {
     /// For example, a symbol of kind `Predicate` with identifier `at` will be formatted as `"Predicate at"`.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} {}", self.kind, self.ident)
+    }
+}
+
+impl InternerDisplay for Symbol {
+    /// Formats the symbol by resolving its identifier name using the provided interner.
+    ///
+    /// If the identifier can be resolved via the interner, the resolved string is printed.
+    /// Otherwise, a fallback string of the form `"unknown(<ident>)"` is displayed.
+    ///
+    /// # Parameters
+    ///
+    /// - `f`: The formatter to write the output to.
+    /// - `interner`: Reference to a `StringInterner` used to resolve identifiers.
+    ///
+    /// # Returns
+    ///
+    /// Returns `fmt::Result` indicating success or failure of the write operation.
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        match interner.resolve_ident(self.ident()) {
+            Some(resolved) => write!(f, "{}", resolved),
+            None => write!(f, "unknown({})", self.ident()),
+        }
+    }
+}
+
+impl SyntaxDisplay for Symbol {
+    /// Formats the symbol with indentation, resolving the identifier name using
+    /// the provided interner.
+    ///
+    /// This method writes the specified indentation, then delegates the actual
+    /// name formatting to `InternerDisplay::fmt_with_interner` to avoid code duplication.
+    ///
+    /// # Parameters
+    ///
+    /// - `f`: The formatter to write the output to.
+    /// - `interner`: Reference to a `StringInterner` used to resolve identifiers.
+    /// - `indent`: Number of spaces to indent the output.
+    ///
+    /// # Returns
+    ///
+    /// Returns `fmt::Result` indicating success or failure of the write operation.
+    fn fmt_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        // Write indentation spaces
+        write_indent(f, indent)?;
+        // Delegate to InternerDisplay implementation to format the symbol name
+        self.fmt_with_interner(f, interner)
     }
 }

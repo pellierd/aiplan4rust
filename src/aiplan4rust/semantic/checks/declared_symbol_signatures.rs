@@ -77,7 +77,6 @@ pub fn check_declared_symbol_signatures(
                 )? {
                     no_error &= false;
                     let entry = context.syntax_tree().get_node(usage.node_id()).unwrap();
-                    let name = context.interner().try_resolve_ident(symbol.ident())?;
                     let diagnostic_kind = DiagnosticKind::UnDefinedSymbol {
                         symbol: declaration.symbol().clone(),
                     };

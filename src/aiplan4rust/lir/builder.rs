@@ -37,7 +37,6 @@
 //! ```
 
 use std::collections::HashSet;
-use std::mem::take;
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};

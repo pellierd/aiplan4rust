@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use crate::aiplan4rust::diagnostic::Severity;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, Type};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 
@@ -9,6 +9,7 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 // Enum pour différents types de diagnostics (erreurs, avertissements, etc.)
 #[derive(Clone, Debug, PartialEq)]
@@ -28,9 +29,11 @@ pub enum Kind {
         symbol: Symbol,
     },
     TypeMismatchInExpression {
-        ty1: Vec<String>,
-        ty2: Vec<String>,
+        ty1: Type,
+        ty2: Type,
     },
+
+    // TO CHECK
     InvalidTypesInNumericExpression {
         ty1: Vec<String>,
         ty2: Vec<String>,
@@ -146,8 +149,7 @@ impl Kind {
                 format!("Unexpected extra token '{}'.", token)
             }
             Kind::UnDefinedSymbol { symbol } => {
-                let name = symbol_name(symbol, interner);
-
+                let name = symbol_to_string(symbol, interner);
                 match symbol.kind() {
                     SymbolKind::Function => format!("Function '{}' is undefined", name),
                     SymbolKind::Predicate => format!("Predicate '{}' is undefined", name),
@@ -156,9 +158,17 @@ impl Kind {
                     _ => format!("Symbol '{}' of kind {:?} is undefined", name, symbol.kind()),
                 }
             }
-            Kind::TypeMismatchInExpression { .. } => {
-                "Type mismatch in expr.".to_string()
+            Kind::TypeMismatchInExpression { ty1, ty2 } => {
+                let ty1_str = type_to_string(ty1, interner);
+                let ty2_str = type_to_string(ty2, interner);
+                format!(
+                    "Type mismatch between '{}' and '{}'.",
+                    ty1_str, ty2_str
+                )
             }
+
+            // TO CHECK
+
             Kind::InvalidTypesInNumericExpression { .. } => {
                 "Invalid operand types in numeric expr.".to_string()
             }
@@ -267,8 +277,7 @@ impl Kind {
             }
             Kind::CustomError(_) => None,
             Kind::UnDefinedSymbol { symbol } => {
-                // Retrieve the symbol name using the interner with fallback
-                let name = symbol_name(symbol, interner);
+                let name = symbol_to_string(symbol, interner);
 
                 let msg = match symbol.kind() {
                     SymbolKind::Function => {
@@ -281,7 +290,7 @@ impl Kind {
                         format!("Make sure that a compound task '{}' is defined in the block ':tasks'", name)
                     }
                     SymbolKind::Action => {
-                        format!("Make sure that an action '{}' is defined", name)
+                        format!("Make sure that an action '{}' is defined un a block ':action'", name)
                     }
                     _ => {
                         format!("Make sure that '{}' is defined", name)
@@ -290,12 +299,16 @@ impl Kind {
                 Some(msg)
             }
             Kind::TypeMismatchInExpression { ty1, ty2 } => {
+                let ty1_str = type_to_string(ty1, interner);
+                let ty2_str = type_to_string(ty2, interner);
+
                 Some(format!(
-                    "Incompatible types: {:?} is not related to {:?} by the type_checker hierarchy.",
-                    Self::format_types(ty1),
-                    Self::format_types(ty2)
+                    "The type '{}' cannot be used with '{}' — make sure the types are compatible according to the type hierarchy.",
+                    ty1_str,
+                    ty2_str
                 ))
             }
+            // TO CHECK
             Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
                 Some(format!(
                     "Numeric expr require operands of type_checker 'number', but found types {:?} and {:?}. Ensure both operands are numbers.",
@@ -568,6 +581,8 @@ impl Kind {
     }
 }
 
+
+
 impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = self.code();
@@ -589,7 +604,8 @@ impl fmt::Display for Kind {
     }
 }
 
-/// Returns the name of the given symbol, optionally resolving it through a string interner.
+/// Returns the name of the given symbol as a `String`, optionally resolving it
+/// through a string interner by using the `InternerDisplay` trait implementation.
 ///
 /// # Parameters
 /// - `symbol`: Reference to the `Symbol` whose name is to be retrieved.
@@ -600,17 +616,27 @@ impl fmt::Display for Kind {
 /// - If the `interner` is provided and the identifier is found, returns the resolved string.
 /// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
 /// - If the `interner` is not provided, returns the raw identifier as a string.
-fn symbol_name(symbol: &Symbol, interner: Option<&StringInterner>) -> String {
+fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner>) -> String {
     if let Some(interner) = interner {
-        if let Some(resolved) = interner.resolve_ident(symbol.ident()) {
-            // Interner found and identifier resolved successfully
-            resolved.to_string()
-        } else {
-            // Interner present but identifier not found
-            format!("unknown({})", symbol.ident())
-        }
+        symbol.to_syntax_string(interner)
     } else {
-        // Interner not present, return identifier directly as string
         symbol.ident().to_string()
+    }
+}
+
+/// Converts a `Type` to a `String`, optionally resolving identifiers via a `StringInterner`.
+///
+/// # Parameters
+/// - `ty`: The `Type` to convert to a string.
+/// - `interner`: An optional reference to a `StringInterner` used to resolve identifiers.
+///
+/// # Returns
+/// A `String` representation of the `Type`. If `interner` is provided, the identifiers
+/// inside the `Type` are resolved using it; otherwise, the default string representation is used.
+fn type_to_string(ty: &Type, interner: Option<&StringInterner>) -> String {
+    if let Some(interner) = interner {
+        ty.to_syntax_string(interner)
+    } else {
+        ty.to_string()
     }
 }
