@@ -267,6 +267,26 @@ pub enum Kind {
         type_used: Type,
     },
 
+    /// Warning indicating the presence of duplicated types within an `Either` construct.
+    ///
+    /// This warning is emitted during the normalization phase,
+    /// before the full symbol table is constructed.
+    ///
+    /// Therefore, only the identifiers (`Ident`) of the duplicated types
+    /// are provided here, without access to their full declarations or supertypes.
+    ///
+    /// # Field
+    ///
+    /// - `duplicate_types`: a list of identifiers representing the duplicated types.
+    ///
+    /// # Note
+    ///
+    /// For richer diagnostics (including precise declaration locations),
+    /// this information should be enhanced later once the symbol table
+    /// is available in subsequent analysis phases.
+    DuplicateEitherType {
+        duplicate_types: Vec<Ident>,
+    },
     // TO CHECK
 
 
@@ -276,9 +296,7 @@ pub enum Kind {
 
 
 
-    DuplicateEitherTypeWarning {
-        duplicate_types: Vec<String>,
-    },
+
     ImplicitEitherTypeDeclarationWarning {
         ty: String,
     },
@@ -321,7 +339,7 @@ impl Kind {
             Kind::RequirementViolation { .. } => "W10012".to_string(),
             Kind::AmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
             Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
-            Kind::DuplicateEitherTypeWarning { .. } => "W1015".to_string(),
+            Kind::DuplicateEitherType { .. } => "W1015".to_string(),
             Kind::ImplicitEitherTypeDeclarationWarning { .. } => "W1016".to_string(),
 
             // WARNINGS LINKER
@@ -420,14 +438,17 @@ impl Kind {
                     symbol_to_string(argument.symbol(), interner)
                 )
             }
+            Kind::DuplicateEitherType { duplicate_types } => {
+                let names = format_ident_list(duplicate_types, interner);
+                format!("Duplicate primitive types in 'either' type: {}.", names)
+            }
+
             // TO CHECK
 
 
 
 
-            Kind::DuplicateEitherTypeWarning { .. } => {
-                "Duplicate primitive types found in an 'either' type_checker declaration.".to_string()
-            }
+
             Kind::ImplicitEitherTypeDeclarationWarning { ty, ..} => {
                 format!(
                     "Implicit 'either' type_checker declaration for {}.",
@@ -474,7 +495,7 @@ impl Kind {
             Kind::RequirementViolation { .. } => Severity::Warning,
             Kind::AmbiguousTypePredicateSymbol { .. } => Severity::Warning,
             Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => Severity::Warning,
-            Kind::DuplicateEitherTypeWarning { .. } => Severity::Warning,
+            Kind::DuplicateEitherType { .. } => Severity::Warning,
             Kind::ImplicitEitherTypeDeclarationWarning { .. } => Severity::Warning,
 
             // LINKER WARNINGS
@@ -529,7 +550,6 @@ impl Kind {
                     ty2_str
                 ))
             }
-
             Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
                 let ty1_str = type_to_string(ty1, interner);
                 let ty2_str = type_to_string(ty2, interner);
@@ -544,7 +564,7 @@ impl Kind {
                 Some(format!(
                     "Expression type '{}' requires one of these requirements: {}.",
                     node_kind, // ou format!("{:?}", node_kind) si besoin
-                    format_requirements_list(&required)
+                    format_requirement_list(&required)
                 ))
             }
             Kind::DuplicatedSymbolDeclarationInScope { symbol, original_declaration: declaration1, conflicting_declaration: declaration2, scope } => {
@@ -618,7 +638,7 @@ impl Kind {
             }
             Kind::SymbolConflictsWithKeyword { declaration, expected_kind, requirements } => {
                 let name = symbol_to_string(declaration.symbol(), interner);
-                let reqs = format_requirements_list(requirements);
+                let reqs = format_requirement_list(requirements);
                 Some(format!(
                     "Symbol '{}' conflicts with a reserved keyword under requirements: {}. It must be declared as a {:?} (e.g., type, function, variable).",
                     name,
@@ -626,10 +646,9 @@ impl Kind {
                     expected_kind
                 ))
             }
-
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, requirements, .. } => {
                 let name = symbol_to_string(declaration.symbol(), interner);
-                let reqs = format_requirements_list(requirements);
+                let reqs = format_requirement_list(requirements);
                 Some(format!(
                     "Symbol '{}' is ambiguous because it is used as a language keyword with requirements: {}. Consider renaming or using a different symbol.",
                     name,
@@ -673,22 +692,23 @@ impl Kind {
                     type_to_string(type_declared, interner)
                 ))
             }
+            Kind::DuplicateEitherType { duplicate_types } => {
+                let listed_types = if duplicate_types.len() == 1 {
+                    format!("type '{}'", format_ident_list(&duplicate_types, interner))
+                } else {
+                    format!("types '{}'", format_ident_list(&duplicate_types, interner))
+                };
+                Some(format!(
+                    "Duplicate {} found in an 'either' type declaration; these duplicates are ignored but consider removing them to clean up your code.",
+                    listed_types,
+                ))
+            }
             // TO CHECK
 
 
 
 
-            Kind::DuplicateEitherTypeWarning { duplicate_types } => {
-                let listed_types = if duplicate_types.len() == 1 {
-                    format!("type_checker '{}'", duplicate_types[0])
-                } else {
-                    format!("types '{}'", duplicate_types.join("', '"))
-                };
-                Some(format!(
-                    "Duplicate {} found in an 'either' type_checker declaration; these duplicates have been removed.",
-                    listed_types,
-                ))
-            }
+
             Kind::CyclicTypeDeclarationError { cycle } => {
                 let cycle_symbols: Vec<Ident> = cycle.iter().map(|decl| decl.symbol_ident()).collect();
                 Some(format!(
@@ -796,6 +816,11 @@ impl Kind {
                 type_declared.remap_idents(map);
                 type_used.remap_idents(map);
             }
+            | Kind::DuplicateEitherType { duplicate_types } => {
+                for ident in duplicate_types {
+                   ident.remap_idents(map);
+                }
+            }
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
@@ -818,8 +843,6 @@ impl Kind {
                 }
             }
 
-
-            | Kind::DuplicateEitherTypeWarning { .. }
             | Kind::ImplicitEitherTypeDeclarationWarning { .. }
             | Kind::CrossConflictSymbolDeclarationError { .. }
             | Kind::DuplicateRequirementWarning { .. }
@@ -853,6 +876,29 @@ impl fmt::Display for Kind {
     }
 }
 
+/// Returns the name of the given identifier as a `String`, optionally resolving it
+/// through a string interner.
+///
+/// # Parameters
+/// - `ident`: The identifier to convert to a string.
+/// - `interner`: Optional reference to a `StringInterner` used to resolve the identifier.
+///
+/// # Returns
+/// A `String` representing the resolved name of the identifier.
+/// - If the `interner` is provided and the identifier is found, returns the resolved string.
+/// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
+/// - If the `interner` is not provided, returns the raw identifier as a string.
+fn ident_to_string(ident: Ident, interner: Option<&StringInterner>) -> String {
+    if let Some(interner) = interner {
+        interner
+            .resolve_ident(ident)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("unknown({})", ident))
+    } else {
+        ident.to_string()
+    }
+}
+
 /// Returns the name of the given symbol as a `String`, optionally resolving it
 /// through a string interner by using the `InternerDisplay` trait implementation.
 ///
@@ -866,11 +912,7 @@ impl fmt::Display for Kind {
 /// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
 /// - If the `interner` is not provided, returns the raw identifier as a string.
 fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner>) -> String {
-    if let Some(interner) = interner {
-        symbol.to_syntax_string(interner)
-    } else {
-        symbol.ident().to_string()
-    }
+    ident_to_string(symbol.ident(), interner)
 }
 
 /// Converts a `Type` to a `String`, optionally resolving identifiers via a `StringInterner`.
@@ -890,6 +932,23 @@ fn type_to_string(ty: &Type, interner: Option<&StringInterner>) -> String {
     }
 }
 
+/// Formats a list of `Ident` values into a comma-separated string, resolving each ident using
+/// an optional `StringInterner`.
+///
+/// # Parameters
+/// - `idents`: Slice of `Ident` to format.
+/// - `interner`: Optional reference to a `StringInterner` used to resolve identifiers.
+///
+/// # Returns
+/// A string of comma-separated identifiers, each converted to string via `ident_to_string`.
+fn format_ident_list(idents: &[Ident], interner: Option<&StringInterner>) -> String {
+    idents
+        .iter()
+        .map(|&ident| ident_to_string(ident, interner))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
 /// Formats a slice of `Requirement`s into a comma-separated string,
 /// each requirement enclosed in single quotes.
 ///
@@ -906,7 +965,7 @@ fn type_to_string(ty: &Type, interner: Option<&StringInterner>) -> String {
 /// let formatted = format_requirements_list(&reqs);
 /// assert_eq!(formatted, "'A', 'B'");
 /// ```
-fn format_requirements_list(requirements: &[Requirement]) -> String {
+fn format_requirement_list(requirements: &[Requirement]) -> String {
     requirements
         .iter()
         .map(|r| format!("'{}'", r))  // Assumes Requirement implements Display

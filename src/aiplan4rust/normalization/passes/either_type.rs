@@ -221,7 +221,6 @@ fn report_either_type_duplicate_warnings(
             // Construct a diagnostic warning for these duplicates
             let warning = new_duplicate_either_type_warning(
                 duplicates,
-                ast,
                 source_name,
                 &node.span(),
             )?;
@@ -233,50 +232,47 @@ fn report_either_type_duplicate_warnings(
     // Indicate successful completion without errors
     Ok(())
 }
-/// Creates a diagnostic warning for duplicate identifiers found within a 'Type' syntax.
+
+/// Creates a diagnostic warning for duplicate identifiers found within a `Type` syntax node.
 ///
-/// Given a vector of duplicate identifier (`Ident`) values, this function resolves each identifier
-/// to its string representation using the provided `ast`. It then constructs a `Diagnostic`
-/// object containing the duplicates and associated source information.
+/// This function takes a list of duplicate `Ident` values (typically found during normalization),
+/// and constructs a `Diagnostic` of kind `DuplicateEitherType` using the provided source and span
+/// information. Since this warning is generated during normalization, identifier names are not
+/// resolved to strings here; only raw `Ident` values are stored.
 ///
 /// # Parameters
 ///
-/// - `duplicate_ids`: Vector of `Ident` representing the duplicate identifiers detected.
-/// - `ast`: Reference to the AST for resolving identifiers.
-/// - `source`: Source filename or identifier where the duplicates were found.
-/// - `span`: The source code span indicating the location of the duplicate identifiers.
+/// - `duplicate`: A vector of `Ident` representing the duplicate identifiers detected within an `either` type.
+/// - `source`: The name of the source file (or module) where the duplicates were found.
+/// - `span`: The span in the source code where the duplicates appear.
 ///
 /// # Returns
 ///
-/// - `Ok(Diagnostic)` containing the formatted warning ready to be emitted.
-/// - `Err(NormalizationPassError)` if any identifier resolution fails.
+/// - `Ok(Diagnostic)` containing the constructed warning.
+/// - `Err(NormalizationPassError)` if an unexpected failure occurs while constructing the diagnostic.
+///
+/// # Notes
+///
+/// - Identifier resolution (i.e., turning `Ident` into readable names) is deferred until later,
+///   typically when rendering the diagnostic message with access to the string interner.
+/// - This function only returns the diagnostic; it is the caller's responsibility to submit it
+///   to the diagnostic manager or renderer.
 ///
 /// # Example
 ///
 /// ```ignore
-/// let diagnostic = create_duplicate_either_type_warning(duplicate_ids, &ast, source, &span)?;
-/// diagnostic_manager.add_diagnostic(diagnostic);
+/// let warning = new_duplicate_either_type_warning(duplicates, source, span)?;
+/// diagnostic_manager.add_diagnostic(warning);
 /// ```
-///
-/// # Notes
-///
-/// - This function only creates and returns the diagnostic; it does **not** report it.
-/// - The caller is responsible for submitting the diagnostic to the diagnostic manager.
 fn new_duplicate_either_type_warning(
-    duplicate_ids: Vec<Ident>,
-    ast: &Ast,
+    duplicate: Vec<Ident>,
     source: &str,
     span: &Span,
 ) -> Result<Diagnostic, NormalizationPassError> {
-    // Resolve identifiers to strings
-    let duplicates: Vec<String> = duplicate_ids
-        .into_iter()
-        .map(|id| ast.interner().try_resolve_ident(id).map(str::to_string))
-        .collect::<Result<_, _>>()?;
 
     // Build diagnostic warning
     let diagnostic = Diagnostic::new(
-        DiagnosticKind::DuplicateEitherTypeWarning { duplicate_types: duplicates },
+        DiagnosticKind::DuplicateEitherType { duplicate_types: duplicate },
         Provider::Normalizer,
         source.to_string(),
         span.clone(),
