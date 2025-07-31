@@ -342,20 +342,40 @@ pub enum Kind {
         conflicting_domain_declarations: Vec<Declaration>,
     },
 
-
-// TO CHECK
-
-
-
-
-
-
-
-
-
-    ImplicitEitherTypeDeclarationWarning {
-        ty: String,
+    /// Warning emitted when a type is implicitly declared as an `(either ...)` type due to
+    /// multiple conflicting parent type declarations.
+    ///
+    /// This warning indicates that the type `ty` has been declared with different parent types
+    /// listed in `duplicate_types`. The system has automatically merged these into an implicit
+    /// `(either ...)` type to resolve ambiguity.
+    ///
+    /// # Fields
+    ///
+    /// - `ty`: The identifier of the type being declared.
+    /// - `duplicate_types`: A list of conflicting parent type identifiers causing the implicit merge.
+    /// - `duplicate_spans`: The source code spans corresponding to each conflicting parent type declaration.
+    ///
+    /// # Suggestion
+    ///
+    /// To avoid ambiguity, it is recommended to declare the type explicitly using the `(either ...)`
+    /// syntax, listing all parent types.
+    ImplicitEitherTypeDeclaration {
+        ty: Ident,
+        duplicate_types: Vec<Ident>,
+        duplicate_spans: Vec<Span>,
     },
+
+    // TO CHECK
+
+
+
+
+
+
+
+
+
+
 
 
     DuplicateRequirementWarning {
@@ -390,7 +410,7 @@ impl Kind {
             Kind::AmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
             Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
             Kind::DuplicateEitherType { .. } => "W1015".to_string(),
-            Kind::ImplicitEitherTypeDeclarationWarning { .. } => "W1016".to_string(),
+            Kind::ImplicitEitherTypeDeclaration { .. } => "W1016".to_string(),
 
             // WARNINGS LINKER
             Kind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
@@ -501,18 +521,18 @@ impl Kind {
                     symbol_to_string(problem_declaration.symbol(), interner)
                 )
             }
+            Kind::ImplicitEitherTypeDeclaration { ty, .. } => {
+                format!(
+                    "Type `{}` was declared multiple times and was implicitly interpreted as an `(either ...)` type.",
+                    ident_to_string(*ty, interner),
+                )
+            }
             // TO CHECK
 
 
 
 
 
-            Kind::ImplicitEitherTypeDeclarationWarning { ty, ..} => {
-                format!(
-                    "Implicit 'either' type_checker declaration for {}.",
-                    ty,
-                )
-            }
 
 
             Kind::DuplicateRequirementWarning { .. } => {
@@ -550,7 +570,7 @@ impl Kind {
             Kind::AmbiguousTypePredicateSymbol { .. } => Severity::Warning,
             Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => Severity::Warning,
             Kind::DuplicateEitherType { .. } => Severity::Warning,
-            Kind::ImplicitEitherTypeDeclarationWarning { .. } => Severity::Warning,
+            Kind::ImplicitEitherTypeDeclaration { .. } => Severity::Warning,
 
             // LINKER WARNINGS
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
@@ -798,14 +818,35 @@ impl Kind {
                     formatted_lines,
                 ))
             }
-            // TO CHECK
+            Kind::ImplicitEitherTypeDeclaration { ty, duplicate_spans, .. } => {
+                // Convert spans to readable location strings
+                let duplicate_locations: Vec<String> = duplicate_spans
+                    .iter()
+                    .map(|span| span_to_string(span))
+                    .collect();
 
-            Kind::ImplicitEitherTypeDeclarationWarning { ty, .. } => {
+                // Format locations nicely for display
+                let formatted_locations = match duplicate_locations.len() {
+                    0 => String::from("an unknown location"),
+                    1 => duplicate_locations[0].clone(),
+                    2 => format!("{} and {}", duplicate_locations[0], duplicate_locations[1]),
+                    _ => {
+                        let (all_but_last, last) = duplicate_locations.split_at(duplicate_locations.len() - 1);
+                        format!("{} and {}", all_but_last.join(", "), last[0])
+                    }
+                };
+
                 Some(format!(
-                    "The type_checker `{}` was declared more than once with different parent types. These conflicting declarations were automatically merged into an implicit `(either ...)` type_checker declaration.",
-                    ty,
+                    "The type `{}` was declared multiple times at locations: {}. \
+                    These declarations were implicitly merged into an `(either ...)` type declaration. \
+                    To avoid ambiguity, consider explicitly declaring the type using `(either ...)`.",
+                    ident_to_string(*ty, interner),
+                    formatted_locations,
                 ))
             }
+            // TO CHECK
+
+
             Kind::DuplicateRequirementWarning { duplicate_requirements} => {
                 Some(format!(
                     "The following requirement(s) are declared multiple times in the domain and have been ignored: {}.",
@@ -893,6 +934,25 @@ impl Kind {
                     decl.remap_idents(map);
                 }
             }
+            | Kind::CrossConflictSymbolDeclaration {
+                problem_declaration,
+                conflicting_domain_declarations,
+            } => {
+                problem_declaration.remap_idents(map);
+                for decl in conflicting_domain_declarations {
+                    decl.remap_idents(map);
+                }
+            },
+            | Kind::ImplicitEitherTypeDeclaration {
+                ty,
+                duplicate_types,
+                ..
+            } => {
+                ty.remap_idents(map);
+                for ident in duplicate_types {
+                    ident.remap_idents(map);
+                }
+            },
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
@@ -905,8 +965,6 @@ impl Kind {
 
             // TO CHECK
 
-            | Kind::ImplicitEitherTypeDeclarationWarning { .. }
-            | Kind::CrossConflictSymbolDeclaration { .. }
             | Kind::DuplicateRequirementWarning { .. }
             | Kind::CustomError(_) => {
                 // Pas de remap nécessaire ici

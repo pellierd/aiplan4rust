@@ -159,33 +159,52 @@ fn report_implicit_either_type_warning(
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationPassError> {
-    // Get immutable access to the arena containing the AST nodes
+    let seen = collect_implicit_either_type_declarations(types_def_id, ast)?;
+    emit_implicit_either_type_warnings(seen, ast, diagnostic_manager)
+}
+
+
+/// Collects primitive types along with their super types and any duplicate declarations.
+///
+/// This function traverses a list of type declarations in the AST and identifies
+/// primitive types that are declared multiple times with potentially different sets
+/// of super types. It returns a map where each key is a type identifier (`Ident`)
+/// and the value is a tuple containing:
+/// - the set of super types from the first declaration,
+/// - the source code span of the first declaration,
+/// - and a list of duplicate declarations, each with their own set of super types and span.
+///
+/// This data can later be used to emit diagnostics indicating implicit `(either ...)`
+/// type interpretations.
+///
+/// # Arguments
+/// * `types_def_id` - The ID of the AST node representing the top-level type definitions.
+/// * `ast` - The AST structure used to retrieve syntax nodes and identifiers.
+///
+/// # Returns
+/// * `Ok(HashMap<...>)` containing all primitive types and their duplicate declarations.
+/// * `Err(NormalizationPassError)` if any AST traversal or identifier extraction fails.
+fn collect_implicit_either_type_declarations(
+    types_def_id: NodeId,
+    ast: &Ast,
+) -> Result<HashMap<Ident, (HashSet<Ident>, Span, Vec<(HashSet<Ident>, Span)>)>, NormalizationPassError> {
     let syntax_tree = ast.syntax_tree();
-
-    // Retrieve the syntax representing the entire type_checker definitions
     let typed_def_node = syntax_tree.try_node(types_def_id)?;
-
-    // Get the first child which holds the list of typed declarations
     let typed_list_id = typed_def_node.try_child(0)?;
     let typed_list = syntax_tree.try_node(typed_list_id)?;
 
-    // Map to keep track of seen primitive type_checker identifiers and their super types
-    let mut seen = HashMap::new();
+    let mut seen: HashMap<Ident, (HashSet<Ident>, Span, Vec<(HashSet<Ident>, Span)>)> = HashMap::new();
 
-    // Iterate over all type_checker declaration nodes
     for typed_item_id in typed_list.children() {
         let type_item = syntax_tree.try_node(*typed_item_id)?;
-
-        // Extract the primitive type_checker identifier syntax and get its Ident
         let primitive_type_id = type_item.try_child(0)?;
         let primitive_type = syntax_tree.try_node(primitive_type_id)?;
         let primitive_type_ident = primitive_type.try_ident()?;
+        let primitive_type_span = primitive_type.span();
 
-        // Extract the syntax containing super types of this primitive type_checker if they exist
         let super_type_idents = match type_item.get_child(1) {
             Some(ty_id) => {
                 let ty = syntax_tree.try_node(ty_id)?;
-                // Collect all super type_checker identifiers into a set
                 let mut super_type_idents = HashSet::new();
                 for super_type_id in ty.children() {
                     let super_type = syntax_tree.try_node(*super_type_id)?;
@@ -197,49 +216,113 @@ fn report_implicit_either_type_warning(
             None => HashSet::new(),
         };
 
-        // Check if we've already seen this primitive type_checker before
-        if seen.contains_key(&primitive_type_ident) {
-            // Generate a warning diagnostic for implicit either type_checker declaration
-            let warning =
-                new_implicit_either_type_warning(primitive_type_ident, primitive_type.span(), ast)?;
-            // Add the warning to the diagnostic manager
-            diagnostic_manager.add_diagnostic(warning);
+        if let Some((_, _, duplicates)) = seen.get_mut(&primitive_type_ident) {
+            duplicates.push((super_type_idents, primitive_type_span.clone()));
         } else {
-            // Record this primitive type_checker and its super types as seen
-            seen.insert(primitive_type_ident, super_type_idents);
+            seen.insert(
+                primitive_type_ident,
+                (super_type_idents, primitive_type_span.clone(), Vec::new()),
+            );
         }
     }
 
-    // Successfully processed all type_checker declarations without errors
+    Ok(seen)
+}
+
+/// Emits diagnostics for types with multiple conflicting declarations implicitly
+/// interpreted as `(either ...)` types.
+///
+/// This function processes a map of type identifiers that have been declared more than once,
+/// along with their associated super types and source code spans. For each type with duplicate
+/// declarations, it generates a warning diagnostic indicating that the type was implicitly
+/// treated as an `(either ...)` declaration due to the presence of multiple super type sets.
+///
+/// The diagnostic includes:
+/// - the name of the conflicting type,
+/// - the list of super types found in the duplicate declarations,
+/// - the source code spans where these duplicate declarations occurred,
+/// - and the span of the first declaration.
+///
+/// # Arguments
+/// * `seen` - A map of type identifiers to their first declaration (with super types and span)
+///   and a list of duplicate declarations (also with super types and spans).
+/// * `ast` - The AST used to resolve identifiers and source information.
+/// * `diagnostic_manager` - The manager used to emit diagnostics.
+///
+/// # Returns
+/// * `Ok(())` if all diagnostics were emitted successfully.
+/// * `Err(NormalizationPassError)` if any issue occurs during diagnostic creation.
+fn emit_implicit_either_type_warnings(
+    seen: HashMap<Ident, (HashSet<Ident>, Span, Vec<(HashSet<Ident>, Span)>)>,
+    ast: &Ast,
+    diagnostic_manager: &mut DiagnosticManager,
+) -> Result<(), NormalizationPassError> {
+    for (ident, (_, first_span, duplicates)) in seen {
+        if !duplicates.is_empty() {
+            let mut duplicate_types = Vec::new();
+            let mut duplicate_spans = Vec::new();
+
+            for (supertypes, span) in duplicates {
+                for st in supertypes {
+                    duplicate_types.push(st);
+                    duplicate_spans.push(span.clone());
+                }
+            }
+
+            let diagnostic = new_implicit_either_type_warning(
+                ident,
+                duplicate_types,
+                duplicate_spans,
+                &first_span,
+                ast,
+            )?;
+
+            diagnostic_manager.add_diagnostic(diagnostic);
+        }
+    }
+
     Ok(())
 }
 
-/// Creates a warning diagnostic for an implicit 'either' type_checker declaration.
+/// Creates a warning diagnostic for an implicitly interpreted `(either ...)` type_checker declaration.
+///
+/// This warning is emitted when a type is declared multiple times with different parent types,
+/// causing the system to implicitly treat it as an `(either ...)` type. While this behavior is allowed,
+/// it may lead to ambiguity and is best handled explicitly.
 ///
 /// # Arguments
-/// * `type_ident` - The identifier of the type_checker for which the warning is generated.
-/// * `span` - The source code span where the implicit type_checker declaration occurs.
-/// * `ast` - Reference to the AST arena, used to resolve the identifier to its string name.
+///
+/// - `ty`: The identifier of the type_checker that has conflicting parent declarations.
+/// - `duplicate_types`: A list of identifiers representing the conflicting parent types.
+/// - `duplicate_spans`: The source code spans where each conflicting parent declaration occurred.
+/// - `span`: The source code span representing the main declaration location of the type_checker.
+/// - `ast`: Reference to the AST arena, used to resolve identifiers to their string representations.
 ///
 /// # Returns
-/// * `Ok(Diagnostic)` containing the warning information if successful.
-/// * `Err(NormalizationPassError)` if resolving the identifier fails.
 ///
-/// # Purpose
-/// This function generates a diagnostic warning indicating that an 'either' type_checker
-/// was implicitly declared, which may require attention from the user.
+/// Returns `Ok(Diagnostic)` containing the constructed warning if successful, or
+/// `Err(NormalizationPassError)` if the identifier resolution fails.
+///
+/// # Diagnostic Purpose
+///
+/// This diagnostic informs the user that a type_checker was implicitly interpreted as an
+/// `(either ...)` declaration due to multiple conflicting parents. It suggests making this
+/// declaration explicit to improve clarity and reduce potential confusion.
+
 fn new_implicit_either_type_warning(
-    type_ident: Ident,
+    ty: Ident,
+    duplicate_types: Vec<Ident>,
+    duplicate_spans: Vec<Span>,
     span: &Span,
     ast: &Ast,
 ) -> Result<Diagnostic, NormalizationPassError> {
-    // Resolve the string name of the type_checker identifier using the AST's interner
-    let type_name = ast.interner().try_resolve_ident(type_ident)?;
 
     // Build the diagnostic object with relevant information
     let diagnostic = Diagnostic::new(
-        DiagnosticKind::ImplicitEitherTypeDeclarationWarning {
-            ty: type_name.to_string(),
+        DiagnosticKind::ImplicitEitherTypeDeclaration {
+            ty,
+            duplicate_types,
+            duplicate_spans,
         },
         Provider::Normalizer, // Mark the normalizer as the source of this warning
         ast.source_name().to_string(), // Source file name where the warning originates
