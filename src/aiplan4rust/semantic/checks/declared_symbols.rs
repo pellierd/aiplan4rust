@@ -100,7 +100,7 @@ fn check_symbol_declarations(
                     };
 
                     let warning = Diagnostic::new(
-                        DiagnosticKind::WarningAmbiguousTypePredicateSymbol {
+                        DiagnosticKind::AmbiguousTypePredicateSymbol {
                             ty: type_decl.clone(),
                             predicate: predicate_decl.clone(),
                         },

@@ -5,7 +5,6 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::core::arena::ArenaNode;
-use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
@@ -246,15 +245,11 @@ fn match_argument(
         || declaration.symbol_kind() == SymbolKind::Method)
         && usage.symbol_kind() == SymbolKind::Task
     {
-        // Add a warning diagnostic for this special case
-        let ty1_str = type_to_strings(&ty1, context)?;
-        let ty2_str = type_to_strings(&ty2, context)?;
-
         let warning = Diagnostic::new(
-            DiagnosticKind::WarningTaskArgumentIsSupertypeOfDeclaration {
-                argument: name.to_string(),
-                type_declared: ty1_str,
-                type_used: ty2_str,
+            DiagnosticKind::TaskArgumentIsSupertypeOfDeclaration {
+                argument: symbol_declaration.clone(),
+                type_declared: ty1.clone(),
+                type_used: ty2.clone(),
             },
             Provider::Analyzer,
             context.source_name().to_string(),
@@ -268,14 +263,4 @@ fn match_argument(
 
     // Normal case: return the result of the subtype check
     Ok(is_subtype)
-}
-
-fn type_to_strings(type_ids: &Type, context: &CheckContext) -> Result<Vec<String>, SemanticCheckError> {
-    let mut result = Vec::with_capacity(type_ids.len());
-    for id in type_ids.iter() {
-        let s = context.interner()
-            .try_resolve_ident(*id)?;
-        result.push(s.to_string());
-    }
-    Ok(result)
 }

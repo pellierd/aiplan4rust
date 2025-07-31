@@ -1,14 +1,17 @@
-use crate::common::io::{read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file, write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file, write_symbol_table_to_file};
-use aiplan4rust::aiplan4rust::diagnostic::DiagnosticManager;
-use aiplan4rust::aiplan4rust::semantic::SemanticContext;
-use aiplan4rust::aiplan4rust::syntax::ast::Ast;
+#![allow(dead_code)]
+
+use crate::common::io::{
+    read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file,
+    write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file,
+    write_symbol_table_to_file,
+};
+use aiplan4rust::aiplan4rust::linking::LinkerResult;
+use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
+use aiplan4rust::aiplan4rust::syntax::ParserResult;
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{check_well_formed, AnalyzerResult, Language, Normalizer, Parser, Severity};
 use std::path::Path;
-use aiplan4rust::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
-use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
-use aiplan4rust::aiplan4rust::syntax::ParserResult;
 
 /// Parses the source file to produce a ParserResult with a raw AST and checks its well-formedness.
 ///
@@ -44,16 +47,13 @@ use aiplan4rust::aiplan4rust::syntax::ParserResult;
 ///     // handle parse or validation failure
 /// }
 /// ```
-pub fn parse_and_check_ast(
-    file_path: &Path,
-    language: &Language,
-) -> Option<ParserResult> {
+pub fn parse_and_check_ast(file_path: &Path, language: &Language) -> Option<ParserResult> {
     let content = read_file(file_path);
     let path_str = file_path.to_str().expect("File path is not valid UTF-8");
     let mut parser = Parser::new();
 
     match parser.parse(path_str, &content, language) {
-        Ok(mut parser_result) => {
+        Ok(parser_result) => {
             if let Some(raw_ast) = parser_result.ast() {
                 if let Err(e) = check_well_formed(raw_ast) {
                     eprintln!(
@@ -201,7 +201,6 @@ pub fn normalize_and_check_ast(
     }
 }
 
-
 /// Performs semantic analysis using the provided NormalizerResult.
 ///
 /// # Parameters
@@ -218,7 +217,7 @@ pub fn analyze(
     let mut analyzer = Analyzer::new();
 
     match analyzer.analyze(&mut normalizer_result) {
-        Ok(mut analyzer_result) => {
+        Ok(analyzer_result) => {
             let diag_mgr = analyzer_result.diagnostic_manager();
 
             write_diagnostics_to_file(
@@ -305,8 +304,8 @@ pub fn analyze(
 pub fn analyze_file(
     file_path: &Path,
     language: &Language,
-    context: &str,       // e.g., "domain" or "problem"
-    success: &mut bool,  // mutable reference to update success flag
+    context: &str,      // e.g., "domain" or "problem"
+    success: &mut bool, // mutable reference to update success flag
 ) -> Option<AnalyzerResult> {
     // Step 1: Parse the source file into an AST + diagnostics
     let parser_result = match parse_and_check_ast(file_path, language) {
@@ -319,20 +318,28 @@ pub fn analyze_file(
     };
 
     // Step 2: Normalize the parsed AST
-    let mut normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
+    let normalizer_result = match normalize_and_check_ast(parser_result, file_path) {
         Some(result) => result,
         None => {
-            eprintln!("Normalization failed for {}: {}", context, file_path.display());
+            eprintln!(
+                "Normalization failed for {}: {}",
+                context,
+                file_path.display()
+            );
             *success = false;
             return None;
         }
     };
 
     // Step 3: Perform semantic analysis
-    let mut analyzer_result = match analyze(normalizer_result, file_path) {
+    let analyzer_result = match analyze(normalizer_result, file_path) {
         Some(result) => result,
         None => {
-            eprintln!("Semantic analysis failed for {}: {}", context, file_path.display());
+            eprintln!(
+                "Semantic analysis failed for {}: {}",
+                context,
+                file_path.display()
+            );
             *success = false;
             return None;
         }
@@ -413,7 +420,7 @@ pub fn link(
     let mut linker = Linker::new();
 
     // Attempt linking; convert structural errors to None
-    let mut linker_result = linker.link(domain, problem).ok()?;
+    let linker_result = linker.link(domain, problem).ok()?;
 
     // Always write diagnostics
     write_linking_diag_to_file(
@@ -447,7 +454,10 @@ pub fn link(
         .diagnostic_manager()
         .has_diagnostics_of_severity(Severity::Error)
     {
-        eprintln!("Linking reported errors for file {}", problem_path.display());
+        eprintln!(
+            "Linking reported errors for file {}",
+            problem_path.display()
+        );
         return None;
     }
 

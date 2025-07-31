@@ -239,11 +239,33 @@ pub enum Kind {
     /// - `predicate`: The declaration of the symbol as a predicate.
     ///
     /// ```
-    WarningAmbiguousTypePredicateSymbol {
+    AmbiguousTypePredicateSymbol {
         ty: Declaration,
         predicate: Declaration,
     },
 
+    /// Warning issued when a task argument uses a type that is a supertype of the one declared.
+    ///
+    /// This warning highlights a semantic inconsistency where a task uses a more general type
+    /// than what is declared by an action or method. According to standard PDDL typing rules,
+    /// argument types must match or be more specific (i.e., subtypes), and this form of
+    /// upcasting is not permitted.
+    ///
+    /// **This behavior is considered an aberration and should not be allowed**, as it violates
+    /// the intent of typed parameter declarations in PDDL. However, due to compatibility concerns,
+    /// notably with the `ultralight_cockpit` domain and the insistence of Holler for more tolerant
+    /// behavior, this exception is allowed with a warning.
+    ///
+    /// # Fields
+    ///
+    /// - `argument`: The declaration of the argument as defined in the action or method.
+    /// - `type_declared`: The declared type of the argument in the action or method.
+    /// - `type_used`: The actual type used in the task invocation, which is a supertype of the declared type.
+    TaskArgumentIsSupertypeOfDeclaration {
+        argument: Declaration,
+        type_declared: Type,
+        type_used: Type,
+    },
 
     // TO CHECK
 
@@ -254,11 +276,6 @@ pub enum Kind {
 
 
 
-    WarningTaskArgumentIsSupertypeOfDeclaration {
-        argument: String,
-        type_declared: Vec<String>,
-        type_used: Vec<String>,
-    },
     DuplicateEitherTypeWarning {
         duplicate_types: Vec<String>,
     },
@@ -302,8 +319,8 @@ impl Kind {
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => "W1010".to_string(),
             Kind::UnusedSymbol { .. } => "W1011".to_string(),
             Kind::RequirementViolation { .. } => "W10012".to_string(),
-            Kind::WarningAmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
-            Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
+            Kind::AmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
+            Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
             Kind::DuplicateEitherTypeWarning { .. } => "W1015".to_string(),
             Kind::ImplicitEitherTypeDeclarationWarning { .. } => "W1016".to_string(),
 
@@ -390,22 +407,24 @@ impl Kind {
                 let problem_str = symbol_to_string(problem_name.symbol(), interner);
                 format!("Domain '{}' and problem '{}' names do not match.", domain_str, problem_str)
             }
-            Kind::WarningAmbiguousTypePredicateSymbol { ty, ..} => {
+            Kind::AmbiguousTypePredicateSymbol { ty, ..} => {
                 let ty_name = symbol_to_string(ty.symbol(), interner);
                 format!(
                     "Ambiguous symbol '{}': declared both as a type and a predicate.",
                     ty_name
                 )
             }
-
+            Kind::TaskArgumentIsSupertypeOfDeclaration { argument, .. } => {
+                format!(
+                    "Type mismatch: argument '{}' uses a broader type than declared (upcasting is discouraged).",
+                    symbol_to_string(argument.symbol(), interner)
+                )
+            }
             // TO CHECK
 
 
 
-            Kind::WarningTaskArgumentIsSupertypeOfDeclaration { argument, .. } => {
-                format!("Upcasting detected: argument '{}' has broader type_checker(s) than declared.",
-                argument)
-            }
+
             Kind::DuplicateEitherTypeWarning { .. } => {
                 "Duplicate primitive types found in an 'either' type_checker declaration.".to_string()
             }
@@ -453,8 +472,8 @@ impl Kind {
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => Severity::Warning,
             Kind::UnusedSymbol { .. } => Severity::Warning,
             Kind::RequirementViolation { .. } => Severity::Warning,
-            Kind::WarningAmbiguousTypePredicateSymbol { .. } => Severity::Warning,
-            Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. } => Severity::Warning,
+            Kind::AmbiguousTypePredicateSymbol { .. } => Severity::Warning,
+            Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => Severity::Warning,
             Kind::DuplicateEitherTypeWarning { .. } => Severity::Warning,
             Kind::ImplicitEitherTypeDeclarationWarning { .. } => Severity::Warning,
 
@@ -632,24 +651,33 @@ impl Kind {
                     domain_str
                 ))
             }
-            Kind::WarningAmbiguousTypePredicateSymbol { ty, .. } => {
+            Kind::AmbiguousTypePredicateSymbol { ty, .. } => {
                 let symbol = symbol_to_string(ty.symbol(), interner);
                 Some(format!(
-                    "The symbol '{}' is declared both as a type and a predicate. Consider renaming one of them to avoid ambiguity.",
+                    "The symbol '{}' is declared both as a type and a predicate.  \
+                    Consider renaming one of them to avoid ambiguity.",
                     symbol
+                ))
+            }
+            Kind::TaskArgumentIsSupertypeOfDeclaration {
+                argument,
+                type_declared,
+                type_used,
+            } => {
+                Some(format!(
+                    "The argument '{}' uses type '{}' which is a supertype of the declared type '{}'. \
+                    Argument types should match exactly. \
+                    Prefer defining a new method with matching types instead.",
+                    symbol_to_string(argument.symbol(), interner),
+                    type_to_string(type_used, interner),
+                    type_to_string(type_declared, interner)
                 ))
             }
             // TO CHECK
 
-            Kind::WarningTaskArgumentIsSupertypeOfDeclaration {argument, type_declared, type_used} => {
-                Some(format!(
-                    "The argument '{}' uses type_checker(s) '{}', which are supertypes of the declared type_checker(s) '{}'. \
-                        Consider using the exact or a more specific type_checker.",
-                    argument,
-                    Self::format_types(type_declared),
-                    Self::format_types(type_used)
-                ))
-            }
+
+
+
             Kind::DuplicateEitherTypeWarning { duplicate_types } => {
                 let listed_types = if duplicate_types.len() == 1 {
                     format!("type_checker '{}'", duplicate_types[0])
@@ -721,18 +749,6 @@ impl Kind {
             .join(", ")
     }
 
-
-    /// Format a vector of types for display.
-    /// - If there is only one type_checker, it returns the type_checker as-is.
-    /// - If there are multiple types, it returns them in the form `(either t1 t2 ...)`.
-    fn format_types(types: &[String]) -> String {
-        match types.len() {
-            0 => "unknown".to_string(),
-            1 => types[0].clone(),
-            _ => format!("(either {})", types.join(" ")),
-        }
-    }
-
     /// Remap all `Ident`s in this diagnostic using the provided `map`.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         match self {
@@ -769,9 +785,16 @@ impl Kind {
                 domain_name.remap_idents(map);
                 problem_name.remap_idents(map);
             }
-            | Kind::WarningAmbiguousTypePredicateSymbol { ty, predicate } => {
+            | Kind::AmbiguousTypePredicateSymbol { ty, predicate } => {
                 ty.remap_idents(map);
                 predicate.remap_idents(map);
+            }
+            | Kind::TaskArgumentIsSupertypeOfDeclaration {
+                argument, type_declared, type_used,
+            } => {
+                argument.remap_idents(map);
+                type_declared.remap_idents(map);
+                type_used.remap_idents(map);
             }
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
@@ -796,7 +819,6 @@ impl Kind {
             }
 
 
-            | Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. }
             | Kind::DuplicateEitherTypeWarning { .. }
             | Kind::ImplicitEitherTypeDeclarationWarning { .. }
             | Kind::CrossConflictSymbolDeclarationError { .. }
