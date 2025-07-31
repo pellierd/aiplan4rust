@@ -287,6 +287,39 @@ pub enum Kind {
     DuplicateEitherType {
         duplicate_types: Vec<Ident>,
     },
+
+    /// Represents an error indicating a cycle in the type hierarchy defined in the domain.
+    ///
+    /// This diagnostic is triggered when user-defined types reference each other
+    /// in a circular manner (directly or indirectly), forming a cycle that prevents
+    /// correct normalization or analysis of the type system.
+    ///
+    /// For example, if type `A` extends `B`, and `B` extends `A`, this creates a cycle
+    /// that cannot be resolved.
+    ///
+    /// # Fields
+    ///
+    /// - `cycle`: A vector of `Declaration` items representing the chain of type
+    ///   declarations involved in the cycle. The first and last elements may be equal
+    ///   to indicate a closed loop.
+    ///
+    /// # Context
+    ///
+    /// This error is typically emitted during the domain normalization phase, when the
+    /// hierarchy of type declarations is being validated.
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// type A extends B
+    /// type B extends A
+    /// ```
+    ///
+    /// This will result in a `CyclicTypeDeclaration` error with a cycle including both `A` and `B`.
+    CyclicTypeDeclaration {
+        cycle: Vec<Declaration>
+    },
+
     // TO CHECK
 
 
@@ -300,9 +333,7 @@ pub enum Kind {
     ImplicitEitherTypeDeclarationWarning {
         ty: String,
     },
-    CyclicTypeDeclarationError {
-       cycle: Vec<Declaration>
-    },
+
     CrossConflictSymbolDeclarationError {
         symbol: String,
         problem_kind: SymbolKind,
@@ -332,7 +363,7 @@ impl Kind {
             Kind::CyclicTaskOrdering { .. } => "E1008".to_string(),
             Kind::UndeclaredSymbol { .. } => "E1009".to_string(),
             Kind::SymbolConflictsWithKeyword { .. } => "E1010".to_string(),
-            Kind::CyclicTypeDeclarationError { .. } => "E1011".to_string(),
+            Kind::CyclicTypeDeclaration { .. } => "E1011".to_string(),
             // WARNINGS ANALYSER
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => "W1010".to_string(),
             Kind::UnusedSymbol { .. } => "W1011".to_string(),
@@ -442,7 +473,9 @@ impl Kind {
                 let names = format_ident_list(duplicate_types, interner);
                 format!("Duplicate primitive types in 'either' type: {}.", names)
             }
-
+            Kind::CyclicTypeDeclaration { .. } => {
+                "Type declarations form a cycle; this creates an invalid type hierarchy.".to_string()
+            }
             // TO CHECK
 
 
@@ -455,9 +488,7 @@ impl Kind {
                     ty,
                 )
             }
-            Kind::CyclicTypeDeclarationError { ..} => {
-                "Cycle detected in type_checker declarations, causing an invalid hierarchy.".to_string()
-            }
+
             Kind::CrossConflictSymbolDeclarationError { .. } => {
                 "Symbol declaration in problem conflicts with domain declaration.".to_string()
             }
@@ -488,7 +519,7 @@ impl Kind {
             Kind::CyclicTaskOrdering => Severity::Error,
             Kind::UndeclaredSymbol { .. } => Severity::Error,
             Kind::SymbolConflictsWithKeyword { .. } => Severity::Error,
-            Kind::CyclicTypeDeclarationError { .. } => Severity::Error,
+            Kind::CyclicTypeDeclaration { .. } => Severity::Error,
             // ANALYSER WARNINGS
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => Severity::Warning,
             Kind::UnusedSymbol { .. } => Severity::Warning,
@@ -555,7 +586,8 @@ impl Kind {
                 let ty2_str = type_to_string(ty2, interner);
 
                 Some(format!(
-                    "Numeric expressions require operands of type 'number', but found '{}' and '{}'. Ensure both operands are numeric types.",
+                    "Numeric expressions require operands of type 'number', but found '{}' and '{}'. \
+                    Ensure both operands are numeric types.",
                     ty1_str,
                     ty2_str
                 ))
@@ -611,7 +643,8 @@ impl Kind {
                         name
                     )),
                     SymbolKind::Constant => Some(format!(
-                        "Constant '{}' is not declared. Declare it in the ':constants' section (domain) or ':objects' section (problem).",
+                        "Constant '{}' is not declared. Declare it in the ':constants' \
+                        section (domain) or ':objects' section (problem).",
                         name
                     )),
                     SymbolKind::DomainName => Some(format!(
@@ -631,7 +664,9 @@ impl Kind {
                         name
                     )),
                     SymbolKind::Variable => Some(format!(
-                        "Variable '{}' is not declared. You likely need to add it to the ':parameters' list of the enclosing definition (e.g., '?x - type').",
+                        "Variable '{}' is not declared.\
+                         You likely need to add it to the ':parameters' list of the enclosing \
+                         definition (e.g., '?x - type').",
                         name
                     )),
                 }
@@ -640,7 +675,8 @@ impl Kind {
                 let name = symbol_to_string(declaration.symbol(), interner);
                 let reqs = format_requirement_list(requirements);
                 Some(format!(
-                    "Symbol '{}' conflicts with a reserved keyword under requirements: {}. It must be declared as a {:?} (e.g., type, function, variable).",
+                    "Symbol '{}' conflicts with a reserved keyword under requirements: {}. \
+                    It must be declared as a {:?} (e.g., type, function, variable).",
                     name,
                     reqs,
                     expected_kind
@@ -650,7 +686,8 @@ impl Kind {
                 let name = symbol_to_string(declaration.symbol(), interner);
                 let reqs = format_requirement_list(requirements);
                 Some(format!(
-                    "Symbol '{}' is ambiguous because it is used as a language keyword with requirements: {}. Consider renaming or using a different symbol.",
+                    "Symbol '{}' is ambiguous because it is used as a language keyword with \
+                    requirements: {}. Consider renaming or using a different symbol.",
                     name,
                     reqs
                 ))
@@ -658,7 +695,8 @@ impl Kind {
             Kind::UnusedSymbol { declaration } => {
                 let name = symbol_to_string(declaration.symbol(), interner);
                 Some(format!(
-                    "{} symbol '{}' is declared but not used. Consider removing it to clean up your code.",
+                    "{} symbol '{}' is declared but not used. \
+                    Consider removing it to clean up your code.",
                     declaration.symbol_kind(),
                     name
                 ))
@@ -666,7 +704,8 @@ impl Kind {
             Kind::DomainProblemNameMismatch { domain_name, .. } => {
                 let domain_str = symbol_to_string(domain_name.symbol(), interner);
                 Some(format!(
-                    "Check that the problem's domain name matches the domain definition: expected '{}'.",
+                    "Check that the problem's domain name matches the domain definition: \
+                    expected '{}'.",
                     domain_str
                 ))
             }
@@ -699,8 +738,16 @@ impl Kind {
                     format!("types '{}'", format_ident_list(&duplicate_types, interner))
                 };
                 Some(format!(
-                    "Duplicate {} found in an 'either' type declaration; these duplicates are ignored but consider removing them to clean up your code.",
+                    "Duplicate {} found in an 'either' type declaration; \
+                    these duplicates are ignored but consider removing them to clean up your code.",
                     listed_types,
+                ))
+            }
+            Kind::CyclicTypeDeclaration { cycle } => {
+                Some(format!(
+                    "Cycle detected in type hierarchy involving types: {}. \
+                    Remove the cyclic inheritance to resolve the issue.",
+                    format_declaration_list(cycle, interner)
                 ))
             }
             // TO CHECK
@@ -709,13 +756,8 @@ impl Kind {
 
 
 
-            Kind::CyclicTypeDeclarationError { cycle } => {
-                let cycle_symbols: Vec<Ident> = cycle.iter().map(|decl| decl.symbol_ident()).collect();
-                Some(format!(
-                    "Cycle detected in type_checker hierarchy: {:?}. Remove cyclic inheritance to fix.",
-                    cycle_symbols
-                ))
-            }
+
+
             Kind::CrossConflictSymbolDeclarationError { symbol, problem_kind, domain_kinds } => {
                 Some(format!(
                     "Symbol `{}` declared as `{}` in the problem, but in the domain it is declared as: {}. Ensure the symbol’s kind matches in both.",
@@ -821,6 +863,11 @@ impl Kind {
                    ident.remap_idents(map);
                 }
             }
+            Kind::CyclicTypeDeclaration { cycle } => {
+                for decl in cycle {
+                    decl.remap_idents(map);
+                }
+            }
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
@@ -832,16 +879,6 @@ impl Kind {
 
 
             // TO CHECK
-
-
-
-
-
-            Kind::CyclicTypeDeclarationError { cycle } => {
-                for decl in cycle {
-                    decl.remap_idents(map);
-                }
-            }
 
             | Kind::ImplicitEitherTypeDeclarationWarning { .. }
             | Kind::CrossConflictSymbolDeclarationError { .. }
@@ -947,6 +984,23 @@ fn format_ident_list(idents: &[Ident], interner: Option<&StringInterner>) -> Str
         .map(|&ident| ident_to_string(ident, interner))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// Formats a list of `Declaration`s into a comma-separated string by extracting their symbol identifiers
+/// and resolving them using an optional `StringInterner`.
+///
+/// # Parameters
+/// - `declarations`: Slice of `Declaration` to format.
+/// - `interner`: Optional reference to a `StringInterner` used to resolve identifiers.
+///
+/// # Returns
+/// A string of comma-separated symbols (idents) of the declarations, resolved via `format_ident_list`.
+fn format_declaration_list(
+    declarations: &[Declaration],
+    interner: Option<&StringInterner>
+) -> String {
+    let idents: Vec<Ident> = declarations.iter().map(|decl| decl.symbol_ident()).collect();
+    format_ident_list(&idents, interner)
 }
 
 /// Formats a slice of `Requirement`s into a comma-separated string,

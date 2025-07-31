@@ -177,7 +177,7 @@ fn report_cyclic_type_declaration_error(
 
         // Emit a diagnostic describing the cyclic type_checker declarations
         let error = Diagnostic::new(
-            DiagnosticKind::CyclicTypeDeclarationError { cycle: cycle_detail },
+            DiagnosticKind::CyclicTypeDeclaration { cycle: cycle_detail },
             source,
             filename.to_string(),
             first_span,
