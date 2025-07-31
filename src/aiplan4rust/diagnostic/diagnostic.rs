@@ -200,9 +200,8 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
             ParseError::User { error } => {
                 let content = error.to_string();
                 Diagnostic::new(
-                    DiagnosticKind::CustomError {
+                    DiagnosticKind::User {
                         message: content,
-                        suggestion: None, 
                     },
                     Provider::Lexer,
                     file_path,
