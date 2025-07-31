@@ -377,18 +377,68 @@ pub enum Kind {
         duplicate_requirements: Vec<Requirement>,
     },
 
+    /// Variant representing a custom error with a descriptive message and an optional suggestion.
+    ///
+    /// This variant stores owned `String`s for both the error message and an optional suggestion,
+    /// allowing flexible and dynamic creation of error diagnostics without lifetime constraints.
+    ///
+    /// # Fields
+    ///
+    /// - `message`: A detailed description of the error.
+    /// - `suggestion`: An optional helpful suggestion or advice on how to resolve or avoid the error.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let error_kind = Kind::CustomError {
+    ///     message: "Failed to parse configuration file.".to_string(),
+    ///     suggestion: Some("Check if the file path is correct and the file format is valid.".to_string()),
+    /// };
+    ///
+    /// if let Kind::CustomError { message, suggestion } = error_kind {
+    ///     println!("Error: {}", message);
+    ///     if let Some(sugg) = suggestion {
+    ///         println!("Suggestion: {}", sugg);
+    ///     }
+    /// }
+    /// ```
+    CustomError {
+        message: String,
+        suggestion: Option<String>,
+    },
 
-
-
-
-
-
-
-
-
-
-
-    CustomError(String),
+    /// Represents a custom warning with a descriptive message and an optional suggestion.
+    ///
+    /// This variant owns its warning message and optionally a suggestion string,
+    /// allowing for flexible and dynamic creation of warning information without lifetime constraints.
+    ///
+    /// # Fields
+    ///
+    /// - `message`: A detailed description of the warning.
+    /// - `suggestion`: An optional helpful suggestion or advice on how to address or mitigate the warning.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let warning = Kind::CustomWarning {
+    ///     message: "Deprecated API usage detected.".to_string(),
+    ///     suggestion: Some("Consider updating to the new API version.".to_string()),
+    /// };
+    ///
+    /// let warning_without_suggestion = Kind::CustomWarning {
+    ///     message: "Minor performance issue found.".to_string(),
+    ///     suggestion: None,
+    /// };
+    ///
+    /// println!("Warning: {}", warning.message);
+    /// if let Some(sugg) = &warning.suggestion {
+    ///     println!("Suggestion: {}", sugg);
+    /// }
+    /// ```
+    CustomWarning {
+        message: String,
+        suggestion: Option<String>,
+    },
 }
 
 impl Kind {
@@ -424,7 +474,8 @@ impl Kind {
             Kind::CrossConflictSymbolDeclaration { .. } => "E2001".to_string(),
 
 
-            Kind::CustomError(_) => "E000X".to_string(),
+            Kind::CustomError{ .. } => "E000X".to_string(),
+            Kind::CustomWarning{ .. } => "W000X".to_string(),
         }
     }
 
@@ -538,8 +589,8 @@ impl Kind {
                 "Requirements definition contains duplicated declarations which have been ignored."
                     .to_string()
             }
-            // TO CHECK
-            Kind::CustomError(msg) => msg.to_string(),
+            Kind::CustomError {message, .. } => message.to_string(),
+            Kind::CustomWarning {message, .. } => message.to_string(),
         }
     }
 
@@ -550,7 +601,8 @@ impl Kind {
             Kind::UnexpectedEof { .. } => Severity::Error,
             Kind::InvalidToken => Severity::Error,
             Kind::ExtraToken { .. } => Severity::Error,
-            Kind::CustomError(_) => Severity::Error,
+            Kind::CustomError { .. } => Severity::Error,
+            Kind::CustomWarning { .. } => Severity::Error,
 
             // NORMALIZER WARNINGS
             Kind::DuplicateRequirementWarning { .. } => Severity::Warning,
@@ -852,10 +904,8 @@ impl Kind {
                     format_requirement_list(duplicate_requirements),
                 ))
             }
-            // TO CHECK
-
-
-            Kind::CustomError(_) => None,
+            Kind::CustomError {suggestion, .. } => suggestion.clone(),
+            Kind::CustomWarning {suggestion, .. } => suggestion.clone(),
         }
     }
 
@@ -960,14 +1010,9 @@ impl Kind {
             | Kind::ExtraToken { .. }
             | Kind::RequirementViolation { .. }
             | Kind::CyclicTaskOrdering
-            | Kind::DuplicateRequirementWarning { .. } => {
-                // Pas de remap nécessaire ici
-            }
-
-
-            // TO CHECK
-
-            | Kind::CustomError(_) => {
+            | Kind::DuplicateRequirementWarning { .. }
+            | Kind::CustomError { .. }
+            | Kind::CustomWarning { .. }=> {
                 // Pas de remap nécessaire ici
             }
         }
