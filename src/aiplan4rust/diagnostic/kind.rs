@@ -364,23 +364,30 @@ pub enum Kind {
         duplicate_types: Vec<Ident>,
         duplicate_spans: Vec<Span>,
     },
-
-    // TO CHECK
-
-
-
-
-
-
-
-
-
-
-
-
+    /// A warning emitted when a requirement is declared multiple times.
+    ///
+    /// This diagnostic is used to indicate that the same requirement appears more than once
+    /// in a given context (e.g., in a type, operator, or action definition). Although duplicate
+    /// requirements may not cause immediate semantic issues, they are usually unintended and
+    /// may clutter the specification.
+    ///
+    /// # Fields
+    /// * `duplicate_requirements` - A list of all duplicated requirements that were found.
     DuplicateRequirementWarning {
         duplicate_requirements: Vec<Requirement>,
     },
+
+
+
+
+
+
+
+
+
+
+
+
     CustomError(String),
 }
 
@@ -527,17 +534,11 @@ impl Kind {
                     ident_to_string(*ty, interner),
                 )
             }
-            // TO CHECK
-
-
-
-
-
-
-
             Kind::DuplicateRequirementWarning { .. } => {
-                "Redundant requirement declaration detected.".to_string()
+                "Requirements definition contains duplicated declarations which have been ignored."
+                    .to_string()
             }
+            // TO CHECK
             Kind::CustomError(msg) => msg.to_string(),
         }
     }
@@ -844,15 +845,15 @@ impl Kind {
                     formatted_locations,
                 ))
             }
-            // TO CHECK
-
-
-            Kind::DuplicateRequirementWarning { duplicate_requirements} => {
+            Kind::DuplicateRequirementWarning { duplicate_requirements } => {
                 Some(format!(
-                    "The following requirement(s) are declared multiple times in the domain and have been ignored: {}.",
-                    duplicate_requirements.iter().map(|r| r.to_string()).collect::<Vec<_>>().join(", ")
+                    "The following requirement(s) are declared multiple times in the domain and have been ignored. \
+                    Consider removing them to prevent redundancy: {}.",
+                    format_requirement_list(duplicate_requirements),
                 ))
             }
+            // TO CHECK
+
 
             Kind::CustomError(_) => None,
         }
@@ -958,14 +959,14 @@ impl Kind {
             | Kind::InvalidToken
             | Kind::ExtraToken { .. }
             | Kind::RequirementViolation { .. }
-            | Kind::CyclicTaskOrdering => {
+            | Kind::CyclicTaskOrdering
+            | Kind::DuplicateRequirementWarning { .. } => {
                 // Pas de remap nécessaire ici
             }
 
 
             // TO CHECK
 
-            | Kind::DuplicateRequirementWarning { .. }
             | Kind::CustomError(_) => {
                 // Pas de remap nécessaire ici
             }
@@ -974,8 +975,29 @@ impl Kind {
 }
 
 
-
 impl fmt::Display for Kind {
+    /// Formats the diagnostic kind as a user-readable string, primarily for debugging purposes.
+    ///
+    /// This method outputs the diagnostic code, severity level, main message, and if available,
+    /// a suggestion message.
+    ///
+    /// **Note:** Identifiers (`Ident`) within the diagnostic are **not** replaced by their
+    /// string representations here; the output may contain raw identifier references.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the formatted string into.
+    ///
+    /// # Returns
+    ///
+    /// Returns `fmt::Result` indicating success or failure of the write operation.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let kind = Kind::SomeDiagnosticKind { ... };
+    /// println!("{}", kind); // Prints formatted diagnostic info
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = self.code();
         let message = self.message(None);
