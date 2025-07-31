@@ -79,7 +79,7 @@ fn check_symbol_declarations(
                 continue;
             }
 
-            let ast_entry = context.syntax_tree().get_node(declaration.node_id()).unwrap();
+            let ast_entry = context.syntax_tree().try_node(declaration.node_id())?;
             let current_scope = declaration.scope();
 
             // Check for an existing declaration in an ancestor scope
@@ -93,10 +93,16 @@ fn check_symbol_declarations(
                 if (current_kind == SymbolKind::PrimitiveType && previous_kind == SymbolKind::Predicate)
                     || (current_kind == SymbolKind::Predicate && previous_kind == SymbolKind::PrimitiveType)
                 {
-                    let name = context.interner().try_resolve_ident(symbol.ident())?;
+
+                    let (predicate_decl, type_decl) = match current_kind == SymbolKind::Predicate {
+                        true => (declaration, previous_declaration),
+                        false => (previous_declaration, declaration),
+                    };
+
                     let warning = Diagnostic::new(
                         DiagnosticKind::WarningAmbiguousTypePredicateSymbol {
-                            symbol: name.to_string(),
+                            ty: type_decl.clone(),
+                            predicate: predicate_decl.clone(),
                         },
                         Provider::Analyzer,
                         context.source_name().to_string(),

@@ -229,15 +229,31 @@ pub enum Kind {
         problem_name: Declaration,
     },
 
+    /// Warning for ambiguous symbol names that are declared both as a primitive type and a predicate.
+    ///
+    /// This warning is emitted when the same identifier is used for both a `PrimitiveType` and a
+    /// `Predicate` symbol kind, which can lead to confusion or unexpected behavior in semantic analysis.
+    ///
+    /// # Fields
+    /// - `ty`: The declaration of the symbol as a primitive type.
+    /// - `predicate`: The declaration of the symbol as a predicate.
+    ///
+    /// ```
+    WarningAmbiguousTypePredicateSymbol {
+        ty: Declaration,
+        predicate: Declaration,
+    },
+
+
     // TO CHECK
 
 
 
 
 
-    WarningAmbiguousTypePredicateSymbol {
-        symbol: String,
-    },
+
+
+
     WarningTaskArgumentIsSupertypeOfDeclaration {
         argument: String,
         type_declared: Vec<String>,
@@ -353,16 +369,16 @@ impl Kind {
                 "Cyclic task-ordering constraint detected.".to_string()
             }
             Kind::UndeclaredSymbol { usage } => {
-                let name = symbol_to_string(&usage.symbol(), interner);
+                let name = symbol_to_string(usage.symbol(), interner);
                 format!("{} symbol '{}' is undeclared.", usage.symbol_kind(), name)
             }
             Kind::SymbolConflictsWithKeyword { declaration, .. } => {
-                let name = symbol_to_string(&declaration.symbol(), interner);
+                let name = symbol_to_string(declaration.symbol(), interner);
                 format!("Symbol '{}' is used as a language keyword", name)
             }
 
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. } => {
-                let name = symbol_to_string(&declaration.symbol(), interner);
+                let name = symbol_to_string(declaration.symbol(), interner);
                 format!("Symbol '{}' is ambiguous as a language keyword", name)
             }
             Kind::UnusedSymbol { declaration } => {
@@ -370,17 +386,22 @@ impl Kind {
                 format!("{} symbol '{}' is unused", declaration.symbol_kind(), name)
             }
             Kind::DomainProblemNameMismatch { domain_name, problem_name } => {
-                let domain_str = symbol_to_string(&domain_name.symbol(), interner);
-                let problem_str = symbol_to_string(&problem_name.symbol(), interner);
+                let domain_str = symbol_to_string(domain_name.symbol(), interner);
+                let problem_str = symbol_to_string(problem_name.symbol(), interner);
                 format!("Domain '{}' and problem '{}' names do not match.", domain_str, problem_str)
+            }
+            Kind::WarningAmbiguousTypePredicateSymbol { ty, ..} => {
+                let ty_name = symbol_to_string(ty.symbol(), interner);
+                format!(
+                    "Ambiguous symbol '{}': declared both as a type and a predicate.",
+                    ty_name
+                )
             }
 
             // TO CHECK
 
 
-            Kind::WarningAmbiguousTypePredicateSymbol { symbol, .. } => {
-                format!("Ambiguous symbol '{}': declared both as a type_checker and a predicate in the same scope.", symbol)
-            }
+
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration { argument, .. } => {
                 format!("Upcasting detected: argument '{}' has broader type_checker(s) than declared.",
                 argument)
@@ -605,20 +626,21 @@ impl Kind {
                 ))
             }
             Kind::DomainProblemNameMismatch { domain_name, .. } => {
-                let domain_str = symbol_to_string(&domain_name.symbol(), interner);
+                let domain_str = symbol_to_string(domain_name.symbol(), interner);
                 Some(format!(
                     "Check that the problem's domain name matches the domain definition: expected '{}'.",
                     domain_str
                 ))
             }
-
-            // TO CHECK
-            Kind::WarningAmbiguousTypePredicateSymbol { symbol} => {
+            Kind::WarningAmbiguousTypePredicateSymbol { ty, .. } => {
+                let symbol = symbol_to_string(ty.symbol(), interner);
                 Some(format!(
-                    "The symbol '{}' is declared both as a type_checker and a predicate in the same scope. This can lead to confusion. Consider renaming one of them.",
+                    "The symbol '{}' is declared both as a type and a predicate. Consider renaming one of them to avoid ambiguity.",
                     symbol
                 ))
             }
+            // TO CHECK
+
             Kind::WarningTaskArgumentIsSupertypeOfDeclaration {argument, type_declared, type_used} => {
                 Some(format!(
                     "The argument '{}' uses type_checker(s) '{}', which are supertypes of the declared type_checker(s) '{}'. \
@@ -747,7 +769,10 @@ impl Kind {
                 domain_name.remap_idents(map);
                 problem_name.remap_idents(map);
             }
-
+            | Kind::WarningAmbiguousTypePredicateSymbol { ty, predicate } => {
+                ty.remap_idents(map);
+                predicate.remap_idents(map);
+            }
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
@@ -770,7 +795,7 @@ impl Kind {
                 }
             }
 
-            | Kind::WarningAmbiguousTypePredicateSymbol { .. }
+
             | Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. }
             | Kind::DuplicateEitherTypeWarning { .. }
             | Kind::ImplicitEitherTypeDeclarationWarning { .. }
