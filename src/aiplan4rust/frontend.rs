@@ -9,12 +9,10 @@ use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
 use crate::aiplan4rust::AiplanError;
-use crate::aiplan4rust::validation::normalization::check_well_normalized;
 
 use std::fs::File;
 use std::io::Read;
 use std::string::String;
-use crate::aiplan4rust::interner::{InternerMergeResult, StringInterner};
 
 #[derive(Debug)]
 pub struct Frontend {}

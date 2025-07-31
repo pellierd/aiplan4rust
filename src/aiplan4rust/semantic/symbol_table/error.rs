@@ -10,7 +10,7 @@ use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::error::InvalidNodeArityError;
-use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolKind};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
 use crate::aiplan4rust::semantic::UnexpectedNodeKindError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -44,8 +44,8 @@ pub enum SymbolTableError {
         /// The symbol kind that was expected to be unique.
         kind: SymbolKind,
 
-        /// All candidate symbol entries found.
-        candidates: Vec<SymbolEntry>,
+        /// All candidate declarations found.
+        candidates: Vec<Declaration>,
     },
 
     /// Multiple declarations found for a symbol with the same identifier and kind.
@@ -124,19 +124,22 @@ impl SymbolTableError {
 
     /// Constructs a `DuplicateUniqueDeclaration` error.
     ///
-    /// Indicates a conflict where a symbol kind that should be unique has multiple definitions.
+    /// Indicates a conflict where a symbol kind that must be unique (such as a `DomainName` or
+    /// `ProblemName`) has been declared multiple times in the source code.
     ///
     /// # Arguments
     ///
-    /// * `kind` - The expected unique symbol kind.
-    /// * `candidates` - A list of conflicting symbol entries.
+    /// * `kind` - The kind of symbol expected to have exactly one declaration.
+    /// * `candidates` - A list of `Declaration` nodes representing the multiple conflicting declarations
+    ///   found in the AST.
     ///
     /// # Returns
     ///
-    /// A new `SymbolTableError::DuplicateUniqueDeclaration` instance.
+    /// A new `SymbolTableError::DuplicateDeclarationForUnique` instance containing
+    /// the conflicting declarations.
     pub fn duplicated_declaration_for_unique(
         kind: SymbolKind,
-        candidates: Vec<SymbolEntry>,
+        candidates: Vec<Declaration>,
     ) -> Self {
         SymbolTableError::DuplicateDeclarationForUnique { kind, candidates }
     }

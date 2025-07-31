@@ -857,80 +857,93 @@ impl Table {
         }
     }
 
-    /// Resolves a unique symbol of a specific kind assumed to be singular in the AST.
+    /// Resolves a unique declaration of a specific symbol kind assumed to appear only once in the AST.
     ///
-    /// This internal utility function is designed to resolve symbols that are expected
-    /// to appear only once per AST, such as `DomainName` or `ProblemName`.
-    /// It collects all symbols of the specified kind and returns:
-    /// - The symbol if exactly one is found.
-    /// - `None` if no symbol is found.
-    /// - An error if more than one symbol is found, which indicates an invalid or ambiguous AST.
+    /// This function is intended for resolving symbols that are expected to have exactly one declaration
+    /// in a well-formed AST, such as a `DomainName` or `ProblemName`. It collects all declarations of
+    /// the specified kind and returns:
+    ///
+    /// - The declaration if exactly one is found.
+    /// - `None` if no declaration is found.
+    /// - An error if multiple declarations are found, indicating an invalid or ambiguous AST.
     ///
     /// # Arguments
-    /// - `kind`: The kind of symbol to resolve, typically one that is expected to be unique.
+    ///
+    /// * `kind` - The kind of symbol to resolve, typically one that is required to be unique.
     ///
     /// # Returns
-    /// - `Ok(Some(&SymbolEntry))` if exactly one symbol of the specified kind is found.
-    /// - `Ok(None)` if no symbol of that kind exists.
-    /// - `Err(SymbolTableError::NonUniqueSymbolDeclaration)` if multiple symbols of the same kind are found,
-    ///   indicating a semantic or structural error in the AST.
+    ///
+    /// * `Ok(Some(&Declaration))` if exactly one declaration of the specified kind is found.
+    /// * `Ok(None)` if no such declaration exists.
+    /// * `Err(SymbolTableError::DuplicateDeclarationForUnique)` if multiple declarations are found,
+    ///    indicating a semantic or structural error in the AST.
     ///
     /// # Errors
-    /// Returns a [`SymbolTableError::DuplicateDeclarationForUnique`] if multiple declarations
-    /// of the same `SymbolKind` are found, signaling an ambiguous or invalid syntax structure.
+    ///
+    /// Returns a [`SymbolTableError::DuplicateDeclarationForUnique`] if more than one declaration of the given
+    /// `SymbolKind` is found.
     ///
     /// # Examples
+    ///
     /// ```rust
-    /// let domain_symbol = symbol_table.resolve_unique_declaration(SymbolKind::DomainName)?;
-    /// match domain_symbol {
-    ///     Some(symbol) => println!("Domain symbol found: {:?}", symbol),
-    ///     None => println!("No domain symbol declared."),
+    /// let domain_decl = symbol_table.resolve_unique_declaration(SymbolKind::DomainName)?;
+    /// match domain_decl {
+    ///     Some(decl) => println!("Domain declaration found at span: {:?}", decl.span()),
+    ///     None => println!("No domain declared."),
     /// }
     /// ```
     pub fn resolve_unique_declaration(
         &self,
         kind: SymbolKind,
-    ) -> Result<Option<&SymbolEntry>, SymbolTableError> {
-        let symbols = self.collect_symbol_with_declaration(None, Some(&kind), None);
+    ) -> Result<Option<&Declaration>, SymbolTableError> {
+        let declarations = self.collect_declarations(
+            None,
+            Some(&kind),
+            Some(&self.root_scope()),
+        );
 
-        match symbols.len() {
+        match declarations.len() {
             0 => Ok(None),
-            1 => Ok(Some(symbols[0])),
-            _ => {
-                // Clone entries to pass owned values into the error
-                let owned_symbols: Vec<SymbolEntry> = symbols.iter().map(|&s| s.clone()).collect();
-                Err(SymbolTableError::duplicated_declaration_for_unique(kind, owned_symbols))
-            }
+            1 => Ok(Some(declarations[0])),
+            _ => Err(SymbolTableError::duplicated_declaration_for_unique(
+                kind,
+                declarations.iter().map(|d| (*d).clone()).collect(),
+            )),
         }
     }
 
-    /// Attempts to resolve a unique symbol of a specific kind assumed to be singular in the AST.
+    /// Attempts to resolve a unique declaration of a specific symbol kind assumed to appear only once in the AST.
     ///
-    /// This function wraps [`resolve_unique_declaration`] and returns an error if no unique symbol
-    /// of the given kind is found, or if multiple symbols are found.
+    /// This function wraps [`resolve_unique_declaration`] and enforces uniqueness by returning an error
+    /// if no declaration or more than one declaration is found for the given kind. It is useful in contexts
+    /// where a declaration must exist and must be unique.
     ///
     /// # Arguments
-    /// - `kind`: The kind of symbol to resolve, typically one that is expected to be unique.
+    ///
+    /// * `kind` - The kind of symbol to resolve, typically one that is expected to be unique.
     ///
     /// # Returns
-    /// - `Ok(&SymbolEntry)` if exactly one symbol of the specified kind is found.
-    /// - `Err(SymbolTableError)` if no symbol or multiple symbols are found.
+    ///
+    /// * `Ok(&Declaration)` if exactly one declaration of the specified kind is found.
+    /// * `Err(SymbolTableError)` if no such declaration exists or if multiple conflicting declarations are found.
     ///
     /// # Errors
-    /// - Returns [`SymbolTableError::DeclarationNotFoundForKind`] if no symbol of the given kind exists.
-    /// - Returns [`SymbolTableError::DuplicateDeclarationForUnique`] if multiple symbols of the same kind are found.
+    ///
+    /// * Returns [`SymbolTableError::DeclarationNotFoundForKind`] if no declaration of the given kind exists.
+    /// * Returns [`SymbolTableError::DuplicateDeclarationForUnique`] if multiple declarations of the same kind are found.
     ///
     /// # Examples
+    ///
     /// ```rust
-    /// let unique_symbol = symbol_table.try_resolve_unique_declaration(SymbolKind::DomainName)?;
-    /// println!("Unique symbol: {:?}", unique_symbol);
+    /// let unique_decl = symbol_table.try_resolve_unique_declaration(SymbolKind::DomainName)?;
+    /// println!("Domain declared at: {:?}", unique_decl.span());
     /// ```
     pub fn try_resolve_unique_declaration(
         &self,
         kind: SymbolKind,
-    ) -> Result<&SymbolEntry, SymbolTableError> {
+    ) -> Result<&Declaration, SymbolTableError> {
         match self.resolve_unique_declaration(kind)? {
-            Some(symbol) => Ok(symbol),
+            Some(declaration) => Ok(declaration),
             None => Err(SymbolTableError::declaration_not_found_for_kind(kind)),
         }
     }

@@ -211,10 +211,24 @@ pub enum Kind {
         declaration: Declaration,
     },
 
+    /// Error variant indicating a mismatch between the domain name declared in the domain
+    /// definition and the domain name referenced in the problem file.
+    ///
+    /// This error is triggered when the domain name specified in the problem file
+    /// does not match the domain name declared in the corresponding domain definition,
+    /// which is a semantic inconsistency.
+    ///
+    /// # Fields
+    /// - `domain_name`: The `Declaration` of the domain name as declared in the domain definition.
+    /// - `problem_name`: The `Declaration` of the domain name as referenced in the problem file.
+    ///
+    /// This mismatch typically means the problem file was intended for a different domain
+    /// or there was a typo in the domain name reference.
     DomainProblemNameMismatch {
-        domain_name: String,
-        problem_name: String,
+        domain_name: Declaration,
+        problem_name: Declaration,
     },
+
     // TO CHECK
 
 
@@ -301,7 +315,7 @@ impl Kind {
             Kind::ExtraToken { token } => {
                 format!("Unexpected extra token '{}'.", token)
             }
-            Kind::InvalidSymbolSignature { declaration, usage } => {
+            Kind::InvalidSymbolSignature { declaration, ..} => {
                 let symbol = declaration.symbol();
                 let name = symbol_to_string(symbol, interner);
                 match symbol.kind() {
@@ -355,12 +369,15 @@ impl Kind {
                 let name = symbol_to_string(&declaration.symbol(), interner);
                 format!("{} symbol '{}' is unused", declaration.symbol_kind(), name)
             }
+            Kind::DomainProblemNameMismatch { domain_name, problem_name } => {
+                let domain_str = symbol_to_string(&domain_name.symbol(), interner);
+                let problem_str = symbol_to_string(&problem_name.symbol(), interner);
+                format!("Domain '{}' and problem '{}' names do not match.", domain_str, problem_str)
+            }
 
             // TO CHECK
 
-            Kind::DomainProblemNameMismatch { domain_name, problem_name } => {
-                format!("Domain name '{}' does not match problem name '{}'.", domain_name, problem_name)
-            }
+
             Kind::WarningAmbiguousTypePredicateSymbol { symbol, .. } => {
                 format!("Ambiguous symbol '{}': declared both as a type_checker and a predicate in the same scope.", symbol)
             }
@@ -440,7 +457,7 @@ impl Kind {
             Kind::InvalidToken => {
                 Some("Make sure there are no typos or invalid characters.".to_string())
             }
-            Kind::InvalidSymbolSignature { declaration  , usage } => {
+            Kind::InvalidSymbolSignature { declaration, .. } => {
                 let symbol = declaration.symbol();
                 let name = symbol_to_string(symbol, interner);
                 let msg = match symbol.kind() {
@@ -570,7 +587,7 @@ impl Kind {
                 ))
             }
 
-            Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, expected_kind, requirements } => {
+            Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, requirements, .. } => {
                 let name = symbol_to_string(declaration.symbol(), interner);
                 let reqs = format_requirements_list(requirements);
                 Some(format!(
@@ -587,13 +604,15 @@ impl Kind {
                     name
                 ))
             }
-            // TO CHECK
             Kind::DomainProblemNameMismatch { domain_name, .. } => {
+                let domain_str = symbol_to_string(&domain_name.symbol(), interner);
                 Some(format!(
-                    "Ensure that the domain name in the problem file matches the domain definition: expected '{}'.",
-                    domain_name
+                    "Check that the problem's domain name matches the domain definition: expected '{}'.",
+                    domain_str
                 ))
             }
+
+            // TO CHECK
             Kind::WarningAmbiguousTypePredicateSymbol { symbol} => {
                 Some(format!(
                     "The symbol '{}' is declared both as a type_checker and a predicate in the same scope. This can lead to confusion. Consider renaming one of them.",
@@ -719,25 +738,31 @@ impl Kind {
             }
 
             Kind::SymbolConflictsWithKeyword { declaration, .. }
-            | Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. } => {
+            | Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. }
+            |Kind::UnusedSymbol { declaration } => {
                 declaration.remap_idents(map);
+            }
+
+            | Kind::DomainProblemNameMismatch { domain_name, problem_name} => {
+                domain_name.remap_idents(map);
+                problem_name.remap_idents(map);
             }
 
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
             | Kind::ExtraToken { .. }
-            | Kind::RequirementViolation { .. } => {
+            | Kind::RequirementViolation { .. }
+            | Kind::CyclicTaskOrdering => {
                 // Pas de remap nécessaire ici
             }
+
 
             // TO CHECK
 
 
 
-            Kind::UnusedSymbol { declaration } => {
-                declaration.remap_idents(map);
-            }
+
 
             Kind::CyclicTypeDeclarationError { cycle } => {
                 for decl in cycle {
@@ -745,10 +770,6 @@ impl Kind {
                 }
             }
 
-            // Variantes qui n'ont pas de `Ident` ou ne nécessitent pas de remap :
-
-            Kind::CyclicTaskOrdering
-            | Kind::DomainProblemNameMismatch { .. }
             | Kind::WarningAmbiguousTypePredicateSymbol { .. }
             | Kind::WarningTaskArgumentIsSupertypeOfDeclaration { .. }
             | Kind::DuplicateEitherTypeWarning { .. }
