@@ -8,7 +8,7 @@ use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
 
 
 #[derive(Clone, Debug, PartialEq)]
@@ -319,8 +319,31 @@ pub enum Kind {
     CyclicTypeDeclaration {
         cycle: Vec<Declaration>
     },
+    /// Represents an error caused by conflicting symbol declarations across different contexts.
+    ///
+    /// This error indicates that a symbol declared in the `problem` context conflicts with one or more
+    /// declarations of the same symbol found in the `domain` context. Such conflicts typically arise
+    /// when symbol kinds or definitions differ, leading to ambiguity or invalid references.
+    ///
+    /// # Fields
+    ///
+    /// - `problem_declaration`: The `Declaration` originating from the problem context that conflicts
+    ///   with declarations in the domain.
+    /// - `conflicting_domain_declarations`: A vector of `Declaration` instances from the domain context
+    ///   that are in conflict with the `problem_declaration`.
+    ///
+    /// # Usage
+    ///
+    /// This error is used during semantic checking or linking phases to detect and report symbol conflicts
+    /// between the problem and domain symbol tables, enabling diagnostics to provide detailed feedback
+    /// for resolution.
+    CrossConflictSymbolDeclaration {
+        problem_declaration: Declaration,
+        conflicting_domain_declarations: Vec<Declaration>,
+    },
 
-    // TO CHECK
+
+// TO CHECK
 
 
 
@@ -334,11 +357,7 @@ pub enum Kind {
         ty: String,
     },
 
-    CrossConflictSymbolDeclarationError {
-        symbol: String,
-        problem_kind: SymbolKind,
-        domain_kinds: Vec<SymbolKind>,
-    },
+
     DuplicateRequirementWarning {
         duplicate_requirements: Vec<Requirement>,
     },
@@ -375,7 +394,7 @@ impl Kind {
 
             // WARNINGS LINKER
             Kind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
-            Kind::CrossConflictSymbolDeclarationError { .. } => "E2001".to_string(),
+            Kind::CrossConflictSymbolDeclaration { .. } => "E2001".to_string(),
 
 
             Kind::CustomError(_) => "E000X".to_string(),
@@ -476,6 +495,12 @@ impl Kind {
             Kind::CyclicTypeDeclaration { .. } => {
                 "Type declarations form a cycle; this creates an invalid type hierarchy.".to_string()
             }
+            Kind::CrossConflictSymbolDeclaration { problem_declaration, .. } => {
+                format!(
+                    "Conflicting declaration for symbol '{}' found between problem and domain.",
+                    symbol_to_string(problem_declaration.symbol(), interner)
+                )
+            }
             // TO CHECK
 
 
@@ -489,9 +514,7 @@ impl Kind {
                 )
             }
 
-            Kind::CrossConflictSymbolDeclarationError { .. } => {
-                "Symbol declaration in problem conflicts with domain declaration.".to_string()
-            }
+
             Kind::DuplicateRequirementWarning { .. } => {
                 "Redundant requirement declaration detected.".to_string()
             }
@@ -532,7 +555,7 @@ impl Kind {
             // LINKER WARNINGS
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
             // LINKER ERROR
-            Kind::CrossConflictSymbolDeclarationError {..} => Severity::Error,
+            Kind::CrossConflictSymbolDeclaration {..} => Severity::Error,
 
 
         }
@@ -750,22 +773,33 @@ impl Kind {
                     format_declaration_list(cycle, interner)
                 ))
             }
-            // TO CHECK
+            Kind::CrossConflictSymbolDeclaration { problem_declaration, conflicting_domain_declarations } => {
+                // Collect domain declaration spans (line numbers or code ranges)
+                let domain_spans: Vec<String> = conflicting_domain_declarations
+                    .iter()
+                    .map(|decl| span_to_string(&decl.span()))
+                    .collect();
 
-
-
-
-
-
-
-            Kind::CrossConflictSymbolDeclarationError { symbol, problem_kind, domain_kinds } => {
+                let formatted_lines = match domain_spans.len() {
+                    0 => String::from("an unknown location"),
+                    1 => domain_spans[0].clone(),
+                    2 => format!("{} and {}", domain_spans[0], domain_spans[1]),
+                    _ => {
+                        let (all_but_last, last) = domain_spans.split_at(domain_spans.len() - 1);
+                        format!("{} and {}", all_but_last.join(", "), last[0])
+                    }
+                };
                 Some(format!(
-                    "Symbol `{}` declared as `{}` in the problem, but in the domain it is declared as: {}. Ensure the symbol’s kind matches in both.",
-                    symbol,
-                    problem_kind,
-                    Self::format_symbol_kinds(&domain_kinds),
+                    "Symbol `{}` declared as `{}` in the problem conflicts with domain declarations at lines: {}. \
+                    Please resolve these conflicts by ensuring consistent declarations \
+                    or consider renaming the symbol in the problem.",
+                    symbol_to_string(problem_declaration.symbol(), interner),
+                    problem_declaration.symbol().kind(),
+                    formatted_lines,
                 ))
             }
+            // TO CHECK
+
             Kind::ImplicitEitherTypeDeclarationWarning { ty, .. } => {
                 Some(format!(
                     "The type_checker `{}` was declared more than once with different parent types. These conflicting declarations were automatically merged into an implicit `(either ...)` type_checker declaration.",
@@ -798,15 +832,6 @@ impl Kind {
         expected
             .iter()
             .map(|t| format!("'{}'", t))
-            .collect::<Vec<_>>()
-            .join(", ")
-    }
-
-    // Ajoutez cette fonction pour formater les kinds en une chaîne séparée par des virgules.
-    fn format_symbol_kinds(kinds: &[SymbolKind]) -> String {
-        kinds
-            .iter()
-            .map(|k| format!("{:?}", k))
             .collect::<Vec<_>>()
             .join(", ")
     }
@@ -881,7 +906,7 @@ impl Kind {
             // TO CHECK
 
             | Kind::ImplicitEitherTypeDeclarationWarning { .. }
-            | Kind::CrossConflictSymbolDeclarationError { .. }
+            | Kind::CrossConflictSymbolDeclaration { .. }
             | Kind::DuplicateRequirementWarning { .. }
             | Kind::CustomError(_) => {
                 // Pas de remap nécessaire ici
@@ -984,6 +1009,37 @@ fn format_ident_list(idents: &[Ident], interner: Option<&StringInterner>) -> Str
         .map(|&ident| ident_to_string(ident, interner))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// Converts a `Span` into a user-friendly string representation of its line range.
+///
+/// This function is designed to simplify span information for end-user messages
+/// by focusing only on line numbers. If the span covers a single line,
+/// it returns `"line N"`. If it spans multiple lines, it returns `"lines N–M"`.
+///
+/// # Arguments
+///
+/// * `span` - A reference to the `Span` to be formatted.
+///
+/// # Returns
+///
+/// A `String` describing the line(s) the span covers.
+///
+/// # Examples
+///
+/// ```rust
+/// let span = Span::new(0, 10, 12, 1, 12, 5); // example: same line
+/// assert_eq!(span_to_string(&span), "line 12");
+///
+/// let span = Span::new(0, 20, 14, 1, 16, 10); // example: multi-line
+/// assert_eq!(span_to_string(&span), "lines 14–16");
+/// ```
+fn span_to_string(span: &Span) -> String {
+    if span.begin_line() == span.end_line() {
+        format!("line {}", span.begin_line())
+    } else {
+        format!("lines {}–{}", span.begin_line(), span.end_line())
+    }
 }
 
 /// Formats a list of `Declaration`s into a comma-separated string by extracting their symbol identifiers

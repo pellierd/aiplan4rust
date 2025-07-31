@@ -66,31 +66,43 @@ pub fn check_cross_declared_symbols(
     let domain_symbol_table = domain.symbol_table();
     let problem_symbol_table = problem.symbol_table();
 
+    // Iterate over all symbols declared in the problem context
     for symbol in problem_symbol_table.values() {
+        // Iterate over all declarations of the current symbol
         for declaration in symbol.declarations() {
+            // Skip declarations exempt from conflict checks or not originating from the problem context
             if !is_declaration_exempt_from_conflict_check(declaration)
                 && declaration.origin() == SymbolOrigin::Problem
             {
+                // Check if there are any relevant domain declarations for this symbol
                 if has_relevant_domain_declarations(domain_symbol_table, symbol.ident()) {
-                    let domain_kinds = get_relevant_domain_kinds(domain_symbol_table, symbol.ident());
-                    let same_kind_exists = domain_kinds.iter().any(|k| *k == declaration.symbol_kind());
+                    // Retrieve all relevant domain declarations for this symbol
+                    let domain_declarations = get_relevant_domain_declarations(domain_symbol_table, symbol.ident());
 
+                    // Check if there exists a domain declaration with the same SymbolKind as the problem declaration
+                    let same_kind_exists = domain_declarations
+                        .iter()
+                        .any(|d| d.symbol_kind() == declaration.symbol_kind());
+
+                    // If no domain declaration of the same kind exists, report a cross-conflict error
                     if !same_kind_exists {
                         report_cross_conflict_symbol_error(
                             declaration,
-                            domain_kinds,
+                            domain_declarations,
                             problem,
                             source,
                             diagnostic_manager,
                         )?;
                         checked = false;
                     }
-                };
+                }
             }
         }
     }
+
     Ok(checked)
 }
+
 
 /// Checks if there are any relevant domain declarations for the given symbol name,
 /// excluding declarations exempt from conflict checks.
@@ -113,57 +125,68 @@ fn has_relevant_domain_declarations(
         .any(|d| !is_declaration_exempt_from_conflict_check(&d))
 }
 
-/// Retrieves the kinds of all relevant declarations for a given symbol name
-/// from the domain's symbol table, excluding those exempt from conflict checks.
+/// Retrieves all relevant domain declarations for a given symbol name from the symbol table.
 ///
-/// # Arguments
+/// This function collects declarations of the specified symbol within the root scope of the domain symbol table,
+/// filtering out any declarations that are exempt from conflict checks.
 ///
-/// * `domain_symbol_table` - Reference to the domain's `SymbolTable`.
-/// * `symbol_name` - The symbol identifier to query.
+/// # Parameters
+///
+/// - `domain_symbol_table`: Reference to the domain's symbol table.
+/// - `symbol_name`: The identifier (`Ident`) of the symbol to retrieve declarations for.
 ///
 /// # Returns
 ///
-/// A vector of `SymbolKind` of relevant declarations.
-fn get_relevant_domain_kinds(
+/// A vector of cloned `Declaration` instances representing all relevant domain declarations
+/// for the specified symbol.
+///
+/// # Notes
+///
+/// - Declarations exempt from conflict checks are filtered out.
+/// - The returned declarations are clones because the underlying collection returns references.
+///
+/// # Example
+///
+/// ```ignore
+/// let domain_declarations = get_relevant_domain_declarations(&domain_symbol_table, ident);
+/// ```
+fn get_relevant_domain_declarations(
     domain_symbol_table: &SymbolTable,
     symbol_name: Ident,
-) -> Vec<SymbolKind> {
+) -> Vec<Declaration> {
     domain_symbol_table
-        .collect_declarations(Some(&symbol_name), None, Some(&&domain_symbol_table.root_scope()))
+        .collect_declarations(Some(&symbol_name), None, Some(&domain_symbol_table.root_scope()))
         .into_iter()
-        .filter(|d| !is_declaration_exempt_from_conflict_check(d))
-        .map(|d| d.symbol_kind().clone())
+        .filter(|decl| !is_declaration_exempt_from_conflict_check(decl))
+        .cloned() // clone because collect_declarations returns references
         .collect()
 }
 
 /// Reports a conflict error when a problem symbol declaration conflicts with
-/// domain declarations.
+/// one or more domain declarations.
 ///
 /// # Parameters
 ///
 /// - `declaration`: The conflicting problem `Declaration`.
-/// - `domain_kinds`: Kinds of conflicting domain declarations.
-/// - `context`: The problem semantic context.
-/// - `source`: The diagnostic source provider.
-/// - `diagnostic_manager`: Manager to record diagnostics.
+/// - `conflicted_declarations`: Vector of conflicting domain `Declaration`s.
+/// - `context`: The problem semantic context (`CheckContext`).
+/// - `source`: The diagnostic source provider (`Provider`).
+/// - `diagnostic_manager`: Manager to record diagnostics (`DiagnosticManager`).
 ///
 /// # Returns
 ///
-/// Returns a `Result<(), LinkingCheckError>` indicating success or failure in error reporting.
+/// Returns `Ok(())` on successful reporting, or a `LinkingCheckError` on failure.
 fn report_cross_conflict_symbol_error(
     declaration: &Declaration,
-    domain_kinds: Vec<SymbolKind>,
+    conflicted_declarations: Vec<Declaration>,
     context: &CheckContext,
     source: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), LinkingCheckError> {
-    let symbol = declaration.symbol_ident();
-    let symbol_name = context.interner().try_resolve_ident(symbol)?;
     let error = Diagnostic::new(
-        DiagnosticKind::CrossConflictSymbolDeclarationError {
-            symbol: symbol_name.to_string(),
-            problem_kind: declaration.symbol_kind().clone(),
-            domain_kinds,
+        DiagnosticKind::CrossConflictSymbolDeclaration {
+            problem_declaration: declaration.clone(),
+            conflicting_domain_declarations: conflicted_declarations,
         },
         source,
         context.source_name().to_string(),
@@ -172,6 +195,7 @@ fn report_cross_conflict_symbol_error(
     diagnostic_manager.add_diagnostic(error);
     Ok(())
 }
+
 
 /// Returns `true` if the given declaration is exempt from conflict checks.
 ///
