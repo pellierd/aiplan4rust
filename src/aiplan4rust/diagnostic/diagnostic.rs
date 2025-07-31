@@ -118,9 +118,27 @@ impl Diagnostic {
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         self.kind.remap_idents(map);
     }
-}
 
-impl Diagnostic {
+    /// Returns a unique diagnostic code string composed of:
+    /// - A letter for severity (E, W, I, H)
+    /// - A digit for the provider (0-5)
+    /// - A two-digit code unique to the kind of diagnostic
+    ///
+    /// Example: "E01XX" means Error (E), Normalizer (1), code XX for the specific kind.
+    pub fn code(&self) -> String {
+        // Severity code, e.g. "E"
+        let severity_code = self.kind.severity().code();
+
+        // Provider code, e.g. '0'
+        let provider_code = self.source.code();
+
+        // Kind-specific two-character code, e.g. "01"
+        // Assume Kind::code() returns &'static str with 2 digits like "01", "05", etc.
+        let kind_code = self.kind.code();
+
+        format!("{}{}{}", severity_code, provider_code, kind_code)
+    }
+
     /// Cleans the expected tokens list by removing quotes.
     fn clean_expected(expected: &[String]) -> Vec<String> {
         expected.iter().map(|s| s.replace('"', "")).collect()
@@ -181,7 +199,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                         token: t.to_string(),
                         expected: clean_expected,
                     },
-                    Provider::Lexer,
+                    Provider::Parser,
                     file_path,
                     // Calculate the span using FastLineTable for accurate error location
                     fast_line_table.get_span(*start, *end),
@@ -191,7 +209,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
             ParseError::InvalidToken { location } => {
                 Diagnostic::new(
                     DiagnosticKind::InvalidToken,
-                    Provider::Lexer,
+                    Provider::Parser,
                     file_path,
                     fast_line_table.get_span(*location, *location),
                 )
@@ -203,7 +221,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                     DiagnosticKind::User {
                         message: content,
                     },
-                    Provider::Lexer,
+                    Provider::Parser,
                     file_path,
                     // No span information available, use empty span (0,0)
                     fast_line_table.get_span(0, 0),
@@ -214,7 +232,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                 let clean_expected = Diagnostic::clean_expected(expected);
                 Diagnostic::new(
                     DiagnosticKind::UnexpectedEof { expected: clean_expected },
-                    Provider::Lexer,
+                    Provider::Parser,
                     file_path,
                     fast_line_table.get_span(*location, *location),
                 )
@@ -227,7 +245,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                     DiagnosticKind::ExtraToken {
                         token: t.to_string(),
                     },
-                    Provider::Lexer,
+                    Provider::Parser,
                     file_path,
                     fast_line_table.get_span(*start, *end),
                 )

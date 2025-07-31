@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::aiplan4rust::diagnostic::Severity;
+use crate::aiplan4rust::diagnostic::{renderer, Severity};
 use crate::aiplan4rust::lang::{Ident, Type};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
@@ -463,43 +463,43 @@ pub enum Kind {
 }
 
 impl Kind {
-    pub fn code(&self) -> String {
+    /// Returns a 3-character unique string code for the kind.
+    ///
+    /// Errors and warnings have separate numbering starting at "000" (errors) and "000" (warnings).
+    /// Returns a static string slice.
+    pub fn code(&self) -> &'static str {
         match self {
-            // ERROR PARSER
-            Kind::UnexpectedToken{ .. } => "E0001".to_string(),
-            Kind::UnexpectedEof{ .. } => "E0002".to_string(),
-            Kind::InvalidToken => "E0003".to_string(),
-            Kind::ExtraToken{ .. } => "E0004".to_string(),
-            Kind::User{ .. } => "E0005".to_string(),
-            // WARNING NORMALIZER
-            Kind::DuplicateRequirementWarning { ..  } => "W2001".to_string(),
-            // ERROR ANALYSER
-            Kind::InvalidSymbolSignature { .. } => "E1001".to_string(),
-            Kind::TypeMismatchInExpression { .. } => "E1005".to_string(),
-            Kind::InvalidTypesInNumericExpression { .. } => "E1006".to_string(),
-            Kind::DuplicatedSymbolDeclarationInScope { .. } => "E1007".to_string(),
-            Kind::CyclicTaskOrdering { .. } => "E1008".to_string(),
-            Kind::UndeclaredSymbol { .. } => "E1009".to_string(),
-            Kind::SymbolConflictsWithKeyword { .. } => "E1010".to_string(),
-            Kind::CyclicTypeDeclaration { .. } => "E1011".to_string(),
-            // WARNINGS ANALYSER
-            Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => "W1010".to_string(),
-            Kind::UnusedSymbol { .. } => "W1011".to_string(),
-            Kind::RequirementViolation { .. } => "W10012".to_string(),
-            Kind::AmbiguousTypePredicateSymbol { .. } => "W1013".to_string(),
-            Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => "W1014".to_string(),
-            Kind::DuplicateEitherType { .. } => "W1015".to_string(),
-            Kind::ImplicitEitherTypeDeclaration { .. } => "W1016".to_string(),
+            // ERRORS (000..)
+            Kind::CustomError { .. } => "000",
+            Kind::UnexpectedToken { .. } => "001",
+            Kind::UnexpectedEof { .. } => "002",
+            Kind::InvalidToken => "003",
+            Kind::ExtraToken { .. } => "004",
+            Kind::User { .. } => "005",
+            Kind::InvalidSymbolSignature { .. } => "006",
+            Kind::TypeMismatchInExpression { .. } => "007",
+            Kind::InvalidTypesInNumericExpression { .. } => "008",
+            Kind::DuplicatedSymbolDeclarationInScope { .. } => "009",
+            Kind::CyclicTaskOrdering { .. } => "010",
+            Kind::UndeclaredSymbol { .. } => "011",
+            Kind::SymbolConflictsWithKeyword { .. } => "012",
+            Kind::CyclicTypeDeclaration { .. } => "013",
+            Kind::CrossConflictSymbolDeclaration { .. } => "014",
 
-            // WARNINGS LINKER
-            Kind::DomainProblemNameMismatch { .. } => "W2000".to_string(),
-            Kind::CrossConflictSymbolDeclaration { .. } => "E2001".to_string(),
-
-
-            Kind::CustomError{ .. } => "E000X".to_string(),
-            Kind::CustomWarning{ .. } => "W000X".to_string(),
+            // WARNINGS (000..)
+            Kind::DomainProblemNameMismatch { .. } => "000",
+            Kind::CustomWarning { .. } => "001",
+            Kind::DuplicateRequirementWarning { .. } => "002",
+            Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => "003",
+            Kind::UnusedSymbol { .. } => "004",
+            Kind::RequirementViolation { .. } => "005",
+            Kind::AmbiguousTypePredicateSymbol { .. } => "006",
+            Kind::TaskArgumentIsSupertypeOfDeclaration { .. } => "007",
+            Kind::DuplicateEitherType { .. } => "008",
+            Kind::ImplicitEitherTypeDeclaration { .. } => "009",
         }
     }
+
 
     /// Returns the severity level associated with this diagnostic kind.
     ///
@@ -551,126 +551,6 @@ impl Kind {
             Kind::CrossConflictSymbolDeclaration { .. } => Severity::Error,
         }
     }
-
-    // Centraliser le message d'erreur directement dans l'enum
-    pub fn message(&self, interner: Option<&StringInterner>) -> String {
-        match self {
-            Kind::UnexpectedToken { token, .. } => {
-                format!("Unexpected token '{}'.", token)
-            }
-            Kind::UnexpectedEof { .. } => {
-                "Unexpected end of input (EOF).".to_string()
-            }
-            Kind::InvalidToken => {
-                "Unrecognized or malformed token.".to_string()
-            }
-            Kind::ExtraToken { token } => {
-                format!("Unexpected extra token '{}'.", token)
-            }
-            Kind::User { message } => {
-                format!("{}", message)
-            }
-            Kind::InvalidSymbolSignature { declaration, ..} => {
-                let symbol = declaration.symbol();
-                let name = symbol_to_string(symbol, interner);
-                match symbol.kind() {
-                    SymbolKind::Function => format!("Function '{}' does not match any declared signature.", name),
-                    SymbolKind::Predicate => format!("Predicate '{}' does not match any declared signature.", name),
-                    SymbolKind::Task => format!("Compound task '{}' does not match any declared signature.", name),
-                    SymbolKind::Action => format!("Primitive task '{}' does not match any declared signature.", name),
-                    _ => format!("Symbol '{}' of kind {:?} does not match any declared signature.", name, symbol.kind()),
-                }
-            }
-            Kind::TypeMismatchInExpression { ty1, ty2 } => {
-                let ty1_str = type_to_string(ty1, interner);
-                let ty2_str = type_to_string(ty2, interner);
-                format!(
-                    "Type mismatch between '{}' and '{}'.",
-                    ty1_str, ty2_str
-                )
-            }
-            Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
-                let ty1_str = type_to_string(ty1, interner);
-                let ty2_str = type_to_string(ty2, interner);
-                format!(
-                    "Invalid operand types for numeric expression: '{}' and '{}'. Operands must be numeric types.",
-                    ty1_str, ty2_str
-                )
-            }
-            Kind::RequirementViolation { node_kind, .. } => {
-                format!("Expression type '{}' disallowed by current requirements.", node_kind)
-            }
-            Kind::DuplicatedSymbolDeclarationInScope { symbol, .. } => {
-                let name = symbol_to_string(symbol, interner);
-                format!("Symbol '{}' is declared multiple times in the same scope.", name)
-            }
-            Kind::CyclicTaskOrdering => {
-                "Cyclic task-ordering constraint detected.".to_string()
-            }
-            Kind::UndeclaredSymbol { usage } => {
-                let name = symbol_to_string(usage.symbol(), interner);
-                format!("{} symbol '{}' is undeclared.", usage.symbol_kind(), name)
-            }
-            Kind::SymbolConflictsWithKeyword { declaration, .. } => {
-                let name = symbol_to_string(declaration.symbol(), interner);
-                format!("Symbol '{}' is used as a language keyword", name)
-            }
-
-            Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. } => {
-                let name = symbol_to_string(declaration.symbol(), interner);
-                format!("Symbol '{}' is ambiguous as a language keyword", name)
-            }
-            Kind::UnusedSymbol { declaration } => {
-                let name = symbol_to_string(&declaration.symbol(), interner);
-                format!("{} symbol '{}' is unused", declaration.symbol_kind(), name)
-            }
-            Kind::DomainProblemNameMismatch { domain_name, problem_name } => {
-                let domain_str = symbol_to_string(domain_name.symbol(), interner);
-                let problem_str = symbol_to_string(problem_name.symbol(), interner);
-                format!("Domain '{}' and problem '{}' names do not match.", domain_str, problem_str)
-            }
-            Kind::AmbiguousTypePredicateSymbol { ty, ..} => {
-                let ty_name = symbol_to_string(ty.symbol(), interner);
-                format!(
-                    "Ambiguous symbol '{}': declared both as a type and a predicate.",
-                    ty_name
-                )
-            }
-            Kind::TaskArgumentIsSupertypeOfDeclaration { argument, .. } => {
-                format!(
-                    "Type mismatch: argument '{}' uses a broader type than declared (upcasting is discouraged).",
-                    symbol_to_string(argument.symbol(), interner)
-                )
-            }
-            Kind::DuplicateEitherType { duplicate_types } => {
-                let names = format_ident_list(duplicate_types, interner);
-                format!("Duplicate primitive types in 'either' type: {}.", names)
-            }
-            Kind::CyclicTypeDeclaration { .. } => {
-                "Type declarations form a cycle; this creates an invalid type hierarchy.".to_string()
-            }
-            Kind::CrossConflictSymbolDeclaration { problem_declaration, .. } => {
-                format!(
-                    "Conflicting declaration for symbol '{}' found between problem and domain.",
-                    symbol_to_string(problem_declaration.symbol(), interner)
-                )
-            }
-            Kind::ImplicitEitherTypeDeclaration { ty, .. } => {
-                format!(
-                    "Type `{}` was declared multiple times and was implicitly interpreted as an `(either ...)` type.",
-                    ident_to_string(*ty, interner),
-                )
-            }
-            Kind::DuplicateRequirementWarning { .. } => {
-                "Requirements definition contains duplicated declarations which have been ignored."
-                    .to_string()
-            }
-            Kind::CustomError {message, .. } => message.to_string(),
-            Kind::CustomWarning {message, .. } => message.to_string(),
-        }
-    }
-
-
 
     pub fn suggestion(&self, interner: Option<&StringInterner>) -> Option<String> {
         match self {
@@ -949,9 +829,31 @@ impl Kind {
         }
     }
 
-
-
-    /// Remap all `Ident`s in this diagnostic using the provided `map`.
+    /// Remaps all `Ident` instances contained within this diagnostic using the provided mapping.
+    ///
+    /// This function traverses the diagnostic's internal data and replaces each `Ident`
+    /// according to the given `map`. It is used to update identifiers consistently,
+    /// for example after renaming or symbol resolution.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A reference to a `HashMap` where keys are original `Ident`s and values
+    ///   are the corresponding new `Ident`s to substitute.
+    ///
+    /// # Behavior
+    ///
+    /// - Only the variants of `Kind` that contain `Ident`s or collections of `Ident`s
+    ///   are affected.
+    /// - Variants without `Ident`s or where remapping is not applicable are left unchanged.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let mut diagnostic = ...; // some Kind instance
+    /// let mut map = HashMap::new();
+    /// map.insert(old_ident, new_ident);
+    /// diagnostic.remap_idents(&map);
+    /// ```
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         match self {
             Kind::InvalidSymbolSignature { declaration, usage } => {
@@ -1068,7 +970,7 @@ impl fmt::Display for Kind {
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let code = self.code();
-        let message = self.message(None);
+        let message = renderer::message::format_message_debug(self);
         let severity = self.severity();
         let suggestion = self.suggestion(None);
 

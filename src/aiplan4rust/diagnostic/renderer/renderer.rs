@@ -1,10 +1,60 @@
+//! Module responsible for rendering and displaying diagnostics to various outputs.
+//!
+//! This module provides functionality to format diagnostic messages, including
+//! errors, warnings, and informational notes, with proper visual alignment,
+//! coloring, and contextual source code snippets.
+//!
+//! It leverages the `DiagnosticManager` to retrieve diagnostics, the `StringInterner`
+//! to resolve symbol names, and outputs formatted results through any implementor of
+//! the `Write` trait (e.g., stdout, files, or buffers).
+//!
+//! Common formatting constants like tab width and visual markers (arrows, bars) are
+//! defined here to ensure consistent display.
+//!
+//! # Components
+//!
+//! - `Renderer`: Core struct handling the formatting and output of diagnostics.
+//! - Constants for tab expansion and visual decorations.
+//!
+//! # Usage
+//!
+//! Create a `Renderer` with references to a `DiagnosticManager` and `StringInterner`,
+//! then invoke its methods to write formatted diagnostics to your desired output.
+
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Severity;
-
-use std::io::{self, Write};
-use colored::*;
 use crate::aiplan4rust::interner::StringInterner;
 
+use std::io::{self, Write};
+use colored::Colorize;
+use crate::aiplan4rust::diagnostic::renderer::message;
+
+/// Number of spaces to which a tab character (`\t`) expands.
+///
+/// Used for calculating visual offsets and expanding tabs in source code lines.
+const TAB_WIDTH: usize = 4;
+
+/// String used to indicate the current position or focus in diagnostic output.
+///
+/// Typically displayed as an arrow pointing to a specific column.
+const RIGHT_ARROW: &str = "-->";
+
+/// String used as a vertical bar in diagnostic output formatting.
+///
+/// Often used to visually separate line numbers or highlight spans.
+const VERTICAL_BAR: &str = "|";
+
+/// Renderer responsible for formatting and outputting diagnostics.
+///
+/// Holds references to the diagnostic manager and string interner to access
+/// diagnostic data and symbol names. Writes formatted output to a generic
+/// writer, allowing flexibility (e.g., stdout, file, buffer).
+///
+/// # Fields
+///
+/// - `diagnostic_manager`: Reference to the manager containing diagnostics.
+/// - `interner`: Reference to the string interner for resolving symbol names.
+/// - `output`: A boxed writer implementing `Write` where formatted diagnostics are sent.
 pub struct Renderer<'a> {
     diagnostic_manager: &'a DiagnosticManager,
     interner: &'a StringInterner,
@@ -48,26 +98,29 @@ impl<'a> Renderer<'a> {
             let span = diagnostic.span();
             let kind = diagnostic.kind();
 
-            // Format severity string conditionnellement coloré
-            let severity_str = match kind.severity() {
-                Severity::Error => {
+            // Récupère le code complet depuis Diagnostic (ex: "E001")
+            let code = diagnostic.code();
+
+            // Format severity string conditionnellement coloré en fonction de la première lettre du code
+            let severity_str = match code.chars().next() {
+                Some('E') => {
                     if color {
-                        format!("error[{}]", kind.code()).red().bold().to_string()
+                        format!("error[{}]", code).red().bold().to_string()
                     } else {
-                        format!("error[{}]", kind.code())
+                        format!("error[{}]", code)
                     }
                 }
-                Severity::Warning => {
+                Some('W') => {
                     if color {
-                        format!("warning[{}]", kind.code()).yellow().to_string()
+                        format!("warning[{}]", code).yellow().to_string()
                     } else {
-                        format!("warning[{}]", kind.code())
+                        format!("warning[{}]", code)
                     }
                 }
-                _ => format!("{}", kind.code()),
+                _ => code.clone(),
             };
 
-            output.push_str(&format!("{}: {}\n", severity_str, kind.message(Some(interner))));
+            output.push_str(&format!("{}: {}\n", severity_str, message::format_message(kind, interner)));
 
             // Flèche droite --> en bleu clair ou sans couleur
             let arrow = if color {
@@ -169,12 +222,29 @@ impl<'a> Renderer<'a> {
     }
 }
 
-// Constantes, fonctions auxiliaires inchangées
 
-const TAB_WIDTH: usize = 4;
-const RIGHT_ARROW: &str = "-->";
-const VERTICAL_BAR: &str = "|";
-
+/// Computes the visual offset of a given column in a line of text,
+/// accounting for tab characters which have variable width.
+///
+/// Tabs are expanded to a fixed width (`TAB_WIDTH`) and the function
+/// returns the visual column index corresponding to the input `column`.
+///
+/// # Parameters
+///
+/// - `line`: The input text line as a string slice.
+/// - `column`: The 1-based column number in the line.
+///
+/// # Returns
+///
+/// The visual offset as a zero-based index, where tabs count as multiple spaces.
+///
+/// # Example
+///
+/// ```
+/// let line = "\tfoo\tbar";
+/// let offset = compute_visual_offset(line, 5);
+/// // `offset` accounts for tab expansion before column 5
+/// ```
 fn compute_visual_offset(line: &str, column: usize) -> usize {
     let mut offset = 0;
     for c in line.chars().take(column.saturating_sub(1)) {
@@ -186,6 +256,27 @@ fn compute_visual_offset(line: &str, column: usize) -> usize {
     offset
 }
 
+/// Expands all tab characters in a given line into spaces,
+/// based on the specified tab width.
+///
+/// Tabs are replaced by the number of spaces needed to reach the next tab stop.
+///
+/// # Parameters
+///
+/// - `line`: The input text line as a string slice.
+/// - `tab_width`: The number of spaces per tab stop.
+///
+/// # Returns
+///
+/// A new `String` with tabs replaced by the appropriate number of spaces.
+///
+/// # Example
+///
+/// ```
+/// let line = "\tfoo\tbar";
+/// let expanded = expand_tabs(line, 4);
+/// // `expanded` will have spaces replacing the tabs
+/// ```
 fn expand_tabs(line: &str, tab_width: usize) -> String {
     let mut expanded = String::new();
     let mut col = 0;

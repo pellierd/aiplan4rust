@@ -58,6 +58,29 @@ pub enum Severity {
     Help,
 }
 
+impl Severity {
+    /// Returns a short code representing the severity level.
+    ///
+    /// This code can be used as a prefix in diagnostic codes to quickly
+    /// identify the severity of the issue.
+    ///
+    /// # Returns
+    ///
+    /// A string slice representing the severity code:
+    /// - `"E"` for Error
+    /// - `"W"` for Warning
+    /// - `"I"` for Info
+    /// - `"H"` for Help
+    pub fn code(&self) -> &'static str {
+        match self {
+            Severity::Error => "E",
+            Severity::Warning => "W",
+            Severity::Info => "I",
+            Severity::Help => "H",
+        }
+    }
+}
+
 impl fmt::Display for Severity {
     /// Formats the `Severity` enum as a user-friendly string.
     ///

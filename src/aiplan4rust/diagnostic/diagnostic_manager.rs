@@ -6,9 +6,10 @@
 //! locations for better error reporting and user feedback.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
+use crate::aiplan4rust::interner::Ident;
+
 use std::collections::HashMap;
 use itertools::Itertools;
-use crate::aiplan4rust::interner::Ident;
 
 /// Manages a collection of diagnostics and their associated source files.
 ///
@@ -173,7 +174,7 @@ impl DiagnosticManager {
         sorted_errors.sort_by_key(|e| (e.span().begin_line(), e.span().begin_column()));
 
         for diagnostic in sorted_errors {
-            println!("{}", diagnostic);
+            println!("{}\n", diagnostic);
         }
     }
 }
