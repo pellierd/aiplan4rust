@@ -54,16 +54,17 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, Literal, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
+use crate::aiplan4rust::syntax::ast::error::AstError;
+use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId, SyntaxNode};
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Debug;
 use std::time::SystemTime;
-use crate::aiplan4rust::syntax::ast::error::AstError;
-use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId, SyntaxNode};
 
 /// A complete abstract syntax tree (AST) and its associated context.
 ///
@@ -78,10 +79,28 @@ pub struct Ast {
     interner: StringInterner,
 
     /// Name or identifier for the source of the parsed AST.
-    source_name: String,
+    source_name: Literal,
 
     /// Timestamp of when the AST was created.
     generated_at: SystemTime,
+}
+
+impl Default for Ast {
+    /// Creates a new empty [`Ast`] instance initialized with default values.
+    ///
+    /// The default instance has:
+    /// - An empty syntax tree.
+    /// - An empty string interner.
+    /// - A `source_name` set to `Literal::default()` to indicate unknown source.
+    /// - A generation timestamp set to the current system time.
+    fn default() -> Self {
+        Ast {
+            syntax_tree: SyntaxTree::<AstNode>::new(),
+            interner: StringInterner::new(),
+            source_name: Literal::default(),
+            generated_at: SystemTime::now(),
+        }
+    }
 }
 
 impl Ast {
@@ -91,20 +110,21 @@ impl Ast {
     ///
     /// * `syntax_tree` - The root syntax tree containing the AST nodes.
     /// * `interner` - A [`StringInterner`] for managing interned strings within the AST.
-    /// * `source_name` - A human-readable identifier for the source of the AST (e.g., filename).
+    /// * `source_name` - A human-readable identifier for the source of the AST (e.g., filename). This will be interned.
     /// * `generated_at` - A [`SystemTime`] timestamp marking when the AST was generated.
     ///
     /// # Returns
     ///
-    /// A new `Ast` instance initialized with the provided syntax tree, interner,
-    /// source name, and generation timestamp.
+    /// A new `Ast` instance initialized with the provided syntax tree, interned source name,
+    /// and generation timestamp.
     ///
     /// # Example
     /// ```
     /// use std::time::SystemTime;
+    /// use your_crate::{Ast, StringInterner, SyntaxTree, AstNode};
     ///
+    /// let mut interner = StringInterner::new();
     /// let syntax_tree = SyntaxTree::<AstNode>::new();
-    /// let interner = StringInterner::new();
     /// let source_name = "example.pddl".to_string();
     /// let generated_at = SystemTime::now();
     ///
@@ -112,42 +132,16 @@ impl Ast {
     /// ```
     pub fn new(
         syntax_tree: SyntaxTree<AstNode>,
-        interner: StringInterner,
+        mut interner: StringInterner,
         source_name: String,
         generated_at: SystemTime,
     ) -> Self {
+        let source_literal = interner.intern_literal(source_name);
         Self {
             syntax_tree,
             interner,
-            source_name,
+            source_name: source_literal,
             generated_at,
-        }
-    }
-
-    /// Creates a new empty [`Ast`] instance initialized with default values.
-    ///
-    /// The default instance has:
-    /// - An empty syntax tree.
-    /// - An empty string interner for deduplicating strings.
-    /// - An empty source name string.
-    /// - A generation timestamp set to the current system time.
-    ///
-    /// # Returns
-    ///
-    /// A new `Ast` instance with all fields set to their defaults.
-    ///
-    /// # Example
-    /// ```
-    /// let ast = Ast::default();
-    /// assert!(ast.syntax_tree.is_empty());
-    /// assert!(ast.source_name.is_empty());
-    /// ```
-    pub fn default() -> Self {
-        Ast {
-            syntax_tree: SyntaxTree::<AstNode>::new(),
-            interner: StringInterner::new(),
-            source_name: String::new(),
-            generated_at: SystemTime::now(),
         }
     }
 
@@ -216,13 +210,33 @@ impl Ast {
         std::mem::take(&mut self.interner)
     }
 
-    /// Returns the name or label of the source that generated this AST.
+    /// Returns the interned identifier of the source that generated this AST.
+    ///
+    /// This `Literal` refers to a string stored in the interner, typically representing
+    /// the filename or origin label of the AST (e.g., `"domain.pddl"` or `"stdin"`).
+    ///
+    /// If this method returns [`Literal::default()`], it typically means the source
+    /// name is undefined or not set (e.g., in an empty or default AST).
+    ///
+    /// To retrieve the actual string, use [`StringInterner::resolve_literal`] or
+    /// [`StringInterner::try_resolve_literal`] with this value.
     ///
     /// # Returns
     ///
-    /// A reference to the source name string.
-    pub fn source_name(&self) -> &String {
-        &self.source_name
+    /// A `Literal` representing the interned source name.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let source_id = ast.source_name();
+    /// if let Some(name) = ast.interner().resolve_literal(source_id) {
+    ///     println!("Source: {}", name);
+    /// } else {
+    ///     println!("Unknown source");
+    /// }
+    /// ```
+    pub fn source_name(&self) -> Literal {
+        self.source_name
     }
 
     /// Returns the timestamp indicating when the AST was generated.

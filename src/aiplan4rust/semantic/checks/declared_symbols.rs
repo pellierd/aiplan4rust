@@ -105,7 +105,7 @@ fn check_symbol_declarations(
                             predicate: predicate_decl.clone(),
                         },
                         Provider::Analyzer,
-                        context.source_name().to_string(),
+                        context.source_name(),
                         ast_entry.span().clone(),
                     );
                     diagnostic_manager.add_diagnostic(warning);
@@ -123,7 +123,7 @@ fn check_symbol_declarations(
                             scope: scope_node.kind(),
                         },
                         Provider::Analyzer,
-                        context.source_name().to_string(),
+                        context.source_name(),
                         ast_entry.span().clone(),
                     );
                     diagnostic_manager.add_diagnostic(error);

@@ -9,6 +9,7 @@ use std::mem;
 use std::time::SystemTime;
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
+use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
@@ -107,9 +108,6 @@ impl<'a> Parser<'a> {
         self.source_name = Some(source_name);
         // Store the source code string slice for diagnostics context
         self.source = Some(source);
-        // Register the source text with the diagnostic manager
-        self.diagnostic_manager
-            .add_source(source_name.to_string(), source.to_string());
 
         // Create a new lexer instance from the source text to tokenize input
         let lexer = Lexer::new(source);
@@ -124,12 +122,18 @@ impl<'a> Parser<'a> {
         };
 
         // Extract the string interner from the parsing context (used to store unique strings)
-        let interner = context.take_interner();
+        let mut interner = context.take_interner();
+        let source_literal = interner.intern_literal(source_name);
+
+        // Register the source text with the diagnostic manager
+        self.diagnostic_manager
+            .add_source(source_literal, source.to_string());
+
         // Build a fast line table from the source for quick byte-to-line/column lookups
         let fast_line_table = FastLineTable::new(source);
 
         // Convert any collected LALRPOP errors into diagnostics and add them to the manager
-        self.handle_syntax_diagnostics(&context.borrow_errors_mut(), &fast_line_table);
+        self.handle_syntax_diagnostics(&context.borrow_errors_mut(), source_literal, &fast_line_table);
 
         // If any error-level diagnostics were added, parsing failed—return no AST but diagnostics
         if self
@@ -173,8 +177,9 @@ impl<'a> Parser<'a> {
             }
             Err(e) => match e.as_parse_error() {
                 Some(parse_err) => {
+                    let source = interner.intern_literal(source_name);
                     let diagnostic =
-                        Diagnostic::from((parse_err, Some(source_name), &fast_line_table));
+                        Diagnostic::from((parse_err, source, &fast_line_table));
                     self.diagnostic_manager.add_diagnostic(diagnostic);
                     Ok(ParserResult::failure(
                         mem::take(&mut self.diagnostic_manager),
@@ -186,25 +191,44 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Converts LALRPOP parsing errors into diagnostics and adds them to the diagnostic manager.
+    /// Converts LALRPOP parsing errors into `Diagnostic` instances and registers them
+    /// with the `DiagnosticManager` for centralized error tracking.
+    ///
+    /// This function processes all parser error recoveries (`ErrorRecovery`) produced
+    /// during parsing, converting each into a structured diagnostic that includes
+    /// span information and a reference to the source file via an interned identifier.
     ///
     /// # Arguments
     ///
-    /// * `lalrpop_errors` - Slice of LALRPOP error recoveries collected during parsing.
-    /// * `fast_line_table` - Fast line and column lookup table for mapping error positions.
+    /// * `lalrpop_errors` - A slice of parser error recoveries emitted by LALRPOP.
+    /// * `source` - An interned `Literal` identifying the source file in which the errors occurred.
+    /// * `fast_line_table` - A line/column lookup structure used to compute error spans from byte positions.
     ///
     /// # Behavior
     ///
-    /// Iterates through each parsing error and generates a corresponding diagnostic
-    /// for accurate and user-friendly error reporting.
+    /// - Iterates through each `ErrorRecovery`.
+    /// - Converts each `ParseError` into a `Diagnostic`, using the source file identifier and line table.
+    /// - Adds the generated diagnostic to the `DiagnosticManager` for later reporting.
+    ///
+    /// # Notes
+    ///
+    /// - `Literal` is not a literal string but an interned ID used to refer to the source file.
+    /// - This function does not return anything, as diagnostics are registered directly with the manager.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// manager.handle_syntax_diagnostics(&errors, file_id, &line_table);
+    /// ```
     fn handle_syntax_diagnostics(
         &mut self,
         lalrpop_errors: &[ErrorRecovery<usize, Token, LexicalError>],
+        source: Literal,
         fast_line_table: &FastLineTable,
     ) {
         for error_recovery in lalrpop_errors {
             let diagnostic =
-                Diagnostic::from((&error_recovery.error, self.source_name, fast_line_table));
+                Diagnostic::from((&error_recovery.error, source, fast_line_table));
             self.diagnostic_manager.add_diagnostic(diagnostic);
         }
     }

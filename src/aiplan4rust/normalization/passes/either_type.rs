@@ -62,6 +62,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lang::Ident;
@@ -184,8 +185,6 @@ fn report_either_type_duplicate_warnings(
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationPassError> {
-    // Retrieve the source name from the AST, used for diagnostics reporting
-    let source_name = ast.source_name();
 
     // Traverse all nodes in the AST in preorder (parent before children)
     for node in syntax_tree.preorder().values() {
@@ -221,7 +220,7 @@ fn report_either_type_duplicate_warnings(
             // Construct a diagnostic warning for these duplicates
             let warning = new_duplicate_either_type_warning(
                 duplicates,
-                source_name,
+                ast.source_name(),
                 &node.span(),
             )?;
             // Add the diagnostic to the diagnostic manager for reporting
@@ -266,7 +265,7 @@ fn report_either_type_duplicate_warnings(
 /// ```
 fn new_duplicate_either_type_warning(
     duplicate: Vec<Ident>,
-    source: &str,
+    source: Literal,
     span: &Span,
 ) -> Result<Diagnostic, NormalizationPassError> {
 
@@ -274,7 +273,7 @@ fn new_duplicate_either_type_warning(
     let diagnostic = Diagnostic::new(
         DiagnosticKind::DuplicateEitherType { duplicate_types: duplicate },
         Provider::Normalizer,
-        source.to_string(),
+        source,
         span.clone(),
     );
 

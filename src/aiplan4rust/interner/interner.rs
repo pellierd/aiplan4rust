@@ -352,7 +352,6 @@ impl StringInterner {
             .map(|(i, s)| (Ident::new(i), s.as_ref()))
     }
 
-
     /// Interns a literal string (e.g., numbers, constants) and returns a `Literal`.
     ///
     /// If the string is already interned as a literal, it reuses its index.

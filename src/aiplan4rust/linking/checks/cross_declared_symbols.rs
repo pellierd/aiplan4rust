@@ -189,7 +189,7 @@ fn report_cross_conflict_symbol_error(
             conflicting_domain_declarations: conflicted_declarations,
         },
         source,
-        context.source_name().to_string(),
+        context.source_name(),
         declaration.span().clone(),
     );
     diagnostic_manager.add_diagnostic(error);

@@ -77,7 +77,7 @@ pub fn check_domain_name(
                 problem_name: referenced.clone(),
             },
             source,
-            problem.source_name().to_string(),
+            problem.source_name(),
             ast.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

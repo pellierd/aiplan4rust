@@ -8,6 +8,7 @@ use crate::aiplan4rust::lang::BinaryComp;
 use crate::aiplan4rust::lang::Requirement;
 
 use std::collections::HashSet;
+use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::tree::SyntaxNode;
@@ -189,19 +190,57 @@ pub fn check_requirement_violations(
     }
     Ok(checked)
 }
+
+/// Reports a requirement violation if one or more required features are not enabled.
+///
+/// This function checks whether all `required` [`Requirement`]s are present in the given set of
+/// active `requirements`. If any required feature is missing, a [`DiagnosticKind::RequirementViolation`]
+/// diagnostic is emitted, identifying the offending AST node and the missing requirements.
+///
+/// # Parameters
+/// - `node`: The [`AstNode`] associated with the feature requiring specific requirements.
+/// - `requirements`: The set of currently active or declared requirements in the context.
+/// - `source`: The [`Literal`] representing the name or label of the source file or input.
+/// - `provider`: The [`Provider`] indicating which analysis phase is reporting the violation.
+/// - `diagnostic_manager`: The mutable reference to the [`DiagnosticManager`] collecting diagnostics.
+/// - `required`: The list of [`Requirement`]s that must be satisfied for the feature to be valid.
+///
+/// # Returns
+/// - `true` if all required features are present (i.e., no violation occurred).
+/// - `false` if any required feature is missing and a diagnostic was emitted.
+///
+/// # Example
+/// ```rust
+/// let valid = report_requirement_violation(
+///     node,
+///     &requirements_set,
+///     context.source_name(),
+///     Provider::Normalizer,
+///     &mut diagnostic_manager,
+///     vec![Requirement::Typing],
+/// );
+/// if !valid {
+///     return Err(NormalizationPassError::missing_requirement("Typing"));
+/// }
+/// ```
+///
+/// # See Also
+/// - [`Requirement`]
+/// - [`DiagnosticKind::RequirementViolation`]
+/// - [`DiagnosticManager`]
 fn report_requirement_violation(
     node: &AstNode,
     requirements: &HashSet<Requirement>,
-    filename: &str,
-    source: Provider,
+    source: Literal,
+    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
     required: Vec<Requirement>,
 ) -> bool {
     if required.iter().any(|r| !requirements.contains(r)) {
         let error = Diagnostic::new(
             DiagnosticKind::RequirementViolation { node_kind: node.kind().clone(), required},
+            provider,
             source,
-            filename.to_string(),
             node.span().clone(),
         );
         diagnostic_manager.add_diagnostic(error);

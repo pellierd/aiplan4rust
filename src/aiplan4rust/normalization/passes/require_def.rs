@@ -44,6 +44,7 @@ use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
+use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::Ast;
@@ -136,7 +137,7 @@ pub fn normalize_require_def(
 ///
 /// * `syntax_tree` - Reference to the syntax tree containing the nodes.
 /// * `require_def_id` - The `NodeId` of the `RequireDef` syntax to inspect.
-/// * `source_name` - The name of the source file (used for context in diagnostics).
+/// * `source` - A `Literal` representing the interned name of the source file or module (used for context in diagnostics).
 /// * `diagnostic_manager` - Mutable reference to the diagnostic manager where warnings are added.
 ///
 /// # Returns
@@ -144,20 +145,24 @@ pub fn normalize_require_def(
 /// * `Ok(())` on success.
 /// * `Err(NormalizationPassError)` if the `RequireDef` syntax cannot be found or accessed.
 ///
+/// # Notes
+///
+/// The `source` literal should be resolved with the string interner when rendering diagnostics.
+///
 /// # Example
 ///
 /// ```rust
 /// report_duplicate_requirements_warnings(
 ///     &ast.syntax_tree(),
 ///     require_def_id,
-///     "domain.pddl",
+///     source_literal,
 ///     &mut diagnostic_manager,
 /// )?;
 /// ```
 pub fn report_duplicate_requirements_warnings(
     syntax_tree: &SyntaxTree<AstNode>,
     require_def_id: NodeId,
-    source_name: &str,
+    source: Literal,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationPassError> {
     // Try to get the RequireDef syntax by its ID. Return error if not found.
@@ -186,7 +191,7 @@ pub fn report_duplicate_requirements_warnings(
         let warning = new_duplicate_requirement_warning(
             duplicates,
             require_def_node.span(),
-            source_name,
+            source,
         );
         diagnostic_manager.add_diagnostic(warning);
     }
@@ -200,40 +205,46 @@ pub fn report_duplicate_requirements_warnings(
 /// This function generates a diagnostic warning indicating that one or more
 /// `:requirement` entries were declared multiple times in a PDDL domain definition. The warning
 /// includes the names of the duplicated requirements, the source span (location) where the duplication
-/// was detected, and the filename for context.
+/// was detected, and the source identifier (interned as a `Literal`) for context.
 ///
 /// # Arguments
 ///
 /// * `duplicate_requirements` - A vector of duplicated requirements detected in the domain.
 /// * `span` - The source span (location) of the duplicated requirement(s).
-/// * `source` - The name of the source file being analyzed.
+/// * `source` - A `Literal` representing the interned name of the source file or module being analyzed.
 ///
 /// # Returns
 ///
 /// * A `Diagnostic` instance representing the duplicate requirement warning, ready to be
 ///   submitted to a diagnostic manager.
 ///
+/// # Notes
+///
+/// The `source` literal should be resolved using the string interner when rendering the diagnostic.
+/// This design avoids redundant string allocations and enables more efficient string handling.
+///
 /// # Example
 ///
 /// ```rust
+/// let source_id = interner.intern_literal("domain.pddl");
 /// let diagnostic = new_duplicate_requirement_warning(
 ///     vec![requirement1.clone(), requirement2.clone()],
 ///     &span,
-///     "domain.pddl",
+///     source_id,
 /// );
 /// diagnostic_manager.add_diagnostic(diagnostic);
 /// ```
 pub fn new_duplicate_requirement_warning(
     duplicate_requirements: Vec<Requirement>,
     span: &Span,
-    source: &str,
+    source: Literal,
 ) -> Diagnostic {
     Diagnostic::new(
         DiagnosticKind::DuplicateRequirementWarning {
             duplicate_requirements,
         },
         Provider::Normalizer,
-        source.to_string(),
+        source,
         span.clone(),
     )
 }

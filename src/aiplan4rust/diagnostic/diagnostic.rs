@@ -3,7 +3,7 @@ use std::fmt;
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::{DiagnosticKind, Provider};
-use crate::aiplan4rust::interner::Ident;
+use crate::aiplan4rust::interner::{Ident, Literal};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
@@ -21,7 +21,7 @@ pub struct Diagnostic {
     pub source: Provider,
 
     /// The name of the file where the diagnostic occurred.
-    pub filename: String,
+    pub filename: Literal,
 
     /// The span (line/column information) where the diagnostic applies.
     pub span: Span,
@@ -39,7 +39,7 @@ impl Diagnostic {
     pub fn new(
         kind: Kind,
         source: Provider,
-        filename: String,
+        filename: Literal,
         span: Span,
     ) -> Self {
         Diagnostic {
@@ -61,8 +61,8 @@ impl Diagnostic {
     }
 
     /// Returns a reference to the filename where the diagnostic occurred.
-    pub fn filename(&self) -> &str {
-        &self.filename
+    pub fn filename(&self) -> Literal {
+        self.filename
     }
 
     /// Returns a reference to the span associated with this diagnostic.
@@ -81,8 +81,8 @@ impl Diagnostic {
     }
 
     /// Sets the filename associated with this diagnostic.
-    pub fn set_filename<S: Into<String>>(&mut self, filename: S) {
-        self.filename = filename.into();
+    pub fn set_filename(&mut self, filename: Literal) {
+        self.filename = filename;
     }
 
     /// Sets the span for this diagnostic.
@@ -163,28 +163,43 @@ impl fmt::Display for Diagnostic {
     }
 }
 
-impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a FastLineTable)> for Diagnostic {
-    /// Converts a LALRPOP `ParseError` along with optional file path and a `FastLineTable`
-    /// into a `Diagnostic` struct, which holds detailed error information suitable
-    /// for reporting and displaying to the user.
+impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLineTable)> for Diagnostic {
+    /// Converts a LALRPOP `ParseError` into a structured `Diagnostic`, enriched with
+    /// source span and interner-based file context.
     ///
-    /// This implementation maps different variants of `ParseError` to appropriate
-    /// diagnostic kinds and computes the source span for error highlighting.
+    /// This implementation maps a `ParseError` (produced by the parser), along with
+    /// a file identifier (`Literal`) and a `FastLineTable`, into a `Diagnostic`
+    /// value suitable for reporting. It resolves parser-specific errors
+    /// into diagnostic kinds and calculates source spans for accurate positioning.
     ///
     /// # Arguments
-    /// * `value` - A tuple containing:
-    ///     - Reference to the `ParseError` to convert.
-    ///     - Optional file path as a string slice.
-    ///     - Reference to a `FastLineTable` used for calculating source spans.
+    ///
+    /// The input is a tuple consisting of:
+    /// - `&ParseError<usize, Token, LexicalError>`: the parse error to convert.
+    /// - `Literal`: the interned identifier of the source file where the error occurred.
+    /// - `&FastLineTable`: used to convert byte offsets into source code spans (line/column).
     ///
     /// # Returns
-    /// A `Diagnostic` instance representing the detailed error.
+    ///
+    /// A `Diagnostic` instance representing the error, with its kind, source location,
+    /// and source file identifier.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let diagnostic = Diagnostic::from((&parse_error, file_id, &line_table));
+    /// eprintln!("{}", diagnostic);
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - The `Literal` is not a file path but an interned handle to the file identifier.
+    /// - For `User`-defined errors, a fallback empty span is used (position 0).
+    /// - Expected token names are cleaned before being included in the message.
     fn from(
-        value: (&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a FastLineTable),
+        value: (&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLineTable),
     ) -> Self {
-        let (error, file_path_opt, fast_line_table) = value;
-        // Use provided file path or default to empty string if none given
-        let file_path = file_path_opt.unwrap_or("").to_string();
+        let (error, source, fast_line_table) = value;
 
         match error {
             // Handles unexpected tokens by including the token and expected set
@@ -200,7 +215,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                         expected: clean_expected,
                     },
                     Provider::Parser,
-                    file_path,
+                    source,
                     // Calculate the span using FastLineTable for accurate error location
                     fast_line_table.get_span(*start, *end),
                 )
@@ -210,7 +225,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                 Diagnostic::new(
                     DiagnosticKind::InvalidToken,
                     Provider::Parser,
-                    file_path,
+                    source,
                     fast_line_table.get_span(*location, *location),
                 )
             }
@@ -222,7 +237,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                         message: content,
                     },
                     Provider::Parser,
-                    file_path,
+                    source,
                     // No span information available, use empty span (0,0)
                     fast_line_table.get_span(0, 0),
                 )
@@ -233,7 +248,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                 Diagnostic::new(
                     DiagnosticKind::UnexpectedEof { expected: clean_expected },
                     Provider::Parser,
-                    file_path,
+                    source,
                     fast_line_table.get_span(*location, *location),
                 )
             }
@@ -246,7 +261,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Option<&'a str>, &'a 
                         token: t.to_string(),
                     },
                     Provider::Parser,
-                    file_path,
+                    source,
                     fast_line_table.get_span(*start, *end),
                 )
             }

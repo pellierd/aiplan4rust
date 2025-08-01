@@ -6,7 +6,7 @@
 //! locations for better error reporting and user feedback.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
-use crate::aiplan4rust::interner::Ident;
+use crate::aiplan4rust::interner::{Ident, Literal};
 
 use std::collections::HashMap;
 use itertools::Itertools;
@@ -21,7 +21,7 @@ use itertools::Itertools;
 #[derive(Debug, Clone, Default)]
 pub struct DiagnosticManager {
     diagnostics: Vec<Diagnostic>,
-    sources: HashMap<String, String>,
+    sources: HashMap<Literal, String>,
 }
 
 impl DiagnosticManager {
@@ -33,28 +33,62 @@ impl DiagnosticManager {
         }
     }
 
-    /// Adds a source file for diagnostic context.
+    /// Registers the contents of a source file for diagnostic rendering.
+    ///
+    /// This method associates a given interned `Literal` (which serves as a file identifier)
+    /// with the full source text of that file. This is required for computing source
+    /// spans, line/column positions, and for displaying annotated diagnostics to the user.
     ///
     /// # Arguments
     ///
-    /// * `filename` - A name or path identifying the source file.
-    /// * `source` - The full contents of the source file.
-    pub fn add_source(&mut self, filename: String, source: String) {
-        self.sources.insert(filename, source);
+    /// * `literal` - An interned identifier (`Literal`) representing the source file.
+    /// * `source` - The full contents of the source file as a `String`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// diagnostic_manager.add_source(file_id, source_code.to_string());
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - The `Literal` typically comes from a `StringInterner`.
+    /// - The associated content can later be used for rendering spans, snippets, and context
+    ///   in error messages.
+    pub fn add_source(&mut self, literal: Literal, source: String) {
+        self.sources.insert(literal, source);
     }
 
-    /// Retrieves the source content associated with a file name.
+    /// Retrieves the source content associated with a given interned file identifier.
+    ///
+    /// This method returns the full source text that was previously registered
+    /// with the corresponding `Literal` identifier (typically using `add_source`).
+    /// The `Literal` is an interned value used to uniquely identify source files
+    /// without storing their full string path repeatedly.
     ///
     /// # Arguments
     ///
-    /// * `filename` - The identifier for the source file.
+    /// * `literal` - A `Literal`, which uniquely identifies a source file.
     ///
     /// # Returns
     ///
-    /// * `Some(&String)` if the file exists.
-    /// * `None` otherwise.
-    pub fn get_source(&self, filename: &str) -> Option<&String> {
-        self.sources.get(filename)
+    /// * `Some(&String)` if the file has been registered.
+    /// * `None` if no source is associated with the given identifier.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// if let Some(source) = diagnostic_manager.get_source(&file_id) {
+    ///     println!("Source length: {}", source.len());
+    /// }
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - Useful for rendering diagnostics with contextual source code.
+    /// - The identifier must match one previously added with `add_source`.
+    pub fn get_source(&self, literal: Literal) -> Option<&String> {
+        self.sources.get(&literal)
     }
 
     /// Adds a single diagnostic to the collection.

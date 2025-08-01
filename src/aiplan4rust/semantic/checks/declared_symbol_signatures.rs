@@ -84,7 +84,7 @@ pub fn check_declared_symbol_signatures(
                     let error = Diagnostic::new(
                         diagnostic_kind,
                         Provider::Analyzer,
-                        context.source_name().to_string(),
+                        context.source_name(),
                         entry.span().clone(),
                     );
 
@@ -252,7 +252,7 @@ fn match_argument(
                 type_used: ty2.clone(),
             },
             Provider::Analyzer,
-            context.source_name().to_string(),
+            context.source_name(),
             argument.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

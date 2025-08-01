@@ -51,7 +51,7 @@
 //! This design enables streamlined error propagation and reporting during
 //! semantic analysis.
 
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{Literal, StringInterner};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
@@ -63,22 +63,22 @@ use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
-/// Semantic context representing the result of semantic analysis.
+/// Holds the results of semantic analysis, including the syntax tree, symbol table,
+/// declared requirements, and associated metadata.
 ///
-/// This structure contains a semantically enriched abstract syntax tree (AST),
-/// a symbol table, the set of semantic requirements, and metadata such as
-/// the source file name and the timestamp of generation.
+/// This structure represents the full context of a parsed and analyzed PDDL file
+/// or module. It encapsulates all data needed for further processing stages such
+/// as normalization, validation, or code generation.
 ///
-/// It serves as the main interface between parsing and subsequent phases like
-/// type checking, optimization, or code generation.
+/// # Fields
 ///
-/// # Examples
-///
-/// ```rust
-/// use aiplan4rust::semantic::Context;
-/// // Assume `ast` is obtained from parsing
-/// // let context = Context::try_from(&mut ast)?;
-/// ```
+/// - `syntax_tree`: The annotated syntax tree, represented as an arena of `AstNode` values.
+/// - `requirements`: A set of `Requirement`s explicitly declared in the source (e.g., `:typing`, `:equality`).
+/// - `symbol_table`: The global symbol table built during semantic analysis, mapping names to declarations.
+/// - `interner`: A `StringInterner` used for efficient string storage and resolution across the context.
+/// - `source_name`: A `Literal` representing the interned name of the source file or module.
+///                 This avoids string duplication and enables consistent referencing in diagnostics.
+/// - `generated_at`: A `SystemTime` timestamp indicating when semantic analysis was completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     /// The annotated syntax tree stored as an arena of AST nodes.
@@ -93,13 +93,12 @@ pub struct Context {
     /// String interner used for efficient symbol resolution.
     interner: StringInterner,
 
-    /// The name of the source file or input from which the AST was parsed.
-    source_name: String,
+    /// The name of the source file or input from which the AST was parsed, stored as an interned `Literal`.
+    source_name: Literal,
 
     /// Timestamp marking when semantic analysis was completed.
     generated_at: SystemTime,
 }
-
 impl Context {
     /// Creates a new semantic context from its components.
     ///
@@ -115,7 +114,7 @@ impl Context {
     /// A new `Context` instance.
     pub fn new(
         syntax_tree: SyntaxTree<AstNode>,
-        source_name: String,
+        source_name: Literal,
         requirements: HashSet<Requirement>,
         symbol_table: SymbolTable,
         interner: StringInterner,
@@ -249,8 +248,8 @@ impl Context {
     }
 
     /// Returns the source file or input name associated with this context.
-    pub fn source_name(&self) -> &String {
-        &self.source_name
+    pub fn source_name(&self) -> Literal {
+        self.source_name
     }
 
     /// Returns a reference to the string interner.
@@ -358,7 +357,7 @@ impl TryFrom<&mut Ast> for Context {
 
         Ok(Context::new(
             syntax_tree,
-            ast.source_name().to_string(),
+            ast.source_name(),
             requirements,
             symbol_table,
             interner,

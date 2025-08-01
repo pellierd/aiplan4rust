@@ -174,23 +174,46 @@ fn check_equal_and_assignment_expression(
     Ok(no_error)
 }
 
-/// Reports a type_checker mismatch error for an expr involving two type_checker lists.
+/// Reports a type mismatch error between two type sets in an expression.
 ///
-/// This function creates and adds a diagnostic error indicating that the two sets
-/// of types involved in an expr are incompatible.
+/// This function generates a diagnostic error of kind [`DiagnosticKind::TypeMismatchInExpression`]
+/// when an expression involves two incompatible type lists. It is typically used during
+/// semantic analysis to catch type inconsistencies in expressions or constraints.
 ///
 /// # Parameters
-/// - `ty1`: The first type_checker list involved in the expr.
-/// - `ty2`: The second type_checker list involved in the expr.
-/// - `source`: The diagnostic source context indicating where diagnostics originate.
-/// - `filename`: The filename where the error occurred.
-/// - `span`: The span of the syntax syntax causing the error.
-/// - `diagnostic_manager`: The diagnostic manager to which the error will be added.
+/// - `ty1`: The first [`Type`] involved in the expression.
+/// - `ty2`: The second [`Type`] involved in the expression.
+/// - `span`: The [`Span`] in the source code where the type conflict occurs.
+/// - `provider`: The [`Provider`] identifying the phase or component that detected the error.
+/// - `context`: The [`CheckContext`] containing analysis context, including source information.
+/// - `diagnostic_manager`: The [`DiagnosticManager`] where the diagnostic will be registered.
+///
+/// # Behavior
+/// A [`Diagnostic`] is constructed with detailed information about the mismatched types and added
+/// to the diagnostic manager for reporting to the user.
+///
+/// # Example
+/// ```rust
+/// report_type_mismatch_in_expression(
+///     &type1,
+///     &type2,
+///     span,
+///     Provider::TypeChecker,
+///     &context,
+///     &mut diagnostic_manager,
+/// );
+/// ```
+///
+/// # See Also
+/// - [`DiagnosticKind::TypeMismatchInExpression`]
+/// - [`Type`]
+/// - [`CheckContext`]
+/// - [`DiagnosticManager`]
 fn report_type_mismatch_in_expression(
     ty1: &Type,
     ty2: &Type,
     span: Span,
-    source: Provider,
+    provider: Provider,
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
@@ -199,8 +222,8 @@ fn report_type_mismatch_in_expression(
             ty1: ty1.clone(),
             ty2: ty2.clone(),
         },
-        source,
-        context.source_name().to_string(),
+        provider,
+        context.source_name(),
         span,
     );
 
@@ -286,14 +309,14 @@ fn report_invalid_types_in_numeric_expression(
     ty1: &Type,
     ty2: &Type,
     span: Span,
-    source: Provider,
+    provider: Provider,
     context: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
     let error = Diagnostic::new(
         DiagnosticKind::InvalidTypesInNumericExpression { ty1: ty1.clone(), ty2: ty2.clone() },
-        source,
-        context.source_name().to_string(),
+        provider,
+        context.source_name(),
         span,
     );
     diagnostic_manager.add_diagnostic(error);

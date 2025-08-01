@@ -2,6 +2,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManag
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
+use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::Ident;
@@ -92,40 +93,42 @@ pub fn check_task_ordering(
 /// Reports a diagnostic error indicating the presence of a cyclic dependency
 /// in task ordering constraints.
 ///
-/// This function creates and adds a diagnostic of kind `CyclicOrderingConstraint`
-/// to the provided `DiagnosticManager`, specifying the source location and context
-/// of the cycle detection.
+/// This function generates a diagnostic of kind [`DiagnosticKind::CyclicTaskOrdering`]
+/// and adds it to the provided [`DiagnosticManager`]. Cycles in task ordering constraints
+/// typically represent logical errors that prevent correct task execution planning.
 ///
 /// # Parameters
-/// - `source`: The `DiagnosticSource` indicating the phase or component reporting the error.
-/// - `filename`: The name of the source file where the cyclic constraint was detected.
-/// - `span`: The span in the source code corresponding to the problematic task ordering constraint.
-/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` where the diagnostic will
-///   be recorded.
+/// - `provider`: The [`Provider`] that detected the cycle (e.g., `Provider::SemanticAnalyzer`).
+/// - `source`: A [`Literal`] indicating the origin of the source file or input.
+/// - `span`: The [`Span`] within the source where the problematic ordering was detected.
+/// - `diagnostic_manager`: The [`DiagnosticManager`] responsible for recording the diagnostic.
 ///
 /// # Behavior
-/// The diagnostic generated provides information to help identify the cycle in task ordering
-/// constraints within the source code.
+/// This function never fails and simply appends the error diagnostic to the manager.
 ///
 /// # Example
 /// ```rust
 /// report_cyclic_task_ordering_error(
-///     DiagnosticSource::SemanticAnalyzer,
-///     "example.pddl",
-///     span,
+///     Provider::SemanticAnalyzer,
+///     source_literal,
+///     &span,
 ///     &mut diagnostic_manager,
 /// );
 /// ```
+///
+/// # See Also
+/// - [`DiagnosticKind::CyclicTaskOrdering`]: The kind of error reported.
+/// - [`DiagnosticManager`]: Collects and manages diagnostics throughout analysis.
 fn report_cyclic_task_ordering_error(
-    source: Provider,
-    filename: &str,
+    provider: Provider,
+    source: Literal,
     span: &Span,
     diagnostic_manager: &mut DiagnosticManager,
 ) {
     let error = Diagnostic::new(
         DiagnosticKind::CyclicTaskOrdering,
+        provider,
         source,
-        filename.to_string(),
         span.clone(),
     );
     diagnostic_manager.add_diagnostic(error);

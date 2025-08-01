@@ -5,7 +5,7 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{Literal, StringInterner};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 
 use std::collections::HashMap;
@@ -101,50 +101,54 @@ pub fn check_type_hierarchy(
     Ok(filtered_cycles.is_empty())
 }
 
-/// Reports diagnostics for cyclic type_checker declarations detected in the type_checker hierarchy.
+/// Reports diagnostics for cyclic type declarations detected in the type hierarchy.
 ///
-/// For each detected cycle (represented as a vector of type_checker indices), this function reconstructs
-/// detailed cycle information by mapping indices to their corresponding type_checker declarations.
-/// It then emits a diagnostic error describing the cycle and indicating its source location.
+/// For each detected cycle (represented as a vector of type indices), this function reconstructs
+/// the corresponding type declarations and emits an error diagnostic describing the cycle and its
+/// origin within the source code.
 ///
 /// # Parameters
-/// - `cycles`: A slice of cycles, where each cycle is a list of type_checker indices forming a loop.
-/// - `type_bimap`: A bidirectional map between type_checker names and their unique numeric indices.
-/// - `types`: A slice of references to `Declaration` objects representing all declared types.
-/// - `filename`: The name of the source file where the declarations appear.
-/// - `source`: The `DiagnosticSource` identifying the analysis phase that detected the cycle.
-/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` to which diagnostics are added.
+///
+/// - `cycles`: A slice of type cycles, where each cycle is a list of indices corresponding to
+///   declared types forming a loop.
+/// - `type_bimap`: A bidirectional map between type identifiers (`Ident`) and their unique indices,
+///   used to resolve cycles back to declarations.
+/// - `types`: A list of references to `Declaration` objects representing all known types.
+/// - `source`: The interned `Literal` representing the name of the source file where
+///   the declarations originate.
+/// - `provider`: The `Provider` identifying the compiler or analysis stage that reports this diagnostic
+///   (e.g., `Provider::SemanticAnalyzer`).
+/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` used to collect and report diagnostics.
 ///
 /// # Returns
-/// - `Ok(())` if all diagnostics were successfully emitted.
-/// - `Err(ParserInternalError)` if a required declaration or mapping is missing,
-///   preventing accurate diagnostic reporting.
+///
+/// - `Ok(())` if all diagnostics were successfully reported.
+/// - `Err(SemanticCheckError)` if the cycle could not be resolved into valid declarations,
+///   indicating a potential internal inconsistency.
 ///
 /// # Errors
-/// Returns an error if any cycle cannot be resolved to valid declarations,
-/// indicating a potential internal inconsistency.
+///
+/// Returns `SemanticCheckError::empty_cycle_detail` if no declarations could be resolved for a cycle,
+/// which likely indicates a bug in the analysis phase or an invalid state in the type resolution.
 ///
 /// # Example
+///
 /// ```rust
-/// let result = report_cyclic_type_declaration_error(
+/// report_cyclic_type_declaration_error(
 ///     &cycles,
 ///     &type_bimap,
 ///     &type_declarations,
-///     filename,
-///     DiagnosticSource::SemanticAnalyzer,
+///     source_literal,
+///     Provider::SemanticAnalyzer,
 ///     &mut diagnostic_manager,
-/// );
-///
-/// if let Err(e) = result {
-///     eprintln!("Error reporting type_checker cycles: {:?}", e);
-/// }
+/// )?;
 /// ```
 fn report_cyclic_type_declaration_error(
     cycles: &[Vec<usize>],
     type_bimap: &BiMap<Ident, usize>,
     types: &Vec<&Declaration>,
-    filename: &str,
-    source: Provider,
+    source: Literal,
+    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), SemanticCheckError> {
 
@@ -178,8 +182,8 @@ fn report_cyclic_type_declaration_error(
         // Emit a diagnostic describing the cyclic type_checker declarations
         let error = Diagnostic::new(
             DiagnosticKind::CyclicTypeDeclaration { cycle: cycle_detail },
+            provider,
             source,
-            filename.to_string(),
             first_span,
         );
 

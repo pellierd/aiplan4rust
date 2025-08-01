@@ -10,7 +10,7 @@
 //! The module also includes convenient conversions from the full `SemanticContext`,
 //! allowing flexible and modular semantic analysis workflows.
 
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{Literal, StringInterner};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use std::collections::HashSet;
@@ -62,7 +62,7 @@ pub struct Context<'a> {
     syntax_tree: &'a SyntaxTree<AstNode>,
     symbols: &'a SymbolTable,
     interner: &'a StringInterner,
-    source_name: &'a str,
+    source: Literal,
     requirements: &'a HashSet<Requirement>,
 }
 
@@ -72,14 +72,14 @@ impl<'a> Context<'a> {
         syntax_tree: &'a SyntaxTree<AstNode>,
         symbols: &'a SymbolTable,
         interner: &'a StringInterner,
-        source_name: &'a str,
+        source: Literal,
         requirements: &'a HashSet<Requirement>,
     ) -> Self {
         Self {
             syntax_tree,
             symbols,
             interner,
-            source_name,
+            source,
             requirements,
         }
     }
@@ -100,8 +100,8 @@ impl<'a> Context<'a> {
     }
 
     /// Returns the name of the source file.
-    pub fn source_name(&self) -> &'a str {
-        self.source_name
+    pub fn source_name(&self) -> Literal {
+        self.source
     }
 
     /// Returns the active requirements.
@@ -135,7 +135,7 @@ impl<'a> From<&'a SemanticContext> for Context<'a> {
             syntax_tree: &ctx.syntax_tree(),
             symbols: &ctx.symbol_table(),
             interner: &ctx.interner(),
-            source_name: &ctx.source_name(),
+            source: ctx.source_name(),
             requirements: &ctx.requirements(),
         }
     }
