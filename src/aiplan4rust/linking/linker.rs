@@ -144,7 +144,7 @@ impl Linker {
                     problem_ctx.syntax_tree(),
                     problem_ctx.symbol_table(),
                     &global_interner,
-                    problem_ctx.source_name(),
+                    problem_ctx.source_id(),
                     problem_ctx.requirements(),
                 );
                 perform_linking_checks(&domain_ctx, &problem_check_ctx, &mut self.diagnostic_manager)?;
@@ -161,8 +161,8 @@ impl Linker {
                     domain_ctx.take_symbol_table(),
                     problem_ctx.take_symbol_table(),
                     global_interner,
-                    domain_ctx.source_name().to_string(),
-                    problem_ctx.source_name().to_string(),
+                    domain_ctx.source_id().to_string(),
+                    problem_ctx.source_id().to_string(),
                 );
 
                 // Step 8: Return the result with the semantic context and diagnostics

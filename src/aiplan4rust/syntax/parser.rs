@@ -48,27 +48,29 @@ use crate::aiplan4rust::syntax::{
 /// ```
 #[derive(Debug)]
 pub struct Parser<'a> {
-    source_name: Option<&'a str>,
-    source: Option<&'a str>,
+    source_name: &'a str,
+    source_content: &'a str,
     diagnostic_manager: DiagnosticManager,
 }
 
 impl<'a> Parser<'a> {
     /// Creates a new, empty `Parser` instance.
     ///
-    /// The parser starts with no loaded source and a fresh diagnostic manager.
+    /// Initializes the parser with empty diagnostic manager ready to collect diagnostics.
+    ///
+    /// This means the parser starts with no loaded input and is ready to
+    /// receive source code for parsing.
     ///
     /// # Returns
     ///
-    /// A new `Parser` ready to parse source code.
+    /// A `Parser` instance with empty source fields and an initialized diagnostic manager.
     pub fn new() -> Self {
         Self {
-            source_name: None,
-            source: None,
+            source_name: "",
+            source_content: "",
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
-
     /// Returns a reference to the parser's diagnostic manager.
     ///
     /// The diagnostic manager contains all errors, warnings, and notes produced during parsing.
@@ -85,7 +87,7 @@ impl<'a> Parser<'a> {
     /// # Arguments
     ///
     /// * `source_name` - A string slice identifying the source (e.g., filename) for diagnostics.
-    /// * `source` - The source code to parse.
+    /// * `source_content` - The source code to parse.
     /// * `language` - The language variant (`PDDL` or `HDDL`) to use for parsing.
     ///
     /// # Returns
@@ -101,16 +103,16 @@ impl<'a> Parser<'a> {
     pub fn parse(
         &mut self,
         source_name: &'a str,
-        source: &'a str,
+        source_content: &'a str,
         language: &Language,
     ) -> Result<ParserResult, SyntaxError> {
         // Store the source name (e.g., filename) for diagnostics context
-        self.source_name = Some(source_name);
+        self.source_name = source_name;
         // Store the source code string slice for diagnostics context
-        self.source = Some(source);
+        self.source_content = source_content;
 
         // Create a new lexer instance from the source text to tokenize input
-        let lexer = Lexer::new(source);
+        let lexer = Lexer::new(source_content);
         // Initialize the parser context which holds parser state and memory allocations
         let mut context = ParseContext::new();
 
@@ -123,17 +125,17 @@ impl<'a> Parser<'a> {
 
         // Extract the string interner from the parsing context (used to store unique strings)
         let mut interner = context.take_interner();
-        let source_literal = interner.intern_literal(source_name);
+        let source_id = interner.intern_literal(source_name);
 
         // Register the source text with the diagnostic manager
         self.diagnostic_manager
-            .add_source(source_literal, source.to_string());
+            .add_source(source_id, source_content.to_string());
 
         // Build a fast line table from the source for quick byte-to-line/column lookups
-        let fast_line_table = FastLineTable::new(source);
+        let fast_line_table = FastLineTable::new(source_content);
 
         // Convert any collected LALRPOP errors into diagnostics and add them to the manager
-        self.handle_syntax_diagnostics(&context.borrow_errors_mut(), source_literal, &fast_line_table);
+        self.handle_syntax_diagnostics(&context.borrow_errors_mut(), source_id, &fast_line_table);
 
         // If any error-level diagnostics were added, parsing failed—return no AST but diagnostics
         if self
@@ -164,7 +166,7 @@ impl<'a> Parser<'a> {
                     let arena = context.take_syntax_tree();
                     // Create an AST instance from the arena, interner, source name, and timestamp
                     let mut ast =
-                        Ast::new(arena, interner, source_name.to_string(), SystemTime::now());
+                        Ast::new(arena, interner, source_id, SystemTime::now());
                     // Initialize line/column span info for AST nodes using the line table
                     ast.init_span(&fast_line_table)?;
 
@@ -201,7 +203,7 @@ impl<'a> Parser<'a> {
     /// # Arguments
     ///
     /// * `lalrpop_errors` - A slice of parser error recoveries emitted by LALRPOP.
-    /// * `source` - An interned `Literal` identifying the source file in which the errors occurred.
+    /// * `source_id` - An interned `Literal` identifying the source file in which the errors occurred.
     /// * `fast_line_table` - A line/column lookup structure used to compute error spans from byte positions.
     ///
     /// # Behavior
@@ -210,9 +212,8 @@ impl<'a> Parser<'a> {
     /// - Converts each `ParseError` into a `Diagnostic`, using the source file identifier and line table.
     /// - Adds the generated diagnostic to the `DiagnosticManager` for later reporting.
     ///
-    /// # Notes
+    /// # Note
     ///
-    /// - `Literal` is not a literal string but an interned ID used to refer to the source file.
     /// - This function does not return anything, as diagnostics are registered directly with the manager.
     ///
     /// # Example
@@ -223,12 +224,12 @@ impl<'a> Parser<'a> {
     fn handle_syntax_diagnostics(
         &mut self,
         lalrpop_errors: &[ErrorRecovery<usize, Token, LexicalError>],
-        source: Literal,
+        source_id: Literal,
         fast_line_table: &FastLineTable,
     ) {
         for error_recovery in lalrpop_errors {
             let diagnostic =
-                Diagnostic::from((&error_recovery.error, source, fast_line_table));
+                Diagnostic::from((&error_recovery.error, source_id, fast_line_table));
             self.diagnostic_manager.add_diagnostic(diagnostic);
         }
     }

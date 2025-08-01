@@ -54,7 +54,7 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::interner::{InternerDisplay, Literal, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, Literal, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
@@ -66,10 +66,19 @@ use std::fmt;
 use std::fmt::Debug;
 use std::time::SystemTime;
 
-/// A complete abstract syntax tree (AST) and its associated context.
+/// Represents a complete Abstract Syntax Tree (AST) along with its context.
 ///
-/// This struct owns the entire syntax tree structure, the string interner used to deduplicate
-/// symbolic strings, and metadata such as source origin and generation timestamp.
+/// This struct owns the full syntax tree, a string interner to efficiently manage
+/// and deduplicate symbolic strings encountered during parsing, and metadata such as
+/// the source identifier and creation timestamp.
+///
+/// # Fields
+///
+/// - `syntax_tree`: The full AST represented as a tree of `AstNode` elements.
+/// - `interner`: A `StringInterner` that stores and manages all unique strings used in the AST.
+/// - `source_id`: A `Literal` serving as the interned identifier for the source from which this AST was parsed,
+///   allowing efficient retrieval of the original source name without string duplication.
+/// - `generated_at`: A `SystemTime` timestamp marking when this AST instance was created.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ast {
     /// The complete syntax tree of the AST.
@@ -78,10 +87,10 @@ pub struct Ast {
     /// String interner used during parsing.
     interner: StringInterner,
 
-    /// Name or identifier for the source of the parsed AST.
-    source_name: Literal,
+    /// Interned identifier representing the source of this AST.
+    source_id: Literal,
 
-    /// Timestamp of when the AST was created.
+    /// Timestamp when the AST was generated.
     generated_at: SystemTime,
 }
 
@@ -91,13 +100,13 @@ impl Default for Ast {
     /// The default instance has:
     /// - An empty syntax tree.
     /// - An empty string interner.
-    /// - A `source_name` set to `Literal::default()` to indicate unknown source.
+    /// - A `source_id` set to `Literal::default()` to indicate unknown source.
     /// - A generation timestamp set to the current system time.
     fn default() -> Self {
         Ast {
             syntax_tree: SyntaxTree::<AstNode>::new(),
             interner: StringInterner::new(),
-            source_name: Literal::default(),
+            source_id: Literal::default(),
             generated_at: SystemTime::now(),
         }
     }
@@ -110,7 +119,7 @@ impl Ast {
     ///
     /// * `syntax_tree` - The root syntax tree containing the AST nodes.
     /// * `interner` - A [`StringInterner`] for managing interned strings within the AST.
-    /// * `source_name` - A human-readable identifier for the source of the AST (e.g., filename). This will be interned.
+    /// * `source_id` - A identifier for the source of the AST (e.g., filename). This will be interned.
     /// * `generated_at` - A [`SystemTime`] timestamp marking when the AST was generated.
     ///
     /// # Returns
@@ -132,15 +141,14 @@ impl Ast {
     /// ```
     pub fn new(
         syntax_tree: SyntaxTree<AstNode>,
-        mut interner: StringInterner,
-        source_name: String,
+        interner: StringInterner,
+        source_id: Literal,
         generated_at: SystemTime,
     ) -> Self {
-        let source_literal = interner.intern_literal(source_name);
         Self {
             syntax_tree,
             interner,
-            source_name: source_literal,
+            source_id,
             generated_at,
         }
     }
@@ -235,8 +243,54 @@ impl Ast {
     ///     println!("Unknown source");
     /// }
     /// ```
-    pub fn source_name(&self) -> Literal {
-        self.source_name
+    pub fn source_id(&self) -> Literal {
+        self.source_id
+    }
+
+    /// Attempts to resolve and return the source name as a string slice from the interner.
+    ///
+    /// This method uses the `Literal` identifier returned by `source()` to look up
+    /// the actual source name string in the associated `StringInterner`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&str)` containing the resolved source name if successful.
+    /// * `Err(InternerError)` if the `Literal` cannot be resolved, e.g., if the
+    ///   source name is not set or invalid.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// match ast.try_source_name() {
+    ///     Ok(name) => println!("Source name: {}", name),
+    ///     Err(_) => println!("Source name could not be resolved"),
+    /// }
+    /// ```
+    pub fn try_source_name(&self) -> Result<&str, InternerError> {
+        self.interner.try_resolve_literal(self.source_id())
+    }
+
+    /// Returns the source name as a string slice if it can be resolved from the interner.
+    ///
+    /// This method attempts to resolve the interned `Literal` representing the source
+    /// (e.g., filename or origin) into a string slice by querying the associated `StringInterner`.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(&str)` containing the source name if it exists in the interner.
+    /// * `None` if the source name cannot be found or is not set.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if let Some(name) = ast.source_name() {
+    ///     println!("Source name: {}", name);
+    /// } else {
+    ///     println!("Source name not available");
+    /// }
+    /// ```
+    pub fn source_name(&self) -> Option<&str> {
+        self.interner.resolve_literal(self.source_id())
     }
 
     /// Returns the timestamp indicating when the AST was generated.
@@ -376,7 +430,7 @@ impl Ast {
         let mut buf = String::new();
 
         // Add metadata as PDDL-style comments
-        buf.push_str(&format!(";; Source: {}\n", self.source_name));
+        buf.push_str(&format!(";; Source: {}\n", self.source_id));
         buf.push_str(&format!(";; Generated at: {:?}\n\n", self.generated_at));
 
         // Append the PDDL syntax representation of the AST
@@ -417,7 +471,12 @@ impl fmt::Display for Ast {
     /// Prints the source name, generation timestamp, and the list of nodes with their syntax.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Abstract Syntax Tree:")?;
-        writeln!(f, " - Source: {}", self.source_name)?;
+
+        match self.source_name() {
+            Some(name) => writeln!(f, " - Source: {}", name)?,
+            None => writeln!(f, " - Source: unknown<{}>", self.source_id)?,
+        }
+
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
         writeln!(f, " - Nodes:\n")?;
         self.syntax_tree().fmt_with_interner(f, self.interner())?;

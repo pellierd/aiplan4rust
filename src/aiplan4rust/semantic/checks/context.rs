@@ -135,7 +135,7 @@ impl<'a> From<&'a SemanticContext> for Context<'a> {
             syntax_tree: &ctx.syntax_tree(),
             symbols: &ctx.symbol_table(),
             interner: &ctx.interner(),
-            source: ctx.source_name(),
+            source: ctx.source_id(),
             requirements: &ctx.requirements(),
         }
     }

@@ -117,7 +117,7 @@ pub fn normalize_require_def(
     report_duplicate_requirements_warnings(
         ast.syntax_tree(),
         require_def_id,
-        ast.source_name(),
+        ast.source_id(),
         diagnostic_manager,
     )?;
 

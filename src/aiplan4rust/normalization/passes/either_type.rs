@@ -220,7 +220,7 @@ fn report_either_type_duplicate_warnings(
             // Construct a diagnostic warning for these duplicates
             let warning = new_duplicate_either_type_warning(
                 duplicates,
-                ast.source_name(),
+                ast.source_id(),
                 &node.span(),
             )?;
             // Add the diagnostic to the diagnostic manager for reporting

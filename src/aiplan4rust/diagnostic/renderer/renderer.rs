@@ -24,10 +24,10 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Severity;
 use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::diagnostic::renderer::{message, suggestion};
 
 use std::io::{self, Write};
 use colored::Colorize;
-use crate::aiplan4rust::diagnostic::renderer::{message, suggestion};
 
 /// Number of spaces to which a tab character (`\t`) expands.
 ///
@@ -94,7 +94,7 @@ impl<'a> Renderer<'a> {
         for diagnostic in diagnostic_manager.diagnostics() {
             let mut output = String::new();
 
-            let filename = interner.try_resolve_literal(diagnostic.filename()).unwrap();
+            let filename = interner.try_resolve_literal(diagnostic.source()).unwrap();
             let span = diagnostic.span();
             let kind = diagnostic.kind();
 
@@ -140,7 +140,7 @@ impl<'a> Renderer<'a> {
             let line_num_str = span.begin_line().to_string();
             let gutter_width = line_num_str.len();
 
-            if let Some(source) = diagnostic_manager.get_source(diagnostic.filename()) {
+            if let Some(source) = diagnostic_manager.get_source(diagnostic.source()) {
                 if let Some(line) = source.lines().nth(span.begin_line() - 1) {
                     // Bar vertical en bleu clair ou sans couleur
                     let vertical_bar = if color {

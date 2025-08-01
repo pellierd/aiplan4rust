@@ -1,91 +1,161 @@
-use std::collections::HashMap;
-use std::fmt;
-use lalrpop_util::ParseError;
+//! Diagnostic system for parsing, semantic analysis, and compilation phases.
+//!
+//! This module provides a structured framework for reporting and managing diagnostics
+//! such as errors, warnings, and informational messages that occur during the
+//! parsing, validation, and compilation of AI planning files.
+//!
+//! # Overview
+//!
+//! The diagnostic system is organized into several components:
+//!
+//! - [`diagnostic`] defines the core `Diagnostic` type and its conversion from parsing errors.
+//! - [`kind`] contains a rich set of `Kind` variants to describe different types of issues.
+//! - [`severity`] categorizes diagnostics by severity (e.g., error, warning).
+//! - [`diagnostic_manager`] manages a collection of diagnostics and associated source files.
+//! - [`provider`] distinguishes the origin of a diagnostic (e.g., domain or problem file).
+//! - [`renderer`] contains submodules for formatting diagnostics for display, including:
+//!   - [`message`] for message construction,
+//!   - [`suggestion`] for auto-fix or guidance,
+//!   - [`formatting`] utilities to convert internal data to readable strings,
+//!   - [`renderer`] for rendering full diagnostics in user-facing form.
+//!
+//! # Key Concepts
+//!
+//! - Diagnostics are created during parsing, semantic validation, or symbol resolution.
+//! - Each diagnostic carries metadata such as file origin (`Literal`), source span, and severity.
+//! - Formatting modules ensure messages are user-friendly and contextual.
+//!
+//! # Usage Example
+//!
+//! ```rust
+//! use aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Provider};
+//! use aiplan4rust::interner::StringInterner;
+//!
+//! let kind = DiagnosticKind::InvalidToken;
+//! let provider = Provider::Parser;
+//! let source = interner.intern_literal("domain.pddl");
+//! let span = Span::new(0, 5);
+//! let diagnostic = Diagnostic::new(kind, provider, source, span);
+//! ```
+//!
+//! This system enables consistent error reporting across the parsing and compilation pipeline.
+
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::{DiagnosticKind, Provider};
 use crate::aiplan4rust::interner::{Ident, Literal};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
-/// Represents a diagnostic generated during parsing, validation, or compilation.
+use std::collections::HashMap;
+use std::fmt;
+use lalrpop_util::ParseError;
+
+/// Represents a diagnostic message generated during parsing, validation, or compilation.
 ///
-/// A `Diagnostic` contains information about an issue found in the source file,
-/// including the kind of problem, its source (e.g., domain or problem file),
-/// the file in which it occurred, and the precise location (`Span`).
+/// A `Diagnostic` describes an issue detected in the source code. It includes metadata
+/// about the nature of the issue (`kind`), its origin (`provider`), the file in which
+/// it occurred (`source`), and the specific location (`span`) for accurate reporting.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Diagnostic {
-    /// The kind of diagnostic (e.g., Error, Warning, Info).
+    /// The specific type of diagnostic, such as a syntax error, type mismatch, or unused symbol.
+    ///
+    /// This defines what kind of issue was detected.
     pub kind: Kind,
 
-    /// The source of the diagnostic (Domain, Problem, or Unknown).
-    pub source: Provider,
+    /// Identifies the origin of the diagnostic (e.g., from the domain file, problem file, or unknown).
+    ///
+    /// Helps distinguish between different inputs or compilation units.
+    pub provider: Provider,
 
-    /// The name of the file where the diagnostic occurred.
-    pub filename: Literal,
+    /// An interned identifier representing the source file where the issue occurred.
+    ///
+    /// This is typically obtained via a `StringInterner` and refers to a file path or logical source name.
+    pub source: Literal,
 
-    /// The span (line/column information) where the diagnostic applies.
+    /// The span within the source file that pinpoints the location of the issue.
+    ///
+    /// Used for error highlighting and precise reporting (line and column numbers).
     pub span: Span,
 }
 
 impl Diagnostic {
-    /// Creates a new `Diagnostic` instance.
+    /// Creates a new `Diagnostic` instance containing information about a detected issue.
     ///
     /// # Arguments
     ///
-    /// * `kind` - The severity and category of the diagnostic.
-    /// * `source` - The origin of the diagnostic (domain/problem).
-    /// * `filename` - The path of the file in which the diagnostic was found.
-    /// * `span` - The position in the file where the issue occurred.
+    /// * `kind` - Describes the type of diagnostic (e.g., syntax error, type mismatch).
+    /// * `provider` - Indicates the source or subsystem that generated the diagnostic (e.g., Domain, Problem, Parser).
+    /// * `source` - A `Literal` identifying the source file where the issue occurred (via the interner).
+    /// * `span` - The precise location in the file where the issue is found.
+    ///
+    /// # Returns
+    ///
+    /// A new `Diagnostic` ready to be added to the diagnostic manager or displayed.
     pub fn new(
         kind: Kind,
-        source: Provider,
-        filename: Literal,
+        provider: Provider,
+        source: Literal,
         span: Span,
     ) -> Self {
         Diagnostic {
             kind,
+            provider,
             source,
-            filename,
             span,
         }
     }
 
-    /// Returns a reference to the kind of this diagnostic.
+    /// Returns a reference to the kind of diagnostic.
+    ///
+    /// This includes the structured variant describing the nature of the issue
+    /// (e.g., `UnexpectedToken`, `TypeMismatch`, etc.).
     pub fn kind(&self) -> &Kind {
         &self.kind
     }
 
-    /// Returns a reference to the source of this diagnostic.
-    pub fn source(&self) -> &Provider {
-        &self.source
+    /// Returns the provider that reported this diagnostic.
+    ///
+    /// This indicates the origin of the error, such as the domain file, problem file,
+    /// or parser infrastructure.
+    pub fn provider(&self) -> &Provider {
+        &self.provider
     }
 
-    /// Returns a reference to the filename where the diagnostic occurred.
-    pub fn filename(&self) -> Literal {
-        self.filename
+    /// Returns the identifier of the source file where this diagnostic occurred.
+    ///
+    /// The identifier is a `Literal`, typically interned to reduce duplication.
+    pub fn source(&self) -> Literal {
+        self.source
     }
 
-    /// Returns a reference to the span associated with this diagnostic.
+    /// Returns a reference to the span where the issue was detected.
+    ///
+    /// The span contains the start and end positions, typically line and column,
+    /// allowing precise highlighting or error tracking.
     pub fn span(&self) -> &Span {
         &self.span
     }
 
-    /// Sets the kind of this diagnostic.
+    /// Updates the diagnostic kind with a new value.
+    ///
+    /// This allows changing the classification or message content of the diagnostic.
     pub fn set_kind(&mut self, kind: Kind) {
         self.kind = kind;
     }
 
-    /// Sets the source of this diagnostic.
-    pub fn set_source(&mut self, source: Provider) {
+    /// Updates the diagnostic's provider (e.g., Domain, Problem).
+    pub fn set_provider(&mut self, provider: Provider) {
+        self.provider = provider;
+    }
+
+    /// Updates the source file associated with this diagnostic.
+    ///
+    /// The new value must be a valid `Literal` reference to an interned filename.
+    pub fn set_source(&mut self, source: Literal) {
         self.source = source;
     }
 
-    /// Sets the filename associated with this diagnostic.
-    pub fn set_filename(&mut self, filename: Literal) {
-        self.filename = filename;
-    }
-
-    /// Sets the span for this diagnostic.
+    /// Updates the span indicating where this diagnostic applies.
     pub fn set_span(&mut self, span: Span) {
         self.span = span;
     }
@@ -130,7 +200,7 @@ impl Diagnostic {
         let severity_code = self.kind.severity().code();
 
         // Provider code, e.g. '0'
-        let provider_code = self.source.code();
+        let provider_code = self.provider.code();
 
         // Kind-specific two-character code, e.g. "01"
         // Assume Kind::code() returns &'static str with 2 digits like "01", "05", etc.
@@ -155,8 +225,8 @@ impl fmt::Display for Diagnostic {
             f,
             "[{:?}] {} at {}:{}:{}",
             self.kind,
+            self.provider,
             self.source,
-            self.filename,
             self.span.begin_line(),
             self.span.begin_column()
         )

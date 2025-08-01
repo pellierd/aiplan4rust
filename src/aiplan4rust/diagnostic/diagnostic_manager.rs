@@ -9,6 +9,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
 use crate::aiplan4rust::interner::{Ident, Literal};
 
 use std::collections::HashMap;
+use std::fmt;
 use itertools::Itertools;
 
 /// Manages a collection of diagnostics and their associated source files.
@@ -200,15 +201,62 @@ impl DiagnosticManager {
         self.diagnostics.is_empty()
     }
 
-    /// Displays all diagnostics to stdout, sorted by line and column.
-    ///
-    /// This is useful for CLI tools or debugging purposes.
-    pub fn display_all(&self) {
-        let mut sorted_errors = self.diagnostics.clone();
-        sorted_errors.sort_by_key(|e| (e.span().begin_line(), e.span().begin_column()));
+}
 
-        for diagnostic in sorted_errors {
-            println!("{}\n", diagnostic);
+/// Implements the `Display` trait for `DiagnosticManager` for debugging purposes.
+///
+/// This implementation provides a structured debug output that includes:
+/// - The total number of diagnostics and sources.
+/// - A list of diagnostics sorted by their starting span position,
+///   with index, kind, provider, source identifier, and span.
+/// - A preview of each registered source file (first 30 characters).
+///
+/// This format is intended to help developers understand the internal state
+/// of the `DiagnosticManager` during debugging sessions or test assertions,
+/// and is **not** designed for end-user output.
+///
+/// # Example Output
+///
+/// ```text
+/// === DiagnosticManager Debug Dump ===
+/// Total diagnostics: 2
+/// Total sources: 1
+/// --- Diagnostics ---
+/// [0] kind: UnexpectedToken, provider: Parser, source: Literal(0), span: Span { start_line: 4, start_col: 12, end_line: 4, end_col: 16 }
+/// [1] kind: UnusedSymbol, provider: Validator, source: Literal(1), span: Span { start_line: 10, start_col: 1, end_line: 10, end_col: 7 }
+/// --- Sources ---
+/// Literal(0) => "(define (domain blocks) (:predic..."
+/// Literal(1) => "(define (problem test) (:init ..."
+/// ```
+impl fmt::Display for DiagnosticManager {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "=== DiagnosticManager Debug Dump ===")?;
+        writeln!(f, "Total diagnostics: {}", self.diagnostics.len())?;
+        writeln!(f, "Total sources: {}", self.sources.len())?;
+        writeln!(f, "--- Diagnostics ---")?;
+
+        // Clone and sort diagnostics by span start
+        let mut diagnostics = self.diagnostics.clone();
+        diagnostics.sort_by_key(|d| d.span().start());
+
+        for (i, diag) in diagnostics.iter().enumerate() {
+            writeln!(
+                f,
+                "[{}] kind: {}, provider: {}, source: {}, span: {}",
+                i,
+                diag.kind(),      // Assuming `Kind` holds the variant
+                diag.provider(),
+                diag.source(),
+                diag.span()
+            )?;
         }
+
+        writeln!(f, "--- Sources ---")?;
+        for (literal, content) in &self.sources {
+            let preview: String = content.chars().take(30).collect();
+            writeln!(f, "{} => \"{}...\"", literal, preview)?;
+        }
+
+        Ok(())
     }
 }

@@ -51,7 +51,7 @@
 //! This design enables streamlined error propagation and reporting during
 //! semantic analysis.
 
-use crate::aiplan4rust::interner::{Literal, StringInterner};
+use crate::aiplan4rust::interner::{InternerError, Literal, StringInterner};
 use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
 use crate::aiplan4rust::lang::Requirement;
@@ -60,7 +60,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
 
 use std::collections::HashSet;
 use std::fmt;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 
 /// Holds the results of semantic analysis, including the syntax tree, symbol table,
@@ -76,8 +76,9 @@ use serde::{Deserialize, Serialize};
 /// - `requirements`: A set of `Requirement`s explicitly declared in the source (e.g., `:typing`, `:equality`).
 /// - `symbol_table`: The global symbol table built during semantic analysis, mapping names to declarations.
 /// - `interner`: A `StringInterner` used for efficient string storage and resolution across the context.
-/// - `source_name`: A `Literal` representing the interned name of the source file or module.
-///                 This avoids string duplication and enables consistent referencing in diagnostics.
+/// - `source_id`: A `Literal` representing the interned identifier of the source file or module name.
+///             This identifier can be used to retrieve the actual source name string from the `interner`,
+///             avoiding string duplication and enabling consistent referencing in diagnostics.
 /// - `generated_at`: A `SystemTime` timestamp indicating when semantic analysis was completed.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
@@ -93,18 +94,20 @@ pub struct Context {
     /// String interner used for efficient symbol resolution.
     interner: StringInterner,
 
-    /// The name of the source file or input from which the AST was parsed, stored as an interned `Literal`.
-    source_name: Literal,
+    /// The interned identifier of the source file or input from which the AST was parsed.
+    /// Use the interner to resolve this `Literal` into the actual source name string.
+    source_id: Literal,
 
     /// Timestamp marking when semantic analysis was completed.
     generated_at: SystemTime,
 }
+
 impl Context {
     /// Creates a new semantic context from its components.
     ///
     /// # Parameters
     /// - `syntax_tree`: The arena-based AST nodes.
-    /// - `source_name`: The source file or input name.
+    /// - `source_id`: The source file or input name.
     /// - `requirements`: The set of semantic requirements extracted.
     /// - `symbol_table`: The symbol table constructed during analysis.
     /// - `interner`: The string interner instance.
@@ -114,7 +117,7 @@ impl Context {
     /// A new `Context` instance.
     pub fn new(
         syntax_tree: SyntaxTree<AstNode>,
-        source_name: Literal,
+        source_id: Literal,
         requirements: HashSet<Requirement>,
         symbol_table: SymbolTable,
         interner: StringInterner,
@@ -122,7 +125,7 @@ impl Context {
     ) -> Self {
         Self {
             syntax_tree,
-            source_name,
+            source_id,
             requirements,
             symbol_table,
             interner,
@@ -246,10 +249,74 @@ impl Context {
     pub fn generated_at(&self) -> SystemTime {
         self.generated_at
     }
+    /// Returns the interned identifier (`Literal`) for the source file or input name associated with this context.
+    ///
+    /// This `Literal` serves as a key into the string interner to retrieve the actual
+    /// source name (e.g., a filename like `"domain.pddl"`).
+    ///
+    /// To get the corresponding string, use the interner's resolve methods with this `Literal`.
+    ///
+    /// # Returns
+    ///
+    /// The `Literal` representing the interned source name.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let source_id = context.source_id();
+    /// if let Some(name) = context.interner().resolve_literal(source_id) {
+    ///     println!("Source name: {}", name);
+    /// } else {
+    ///     println!("Unknown source");
+    /// }
+    /// ```
+    pub fn source_id(&self) -> Literal {
+        self.source_id
+    }
 
-    /// Returns the source file or input name associated with this context.
-    pub fn source_name(&self) -> Literal {
-        self.source_name
+    /// Returns the resolved source name as a string slice, if available.
+    ///
+    /// This method uses the `source_id` as a key to look up the actual source name
+    /// string from the interner. If the interned string exists, it returns `Some(&str)`,
+    /// otherwise `None`.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<&str>` containing the source name if it exists in the interner.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// if let Some(name) = context.source_name() {
+    ///     println!("Source name: {}", name);
+    /// } else {
+    ///     println!("Source name not found");
+    /// }
+    /// ```
+    pub fn source_name(&self) -> Option<&str> {
+        self.interner.resolve_literal(self.source_id)
+    }
+
+    /// Attempts to resolve the source name as a string slice.
+    ///
+    /// Similar to [`source_name`], but returns a `Result` that can propagate
+    /// interner-specific errors when the lookup fails.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&str)` containing the source name if successfully resolved.
+    /// * `Err(InternerError)` if the resolution fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// match context.try_source_name() {
+    ///     Ok(name) => println!("Source name: {}", name),
+    ///     Err(e) => eprintln!("Failed to resolve source name: {:?}", e),
+    /// }
+    /// ```
+    pub fn try_source_name(&self) -> Result<&str, InternerError> {
+        self.interner.try_resolve_literal(self.source_id)
     }
 
     /// Returns a reference to the string interner.
@@ -305,10 +372,15 @@ impl fmt::Display for Context {
     /// ...
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Semantic Context Report:\n")?;
-        writeln!(f, "Source: {}", self.source_name)?;
+        let source_display = match self.source_name() {
+            Some(name) => name.to_string(),
+            None => format!("unknown<{}>", self.source_id()),
+        };
 
-        let duration_since_epoch = self.generated_at.duration_since(UNIX_EPOCH)
+        writeln!(f, "Semantic Context Report:\n")?;
+        writeln!(f, "Source: {}", source_display)?;
+
+        let duration_since_epoch = self.generated_at.duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_else(|_| std::time::Duration::new(0, 0));
         writeln!(f, "Generated at: {} seconds since UNIX epoch\n", duration_since_epoch.as_secs())?;
 
@@ -357,7 +429,7 @@ impl TryFrom<&mut Ast> for Context {
 
         Ok(Context::new(
             syntax_tree,
-            ast.source_name(),
+            ast.source_id(),
             requirements,
             symbol_table,
             interner,
