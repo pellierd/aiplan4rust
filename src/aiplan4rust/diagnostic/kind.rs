@@ -1,16 +1,41 @@
+//! Diagnostic kinds used to represent errors and warnings detected during
+//! parsing, normalization, and semantic analysis of PDDL domains and problems.
+//!
+//! This module defines a comprehensive `Kind` enum that encodes various types of
+//! issues such as syntax errors, type mismatches, undeclared symbols, cyclic definitions,
+//! ambiguous declarations, and more.
+//!
+//! Each variant in the enum corresponds to a specific kind of diagnostic, and many of them
+//! carry structured data to support rich, precise error messages and suggestions for users.
+//!
+//! These diagnostics are used throughout the system to ensure correctness, detect inconsistencies,
+//! and provide actionable feedback during different phases of compilation or interpretation.
+
 use std::collections::HashMap;
 use std::fmt;
 
 use crate::aiplan4rust::diagnostic::{renderer, Severity};
-use crate::aiplan4rust::lang::{Ident, Type};
 use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::lang::{Ident, Type};
+use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
-use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
+use crate::aiplan4rust::syntax::Span;
 
-
+/// Represents all possible diagnostic kinds that can be emitted during
+/// parsing, normalization, or semantic analysis of PDDL structures.
+///
+/// Each variant of this enum corresponds to a specific class of diagnostic,
+/// such as parsing errors, type mismatches, undeclared symbols, requirement
+/// violations, ambiguous or duplicated declarations, and more.
+///
+/// This enum is the core abstraction used by the diagnostic system to classify
+/// and provide structured error or warning messages to the user.
+///
+/// Most variants carry structured fields that allow downstream components
+/// to generate informative diagnostics with suggestions and spans.
+///
+/// See individual variants for detailed descriptions and usage examples.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Kind {
     /// Errors related to token parsing from the lexer and lalrpop parser.
@@ -25,18 +50,14 @@ pub enum Kind {
 
     /// Unexpected end of file encountered during parsing.
     /// `expected` lists the tokens that were expected before EOF.
-    UnexpectedEof {
-        expected: Vec<String>,
-    },
+    UnexpectedEof { expected: Vec<String> },
 
     /// Invalid token detected by the lexer or parser.
     InvalidToken,
 
     /// Extra token found where none was expected.
     /// `token` is the unexpected token encountered.
-    ExtraToken {
-        token: String,
-    },
+    ExtraToken { token: String },
 
     /// Represents a user-defined parse error originating from the lalrpop parser.
     ///
@@ -55,9 +76,7 @@ pub enum Kind {
     /// };
     /// println!("Parse error: {}", error.message);
     /// ```
-    User {
-        message: String,
-    },
+    User { message: String },
 
     /// Error indicating that a symbol is used with a signature that does not match any declaration.
     ///
@@ -76,19 +95,13 @@ pub enum Kind {
     ///
     /// This error is raised when the expression involves incompatible types that
     /// cannot be reconciled, indicating a type mismatch.
-    TypeMismatchInExpression {
-        ty1: Type,
-        ty2: Type,
-    },
+    TypeMismatchInExpression { ty1: Type, ty2: Type },
 
     /// Represents an error where two types used in a numeric expression are incompatible.
     ///
     /// This error occurs when an operation expecting numeric types receives types
     /// that are not valid for numeric computations (e.g., mixing incompatible or non-numeric types).
-    InvalidTypesInNumericExpression {
-        ty1: Type,
-        ty2: Type,
-    },
+    InvalidTypesInNumericExpression { ty1: Type, ty2: Type },
 
     /// Indicates that an expression node uses a feature or construct that violates
     /// the PDDL requirements currently active in the context.
@@ -150,9 +163,7 @@ pub enum Kind {
     /// ```pddl
     /// (not (unknown_predicate)) ;; Error: 'unknown_predicate' is undeclared
     /// ```
-    UndeclaredSymbol {
-        usage: Usage,
-    },
+    UndeclaredSymbol { usage: Usage },
 
     /// Error raised when a user-defined symbol conflicts with a reserved PDDL keyword,
     /// depending on the active `:requirements`.
@@ -228,9 +239,7 @@ pub enum Kind {
     /// // Suppose `declaration` is a symbol declared but never used:
     /// let unused = Kind::UnusedSymbol { declaration };
     /// ```
-    UnusedSymbol {
-        declaration: Declaration,
-    },
+    UnusedSymbol { declaration: Declaration },
 
     /// Error variant indicating a mismatch between the domain name declared in the domain
     /// definition and the domain name referenced in the problem file.
@@ -305,9 +314,7 @@ pub enum Kind {
     /// For richer diagnostics (including precise declaration locations),
     /// this information should be enhanced later once the symbol table
     /// is available in subsequent analysis phases.
-    DuplicateEitherType {
-        duplicate_types: Vec<Ident>,
-    },
+    DuplicateEitherType { duplicate_types: Vec<Ident> },
 
     /// Represents an error indicating a cycle in the type hierarchy defined in the domain.
     ///
@@ -337,9 +344,7 @@ pub enum Kind {
     /// ```
     ///
     /// This will result in a `CyclicTypeDeclaration` error with a cycle including both `A` and `B`.
-    CyclicTypeDeclaration {
-        cycle: Vec<Declaration>
-    },
+    CyclicTypeDeclaration { cycle: Vec<Declaration> },
     /// Represents an error caused by conflicting symbol declarations across different contexts.
     ///
     /// This error indicates that a symbol declared in the `problem` context conflicts with one or more
@@ -500,7 +505,6 @@ impl Kind {
         }
     }
 
-
     /// Returns the severity level associated with this diagnostic kind.
     ///
     /// The severity indicates the impact of the diagnostic on the correctness or
@@ -539,6 +543,7 @@ impl Kind {
             Kind::UndeclaredSymbol { .. } => Severity::Error,
             Kind::SymbolConflictsWithKeyword { .. } => Severity::Error,
             Kind::CyclicTypeDeclaration { .. } => Severity::Error,
+            Kind::CrossConflictSymbolDeclaration { .. } => Severity::Error,
             // WARNINGS
             Kind::SymbolDeclaredAmbiguouslyAsKeyword { .. } => Severity::Warning,
             Kind::UnusedSymbol { .. } => Severity::Warning,
@@ -548,284 +553,6 @@ impl Kind {
             Kind::DuplicateEitherType { .. } => Severity::Warning,
             Kind::ImplicitEitherTypeDeclaration { .. } => Severity::Warning,
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
-            Kind::CrossConflictSymbolDeclaration { .. } => Severity::Error,
-        }
-    }
-
-    pub fn suggestion(&self, interner: Option<&StringInterner>) -> Option<String> {
-        match self {
-            Kind::UnexpectedToken { expected, .. }
-            | Kind::UnexpectedEof { expected } => {
-                format_expected_message(expected)
-            }
-            Kind::ExtraToken { .. } => {
-                Some("Extra token detected. Check for unnecessary symbols or misplaced characters.".to_string())
-            }
-            Kind::User { .. } => None,
-            Kind::InvalidToken => {
-                Some("Make sure there are no typos or invalid characters.".to_string())
-            }
-            Kind::InvalidSymbolSignature { declaration, .. } => {
-                let symbol = declaration.symbol();
-                let name = symbol_to_string(symbol, interner);
-                let msg = match symbol.kind() {
-                    SymbolKind::Function => {
-                        format!("Ensure a function named '{}' with the correct signature is declared in the ':functions' block.", name)
-                    }
-                    SymbolKind::Predicate => {
-                        format!("Ensure a predicate named '{}' with the correct signature is declared in the ':predicates' block.", name)
-                    }
-                    SymbolKind::Task => {
-                        format!("Ensure a compound task '{}' with the correct signature is declared in the ':tasks' block.", name)
-                    }
-                    SymbolKind::Action => {
-                        format!("Ensure an action '{}' with the correct signature is declared in the ':action' block.", name)
-                    }
-                    _ => {
-                        format!("Ensure '{}' with the correct signature is declared properly.", name)
-                    }
-                };
-                Some(msg)
-            }
-            Kind::TypeMismatchInExpression { ty1, ty2 } => {
-                let ty1_str = type_to_string(ty1, interner);
-                let ty2_str = type_to_string(ty2, interner);
-
-                Some(format!(
-                    "The type '{}' cannot be used with '{}' — make sure the types are compatible according to the type hierarchy.",
-                    ty1_str,
-                    ty2_str
-                ))
-            }
-            Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
-                let ty1_str = type_to_string(ty1, interner);
-                let ty2_str = type_to_string(ty2, interner);
-
-                Some(format!(
-                    "Numeric expressions require operands of type 'number', but found '{}' and '{}'. \
-                    Ensure both operands are numeric types.",
-                    ty1_str,
-                    ty2_str
-                ))
-            }
-            Kind::RequirementViolation { node_kind, required } => {
-                Some(format!(
-                    "Expression type '{}' requires one of these requirements: {}.",
-                    node_kind, // ou format!("{:?}", node_kind) si besoin
-                    format_requirement_list(&required)
-                ))
-            }
-            Kind::DuplicatedSymbolDeclarationInScope { symbol, original_declaration: declaration1, conflicting_declaration: declaration2, scope } => {
-                let symbol_name = symbol_to_string(symbol, interner);
-                Some(format!(
-                    "The symbol '{}' is declared twice in the '{}' scope: once as a '{}' and again as a '{}'. \
-                    Consider renaming one of the declarations or ensuring consistent usage.",
-                    symbol_name,
-                    scope,  // affiche le type de noeud qui définit le scope
-                    declaration1.symbol_kind(),
-                    declaration2.symbol_kind()
-                ))
-            }
-            Kind::CyclicTaskOrdering => Some("Check for loops in your task dependencies or ordering constraints.".to_string()),
-            Kind::UndeclaredSymbol { usage } => {
-                let name = symbol_to_string(&usage.symbol(), interner);
-                match usage.symbol_kind() {
-                    SymbolKind::Function => Some(format!(
-                        "Function '{}' is not declared. Declare it in the ':functions' section.",
-                        name
-                    )),
-                    SymbolKind::Predicate => Some(format!(
-                        "Predicate '{}' is not declared. Declare it in the ':predicates' section.",
-                        name
-                    )),
-                    SymbolKind::Action => Some(format!(
-                        "Action '{}' is not declared. Define it using the ':action' keyword.",
-                        name
-                    )),
-                    SymbolKind::DASymbol => Some(format!(
-                        "Durative action '{}' is not declared. Define it using the ':durative-action' keyword.",
-                        name
-                    )),
-                    SymbolKind::Method => Some(format!(
-                        "Method '{}' is not declared. Define it in the ':methods' section.",
-                        name
-                    )),
-                    SymbolKind::Task => Some(format!(
-                        "Task '{}' is not declared. Define it using the ':task' keyword.",
-                        name
-                    )),
-                    SymbolKind::TaskID => Some(format!(
-                        "Task identifier '{}' is not declared. Check the task network for missing definitions.",
-                        name
-                    )),
-                    SymbolKind::Constant => Some(format!(
-                        "Constant '{}' is not declared. Declare it in the ':constants' \
-                        section (domain) or ':objects' section (problem).",
-                        name
-                    )),
-                    SymbolKind::DomainName => Some(format!(
-                        "Domain '{}' is not recognized. Make sure it matches the ':domain' declaration.",
-                        name
-                    )),
-                    SymbolKind::PrimitiveType => Some(format!(
-                        "Type '{}' is not declared. Declare it in the ':types' section.",
-                        name
-                    )),
-                    SymbolKind::ProblemName => Some(format!(
-                        "Problem '{}' is not recognized. Ensure the problem name is correctly defined.",
-                        name
-                    )),
-                    SymbolKind::Requirement => Some(format!(
-                        "Requirement '{}' is not recognized. Check for typos or unsupported features.",
-                        name
-                    )),
-                    SymbolKind::Variable => Some(format!(
-                        "Variable '{}' is not declared.\
-                         You likely need to add it to the ':parameters' list of the enclosing \
-                         definition (e.g., '?x - type').",
-                        name
-                    )),
-                }
-            }
-            Kind::SymbolConflictsWithKeyword { declaration, expected_kind, requirements } => {
-                let name = symbol_to_string(declaration.symbol(), interner);
-                let reqs = format_requirement_list(requirements);
-                Some(format!(
-                    "Symbol '{}' conflicts with a reserved keyword under requirements: {}. \
-                    It must be declared as a {:?} (e.g., type, function, variable).",
-                    name,
-                    reqs,
-                    expected_kind
-                ))
-            }
-            Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, requirements, .. } => {
-                let name = symbol_to_string(declaration.symbol(), interner);
-                let reqs = format_requirement_list(requirements);
-                Some(format!(
-                    "Symbol '{}' is ambiguous because it is used as a language keyword with \
-                    requirements: {}. Consider renaming or using a different symbol.",
-                    name,
-                    reqs
-                ))
-            }
-            Kind::UnusedSymbol { declaration } => {
-                let name = symbol_to_string(declaration.symbol(), interner);
-                Some(format!(
-                    "{} symbol '{}' is declared but not used. \
-                    Consider removing it to clean up your code.",
-                    declaration.symbol_kind(),
-                    name
-                ))
-            }
-            Kind::DomainProblemNameMismatch { domain_name, .. } => {
-                let domain_str = symbol_to_string(domain_name.symbol(), interner);
-                Some(format!(
-                    "Check that the problem's domain name matches the domain definition: \
-                    expected '{}'.",
-                    domain_str
-                ))
-            }
-            Kind::AmbiguousTypePredicateSymbol { ty, .. } => {
-                let symbol = symbol_to_string(ty.symbol(), interner);
-                Some(format!(
-                    "The symbol '{}' is declared both as a type and a predicate.  \
-                    Consider renaming one of them to avoid ambiguity.",
-                    symbol
-                ))
-            }
-            Kind::TaskArgumentIsSupertypeOfDeclaration {
-                argument,
-                type_declared,
-                type_used,
-            } => {
-                Some(format!(
-                    "The argument '{}' uses type '{}' which is a supertype of the declared type '{}'. \
-                    Argument types should match exactly. \
-                    Prefer defining a new method with matching types instead.",
-                    symbol_to_string(argument.symbol(), interner),
-                    type_to_string(type_used, interner),
-                    type_to_string(type_declared, interner)
-                ))
-            }
-            Kind::DuplicateEitherType { duplicate_types } => {
-                let listed_types = if duplicate_types.len() == 1 {
-                    format!("type '{}'", format_ident_list(&duplicate_types, interner))
-                } else {
-                    format!("types '{}'", format_ident_list(&duplicate_types, interner))
-                };
-                Some(format!(
-                    "Duplicate {} found in an 'either' type declaration; \
-                    these duplicates are ignored but consider removing them to clean up your code.",
-                    listed_types,
-                ))
-            }
-            Kind::CyclicTypeDeclaration { cycle } => {
-                Some(format!(
-                    "Cycle detected in type hierarchy involving types: {}. \
-                    Remove the cyclic inheritance to resolve the issue.",
-                    format_declaration_list(cycle, interner)
-                ))
-            }
-            Kind::CrossConflictSymbolDeclaration { problem_declaration, conflicting_domain_declarations } => {
-                // Collect domain declaration spans (line numbers or code ranges)
-                let domain_spans: Vec<String> = conflicting_domain_declarations
-                    .iter()
-                    .map(|decl| span_to_string(&decl.span()))
-                    .collect();
-
-                let formatted_lines = match domain_spans.len() {
-                    0 => String::from("an unknown location"),
-                    1 => domain_spans[0].clone(),
-                    2 => format!("{} and {}", domain_spans[0], domain_spans[1]),
-                    _ => {
-                        let (all_but_last, last) = domain_spans.split_at(domain_spans.len() - 1);
-                        format!("{} and {}", all_but_last.join(", "), last[0])
-                    }
-                };
-                Some(format!(
-                    "Symbol `{}` declared as `{}` in the problem conflicts with domain declarations at lines: {}. \
-                    Please resolve these conflicts by ensuring consistent declarations \
-                    or consider renaming the symbol in the problem.",
-                    symbol_to_string(problem_declaration.symbol(), interner),
-                    problem_declaration.symbol().kind(),
-                    formatted_lines,
-                ))
-            }
-            Kind::ImplicitEitherTypeDeclaration { ty, duplicate_spans, .. } => {
-                // Convert spans to readable location strings
-                let duplicate_locations: Vec<String> = duplicate_spans
-                    .iter()
-                    .map(|span| span_to_string(span))
-                    .collect();
-
-                // Format locations nicely for display
-                let formatted_locations = match duplicate_locations.len() {
-                    0 => String::from("an unknown location"),
-                    1 => duplicate_locations[0].clone(),
-                    2 => format!("{} and {}", duplicate_locations[0], duplicate_locations[1]),
-                    _ => {
-                        let (all_but_last, last) = duplicate_locations.split_at(duplicate_locations.len() - 1);
-                        format!("{} and {}", all_but_last.join(", "), last[0])
-                    }
-                };
-
-                Some(format!(
-                    "The type `{}` was declared multiple times at locations: {}. \
-                    These declarations were implicitly merged into an `(either ...)` type declaration. \
-                    To avoid ambiguity, consider explicitly declaring the type using `(either ...)`.",
-                    ident_to_string(*ty, interner),
-                    formatted_locations,
-                ))
-            }
-            Kind::DuplicateRequirementWarning { duplicate_requirements } => {
-                Some(format!(
-                    "The following requirement(s) are declared multiple times in the domain and have been ignored. \
-                    Consider removing them to prevent redundancy: {}.",
-                    format_requirement_list(duplicate_requirements),
-                ))
-            }
-            Kind::CustomError {suggestion, .. } => suggestion.clone(),
-            Kind::CustomWarning {suggestion, .. } => suggestion.clone(),
         }
     }
 
@@ -881,28 +608,33 @@ impl Kind {
 
             Kind::SymbolConflictsWithKeyword { declaration, .. }
             | Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. }
-            |Kind::UnusedSymbol { declaration } => {
+            | Kind::UnusedSymbol { declaration } => {
                 declaration.remap_idents(map);
             }
 
-            | Kind::DomainProblemNameMismatch { domain_name, problem_name} => {
+            Kind::DomainProblemNameMismatch {
+                domain_name,
+                problem_name,
+            } => {
                 domain_name.remap_idents(map);
                 problem_name.remap_idents(map);
             }
-            | Kind::AmbiguousTypePredicateSymbol { ty, predicate } => {
+            Kind::AmbiguousTypePredicateSymbol { ty, predicate } => {
                 ty.remap_idents(map);
                 predicate.remap_idents(map);
             }
-            | Kind::TaskArgumentIsSupertypeOfDeclaration {
-                argument, type_declared, type_used,
+            Kind::TaskArgumentIsSupertypeOfDeclaration {
+                argument,
+                type_declared,
+                type_used,
             } => {
                 argument.remap_idents(map);
                 type_declared.remap_idents(map);
                 type_used.remap_idents(map);
             }
-            | Kind::DuplicateEitherType { duplicate_types } => {
+            Kind::DuplicateEitherType { duplicate_types } => {
                 for ident in duplicate_types {
-                   ident.remap_idents(map);
+                    ident.remap_idents(map);
                 }
             }
             Kind::CyclicTypeDeclaration { cycle } => {
@@ -910,7 +642,7 @@ impl Kind {
                     decl.remap_idents(map);
                 }
             }
-            | Kind::CrossConflictSymbolDeclaration {
+            Kind::CrossConflictSymbolDeclaration {
                 problem_declaration,
                 conflicting_domain_declarations,
             } => {
@@ -918,8 +650,8 @@ impl Kind {
                 for decl in conflicting_domain_declarations {
                     decl.remap_idents(map);
                 }
-            },
-            | Kind::ImplicitEitherTypeDeclaration {
+            }
+            Kind::ImplicitEitherTypeDeclaration {
                 ty,
                 duplicate_types,
                 ..
@@ -928,7 +660,7 @@ impl Kind {
                 for ident in duplicate_types {
                     ident.remap_idents(map);
                 }
-            },
+            }
             Kind::UnexpectedToken { .. }
             | Kind::UnexpectedEof { .. }
             | Kind::InvalidToken
@@ -938,8 +670,8 @@ impl Kind {
             | Kind::CyclicTaskOrdering
             | Kind::DuplicateRequirementWarning { .. }
             | Kind::CustomError { .. }
-            | Kind::CustomWarning { .. }=> {
-                // Pas de remap nécessaire ici
+            | Kind::CustomWarning { .. } => {
+                // No remap needed
             }
         }
     }
@@ -972,224 +704,15 @@ impl fmt::Display for Kind {
         let code = self.code();
         let message = renderer::message::format_message_debug(self);
         let severity = self.severity();
-        let suggestion = self.suggestion(None);
+        let suggestion = renderer::suggestion::format_suggestion_debug(self);
 
         match suggestion {
             Some(sugg) => write!(
                 f,
                 "[{}] ({}) {}. Suggestion: {}",
-                code,
-                severity,
-                message,
-                sugg
+                code, severity, message, sugg
             ),
             None => write!(f, "[{}] ({}) {}", code, severity, message),
         }
     }
-}
-
-/// Returns the name of the given identifier as a `String`, optionally resolving it
-/// through a string interner.
-///
-/// # Parameters
-/// - `ident`: The identifier to convert to a string.
-/// - `interner`: Optional reference to a `StringInterner` used to resolve the identifier.
-///
-/// # Returns
-/// A `String` representing the resolved name of the identifier.
-/// - If the `interner` is provided and the identifier is found, returns the resolved string.
-/// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
-/// - If the `interner` is not provided, returns the raw identifier as a string.
-fn ident_to_string(ident: Ident, interner: Option<&StringInterner>) -> String {
-    if let Some(interner) = interner {
-        interner
-            .resolve_ident(ident)
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| format!("unknown({})", ident))
-    } else {
-        ident.to_string()
-    }
-}
-
-/// Returns the name of the given symbol as a `String`, optionally resolving it
-/// through a string interner by using the `InternerDisplay` trait implementation.
-///
-/// # Parameters
-/// - `symbol`: Reference to the `Symbol` whose name is to be retrieved.
-/// - `interner`: Optional reference to a `StringInterner` used to resolve the symbol's identifier.
-///
-/// # Returns
-/// A `String` representing the resolved name of the symbol.
-/// - If the `interner` is provided and the identifier is found, returns the resolved string.
-/// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
-/// - If the `interner` is not provided, returns the raw identifier as a string.
-fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner>) -> String {
-    ident_to_string(symbol.ident(), interner)
-}
-
-/// Converts a `Type` to a `String`, optionally resolving identifiers via a `StringInterner`.
-///
-/// # Parameters
-/// - `ty`: The `Type` to convert to a string.
-/// - `interner`: An optional reference to a `StringInterner` used to resolve identifiers.
-///
-/// # Returns
-/// A `String` representation of the `Type`. If `interner` is provided, the identifiers
-/// inside the `Type` are resolved using it; otherwise, the default string representation is used.
-fn type_to_string(ty: &Type, interner: Option<&StringInterner>) -> String {
-    if let Some(interner) = interner {
-        ty.to_syntax_string(interner)
-    } else {
-        ty.to_string()
-    }
-}
-
-/// Formats a list of `Ident` values into a comma-separated string, resolving each ident using
-/// an optional `StringInterner`.
-///
-/// # Parameters
-/// - `idents`: Slice of `Ident` to format.
-/// - `interner`: Optional reference to a `StringInterner` used to resolve identifiers.
-///
-/// # Returns
-/// A string of comma-separated identifiers, each converted to string via `ident_to_string`.
-fn format_ident_list(idents: &[Ident], interner: Option<&StringInterner>) -> String {
-    idents
-        .iter()
-        .map(|&ident| ident_to_string(ident, interner))
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// Converts a `Span` into a user-friendly string representation of its line range.
-///
-/// This function is designed to simplify span information for end-user messages
-/// by focusing only on line numbers. If the span covers a single line,
-/// it returns `"line N"`. If it spans multiple lines, it returns `"lines N–M"`.
-///
-/// # Arguments
-///
-/// * `span` - A reference to the `Span` to be formatted.
-///
-/// # Returns
-///
-/// A `String` describing the line(s) the span covers.
-///
-/// # Examples
-///
-/// ```rust
-/// let span = Span::new(0, 10, 12, 1, 12, 5); // example: same line
-/// assert_eq!(span_to_string(&span), "line 12");
-///
-/// let span = Span::new(0, 20, 14, 1, 16, 10); // example: multi-line
-/// assert_eq!(span_to_string(&span), "lines 14–16");
-/// ```
-fn span_to_string(span: &Span) -> String {
-    if span.begin_line() == span.end_line() {
-        format!("line {}", span.begin_line())
-    } else {
-        format!("lines {}–{}", span.begin_line(), span.end_line())
-    }
-}
-
-/// Formats a list of `Declaration`s into a comma-separated string by extracting their symbol identifiers
-/// and resolving them using an optional `StringInterner`.
-///
-/// # Parameters
-/// - `declarations`: Slice of `Declaration` to format.
-/// - `interner`: Optional reference to a `StringInterner` used to resolve identifiers.
-///
-/// # Returns
-/// A string of comma-separated symbols (idents) of the declarations, resolved via `format_ident_list`.
-fn format_declaration_list(
-    declarations: &[Declaration],
-    interner: Option<&StringInterner>
-) -> String {
-    let idents: Vec<Ident> = declarations.iter().map(|decl| decl.symbol_ident()).collect();
-    format_ident_list(&idents, interner)
-}
-
-/// Formats a slice of `Requirement`s into a comma-separated string,
-/// each requirement enclosed in single quotes.
-///
-/// # Parameters
-/// - `requirements`: Slice of `Requirement` items to format.
-///
-/// # Returns
-/// A `String` listing all requirements, each wrapped in single quotes
-/// and separated by commas.
-///
-/// # Example
-/// ```
-/// let reqs = vec![Requirement::A, Requirement::B];
-/// let formatted = format_requirements_list(&reqs);
-/// assert_eq!(formatted, "'A', 'B'");
-/// ```
-fn format_requirement_list(requirements: &[Requirement]) -> String {
-    requirements
-        .iter()
-        .map(|r| format!("'{}'", r))  // Assumes Requirement implements Display
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-/// Formats a user-friendly error message based on a list of expected tokens.
-///
-/// This function takes a slice of expected token strings and returns an optional
-/// formatted message describing what tokens were expected at a certain point in parsing.
-///
-/// # Arguments
-///
-/// * `expected` - A slice of strings representing the tokens expected by the parser.
-///
-/// # Returns
-///
-/// An `Option<String>` containing a descriptive message:
-/// - If no expected tokens are provided (`expected` is empty), returns a generic unexpected input message.
-/// - If exactly one token is expected, returns a message specifying that token.
-/// - If multiple tokens are expected, returns a message listing all possible expected tokens.
-///
-/// # Examples
-///
-/// ```
-/// let expected = vec!["identifier".to_string()];
-/// assert_eq!(
-///     format_expected_message(&expected),
-///     Some("Expected token: `identifier`.".to_string())
-/// );
-///
-/// let multiple = vec![";".to_string(), "}".to_string()];
-/// assert_eq!(
-///     format_expected_message(&multiple),
-///     Some("Expected one of the following tokens: ';', '}'.".to_string())
-/// );
-/// ```
-fn format_expected_message(expected: &[String]) -> Option<String> {
-    match expected.len() {
-        0 => Some("Unexpected input. Please verify the syntax near this token.".to_string()),
-        1 => Some(format!("Expected token: `{}`.", expected[0])),
-        _ => Some(format!(
-            "Expected one of the following tokens: {}.",
-            join_expected_tokens(expected)
-        )),
-    }
-}
-
-/// Helper function that joins a slice of expected tokens into a formatted string list.
-///
-/// Each token is wrapped in single quotes and separated by commas.
-///
-/// # Arguments
-///
-/// * `expected` - A slice of token strings.
-///
-/// # Returns
-///
-/// A single string listing all tokens, e.g. `'token1', 'token2', 'token3'`.
-fn join_expected_tokens(expected: &[String]) -> String {
-    expected
-        .iter()
-        .map(|t| format!("'{}'", t))
-        .collect::<Vec<_>>()
-        .join(", ")
 }

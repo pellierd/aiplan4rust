@@ -1,3 +1,17 @@
+//! Utilities for formatting internal language elements into user-friendly string representations.
+//!
+//! This module provides functions to convert identifiers, symbols, types, declarations, and
+//! requirements into human-readable strings, optionally using a `StringInterner` to resolve
+//! interned identifiers. It also includes utilities for formatting source code spans and expected
+//! token messages, intended for improving diagnostics and error reporting.
+//!
+//! # Features
+//! - Identifier and symbol string conversion (`ident_to_string`, `symbol_to_string`)
+//! - Type pretty-printing with optional interner support (`type_to_string`)
+//! - Span formatting into readable line ranges (`span_to_string`)
+//! - Comma-separated formatting of identifier, declaration, and requirement lists
+//! - Friendly formatting for expected parser tokens (`format_expected_message`)
+
 use crate::aiplan4rust::interner::{Ident, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};

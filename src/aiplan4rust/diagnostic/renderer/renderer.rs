@@ -27,7 +27,7 @@ use crate::aiplan4rust::interner::StringInterner;
 
 use std::io::{self, Write};
 use colored::Colorize;
-use crate::aiplan4rust::diagnostic::renderer::message;
+use crate::aiplan4rust::diagnostic::renderer::{message, suggestion};
 
 /// Number of spaces to which a tab character (`\t`) expands.
 ///
@@ -203,7 +203,7 @@ impl<'a> Renderer<'a> {
                 }
             }
 
-            if let Some(suggestion) = kind.suggestion(Some(interner)) {
+            if let Some(suggestion) = suggestion::format_suggestion(kind, interner)   {
                 if color {
                     output.push_str(&format!(
                         "{} {}\n",

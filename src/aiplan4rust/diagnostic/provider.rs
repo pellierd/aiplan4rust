@@ -86,7 +86,6 @@ impl fmt::Display for Provider {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let source_str = match self {
             Provider::Parser => "Lexer",
-            //Provider::Parser => "Parser",
             Provider::Normalizer => "Normalizer",
             Provider::Analyzer => "Analyzer",
             Provider::Linker => "Linker",
