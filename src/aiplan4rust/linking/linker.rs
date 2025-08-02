@@ -128,11 +128,11 @@ impl Linker {
                 let global_interner = result.take_interner();
 
                 // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
-                let problem_ident_map = result.take_problem_ident_map();
+                let problem_ident_map = result.take_ident_map();
                 remap_problem_idents(&mut problem_ctx, &problem_ident_map)?;
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                let problem_literal_map = result.take_problem_literal_map();
+                let problem_literal_map = result.take_literal_map();
                 problem_diag_mgr.remap(&problem_ident_map, &problem_literal_map);
                 self.diagnostic_manager.add_diagnostic_from(problem_diag_mgr);
 

@@ -6,7 +6,7 @@
 //! # Submodules
 //!
 //! - [`interner`]: Contains the core implementation of string interning via `StringInterner`.
-//! - [`merged_result`]: Provides structures and functions to merge multiple interners using `InternerMergeResult`.
+//! - [`merge_result`]: Provides structures and functions to merge multiple interners using `InternerMergeResult`.
 //! - [`display`]: Offers tools to display or format interners (`InternerDisplay`).
 //! - [`error`]: Defines errors specific to interning (`InternerError`).
 //!
@@ -27,7 +27,7 @@
 //! println!("Interned string id: {:?}", id);
 //! ```
 pub mod interner;
-pub mod merged_result;
+pub mod merge_result;
 pub mod display;
 pub mod error;
 pub mod ident;
@@ -35,7 +35,7 @@ pub mod literal;
 pub mod id;
 
 pub use interner::StringInterner;
-pub use merged_result::InternerMergeResult;
+pub use merge_result::InternerMergeResult;
 pub use display::InternerDisplay;
 pub use error::InternerError;
 pub use id::Id as InternerId;

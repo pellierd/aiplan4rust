@@ -44,7 +44,7 @@ use std::mem::take;
 /// # Fields
 ///
 /// - `interner`: The merged [`StringInterner`] containing all strings from both inputs.
-/// - `problem_ident_map`: A [`HashMap`] mapping original problem [`Ident`] values
+/// - `ident_map`: A [`HashMap`] mapping original problem [`Ident`] values
 ///   to their corresponding global [`Ident`] in the merged interner.
 ///
 /// # Example
@@ -52,15 +52,15 @@ use std::mem::take;
 /// ```ignore
 /// let merged_result = InternerMergeResult::new(merged_interner, problem_to_global_map);
 /// println!("Merged interner has {} strings", merged_result.interner().len());
-/// if let Some(global_id) = merged_result.problem_ident_map().get(&problem_id) {
+/// if let Some(global_id) = merged_result.ident_map().get(&problem_id) {
 ///     println!("Problem id {:?} maps to global id {:?}", problem_id, global_id);
 /// }
 /// ```
 #[derive(Debug, Clone)]
 pub struct InternerMergeResult {
     interner: StringInterner,
-    problem_ident_map: HashMap<Ident, Ident>,
-    problem_literal_map: HashMap<Literal, Literal>,
+    ident_map: HashMap<Ident, Ident>,
+    literal_map: HashMap<Literal, Literal>,
 }
 
 impl InternerMergeResult {
@@ -69,20 +69,20 @@ impl InternerMergeResult {
     /// # Parameters
     ///
     /// - `interner`: The merged [`StringInterner`] instance.
-    /// - `problem_ident_map`: A mapping from problem identifiers to merged global identifiers.
+    /// - `ident_map`: A mapping from problem identifiers to merged global identifiers.
     ///
     /// # Returns
     ///
     /// A new instance of `InternerMergeResult`.
     pub fn new(
         interner: StringInterner,
-        problem_ident_map: HashMap<Ident, Ident>,
-        problem_literal_map: HashMap<Literal, Literal>,
+        ident_map: HashMap<Ident, Ident>,
+        literal_map: HashMap<Literal, Literal>,
     ) -> Self {
         Self {
             interner,
-            problem_ident_map,
-            problem_literal_map
+            ident_map,
+            literal_map,
         }
     }
 
@@ -105,8 +105,8 @@ impl InternerMergeResult {
     ///
     /// This map is used to translate identifiers from the problem interner
     /// into their equivalent in the merged global interner.
-    pub fn problem_ident_map(&self) -> &HashMap<Ident, Ident> {
-        &self.problem_ident_map
+    pub fn ident_map(&self) -> &HashMap<Ident, Ident> {
+        &self.ident_map
     }
 
     /// Takes (extracts) the mapping from problem [`Ident`] to global [`Ident`],
@@ -115,8 +115,8 @@ impl InternerMergeResult {
     /// This allows consuming the map without cloning it.
     ///
     /// Requires a mutable reference to `self`.
-    pub fn take_problem_ident_map(&mut self) -> HashMap<Ident, Ident> {
-        take(&mut self.problem_ident_map)
+    pub fn take_ident_map(&mut self) -> HashMap<Ident, Ident> {
+        take(&mut self.ident_map)
     }
 
     /// Returns an immutable reference to the mapping from problem [`Literal`]s to global [`Literal`]s.
@@ -135,8 +135,8 @@ impl InternerMergeResult {
     /// A reference to a [`HashMap`] that maps problem-local [`Literal`]s to their global equivalents.
     ///
     /// [`Literal`]: crate::interner::Literal
-    pub fn problem_literal_map(&self) -> &HashMap<Literal, Literal> {
-        &self.problem_literal_map
+    pub fn literal_map(&self) -> &HashMap<Literal, Literal> {
+        &self.literal_map
     }
 
     /// Consumes and returns the mapping from problem [`Literal`]s to global [`Literal`]s,
@@ -162,8 +162,8 @@ impl InternerMergeResult {
     /// ```
     ///
     /// [`Literal`]: crate::interner::Literal
-    pub fn take_problem_literal_map(&mut self) -> HashMap<Literal, Literal> {
-        take(&mut self.problem_literal_map)
+    pub fn take_literal_map(&mut self) -> HashMap<Literal, Literal> {
+        take(&mut self.literal_map)
     }
 
     /// Merges a domain and problem [`StringInterner`] into a unified [`InternerMergeResult`].
@@ -210,13 +210,13 @@ impl fmt::Display for InternerMergeResult {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "InternerMergeResult {{")?;
         writeln!(f, "  interner: {}", self.interner)?;
-        writeln!(f, "  problem_ident_map: [")?;
-        for (problem_id, global_id) in &self.problem_ident_map {
+        writeln!(f, "  Ident map: [")?;
+        for (problem_id, global_id) in &self.ident_map {
             writeln!(f, "    {:?} -> {:?}", problem_id, global_id)?;
         }
         writeln!(f, "  ]")?;
-        writeln!(f, "  problem_literal_map: [")?;
-        for (problem_id, global_id) in &self.problem_literal_map {
+        writeln!(f, "  Literal map: [")?;
+        for (problem_id, global_id) in &self.literal_map {
             writeln!(f, "    {:?} -> {:?}", problem_id, global_id)?;
         }
         writeln!(f, "  ]")?;
