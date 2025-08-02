@@ -1,8 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::{Literal, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::lang::Requirement::Adl;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
@@ -53,7 +52,7 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 pub fn check_undeclared_symbols(
     context: &CheckContext,
     skip_symbols: &[SymbolKind],
-    source: Provider,
+    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
@@ -72,12 +71,14 @@ pub fn check_undeclared_symbols(
             // Check if the declaration for the symbol was found.
             if !is_declaration_found(symbol, usage, context) {
                 checked = false;
-                report_undeclared_symbol_error(
-                    usage,
-                    context.source_name(),
-                    source,
-                    diagnostic_manager,
+                let error = Diagnostic::error_undeclared_symbol(
+                    usage.clone(),
+                    provider,
+                    context.source_id(),
+                    usage.span().clone(),
                 );
+                diagnostic_manager.add_diagnostic(error);
+
             }
         }
     }
@@ -265,54 +266,4 @@ fn is_pddl_builtin_symbol(
         // Default case for any other symbols.
         _ => false,
     }
-}
-
-/// Reports an error diagnostic for the use of an undeclared symbol.
-///
-/// This function is triggered when a symbol is used without a corresponding declaration
-/// in the appropriate scope. It constructs and adds a diagnostic of kind
-/// [`DiagnosticKind::UndeclaredSymbol`] to the provided `DiagnosticManager`.
-///
-/// The diagnostic includes the symbol's name, kind, and span (from the `Usage` object),
-/// and uses the provided `source` to reference the file or input from which the error originated.
-/// The `provider` indicates the analysis phase (e.g., semantic analyzer) that detected the issue.
-///
-/// # Parameters
-/// - `usage`: A reference to the `Usage` object representing the undeclared symbol usage.
-/// - `source`: A `Literal` identifying the name of the source file or input.
-/// - `provider`: The `Provider` that emitted the diagnostic (e.g., `Provider::SemanticAnalyzer`).
-/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` collecting diagnostics.
-///
-/// # Behavior
-/// This function cannot fail and does not return a result. It appends the diagnostic to the manager.
-///
-/// # Example
-/// ```rust
-/// report_undeclared_symbol_error(
-///     &usage,
-///     source_literal,
-///     Provider::SemanticAnalyzer,
-///     &mut diagnostic_manager,
-/// );
-/// ```
-///
-/// # See Also
-/// - [`Usage`]: Contains the symbol name, kind, and span where it was used.
-/// - [`DiagnosticKind::UndeclaredSymbol`]: The specific kind of diagnostic emitted.
-/// - [`Provider`]: Indicates the compiler phase responsible for the report.
-fn report_undeclared_symbol_error(
-    usage: &Usage,
-    source: Literal,
-    provider: Provider,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-    let error = Diagnostic::new(
-        DiagnosticKind::UndeclaredSymbol {
-            usage: usage.clone(),
-        },
-        provider,
-        source,
-        usage.span().clone(),
-    );
-    diagnostic_manager.add_diagnostic(error);
 }

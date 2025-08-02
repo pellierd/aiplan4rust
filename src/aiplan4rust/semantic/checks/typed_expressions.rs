@@ -1,5 +1,5 @@
 use crate::aiplan4rust::core::arena::ArenaNode;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
@@ -10,7 +10,6 @@ use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, NodeId};
 
 /// Checks the type_checker correctness of typed expr in the syntax arena, including comparisons,
@@ -154,80 +153,25 @@ fn check_equal_and_assignment_expression(
     node: &AstNode,
     ty1: &Type,
     ty2: &Type,
-    source: Provider,
+    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut no_error = true;
 
     if !type_checker.have_common_supertype(&ty1, &ty2)? {
         no_error = false;
-        report_type_mismatch_in_expression(
-            ty1,
-            ty2,
+        let error = Diagnostic::error_type_mismatch_in_expression(
+            ty1.clone(),
+            ty2.clone(),
+            provider,
+            context.source_id(),
             node.span().clone(),
-            source.clone(),
-            context,
-            diagnostic_manager,
         );
+
+        diagnostic_manager.add_diagnostic(error);
     }
 
     Ok(no_error)
-}
-
-/// Reports a type mismatch error between two type sets in an expression.
-///
-/// This function generates a diagnostic error of kind [`DiagnosticKind::TypeMismatchInExpression`]
-/// when an expression involves two incompatible type lists. It is typically used during
-/// semantic analysis to catch type inconsistencies in expressions or constraints.
-///
-/// # Parameters
-/// - `ty1`: The first [`Type`] involved in the expression.
-/// - `ty2`: The second [`Type`] involved in the expression.
-/// - `span`: The [`Span`] in the source code where the type conflict occurs.
-/// - `provider`: The [`Provider`] identifying the phase or component that detected the error.
-/// - `context`: The [`CheckContext`] containing analysis context, including source information.
-/// - `diagnostic_manager`: The [`DiagnosticManager`] where the diagnostic will be registered.
-///
-/// # Behavior
-/// A [`Diagnostic`] is constructed with detailed information about the mismatched types and added
-/// to the diagnostic manager for reporting to the user.
-///
-/// # Example
-/// ```rust
-/// report_type_mismatch_in_expression(
-///     &type1,
-///     &type2,
-///     span,
-///     Provider::TypeChecker,
-///     &context,
-///     &mut diagnostic_manager,
-/// );
-/// ```
-///
-/// # See Also
-/// - [`DiagnosticKind::TypeMismatchInExpression`]
-/// - [`Type`]
-/// - [`CheckContext`]
-/// - [`DiagnosticManager`]
-fn report_type_mismatch_in_expression(
-    ty1: &Type,
-    ty2: &Type,
-    span: Span,
-    provider: Provider,
-    context: &CheckContext,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-    let error = Diagnostic::new(
-        DiagnosticKind::TypeMismatchInExpression {
-            ty1: ty1.clone(),
-            ty2: ty2.clone(),
-        },
-        provider,
-        context.source_name(),
-        span,
-    );
-
-    diagnostic_manager.add_diagnostic(error);
 }
 
 /// Checks whether the operand types in a numeric comparison or assignment expr
@@ -272,7 +216,7 @@ fn check_numeric_expression(
     node: &AstNode,
     ty1: &Type,
     ty2: &Type,
-    source: Provider,
+    provider: Provider,
     diagnostic_manager:&mut DiagnosticManager
 ) -> bool {
     let mut no_error = true;
@@ -280,46 +224,18 @@ fn check_numeric_expression(
     // Handle Greater, Less, etc.
     if ty1 != Type::number() || ty2 != Type::number() {
         no_error = false;
-        report_invalid_types_in_numeric_expression(
-            ty1,
-            ty2,
+
+        let error = Diagnostic::error_invalid_types_in_numeric_expression(
+            ty1.clone(),
+            ty2.clone(),
+            provider,
+            context.source_id(),
             node.span().clone(),
-            source,
-            context,
-            diagnostic_manager,
         );
+        diagnostic_manager.add_diagnostic(error);
     }
 
     no_error
-}
-
-/// Reports a diagnostic error when numeric expr have invalid operand types.
-///
-/// This helper function creates and adds a diagnostic indicating that the operand types
-/// in a numeric expr are invalid (i.e., not of type_checker `number`).
-///
-/// # Parameters
-/// - `source`: The diagnostic source indicating where the error arises.
-/// - `filename`: The filename where the error occurs.
-/// - `span`: The span (location) in the source code for the error.
-/// - `ty1`: The types of the left operand.
-/// - `ty2`: The types of the right operand.
-/// - `diagnostic_manager`: The diagnostic manager to which the error is added.
-fn report_invalid_types_in_numeric_expression(
-    ty1: &Type,
-    ty2: &Type,
-    span: Span,
-    provider: Provider,
-    context: &CheckContext,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-    let error = Diagnostic::new(
-        DiagnosticKind::InvalidTypesInNumericExpression { ty1: ty1.clone(), ty2: ty2.clone() },
-        provider,
-        context.source_name(),
-        span,
-    );
-    diagnostic_manager.add_diagnostic(error);
 }
 
 /// Retrieves and returns the types of both operands in a binary expr.

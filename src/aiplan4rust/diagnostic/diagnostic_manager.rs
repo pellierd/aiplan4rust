@@ -36,14 +36,14 @@ impl DiagnosticManager {
 
     /// Registers the contents of a source file for diagnostic rendering.
     ///
-    /// This method associates a given interned `Literal` (which serves as a file identifier)
-    /// with the full source text of that file. This is required for computing source
-    /// spans, line/column positions, and for displaying annotated diagnostics to the user.
+    /// This method associates a given interned `Literal`—typically representing the filename or source
+    /// label—with its corresponding source code content. This association enables diagnostic tools
+    /// to render meaningful error messages with spans, line numbers, and context.
     ///
     /// # Arguments
     ///
-    /// * `literal` - An interned identifier (`Literal`) representing the source file.
-    /// * `source` - The full contents of the source file as a `String`.
+    /// * `source_id` - An interned `Literal` identifier for the source (e.g., a filename or "stdin").
+    /// * `source_content` - The full contents of the source file as a `String`.
     ///
     /// # Example
     ///
@@ -53,43 +53,46 @@ impl DiagnosticManager {
     ///
     /// # Notes
     ///
-    /// - The `Literal` typically comes from a `StringInterner`.
-    /// - The associated content can later be used for rendering spans, snippets, and context
-    ///   in error messages.
-    pub fn add_source(&mut self, literal: Literal, source: String) {
-        self.sources.insert(literal, source);
+    /// - The `source_id` should originate from the same `StringInterner` used across your parsing pipeline.
+    /// - The registered content is later used to resolve spans (`Span`) into line/column information and
+    ///   to display annotated diagnostics (e.g., underlined errors).
+    /// - If a source with the same `Literal` is already registered, this call will overwrite it.
+    pub fn add_source(&mut self, source_id: Literal, source_content: String) {
+        self.sources.insert(source_id, source_content);
     }
 
-    /// Retrieves the source content associated with a given interned file identifier.
+    /// Retrieves the source content associated with a given interned source identifier.
     ///
-    /// This method returns the full source text that was previously registered
-    /// with the corresponding `Literal` identifier (typically using `add_source`).
-    /// The `Literal` is an interned value used to uniquely identify source files
-    /// without storing their full string path repeatedly.
+    /// This method returns the full source text previously registered using [`add_source`],
+    /// based on its interned identifier (`source_id`). The `Literal` serves as a unique handle
+    /// to avoid storing or passing full string paths repeatedly.
     ///
     /// # Arguments
     ///
-    /// * `literal` - A `Literal`, which uniquely identifies a source file.
+    /// * `source_id` - A `Literal` that uniquely identifies a source file or input origin.
     ///
     /// # Returns
     ///
-    /// * `Some(&String)` if the file has been registered.
-    /// * `None` if no source is associated with the given identifier.
+    /// * `Some(&String)` if the source content has been registered for the given `source_id`.
+    /// * `None` if no content is associated with the identifier.
     ///
     /// # Example
     ///
     /// ```ignore
-    /// if let Some(source) = diagnostic_manager.get_source(&file_id) {
-    ///     println!("Source length: {}", source.len());
+    /// if let Some(content) = diagnostic_manager.get_source_content(file_id) {
+    ///     println!("First 100 characters:\n{}", &content[..100.min(content.len())]);
     /// }
     /// ```
     ///
     /// # Notes
     ///
-    /// - Useful for rendering diagnostics with contextual source code.
-    /// - The identifier must match one previously added with `add_source`.
-    pub fn get_source(&self, literal: Literal) -> Option<&String> {
-        self.sources.get(&literal)
+    /// - This method is essential for rendering source-level diagnostics with context (e.g., code snippets).
+    /// - `source_id` must have been registered beforehand using [`add_source`].
+    pub fn get_source_content(&self, source_id: Literal) -> Option<&String> {
+        print!("Retrieving source content for: {}", source_id);
+        let content = self.sources.get(&source_id);
+        print!("{:?}", content);
+        content
     }
 
     /// Adds a single diagnostic to the collection.
@@ -162,28 +165,66 @@ impl DiagnosticManager {
         self.sources.clear();
     }
 
-    /// Remaps all `Ident` values in the diagnostics managed by this `DiagnosticManager`.
+    /// Remaps all [`Ident`] and [`Literal`] values contained in the diagnostics managed by this [`DiagnosticManager`].
     ///
-    /// This is useful when merging or linking components (like domain and problem files)
-    /// that use different `Ident` instances but refer to the same logical symbols.
+    /// This method is typically used during the **linking phase**, when diagnostics generated from
+    /// separate sources (e.g., domain and problem files) are unified. Because each source may have used
+    /// its own [`Ident`]s and [`Literal`]s (via separate interners), this remapping aligns all identifiers
+    /// to a shared, global interner.
     ///
-    /// This method applies the given mapping to each individual [`Diagnostic`] in the manager.
+    /// The remapping ensures that:
+    /// - Diagnostic messages refer to the correct unified symbols.
+    /// - References in spans and identifiers are consistent after linking.
+    /// - Identifier resolution in renderers is accurate.
     ///
     /// # Arguments
     ///
-    /// * `map` - A mapping of old [`Ident`]s to new [`Ident`]s.
+    /// * `idents` - A map from old [`Ident`]s (from source-specific interners) to their global equivalents.
+    /// * `literals` - A map from old [`Literal`]s (source identifiers for file/module names) to global equivalents.
+    ///
+    /// # Behavior
+    ///
+    /// This method modifies all internal diagnostics in place, applying the given identifier and literal
+    /// mappings to each one. If an identifier or literal does not appear in the corresponding map,
+    /// it is left unchanged.
+    ///
+    /// Additionally, it remaps the keys of the internal `sources` map to ensure consistency of source literals.
     ///
     /// # Example
-    /// ```
+    ///
+    /// ```rust
     /// let mut manager = DiagnosticManager::default();
-    /// let mut map = HashMap::new();
-    /// map.insert(old_id, new_id);
-    /// manager.remap(&map);
+    ///
+    /// // Assume `old_ident` and `old_literal` came from a specific source file.
+    /// let mut id_map = HashMap::new();
+    /// id_map.insert(old_ident, global_ident);
+    ///
+    /// let mut lit_map = HashMap::new();
+    /// lit_map.insert(old_literal, global_literal);
+    ///
+    /// manager.remap(&id_map, &lit_map);
     /// ```
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+    ///
+    /// # Notes
+    ///
+    /// - This method is intended for post-processing diagnostics before rendering or exporting.
+    /// - It is safe to call this method multiple times; repeated calls will apply the map again.
+    ///
+    /// [`Ident`]: crate::interner::Ident
+    /// [`Literal`]: crate::interner::Literal
+    /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
+    pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) {
         for diagnostic in &mut self.diagnostics {
-            diagnostic.remap_idents(map);
+            diagnostic.remap(idents, literals);
         }
+
+        // Remap the keys of the `sources` map by applying `remap_literal` on each key.
+        let mut new_sources = HashMap::with_capacity(self.sources.len());
+        for (mut key, value) in self.sources.drain() {
+            key.remap_literal(literals);
+            new_sources.insert(key, value);
+        }
+        self.sources = new_sources;
     }
 
     /// Adds diagnostics and sources from another [`DiagnosticManager`].

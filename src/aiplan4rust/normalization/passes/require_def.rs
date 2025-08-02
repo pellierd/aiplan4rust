@@ -40,8 +40,8 @@
 //! The normalization pass is standalone and can be run independently at any point.
 
 use std::collections::HashSet;
+
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::interner::Literal;
@@ -127,27 +127,27 @@ pub fn normalize_require_def(
     Ok(modified)
 }
 
-/// Scans the children of a `RequireDef` syntax in the AST to detect duplicate `:requirement` entries,
-/// and reports a diagnostic warning if duplicates are found.
+/// Scans the children of a `RequireDef` syntax node in the AST to detect duplicate `:requirement` entries,
+/// and reports a diagnostic warning if any duplicates are found.
 ///
-/// This function iterates over the children of the specified `RequireDef` syntax, collects duplicate
-/// requirements, and generates a diagnostic warning which is added to the given diagnostic manager.
+/// This function iterates over the children of the given `RequireDef` node, collects any duplicate
+/// requirements, and generates a diagnostic warning that is added to the provided diagnostic manager.
 ///
 /// # Arguments
 ///
-/// * `syntax_tree` - Reference to the syntax tree containing the nodes.
-/// * `require_def_id` - The `NodeId` of the `RequireDef` syntax to inspect.
-/// * `source` - A `Literal` representing the interned name of the source file or module (used for context in diagnostics).
-/// * `diagnostic_manager` - Mutable reference to the diagnostic manager where warnings are added.
+/// * `syntax_tree` - Reference to the syntax tree containing the AST nodes.
+/// * `require_def_id` - The `NodeId` of the `RequireDef` node to inspect.
+/// * `source_id` - A `Literal` representing the interned name of the source file or module (used for diagnostic context).
+/// * `diagnostic_manager` - Mutable reference to the diagnostic manager where warnings will be recorded.
 ///
 /// # Returns
 ///
-/// * `Ok(())` on success.
-/// * `Err(NormalizationPassError)` if the `RequireDef` syntax cannot be found or accessed.
+/// * `Ok(())` if the operation completes successfully.
+/// * `Err(NormalizationPassError)` if the `RequireDef` node cannot be found or accessed.
 ///
 /// # Notes
 ///
-/// The `source` literal should be resolved with the string interner when rendering diagnostics.
+/// The `source_id` should be resolved with the string interner when rendering diagnostics.
 ///
 /// # Example
 ///
@@ -155,50 +155,50 @@ pub fn normalize_require_def(
 /// report_duplicate_requirements_warnings(
 ///     &ast.syntax_tree(),
 ///     require_def_id,
-///     source_literal,
+///     source_id,
 ///     &mut diagnostic_manager,
 /// )?;
 /// ```
-pub fn report_duplicate_requirements_warnings(
+fn report_duplicate_requirements_warnings(
     syntax_tree: &SyntaxTree<AstNode>,
     require_def_id: NodeId,
-    source: Literal,
+    source_id: Literal,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationPassError> {
-    // Try to get the RequireDef syntax by its ID. Return error if not found.
+    // Try to get the RequireDef syntax node by its ID. Return error if not found.
     let require_def_node = syntax_tree.try_node(require_def_id)?;
 
-    // Create a HashSet to track seen requirements and a Vec to collect duplicates.
+    // Track seen requirements and collect duplicates.
     let mut seen = HashSet::new();
     let mut duplicates = Vec::new();
 
-    // Iterate over all children of the RequireDef syntax.
+    // Iterate over all children of the RequireDef node.
     for &child_id in require_def_node.children() {
-        // Get the child syntax reference by its ID.
         let child = syntax_tree.get_node(child_id).unwrap();
 
-        // Attempt to parse the child syntax as a requirement.
+        // Attempt to parse the child node as a requirement.
         if let Ok(req) = child.try_requirement() {
-            // If this requirement was already seen, add it to duplicates.
+            // If requirement already seen, record as duplicate.
             if !seen.insert(req) {
                 duplicates.push(req);
             }
         }
     }
 
-    // If duplicates were found, create a diagnostic warning and add it to the manager.
+    // If duplicates found, create and add a diagnostic warning.
     if !duplicates.is_empty() {
-        let warning = new_duplicate_requirement_warning(
+        let warning = Diagnostic::warning_duplicate_requirement(
             duplicates,
-            require_def_node.span(),
-            source,
+            Provider::Normalizer,
+            source_id,
+            require_def_node.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);
     }
 
-    // Return Ok if everything went fine.
     Ok(())
 }
+
 
 /// Creates a diagnostic warning for one or more duplicate requirement declarations.
 ///
@@ -239,10 +239,8 @@ pub fn new_duplicate_requirement_warning(
     span: &Span,
     source: Literal,
 ) -> Diagnostic {
-    Diagnostic::new(
-        DiagnosticKind::DuplicateRequirementWarning {
-            duplicate_requirements,
-        },
+    Diagnostic::warning_duplicate_requirement(
+        duplicate_requirements,
         Provider::Normalizer,
         source,
         span.clone(),

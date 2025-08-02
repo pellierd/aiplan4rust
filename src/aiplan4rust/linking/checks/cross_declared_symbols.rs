@@ -29,7 +29,7 @@
 //! Conflict errors are reported as diagnostics of kind `CrossConflictSymbolDeclarationError`
 //! containing details on the conflicting symbol name and kinds.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, SymbolOrigin};
@@ -59,7 +59,7 @@ use crate::aiplan4rust::linking::checks::LinkingCheckError;
 pub fn check_cross_declared_symbols(
     domain: &SemanticContext,
     problem: &CheckContext,
-    source: Provider,
+    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, LinkingCheckError> {
     let mut checked = true;
@@ -86,13 +86,14 @@ pub fn check_cross_declared_symbols(
 
                     // If no domain declaration of the same kind exists, report a cross-conflict error
                     if !same_kind_exists {
-                        report_cross_conflict_symbol_error(
-                            declaration,
+                        let error = Diagnostic::error_cross_conflict_symbol_declaration(
+                            declaration.clone(),
                             domain_declarations,
-                            problem,
-                            source,
-                            diagnostic_manager,
-                        )?;
+                            provider,
+                            problem.source_id(),
+                            declaration.span().clone(),
+                        );
+                        diagnostic_manager.add_diagnostic(error);
                         checked = false;
                     }
                 }
@@ -161,41 +162,6 @@ fn get_relevant_domain_declarations(
         .cloned() // clone because collect_declarations returns references
         .collect()
 }
-
-/// Reports a conflict error when a problem symbol declaration conflicts with
-/// one or more domain declarations.
-///
-/// # Parameters
-///
-/// - `declaration`: The conflicting problem `Declaration`.
-/// - `conflicted_declarations`: Vector of conflicting domain `Declaration`s.
-/// - `context`: The problem semantic context (`CheckContext`).
-/// - `source`: The diagnostic source provider (`Provider`).
-/// - `diagnostic_manager`: Manager to record diagnostics (`DiagnosticManager`).
-///
-/// # Returns
-///
-/// Returns `Ok(())` on successful reporting, or a `LinkingCheckError` on failure.
-fn report_cross_conflict_symbol_error(
-    declaration: &Declaration,
-    conflicted_declarations: Vec<Declaration>,
-    context: &CheckContext,
-    source: Provider,
-    diagnostic_manager: &mut DiagnosticManager,
-) -> Result<(), LinkingCheckError> {
-    let error = Diagnostic::new(
-        DiagnosticKind::CrossConflictSymbolDeclaration {
-            problem_declaration: declaration.clone(),
-            conflicting_domain_declarations: conflicted_declarations,
-        },
-        source,
-        context.source_name(),
-        declaration.span().clone(),
-    );
-    diagnostic_manager.add_diagnostic(error);
-    Ok(())
-}
-
 
 /// Returns `true` if the given declaration is exempt from conflict checks.
 ///

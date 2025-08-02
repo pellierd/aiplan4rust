@@ -285,5 +285,4 @@ impl fmt::Display for LinkedSemanticContext {
     }
 }
 
-
 impl SerdeSerializable for LinkedSemanticContext {}

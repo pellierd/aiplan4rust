@@ -2,7 +2,7 @@
 //! specifically targeting detection of duplicated declarations. It integrates with
 //! the diagnostic infrastructure to report errors or warnings as needed during analysis.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -99,13 +99,11 @@ fn check_symbol_declarations(
                         false => (previous_declaration, declaration),
                     };
 
-                    let warning = Diagnostic::new(
-                        DiagnosticKind::AmbiguousTypePredicateSymbol {
-                            ty: type_decl.clone(),
-                            predicate: predicate_decl.clone(),
-                        },
+                    let warning = Diagnostic::warning_ambiguous_type_predicate_symbol(
+                        type_decl.clone(),
+                        predicate_decl.clone(),
                         Provider::Analyzer,
-                        context.source_name(),
+                        context.source_id(),
                         ast_entry.span().clone(),
                     );
                     diagnostic_manager.add_diagnostic(warning);
@@ -115,15 +113,13 @@ fn check_symbol_declarations(
                     let scope_index = conflicting_scope.iter().last().unwrap();
                     let scope_node = context.syntax_tree().get_node(*scope_index).unwrap();
 
-                    let error = Diagnostic::new(
-                        DiagnosticKind::DuplicatedSymbolDeclarationInScope {
-                            symbol: Symbol::new(symbol.ident(), declaration.symbol_kind()),
-                            original_declaration: previous_declaration.clone(),
-                            conflicting_declaration: declaration.clone(),
-                            scope: scope_node.kind(),
-                        },
+                    let error = Diagnostic::error_duplicated_symbol_declaration_in_scope(
+                        Symbol::new(symbol.ident(), declaration.symbol_kind()),
+                        previous_declaration.clone(),
+                        declaration.clone(),
+                        scope_node.kind(),
                         Provider::Analyzer,
-                        context.source_name(),
+                        context.source_id(),
                         ast_entry.span().clone(),
                     );
                     diagnostic_manager.add_diagnostic(error);

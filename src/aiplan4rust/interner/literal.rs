@@ -46,7 +46,7 @@
 //! [`InternerId`]: crate::aiplan4rust::interner::InternerId
 //! [`InternerDisplay`]: crate::aiplan4rust::interner::InternerDisplay
 //! [`SyntaxDisplay`]: crate::aiplan4rust::syntax::SyntaxDisplay
-
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
@@ -114,6 +114,41 @@ impl Literal {
     /// * `usize` — the invalid sentinel value (`usize::MAX`).
     pub fn invalid_value() -> usize {
         usize::MAX
+    }
+
+    /// Remaps this `Literal` using a provided mapping table.
+    ///
+    /// If the literal exists in the `map`, it is replaced by its corresponding mapped value.
+    /// This is typically used during interner merging or when reconciling differing `Literal`
+    /// identifiers across source files or components.
+    ///
+    /// # Arguments
+    ///
+    /// * `map` - A mapping from old `Literal` values to new `Literal` values.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::collections::HashMap;
+    /// let mut lit = Literal::from(3);
+    /// let mut map = HashMap::new();
+    /// map.insert(Literal::from(3), Literal::from(7));
+    /// lit.remap_literal(&map);
+    /// assert_eq!(lit, Literal::from(7));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function does not panic.
+    ///
+    /// # Performance
+    ///
+    /// This method performs a single hash map lookup and a lightweight copy operation (if found),
+    /// as `Literal` is typically a `Copy` type backed by a `usize`.
+    pub fn remap_literal(&mut self, map: &HashMap<Literal, Literal>) {
+        if let Some(new) = map.get(self) {
+            *self = *new;
+        }
     }
 
 }

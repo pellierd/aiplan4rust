@@ -162,41 +162,23 @@ pub(crate) fn format_requirement_list(requirements: &[Requirement]) -> String {
         .join(", ")
 }
 
-/// Formats a user-friendly error message based on a list of expected tokens.
+/// Formats an error message based on the number of expected tokens.
 ///
-/// This function takes a slice of expected token strings and returns an optional
-/// formatted message describing what tokens were expected at a certain point in parsing.
+/// - If no tokens are expected, returns a generic message.
+/// - If one token is expected, it's shown directly.
+/// - If multiple tokens are expected, they're joined and listed.
 ///
 /// # Arguments
 ///
-/// * `expected` - A slice of strings representing the tokens expected by the parser.
+/// * `expected` - A slice of expected token strings.
 ///
 /// # Returns
 ///
-/// An `Option<String>` containing a descriptive message:
-/// - If no expected tokens are provided (`expected` is empty), returns a generic unexpected input message.
-/// - If exactly one token is expected, returns a message specifying that token.
-/// - If multiple tokens are expected, returns a message listing all possible expected tokens.
-///
-/// # Examples
-///
-/// ```
-/// let expected = vec!["identifier".to_string()];
-/// assert_eq!(
-///     format_expected_message(&expected),
-///     Some("Expected token: `identifier`.".to_string())
-/// );
-///
-/// let multiple = vec![";".to_string(), "}".to_string()];
-/// assert_eq!(
-///     format_expected_message(&multiple),
-///     Some("Expected one of the following tokens: ';', '}'.".to_string())
-/// );
-/// ```
+/// A formatted human-readable error message.
 pub(crate) fn format_expected_message(expected: &[String]) -> Option<String> {
     match expected.len() {
         0 => Some("Unexpected input. Please verify the syntax near this token.".to_string()),
-        1 => Some(format!("Expected token: `{}`.", expected[0])),
+        1 => Some(format!("Expected token: `{}`.", expected[0].trim_matches('"'))),
         _ => Some(format!(
             "Expected one of the following tokens: {}.",
             join_expected_tokens(expected)
@@ -204,21 +186,18 @@ pub(crate) fn format_expected_message(expected: &[String]) -> Option<String> {
     }
 }
 
-/// Helper function that joins a slice of expected tokens into a formatted string list.
+/// Joins and formats a list of expected token strings for display.
 ///
-/// Each token is wrapped in single quotes and separated by commas.
+/// Each token is cleaned (double quotes removed), wrapped in single quotes,
+/// and separated by commas.
 ///
-/// # Arguments
-///
-/// * `expected` - A slice of token strings.
-///
-/// # Returns
-///
-/// A single string listing all tokens, e.g. `'token1', 'token2', 'token3'`.
+/// # Example
+/// Input: `["\"and\"", "\"not\""]`
+/// Output: `'and', 'not'`
 pub(crate) fn join_expected_tokens(expected: &[String]) -> String {
     expected
         .iter()
-        .map(|t| format!("'{}'", t))
+        .map(|t| format!("'{}'", t.trim_matches('"')))
         .collect::<Vec<_>>()
         .join(", ")
 }

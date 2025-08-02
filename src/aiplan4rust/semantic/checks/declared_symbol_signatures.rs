@@ -1,4 +1,4 @@
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
@@ -76,15 +76,12 @@ pub fn check_declared_symbol_signatures(
                 )? {
                     no_error &= false;
                     let entry = context.syntax_tree().get_node(usage.node_id()).unwrap();
-                    let diagnostic_kind = DiagnosticKind::InvalidSymbolSignature {
-                        declaration: declaration.clone(),
-                        usage: usage.clone(),
-                    };
 
-                    let error = Diagnostic::new(
-                        diagnostic_kind,
+                    let error = Diagnostic::error_invalid_symbol_signature(
+                        declaration.clone(),
+                        usage.clone(),
                         Provider::Analyzer,
-                        context.source_name(),
+                        context.source_id(),
                         entry.span().clone(),
                     );
 
@@ -245,14 +242,12 @@ fn match_argument(
         || declaration.symbol_kind() == SymbolKind::Method)
         && usage.symbol_kind() == SymbolKind::Task
     {
-        let warning = Diagnostic::new(
-            DiagnosticKind::TaskArgumentIsSupertypeOfDeclaration {
-                argument: symbol_declaration.clone(),
-                type_declared: ty1.clone(),
-                type_used: ty2.clone(),
-            },
+        let warning = Diagnostic::warning_task_argument_is_supertype_of_declaration(
+            symbol_declaration.clone(),
+            ty1.clone(),
+            ty2.clone(),
             Provider::Analyzer,
-            context.source_name(),
+            context.source_id(),
             argument.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

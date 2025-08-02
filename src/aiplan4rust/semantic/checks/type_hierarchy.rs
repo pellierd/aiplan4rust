@@ -1,6 +1,5 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -92,7 +91,7 @@ pub fn check_type_hierarchy(
         &filtered_cycles,
         &type_bimap,
         &types,
-        context.source_name(),
+        context.source_id(),
         source,
         diagnostic_manager,
     )?;
@@ -180,8 +179,8 @@ fn report_cyclic_type_declaration_error(
         let first_span = cycle_detail[0].span().clone();
 
         // Emit a diagnostic describing the cyclic type_checker declarations
-        let error = Diagnostic::new(
-            DiagnosticKind::CyclicTypeDeclaration { cycle: cycle_detail },
+        let error = Diagnostic::error_cyclic_type_declaration(
+            cycle_detail,
             provider,
             source,
             first_span,

@@ -22,7 +22,6 @@
 //!
 //! - `normalize_either_type` — Main function that runs detection and removal steps.
 //! - `report_either_type_duplicate_warnings` — Detects and reports duplicates via diagnostics.
-//! - `new_duplicate_either_type_warning` — Helper to build diagnostic warnings for duplicates.
 //! - `remove_either_type_duplicates` — Removes duplicate `PrimitiveType` children in-place.
 //!
 //! # Errors
@@ -59,16 +58,12 @@
 
 use std::collections::HashSet;
 use crate::aiplan4rust::diagnostic::Diagnostic;
-use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
-use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes all `Type` nodes in the AST by detecting and removing duplicate `PrimitiveType` children.
 ///
@@ -218,11 +213,12 @@ fn report_either_type_duplicate_warnings(
         // If any duplicates were found, create and add a diagnostic warning
         if !duplicates.is_empty() {
             // Construct a diagnostic warning for these duplicates
-            let warning = new_duplicate_either_type_warning(
+            let warning = Diagnostic::warning_duplicate_either_type(
                 duplicates,
+                Provider::Normalizer,
                 ast.source_id(),
-                &node.span(),
-            )?;
+                node.span().clone(),
+            );
             // Add the diagnostic to the diagnostic manager for reporting
             diagnostic_manager.add_diagnostic(warning);
         }
@@ -230,54 +226,6 @@ fn report_either_type_duplicate_warnings(
 
     // Indicate successful completion without errors
     Ok(())
-}
-
-/// Creates a diagnostic warning for duplicate identifiers found within a `Type` syntax node.
-///
-/// This function takes a list of duplicate `Ident` values (typically found during normalization),
-/// and constructs a `Diagnostic` of kind `DuplicateEitherType` using the provided source and span
-/// information. Since this warning is generated during normalization, identifier names are not
-/// resolved to strings here; only raw `Ident` values are stored.
-///
-/// # Parameters
-///
-/// - `duplicate`: A vector of `Ident` representing the duplicate identifiers detected within an `either` type.
-/// - `source`: The name of the source file (or module) where the duplicates were found.
-/// - `span`: The span in the source code where the duplicates appear.
-///
-/// # Returns
-///
-/// - `Ok(Diagnostic)` containing the constructed warning.
-/// - `Err(NormalizationPassError)` if an unexpected failure occurs while constructing the diagnostic.
-///
-/// # Notes
-///
-/// - Identifier resolution (i.e., turning `Ident` into readable names) is deferred until later,
-///   typically when rendering the diagnostic message with access to the string interner.
-/// - This function only returns the diagnostic; it is the caller's responsibility to submit it
-///   to the diagnostic manager or renderer.
-///
-/// # Example
-///
-/// ```ignore
-/// let warning = new_duplicate_either_type_warning(duplicates, source, span)?;
-/// diagnostic_manager.add_diagnostic(warning);
-/// ```
-fn new_duplicate_either_type_warning(
-    duplicate: Vec<Ident>,
-    source: Literal,
-    span: &Span,
-) -> Result<Diagnostic, NormalizationPassError> {
-
-    // Build diagnostic warning
-    let diagnostic = Diagnostic::new(
-        DiagnosticKind::DuplicateEitherType { duplicate_types: duplicate },
-        Provider::Normalizer,
-        source,
-        span.clone(),
-    );
-
-    Ok(diagnostic)
 }
 
 /// Removes duplicate `PrimitiveType` children within `Type` nodes in the AST.

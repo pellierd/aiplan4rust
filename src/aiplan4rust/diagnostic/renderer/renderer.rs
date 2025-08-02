@@ -140,7 +140,7 @@ impl<'a> Renderer<'a> {
             let line_num_str = span.begin_line().to_string();
             let gutter_width = line_num_str.len();
 
-            if let Some(source) = diagnostic_manager.get_source(diagnostic.source()) {
+            if let Some(source) = diagnostic_manager.get_source_content(diagnostic.source()) {
                 if let Some(line) = source.lines().nth(span.begin_line() - 1) {
                     // Bar vertical en bleu clair ou sans couleur
                     let vertical_bar = if color {

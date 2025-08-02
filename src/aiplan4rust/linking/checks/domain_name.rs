@@ -19,7 +19,7 @@
 //! Functions return linking-related errors (e.g., `LinkingError`) if essential declarations are missing
 //! or internal inconsistencies are detected.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::linking::checks::error::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::SemanticContext;
@@ -71,13 +71,11 @@ pub fn check_domain_name(
         let ast = problem.syntax_tree().try_node(referenced.node_id())?;
 
         // --- 5. Emit a warning about the mismatch ---
-        let warning = Diagnostic::new(
-            DiagnosticKind::DomainProblemNameMismatch {
-                domain_name: declared.clone(),
-                problem_name: referenced.clone(),
-            },
+        let warning = Diagnostic::warning_domain_problem_name_mismatch(
+            declared.clone(),
+            referenced.clone(),
             source,
-            problem.source_name(),
+            problem.source_id(),
             ast.span().clone(),
         );
         diagnostic_manager.add_diagnostic(warning);

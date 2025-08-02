@@ -345,6 +345,7 @@ pub enum Kind {
     ///
     /// This will result in a `CyclicTypeDeclaration` error with a cycle including both `A` and `B`.
     CyclicTypeDeclaration { cycle: Vec<Declaration> },
+
     /// Represents an error caused by conflicting symbol declarations across different contexts.
     ///
     /// This error indicates that a symbol declared in the `problem` context conflicts with one or more

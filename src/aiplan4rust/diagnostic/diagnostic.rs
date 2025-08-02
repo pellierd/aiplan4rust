@@ -49,6 +49,9 @@ use crate::aiplan4rust::syntax::{FastLineTable, Span};
 use std::collections::HashMap;
 use std::fmt;
 use lalrpop_util::ParseError;
+use crate::aiplan4rust::lang::{Requirement, Type};
+use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
+use crate::aiplan4rust::syntax::ast::AstKind;
 
 /// Represents a diagnostic message generated during parsing, validation, or compilation.
 ///
@@ -91,7 +94,7 @@ impl Diagnostic {
     /// # Returns
     ///
     /// A new `Diagnostic` ready to be added to the diagnostic manager or displayed.
-    pub fn new(
+    fn new(
         kind: Kind,
         provider: Provider,
         source: Literal,
@@ -160,33 +163,52 @@ impl Diagnostic {
         self.span = span;
     }
 
-    /// Remaps all `Ident` values inside this diagnostic using a provided identifier mapping.
+    /// Remaps all [`Ident`] and [`Literal`] values inside this [`Diagnostic`] using provided mappings.
     ///
-    /// This is used to reconcile identifier differences between merged sources, such as
-    /// linking a domain and a problem where identifiers may need to be unified or replaced.
+    /// This method is typically used after **linking** or **merging** multiple source files
+    /// (e.g., domain and problem files) where interner identifiers may differ but refer to the same
+    /// logical symbols. It ensures that all identifiers and source references within the diagnostic
+    /// are aligned with a unified, global representation.
     ///
-    /// Only the inner [`Kind`] is affected, since it may contain `Ident` values via
-    /// usages, declarations, types, or other structures. The other fields (`source`,
-    /// `filename`, and `span`) remain unchanged.
+    /// # Behavior
+    ///
+    /// - All [`Ident`] values nested within the diagnostic’s [`Kind`] are updated using `idents`.
+    /// - The `source` field (a [`Literal`]) is remapped using `literals`, if a match is found.
+    /// - Other fields (e.g., `span`, `provider`) remain unchanged.
     ///
     /// # Arguments
     ///
-    /// * `map` - A `HashMap` mapping old `Ident`s to new `Ident`s.
+    /// * `idents` – A mapping from local to global [`Ident`] values.
+    /// * `literals` – A mapping from local to global [`Literal`] values (e.g., filenames).
     ///
     /// # Example
     ///
-    /// ```
-    /// let mut diag = Diagnostic { /* ... */ };
-    /// let mut map = HashMap::new();
-    /// map.insert(old_id, new_id);
-    /// diag.remap(&map);
+    /// ```rust
+    /// let mut diag = Diagnostic::new(kind, provider, source_literal, span);
+    ///
+    /// let mut id_map = HashMap::new();
+    /// id_map.insert(local_id, global_id);
+    ///
+    /// let mut lit_map = HashMap::new();
+    /// lit_map.insert(local_file, global_file);
+    ///
+    /// diag.remap(&id_map, &lit_map);
     /// ```
     ///
-    /// # Panics
+    /// # Notes
     ///
-    /// This function does not panic.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.kind.remap_idents(map);
+    /// - If an [`Ident`] or [`Literal`] is not present in the mapping, its original value is retained.
+    /// - This method is **panic-free** and does not require ownership of the mappings.
+    /// - The `source` field is updated in place using [`Literal::remap_literal`].
+    ///
+    /// [`Diagnostic`]: crate::diagnostics::Diagnostic
+    /// [`Kind`]: crate::diagnostics::Kind
+    /// [`Ident`]: crate::interner::Ident
+    /// [`Literal`]: crate::interner::Literal
+    /// [`Literal::remap_literal`]: crate::interner::Literal::remap_literal
+    pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) {
+        self.kind.remap_idents(idents);
+        self.source.remap_literal(literals);
     }
 
     /// Returns a unique diagnostic code string composed of:
@@ -208,10 +230,625 @@ impl Diagnostic {
 
         format!("{}{}{}", severity_code, provider_code, kind_code)
     }
+}
 
-    /// Cleans the expected tokens list by removing quotes.
-    fn clean_expected(expected: &[String]) -> Vec<String> {
-        expected.iter().map(|s| s.replace('"', "")).collect()
+impl Diagnostic {
+    /// Constructs a diagnostic for an unexpected token encountered during parsing.
+    ///
+    /// # Arguments
+    /// - `token`: The unexpected token found.
+    /// - `expected`: A list of expected tokens.
+    /// - `provider`: The origin of the diagnostic (e.g., Parser, Validator).
+    /// - `source`: Interned identifier for the source where the error occurred.
+    /// - `span`: The location in the source where the error occurred.
+    pub fn error_unexpected_token(
+        token: impl Into<String>,
+        expected: Vec<impl Into<String>>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        let token = token.into();
+        let expected: Vec<String> = expected.into_iter().map(|s| s.into()).collect();
+
+        Self {
+            kind: Kind::UnexpectedToken { token, expected },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for an unexpected end-of-file encountered during parsing.
+    ///
+    /// # Arguments
+    /// - `expected`: A list of tokens that were expected before EOF.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source where the EOF was reached.
+    pub fn error_unexpected_eof(
+        expected: Vec<impl Into<String>>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        let expected: Vec<String> = expected.into_iter().map(|s| s.into()).collect();
+
+        Self {
+            kind: Kind::UnexpectedEof { expected },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for an invalid token.
+    ///
+    /// # Arguments
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source of the invalid token.
+    pub fn error_invalid_token(
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::InvalidToken,
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Creates a diagnostic for an unexpected extra token.
+    ///
+    /// # Arguments
+    ///
+    /// * `token` - The unexpected token string encountered.
+    /// * `provider` - The source of this diagnostic.
+    /// * `source` - The interned identifier of the source file.
+    /// * `span` - The span where the extra token was found.
+    pub fn error_extra_token(token: impl Into<String>, provider: Provider, source: Literal, span: Span) -> Self {
+        Self {
+            kind: Kind::ExtraToken { token: token.into() },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Creates a diagnostic for a user-defined parse error with a custom message.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - A descriptive error message from the parser.
+    /// * `provider` - The source of this diagnostic.
+    /// * `source` - The interned identifier of the source file.
+    /// * `span` - The span related to this error (can be empty if unknown).
+    pub fn error_user(message: impl Into<String>, provider: Provider, source: Literal, span: Span) -> Self {
+        Self {
+            kind: Kind::User { message: message.into() },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Creates a diagnostic for an invalid symbol signature usage.
+    ///
+    /// # Arguments
+    ///
+    /// * `declaration` - The symbol declaration that was mismatched.
+    /// * `usage` - The symbol usage signature causing the error.
+    /// * `provider` - The source of this diagnostic.
+    /// * `source` - The interned identifier of the source file.
+    /// * `span` - The span where the signature mismatch was detected.
+    pub fn error_invalid_symbol_signature(
+        declaration: Declaration,
+        usage: Usage,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::InvalidSymbolSignature { declaration, usage },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for a type mismatch error in an expression.
+    ///
+    /// # Arguments
+    /// - `ty1`: The first type involved in the mismatch.
+    /// - `ty2`: The second type involved in the mismatch.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source of the mismatch.
+    pub fn error_type_mismatch_in_expression(
+        ty1: Type,
+        ty2: Type,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::TypeMismatchInExpression { ty1, ty2 },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for invalid types used in a numeric expression.
+    ///
+    /// # Arguments
+    /// - `ty1`: The first invalid type.
+    /// - `ty2`: The second invalid type.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source of the invalid types.
+    pub fn error_invalid_types_in_numeric_expression(
+        ty1: Type,
+        ty2: Type,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::InvalidTypesInNumericExpression { ty1, ty2 },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning diagnostic for a PDDL requirement violation.
+    ///
+    /// # Arguments
+    /// - `node_kind`: The kind of AST node triggering the violation.
+    /// - `required`: The list of missing requirements needed.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source where the violation occurs.
+    pub fn warning_requirement_violation(
+        node_kind: AstKind,
+        required: Vec<Requirement>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::RequirementViolation { node_kind, required },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for duplicated symbol declaration within the same scope.
+    ///
+    /// # Arguments
+    /// - `symbol`: The duplicated symbol.
+    /// - `original_declaration`: The first declaration of the symbol.
+    /// - `conflicting_declaration`: The second conflicting declaration.
+    /// - `scope`: The AST node kind defining the scope of duplication.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source of the duplication error.
+    pub fn error_duplicated_symbol_declaration_in_scope(
+        symbol: Symbol,
+        original_declaration: Declaration,
+        conflicting_declaration: Declaration,
+        scope: AstKind,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::DuplicatedSymbolDeclarationInScope {
+                symbol,
+                original_declaration,
+                conflicting_declaration,
+                scope,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for a cyclic task ordering error.
+    ///
+    /// This indicates that task ordering constraints form a cycle,
+    /// making the ordering invalid or unsatisfiable.
+    ///
+    /// # Note
+    /// Enhancing this error to include the detected cycle would improve usability.
+    ///
+    /// # Arguments
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source related to the cycle error.
+    pub fn error_cyclic_task_ordering(
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::CyclicTaskOrdering,
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for usage of an undeclared symbol.
+    ///
+    /// This error occurs when a symbol is referenced without prior declaration.
+    ///
+    /// # Arguments
+    /// - `usage`: Information about the undeclared symbol usage.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source where the usage occurs.
+    pub fn error_undeclared_symbol(
+        usage: Usage,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::UndeclaredSymbol { usage },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a diagnostic for a symbol conflicting with a reserved PDDL keyword.
+    ///
+    /// This error arises when a user-defined symbol conflicts with a reserved keyword,
+    /// based on active requirements.
+    ///
+    /// # Arguments
+    /// - `declaration`: The conflicting user declaration.
+    /// - `expected_kind`: The expected symbol kind that causes the conflict.
+    /// - `requirements`: The list of PDDL requirements making this identifier reserved.
+    /// - `provider`: The origin of the diagnostic.
+    /// - `source`: Interned identifier for the source.
+    /// - `span`: The location in the source of the conflict.
+    pub fn error_symbol_conflicts_with_keyword(
+        declaration: Declaration,
+        expected_kind: SymbolKind,
+        requirements: Vec<Requirement>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::SymbolConflictsWithKeyword {
+                declaration,
+                expected_kind,
+                requirements,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning for a symbol declared ambiguously as a reserved keyword.
+    ///
+    /// This warning indicates that a symbol overlaps with a reserved PDDL keyword
+    /// but matches the expected kind given current requirements.
+    ///
+    /// # Arguments
+    /// - `declaration`: The symbol declaration.
+    /// - `expected_kind`: The expected `SymbolKind` for the reserved keyword.
+    /// - `requirements`: List of domain requirements related to this usage.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to this declaration.
+    pub fn warning_symbol_declared_ambiguously_as_keyword(
+        declaration: Declaration,
+        expected_kind: SymbolKind,
+        requirements: Vec<Requirement>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::SymbolDeclaredAmbiguouslyAsKeyword {
+                declaration,
+                expected_kind,
+                requirements,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning or error for an unused symbol declaration.
+    ///
+    /// Useful to detect dead code or unnecessary declarations.
+    ///
+    /// # Arguments
+    /// - `declaration`: The unused symbol's declaration.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to this declaration.
+    pub fn warning_unused_symbol(
+        declaration: Declaration,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::UnusedSymbol { declaration },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs an error for mismatched domain and problem names.
+    ///
+    /// Indicates semantic inconsistency between the domain and problem files.
+    ///
+    /// # Arguments
+    /// - `domain_name`: Declaration of the domain name in the domain file.
+    /// - `problem_name`: Declaration of the domain name in the problem file.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the problem file domain name.
+    pub fn warning_domain_problem_name_mismatch(
+        domain_name: Declaration,
+        problem_name: Declaration,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::DomainProblemNameMismatch {
+                domain_name,
+                problem_name,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning for ambiguous symbol declared as both type and predicate.
+    ///
+    /// Indicates potential semantic confusion when the same name is used for both.
+    ///
+    /// # Arguments
+    /// - `ty`: Declaration of the symbol as a primitive type.
+    /// - `predicate`: Declaration of the symbol as a predicate.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the symbol declarations.
+    pub fn warning_ambiguous_type_predicate_symbol(
+        ty: Declaration,
+        predicate: Declaration,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::AmbiguousTypePredicateSymbol { ty, predicate },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning for a task argument that uses a supertype of the declared type.
+    ///
+    /// This warns about an argument type that is more general than the declaration,
+    /// which violates PDDL typing rules but is allowed here with a warning for compatibility.
+    ///
+    /// # Arguments
+    /// - `argument`: The argument's declaration in the action or method.
+    /// - `type_declared`: The declared type of the argument.
+    /// - `type_used`: The actual type used in the task invocation (a supertype).
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the argument usage.
+    pub fn warning_task_argument_is_supertype_of_declaration(
+        argument: Declaration,
+        type_declared: Type,
+        type_used: Type,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::TaskArgumentIsSupertypeOfDeclaration {
+                argument,
+                type_declared,
+                type_used,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning for duplicated types inside an `Either` construct.
+    ///
+    /// Only the identifiers of the duplicated types are provided, as full declarations
+    /// are unavailable during normalization.
+    ///
+    /// # Arguments
+    /// - `duplicate_types`: List of duplicated type identifiers.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the `Either` construct.
+    pub fn warning_duplicate_either_type(
+        duplicate_types: Vec<Ident>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::DuplicateEitherType { duplicate_types },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs an error for cycles detected in the type declaration hierarchy.
+    ///
+    /// Indicates a circular type inheritance or extension preventing normalization.
+    ///
+    /// # Arguments
+    /// - `cycle`: Vector of declarations forming the cycle.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the cycle detection.
+    pub fn error_cyclic_type_declaration(
+        cycle: Vec<Declaration>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::CyclicTypeDeclaration { cycle },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs an error for conflicting symbol declarations between problem and domain.
+    ///
+    /// Used to report when symbols declared in the problem conflict with domain declarations.
+    ///
+    /// # Arguments
+    /// - `problem_declaration`: Declaration from the problem context.
+    /// - `conflicting_domain_declarations`: Conflicting declarations from the domain.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the conflict.
+    pub fn error_cross_conflict_symbol_declaration(
+        problem_declaration: Declaration,
+        conflicting_domain_declarations: Vec<Declaration>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::CrossConflictSymbolDeclaration {
+                problem_declaration,
+                conflicting_domain_declarations,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning for an implicit `(either ...)` type declaration caused by multiple conflicting parent types.
+    ///
+    /// # Arguments
+    /// - `ty`: Identifier of the type being declared.
+    /// - `duplicate_types`: Conflicting parent type identifiers merged implicitly.
+    /// - `duplicate_spans`: Source code spans of each conflicting parent type declaration.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the implicit either type declaration.
+    pub fn warning_implicit_either_type_declaration(
+        ty: Ident,
+        duplicate_types: Vec<Ident>,
+        duplicate_spans: Vec<Span>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::ImplicitEitherTypeDeclaration {
+                ty,
+                duplicate_types,
+                duplicate_spans,
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a warning for duplicated requirements.
+    ///
+    /// # Arguments
+    /// - `duplicate_requirements`: List of duplicated requirements found.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the duplicate requirements.
+    pub fn warning_duplicate_requirement(
+        duplicate_requirements: Vec<Requirement>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::DuplicateRequirementWarning { duplicate_requirements },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a custom error with a message and optional suggestion.
+    ///
+    /// # Arguments
+    /// - `message`: Description of the error.
+    /// - `suggestion`: Optional suggestion to resolve or avoid the error.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the error.
+    pub fn error_custom(
+        message: String,
+        suggestion: Option<String>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::CustomError { message, suggestion },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Constructs a custom warning with a message and optional suggestion.
+    ///
+    /// # Arguments
+    /// - `message`: Description of the warning.
+    /// - `suggestion`: Optional advice to mitigate or address the warning.
+    /// - `provider`: Origin of the diagnostic.
+    /// - `source`: Interned source identifier.
+    /// - `span`: Location in source related to the warning.
+    pub fn warning_custom(
+        message: String,
+        suggestion: Option<String>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::CustomWarning { message, suggestion },
+            provider,
+            source,
+            span,
+        }
     }
 }
 
@@ -278,11 +915,10 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLine
                 expected,
             } => {
                 // Clean expected tokens by removing quotes for better message display
-                let clean_expected = Diagnostic::clean_expected(expected);
                 Diagnostic::new(
                     DiagnosticKind::UnexpectedToken {
                         token: t.to_string(),
-                        expected: clean_expected,
+                        expected: expected.clone(),
                     },
                     Provider::Parser,
                     source,
@@ -314,9 +950,8 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLine
             }
             // Handles unexpected EOF errors and lists expected tokens
             ParseError::UnrecognizedEof { location, expected } => {
-                let clean_expected = Diagnostic::clean_expected(expected);
                 Diagnostic::new(
-                    DiagnosticKind::UnexpectedEof { expected: clean_expected },
+                    DiagnosticKind::UnexpectedEof { expected: expected.clone() },
                     Provider::Parser,
                     source,
                     fast_line_table.get_span(*location, *location),

@@ -25,7 +25,7 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{Literal, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 
 use std::collections::HashMap;
@@ -60,6 +60,7 @@ use std::mem::take;
 pub struct InternerMergeResult {
     interner: StringInterner,
     problem_ident_map: HashMap<Ident, Ident>,
+    problem_literal_map: HashMap<Literal, Literal>,
 }
 
 impl InternerMergeResult {
@@ -76,10 +77,12 @@ impl InternerMergeResult {
     pub fn new(
         interner: StringInterner,
         problem_ident_map: HashMap<Ident, Ident>,
+        problem_literal_map: HashMap<Literal, Literal>,
     ) -> Self {
         Self {
             interner,
             problem_ident_map,
+            problem_literal_map
         }
     }
 
@@ -116,6 +119,53 @@ impl InternerMergeResult {
         take(&mut self.problem_ident_map)
     }
 
+    /// Returns an immutable reference to the mapping from problem [`Literal`]s to global [`Literal`]s.
+    ///
+    /// This map is produced during the linking phase, where identifiers from the `problem` file
+    /// are reconciled against the `domain` definitions. It allows translating local identifiers
+    /// (interned in the problem's interner) to their unified global form in the merged interner.
+    ///
+    /// # Usage
+    ///
+    /// This is typically used when resolving or rendering identifiers originating from the problem file,
+    /// to ensure consistency with the domain-level symbol table and diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// A reference to a [`HashMap`] that maps problem-local [`Literal`]s to their global equivalents.
+    ///
+    /// [`Literal`]: crate::interner::Literal
+    pub fn problem_literal_map(&self) -> &HashMap<Literal, Literal> {
+        &self.problem_literal_map
+    }
+
+    /// Consumes and returns the mapping from problem [`Literal`]s to global [`Literal`]s,
+    /// replacing the internal map with an empty one.
+    ///
+    /// This is useful when the caller needs ownership of the entire map (e.g., for moving it
+    /// into another structure) without incurring a clone.
+    ///
+    /// # Requirements
+    ///
+    /// This method requires a mutable reference to `self`, as it modifies internal state
+    /// by emptying the original map.
+    ///
+    /// # Returns
+    ///
+    /// A [`HashMap`] containing the full identifier mapping from problem to global scope.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let map = linker.take_problem_literal_map();
+    /// assert!(linker.problem_literal_map().is_empty());
+    /// ```
+    ///
+    /// [`Literal`]: crate::interner::Literal
+    pub fn take_problem_literal_map(&mut self) -> HashMap<Literal, Literal> {
+        take(&mut self.problem_literal_map)
+    }
+
     /// Merges a domain and problem [`StringInterner`] into a unified [`InternerMergeResult`].
     ///
     /// This function clones the domain interner and extends it with all strings from the
@@ -138,13 +188,19 @@ impl InternerMergeResult {
     ) -> Self {
         let mut interner = domain_interner.clone();
         let mut problem_ident_map = HashMap::new();
+        let mut problem_literal_map = HashMap::new();
 
         for (old_id, s) in problem_interner.iter_ident_entries() {
             let new_id = interner.intern_ident(s.to_string());
             problem_ident_map.insert(old_id, new_id);
         }
 
-        InternerMergeResult::new(interner, problem_ident_map)
+        for (old_id, s) in problem_interner.iter_literal_entries() {
+            let new_id = interner.intern_literal(s.to_string());
+            problem_literal_map.insert(old_id, new_id);
+        }
+
+        InternerMergeResult::new(interner, problem_ident_map, problem_literal_map)
     }
 }
 
@@ -156,6 +212,11 @@ impl fmt::Display for InternerMergeResult {
         writeln!(f, "  interner: {}", self.interner)?;
         writeln!(f, "  problem_ident_map: [")?;
         for (problem_id, global_id) in &self.problem_ident_map {
+            writeln!(f, "    {:?} -> {:?}", problem_id, global_id)?;
+        }
+        writeln!(f, "  ]")?;
+        writeln!(f, "  problem_literal_map: [")?;
+        for (problem_id, global_id) in &self.problem_literal_map {
             writeln!(f, "    {:?} -> {:?}", problem_id, global_id)?;
         }
         writeln!(f, "  ]")?;

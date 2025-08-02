@@ -1,10 +1,8 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::{Literal, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
-use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
@@ -59,7 +57,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 pub fn check_unused_symbols(
     context: &CheckContext,
     skip_symbols: &[SymbolKind],
-    source: Provider,
+    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let symbol_table = context.symbol_table();
@@ -79,7 +77,7 @@ pub fn check_unused_symbols(
             check_pddl_builtin_symbol_declaration(
                 declaration,
                 context,
-                source,
+                provider,
                 diagnostic_manager
             );
 
@@ -92,65 +90,18 @@ pub fn check_unused_symbols(
 
             // If no usage is found, emit a warning
             if !has_valid_usage {
-                report_unused_symbol_warning(
-                    declaration,
-                    context.source_name(),
-                    source,
-                    diagnostic_manager
+                let warning = Diagnostic::warning_unused_symbol(
+                    declaration.clone(),
+                    provider,
+                    context.source_id(),
+                    declaration.span().clone(),
                 );
+                diagnostic_manager.add_diagnostic(warning);
             }
         }
     }
 
     Ok(true)
-}
-
-/// Emits a warning diagnostic for an unused symbol declaration.
-///
-/// This function is triggered when a declared symbol is never referenced within any valid scope.
-/// Such symbols may represent dead code or redundant definitions that could be removed to
-/// simplify and clarify the source.
-///
-/// The generated diagnostic is of kind `UnusedSymbol` and is registered with the provided
-/// `DiagnosticManager`.
-///
-/// # Parameters
-///
-/// - `declaration`: The `Declaration` instance representing the unused symbol.
-/// - `source`: The interned `Literal` representing the source file or module name where
-///   the declaration appears.
-/// - `provider`: A `Provider` indicating which analysis pass generated this warning
-///   (e.g., `Provider::Normalizer`).
-/// - `diagnostic_manager`: A mutable reference to the `DiagnosticManager` responsible
-///   for collecting and reporting diagnostics.
-///
-/// # Example
-///
-/// ```rust
-/// report_unused_symbol_warning(
-///     &declaration,
-///     source_literal,
-///     Provider::Normalizer,
-///     &mut diagnostic_manager,
-/// );
-/// ```
-fn report_unused_symbol_warning(
-    declaration: &Declaration,
-    source: Literal,
-    provider: Provider,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-
-    let warning = Diagnostic::new(
-        DiagnosticKind::UnusedSymbol {
-            declaration: declaration.clone(),
-        },
-        provider,
-        source,
-        declaration.span().clone(),
-    );
-
-    diagnostic_manager.add_diagnostic(warning);
 }
 
 /// Determines whether a declaration should be skipped during unused symbol checking.
@@ -302,138 +253,28 @@ fn check_pddl_builtin_symbol_declaration(
     };
 
     if declaration.symbol_kind() != expected_kind {
-        report_symbol_conflicts_with_keyword_error(
-            declaration,
+        let warning = Diagnostic::warning_symbol_declared_ambiguously_as_keyword(
+            declaration.clone(),
             expected_kind,
             requirements,
-            context.source_name(),
             provider,
-            diagnostic_manager,
+            context.source_id(),
+            declaration.span().clone(),
         );
+        diagnostic_manager.add_diagnostic(warning);
         false
     } else {
-        report_symbol_declared_ambiguous_as_keyword_warning(
-            declaration,
+        let error = Diagnostic::error_symbol_conflicts_with_keyword(
+            declaration.clone(),
             expected_kind,
             requirements,
-            context.source_name(),
             provider,
-            diagnostic_manager,
+            context.source_id(),
+            declaration.span().clone(),
         );
+        diagnostic_manager.add_diagnostic(error);
         true
     }
-}
-
-/// Reports a warning diagnostic indicating that a symbol has been declared in a way that
-/// may cause ambiguity with reserved keywords.
-///
-/// This function creates and adds a `SymbolDeclaredAmbiguouslyAsKeywordWarning` diagnostic
-/// to the provided `DiagnosticManager`. It is used when a symbol’s declaration might
-/// conflict with reserved keywords, leading to potential ambiguity but not necessarily an error.
-///
-/// # Parameters
-/// - `declaration`: Reference to the `Declaration` of the symbol that is ambiguously declared.
-/// - `expected_kind`: The expected `SymbolKind` that the symbol should have had to avoid ambiguity.
-/// - `requirements`: A vector of `Requirement`s relevant to the ambiguous keyword context.
-/// - `source`: A `Literal` representing the interned name of the source file or module where the declaration occurs.
-/// - `provider`: The `Provider` that is the source of this diagnostic (e.g., Analyzer, Normalizer).
-/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where the warning
-///   diagnostic will be recorded.
-///
-/// # Behavior
-/// This function clones the declaration and constructs a `SymbolDeclaredAmbiguouslyAsKeywordWarning`
-/// diagnostic capturing details about the ambiguous declaration. It then registers this diagnostic
-/// with the given `diagnostic_manager`.
-///
-/// # Notes
-/// The `source` literal should be resolved via the string interner when rendering diagnostics.
-///
-/// # Examples
-/// ```no_run
-/// report_symbol_declared_ambiguous_as_keyword_warning(
-///     &declaration,
-///     SymbolKind::PrimitiveType,
-///     vec![Requirement::Typing],
-///     source_literal,
-///     provider,
-///     &mut diagnostic_manager,
-/// );
-/// ```
-fn report_symbol_declared_ambiguous_as_keyword_warning(
-    declaration: &Declaration,
-    expected_kind: SymbolKind,
-    requirements: Vec<Requirement>,
-    source: Literal,
-    provider: Provider,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-    diagnostic_manager.add_diagnostic(
-        Diagnostic::new(
-            DiagnosticKind::SymbolDeclaredAmbiguouslyAsKeyword {
-                declaration: declaration.clone(),
-                expected_kind,
-                requirements,
-            },
-            provider,
-            source,
-            declaration.span().clone(),
-        )
-    );
-}
-
-/// Reports an error diagnostic indicating that a symbol has been incorrectly declared
-/// as a reserved keyword.
-///
-/// This function creates and adds a `SymbolConflictsWithKeyword` diagnostic to the provided
-/// `DiagnosticManager`. It is used when a symbol declaration conflicts with reserved keywords
-/// defined by the language or domain specification, typically due to an incorrect kind or misuse.
-///
-/// # Parameters
-/// - `declaration`: Reference to the `Declaration` of the symbol that was improperly declared.
-/// - `expected_kind`: The expected `SymbolKind` that the symbol should have had to avoid this error.
-/// - `requirements`: A vector of `Requirement`s relevant to the reserved keyword context.
-/// - `source`: A `Literal` representing the interned name of the source file or module where the declaration occurs.
-/// - `provider`: The `Provider` that is the source of this diagnostic (e.g., Analyzer, Normalizer).
-/// - `diagnostic_manager`: Mutable reference to the `DiagnosticManager` where the error diagnostic
-///   will be recorded.
-///
-/// # Behavior
-/// This function clones the declaration and constructs a `SymbolConflictsWithKeyword` diagnostic
-/// that captures details about the incorrect declaration. It then registers this diagnostic
-/// with the given `diagnostic_manager`.
-///
-/// # Notes
-/// The `source` literal should be resolved via the string interner when rendering diagnostics.
-///
-/// # Examples
-/// ```no_run
-/// report_symbol_conflicts_with_keyword_error(
-///     &declaration,
-///     SymbolKind::PrimitiveType,
-///     vec![Requirement::Typing],
-///     source_literal,
-///     provider,
-///     &mut diagnostic_manager,
-/// );
-/// ```
-fn report_symbol_conflicts_with_keyword_error(
-    declaration: &Declaration,
-    expected_kind: SymbolKind,
-    requirements: Vec<Requirement>,
-    source: Literal,
-    provider: Provider,
-    diagnostic_manager: &mut DiagnosticManager,
-) {
-    diagnostic_manager.add_diagnostic(Diagnostic::new(
-        DiagnosticKind::SymbolConflictsWithKeyword {
-            declaration: declaration.clone(),
-            expected_kind,
-            requirements,
-        },
-        provider,
-        source,
-        declaration.span().clone(),
-    ));
 }
 
 /// Checks if the given `scope` contains at least one AST node of the specified `kind`.

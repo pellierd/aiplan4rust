@@ -51,7 +51,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 
 use crate::aiplan4rust::core::arena::ArenaNode;
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::Ast;
@@ -269,68 +269,20 @@ fn emit_implicit_either_type_warnings(
                 }
             }
 
-            let diagnostic = new_implicit_either_type_warning(
+            let warning = Diagnostic::warning_implicit_either_type_declaration(
                 ident,
                 duplicate_types,
                 duplicate_spans,
-                &first_span,
-                ast,
-            )?;
+                Provider::Normalizer, // Mark the normalizer as the source of this warning
+                ast.source_id(),      // Source file name where the warning originates
+                first_span.clone(),   // Location span in the source code for the warning
+            );
 
-            diagnostic_manager.add_diagnostic(diagnostic);
+            diagnostic_manager.add_diagnostic(warning);
         }
     }
 
     Ok(())
-}
-
-/// Creates a warning diagnostic for an implicitly interpreted `(either ...)` type_checker declaration.
-///
-/// This warning is emitted when a type is declared multiple times with different parent types,
-/// causing the system to implicitly treat it as an `(either ...)` type. While this behavior is allowed,
-/// it may lead to ambiguity and is best handled explicitly.
-///
-/// # Arguments
-///
-/// - `ty`: The identifier of the type_checker that has conflicting parent declarations.
-/// - `duplicate_types`: A list of identifiers representing the conflicting parent types.
-/// - `duplicate_spans`: The source code spans where each conflicting parent declaration occurred.
-/// - `span`: The source code span representing the main declaration location of the type_checker.
-/// - `ast`: Reference to the AST arena, used to resolve identifiers to their string representations.
-///
-/// # Returns
-///
-/// Returns `Ok(Diagnostic)` containing the constructed warning if successful, or
-/// `Err(NormalizationPassError)` if the identifier resolution fails.
-///
-/// # Diagnostic Purpose
-///
-/// This diagnostic informs the user that a type_checker was implicitly interpreted as an
-/// `(either ...)` declaration due to multiple conflicting parents. It suggests making this
-/// declaration explicit to improve clarity and reduce potential confusion.
-
-fn new_implicit_either_type_warning(
-    ty: Ident,
-    duplicate_types: Vec<Ident>,
-    duplicate_spans: Vec<Span>,
-    span: &Span,
-    ast: &Ast,
-) -> Result<Diagnostic, NormalizationPassError> {
-
-    // Build the diagnostic object with relevant information
-    let diagnostic = Diagnostic::new(
-        DiagnosticKind::ImplicitEitherTypeDeclaration {
-            ty,
-            duplicate_types,
-            duplicate_spans,
-        },
-        Provider::Normalizer, // Mark the normalizer as the source of this warning
-        ast.source_id(), // Source file name where the warning originates
-        span.clone(),         // Location span in the source code for the warning
-    );
-
-    // Return the constructed diagnostic wrapped in Ok
-    Ok(diagnostic)
 }
 
 /// Merges duplicate type_checker declarations in the AST by combining their supertype children.

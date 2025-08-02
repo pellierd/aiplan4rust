@@ -132,7 +132,8 @@ impl Linker {
                 remap_problem_idents(&mut problem_ctx, &problem_ident_map)?;
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                problem_diag_mgr.remap_idents(&problem_ident_map);
+                let problem_literal_map = result.take_problem_literal_map();
+                problem_diag_mgr.remap(&problem_ident_map, &problem_literal_map);
                 self.diagnostic_manager.add_diagnostic_from(problem_diag_mgr);
 
                 // Step 3: Resolve external references in the problem with respect to the domain

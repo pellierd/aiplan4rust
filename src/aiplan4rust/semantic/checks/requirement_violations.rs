@@ -1,4 +1,4 @@
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, DiagnosticManager, Provider};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::Requirement::{
     ConditionalEffects, DerivedPredicates, DisjunctivePreconditions, DurativeActions, Equality,
     ExistentialPreconditions, Fluents, NegativePreconditions, NumericFluents, ObjectFluents,
@@ -16,7 +16,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxNode;
 pub fn check_requirement_violations(
     context: &CheckContext,
     requirements: &HashSet<Requirement>,
-    source: Provider,
+    provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
     let mut checked = true;
@@ -24,55 +24,55 @@ pub fn check_requirement_violations(
     for (index, node) in context.syntax_tree().preorder().with_id() {
         match node.kind() {
             AstKind::PrimitiveType | AstKind::TypesDef => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![Typing],
                 );
             }
 
             AstKind::FunctionsDef | AstKind::FunctionTerm => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![Fluents, NumericFluents, ObjectFluents],
                 );
             }
 
             AstKind::Number => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![NumericFluents],
                 );
             }
 
             AstKind::DurativeActionDef => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![DurativeActions],
                 );
             }
 
             AstKind::DerivedDef => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![DerivedPredicates],
                 );
@@ -84,11 +84,11 @@ pub fn check_requirement_violations(
                     && parent.kind() != AstKind::PreconditionDef
                     && parent.kind() != AstKind::EffectDef
                 {
-                    checked &= report_requirement_violation(
+                    checked &= report_warning_requirement_violation(
                         node,
                         requirements,
-                        context.source_name(),
-                        source,
+                        context.source_id(),
+                        provider,
                         diagnostic_manager,
                         vec![DisjunctivePreconditions],
                     );
@@ -96,66 +96,66 @@ pub fn check_requirement_violations(
             }
 
             AstKind::Not => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![NegativePreconditions],
                 );
             }
 
             AstKind::Imply => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![DisjunctivePreconditions],
                 );
             }
 
             AstKind::Forall => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![UniversalPreconditions],
                 );
             }
 
             AstKind::Exists => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![ExistentialPreconditions],
                 );
             }
 
             AstKind::Preference => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![Preferences],
                 );
             }
 
             AstKind::When => {
-                checked &= report_requirement_violation(
+                checked &= report_warning_requirement_violation(
                     node,
                     requirements,
-                    context.source_name(),
-                    source,
+                    context.source_id(),
+                    provider,
                     diagnostic_manager,
                     vec![ConditionalEffects],
                 );
@@ -164,21 +164,21 @@ pub fn check_requirement_violations(
             AstKind::FComp => {
                 match node.try_binary_comp()? {
                     BinaryComp::Equal => {
-                        checked &= report_requirement_violation(
+                        checked &= report_warning_requirement_violation(
                             node,
                             requirements,
-                            context.source_name(),
-                            source,
+                            context.source_id(),
+                            provider,
                             diagnostic_manager,
                             vec![Equality, Fluents, NumericFluents,ObjectFluents],
                         );
                     }
                     _ => {
-                        checked &= report_requirement_violation(
+                        checked &= report_warning_requirement_violation(
                             node,
                             requirements,
-                            context.source_name(),
-                            source,
+                            context.source_id(),
+                            provider,
                             diagnostic_manager,
                             vec![Fluents, NumericFluents,ObjectFluents],
                         );
@@ -228,22 +228,23 @@ pub fn check_requirement_violations(
 /// - [`Requirement`]
 /// - [`DiagnosticKind::RequirementViolation`]
 /// - [`DiagnosticManager`]
-fn report_requirement_violation(
+fn report_warning_requirement_violation(
     node: &AstNode,
     requirements: &HashSet<Requirement>,
-    source: Literal,
+    source_id: Literal,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
     required: Vec<Requirement>,
 ) -> bool {
     if required.iter().any(|r| !requirements.contains(r)) {
-        let error = Diagnostic::new(
-            DiagnosticKind::RequirementViolation { node_kind: node.kind().clone(), required},
+        let warning = Diagnostic::warning_requirement_violation(
+            node.kind().clone(),
+            required,
             provider,
-            source,
+            source_id,
             node.span().clone(),
         );
-        diagnostic_manager.add_diagnostic(error);
+        diagnostic_manager.add_diagnostic(warning);
         false
     } else {
         true
