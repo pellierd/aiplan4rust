@@ -21,28 +21,13 @@
 //! Create a `Renderer` with references to a `DiagnosticManager` and `StringInterner`,
 //! then invoke its methods to write formatted diagnostics to your desired output.
 
-use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::diagnostic::Severity;
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::diagnostic::renderer::{message, suggestion};
+use crate::aiplan4rust::diagnostic::renderer::{formatting, message, suggestion};
 
 use std::io::{self, Write};
 use colored::Colorize;
-
-/// Number of spaces to which a tab character (`\t`) expands.
-///
-/// Used for calculating visual offsets and expanding tabs in source code lines.
-const TAB_WIDTH: usize = 4;
-
-/// String used to indicate the current position or focus in diagnostic output.
-///
-/// Typically displayed as an arrow pointing to a specific column.
-const RIGHT_ARROW: &str = "-->";
-
-/// String used as a vertical bar in diagnostic output formatting.
-///
-/// Often used to visually separate line numbers or highlight spans.
-const VERTICAL_BAR: &str = "|";
+use crate::Severity;
 
 /// Renderer responsible for formatting and outputting diagnostics.
 ///
@@ -62,7 +47,18 @@ pub struct Renderer<'a> {
 }
 
 impl<'a> Renderer<'a> {
-
+    /// Creates a new `Renderer` with references to the diagnostic manager and string interner.
+    ///
+    /// The default output is set to standard output (`stdout`).
+    ///
+    /// # Parameters
+    ///
+    /// - `diagnostic_manager`: Reference to the `DiagnosticManager` that manages diagnostics.
+    /// - `interner`: Reference to the `StringInterner` used for string interning.
+    ///
+    /// # Returns
+    ///
+    /// A new instance of `Renderer`.
     pub fn new(diagnostic_manager: &'a DiagnosticManager, interner: &'a StringInterner) -> Self {
         Renderer {
             diagnostic_manager,
@@ -71,227 +67,312 @@ impl<'a> Renderer<'a> {
         }
     }
 
+    /// Returns a reference to the associated diagnostic manager.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the `DiagnosticManager`.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         self.diagnostic_manager
     }
 
+    /// Sets the output destination used by the renderer.
+    ///
+    /// This allows redirecting output to any writer implementing the `Write` trait.
+    ///
+    /// # Parameters
+    ///
+    /// - `output`: A boxed writer (`Box<dyn Write>`) to which the diagnostics will be written.
     pub fn set_output(&mut self, output: Box<dyn Write>) {
         self.output = output;
     }
 
-    pub fn display(&mut self) {
-        // On prend une référence mutable au writer en dehors de l'appel
+    /// Writes the diagnostics to the configured output.
+    ///
+    /// This function attempts to write all diagnostics managed by the
+    /// `DiagnosticManager` using the associated `StringInterner` for
+    /// message formatting. The output is written to the current writer
+    /// stored in the `Renderer`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `std::io::Error` if writing to the output fails.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// let mut renderer = Renderer::new(&diagnostic_manager, &interner);
+    /// renderer.display()?;
+    /// ```
+    pub fn display(&mut self) -> std::io::Result<()> {
         let writer = &mut self.output;
-        Renderer::write_to(self.diagnostic_manager, self.interner, writer, true).expect("Failed to write diagnostics to output");
+        Renderer::write_to(self.diagnostic_manager, self.interner, writer, true)
     }
 
+    /// Writes formatted diagnostics to the provided writer, including error/warning messages,
+    /// source location information, annotated source code snippets, and optional suggestions.
+    ///
+    /// This function iterates through all diagnostics in the given `DiagnosticManager`, formats them
+    /// into a user-friendly display (similar to compiler messages), and writes the result to the given
+    /// `writer`. It supports optional colored output using the `color` flag.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `W` - A type implementing the `Write` trait where the formatted diagnostics will be written.
+    ///
+    /// # Parameters
+    ///
+    /// * `diagnostic_manager` - The `DiagnosticManager` containing all the diagnostics to display.
+    /// * `interner` - The `StringInterner` used to resolve interned literals (like source file names).
+    /// * `writer` - A mutable writer (e.g., `stdout`, `stderr`, or a file) to write the output to.
+    /// * `color` - If `true`, enables colored output for severity labels, arrows, and underlines.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` on success.
+    /// * `Err(io::Error)` if an I/O error occurs while writing to the writer.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use my_crate::diagnostics::write_to;
+    ///
+    /// let diagnostics = DiagnosticManager::new();
+    /// let interner = StringInterner::default();
+    ///
+    /// write_to(&diagnostics, &interner, &mut std::io::stdout(), true).unwrap();
+    /// ```
+    ///
+    /// # Output Format
+    ///
+    /// ```text
+    /// error[E001]: Unexpected token
+    /// → domain.pddl:3:15
+    ///    │
+    ///  3 │   (define (problem)
+    ///    │               ^^^^^
+    ///    │
+    /// = help: expected `:domain` section here
+    /// ```
+    ///
     pub fn write_to<W: Write>(
         diagnostic_manager: &DiagnosticManager,
         interner: &StringInterner,
         writer: &mut W,
         color: bool,
     ) -> io::Result<()> {
+        // Iterate over all diagnostics to format and print them
         for diagnostic in diagnostic_manager.diagnostics() {
             let mut output = String::new();
 
-            let filename = interner.try_resolve_literal(diagnostic.source()).unwrap();
-            let span = diagnostic.span();
-            let kind = diagnostic.kind();
+            // Add the header: severity + error/warning message with optional color
+            output.push_str(&format_header_line(diagnostic, interner, color));
 
-            // Récupère le code complet depuis Diagnostic (ex: "E001")
-            let code = diagnostic.code();
+            // Add the source location (filename, line, column) with arrow
+            output.push_str(&format_location(diagnostic, interner, color));
 
-            // Format severity string conditionnellement coloré en fonction de la première lettre du code
-            let severity_str = match code.chars().next() {
-                Some('E') => {
-                    if color {
-                        format!("error[{}]", code).red().bold().to_string()
-                    } else {
-                        format!("error[{}]", code)
-                    }
-                }
-                Some('W') => {
-                    if color {
-                        format!("warning[{}]", code).yellow().to_string()
-                    } else {
-                        format!("warning[{}]", code)
-                    }
-                }
-                _ => code.clone(),
-            };
-
-            output.push_str(&format!("{}: {}\n", severity_str, message::format_message(kind, interner)));
-
-            // Flèche droite --> en bleu clair ou sans couleur
-            let arrow = if color {
-                RIGHT_ARROW.bright_blue().to_string()
-            } else {
-                RIGHT_ARROW.to_string()
-            };
-            output.push_str(&format!(
-                "{} {}:{}:{}\n",
-                arrow,
-                filename,
-                span.begin_line(),
-                span.begin_column()
-            ));
-
-            // Largeur de la colonne du numéro de ligne
-            let line_num_str = span.begin_line().to_string();
-            let gutter_width = line_num_str.len();
-
-            if let Some(source) = diagnostic_manager.get_source_content(diagnostic.source()) {
-                if let Some(line) = source.lines().nth(span.begin_line() - 1) {
-                    // Bar vertical en bleu clair ou sans couleur
-                    let vertical_bar = if color {
-                        VERTICAL_BAR.bright_blue().to_string()
-                    } else {
-                        VERTICAL_BAR.to_string()
-                    };
-
-                    output.push_str(&format!(
-                        "{:>width$} {}\n",
-                        "",
-                        vertical_bar,
-                        width = gutter_width
-                    ));
-
-                    output.push_str(&format!(
-                        "{} {} {}\n",
-                        format!("{:>width$}", span.begin_line(), width = gutter_width),
-                        vertical_bar,
-                        expand_tabs(line, TAB_WIDTH)
-                    ));
-
-                    let underline_start = compute_visual_offset(line, span.begin_column());
-                    let underline_len = (span.end_column().saturating_sub(span.begin_column())).max(1);
-
-                    // Caret underline en couleur ou non selon la sévérité
-                    let underline = match kind.severity() {
-                        Severity::Error => {
-                            if color {
-                                "^".repeat(underline_len).red().to_string()
-                            } else {
-                                "^".repeat(underline_len)
-                            }
-                        }
-                        Severity::Warning => {
-                            if color {
-                                "^".repeat(underline_len).yellow().to_string()
-                            } else {
-                                "^".repeat(underline_len)
-                            }
-                        }
-                        _ => "^".repeat(underline_len),
-                    };
-
-                    output.push_str(&format!(
-                        "{:>width$} {} {}{}\n",
-                        "",
-                        vertical_bar,
-                        " ".repeat(underline_start),
-                        underline,
-                        width = gutter_width
-                    ));
-
-                    output.push_str(&format!(
-                        "{:>width$} {}\n",
-                        "",
-                        vertical_bar,
-                        width = gutter_width
-                    ));
-                }
+            // Add the annotated snippet from the source file, if available
+            if let Some(snippet) = format_source_snippet(diagnostic_manager, diagnostic, color) {
+                output.push_str(&snippet);
             }
 
-            if let Some(suggestion) = suggestion::format_suggestion(kind, interner)   {
-                if color {
-                    output.push_str(&format!(
-                        "{} {}\n",
-                        "= help:".bright_cyan().bold(),
-                        suggestion
-                    ));
-                } else {
-                    output.push_str(&format!("= help: {}\n", suggestion));
-                }
+            // Add a suggestion, if one is available for the diagnostic
+            if let Some(suggestion) = format_suggestion(diagnostic, interner, color) {
+                output.push_str(&suggestion);
             }
 
-            write!(writer, "{}", output)?;
+            // Finally, write the complete formatted diagnostic to the output writer
+            write!(writer, "{}\n", output)?;
         }
 
         Ok(())
     }
 }
 
-
-/// Computes the visual offset of a given column in a line of text,
-/// accounting for tab characters which have variable width.
+/// Formats the header line of a diagnostic message, including severity label and diagnostic message.
 ///
-/// Tabs are expanded to a fixed width (`TAB_WIDTH`) and the function
-/// returns the visual column index corresponding to the input `column`.
+/// The severity label is derived from the diagnostic code's first character:
+/// - Codes starting with 'E' produce an error label.
+/// - Codes starting with 'W' produce a warning label.
+/// - Other codes are shown as-is.
+///
+/// The diagnostic message is formatted using the provided interner.
 ///
 /// # Parameters
-///
-/// - `line`: The input text line as a string slice.
-/// - `column`: The 1-based column number in the line.
+/// - `diagnostic`: Reference to the `Diagnostic` containing code and kind information.
+/// - `interner`: Reference to the `StringInterner` used to format the diagnostic message.
+/// - `color`: Whether to apply ANSI color codes to severity labels.
 ///
 /// # Returns
-///
-/// The visual offset as a zero-based index, where tabs count as multiple spaces.
+/// A formatted `String` in the form:
+/// ```text
+/// error[E1023]: detailed message
+/// ```
+/// or
+/// ```text
+/// warning[W4056]: detailed message
+/// ```
+/// depending on severity.
 ///
 /// # Example
-///
 /// ```
-/// let line = "\tfoo\tbar";
-/// let offset = compute_visual_offset(line, 5);
-/// // `offset` accounts for tab expansion before column 5
+/// let header = format_header_line(&diagnostic, &interner, true);
+/// println!("{}", header);
 /// ```
-fn compute_visual_offset(line: &str, column: usize) -> usize {
-    let mut offset = 0;
-    for c in line.chars().take(column.saturating_sub(1)) {
-        offset += match c {
-            '\t' => TAB_WIDTH - (offset % TAB_WIDTH),
-            _ => 1,
-        };
-    }
-    offset
+fn format_header_line(
+    diagnostic: &Diagnostic,
+    interner: &StringInterner,
+    color: bool,
+) -> String {
+    let kind = diagnostic.kind();
+    let code = diagnostic.code();
+
+    let severity_str = match kind.severity() {
+        Severity::Error => formatting::error_label(&code, color),
+        Severity::Warning => formatting::warning_label(&code, color),
+        _ => code.clone(),
+    };
+
+    format!("{}: {}\n", severity_str, message::format_message(kind, interner))
 }
 
-/// Expands all tab characters in a given line into spaces,
-/// based on the specified tab width.
+/// Formats the location of a diagnostic in the form of a file path and line/column numbers,
+/// optionally prefixed by a colored arrow symbol.
 ///
-/// Tabs are replaced by the number of spaces needed to reach the next tab stop.
+/// The filename is resolved using the provided string interner. If the filename cannot be
+/// resolved, it defaults to `"<unknown>"`.
 ///
 /// # Parameters
-///
-/// - `line`: The input text line as a string slice.
-/// - `tab_width`: The number of spaces per tab stop.
+/// - `diagnostic`: Reference to the `Diagnostic` containing the source and span information.
+/// - `interner`: Reference to the `StringInterner` used to resolve the source file path.
+/// - `color`: Whether to apply ANSI color codes to the arrow symbol.
 ///
 /// # Returns
-///
-/// A new `String` with tabs replaced by the appropriate number of spaces.
+/// A `String` representing the location formatted as:
+/// ```text
+/// → filename:line:column
+/// ```
+/// with the arrow optionally colored.
 ///
 /// # Example
+/// ```
+/// let location = format_location(&diagnostic, &interner, true);
+/// println!("{}", location);
+/// ```
+fn format_location(
+    diagnostic: &Diagnostic,
+    interner: &StringInterner,
+    color: bool,
+) -> String {
+    let filename = interner
+        .try_resolve_literal(diagnostic.source())
+        .unwrap_or("<unknown>");
+    let span = diagnostic.span();
+
+    let arrow = formatting::arrow(color);
+
+    format!(
+        "{} {}:{}:{}\n",
+        arrow,
+        filename,
+        span.begin_line(),
+        span.begin_column()
+    )
+}
+
+/// Formats a source code snippet around the diagnostic's span, highlighting the relevant line and
+/// underlining the specific span range.
 ///
+/// This function retrieves the source content from the given `DiagnosticManager`
+/// using the diagnostic's source ID. It extracts the line corresponding to the diagnostic's span,
+/// expands tabs into spaces, and creates a visual snippet with a gutter showing line numbers.
+/// The span range is underlined with color corresponding to the severity (error or warning).
+///
+/// # Parameters
+/// - `manager`: Reference to the `DiagnosticManager` to access source content.
+/// - `diagnostic`: Reference to the `Diagnostic` containing span and severity information.
+/// - `color`: Whether to apply ANSI color codes to the snippet.
+///
+/// # Returns
+/// An `Option<String>` containing the formatted snippet if the source and line are available,
+/// otherwise `None`.
+///
+/// # Example
 /// ```
-/// let line = "\tfoo\tbar";
-/// let expanded = expand_tabs(line, 4);
-/// // `expanded` will have spaces replacing the tabs
+/// if let Some(snippet) = format_source_snippet(&manager, &diagnostic, true) {
+///     println!("{}", snippet);
+/// }
 /// ```
-fn expand_tabs(line: &str, tab_width: usize) -> String {
-    let mut expanded = String::new();
-    let mut col = 0;
-    for c in line.chars() {
-        match c {
-            '\t' => {
-                let spaces = tab_width - (col % tab_width);
-                expanded.push_str(&" ".repeat(spaces));
-                col += spaces;
-            }
-            _ => {
-                expanded.push(c);
-                col += 1;
-            }
+fn format_source_snippet(
+    manager: &DiagnosticManager,
+    diagnostic: &Diagnostic,
+    color: bool,
+) -> Option<String> {
+    let span = diagnostic.span();
+    let kind = diagnostic.kind();
+    let source = manager.get_source_content(diagnostic.source())?;
+    let line = source.lines().nth(span.begin_line() - 1)?;
+
+    let gutter_width = span.begin_line().to_string().len();
+    let vertical_bar = formatting::vertical_bar(color);
+
+    let mut snippet = String::new();
+    snippet.push_str(&format!("{:>width$} {}\n", "", vertical_bar, width = gutter_width));
+    snippet.push_str(&format!(
+        "{} {} {}\n",
+        format!("{:>width$}", span.begin_line(), width = gutter_width),
+        vertical_bar,
+        formatting::expand_tabs(line)
+    ));
+
+    let underline_start = formatting::compute_visual_offset(line, span.begin_column());
+    let underline_len = (span.end_column().saturating_sub(span.begin_column())).max(1);
+
+    let colored_underline = formatting::underline(kind.severity(), underline_len, color);
+
+    snippet.push_str(&format!(
+        "{:>width$} {} {}{}\n",
+        "",
+        vertical_bar,
+        " ".repeat(underline_start),
+        colored_underline,
+        width = gutter_width
+    ));
+
+    snippet.push_str(&format!("{:>width$} {}\n", "", vertical_bar, width = gutter_width));
+    Some(snippet)
+}
+
+/// Formats a suggestion message for a given diagnostic.
+///
+/// The suggestion is obtained from the `suggestion` module based on the diagnostic kind.
+/// If `color` is `true`, the help label is colored using ANSI escape codes.
+///
+/// # Parameters
+/// - `diagnostic`: A reference to the `Diagnostic` containing error/warning information.
+/// - `interner`: A reference to a `StringInterner` used to resolve string identifiers.
+/// - `color`: Whether to apply color formatting to the help label.
+///
+/// # Returns
+/// An `Option<String>` containing the formatted suggestion message if a suggestion exists,
+/// otherwise `None`.
+///
+/// # Example
+/// ```
+/// if let Some(suggestion) = format_suggestion(&diagnostic, &interner, true) {
+///     println!("{}", suggestion);
+/// }
+/// ```
+fn format_suggestion(
+    diagnostic: &Diagnostic,
+    interner: &StringInterner,
+    color: bool,
+) -> Option<String> {
+    suggestion::format_suggestion(diagnostic.kind(), interner).map(|suggestion| {
+        if color {
+            format!("{} {}\n", formatting::help_label(true), suggestion)
+        } else {
+            format!("= help: {}\n", suggestion)
         }
-    }
-    expanded
+    })
 }

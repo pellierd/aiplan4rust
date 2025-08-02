@@ -12,10 +12,27 @@
 //! - Comma-separated formatting of identifier, declaration, and requirement lists
 //! - Friendly formatting for expected parser tokens (`format_expected_message`)
 
+use colored::Colorize;
 use crate::aiplan4rust::interner::{Ident, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
 use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
+use crate::Severity;
+
+/// Number of spaces to which a tab character (`\t`) expands.
+///
+/// Used for calculating visual offsets and expanding tabs in source code lines.
+const TAB_WIDTH: usize = 4;
+
+/// String used to indicate the current position or focus in diagnostic output.
+///
+/// Typically displayed as an arrow pointing to a specific column.
+const RIGHT_ARROW: &str = "-->";
+
+/// String used as a vertical bar in diagnostic output formatting.
+///
+/// Often used to visually separate line numbers or highlight spans.
+const VERTICAL_BAR: &str = "|";
 
 /// Returns the name of the given identifier as a `String`, optionally resolving it
 /// through a string interner.
@@ -200,4 +217,229 @@ pub(crate) fn join_expected_tokens(expected: &[String]) -> String {
         .map(|t| format!("'{}'", t.trim_matches('"')))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// Returns a formatted error label string with the given error `code`.
+///
+/// If `color` is `true`, the label is colored red and bolded using ANSI escape codes.
+/// Otherwise, a plain string is returned.
+///
+/// # Parameters
+/// - `code`: The error code to include in the label (e.g., `"E123"`).
+/// - `color`: Whether to apply color formatting.
+///
+/// # Returns
+/// A formatted `String` representing the error label.
+///
+/// # Example
+/// ```
+/// let label = error_label("E001", true);
+/// // label will be a red, bold "error[E001]" string.
+/// ```
+pub fn error_label(code: &str, color: bool) -> String {
+    if color {
+        format!("error[{}]", code).red().bold().to_string()
+    } else {
+        format!("error[{}]", code)
+    }
+}
+
+/// Returns a formatted warning label string with the given warning `code`.
+///
+/// If `color` is `true`, the label is colored yellow using ANSI escape codes.
+/// Otherwise, a plain string is returned.
+///
+/// # Parameters
+/// - `code`: The warning code to include in the label (e.g., `"W001"`).
+/// - `color`: Whether to apply color formatting.
+///
+/// # Returns
+/// A formatted `String` representing the warning label.
+///
+/// # Example
+/// ```
+/// let label = warning_label("W001", false);
+/// // label will be "warning[W001]" without color.
+/// ```
+pub fn warning_label(code: &str, color: bool) -> String {
+    if color {
+        format!("warning[{}]", code).yellow().to_string()
+    } else {
+        format!("warning[{}]", code)
+    }
+}
+
+/// Returns a right arrow string symbol (`→`).
+///
+/// If `color` is `true`, the arrow is colored bright blue using ANSI escape codes.
+/// Otherwise, a plain string is returned.
+///
+/// # Parameters
+/// - `color`: Whether to apply color formatting.
+///
+/// # Returns
+/// A formatted `String` containing the arrow symbol.
+///
+/// # Example
+/// ```
+/// let arrow = arrow(true);
+/// // arrow will be a bright blue "→".
+/// ```
+pub fn arrow(color: bool) -> String {
+    if color {
+        RIGHT_ARROW.bright_blue().to_string()
+    } else {
+        RIGHT_ARROW.to_string()
+    }
+}
+
+/// Returns a vertical bar string symbol (`|`).
+///
+/// If `color` is `true`, the bar is colored bright blue using ANSI escape codes.
+/// Otherwise, a plain string is returned.
+///
+/// # Parameters
+/// - `color`: Whether to apply color formatting.
+///
+/// # Returns
+/// A formatted `String` containing the vertical bar.
+///
+/// # Example
+/// ```
+/// let bar = vertical_bar(false);
+/// // bar will be "|".
+/// ```
+pub fn vertical_bar(color: bool) -> String {
+    if color {
+        VERTICAL_BAR.bright_blue().to_string()
+    } else {
+        VERTICAL_BAR.to_string()
+    }
+}
+
+/// Returns an underline string consisting of `len` caret (`^`) characters,
+/// colored according to the `severity` if `color` is enabled.
+///
+/// # Parameters
+/// - `severity`: The severity level (e.g., Error, Warning) used to determine underline color.
+/// - `len`: The length of the underline (number of carets).
+/// - `color`: Whether to apply color formatting.
+///
+/// # Returns
+/// A `String` containing the underline with optional color.
+///
+/// # Example
+/// ```
+/// let underline = underline(Severity::Error, 5, true);
+/// // underline will be "^^^^^" colored red.
+/// ```
+pub fn underline(severity: Severity, len: usize, color: bool) -> String {
+    let underline = "^".repeat(len);
+    match severity {
+        Severity::Error => {
+            if color { underline.red().to_string() } else { underline }
+        }
+        Severity::Warning => {
+            if color { underline.yellow().to_string() } else { underline }
+        }
+        _ => underline,
+    }
+}
+
+/// Returns a help label string `= help:`
+///
+/// If `color` is `true`, the label is colored bright cyan and bolded using ANSI escape codes.
+/// Otherwise, a plain string is returned.
+///
+/// # Parameters
+/// - `color`: Whether to apply color formatting.
+///
+/// # Returns
+/// A formatted `String` representing the help label.
+///
+/// # Example
+/// ```
+/// let help = help_label(true);
+/// // help will be a bright cyan, bold "= help:".
+/// ```
+pub fn help_label(color: bool) -> String {
+    if color {
+        "= help:".bright_cyan().bold().to_string()
+    } else {
+        "= help:".to_string()
+    }
+}
+
+/// Computes the visual offset of a given column in a line of text,
+/// accounting for tab characters which have variable width.
+///
+/// Tabs are expanded to a fixed width (`TAB_WIDTH`) and the function
+/// returns the visual column index corresponding to the input `column`.
+///
+/// # Parameters
+///
+/// - `line`: The input text line as a string slice.
+/// - `column`: The 1-based column number in the line.
+///
+/// # Returns
+///
+/// The visual offset as a zero-based index, where tabs count as multiple spaces.
+///
+/// # Example
+///
+/// ```
+/// let line = "\tfoo\tbar";
+/// let offset = compute_visual_offset(line, 5);
+/// // `offset` accounts for tab expansion before column 5
+/// ```
+pub fn compute_visual_offset(line: &str, column: usize) -> usize {
+    const TAB_WIDTH: usize = 4;  // ou récupère la constante TAB_WIDTH définie dans formatting
+    let mut offset = 0;
+    for c in line.chars().take(column.saturating_sub(1)) {
+        offset += match c {
+            '\t' => TAB_WIDTH - (offset % TAB_WIDTH),
+            _ => 1,
+        };
+    }
+    offset
+}
+
+/// Expands all tab characters in a given line into spaces,
+/// based on the specified tab width.
+///
+/// Tabs are replaced by the number of spaces needed to reach the next tab stop.
+///
+/// # Parameters
+///
+/// - `line`: The input text line as a string slice.
+/// - `tab_width`: The number of spaces per tab stop.
+///
+/// # Returns
+///
+/// A new `String` with tabs replaced by the appropriate number of spaces.
+///
+/// # Example
+///
+/// ```
+/// let line = "\tfoo\tbar";
+/// let expanded = expand_tabs(line);
+/// // `expanded` will have spaces replacing the tabs
+/// ```
+pub fn expand_tabs(line: &str) -> String {
+    let mut expanded = String::new();
+    let mut col = 0;
+    for c in line.chars() {
+        match c {
+            '\t' => {
+                let spaces = TAB_WIDTH - (col % TAB_WIDTH);
+                expanded.push_str(&" ".repeat(spaces));
+                col += spaces;
+            }
+            _ => {
+                expanded.push(c);
+                col += 1;
+            }
+        }
+    }
+    expanded
 }
