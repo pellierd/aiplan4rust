@@ -162,8 +162,8 @@ impl Linker {
                     domain_ctx.take_symbol_table(),
                     problem_ctx.take_symbol_table(),
                     global_interner,
-                    domain_ctx.source_id().to_string(),
-                    problem_ctx.source_id().to_string(),
+                    domain_ctx.source_id(),
+                    problem_ctx.source_id(),
                 );
 
                 // Step 8: Return the result with the semantic context and diagnostics

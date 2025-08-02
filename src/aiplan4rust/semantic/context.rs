@@ -249,52 +249,43 @@ impl Context {
     pub fn generated_at(&self) -> SystemTime {
         self.generated_at
     }
-    /// Returns the interned identifier (`Literal`) for the source file or input name associated with this context.
+    /// Returns the interned identifier (`Literal`) for the source.
     ///
-    /// This `Literal` serves as a key into the string interner to retrieve the actual
+    /// This `Literal` acts as a key into the string interner to retrieve the actual
     /// source name (e.g., a filename like `"domain.pddl"`).
-    ///
-    /// To get the corresponding string, use the interner's resolve methods with this `Literal`.
     ///
     /// # Returns
     ///
     /// The `Literal` representing the interned source name.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let source_id = context.source_id();
-    /// if let Some(name) = context.interner().resolve_literal(source_id) {
-    ///     println!("Source name: {}", name);
-    /// } else {
-    ///     println!("Unknown source");
-    /// }
-    /// ```
     pub fn source_id(&self) -> Literal {
         self.source_id
     }
 
-    /// Returns the resolved source name as a string slice, if available.
+    /// Returns the resolved source name as an `Option<&str>`.
     ///
-    /// This method uses the `source_id` as a key to look up the actual source name
-    /// string from the interner. If the interned string exists, it returns `Some(&str)`,
-    /// otherwise `None`.
+    /// Looks up the interned `Literal` in the associated interner and returns the
+    /// corresponding string slice if it exists.
     ///
     /// # Returns
     ///
-    /// An `Option<&str>` containing the source name if it exists in the interner.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// if let Some(name) = context.source_name() {
-    ///     println!("Source name: {}", name);
-    /// } else {
-    ///     println!("Source name not found");
-    /// }
-    /// ```
+    /// * `Some(&str)` if the source name is found.
+    /// * `None` if the source name is not present in the interner.
     pub fn source_name(&self) -> Option<&str> {
         self.interner.resolve_literal(self.source_id)
+    }
+
+    /// Returns the resolved source name as a `String`.
+    ///
+    /// If the source name cannot be resolved, returns a fallback string in the format:
+    /// `"Unknown<{:?}>"`, where the debug representation of the literal is included.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the source name or a fallback placeholder.
+    pub fn source_name_string(&self) -> String {
+        self.source_name()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("Unknown<{:?}>", self.source_id))
     }
 
     /// Attempts to resolve the source name as a string slice.
@@ -372,13 +363,8 @@ impl fmt::Display for Context {
     /// ...
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let source_display = match self.source_name() {
-            Some(name) => name.to_string(),
-            None => format!("unknown<{}>", self.source_id()),
-        };
-
         writeln!(f, "Semantic Context Report:\n")?;
-        writeln!(f, "Source: {}", source_display)?;
+        writeln!(f, "Source: {}", self.source_name_string())?;
 
         let duration_since_epoch = self.generated_at.duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_else(|_| std::time::Duration::new(0, 0));

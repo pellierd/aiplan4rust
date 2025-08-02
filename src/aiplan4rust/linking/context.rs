@@ -19,7 +19,7 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{InternerError, Literal, StringInterner};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -28,30 +28,33 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// Represents a linked semantic context combining a domain and a problem.
 ///
 /// This structure holds the merged and linked Abstract Syntax Trees (ASTs) for both
-/// the domain and the problem, along with a combined symbol table and a unified string interner.
-/// It also stores metadata about the source files and the timestamp when the linking was performed.
+/// the domain and the problem, along with their respective symbol tables and a unified
+/// string interner. It also stores metadata about the source files and the timestamp
+/// when the linking was performed.
 ///
 /// # Fields
 ///
-/// * `domain` - The AST arena representing the domain context.
-/// * `problem` - The AST arena representing the problem context after linking.
-/// * `symbol_table` - The combined symbol table reflecting all linked symbols.
+/// * `domain_syntax_tree` - The AST arena representing the domain context.
+/// * `problem_syntax_tree` - The AST arena representing the problem context after linking.
+/// * `domain_table` - The symbol table for the domain context.
+/// * `problem_table` - The symbol table for the problem context.
 /// * `interner` - The unified string interner used for identifiers across domain and problem.
-/// * `domain_source` - The source file or identifier for the domain.
-/// * `problem_source` - The source file or identifier for the problem.
+/// * `domain_source_id` - The identifier (literal) of the domain source file or module.
+/// * `problem_source_id` - The identifier (literal) of the problem source file or module.
 /// * `generated_at` - The timestamp when this linked context was created.
 ///
 /// # Methods
 ///
 /// This struct provides accessor methods for each field, both immutable and mutable:
 ///
-/// * `domain()` / `domain_mut()`
-/// * `problem()` / `problem_mut()`
-/// * `symbol_table()` / `symbol_table_mut()`
-/// * `interner()` / `interner_mut()`
-/// * `domain_source()` / `domain_source_mut()`
-/// * `problem_source()` / `problem_source_mut()`
-/// * `generated_at()` / `generated_at_mut()`
+/// - `domain()` / `domain_mut()`
+/// - `problem()` / `problem_mut()`
+/// - `domain_table()` / `domain_table_mut()`
+/// - `problem_table()` / `problem_table_mut()`
+/// - `interner()` / `interner_mut()`
+/// - `domain_source_id()` / `domain_source_id_mut()`
+/// - `problem_source_id()` / `problem_source_id_mut()`
+/// - `generated_at()` / `generated_at_mut()`
 ///
 /// # Display Implementation
 ///
@@ -64,8 +67,8 @@ pub struct LinkedSemanticContext {
     domain_table: SymbolTable,
     problem_table: SymbolTable,
     interner: StringInterner,
-    domain_source: String,
-    problem_source: String,
+    domain_source_id: Literal,
+    problem_source_id: Literal,
     generated_at: std::time::SystemTime,
 }
 
@@ -79,8 +82,8 @@ impl LinkedSemanticContext {
     /// * `domain_table` - The symbol table for the domain.
     /// * `problem_table` - The symbol table for the problem.
     /// * `interner` - The unified string interner used for identifiers.
-    /// * `domain_source` - The source (e.g., filename) of the domain.
-    /// * `problem_source` - The source (e.g., filename) of the problem.
+    /// * `domain_source_id` - The literal identifier representing the domain source (e.g., filename or module).
+    /// * `problem_source_id` - The literal identifier representing the problem source (e.g., filename or module).
     ///
     /// # Returns
     ///
@@ -92,8 +95,8 @@ impl LinkedSemanticContext {
         domain_table: SymbolTable,
         problem_table: SymbolTable,
         interner: StringInterner,
-        domain_source: String,
-        problem_source: String,
+        domain_source_id: Literal,
+        problem_source_id: Literal,
     ) -> Self {
         LinkedSemanticContext {
             domain_syntax_tree,
@@ -101,8 +104,8 @@ impl LinkedSemanticContext {
             domain_table,
             problem_table,
             interner,
-            domain_source,
-            problem_source,
+            domain_source_id,
+            problem_source_id,
             generated_at: std::time::SystemTime::now(),
         }
     }
@@ -206,40 +209,144 @@ impl LinkedSemanticContext {
         std::mem::take(&mut self.interner)
     }
 
-    /// Returns a reference to the domain source identifier.
+    /// Returns the domain source identifier.
+    ///
+    /// This identifier typically represents the source of the domain,
+    /// such as a filename or module name, stored as a `Literal`.
     ///
     /// # Returns
     ///
-    /// A string slice representing the source (e.g., filename) of the domain.
-    pub fn domain_source(&self) -> &str {
-        &self.domain_source
+    /// The `Literal` corresponding to the domain source.
+    pub fn domain_source_id(&self) -> Literal {
+        self.domain_source_id
     }
 
-    /// Returns a mutable reference to the domain source string.
+    /// Returns the problem source identifier.
+    ///
+    /// This identifier typically represents the source of the problem,
+    /// such as a filename or module name, stored as a `Literal`.
     ///
     /// # Returns
     ///
-    /// A mutable reference to the domain source string.
-    pub fn domain_source_mut(&mut self) -> &mut String {
-        &mut self.domain_source
+    /// The `Literal` corresponding to the problem source.
+    pub fn problem_source_id(&self) -> Literal {
+        self.problem_source_id
     }
 
-    /// Returns a reference to the problem source identifier.
+    /// Attempts to resolve and return the domain source name as a string slice from the interner.
+    ///
+    /// This method uses the `Literal` identifier returned by `domain_source_id()` to look up
+    /// the actual source name string in the associated `StringInterner`.
     ///
     /// # Returns
     ///
-    /// A string slice representing the source (e.g., filename) of the problem.
-    pub fn problem_source(&self) -> &str {
-        &self.problem_source
+    /// * `Ok(&str)` containing the resolved source name if successful.
+    /// * `Err(InternerError)` if the `Literal` cannot be resolved, e.g., if the
+    ///   source name is not set or invalid.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// match ctx.try_domain_source_name() {
+    ///     Ok(name) => println!("Domain source name: {}", name),
+    ///     Err(_) => println!("Domain source name could not be resolved"),
+    /// }
+    /// ```
+    pub fn try_domain_source_name(&self) -> Result<&str, InternerError> {
+        self.interner.try_resolve_literal(self.domain_source_id())
     }
 
-    /// Returns a mutable reference to the problem source string.
+    /// Returns the domain source name as a string slice if it can be resolved from the interner.
+    ///
+    /// This method attempts to resolve the interned `Literal` representing the domain source
+    /// (e.g., filename or origin) into a string slice by querying the associated `StringInterner`.
     ///
     /// # Returns
     ///
-    /// A mutable reference to the problem source string.
-    pub fn problem_source_mut(&mut self) -> &mut String {
-        &mut self.problem_source
+    /// * `Some(&str)` containing the domain source name if it exists in the interner.
+    /// * `None` if the domain source name cannot be found or is not set.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if let Some(name) = ctx.domain_source_name() {
+    ///     println!("Domain source name: {}", name);
+    /// } else {
+    ///     println!("Domain source name not available");
+    /// }
+    /// ```
+    pub fn domain_source_name(&self) -> Option<&str> {
+        self.interner.resolve_literal(self.domain_source_id())
+    }
+
+    /// Attempts to resolve and return the problem source name as a string slice from the interner.
+    ///
+    /// This method uses the `Literal` identifier returned by `problem_source_id()` to look up
+    /// the actual source name string in the associated `StringInterner`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(&str)` containing the resolved source name if successful.
+    /// * `Err(InternerError)` if the `Literal` cannot be resolved, e.g., if the
+    ///   source name is not set or invalid.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// match ctx.try_problem_source_name() {
+    ///     Ok(name) => println!("Problem source name: {}", name),
+    ///     Err(_) => println!("Problem source name could not be resolved"),
+    /// }
+    /// ```
+    pub fn try_problem_source_name(&self) -> Result<&str, InternerError> {
+        self.interner.try_resolve_literal(self.problem_source_id())
+    }
+
+    /// Returns the domain source name as a `String`.
+    ///
+    /// Attempts to resolve the domain source `Literal` in the interner.
+    /// If the literal cannot be resolved, returns `"Unknown<{:?}>"` where
+    /// `{:?}` is the debug representation of the `Literal`.
+    pub fn domain_source_name_string(&self) -> String {
+        self.interner
+            .resolve_literal(self.domain_source_id)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("unknown<{}>", self.domain_source_id))
+    }
+
+    /// Returns the problem source name as a string slice if it can be resolved from the interner.
+    ///
+    /// This method attempts to resolve the interned `Literal` representing the problem source
+    /// (e.g., filename or origin) into a string slice by querying the associated `StringInterner`.
+    ///
+    /// # Returns
+    ///
+    /// * `Some(&str)` containing the problem source name if it exists in the interner.
+    /// * `None` if the problem source name cannot be found or is not set.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if let Some(name) = ctx.problem_source_name() {
+    ///     println!("Problem source name: {}", name);
+    /// } else {
+    ///     println!("Problem source name not available");
+    /// }
+    /// ```
+    pub fn problem_source_name(&self) -> Option<&str> {
+        self.interner.resolve_literal(self.problem_source_id())
+    }
+
+    /// Returns the problem source name as a `String`.
+    ///
+    /// Attempts to resolve the problem source `Literal` in the interner.
+    /// If the literal cannot be resolved, returns `"Unknown<{:?}>"` where
+    /// `{:?}` is the debug representation of the `Literal`.
+    pub fn problem_source_name_string(&self) -> String {
+        self.interner
+            .resolve_literal(self.problem_source_id)
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("unknown<{}>", self.problem_source_id))
     }
 
     /// Returns the timestamp when this linked context was generated.
@@ -274,8 +381,8 @@ impl fmt::Display for LinkedSemanticContext {
     /// Returns an error if any of the write operations fail.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "LinkedSemanticContext Summary:")?;
-        writeln!(f, "  Domain source: {}", self.domain_source)?;
-        writeln!(f, "  Problem source: {}", self.problem_source)?;
+        writeln!(f, "  Domain source: {}", self.domain_source_name_string())?;
+        writeln!(f, "  Problem source: {}", self.problem_source_name_string())?;
         writeln!(f, "  Generated at: {:?}", self.generated_at)?;
         writeln!(f, "  Domain AST nodes:\n{}", self.domain_syntax_tree)?;
         writeln!(f, "  Domain symbol table entries:\n{}", self.domain_table)?;

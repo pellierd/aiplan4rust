@@ -249,7 +249,7 @@ impl Ast {
 
     /// Attempts to resolve and return the source name as a string slice from the interner.
     ///
-    /// This method uses the `Literal` identifier returned by `source()` to look up
+    /// This method uses the `Literal` identifier returned by `source_id()` to look up
     /// the actual source name string in the associated `StringInterner`.
     ///
     /// # Returns
@@ -257,40 +257,32 @@ impl Ast {
     /// * `Ok(&str)` containing the resolved source name if successful.
     /// * `Err(InternerError)` if the `Literal` cannot be resolved, e.g., if the
     ///   source name is not set or invalid.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// match ast.try_source_name() {
-    ///     Ok(name) => println!("Source name: {}", name),
-    ///     Err(_) => println!("Source name could not be resolved"),
-    /// }
-    /// ```
     pub fn try_source_name(&self) -> Result<&str, InternerError> {
         self.interner.try_resolve_literal(self.source_id())
     }
 
     /// Returns the source name as a string slice if it can be resolved from the interner.
     ///
-    /// This method attempts to resolve the interned `Literal` representing the source
-    /// (e.g., filename or origin) into a string slice by querying the associated `StringInterner`.
-    ///
     /// # Returns
     ///
     /// * `Some(&str)` containing the source name if it exists in the interner.
     /// * `None` if the source name cannot be found or is not set.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// if let Some(name) = ast.source_name() {
-    ///     println!("Source name: {}", name);
-    /// } else {
-    ///     println!("Source name not available");
-    /// }
-    /// ```
     pub fn source_name(&self) -> Option<&str> {
         self.interner.resolve_literal(self.source_id())
+    }
+
+    /// Returns the source name as a `String`.
+    ///
+    /// If the source name cannot be resolved, returns a fallback string
+    /// of the form `"Unknown<{:?}>"` where the literal debug representation is included.
+    ///
+    /// # Returns
+    ///
+    /// A `String` representing the source name or a fallback placeholder.
+    pub fn source_name_string(&self) -> String {
+        self.source_name()
+            .map(|s| s.to_string())
+            .unwrap_or_else(|| format!("unknown<{:?}>", self.source_id()))
     }
 
     /// Returns the timestamp indicating when the AST was generated.
@@ -471,12 +463,7 @@ impl fmt::Display for Ast {
     /// Prints the source name, generation timestamp, and the list of nodes with their syntax.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "Abstract Syntax Tree:")?;
-
-        match self.source_name() {
-            Some(name) => writeln!(f, " - Source: {}", name)?,
-            None => writeln!(f, " - Source: unknown<{}>", self.source_id)?,
-        }
-
+        writeln!(f, " - Source: {}", self.source_name_string())?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
         writeln!(f, " - Nodes:\n")?;
         self.syntax_tree().fmt_with_interner(f, self.interner())?;
