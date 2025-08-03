@@ -26,7 +26,6 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::diagnostic::renderer::{formatting, message, suggestion};
 
 use std::io::{self, Write};
-use colored::Colorize;
 use crate::Severity;
 
 /// Renderer responsible for formatting and outputting diagnostics.

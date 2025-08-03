@@ -89,10 +89,7 @@ impl DiagnosticManager {
     /// - This method is essential for rendering source-level diagnostics with context (e.g., code snippets).
     /// - `source_id` must have been registered beforehand using [`add_source`].
     pub fn get_source_content(&self, source_id: Literal) -> Option<&String> {
-        print!("Retrieving source content for: {}", source_id);
-        let content = self.sources.get(&source_id);
-        print!("{:?}", content);
-        content
+        self.sources.get(&source_id)
     }
 
     /// Adds a single diagnostic to the collection.

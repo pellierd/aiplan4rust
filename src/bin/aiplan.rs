@@ -103,7 +103,6 @@ fn link(domain_file: &str, problem_file: &str, format: SerdeFormat, output: &str
     match frontend.link(domain_file, problem_file) {
         Ok(linker_result) => {
             if let Some(planning_task) = linker_result.linked_semantic_context() {
-                // Si le linking réussit et qu'il y a un planning_task, le sérialiser
                 if let Err(e) =
                     planning_task.serialize_to_file(format, output)
                 {
@@ -143,6 +142,7 @@ pub fn parse(
         Ok(result) => {
             let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
             renderer.display();
+            
 
             // Count errors and warnings
             let dm = result.diagnostic_manager();
