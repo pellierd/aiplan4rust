@@ -30,6 +30,7 @@ use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
+use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
 use crate::aiplan4rust::syntax::Span;
@@ -331,6 +332,7 @@ impl SyntaxNode for AstNode {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        renderer::syntax::render_with_indent(self, f, syntax_tree, interner, indent)
+        syntax::tree::renderers::syntax_rendering(self, f, syntax_tree, interner)
+//        renderer::syntax::render_with_indent(self, f, syntax_tree, interner, indent)
     }
 }

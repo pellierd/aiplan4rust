@@ -7,8 +7,6 @@
 //!
 //! - [`tree`]: Core tree data structures and traversal utilities.
 //! - [`default`]: Default implementations and helpers for AST components.
-//! - [`syntax`]: Syntax-specific definitions, nodes, kinds, and rendering.
 
 pub mod tree;
 pub mod default;
-pub mod syntax;

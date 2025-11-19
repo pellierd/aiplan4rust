@@ -68,4 +68,3 @@ pub use content::Content as AstContent;
 pub use ast::Ast;
 pub use error::AstError;
 pub use node::AstNode;
-pub use renderer::syntax::render_with_indent;
