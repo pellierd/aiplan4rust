@@ -186,7 +186,7 @@ pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
 /// including a prominent header indicating which test produced it and the timestamp.
 ///
 /// # Arguments
-/// * `diagnostic_manager` - The diagnostic manager to render.
+/// * `diagnostic_manager` - The diagnostic manager to renderers.
 /// * `file_path` - The path of the file for which diagnostics are produced.
 ///
 /// # Panics

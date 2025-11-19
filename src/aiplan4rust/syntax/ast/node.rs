@@ -34,6 +34,7 @@ use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 
 /// Represents a node in the Abstract Syntax Tree (AST).
 ///
@@ -218,6 +219,20 @@ impl SyntaxNode for AstNode {
     /// - `kind`: The new kind to assign to the node.
     fn set_kind(&mut self, kind: Self::Kind) {
         self.inner.set_kind(kind);
+    }
+
+    /// Returns the rendering kind of this AST node.
+    ///
+    /// The `render_kind` provides a high-level categorization of the node
+    /// that is used by renderers to determine how to display it. This
+    /// abstracts over the specific underlying AST and maps it to a `RenderKind` variant.
+    ///
+    /// # Returns
+    /// A `RenderKind` value representing the node’s appearance in rendered
+    /// output. This is typically used by syntax tree renderers or formatters
+    /// to decide keywords, indentation, or visual representation.
+    fn render_kind(&self) -> RenderKind {
+        RenderKind::from_ast_kind(self.kind())
     }
 
     /// Returns a shared reference to the node's semantic content.

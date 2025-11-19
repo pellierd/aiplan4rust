@@ -1,6 +1,6 @@
 //! Rendering utilities for AST nodes in the `aiplan4rust` crate.
 //!
-//! This module provides helper functions to format and render AST nodes,
+//! This module provides helper functions to format and renderers AST nodes,
 //! mainly for debugging or pretty-printing purposes.
 //!
 //! # Provided Functions
@@ -13,11 +13,11 @@
 //! ```rust
 //! use std::fmt::Write;
 //! use aiplan4rust::syntax::ast::AstNode;
-//! use aiplan4rust::syntax::renderer::render;
+//! use aiplan4rust::syntax::renderer::renderers;
 //!
 //! // Assuming `node` is an AstNode instance
 //! let mut output = String::new();
-//! let _ = render(&node, &mut output);
+//! let _ = renderers(&node, &mut output);
 //! println!("{}", output);
 //! ```
 
@@ -94,7 +94,7 @@ pub fn render(
     // - list of children node ids
     write!(
         f,
-        "[kind={}, content={}, span={} parent={}, children=[{}]]",
+        "[kind={}, content={}, span={}, parent={}, children=[{}]]",
         node.kind(),
         node.content(),
         span_str,

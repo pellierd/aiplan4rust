@@ -36,8 +36,7 @@
 //! The symbol resolution method returns `Result` to handle cases where
 //! identification extraction fails or when the node kind does not correspond to a symbol.
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, Symbol};
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -46,8 +45,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::tree::renderers::{RenderKind};
 
 /// Expression node wrapping a syntax base node specialized with `ExprKind` and `ExprContent`.
 ///
@@ -100,25 +101,7 @@ impl DerefMut for ExprNode {
 /// - A list of children node IDs
 impl fmt::Display for ExprNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let children = self
-            .children()
-            .iter()
-            .map(|idx| idx.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let parent = self
-            .parent()
-            .map_or("none".to_string(), |idx| idx.to_string());
-
-        write!(
-            f,
-            "[kind={}, content={}, parent={}, children=[{}]]",
-            self.kind(),
-            self.content(),
-            parent,
-            children,
-        )
+        syntax::tree::renderers::default_rendering(self, f)
     }
 }
 
@@ -165,6 +148,20 @@ impl SyntaxNode for ExprNode {
 
     fn set_kind(&mut self, kind: Self::Kind) {
         self.inner.set_kind(kind);
+    }
+
+    /// Returns the rendering kind of this Expr node.
+    ///
+    /// The `render_kind` provides a high-level categorization of the node
+    /// that is used by renderers to determine how to display it. This
+    /// abstracts over the specific underlying `ExprNode` and maps it to a `RenderKind` variant.
+    ///
+    /// # Returns
+    /// A `RenderKind` value representing the node’s appearance in rendered
+    /// output. This is typically used by syntax tree renderers or formatters
+    /// to decide keywords, indentation, or visual representation.
+    fn render_kind(&self) -> RenderKind {
+        RenderKind::from_expr_kind(self.kind())
     }
 
     fn content(&self) -> &Self::Content {
@@ -216,56 +213,7 @@ impl SyntaxNode for ExprNode {
         arena: &SyntaxTree<Self>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        fn fmt_node(
-            node: &ExprNode,
-            f: &mut Formatter<'_>,
-            arena: &SyntaxTree<ExprNode>,
-            interner: &StringInterner,
-            prefix: &str,
-            last: bool,
-        ) -> fmt::Result {
-            let branch = if last { "└─" } else { "├─" };
-
-            let content_str = match node.content() {
-                Content::None => String::new(),
-                Content::Ident(id) => format!(" [{}]", id.to_string_with_interner(interner)),
-                other => format!(" [{}]", other),
-            };
-
-            let children = node.children();
-            let len = children.len();
-
-            // Print the current line (no newline here)
-            write!(f, "{}{}{}{}", prefix, branch, node.kind(), content_str)?;
-
-            if len > 0 {
-                // If there are children, start a new line for them
-                write!(f, "\n")?;
-            }
-
-            let new_prefix = if last {
-                format!("{}   ", prefix)
-            } else {
-                format!("{}│  ", prefix)
-            };
-
-            for (i, child_idx) in children.iter().enumerate() {
-                let child = arena
-                    .get_node(*child_idx)
-                    .expect("Child not found in arena");
-
-                fmt_node(child, f, arena, interner, &new_prefix, i == len - 1)?;
-
-                // Add a newline between children except after the last
-                if i < len - 1 {
-                    write!(f, "\n")?;
-                }
-            }
-
-            Ok(())
-        }
-
-        fmt_node(self, f, arena, interner, "", true)
+            syntax::tree::renderers::tree_rendering(self, f, arena, interner)
     }
 
     /// Formats the syntax subtree with indentation.
@@ -291,7 +239,6 @@ impl SyntaxNode for ExprNode {
     where
         Self: Sized,
     {
-        self.fmt_with_interner(f, arena, interner)?;
-        Ok(())
+        syntax::tree::renderers::syntax_rendering(self, f, arena, interner)
     }
 }

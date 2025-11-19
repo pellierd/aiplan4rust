@@ -416,6 +416,6 @@ impl SyntaxDisplay for Expr {
     fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.tree.fmt_with_interner(f, interner)
+        self.tree.fmt_syntax_with_indent(f, interner, indent)
     }
 }

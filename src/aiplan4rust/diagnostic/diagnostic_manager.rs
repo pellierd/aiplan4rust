@@ -38,7 +38,7 @@ impl DiagnosticManager {
     ///
     /// This method associates a given interned `Literal`—typically representing the filename or source
     /// label—with its corresponding source code content. This association enables diagnostic tools
-    /// to render meaningful error messages with spans, line numbers, and context.
+    /// to renderers meaningful error messages with spans, line numbers, and context.
     ///
     /// # Arguments
     ///

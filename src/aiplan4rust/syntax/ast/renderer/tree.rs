@@ -1,6 +1,6 @@
 //! Pretty-printing utilities for AST nodes with tree structure visualization.
 //!
-//! This module provides functions to recursively render an [`AstNode`] and its
+//! This module provides functions to recursively renderers an [`AstNode`] and its
 //! children as a visually indented tree, showing node kinds, content, and source
 //! span information.
 //!
@@ -14,12 +14,12 @@
 //! use crate::aiplan4rust::syntax::ast::AstNode;
 //! use crate::aiplan4rust::syntax::tree::SyntaxTree;
 //! use crate::aiplan4rust::interner::StringInterner;
-//! use crate::aiplan4rust::syntax::renderer::render;
+//! use crate::aiplan4rust::syntax::renderer::renderers;
 //!
 //! // Assume `node`, `arena`, and `interner` are available
 //! let mut output = String::new();
 //! let mut formatter = std::fmt::Formatter::new(&mut output);
-//! render(&node, &mut formatter, &arena, &interner).unwrap();
+//! renderers(&node, &mut formatter, &arena, &interner).unwrap();
 //! println!("{}", output);
 //! ```
 
@@ -38,7 +38,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 ///
 /// # Arguments
 ///
-/// * `node` - The root AST node to render.
+/// * `node` - The root AST node to renderers.
 /// * `f` - The formatter to write the output to.
 /// * `syntax_tree` - The syntax tree containing the node and its children.
 /// * `interner` - The string interner used to resolve interned identifiers.
@@ -61,7 +61,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// # use aiplan4rust::interner::StringInterner;
 /// # use std::fmt::Formatter;
 /// # fn example(node: &AstNode, syntax_tree: &SyntaxTree<AstNode>, interner: &StringInterner, f: &mut Formatter<'_>) -> std::fmt::Result {
-/// render(node, f, arena, interner)
+/// renderers(node, f, arena, interner)
 /// # }
 /// ```
 pub fn render(

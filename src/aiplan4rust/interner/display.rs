@@ -1,6 +1,6 @@
 //! Defines the `DisplayWithInterner` trait for formatting values that need an interner.
 //!
-//! This allows types to render themselves into strings while resolving interned identifiers.
+//! This allows types to renderers themselves into strings while resolving interned identifiers.
 
 use std::fmt::{self, Write};
 use crate::aiplan4rust::interner::StringInterner;

@@ -5,7 +5,7 @@
 //!
 //! # Main function
 //!
-//! [`render`] prints a `task` node in a readable representation, optionally showing
+//! [`renderers`] prints a `task` node in a readable representation, optionally showing
 //! a prefix indicating the node type_checker and indentation reflecting the hierarchy.
 //!
 //! # Arguments
@@ -43,11 +43,11 @@
 
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::syntax;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::syntax::ast::renderer;
+use crate::aiplan4rust::syntax::tree::{renderers, SyntaxNode, SyntaxTree};
 
 /// Renders a `task` AST node in an indented, syntax-like format with optional prefix.
 ///
@@ -61,10 +61,10 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 ///
 /// # Returns
 /// Formatting result (`fmt::Result`).
-pub fn render(
-    node: &AstNode,
+pub fn render<T: SyntaxNode>(
+    node: &T,
     f: &mut Formatter<'_>,
-    arena: &SyntaxTree<AstNode>,
+    arena: &SyntaxTree<T>,
     interner: &StringInterner,
     with_prefix: bool,
     indent: usize,
@@ -93,7 +93,7 @@ pub fn render(
 
             // Render each child recursively with current indentation
             if let Some(child_node) = arena.get_node(*child_id) {
-                renderer::syntax::render_with_indent(child_node, f, arena, interner, indent)?;
+                renderers::syntax::render_with_indent(child_node, f, arena, interner, indent)?;
             } else {
                 // Invalid child → print placeholder
                 write!(f, "<invalid>")?;

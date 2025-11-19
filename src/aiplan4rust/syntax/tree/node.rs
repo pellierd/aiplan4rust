@@ -39,6 +39,7 @@ use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimi
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 
 /// Trait representing a node in a syntax tree.
 ///
@@ -98,6 +99,17 @@ pub trait SyntaxNode: ArenaNode + Display {
     /// * `kind` - The new kind to assign to the syntax node.
     fn set_kind(&mut self, kind: Self::Kind);
 
+    /// Returns the rendering kind of the node.
+    ///
+    /// This method provides a `RenderKind` derived from the node's `Kind`.
+    /// It is used by the rendering engine to determine which formatting
+    /// rules to apply, for example for PDDL/HDDL output or tree visualization.
+    ///
+    /// # Returns
+    ///
+    /// A `RenderKind` corresponding to the node's concrete type for rendering.
+    fn render_kind(&self) -> RenderKind;
+
     /// Returns a reference to the syntax's semantic content.
     ///
     /// # Returns
@@ -124,7 +136,6 @@ pub trait SyntaxNode: ArenaNode + Display {
     fn has_content(&self) -> bool {
         self.content().is_none()
     }
-
 
     // Delegation methods to the syntax’s content, allowing convenient extraction
     // of specific semantic types without manually matching on content.
@@ -273,7 +284,6 @@ pub trait SyntaxNode: ArenaNode + Display {
     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         self.content_mut().remap_idents(map);
     }
-
 
     /// Formats the syntax node with access to the entire syntax tree and an interner.
     ///

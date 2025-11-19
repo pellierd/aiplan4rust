@@ -22,6 +22,7 @@ pub mod tree;
 pub mod base_node;
 pub mod error;
 pub mod subtree;
+pub mod renderers;
 
 pub use tree::SyntaxTree;
 pub use subtree::SyntaxSubtree;

@@ -1,6 +1,6 @@
 //! Diagnostics module for semantic and syntactic analysis errors and warnings.
 //!
-//! This module defines the infrastructure used to construct, manage, and render diagnostics
+//! This module defines the infrastructure used to construct, manage, and renderers diagnostics
 //! during the parsing and semantic analysis phases of the AIPlan4Rust pipeline.
 //! Diagnostics include both errors (which typically prevent further compilation) and warnings
 //! (which indicate suspicious or potentially problematic constructs).

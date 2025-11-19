@@ -145,15 +145,15 @@ mod tests {
         expr.set_root_id(root).unwrap();
 
         // --- Affichage avant simplification ---
-        println!("Expr:\n{}", expr.to_syntax_string_with_indent(&interner, 0));
+        print!("{}", expr.to_syntax_string(&interner));
 
         // Appliquer la simplification
-        println!("→ simplify()");
+        print!(" → ");
         simplify(&mut expr).unwrap();
 
         // --- Affichage après simplification ---
         let new_root = expr.root_id().unwrap();
-        println!("Expr:\n{}", expr.to_syntax_string_with_indent(&interner, 0));
+        println!("{}", expr.to_syntax_string(&interner));
 
         // Vérifier que l'arbre a été aplati : (and A B C)
         let root_node = expr.try_node(new_root).unwrap();

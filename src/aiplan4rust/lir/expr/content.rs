@@ -59,7 +59,9 @@ use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use std::fmt::Formatter;
 use crate::aiplan4rust::lir::expr::error::ExprError;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -122,8 +124,38 @@ impl InternerDisplay for Content {
         match self {
             Content::Ident(idx) => {
                 let resolved = interner.resolve_ident(*idx).unwrap_or("(unknown)");
-                write!(f, "Iden(\"{}\")", resolved)
+                write!(f, "Ident(\"{}\")", resolved)
             }
+            _ => fmt::Display::fmt(self, f),
+        }
+    }
+}
+
+impl SyntaxDisplay for Content {
+    // Formats the `Content` value using the provided formatter and string interner,
+    /// applying indentation according to `indent`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write output to.
+    /// * `interner` - The interner used to resolve interned strings.
+    /// * `indent` - The indentation level (number of indent units).
+    ///
+    /// # Returns
+    ///
+    /// A `fmt::Result` indicating whether formatting succeeded.
+    fn fmt_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        // Write the indentation prefix
+        let indent_str = Self::make_indent(indent);
+        f.write_str(&indent_str)?;
+
+        match self {
+            Content::Ident(idx) => idx.fmt_syntax_with_indent(f, interner, indent),
             _ => fmt::Display::fmt(self, f),
         }
     }
