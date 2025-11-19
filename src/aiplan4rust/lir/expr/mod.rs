@@ -57,3 +57,14 @@ pub use error::ExprError;
 
 /// Alias for expression node identifiers within the syntax tree.
 pub type ExprId = NodeId;
+
+
+// Étape	Module/fonction	Objectif / Dépendances
+//1	simplify	Fusion des AND/OR imbriqués, suppression des doublons et nœuds vides. Sert de base pour toutes les autres transformations.
+//2	nnf::to_nnf	Mise en forme normale négative. Déplacement des ¬ sur les atomiques, suppression des doubles négations. Requis avant CNF/DNF et quantificateurs.
+//3	quantifiers::move_quantifiers	Pousser/fusionner/supprimer les quantificateurs. Doit suivre NNF pour que les ¬ ne bloquent pas les déplacements.
+//4	temporal::normalize_temporal	Distribution des opérateurs temporels sur les littéraux. Peut être fait après quantificateurs pour que la structure soit stable.
+//5	cnf_dnf::to_cnf ou to_dnf	Conversion en forme normale pour moteur de planification. Requiert NNF et simplification préalable.
+//6	redundancy::eliminate_redundancy	Suppression des tautologies, contradictions et doublons. À faire après CNF/DNF pour nettoyer le résultat.
+//7	factoring::factor_expression	Extraction des parties communes pour réduire la taille des expressions. Peut suivre l’élimination de redondances.
+//8	factoring::flatten_expression	Aplatit les structures imbriquées finales pour faciliter l’évaluation ou l’export PDDL.

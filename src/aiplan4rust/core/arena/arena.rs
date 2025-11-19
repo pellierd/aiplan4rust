@@ -117,6 +117,71 @@ impl<T: ArenaNode> ArenaTree<T> {
         id
     }
 
+    /// Allocates a new node in the arena and sets it as the root.
+    ///
+    /// This method appends the given node to the arena’s internal storage
+    /// and updates the arena’s root ID to point to this node.
+    /// If a root node already exists, it is replaced by the new node.
+    ///
+    /// # Parameters
+    ///
+    /// * `node` - The node to insert into the arena. This node will become
+    ///   the root of the tree, replacing any existing root.
+    ///
+    /// # Returns
+    ///
+    /// * `NodeId` - The identifier corresponding to the newly allocated root node.
+    pub fn alloc_root(&mut self, node: T) -> NodeId {
+        let id = self.alloc(node);
+        self.root_id = Some(id); // Remplace l'ancien root s'il existe
+        id
+    }
+
+    /// Allocates a new node in the arena with the specified children.
+    ///
+    /// This method appends the given node to the arena’s internal storage,
+    /// sets its children to the provided list, and updates the parent
+    /// reference of each child to point to this node.
+    ///
+    /// # Parameters
+    ///
+    /// * `node` - The node to insert into the arena.
+    /// * `children` - A vector of `NodeId` representing the children of the new node.
+    ///
+    /// # Returns
+    ///
+    /// * `NodeId` - The identifier corresponding to the newly allocated node.
+    pub fn alloc_with_children(&mut self, mut node: T, children: Vec<NodeId>) -> NodeId {
+        let id = self.alloc(node.clone());
+        node.set_children(children.clone());
+        for &child_id in &children {
+            self.nodes[child_id.as_usize()].set_parent(Some(id));
+        }
+        self.nodes[id.as_usize()] = node;
+        id
+    }
+
+    /// Allocates a new node in the arena with the specified children and sets it as the root.
+    ///
+    /// This method appends the given node to the arena’s internal storage,
+    /// sets its children to the provided list, updates the parent reference
+    /// of each child to point to this node, and sets this node as the root.
+    /// If a root node already exists, it is replaced by the new node.
+    ///
+    /// # Parameters
+    ///
+    /// * `node` - The node to insert into the arena.
+    /// * `children` - A vector of `NodeId` representing the children of the new root node.
+    ///
+    /// # Returns
+    ///
+    /// * `NodeId` - The identifier corresponding to the newly allocated root node.
+    pub fn alloc_root_with_children(&mut self, mut node: T, children: Vec<NodeId>) -> NodeId {
+        let id = self.alloc_with_children(node, children);
+        self.root_id = Some(id);
+        id
+    }
+
     /// Returns a reference to the root node if it exists.
     ///
     /// Returns `None` if there is no root node set.

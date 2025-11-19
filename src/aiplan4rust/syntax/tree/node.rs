@@ -491,7 +491,7 @@ pub trait SyntaxNode: ArenaNode + Display {
     }
 
 
-    /// Converts the syntax node to a string using a specific syntax syntax format,
+    /// Converts the syntax node to a string using a specific syntax format,
     /// applying the given indentation level.
     ///
     /// This method wraps the syntax node in a temporary formatter struct,

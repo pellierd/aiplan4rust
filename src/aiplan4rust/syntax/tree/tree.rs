@@ -74,15 +74,56 @@ where
         self.arena.is_empty()
     }
 
-    /// Allocates a new node in the arena.
+    /// Allocates a new node in the syntax tree.
     ///
     /// # Arguments
-    /// * `node` - A syntax node to be inserted into the arena.
+    /// * `node` - The syntax node to be inserted.
     ///
     /// # Returns
     /// The unique [`NodeId`] assigned to the newly inserted node.
     pub fn alloc(&mut self, node: T) -> NodeId {
         self.arena.alloc(node)
+    }
+
+    /// Allocates a new node in the syntax tree and sets it as the root.
+    ///
+    /// If a root already exists, it is replaced.
+    ///
+    /// # Arguments
+    /// * `node` - The syntax node to be inserted as the root.
+    ///
+    /// # Returns
+    /// The unique [`NodeId`] assigned to the newly allocated root node.
+    pub fn alloc_root(&mut self, node: T) -> NodeId {
+        self.arena.alloc_root(node)
+    }
+
+    /// Allocates a new node in the syntax tree with specified children.
+    ///
+    /// Updates the parent reference of each child to point to this node.
+    ///
+    /// # Arguments
+    /// * `node` - The syntax node to be inserted.
+    /// * `children` - A vector of [`NodeId`] representing the children of the new node.
+    ///
+    /// # Returns
+    /// The unique [`NodeId`] assigned to the newly inserted node.
+    pub fn alloc_with_children(&mut self, node: T, children: Vec<NodeId>) -> NodeId {
+        self.arena.alloc_with_children(node, children)
+    }
+
+    /// Allocates a new node in the syntax tree with specified children and sets it as the root.
+    ///
+    /// If a root already exists, it is replaced.
+    ///
+    /// # Arguments
+    /// * `node` - The syntax node to be inserted as root.
+    /// * `children` - A vector of [`NodeId`] representing the children of the new root node.
+    ///
+    /// # Returns
+    /// The unique [`NodeId`] assigned to the newly allocated root node.
+    pub fn alloc_root_with_children(&mut self, node: T, children: Vec<NodeId>) -> NodeId {
+        self.arena.alloc_root_with_children(node, children)
     }
 
     /// Returns a reference to the root node if available.

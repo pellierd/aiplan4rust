@@ -1,1 +1,8 @@
-mod push_negation;
+mod nnf;
+mod cnf;
+mod dnf;
+mod quantifiers;
+mod temporal;
+mod redundancy;
+mod simplify;
+mod factoring;

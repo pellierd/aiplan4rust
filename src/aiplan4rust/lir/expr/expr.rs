@@ -34,6 +34,7 @@
 //! is unsupported, returning an [`ExprError`].
 //!
 
+use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -42,8 +43,10 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::lang::Optimization;
-use crate::aiplan4rust::syntax::tree::{SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
+use crate::aiplan4rust::lang::{Ident, Optimization};
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
 ///
@@ -145,6 +148,136 @@ impl Expr {
         );
         expr.alloc(root);
         expr
+    }
+
+    /// Returns the root node ID of the expression, if any.
+    pub fn root_id(&self) -> Option<NodeId> {
+        self.tree.root_id()
+    }
+
+    /// Sets the root node ID of the expression.
+    pub fn set_root_id(&mut self, id: NodeId) -> Result<(), SyntaxTreeError> {
+        self.tree.set_root_id(id)
+    }
+
+    /// Allocates a new node in the expression tree.
+    ///
+    /// # Arguments
+    /// * `node` - The expression node to be inserted.
+    ///
+    /// # Returns
+    /// The unique [`NodeId`] assigned to the newly inserted node.
+    pub fn alloc(&mut self, node: ExprNode) -> NodeId {
+        self.tree.alloc(node)
+    }
+
+    /// Allocates a new node in the expression tree and sets it as the root.
+    ///
+    /// If a root already exists, it is replaced.
+    ///
+    /// # Arguments
+    /// * `node` - The expression node to be inserted as the root.
+    ///
+    /// # Returns
+    /// The unique [`NodeId`] assigned to the newly allocated root node.
+    pub fn alloc_root(&mut self, node: ExprNode) -> NodeId {
+        self.tree.alloc_root(node)
+    }
+
+    /// Allocates a new node in the expression tree with specified children.
+    ///
+    /// Updates the parent reference of each child to point to this node.
+    ///
+    /// # Arguments
+    /// * `node` - The expression node to be inserted.
+    /// * `children` - A vector of [`NodeId`] representing the children of the new node.
+    ///
+    /// # Returns
+    /// The unique [`NodeId`] assigned to the newly inserted node.
+    pub fn alloc_with_children(&mut self, node: ExprNode, children: Vec<NodeId>) -> NodeId {
+        self.tree.alloc_with_children(node, children)
+    }
+
+    /// Allocates a new node in the expression tree with specified children and sets it as the root.
+    ///
+    /// If a root already exists, it is replaced.
+    ///
+    /// # Arguments
+    /// * `node` - The expression node to be inserted as root.
+    /// * `children` - A vector of [`NodeId`] representing the children of the new root node.
+    ///
+    /// # Returns
+    /// The unique [`NodeId`] assigned to the newly allocated root node.
+    pub fn alloc_root_with_children(&mut self, node: ExprNode, children: Vec<NodeId>) -> NodeId {
+        self.tree.alloc_root_with_children(node, children)
+    }
+
+
+    /// Get an immutable reference to a node by ID.
+    pub fn try_node(&self, id: NodeId) -> Result<&ExprNode, SyntaxTreeError> {
+        self.tree.try_node(id)
+    }
+
+    /// Get a mutable reference to a node by ID.
+    pub fn try_node_mut(&mut self, id: NodeId) -> Result<&mut ExprNode, SyntaxTreeError> {
+        self.tree.try_node_mut(id)
+    }
+
+    /// Returns a preorder iterator starting at the root.
+    ///
+    /// # Returns
+    /// A [`PreorderIter`] over all nodes from the root.
+    pub fn preorder(&self) -> PreorderIter<ExprNode> {
+        let root_id = self.root_id().expect("Expr has no root");
+        self.tree.preorder_from(root_id)
+    }
+
+    /// Returns a preorder iterator starting at the specified node.
+    ///
+    /// # Arguments
+    /// * `root` - The node ID to start traversal from.
+    ///
+    /// # Returns
+    /// A [`PreorderIter`] beginning at `root`.
+    pub fn preorder_from(&self, root: NodeId) -> PreorderIter<ExprNode> {
+        self.tree.preorder_from(root)
+    }
+
+    /// Returns a postorder iterator starting at the root.
+    ///
+    /// # Returns
+    /// A [`PostorderIter`] over all nodes from the root.
+    pub fn postorder(&self) -> PostorderIter<ExprNode> {
+        let root_id = self.root_id().expect("Expr has no root");
+        self.tree.postorder_from(root_id)
+    }
+
+    /// Returns a postorder iterator starting at the specified node.
+    ///
+    /// # Arguments
+    /// * `root` - The node ID to start traversal from.
+    ///
+    /// # Returns
+    /// A [`PostorderIter`] beginning at `root`.
+    pub fn postorder_from(&self, root: NodeId) -> PostorderIter<ExprNode> {
+        self.tree.postorder_from(root)
+    }
+
+    /// Remaps identifiers across the whole expression tree.
+    ///
+    /// # Arguments
+    /// * `map` - A mapping from old identifiers to new ones.
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+        self.tree.remap_idents(map);
+    }
+
+    /// Remaps identifiers starting from a specific node in the tree.
+    ///
+    /// # Arguments
+    /// * `id` - The root of the subtree to apply remapping.
+    /// * `map` - A mapping of identifiers to apply.
+    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) {
+        self.tree.remap_idents_from(id, map);
     }
 }
 

@@ -34,6 +34,7 @@
 //! use aiplan4rust::syntax::Content;
 //! use ordered_float::OrderedFloat;
 //!
+//!
 //! let mut interner = StringInterner::default();
 //! let id = interner.intern("load");
 //! let content = Content::Ident(id);

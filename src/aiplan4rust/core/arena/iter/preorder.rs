@@ -94,6 +94,11 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
     pub fn values(self) -> impl Iterator<Item = &'a T> {
         self.map(|(_, _, node)| node)
     }
+
+    /// Iterator that yields only `(NodeId, &T)`, dropping depth information.
+    pub fn ids(self) -> impl Iterator<Item = (NodeId, &'a T)> {
+        self.map(|(id, _depth, node)| (id, node))
+    }
 }
 
 impl<'a, T: ArenaNode> Iterator for PreorderIter<'a, T> {

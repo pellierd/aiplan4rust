@@ -94,6 +94,12 @@ impl<'a, T: ArenaNode> PostorderIter<'a, T> {
     pub fn values(self) -> impl Iterator<Item = &'a T> {
         self.map(|(_, _, node)| node)
     }
+
+    /// Returns an iterator yielding only `(NodeId, &T)` pairs,
+    /// discarding depth information.
+    pub fn ids(self) -> impl Iterator<Item = (NodeId, &'a T)> {
+        self.map(|(id, _depth, node)| (id, node))
+    }
 }
 
 impl<'a, T: ArenaNode> Iterator for PostorderIter<'a, T> {
