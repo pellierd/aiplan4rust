@@ -23,12 +23,14 @@ pub mod base_node;
 pub mod error;
 pub mod subtree;
 pub mod renderers;
+pub mod builder;
 
 pub use tree::SyntaxTree;
 pub use subtree::SyntaxSubtree;
 pub use node::SyntaxNode;
 pub use content::SyntaxContent;
 pub use base_node::SyntaxBaseNode;
+pub use builder::SyntaxTreeBuilder;
 
 pub type NodeId = crate::aiplan4rust::core::arena::NodeId;
 pub type NodeRef<'a, T> = crate::aiplan4rust::core::arena::NodeRef<'a, T>;
