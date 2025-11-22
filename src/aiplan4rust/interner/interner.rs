@@ -259,18 +259,16 @@ impl StringInterner {
     ///
     /// If the string is already interned, returns its existing `Ident`.
     /// Otherwise, adds the string to the pool and returns a new `Ident`.
-    pub fn intern_ident(&mut self, s: String) -> Ident {
-        if let Some(&idx) = self.ident_index_map.get(s.as_str()) {
+    pub fn intern_ident<S: AsRef<str>>(&mut self, s: S) -> Ident {
+        let s = s.as_ref();
+        if let Some(&idx) = self.ident_index_map.get(s) {
             return Ident::new(idx);
         }
-
-        let boxed: Box<str> = s.into_boxed_str();
+        let boxed: Box<str> = s.to_string().into_boxed_str();
         let static_str: &'static str = Box::leak(boxed);
-
         let idx = self.ident_string_pool.len();
         self.ident_string_pool.push(static_str.into());
         self.ident_index_map.insert(static_str, idx);
-
         Ident::new(idx)
     }
 
@@ -363,13 +361,14 @@ impl StringInterner {
     /// let lit = interner.intern_literal("42");
     /// assert_eq!(interner.get_literal(lit), Some("42"));
     /// ```
-    pub fn intern_literal<S: Into<String>>(&mut self, s: S) -> Literal {
-        let s = s.into();
-        if let Some(&idx) = self.literal_index_map.get(s.as_str()) {
+    pub fn intern_literal<S: AsRef<str>>(&mut self, s: S) -> Literal {
+        let s_ref = s.as_ref();
+
+        if let Some(&idx) = self.literal_index_map.get(s_ref) {
             return Literal::new(idx);
         }
 
-        let boxed: Box<str> = s.into_boxed_str();
+        let boxed: Box<str> = s_ref.to_string().into_boxed_str();
         let static_str: &'static str = Box::leak(boxed);
 
         let idx = self.literal_string_pool.len();

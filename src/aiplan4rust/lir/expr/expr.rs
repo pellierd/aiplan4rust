@@ -85,6 +85,41 @@ impl Expr {
         }
     }
 
+    /// Constructs a new `Expr` from an existing `SyntaxTree<ExprNode>`.
+    ///
+    /// This function is intended for internal or crate-level usage only
+    /// (`pub(crate)` visibility). It allows creating an `Expr` from a fully
+    /// built syntax tree, for example after building it via an `ExprBuilder`.
+    ///
+    /// # Arguments
+    ///
+    /// * `tree` - The `SyntaxTree<ExprNode>` representing the expression structure.
+    ///
+    /// # Returns
+    ///
+    /// A new `Expr` instance that wraps the provided syntax tree.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use aiplan4rust::lir::expr::{Expr, ExprNode};
+    /// use aiplan4rust::syntax::tree::SyntaxTree;
+    ///
+    /// let mut tree = SyntaxTree::<ExprNode>::new();
+    /// // Build the tree...
+    /// let expr = Expr::from_tree(tree);
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - This method bypasses any checks or invariants that might normally
+    ///   be enforced by public constructors like `Expr::new()`.
+    /// - It is designed to be used in conjunction with builders or internal
+    ///   APIs where the tree is already guaranteed to be valid.
+    pub(crate) fn from_tree(tree: SyntaxTree<ExprNode>) -> Self {
+        Expr { tree }
+    }
+
     /// Creates an expression with a single root node of kind `Or` and no content.
     ///
     /// This is useful to represent an empty logical OR expression.
