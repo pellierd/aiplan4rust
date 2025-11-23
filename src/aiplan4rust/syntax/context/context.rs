@@ -82,7 +82,7 @@ impl ParseContext {
     pub fn new() -> Self {
         Self {
             interner: RefCell::new(StringInterner::new()),
-            syntax_tree: RefCell::new(SyntaxTree::empty()),
+            syntax_tree: RefCell::new(SyntaxTree::new()),
             errors: RefCell::new(Vec::new()),
         }
     }

@@ -71,22 +71,11 @@ pub struct ArenaTree<T: ArenaNode> {
 }
 
 impl<T: ArenaNode> ArenaTree<T> {
-    const DEFAULT_ROOT_ID: usize = 0;
 
-    /// Creates a new, empty arena with the root ID set to 0.
+    /// Creates a new, empty arena.
     ///
     /// Note that this does not allocate any nodes initially.
     pub fn new() -> Self {
-        ArenaTree {
-            nodes: Vec::new(),
-            root_id: Some(NodeId::new(Self::DEFAULT_ROOT_ID)),
-        }
-    }
-
-    /// Creates a completely empty arena with no root node.
-    ///
-    /// Useful if you want to build the arena from scratch and assign root later.
-    pub fn empty() -> Self {
         ArenaTree {
             nodes: Vec::new(),
             root_id: None,

@@ -46,23 +46,13 @@ impl<T: SyntaxNode> SyntaxTree<T>
 where
     T::Content: SyntaxContent,
 {
-    /// Creates a new, uninitialized [`SyntaxTree`] instance.
+    /// Creates a new, empty [`SyntaxTree`] instance.
     ///
     /// # Returns
     /// A new `SyntaxTree` with an empty internal arena.
     pub fn new() -> Self {
         SyntaxTree {
             arena: ArenaTree::new(),
-        }
-    }
-
-    /// Returns an explicitly empty [`SyntaxTree`] instance.
-    ///
-    /// # Returns
-    /// A `SyntaxTree` with an arena that contains no nodes.
-    pub fn empty() -> Self {
-        SyntaxTree {
-            arena: ArenaTree::empty(),
         }
     }
 
