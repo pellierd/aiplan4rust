@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::tree::NodeId;
 
@@ -53,6 +52,9 @@ pub fn simplify(expr: &mut Expr) -> Result<(), ExprError> {
         simplify_node(node_id, expr)?;
     }
 
+    /// TO ADD
+    /// Factorise les parties communes des expressions.
+    /// Exemple: `(A ∧ B) ∨ (A ∧ C) -> A ∧ (B ∨ C)`.
     Ok(())
 }
 
@@ -89,6 +91,9 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     match kind {
         ExprKind::And | ExprKind::Or => {
             simplify_and_or_node(node_id, expr)?;
+        }
+        ExprKind::Not => {
+            simplify_not_node(node_id, expr)?;
         }
         _ => {} // Other node kinds are skipped
     }
@@ -191,7 +196,7 @@ fn simplify_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprErro
 /// - Uses `std::mem::take` to temporarily take ownership of children vectors, avoiding
 ///   borrow checker conflicts.
 /// - Useful for simplifying logical expressions in PDDL-like ASTs by reducing unnecessary nesting.
-pub fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     // Borrow the node immutably to check its kind.
     let kind = expr.try_node(node_id)?.kind();
 
@@ -262,7 +267,7 @@ pub fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
 /// // AND node with duplicate subtrees: (and (and A B) (and A B))
 /// // After deduplication with structural = true: (and (and A B))
 /// ```
-pub fn deduplicate_and_or_node(
+fn deduplicate_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
     structural: bool,
@@ -412,7 +417,7 @@ fn reduce_single_and_or_node(
 /// // Output after simplification: (or)
 /// // Semantic meaning: false
 /// ```
-pub fn simplify_empty_and_or_node(
+fn simplify_empty_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {
@@ -497,6 +502,79 @@ fn is_empty_or(node: &ExprNode) -> bool {
     node.kind() == ExprKind::Or && node.children().is_empty()
 }
 
+/// Simplifies a double negation in a PDDL expression tree.
+///
+/// This function transforms a node of type `Not` that has exactly one child,
+/// where the child is also a `Not`, into the grandchild node, effectively
+/// eliminating the double negation. The transformation is done in place
+/// without cloning the subtree, using `std::mem::take()` to move content and children.
+///
+/// # Parameters
+/// - `node_id`: The `NodeId` of the node to simplify. Must be a `Not` node.
+/// - `expr`: Mutable reference to the expression tree containing the node.
+///
+/// # Behavior
+/// - If the node is not a `Not`, the function returns `Ok(())` and does nothing.
+/// - If the node has zero or multiple children, the function returns `Ok(())`.
+/// - If the node has exactly one child, and that child is a `Not` with exactly
+///   one child, the double negation is removed and the current node is replaced
+///   by the grandchild node (type, content, and children are moved).
+/// - Otherwise, the function returns `Ok(())` without modifying the tree.
+///
+/// # Returns
+/// - `Ok(())` if the simplification completes successfully or if no simplification
+///   is applicable.
+/// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
+///
+/// # Notes
+/// - The function assumes the AST is generally well-formed (each `Not` should have
+///   exactly one child). A `debug_assert!` is used to check this invariant during
+///   debug builds.
+/// - The simplification does not clone subtrees; it moves the content and children
+///   of the grandchild node.
+/// - This function is intended to be called as part of a post-order traversal
+///   of the expression tree.
+fn simplify_not_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    let node = expr.try_node(node_id)?;
+    if node.kind() != ExprKind::Not {
+        return Ok(()); // Not a NOT node, ignore
+    }
+
+    debug_assert!(node.children().len() == 1, "Not node must have exactly one child");
+    let children = node.children();
+    if children.len() != 1 {
+        return Ok(()); // safety guard in case of malformed AST
+    }
+
+    let child_id = children[0];
+    let child = expr.try_node(child_id)?;
+    debug_assert!(child.children().len() == 1 || child.kind() != ExprKind::Not,
+                  "If child is a NOT, it must have exactly one child");
+
+    if child.kind() != ExprKind::Not || child.children().len() != 1 {
+        return Ok(()); // only simplify double negation
+    }
+
+    let grandchild_id = child.children()[0];
+
+    // Take ownership of grandchild node completely
+    let grandchild_node = {
+        let grandchild_mut = expr.try_node_mut(grandchild_id)?;
+        let kind = grandchild_mut.kind();
+        let content = std::mem::take(grandchild_mut.content_mut());
+        let children = std::mem::take(grandchild_mut.children_mut());
+        (kind, content, children)
+    };
+
+    // Mutate current NOT node in place
+    let node_mut = expr.try_node_mut(node_id)?;
+    node_mut.set_kind(grandchild_node.0);
+    *node_mut.content_mut() = grandchild_node.1; // move content
+    node_mut.set_children(grandchild_node.2);    // move children
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -504,6 +582,174 @@ mod tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::syntax::SyntaxDisplay;
+
+    #[cfg(test)]
+    mod simplify_and_or_node_simplify_tests {
+        use super::*;
+        /// Test flattening and structural deduplication on a complex nested AND node.
+        ///
+        /// Input: (and (and A B) (and B C) (and (and A B) D))
+        /// Expected after simplify: (and A B C D)
+        #[test]
+        fn test_complex_nested_and_deduplication() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+            let a = builder.predicate("A");
+            let b = builder.predicate("B");
+            let c = builder.predicate("C");
+            let d = builder.predicate("D");
+            let inner1 = builder.and(vec![a, b]);
+            let inner2 = builder.and(vec![b, c]);
+            let inner3 = builder.and(vec![inner1, d]);
+            let root = builder.and(vec![inner1, inner2, inner3]);
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+            print!("{} -> {} ", input, output);
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::And);
+            let root_children: Vec<_> = root_node.children().iter().map(|&id| expr.try_node(id).unwrap().kind()).collect();
+            assert!(root_children.iter().all(|&k| k == ExprKind::Predicate));
+            assert_eq!(root_node.children().len(), 4);
+        }
+        /// Test simplification of a root AND with nested AND children and duplicates.
+        ///
+        /// Input: (and A (and B C) (and B C))
+        /// Expected after simplify: (and A B C)
+        #[test]
+        fn test_root_and_structural_simplification() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let b = builder.predicate("B");
+            let c = builder.predicate("C");
+
+            let inner1 = builder.and(vec![b, c]);
+            let inner2 = builder.and(vec![b, c]);
+
+            let root = builder.and(vec![a, inner1, inner2]);
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::And);
+            assert_eq!(root_node.children().len(), 3); // A, B, C
+        }
+
+        /// Test simplification of a root OR with nested OR children and duplicates.
+        ///
+        /// Input: (or A (or B C) (or B C))
+        /// Expected after simplify: (or A B C)
+        #[test]
+        fn test_root_or_structural_simplification() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let b = builder.predicate("B");
+            let c = builder.predicate("C");
+
+            let inner1 = builder.or(vec![b, c]);
+            let inner2 = builder.or(vec![b, c]);
+
+            let root = builder.or(vec![a, inner1, inner2]);
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::Or);
+            assert_eq!(root_node.children().len(), 3); // A, B, C
+        }
+
+        /// Test simplification of an AND node with a single child after flattening/deduplication.
+        ///
+        /// Input: (and (and A))
+        /// Expected after simplify: A
+        #[test]
+        fn test_and_single_child_reduction() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let inner = builder.and(vec![a]);
+            let root = builder.and(vec![inner]);
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            // After simplification, root should be replaced by A
+            assert_eq!(root_node.kind(), ExprKind::Predicate);
+        }
+
+        /// Test simplification of an empty AND node.
+        ///
+        /// Input: (and)
+        /// Expected: neutral value (depends on semantics)
+        #[test]
+        fn test_empty_and_node() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let root = builder.and(vec![]);
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            // Depending on semantics, could still be AND
+            assert!(root_node.kind() == ExprKind::And);
+        }
+
+        /// Test simplification of an empty OR node.
+        ///
+        /// Input: (or)
+        /// Expected: neutral value (depends on semantics)
+        #[test]
+        fn test_empty_or_node() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let root = builder.or(vec![]);
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            // Depending on semantics, could still be OR
+            assert!(root_node.kind() == ExprKind::Or);
+        }
+    }
 
     // --- Tests for flatten_and_or_node ---
     mod flatten_and_or_node_tests {
@@ -582,14 +828,15 @@ mod tests {
             let root = builder.and(vec![a, inner_and, d]);
             builder.set_root(root).unwrap();
             let mut expr = builder.finish();
-
-            // Flatten the inner AND child specifically
+            let input = expr.to_syntax_string(&interner);
             flatten_and_or_node(inner_and, &mut expr).unwrap();
-
+            let output = expr.to_syntax_string(&interner);
+            print!("{} -> {} ", input, output);
             let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
             assert_eq!(root_node.kind(), ExprKind::And);
             assert_eq!(root_node.children().len(), 3); // root children remain A, inner_and flattened, D
         }
+
 
         /// Test that a node with no nested AND/OR is unchanged.
         ///
@@ -624,16 +871,17 @@ mod tests {
         fn test_non_and_or_node_skipped() {
             let mut interner = StringInterner::new();
             let mut builder = ExprBuilder::new(&mut interner);
-
             let a = builder.predicate("A");
             builder.set_root(a).unwrap();
             let mut expr = builder.finish();
-
+            let input = expr.to_syntax_string(&interner);
             flatten_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-
+            let output = expr.to_syntax_string(&interner);
+            print!("{} -> {} ", input, output);
             let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
             assert_eq!(root_node.kind(), ExprKind::Predicate);
         }
+
     }
 
 
@@ -851,7 +1099,7 @@ mod tests {
     }
 
     // --- Tests for reduce_single_and_or_node ---
-    mod reduce_single_and_or_node {
+    mod reduce_single_and_or_node_tests {
         use super::*;
         /// Test root AND with a single child
         ///
@@ -1005,7 +1253,7 @@ mod tests {
         }
     }
     // --- Tests for simplify_empty_and_or_node ---
-    mod simplify_empty_and_or_node {
+    mod simplify_empty_and_or_node_tests {
         use super::*;
 
         /// Test that an AND node with an empty AND child removes the empty child.

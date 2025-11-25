@@ -319,71 +319,71 @@ impl Expr {
 
     /// Computes a structural hash for a sub-expression (subtree) rooted at `node_id`.
     ///
-    /// This hash can be used to efficiently compare subtrees for equality,
-    /// deduplication, or caching purposes. The hash is **structural** and **commutative**,
-    /// meaning that for AND/OR nodes the order of children does not affect the hash.
-    /// Two subtrees with identical shapes and node kinds will produce the same hash,
-    /// even if child order differs for commutative nodes.
+    /// This hash can be used for deduplication, equality checking, or caching subtrees in PDDL-like ASTs.
+    /// The hash is **structural**, meaning it considers the node type, the node content, and all children recursively.
+    /// For commutative nodes (AND and OR), child order does not affect the hash, ensuring that (and A B) and (and B A) produce the same hash.
     ///
     /// # Parameters
-    /// - `node_id`: the ID of the node that serves as the root of the sub-expression.
-    /// - `self`: reference to the `Expr` tree containing the node and its children.
+    /// - `node_id`: The ID of the node to hash. This node serves as the root of the sub-expression.
+    /// - `self`: A reference to the expression tree containing the node and its children.
     ///
     /// # Returns
-    /// - `Ok(u64)`: a 64-bit hash representing the structure of the sub-expression.
-    /// - `Err(ExprError)`: if the `node_id` is invalid or cannot be accessed.
+    /// - `Ok(u64)`: A 64-bit hash representing the structure of the sub-expression.
+    /// - `Err(ExprError)`: If the `node_id` is invalid or cannot be accessed.
     ///
     /// # Behavior
     /// 1. Retrieves the node corresponding to `node_id`.
-    /// 2. Initializes a new `AHasher` to compute the hash.
-    /// 3. Hashes the kind of the node (e.g., `And`, `Or`, `Predicate`, etc.).
-    /// 4. Recursively computes the hash of each child:
-    ///    - For commutative nodes (`And`/`Or`), child hashes are **sorted** before combining,
-    ///      making the hash insensitive to child order.
-    ///    - For non-commutative nodes, child hashes are combined in order.
-    /// 5. Returns the final hash as a `u64` value.
+    /// 2. Hashes the kind of the node (ExprKind) to distinguish types (Predicate, And, Or, Not, etc.).
+    /// 3. Hashes the node content (ExprContent), ensuring that nodes of the same kind but different content produce different hashes.
+    /// 4. Recursively computes hashes for all children.
+    ///    - For commutative nodes (AND, OR), child hashes are sorted before combining, making the hash insensitive to child order.
+    ///    - For non-commutative nodes, child hashes are combined in the original order.
+    /// 5. Combines all child hashes into the node's hasher to produce a final hash.
     ///
     /// # Notes
-    /// - Predicate names or other data inside nodes are not included unless explicitly hashed.
-    /// - This function is useful for structural deduplication in PDDL-like ASTs.
+    /// - The function is recursive and works for any depth of the expression tree.
+    /// - It requires that `ExprContent` implements `Hash`.
+    /// - It produces a consistent hash for structurally equivalent subtrees, suitable for structural deduplication.
+    /// - Commutative nodes (AND/OR) are insensitive to the order of their children.
     ///
     /// # Example
     /// ```ignore
-    /// // Suppose `expr` contains: (and A (or B C)) or (and (or C B) A)
+    /// // Suppose expr contains: (and A (or B C)) or (and (or C B) A)
     /// let root_id = expr.root_id().unwrap();
     /// let hash = expr.sub_expr_hash(root_id)?;
     /// println!("Hash of root subtree: {}", hash);
     /// ```
     pub fn sub_expr_hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
-        use std::collections::BTreeSet; // for sorted commutative child hashes
         let node = self.try_node(node_id)?;
         let mut hasher = AHasher::default();
 
-        // Hash the kind of the node
+        // Hash the node type first
         node.kind().hash(&mut hasher);
 
-        // Compute child hashes
-        let mut child_hashes = Vec::new();
+        // Hash the node content (name, value, arguments, etc.)
+        // This ensures nodes of the same kind but different content have distinct hashes
+        node.content().hash(&mut hasher);
+
+        // Recursively hash all children
+        let mut child_hashes = Vec::with_capacity(node.children().len());
         for &child_id in node.children() {
             let h = self.sub_expr_hash(child_id)?;
             child_hashes.push(h);
         }
 
-        // For commutative nodes, sort child hashes so order doesn't matter
+        // For commutative nodes, sort child hashes so order does not matter
         match node.kind() {
             ExprKind::And | ExprKind::Or => child_hashes.sort_unstable(),
             _ => {}
         }
 
-        // Incorporate child hashes into node hash
+        // Combine all child hashes into the node hash
         for h in child_hashes {
             h.hash(&mut hasher);
         }
 
         Ok(hasher.finish())
     }
-
-
 }
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.

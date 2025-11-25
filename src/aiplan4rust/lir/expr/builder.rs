@@ -15,6 +15,7 @@ pub struct ExprBuilder<'a> {
     interner: &'a mut StringInterner,
 }
 
+#[allow(dead_code)]
 impl<'a> ExprBuilder<'a> {
     /// Create a new builder with a mutable reference to a `StringInterner`
     pub fn new(interner: &'a mut StringInterner) -> Self {
