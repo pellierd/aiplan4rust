@@ -107,22 +107,6 @@ impl<'a> ExprBuilder<'a> {
     // High-level helpers
     // -------------------------
 
-    /// Create a True node representing the boolean literal `true`.
-    ///
-    /// # Returns
-    /// NodeId of the newly created True node.
-    pub fn true_(&mut self) -> NodeId {
-        self.leaf(ExprNode::new(ExprKind::True, ExprContent::None, None))
-    }
-
-    /// Create a False node representing the boolean literal `false`.
-    ///
-    /// # Returns
-    /// NodeId of the newly created False node.
-    pub fn false_(&mut self) -> NodeId {
-        self.leaf(ExprNode::new(ExprKind::False, ExprContent::None, None))
-    }
-
     /// Create a constant node with the given name.
     ///
     /// # Arguments
@@ -310,6 +294,11 @@ impl<'a> ExprBuilder<'a> {
         self.nary(ExprKind::And, children)
     }
 
+    /// Create an empty logical AND node, representing True.
+    pub fn empty_and(&mut self) -> NodeId {
+        self.nary(ExprKind::And, vec![])
+    }
+
     /// Create a logical OR node with one or more child expressions.
     ///
     /// # Arguments
@@ -319,6 +308,11 @@ impl<'a> ExprBuilder<'a> {
     /// NodeId of the newly created `Or` node.
     pub fn or(&mut self, children: Vec<NodeId>) -> NodeId {
         self.nary(ExprKind::Or, children)
+    }
+
+    /// Create an empty logical OR node, representing False.
+    pub fn empty_or(&mut self) -> NodeId {
+        self.nary(ExprKind::Or, vec![])
     }
 
     /// Create a logical NOT node with a single child expression.

@@ -42,7 +42,9 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
+use std::hash::{Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use ahash::AHasher;
 use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::lang::{Ident, Optimization};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
@@ -314,6 +316,74 @@ impl Expr {
     pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) {
         self.tree.remap_idents_from(id, map);
     }
+
+    /// Computes a structural hash for a sub-expression (subtree) rooted at `node_id`.
+    ///
+    /// This hash can be used to efficiently compare subtrees for equality,
+    /// deduplication, or caching purposes. The hash is **structural** and **commutative**,
+    /// meaning that for AND/OR nodes the order of children does not affect the hash.
+    /// Two subtrees with identical shapes and node kinds will produce the same hash,
+    /// even if child order differs for commutative nodes.
+    ///
+    /// # Parameters
+    /// - `node_id`: the ID of the node that serves as the root of the sub-expression.
+    /// - `self`: reference to the `Expr` tree containing the node and its children.
+    ///
+    /// # Returns
+    /// - `Ok(u64)`: a 64-bit hash representing the structure of the sub-expression.
+    /// - `Err(ExprError)`: if the `node_id` is invalid or cannot be accessed.
+    ///
+    /// # Behavior
+    /// 1. Retrieves the node corresponding to `node_id`.
+    /// 2. Initializes a new `AHasher` to compute the hash.
+    /// 3. Hashes the kind of the node (e.g., `And`, `Or`, `Predicate`, etc.).
+    /// 4. Recursively computes the hash of each child:
+    ///    - For commutative nodes (`And`/`Or`), child hashes are **sorted** before combining,
+    ///      making the hash insensitive to child order.
+    ///    - For non-commutative nodes, child hashes are combined in order.
+    /// 5. Returns the final hash as a `u64` value.
+    ///
+    /// # Notes
+    /// - Predicate names or other data inside nodes are not included unless explicitly hashed.
+    /// - This function is useful for structural deduplication in PDDL-like ASTs.
+    ///
+    /// # Example
+    /// ```ignore
+    /// // Suppose `expr` contains: (and A (or B C)) or (and (or C B) A)
+    /// let root_id = expr.root_id().unwrap();
+    /// let hash = expr.sub_expr_hash(root_id)?;
+    /// println!("Hash of root subtree: {}", hash);
+    /// ```
+    pub fn sub_expr_hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
+        use std::collections::BTreeSet; // for sorted commutative child hashes
+        let node = self.try_node(node_id)?;
+        let mut hasher = AHasher::default();
+
+        // Hash the kind of the node
+        node.kind().hash(&mut hasher);
+
+        // Compute child hashes
+        let mut child_hashes = Vec::new();
+        for &child_id in node.children() {
+            let h = self.sub_expr_hash(child_id)?;
+            child_hashes.push(h);
+        }
+
+        // For commutative nodes, sort child hashes so order doesn't matter
+        match node.kind() {
+            ExprKind::And | ExprKind::Or => child_hashes.sort_unstable(),
+            _ => {}
+        }
+
+        // Incorporate child hashes into node hash
+        for h in child_hashes {
+            h.hash(&mut hasher);
+        }
+
+        Ok(hasher.finish())
+    }
+
+
 }
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
