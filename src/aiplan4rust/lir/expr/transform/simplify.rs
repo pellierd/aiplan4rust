@@ -749,6 +749,92 @@ mod tests {
             // Depending on semantics, could still be OR
             assert!(root_node.kind() == ExprKind::Or);
         }
+
+        /// Test that simplify_node correctly dispatches to simplify_not_node
+        /// and simplifies a double negation.
+        /// Input: (not (not A))
+        /// Expected: A
+        #[test]
+        fn test_simplify_node_double_negation() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let not1 = builder.not(a);
+            let root = builder.not(not1);
+
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+            let input = expr.to_syntax_string(&interner);
+
+            simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
+
+            let output = expr.to_syntax_string(&interner);
+            print!("{} -> {}", input, output);
+
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::Predicate);
+            assert_eq!(output, "A");
+        }
+
+        /// Test that simplify_node does NOT simplify (not (and)).
+        /// Input: (not (and))
+        /// Expected: unchanged
+        #[test]
+        fn test_simplify_node_not_over_empty_and() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let empty_and = builder.and(vec![]);
+            let root = builder.not(empty_and);
+
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+            let input = expr.to_syntax_string(&interner);
+
+            simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
+
+            let output = expr.to_syntax_string(&interner);
+            print!("{} -> {} ", input, output);
+
+            // Root must still be NOT
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::Not);
+
+            // Expression unchanged
+            assert_eq!(output, "(not (and))");
+        }
+
+        /// Test that simplify_node correctly simplifies a double negation
+        /// around an AND subtree.
+        /// Input: (not (not (and A B)))
+        /// Expected: (and A B)
+        #[test]
+        fn test_simplify_node_double_negation_on_and() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let b = builder.predicate("B");
+            let and_ab = builder.and(vec![a, b]);
+            let not_inner = builder.not(and_ab);
+            let root = builder.not(not_inner);
+
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+            let input = expr.to_syntax_string(&interner);
+
+            simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
+
+            let output = expr.to_syntax_string(&interner);
+            print!("{} -> {} ", input, output);
+
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::And);
+            assert_eq!(root_node.children().len(), 2);
+            assert_eq!(output, "(and A B)");
+        }
+
     }
 
     // --- Tests for flatten_and_or_node ---
@@ -1252,6 +1338,7 @@ mod tests {
             assert_eq!(root_node.kind(), ExprKind::Predicate);
         }
     }
+
     // --- Tests for simplify_empty_and_or_node ---
     mod simplify_empty_and_or_node_tests {
         use super::*;
@@ -1460,6 +1547,96 @@ mod tests {
             let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
             assert_eq!(root_node.kind(), ExprKind::And);
             assert!(root_node.children().is_empty());
+        }
+    }
+
+    // --- Tests for simplify_not_node ---
+    mod simplify_not_node_tests {
+        use super::*;
+        /// Test simplification of a simple double negation: (not (not A)) → A
+        #[test]
+        fn test_double_negation_simple_predicate() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let not1 = builder.not(a);
+            let root = builder.not(not1);
+
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            // After simplification root should be "A"
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::Predicate);
+        }
+
+        /// Test simplification of a nested double negation containing a subtree.
+        /// Input: (not (not (and A B)))
+        /// Expected: (and A B)
+        #[test]
+        fn test_double_negation_with_subtree() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let b = builder.predicate("B");
+            let and = builder.and(vec![a, b]);
+            let not1 = builder.not(and);
+            let root = builder.not(not1);
+
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            // Root must be AND with children A and B
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::And);
+            assert_eq!(root_node.children().len(), 2);
+
+            let child_kinds: Vec<_> =
+                root_node.children().iter().map(|&id| expr.try_node(id).unwrap().kind()).collect();
+
+            assert!(matches!(child_kinds.as_slice(), [ExprKind::Predicate, ExprKind::Predicate]));
+        }
+
+        /// Test that no simplification is applied when negation is not doubled.
+        /// Input: (not (and A B))
+        /// Expected unchanged.
+        #[test]
+        fn test_not_node_no_simplification() {
+            let mut interner = StringInterner::new();
+            let mut builder = ExprBuilder::new(&mut interner);
+
+            let a = builder.predicate("A");
+            let b = builder.predicate("B");
+            let and = builder.and(vec![a, b]);
+            let root = builder.not(and);
+
+            builder.set_root(root).unwrap();
+            let mut expr = builder.finish();
+
+            let input = expr.to_syntax_string(&interner);
+            simplify(&mut expr).unwrap();
+            let output = expr.to_syntax_string(&interner);
+
+            print!("{} -> {} ", input, output);
+
+            // Root must remain NOT
+            let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+            assert_eq!(root_node.kind(), ExprKind::Not);
+
         }
     }
 }
