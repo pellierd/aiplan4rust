@@ -85,6 +85,7 @@ pub fn simplify(expr: &mut Expr) -> Result<(), ExprError> {
 /// let node_id = expr.root_id().unwrap();
 /// simplify_node(node_id, &mut expr)?;
 /// ```
+#[allow(dead_code)]
 fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let kind = expr.try_node(node_id)?.kind();
 
@@ -94,6 +95,9 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
         }
         ExprKind::Not => {
             simplify_not_node(node_id, expr)?;
+        }
+        ExprKind::Forall | ExprKind::Exists => {
+            simplify_quantified_node(node_id, expr)?;
         }
         _ => {} // Other node kinds are skipped
     }
@@ -138,6 +142,7 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
 /// simplify_and_or_node(node_id, &mut expr)?;
 /// // After simplification, the expression becomes: (and A B C)
 /// ```
+#[allow(dead_code)]
 fn simplify_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     // Borrow the node immutably to check its kind.
     // We only want to simplify AND or OR nodes.
@@ -196,6 +201,7 @@ fn simplify_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprErro
 /// - Uses `std::mem::take` to temporarily take ownership of children vectors, avoiding
 ///   borrow checker conflicts.
 /// - Useful for simplifying logical expressions in PDDL-like ASTs by reducing unnecessary nesting.
+#[allow(dead_code)]
 fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     // Borrow the node immutably to check its kind.
     let kind = expr.try_node(node_id)?.kind();
@@ -267,6 +273,7 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError
 /// // AND node with duplicate subtrees: (and (and A B) (and A B))
 /// // After deduplication with structural = true: (and (and A B))
 /// ```
+#[allow(dead_code)]
 fn deduplicate_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
@@ -336,6 +343,7 @@ fn deduplicate_and_or_node(
 /// # Note
 /// - This function does not return an error for non-AND/OR nodes; it silently skips them.
 /// - Intended to be called as part of the simplification pipeline on AND/OR nodes only.
+#[allow(dead_code)]
 fn reduce_single_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
@@ -417,6 +425,7 @@ fn reduce_single_and_or_node(
 /// // Output after simplification: (or)
 /// // Semantic meaning: false
 /// ```
+#[allow(dead_code)]
 fn simplify_empty_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
@@ -485,6 +494,7 @@ fn simplify_empty_and_or_node(
 /// - `true` if the node is of kind `ExprKind::And` and has no children (i.e., `(and)` in PDDL
 ///     semantics, considered `true`).
 /// - `false` otherwise.
+#[allow(dead_code)]
 fn is_empty_and(node: &ExprNode) -> bool {
     node.kind() == ExprKind::And && node.children().is_empty()
 }
@@ -498,6 +508,7 @@ fn is_empty_and(node: &ExprNode) -> bool {
 /// - `true` if the node is of kind `ExprKind::Or` and has no children (i.e., `(or)` in PDDL
 ///     semantics, considered `false`).
 /// - `false` otherwise.
+#[allow(dead_code)]
 fn is_empty_or(node: &ExprNode) -> bool {
     node.kind() == ExprKind::Or && node.children().is_empty()
 }
@@ -534,6 +545,7 @@ fn is_empty_or(node: &ExprNode) -> bool {
 ///   of the grandchild node.
 /// - This function is intended to be called as part of a post-order traversal
 ///   of the expression tree.
+#[allow(dead_code)]
 fn simplify_not_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let node = expr.try_node(node_id)?;
     if node.kind() != ExprKind::Not {
@@ -571,6 +583,207 @@ fn simplify_not_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> 
     node_mut.set_kind(grandchild_node.0);
     *node_mut.content_mut() = grandchild_node.1; // move content
     node_mut.set_children(grandchild_node.2);    // move children
+
+    Ok(())
+}
+
+/// Simplifies a quantified node (`forall` or `exists`) in a PDDL expression tree.
+///
+/// This function applies two simplifications to the specified quantifier node:
+///
+/// 1. **Remove empty quantifier**: if the quantifier has an empty variable list,
+///    the node is replaced by its body.
+/// 2. **Fuse nested quantifiers**: if the node has a child quantifier of the same type,
+///    the variables from both quantifiers are combined, and the body of the inner
+///    quantifier replaces the body of the outer node.
+///
+/// It assumes that all children of the node have already been simplified (post-order traversal).
+///
+/// # Parameters
+/// - `node_id`: The `NodeId` of the quantifier node to simplify.
+/// - `expr`: Mutable reference to the expression tree containing the node.
+///
+/// # Returns
+/// - `Ok(())` if simplification completes successfully or no simplification is applicable.
+/// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
+///
+/// # Panics
+/// This function relies on `remove_empty_quantifier` and `fuse_nested_quantifiers`
+/// to perform `debug_assert!` checks on AST invariants:
+/// - Quantifier node must have at least two children (TypedList + body).
+/// - TypedList nodes must be of kind `TypedList`.
+/// - Nested quantifiers must also respect the two-children invariant.
+///
+/// # Example
+/// ```ignore
+/// let node_id = expr.root_id().unwrap();
+/// simplify_quantified_node(node_id, &mut expr)?;
+/// ```
+#[allow(dead_code)]
+fn simplify_quantified_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    if remove_empty_quantifier(node_id, expr)? {
+        return Ok(());
+    }
+    fuse_nested_quantifiers(node_id, expr)
+}
+
+/// Simplifies a quantifier node by removing it if its variable list is empty.
+///
+/// This function handles nodes of kind `forall` or `exists`. If the first child,
+/// which is the `TypedList` of quantified variables, is empty, the quantifier is
+/// removed and the node is replaced by its body. The function assumes that the
+/// children of the quantifier have already been simplified.
+///
+/// # Parameters
+/// - `node_id`: The `NodeId` of the quantifier node to simplify.
+/// - `expr`: A mutable reference to the expression tree containing the node.
+///
+/// # Returns
+/// - `Ok(true)` if the quantifier was removed and replaced by its body.
+/// - `Ok(false)` if the quantifier was not removed (variable list is not empty
+///   or AST is malformed).
+/// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
+///
+/// # Panics (in debug mode)
+/// The function contains `debug_assert!` checks that will panic if:
+/// - The quantifier node does not have at least two children (TypedList + body).
+/// - The first child is not a `TypedList`.
+///
+/// # Example
+/// ```ignore
+/// let node_id = expr.root_id().unwrap();
+/// remove_empty_quantifier(node_id, &mut expr)?;
+/// ```
+#[allow(dead_code)]
+fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+    let node = expr.try_node(node_id)?;
+    let children = node.children();
+
+    // AST malformed: a quantifier must always have at least two children
+    debug_assert!(
+        children.len() >= 2,
+        "Quantifier node must have at least two children: TypedList and body"
+    );
+
+    // The first child is the TypedList of quantified variables
+    let vars_node_id = children[0];
+    let vars_node = expr.try_node(vars_node_id)?;
+    debug_assert!(
+        vars_node.kind() == ExprKind::TypedList,
+        "First child of a quantifier must be a TypedList"
+    );
+
+    // Check if the TypedList is empty
+    if vars_node.children().is_empty() {
+        // The body of the quantifier is the second child
+        let body_id = children[1];
+
+        // Take ownership of the body's kind, content, and children
+        let (kind, content, body_children) = {
+            let body = expr.try_node_mut(body_id)?;
+            (
+                body.kind(),
+                std::mem::take(body.content_mut()),
+                std::mem::take(body.children_mut()),
+            )
+        };
+
+        // Replace the quantifier node with its body
+        let node_mut = expr.try_node_mut(node_id)?;
+        node_mut.set_kind(kind);
+        *node_mut.content_mut() = content;
+        node_mut.set_children(body_children);
+
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+/// Fuses nested quantifiers of the same kind (forall or exists) into a single node.
+///
+/// This function merges a quantifier node with its immediate child quantifier
+/// of the same type. The variables from both quantifiers are concatenated,
+/// and the body of the inner quantifier replaces the body of the outer node.
+/// It assumes that children have already been simplified.
+///
+/// # Parameters
+/// - `node_id`: The `NodeId` of the outer quantifier node.
+/// - `expr`: Mutable reference to the expression tree containing the node.
+///
+/// # Returns
+/// - `Ok(())` if simplification completes successfully or no fusion is applicable.
+/// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
+///
+/// # Panics (in debug mode)
+/// Will panic if the AST structure is malformed:
+/// - Outer quantifier must have at least two children: TypedList + body.
+/// - First child must be a TypedList node.
+/// - Inner quantifier must also have at least two children and a TypedList as first child.
+#[allow(dead_code)]
+fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    let node = expr.try_node(node_id)?;
+    let kind = node.kind();
+    let children = node.children();
+
+    // AST invariant: quantifier must have at least two children (TypedList + body)
+    debug_assert!(
+        children.len() >= 2,
+        "Outer quantifier node must have at least two children: TypedList and body"
+    );
+
+    let vars_node_id = children[0];
+    let body_id = children[1];
+    let vars_node = expr.try_node(vars_node_id)?;
+    let body = expr.try_node(body_id)?;
+
+    debug_assert!(
+        vars_node.kind() == ExprKind::TypedList,
+        "First child of outer quantifier must be a TypedList"
+    );
+
+    // Proceed only if the inner node is a quantifier of the same kind and has a valid structure
+    if body.kind() != kind || body.children().len() < 2 {
+        return Ok(());
+    }
+
+    let inner_vars_node_id = body.children()[0];
+    let inner_body_id = body.children()[1];
+    let inner_vars_node = expr.try_node(inner_vars_node_id)?;
+
+    debug_assert!(
+        inner_vars_node.kind() == ExprKind::TypedList,
+        "First child of inner quantifier must be a TypedList"
+    );
+
+    // Temporarily take the children of the inner TypedList
+    let inner_children_ids = {
+        let inner_vars_node_mut = expr.try_node_mut(inner_vars_node_id)?;
+        std::mem::take(inner_vars_node_mut.children_mut())
+    };
+
+    if inner_children_ids.is_empty() {
+        return Ok(());
+    }
+
+    // Mutate the outer TypedList safely
+    let vars_node_mut = expr.try_node_mut(vars_node_id)?;
+    for child_id in inner_children_ids {
+        vars_node_mut.add_child(child_id);
+    }
+
+    // Replace the body of the outer quantifier with the body of the inner quantifier
+    let grandchild_node = expr.try_node_mut(inner_body_id)?;
+    let (kind_new, content_new, children_new) = (
+        grandchild_node.kind(),
+        std::mem::take(grandchild_node.content_mut()),
+        std::mem::take(grandchild_node.children_mut()),
+    );
+
+    let node_mut = expr.try_node_mut(node_id)?;
+    node_mut.set_kind(kind_new);
+    *node_mut.content_mut() = content_new;
+    node_mut.set_children(children_new);
 
     Ok(())
 }
