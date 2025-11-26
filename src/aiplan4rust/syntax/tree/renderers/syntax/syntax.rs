@@ -575,6 +575,7 @@ pub fn render_with_indent<T: SyntaxNode>(
             // 3. Expression (indentée d’un cran)
             if let Some(&expr_id) = children.get(1) {
                 if let Some(expr_node) = arena.get_node(expr_id) {
+                    write!(f, " ")?;
                     expr_node.fmt_syntax_with_indent(
                         f,
                         arena,
