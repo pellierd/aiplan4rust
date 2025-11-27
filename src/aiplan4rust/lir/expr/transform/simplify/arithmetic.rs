@@ -22,7 +22,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
 ///
 /// * `Ok(())` if the simplification succeeds or is not applicable.
 /// * `Err(ExprError)` if an arithmetic evaluation fails (e.g., division by zero).
-pub fn simplify_arithmetic_operation(
+pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_arithmetic_operation(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {
