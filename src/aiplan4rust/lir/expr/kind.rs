@@ -52,11 +52,8 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
-#[derive(Clone, Debug, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Copy, PartialEq, Eq, Default, Hash, Serialize, Deserialize)]
 pub enum Kind {
-    #[default]
-    True,
-    False,
     Constant,
     Variable,
     FunctionSymbol,
@@ -71,6 +68,7 @@ pub enum Kind {
     Number,
     AtomicFormula,
     And,
+    #[default]
     Or,
     Not,
     Imply,
@@ -109,8 +107,6 @@ pub enum Kind {
 impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            Kind::True => "true",
-            Kind::False => "false",
             Kind::Constant => "Constant",
             Kind::Variable => "Variable",
             Kind::FunctionSymbol => "FunctionSymbol",

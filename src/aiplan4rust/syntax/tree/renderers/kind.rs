@@ -335,9 +335,6 @@ pub enum Kind {
     /// Initial task network of the HDDL problem.
     InitialTaskNetwork,
 
-    True,
-    False,
-
 }
 
 impl Kind {
@@ -436,8 +433,6 @@ impl Kind {
     /// Converts an `ExprKind` into the corresponding `Kind` (RenderKind).
     pub fn from_expr_kind(expr: ExprKind) -> Kind {
         match expr {
-            ExprKind::True => Kind::AtomicFormula,
-            ExprKind::False => Kind::AtomicFormula,
             ExprKind::Constant => Kind::Constant,
             ExprKind::Variable => Kind::Variable,
             ExprKind::FunctionSymbol => Kind::FunctionSymbol,
@@ -588,8 +583,6 @@ impl fmt::Display for Kind {
             Kind::TaskNetworkDef => "TaskNetworkDef",
             Kind::InitialTaskNetwork => "InitialTaskNetwork",
             Kind::ParametersDef => "ParametersDef",
-            Kind::True => "true",
-            Kind::False => "false",
         };
         write!(f, "{}", s)
     }
@@ -716,8 +709,6 @@ impl SyntaxDisplay for Kind {
             Kind::TaskNetworkDef => "",
             Kind::InitialTaskNetwork => HTN,
             Kind::ParametersDef => PARAMETERS,
-            Kind::True => "true",
-            Kind::False => "false",
         };
         write!(f, "{}", s)
     }
