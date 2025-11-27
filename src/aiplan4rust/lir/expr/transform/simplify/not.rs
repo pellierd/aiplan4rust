@@ -4,7 +4,9 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Simplifies a `Not` node in a PDDL expression tree.
 ///
-/// Handles double negation and empty And/Or simplifications.
+/// Currently, this only handles:
+/// - Double negation: `(not (not X))` → `X`
+/// - Trivial negation over empty AND/OR nodes: `(not (and))` → `(or)`, `(not (or))` → `(and)`
 pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_not(
     node_id: NodeId,
     expr: &mut Expr,
@@ -13,6 +15,7 @@ pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_not(
     simplify_trivial_constant(node_id, expr)?;
     Ok(())
 }
+
 
 /// Simplifies a double negation in a PDDL expression tree.
 ///
