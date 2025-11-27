@@ -418,10 +418,15 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
+        let input = expr.to_syntax_string(&interner);
         simplify_quantifier(root_id, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
-        assert_eq!(expr.to_syntax_string(&interner), "(A)");
+        assert_eq!(output, "(A)");
     }
 
     /// Test that nested exists quantifiers are fused into a single node.
@@ -445,11 +450,17 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
+        let input = expr.to_syntax_string(&interner);
         simplify_quantifier(root_id, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Exists);
-        assert_eq!(expr.to_syntax_string(&interner), "(exists (?X ?Y) (A))");
+        assert_eq!(output, "(exists (?X ?Y) (A))");
     }
+
 
     /// Test that an exists quantifier with a trivial body is replaced by its body.
     /// Input: (exists (?X) (and))
@@ -468,11 +479,17 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
+        let input = expr.to_syntax_string(&interner);
         simplify_quantifier(root_id, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(expr.to_syntax_string(&interner), "(and)");
+        assert_eq!(output, "(and)");
     }
+
 
     /// Test that no simplification is applied on a non-empty, non-nested exists quantifier.
     /// Input: (exists (?X) (A))
@@ -491,9 +508,15 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
+        let input = expr.to_syntax_string(&interner);
         simplify_quantifier(root_id, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Exists);
-        assert_eq!(expr.to_syntax_string(&interner), "(exists (?X) (A))");
+        assert_eq!(output, "(exists (?X) (A))");
     }
+
 }

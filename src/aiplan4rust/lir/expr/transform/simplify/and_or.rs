@@ -431,14 +431,17 @@ mod realistic_tests {
         let inner2 = builder.and(vec![c]);       // single C
         let empty_or = builder.or(vec![]);       // empty OR
         let root = builder.and(vec![a, inner1, empty_or, inner2]);
+
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
         let root_id = expr.root_id().unwrap();
+        let input = expr.to_syntax_string(&interner);
         simplify_and_or(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
-        assert_eq!(output, "(or)"); // updated expected result
+        print!("{} -> {} ", input, output);
+        assert_eq!(output, "(or)");
     }
 
     /// Realistic test: OR root with an empty AND child
@@ -456,16 +459,20 @@ mod realistic_tests {
         let empty_and = builder.and(vec![]);
         let empty_or2 = builder.or(vec![]);
         let root = builder.or(vec![inner_or1, empty_and, b, empty_or2]);
+
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
         let root_id = expr.root_id().unwrap();
+        let input = expr.to_syntax_string(&interner);
         simplify_and_or(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
+        print!("{} -> {} ", input, output);
         assert_eq!(output, "(and)");
     }
 }
+
 
 #[cfg(test)]
 mod flatten_and_or_node_tests {

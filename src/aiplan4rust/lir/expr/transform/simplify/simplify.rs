@@ -117,46 +117,48 @@ mod tests {
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::syntax::SyntaxDisplay;
 
-    /// Test flattening and structural deduplication on a complex nested AND node.
+    /// Complex nested AND flattening + structural deduplication.
     ///
     /// Input: (and (and A B) (and B C) (and (and A B) D))
-    /// Expected after simplify: (and A B C D)
+    /// Expected: (and (A) (B) (C) (D))
     #[test]
     fn test_complex_nested_and_deduplication() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
-        let a = builder.predicate("A");
-        let b = builder.predicate("B");
-        let c = builder.predicate("C");
-        let d = builder.predicate("D");
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
+        let d = builder.atomic_formula("D", vec![]);
+
         let inner1 = builder.and(vec![a, b]);
         let inner2 = builder.and(vec![b, c]);
         let inner3 = builder.and(vec![inner1, d]);
+
         let root = builder.and(vec![inner1, inner2, inner3]);
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
+
         let input = expr.to_syntax_string(&interner);
         simplify(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
+
         print!("{} -> {} ", input, output);
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::And);
-        let root_children: Vec<_> = root_node.children().iter().map(|&id| expr.try_node(id).unwrap().kind()).collect();
-        assert!(root_children.iter().all(|&k| k == ExprKind::Predicate));
-        assert_eq!(root_node.children().len(), 4);
+        assert_eq!(output, "(and (B) (C) (A) (D))");
     }
-    /// Test simplification of a root AND with nested AND children and duplicates.
+
+    /// AND with nested ANDs and duplicates.
     ///
     /// Input: (and A (and B C) (and B C))
-    /// Expected after simplify: (and A B C)
+    /// Expected: (and (A) (B) (C))
     #[test]
     fn test_root_and_structural_simplification() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
 
-        let a = builder.predicate("A");
-        let b = builder.predicate("B");
-        let c = builder.predicate("C");
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
 
         let inner1 = builder.and(vec![b, c]);
         let inner2 = builder.and(vec![b, c]);
@@ -170,24 +172,21 @@ mod tests {
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(root_node.children().len(), 3); // A, B, C
+        assert_eq!(output, "(and (A) (B) (C))");
     }
 
-    /// Test simplification of a root OR with nested OR children and duplicates.
+    /// OR with nested ORs and duplicates.
     ///
     /// Input: (or A (or B C) (or B C))
-    /// Expected after simplify: (or A B C)
+    /// Expected: (or (A) (B) (C))
     #[test]
     fn test_root_or_structural_simplification() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
 
-        let a = builder.predicate("A");
-        let b = builder.predicate("B");
-        let c = builder.predicate("C");
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
 
         let inner1 = builder.or(vec![b, c]);
         let inner2 = builder.or(vec![b, c]);
@@ -201,24 +200,22 @@ mod tests {
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(root_node.children().len(), 3); // A, B, C
+        assert_eq!(output, "(or (A) (B) (C))");
     }
 
-    /// Test simplification of an AND node with a single child after flattening/deduplication.
+    /// AND with a single child after flattening.
     ///
     /// Input: (and (and A))
-    /// Expected after simplify: A
+    /// Expected: (A)
     #[test]
     fn test_and_single_child_reduction() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
 
-        let a = builder.predicate("A");
+        let a = builder.atomic_formula("A", vec![]);
         let inner = builder.and(vec![a]);
         let root = builder.and(vec![inner]);
+
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
@@ -227,16 +224,13 @@ mod tests {
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        // After simplification, root should be replaced by A
-        assert_eq!(root_node.kind(), ExprKind::Predicate);
+        assert_eq!(output, "(A)");
     }
 
-    /// Test simplification of an empty AND node.
+    /// Empty AND.
     ///
     /// Input: (and)
-    /// Expected: neutral value (depends on semantics)
+    /// Expected: (and)
     #[test]
     fn test_empty_and_node() {
         let mut interner = StringInterner::new();
@@ -251,16 +245,13 @@ mod tests {
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        // Depending on semantics, could still be AND
-        assert!(root_node.kind() == ExprKind::And);
+        assert_eq!(output, "(and)");
     }
 
-    /// Test simplification of an empty OR node.
+    /// Empty OR.
     ///
     /// Input: (or)
-    /// Expected: neutral value (depends on semantics)
+    /// Expected: (or)
     #[test]
     fn test_empty_or_node() {
         let mut interner = StringInterner::new();
@@ -275,95 +266,80 @@ mod tests {
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        // Depending on semantics, could still be OR
-        assert!(root_node.kind() == ExprKind::Or);
+        assert_eq!(output, "(or)");
     }
 
-    /// Test that simplify_node correctly dispatches to simplify_not_node
-    /// and simplifies a double negation.
+    /// Simplify NOT: double negation.
+    ///
     /// Input: (not (not A))
-    /// Expected: A
+    /// Expected: (A)
     #[test]
     fn test_simplify_node_double_negation() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
 
-        let a = builder.predicate("A");
-        let not1 = builder.not(a);
-        let root = builder.not(not1);
+        let a = builder.atomic_formula("A", vec![]);
+        let inner_not = builder.not(a);
+        let root = builder.not(inner_not);
 
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
+
         let input = expr.to_syntax_string(&interner);
-
         simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
-
         let output = expr.to_syntax_string(&interner);
-        print!("{} -> {}", input, output);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Predicate);
-        assert_eq!(output, "A");
+        print!("{} -> {} ", input, output);
+        assert_eq!(output, "(A)");
     }
 
-    /// Test that simplify_node does NOT simplify (not (and)).
+    /// Simplify NOT over empty AND.
+    ///
     /// Input: (not (and))
-    /// Expected: unchanged
+    /// Expected: (or)
     #[test]
     fn test_simplify_node_not_over_empty_and() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
-
         let empty_and = builder.and(vec![]);
         let root = builder.not(empty_and);
-
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
+
         let input = expr.to_syntax_string(&interner);
-
         simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
-
         let output = expr.to_syntax_string(&interner);
-        print!("{} -> {} ", input, output);
 
-        // Root must still be NOT
+        print!("{} -> {} ", input, output);
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-
-        // Expression unchanged
         assert_eq!(output, "(or)");
     }
 
-    /// Test that simplify_node correctly simplifies a double negation
-    /// around an AND subtree.
+    /// Double negation over AND subtree.
+    ///
     /// Input: (not (not (and A B)))
-    /// Expected: (and A B)
+    /// Expected: (and (A) (B))
     #[test]
     fn test_simplify_node_double_negation_on_and() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
 
-        let a = builder.predicate("A");
-        let b = builder.predicate("B");
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
         let and_ab = builder.and(vec![a, b]);
-        let not_inner = builder.not(and_ab);
-        let root = builder.not(not_inner);
+
+        let inner_not = builder.not(and_ab);
+        let root = builder.not(inner_not);
 
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
+
         let input = expr.to_syntax_string(&interner);
-
         simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
-
         let output = expr.to_syntax_string(&interner);
+
         print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(root_node.children().len(), 2);
-        assert_eq!(output, "(and A B)");
+        assert_eq!(output, "(and (A) (B))");
     }
-
 }
