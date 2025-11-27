@@ -14,10 +14,13 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 /// 2. **Structural deduplication**: Duplicate subtrees are removed using a
 ///    structural hash (`sub_expr_hash`). For example:
 ///    `(and (and A B) (and A B))` becomes `(and (and A B))`.
-/// 3. **Single-child reduction**: If the node has only one child after deduplication,
+/// 3. **Tautology and contradiction elimination**:
+///    - For OR nodes: `(or A (not A))` → (and)
+///    - For AND nodes: `(and A (not A))` → (or)
+/// 4. **Single-child reduction**: If the node has only one child after deduplication,
 ///    it is replaced by that child. For example:
 ///    `(and A)` becomes `A`.
-/// 4. **Empty-node simplification**: If the node has no children, it is replaced
+/// 5. **Empty-node simplification**: If the node has no children, it is replaced
 ///    by a neutral value (true for `AND`, false for `OR` depending on your semantics).
 ///
 /// # Parameters
@@ -58,11 +61,16 @@ pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_and_or(no
     // For example, (and (and A B) (and A B)) -> (and (and A B))
     deduplicate_and_or_node(node_id, expr, true)?;
 
-    // Step 3: Reduce AND/OR nodes that have a single child.
+    // Step 3: Check tautologies and contradictions
+    if simplify_tautologies_and_contradictions(node_id, expr)? {
+        return Ok(());
+    }
+
+    // Step 4: Reduce AND/OR nodes that have a single child.
     // For example, (and A) -> A
     reduce_single_and_or_node(node_id, expr)?;
 
-    // Step 4: Simplify empty AND/OR nodes.
+    // Step 5: Simplify empty AND/OR nodes.
     // For example, (and) -> true or (or) -> false depending on your semantics.
     simplify_empty_and_or_node(node_id, expr)?;
 
@@ -219,6 +227,88 @@ fn deduplicate_and_or_node(
     // Return success
     Ok(())
 }
+
+/// Checks for tautologies and contradictions in an AND/OR node.
+///
+/// - For OR nodes: `(or φ (not φ))` → true (represented as an empty AND)
+/// - For AND nodes: `(and φ (not φ))` → false (represented as an empty OR)
+///
+/// # Parameters
+/// - `node_id`: NodeId of the AND/OR node to simplify
+/// - `expr`: Mutable reference to the expression tree
+///
+/// # Returns
+/// - `Ok(true)` if the node has been replaced with a neutral value (true/false)
+/// - `Ok(false)` if no simplification was performed
+/// - `Err(ExprError)` if any operation fails
+///
+/// # Steps
+/// 1. Verify that the node is an AND or OR. Skip otherwise.
+/// 2. Collect all direct children and track which ones are negated.
+/// 3. Check for intersection between the sets of positive and negated children:
+///    - For OR: if any φ and (not φ) exist, the OR is always true → replace with empty AND
+///    - For AND: if any φ and (not φ) exist, the AND is always false → replace with empty OR
+/// 4. Update the node kind and clear children if a tautology/contradiction is found.
+/// 5. Return whether the node was simplified.
+pub fn simplify_tautologies_and_contradictions(
+    node_id: NodeId,
+    expr: &mut Expr,
+) -> Result<bool, ExprError> {
+    // Borrow the node
+    let node = expr.try_node(node_id)?;
+    let kind = node.kind();
+
+    // Only AND/OR nodes are relevant
+    if kind != ExprKind::And && kind != ExprKind::Or {
+        return Ok(false);
+    }
+
+    let children = node.children();
+
+    // Track regular and negated children
+    let mut child_set = std::collections::HashSet::new();
+    let mut negated_set = std::collections::HashSet::new();
+
+    for &child_id in children {
+        let child = expr.try_node(child_id)?;
+        match child.kind() {
+            ExprKind::Not => {
+                // Add the inner child of Not node
+                let not_child_id = child.children()[0];
+                negated_set.insert(not_child_id);
+            }
+            _ => {
+                child_set.insert(child_id);
+            }
+        }
+    }
+
+    let mut node_mut = expr.try_node_mut(node_id)?;
+
+    match kind {
+        ExprKind::Or => {
+            // If there exists a child φ and its negation, the OR is a tautology → true
+            if !child_set.is_disjoint(&negated_set) {
+                node_mut.set_kind(ExprKind::And); // represents true
+                node_mut.set_children(vec![]);
+                return Ok(true);
+            }
+        }
+        ExprKind::And => {
+            // If there exists a child φ and its negation, the AND is a contradiction → false
+            if !child_set.is_disjoint(&negated_set) {
+                node_mut.set_kind(ExprKind::Or); // represents false
+                node_mut.set_children(vec![]);
+                return Ok(true);
+            }
+        }
+        _ => {}
+    }
+
+    // No simplification applied
+    Ok(false)
+}
+
 
 /// Reduces an AND/OR node that has exactly one child.
 ///
@@ -835,6 +925,113 @@ mod deduplicate_and_or_node_tests {
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
         assert_eq!(output, "(A)");
+    }
+}
+
+#[cfg(test)]
+mod simplify_tautologies_and_contradictions_tests {
+    use crate::aiplan4rust::interner::StringInterner;
+    use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
+    use crate::aiplan4rust::lir::expr::ExprKind;
+    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use super::*;
+
+    /// Input: (or A (not A))
+    /// Expected output: (and)  // tautology in OR -> true
+    #[test]
+    fn test_or_tautology() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let not_a = builder.not(a);
+        let root = builder.or(vec![a, not_a]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert!(changed);
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::And); // true
+        assert!(root_node.children().is_empty());
+        assert_eq!(output, "(and)");
+    }
+
+    /// Input: (and A (not A))
+    /// Expected output: (or)  // contradiction in AND -> false
+    #[test]
+    fn test_and_contradiction() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let not_a = builder.not(a);
+        let root = builder.and(vec![a, not_a]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert!(changed);
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or); // false
+        assert!(root_node.children().is_empty());
+        assert_eq!(output, "(or)");
+    }
+
+    /// Input: (or A B)  // no tautology
+    /// Expected output: unchanged
+    #[test]
+    fn test_or_no_tautology() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let root = builder.or(vec![a, b]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert!(!changed);
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        assert_eq!(output, "(or (A) (B))");
+    }
+
+    /// Input: (and A B)  // no contradiction
+    /// Expected output: unchanged
+    #[test]
+    fn test_and_no_contradiction() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let root = builder.and(vec![a, b]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert!(!changed);
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::And);
+        assert_eq!(output, "(and (A) (B))");
     }
 }
 
