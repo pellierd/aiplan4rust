@@ -3,8 +3,9 @@ use std::fmt::Formatter;
 use std::ptr::write;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::expr::ExprContent::ArithmeticOp;
+use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
@@ -1178,9 +1179,35 @@ pub fn render_with_indent<T: SyntaxNode>(
         RenderKind::Error => {
             write!(f, "{}<error>", indent_str)
         }
+        RenderKind::Operation => {
+            let children = node.children();
+
+            // Write opening parenthesis with current indentation
+            write!(f, "{}(", indent_str)?;
+
+            if let Some(op) = node.content().as_arithmetic_op() {
+                write!(f, "{}", op)?;
+            } else {
+                write!(f, "<non-arithmetic>")?;
+            }
+
+            // Render each child
+            for &child_id in children {
+                if let Some(child_node) = arena.get_node(child_id) {
+                    write!(f, " ")?; // separator
+                    child_node.fmt_syntax(f, arena, interner)?;
+                } else {
+                    write!(f, " <invalid-child>")?;
+                }
+            }
+
+            // Close parenthesis
+            write!(f, ")")
+        }
+
 
         _ => {
-            write!(f, "(DEFAULT{}", node.render_kind())?;
+            write!(f, "(DEFAULT {}", node.render_kind())?;
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {
@@ -1193,7 +1220,6 @@ pub fn render_with_indent<T: SyntaxNode>(
             Kind::DADefBody => {}
             Kind::DerivedDef => {}
             Kind::Preference => {}
-            Kind::Operation => {}
             Kind::Constraints => {}
             Kind::Always => {}
             Kind::Sometime => {}

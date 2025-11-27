@@ -1,5 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::lir::expr::transform::simplify::and_or::simplify_and_or;
+use crate::aiplan4rust::lir::expr::transform::simplify::arithmetic::simplify_arithmetic_operation;
 use crate::aiplan4rust::lir::expr::transform::simplify::imply::simplify_imply;
 use crate::aiplan4rust::lir::expr::transform::simplify::not::simplify_not;
 use crate::aiplan4rust::lir::expr::transform::simplify::quantifier::simplify_quantifier;
@@ -105,6 +106,9 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
         }
         ExprKind::Imply => {
             simplify_imply(node_id, expr)?;
+        }
+        ExprKind::Operation => {
+            simplify_arithmetic_operation(node_id, expr)?;
         }
         _ => {} // Other node kinds are skipped
     }
@@ -400,5 +404,120 @@ mod tests {
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
         assert_eq!(output, "(or (not (or (not (A)) (B))) (C))");
+    }
+
+    /// Nested addition and multiplication:
+    ///
+    /// Input: (+ 1 (* 2 3) 4)
+    /// Expected: 11
+    #[test]
+    fn test_add_mul_nested() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let one = builder.number(1.0);
+        let two = builder.number(2.0);
+        let three = builder.number(3.0);
+        let four = builder.number(4.0);
+
+        let mul = builder.mul(vec![two, three]);
+        let root = builder.add(vec![one, mul, four]);
+
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        simplify(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert_eq!(output, "11");
+    }
+
+    /// Nested division and subtraction:
+    ///
+    /// Input: (- (/ 20 2) 3)
+    /// Expected: 7
+    #[test]
+    fn test_div_sub_nested() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let twenty = builder.number(20.0);
+        let two = builder.number(2.0);
+        let three = builder.number(3.0);
+
+        let div = builder.div(vec![twenty, two]);
+        let root = builder.sub(vec![div, three]);
+
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        simplify(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert_eq!(output, "7");
+    }
+
+    /// Deeply nested operations: (+ (* 2 3) (- 10 4) (/ 20 5))
+    ///
+    /// Input: (+ (* 2 3) (- 10 4) (/ 20 5))
+    /// Expected: 6 + 6 + 4 = 16
+    #[test]
+    fn test_deeply_nested_operations() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let two = builder.number(2.0);
+        let three = builder.number(3.0);
+        let ten = builder.number(10.0);
+        let four = builder.number(4.0);
+        let twenty = builder.number(20.0);
+        let five = builder.number(5.0);
+
+        let mul = builder.mul(vec![two, three]); // 6
+        let sub = builder.sub(vec![ten, four]);   // 6
+        let div = builder.div(vec![twenty, five]); // 4
+
+        let root = builder.add(vec![mul, sub, div]); // 16
+
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        simplify(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert_eq!(output, "16");
+    }
+
+    /// Nested operation with non-constant child should remain unchanged:
+    ///
+    /// Input: (+ 2 (* A 3))
+    /// Expected: (+ 2 (* A 3))  (cannot simplify because A is variable)
+    #[test]
+    fn test_nested_with_variable_child() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let two = builder.number(2.0);
+        let three = builder.number(3.0);
+        let a = builder.atomic_formula("A", vec![]);
+
+        let mul = builder.mul(vec![a, three]);
+        let root = builder.add(vec![two, mul]);
+
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        simplify(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+        assert_eq!(output, "(+ 2 (* (A) 3))");
     }
 }

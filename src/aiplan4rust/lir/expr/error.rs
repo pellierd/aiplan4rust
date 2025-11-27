@@ -1,4 +1,6 @@
+use ordered_float::OrderedFloat;
 use thiserror::Error;
+use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
@@ -50,6 +52,11 @@ pub enum ExprError {
         kind: AstKind,
     },
 
+    #[error("Arithmetic  Evaluation error in operation {op:?} with operands {values:?}")]
+    ArithmeticEvaluationError {
+        op: ArithmeticOp,
+        values: Vec<OrderedFloat<f64>>,
+    }
 }
 
 impl ExprError {
@@ -79,4 +86,20 @@ impl ExprError {
         ExprError::UnsupportedKind { kind }
     }
 
+    /// Creates an `ArithmeticEvaluationError` variant for a failed arithmetic operation.
+    ///
+    /// # Arguments
+    ///
+    /// * `op` – the arithmetic operation that caused the error.
+    /// * `values` – the operands involved in the operation.
+    ///
+    /// # Returns
+    ///
+    /// A new `ExprError` representing the arithmetic evaluation failure.
+    pub fn arithmetic_evaluation_error(
+        op: ArithmeticOp,
+        values: Vec<OrderedFloat<f64>>,
+    ) -> Self {
+        ExprError::ArithmeticEvaluationError { op, values }
+    }
 }
