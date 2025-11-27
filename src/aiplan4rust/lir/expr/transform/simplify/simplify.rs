@@ -1,5 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::lir::expr::transform::simplify::and_or::simplify_and_or;
+use crate::aiplan4rust::lir::expr::transform::simplify::imply::simplify_imply;
 use crate::aiplan4rust::lir::expr::transform::simplify::not::simplify_not;
 use crate::aiplan4rust::lir::expr::transform::simplify::quantifier::simplify_quantifier;
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -101,6 +102,9 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
         }
         ExprKind::Forall | ExprKind::Exists => {
             simplify_quantifier(node_id, expr)?;
+        }
+        ExprKind::Imply => {
+            simplify_imply(node_id, expr)?;
         }
         _ => {} // Other node kinds are skipped
     }
@@ -341,5 +345,60 @@ mod tests {
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(and (A) (B))");
+    }
+
+
+    /// Input: (A -> (B -> C))
+    /// Expected output: (or (not (A)) (or (not (B)) (C)))
+    #[test]
+    fn test_nested_imply_left_to_right() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
+        let inner_imply = builder.imply(b, c);
+        let outer_imply = builder.imply(a, inner_imply);
+
+        builder.set_root(outer_imply).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        simplify(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        assert_eq!(output, "(or (not (A)) (not (B)) (C))");
+    }
+
+    /// Input: ((A -> B) -> C)
+    /// Expected output: (or (not (or (not (A)) (B))) (C))
+    #[test]
+    fn test_nested_imply_right_to_left() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
+        let inner_imply = builder.imply(a, b);
+        let outer_imply = builder.imply(inner_imply, c);
+
+        builder.set_root(outer_imply).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        simplify(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        assert_eq!(output, "(or (not (or (not (A)) (B))) (C))");
     }
 }
