@@ -56,6 +56,9 @@ pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_and_or(no
     // For example, (and A (and B C)) -> (and A B C)
     flatten_and_or_node(node_id, expr)?;
 
+    // Step 1.5: Sort children for canonical order
+    sort_and_or_node_children(node_id, expr)?;
+
     // Step 2: Deduplicate children structurally.
     // Removes duplicate subtrees based on `sub_expr_hash`.
     // For example, (and (and A B) (and A B)) -> (and (and A B))
@@ -139,6 +142,26 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError
 
     // After flattening all children, assign the new flattened vector back to the node.
     expr.try_node_mut(node_id)?.set_children(flat);
+
+    Ok(())
+}
+
+/// Trie les enfants d'un AND/OR node par ordre canonique.
+/// Cela aide la comparaison structurale et la déduplication.
+fn sort_and_or_node_children(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    // Vérifie que le noeud est AND ou OR
+    let kind = expr.try_node(node_id)?.kind();
+    if kind != ExprKind::And && kind != ExprKind::Or {
+        return Ok(());
+    }
+
+    // Récupère mutablement les enfants
+    let node = expr.try_node_mut(node_id)?;
+    let children = node.children_mut();
+
+    // Trie les NodeId par ordre croissant (ou une autre clé canonique)
+    // Ici on suppose que NodeId implémente Ord
+    children.sort();
 
     Ok(())
 }
@@ -308,7 +331,6 @@ pub fn simplify_tautologies_and_contradictions(
     // No simplification applied
     Ok(false)
 }
-
 
 /// Reduces an AND/OR node that has exactly one child.
 ///

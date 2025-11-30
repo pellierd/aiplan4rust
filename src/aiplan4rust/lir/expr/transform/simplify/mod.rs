@@ -4,3 +4,4 @@ mod quantifier;
 mod not;
 mod imply;
 mod arithmetic;
+mod comparison;

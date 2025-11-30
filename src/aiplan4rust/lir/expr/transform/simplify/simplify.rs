@@ -152,7 +152,7 @@ mod tests {
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
-        assert_eq!(output, "(and (B) (C) (A) (D))");
+        assert_eq!(output, "(and (A) (B) (C) (D))");
     }
 
     /// AND with nested ANDs and duplicates.
@@ -376,7 +376,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (A)) (not (B)) (C))");
+        assert_eq!(output, "(or (C) (not (B)) (not (A)))");
     }
 
     /// Input: ((A -> B) -> C)
@@ -403,7 +403,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (or (not (A)) (B))) (C))");
+        assert_eq!(output, "(or (C) (not (or (B) (not (A)))))");
     }
 
     /// Nested addition and multiplication:

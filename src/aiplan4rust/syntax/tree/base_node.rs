@@ -82,13 +82,17 @@ use crate::aiplan4rust::syntax::tree::SyntaxContent;
 /// let node = SyntaxBaseNode::new(kind, content, children, parent);
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct SyntaxBaseNode<K: Copy + Debug + Display, C: SyntaxContent> {
+pub struct SyntaxBaseNode<K, C>
+where
+    K: Copy + Debug + Display + PartialEq,
+    C: SyntaxContent + PartialEq,
+{
     base_node: BaseNode,
     kind: K,
     content: C,
 }
 
-impl<K: Copy + Debug + Display, C: SyntaxContent> SyntaxBaseNode<K, C> {
+impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> SyntaxBaseNode<K, C> {
     /// Creates a new `SyntaxBaseNode` with the specified kind, content, children, and optional parent.
     ///
     /// # Arguments
@@ -148,7 +152,7 @@ impl<K: Copy + Debug + Display, C: SyntaxContent> SyntaxBaseNode<K, C> {
     }
 }
 
-impl<K: Copy + Debug + Display, C: SyntaxContent> Deref for SyntaxBaseNode<K, C> {
+impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> Deref for SyntaxBaseNode<K, C> {
     type Target = BaseNode;
 
     /// Dereferences to the inner `BaseNode`.
@@ -160,7 +164,7 @@ impl<K: Copy + Debug + Display, C: SyntaxContent> Deref for SyntaxBaseNode<K, C>
     }
 }
 
-impl<K: Copy + Debug + Display, C: SyntaxContent> DerefMut for SyntaxBaseNode<K, C> {
+impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> DerefMut for SyntaxBaseNode<K, C> {
     /// Dereferences mutably to the inner `BaseNode`.
     ///
     /// # Returns
@@ -170,7 +174,7 @@ impl<K: Copy + Debug + Display, C: SyntaxContent> DerefMut for SyntaxBaseNode<K,
     }
 }
 
-impl<K: Copy + Debug + Display, C: SyntaxContent> ArenaNode for SyntaxBaseNode<K, C> {
+impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> ArenaNode for SyntaxBaseNode<K, C> {
     /// Returns the optional parent node ID.
     ///
     /// # Returns

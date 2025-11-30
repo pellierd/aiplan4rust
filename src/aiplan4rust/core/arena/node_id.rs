@@ -65,7 +65,7 @@ use serde::de::Error;
 /// # Traits
 ///
 /// Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`, `Serialize`, and `Deserialize`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd)]
 pub struct NodeId {
     /// The underlying integer value representing the node identifier.
     ///

@@ -80,7 +80,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (A)) (B))");
+        assert_eq!(output, "(or (B) (not (A)))");
     }
 
     /// Input: ((not (not A)) -> B)
@@ -106,7 +106,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (A)) (B))"); // after simplification, double negation removed
+        assert_eq!(output, "(or (B) (not (A)))"); // after simplification, double negation removed
     }
 
     /// Input: (A -> (and B C))
@@ -133,7 +133,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (A)) (and (B) (C)))");
+        assert_eq!(output, "(or (and (B) (C)) (not (A)))");
     }
 
     /// Input: ((or A B) -> C)
@@ -160,7 +160,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (or (A) (B))) (C))");
+        assert_eq!(output, "(or (C) (not (or (A) (B))))");
     }
 
     /// Input: (A -> (and))
@@ -290,7 +290,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (forall (?X) (A))) (B))");
+        assert_eq!(output, "(or (B) (not (forall (?X) (A))))");
     }
 
     /// Input: (A -> (exists ?Y B))
@@ -318,7 +318,7 @@ mod tests {
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (A)) (exists (?Y) (B)))");
+        assert_eq!(output, "(or (exists (?Y) (B)) (not (A)))");
     }
 
     /// Input: ((forall ?X A) -> (exists ?Y B))
@@ -353,7 +353,7 @@ mod tests {
         assert_eq!(root_node.kind(), ExprKind::Or);
         assert_eq!(
             output,
-            "(or (not (forall (?X) (A))) (exists (?Y) (B)))"
+            "(or (exists (?Y) (B)) (not (forall (?X) (A))))"
         );
     }
 }
