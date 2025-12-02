@@ -1,5 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
-use crate::aiplan4rust::lir::expr::normalizer::{and_or, arithmetic, imply, not, quantifier};
+use crate::aiplan4rust::lir::expr::normalizer::{and_or, arithmetic, assign, comparison, not, quantifier};
+use crate::aiplan4rust::lir::expr::transform::eliminate_imply::eliminate_imply;
+use crate::aiplan4rust::lir::expr::transform::push_negation::push_negation;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Simplifies a PDDL-like expression tree in a post-order traversal.
@@ -34,9 +36,7 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 pub fn normalize(expr: &mut Expr) -> Result<(), ExprError> {
     let Some(root_id) = expr.root_id() else { return Ok(()); };
 
-    // Preprocess
-    imply::remove_imply(root_id, expr)?;
-    not::push_negations(root_id, expr)?;
+    pre_process(expr)?;
 
     // Stack pour DFS post-order: (node_id, visited)
     let mut stack = vec![(root_id, false)];
@@ -61,6 +61,12 @@ pub fn normalize(expr: &mut Expr) -> Result<(), ExprError> {
     /// Factorise les parties commpostunes des expressions.
     /// Exemple: `(A ∧ B) ∨ (A ∧ C) -> A ∧ (B ∨ C)`.
     Ok(())
+}
+
+fn pre_process(expr: &mut Expr) -> Result<(), ExprError> {
+    let Some(root_id) = expr.root_id() else { return Ok(()); };
+    eliminate_imply(root_id, expr)?;
+    push_negation(root_id, expr)
 }
 
 /// Simplifies a node in a PDDL expression tree based on its kind.
@@ -110,6 +116,12 @@ pub(crate) fn normalize_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Exp
                 node_id,
                 kind: ExprKind::Imply,
             });
+        }
+        ExprKind::Assign => {
+            assign::normalize(node_id, expr)?;
+        }
+        ExprKind::FComp => {
+            comparison::normalize(node_id, expr)?;
         }
         ExprKind::Operation => {
             arithmetic::normalize(node_id, expr)?;

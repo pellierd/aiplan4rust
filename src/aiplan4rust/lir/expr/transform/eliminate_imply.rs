@@ -1,21 +1,47 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::tree::NodeId;
 
-/// Simplify an IMPLY node: `A -> B` becomes `(or (not A) B)`
+/// Removes all `Imply` nodes in the subtree rooted at `node_id` by transforming
+/// each `A -> B` into `(or (not A) B)`.
 ///
-/// Steps:
-/// 1. Assumes premise (A) and consequence (B) have been simplified (post-order).
-/// 2. Creates a Not node for the premise.
-/// 3. Immediately simplifies the Not node (handle double negation, empty And/Or, etc.).
-/// 4. Converts the current Imply node into an Or(Not(premise), consequence).
-/// 5. Simplifies the resulting Or node (flattening, deduplication, single-child reduction).
-pub(crate) fn remove_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    // Stack pour DFS post-order : (node_id, visited)
+/// # Behavior
+/// - Traverses the subtree in **post-order** (DFS) to ensure children are processed before their parent.
+/// - Each `Imply` node encountered is replaced by an `Or` node:
+///   - The premise `A` becomes a `Not(A)` node.
+///   - The consequence `B` is kept as-is.
+///   - The current `Imply` node is converted into `Or(Not(A), B)`.
+/// - Non-`Imply` nodes are left unchanged.
+///
+/// # Parameters
+/// - `node_id`: The root `NodeId` of the subtree to process.
+/// - `expr`: Mutable reference to the expression tree containing the node.
+///
+/// # Returns
+/// - `Ok(())` if all `Imply` nodes were successfully removed.
+/// - `Err(ExprError)` if accessing or mutating nodes fails.
+///
+/// # Panics (in debug mode)
+/// - Panics if any `Imply` node does not have exactly two children.
+///   This is enforced with `debug_assert!`.
+///
+/// # Notes
+/// - This function removes **all** `Imply` nodes in the given subtree, not just a single node.
+/// - Further simplifications (like flattening `Or` or handling double negations) should
+///   be applied separately if desired.
+///
+/// # Example
+/// ```ignore
+/// // Suppose `expr` contains multiple Imply nodes in a subtree rooted at node_id
+/// remove_imply(node_id, &mut expr)?;
+/// // All Imply nodes in that subtree are now replaced by Or(Not(premise), consequence)
+/// ```
+pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    // Stack for DFS post-order: (node_id, visited_flag)
     let mut stack = vec![(node_id, false)];
 
     while let Some((curr_id, visited)) = stack.pop() {
         if visited {
-            // Post-order : traiter le noeud après ses enfants
+            // Post-order: process the node after its children
             let node = expr.try_node(curr_id)?;
             if node.kind() != ExprKind::Imply {
                 continue;
@@ -34,16 +60,16 @@ pub(crate) fn remove_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
             let premise = children[0];
             let consequence = children[1];
 
-            // Créer Not(premise)
+            // Create Not(premise)
             let not_node = ExprNode::new(ExprKind::Not, ExprContent::None, None);
             let not_premise_id = expr.alloc_with_children(not_node, vec![premise]);
 
-            // Transformer le noeud courant en Or(Not(premise), consequence)
+            // Convert current node into Or(Not(premise), consequence)
             let node_mut = expr.try_node_mut(curr_id)?;
             node_mut.set_kind(ExprKind::Or);
             node_mut.set_children(vec![not_premise_id, consequence]);
         } else {
-            // Marquer comme visité et empiler les enfants
+            // Mark as visited and push children
             stack.push((curr_id, true));
             let node = expr.try_node(curr_id)?;
             for &child_id in node.children() {
@@ -54,6 +80,7 @@ pub(crate) fn remove_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
 
     Ok(())
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -77,7 +104,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        remove_imply(expr.root_id().unwrap(), &mut expr).unwrap();
+        eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -104,7 +131,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        remove_imply(expr.root_id().unwrap(), &mut expr).unwrap();
+        eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -129,7 +156,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        remove_imply(expr.root_id().unwrap(), &mut expr).unwrap();
+        eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -162,7 +189,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        remove_imply(expr.root_id().unwrap(), &mut expr).unwrap();
+        eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

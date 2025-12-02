@@ -46,7 +46,7 @@ pub(super) fn normalize(
     }
 
     // Step 1: Flatten nested operations of the same type
-    standardize(node_id, expr)?;
+    flatten_arithmetic_expression(node_id, expr)?;
 
     // Step 2: Evaluate constants
     reduce(node_id, expr)?;
@@ -80,7 +80,7 @@ pub(super) fn normalize(
 /// - Only arithmetic operation nodes (`ExprKind::Operation`) are affected.
 /// - Non-arithmetic nodes are skipped silently.
 /// - This function does not evaluate constants; it only normalizes the tree structure.
-fn standardize(
+fn flatten_arithmetic_expression(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {
@@ -114,7 +114,7 @@ fn standardize(
         new_children.push(child_id);
     }
 
-    let mut node_mut = expr.try_node_mut(node_id)?;
+    let node_mut = expr.try_node_mut(node_id)?;
     node_mut.set_children(new_children);
 
     Ok(())
@@ -177,7 +177,7 @@ fn reduce(
     let result = evaluate_arithmetic_expression(op, &values)?;
 
     // Replace the node with a constant Number node
-    let mut node_mut = expr.try_node_mut(node_id)?;
+    let node_mut = expr.try_node_mut(node_id)?;
     node_mut.set_kind(ExprKind::Number);
     node_mut.set_content(Content::Float(result));
     node_mut.set_children(vec![]);

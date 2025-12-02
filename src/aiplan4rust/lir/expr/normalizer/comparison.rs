@@ -109,7 +109,7 @@ pub fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, Ex
     let right = children[1];
 
     // Apply modification
-    let mut node_mut = expr.try_node_mut(node_id)?;
+    let node_mut = expr.try_node_mut(node_id)?;
     node_mut.set_content(Content::BinaryComp(new_op.unwrap()));
     node_mut.set_children(vec![right, left]); // swap operands
 
@@ -148,14 +148,13 @@ pub fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool,
 
     // Canonical order based on NodeId (or any other stable metric)
     if b < a {
-        let mut node_mut = expr.try_node_mut(node_id)?;
+        let node_mut = expr.try_node_mut(node_id)?;
         node_mut.set_children(vec![b, a]);
         return Ok(true);
     }
 
     Ok(false)
 }
-
 
 /// Simplifies a `Comparison` node if both operands are constant numeric values.
 ///
@@ -224,7 +223,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
     };
 
     // Replace the node with an always true (and) or always false (or) node
-    let mut node_mut = expr.try_node_mut(node_id)?;
+    let node_mut = expr.try_node_mut(node_id)?;
     node_mut.set_kind(if result { ExprKind::And } else { ExprKind::Or });
     node_mut.set_content(Content::None);
     node_mut.set_children(vec![]);

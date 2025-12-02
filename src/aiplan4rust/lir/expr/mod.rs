@@ -49,6 +49,7 @@ pub mod normalizer;
 pub mod expr;
 pub mod error;
 mod builder;
+mod transform;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode;

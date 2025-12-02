@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::display::SyntaxDisplay;
@@ -47,17 +48,10 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 /// simplify_and_or(node_id, &mut expr)?;
 /// // After simplification, the expression becomes: (and A B C)
 /// ```
-pub fn normalize(
+pub(super) fn normalize(
     node_id: NodeId,
     expr: &mut Expr
 ) -> Result<(), ExprError> {
-    // Borrow the node immutably to check its kind.
-    let kind = expr.try_node(node_id)?.kind();
-
-    // Skip if not AND or OR
-    if kind != ExprKind::And && kind != ExprKind::Or {
-        return Ok(());
-    }
 
     // Step 1: Flatten nested AND/OR nodes of the same kind
     flatten_and_or_node(node_id, expr)?;
@@ -74,14 +68,15 @@ pub fn normalize(
     }
 
     // Step 5: Reduce nodes with a single child
-    reduce_single_and_or_node(node_id, expr)?;
+    if reduce_single_and_or_node(node_id, expr)? {
+        return Ok(());
+    }
 
     // Step 6: Simplify empty nodes
     simplify_empty_and_or_node(node_id, expr)?;
 
     Ok(())
 }
-
 
 /// Flattens nested AND/OR nodes of the same kind into a single node.
 ///
@@ -100,10 +95,11 @@ pub fn normalize(
 ///   are "lifted" so that their children become direct children of `node_id`.
 /// - Children of a different kind are preserved as-is.
 /// - The original order of children is maintained.
-/// - If `node_id` is not an AND or OR node, the function does nothing and returns `Ok(())`.
+/// - If `node_id` is not an AND or OR node, the function does nothing and returns `Ok(false)`.
 ///
 /// # Returns
-/// - `Ok(())` if the operation succeeds.
+/// - `Ok(true)` if the node's structure was modified (children added, removed, or flattened).
+/// - `Ok(false)` if the node was not an AND/OR or no structural change occurred.
 /// - `Err(ExprError)` if accessing any node fails.
 ///
 /// # Notes
@@ -111,21 +107,21 @@ pub fn normalize(
 ///   borrow checker conflicts.
 /// - Useful for simplifying logical expressions in PDDL-like ASTs by reducing unnecessary nesting.
 #[allow(dead_code)]
-fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     // Borrow the node immutably to check its kind.
     let kind = expr.try_node(node_id)?.kind();
 
     // Only AND or OR nodes are flattened; skip other node types.
-    if kind != ExprKind::And && kind != ExprKind::Or {
-        return Ok(());
-    }
+    debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
     // Take ownership of the current children vector to avoid borrow conflicts.
-    // `children_mut()` gives a mutable reference; `std::mem::take` replaces it with an empty vec.
-    let children = std::mem::take(expr.try_node_mut(node_id)?.children_mut());
+    let node = expr.try_node_mut(node_id)?;
+    let children_len = node.children().len(); // length before flattening
+    let children = std::mem::take(node.children_mut());
 
     // Prepare a new vector to hold the flattened children.
     let mut flat = Vec::new();
+    let mut modified = false;
 
     // Iterate over each child of the node.
     for child_id in children {
@@ -136,16 +132,22 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError
         // take ownership of the child's children and append them to `flat`.
         if child_kind == kind {
             flat.extend(std::mem::take(expr.try_node_mut(child_id)?.children_mut()));
+            modified = true;
         } else {
             // Otherwise, keep the child as-is.
             flat.push(child_id);
         }
     }
 
-    // After flattening all children, assign the new flattened vector back to the node.
+    // If the total number of children changed, mark as modified.
+    if flat.len() != children_len {
+        modified = true;
+    }
+
+    // Assign the new flattened vector back to the node.
     expr.try_node_mut(node_id)?.set_children(flat);
 
-    Ok(())
+    Ok(modified)
 }
 
 /// Canonicalizes the children of an AND/OR node.
@@ -189,7 +191,6 @@ fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Expr
     Ok(())
 }
 
-
 /// Removes duplicate children from an AND or OR node in an expression tree.
 ///
 /// # Parameters
@@ -198,19 +199,19 @@ fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Expr
 ///
 /// # Behavior
 /// - Iterates over the children of the node and keeps only the first occurrence of each child.
-/// - Duplicates are detected based on `NodeId`.
+/// - Duplicates are detected based on **structural equality** via `deep_sub_expr_eq`.
 /// - Only AND and OR nodes are processed; other node types are skipped silently.
 /// - The original order of children is preserved.
 ///
-/// # Notes
-/// - If you want to ignore the order of children, they must be sorted in canonical ascending order
-///   before calling this function.
-/// - Uses a `HashSet` to efficiently track seen children, avoiding a quadratic check.
-/// - Mutably borrows the node only once to write back the deduplicated children, avoiding borrow conflicts.
-///
 /// # Returns
-/// - `Ok(())` if deduplication succeeds.
+/// - `Ok(true)` if the node was deduplicated (i.e., at least one duplicate was removed).
+/// - `Ok(false)` if no deduplication was necessary or the node is not AND/OR.
 /// - `Err(ExprError)` if accessing a node fails.
+///
+/// # Notes
+/// - Deduplication uses a nested loop to check structural equality, not just `NodeId`.
+/// - Mutably borrows the node only once to write back the deduplicated children.
+/// - Does **not** sort the children; original order is preserved.
 ///
 /// # Example
 /// ```ignore
@@ -218,15 +219,13 @@ fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Expr
 /// // After deduplication: (and A B)
 /// ```
 #[allow(dead_code)]
-fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     // Borrow the node immutably
     let node = expr.try_node(node_id)?;
 
     // Only process AND or OR nodes
-    match node.kind() {
-        ExprKind::And | ExprKind::Or => {}
-        _ => return Ok(()),
-    }
+    let kind = node.kind();
+    debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
     // Prepare a vector for deduplicated children
     let mut deduped = Vec::with_capacity(node.children().len());
@@ -248,7 +247,7 @@ fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
     // Write back the deduplicated children
     expr.try_node_mut(node_id)?.set_children(deduped);
 
-    Ok(())
+    Ok(true)
 }
 
 /// Checks for tautologies and contradictions in an AND/OR node.
@@ -282,15 +281,13 @@ pub fn simplify_tautologies_and_contradictions(
     let kind = node.kind();
 
     // Only AND/OR nodes are relevant
-    if kind != ExprKind::And && kind != ExprKind::Or {
-        return Ok(false);
-    }
+    debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
     let children = node.children();
 
     // Track regular and negated children
-    let mut child_set = std::collections::HashSet::new();
-    let mut negated_set = std::collections::HashSet::new();
+    let mut child_set = HashSet::new();
+    let mut negated_set = HashSet::new();
 
     for &child_id in children {
         let child = expr.try_node(child_id)?;
@@ -306,7 +303,7 @@ pub fn simplify_tautologies_and_contradictions(
         }
     }
 
-    let mut node_mut = expr.try_node_mut(node_id)?;
+    let node_mut = expr.try_node_mut(node_id)?;
 
     match kind {
         ExprKind::Or => {
@@ -345,30 +342,29 @@ pub fn simplify_tautologies_and_contradictions(
 /// - If the node has zero or more than one child, or is not an AND/OR, the function does nothing.
 ///
 /// # Returns
-/// - `Ok(())` on success (even if no reduction was performed).
+/// - `Ok(true)` if the node was actually reduced (i.e., replaced by its single child).
+/// - `Ok(false)` if no reduction was performed (zero or multiple children, or node not AND/OR).
 /// - `Err(ExprError)` if accessing a node or the root fails.
 ///
-/// # Note
-/// - This function does not return an error for non-AND/OR nodes; it silently skips them.
+/// # Notes
 /// - Intended to be called as part of the simplification pipeline on AND/OR nodes only.
+/// - Reductions are safe and preserve the logical meaning of the expression.
 #[allow(dead_code)]
 fn reduce_single_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), ExprError> {
+) -> Result<bool, ExprError> {
     // Borrow the node immutably to check its kind
     let node = expr.try_node(node_id)?;
 
     // Only AND/OR nodes are considered
-    match node.kind() {
-        ExprKind::And | ExprKind::Or => {}
-        _ => return Ok(()), // silently skip non-AND/OR
-    }
+    let kind = node.kind();
+    debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
     let children = node.children();
     // Only reduce if there is exactly one child
     if children.len() != 1 {
-        return Ok(());
+        return Ok(false);
     }
 
     let single_child = children[0];
@@ -386,7 +382,7 @@ fn reduce_single_and_or_node(
         expr.set_root_id(single_child)?;
     }
 
-    Ok(())
+    Ok(true)
 }
 
 /// Simplifies an AND/OR node in a PDDL expression according to standard PDDL semantics.
@@ -410,7 +406,8 @@ fn reduce_single_and_or_node(
 /// 3. **Child kept**: All other children are preserved in the simplified node.
 ///
 /// # Returns
-/// - `Ok(())` if the simplification completes successfully.
+/// - `Ok(true)` if the node was modified (simplified or children changed).
+/// - `Ok(false)` if no changes were made to the node.
 /// - `Err(ExprError)` if accessing a child node fails.
 ///
 /// # Notes
@@ -420,37 +417,22 @@ fn reduce_single_and_or_node(
 ///   - `(and)` with no children → `true`
 ///   - `(or)` with no children → `false`
 ///   - No explicit `true` or `false` constants are introduced.
-///
-/// # Examples
-/// ```ignore
-/// // Example 1: AND node with empty AND child
-/// // Input: (and (and))
-/// // Output after simplification: (and)
-/// // Semantic meaning: true
-///
-/// // Example 2: AND node with empty OR child
-/// // Input: (and (or))
-/// // Output after simplification: (or)
-/// // Semantic meaning: false
-/// ```
 #[allow(dead_code)]
 fn simplify_empty_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), ExprError> {
+) -> Result<bool, ExprError> {
     // 1. Access the node corresponding to node_id (immutable borrow)
     let node = expr.try_node(node_id)?;
     let node_kind = node.kind(); // get the node type: And / Or / other
 
     // 2. Ensure this node is AND or OR
-    //    If not, nothing to do
-    if node_kind != ExprKind::And && node_kind != ExprKind::Or {
-        return Ok(());
-    }
+    debug_assert!(node_kind == ExprKind::And || node_kind == ExprKind::Or);
 
     // 3. Prepare a new vector to store the children that will remain
     //    Only copies NodeIds (integers), which is lightweight
     let mut new_children = Vec::with_capacity(node.children().len());
+    let mut simplified = false;
 
     // 4. Iterate over all children of the node
     for &child_id in node.children() {
@@ -469,7 +451,7 @@ fn simplify_empty_and_or_node(
             let node_mut = expr.try_node_mut(node_id)?;
             node_mut.set_kind(child_kind);  // replace the node type
             node_mut.set_children(vec![]);  // clear all children
-            return Ok(());                  // simplification done
+            return Ok(true);                  // simplification done
         }
 
         // -------- Case 2: neutral child --------
@@ -477,6 +459,7 @@ fn simplify_empty_and_or_node(
         //   - (and (and)) → ignore the child → remains (and) → true
         //   - (or (or))   → ignore the child → remains (or)  → false
         if child_kind == node_kind && child_empty {
+            simplified = true;
             continue; // skip this child
         }
 
@@ -487,10 +470,13 @@ fn simplify_empty_and_or_node(
 
     // -------- Case 3: update node children at the end --------
     // Mutably borrow the parent node once
-    let node_mut = expr.try_node_mut(node_id)?;
-    node_mut.set_children(new_children);
+    if new_children.len() != node.children().len() || simplified {
+        let node_mut = expr.try_node_mut(node_id)?;
+        node_mut.set_children(new_children);
+        simplified = true;
+    }
 
-    Ok(())
+    Ok(simplified)
 }
 
 /// Checks whether a node is an empty AND `(and)` node.
@@ -711,26 +697,6 @@ mod flatten_and_or_node_tests {
         assert_eq!(root_node.children().len(), 2);
         assert_eq!(output, "(and (A) (B))");
     }
-
-    /// Test that non-AND/OR nodes are skipped silently.
-    ///
-    /// Input: (A)
-    /// Expected: (A)
-    #[test]
-    fn test_non_and_or_node_skipped() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
-        let a = builder.atomic_formula("A", vec![]);
-        builder.set_root(a).unwrap();
-        let mut expr = builder.finish();
-        let input = expr.to_syntax_string(&interner);
-        flatten_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
-        print!("{} -> {} ", input, output);
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
-        assert_eq!(output, "(A)");
-    }
 }
 
 #[cfg(test)]
@@ -881,30 +847,6 @@ mod deduplicate_and_or_node_tests {
         assert_eq!(output, "(or (or (A) (B)) (C))");
     }
 
-
-    /// Test that non-AND/OR nodes are skipped.
-    ///
-    /// Input: (A)
-    /// Expected: (A)
-    #[test]
-    fn test_non_and_or_node_skipped() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
-
-        let a = builder.atomic_formula("A", vec![]);
-        builder.set_root(a).unwrap();
-        let mut expr = builder.finish();
-
-        let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
-
-        print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
-        assert_eq!(output, "(A)");
-    }
 }
 
 #[cfg(test)]
@@ -1147,28 +1089,6 @@ mod reduce_single_and_or_node_tests {
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 2);
-    }
-
-    /// Test that non-AND/OR nodes are skipped
-    ///
-    /// Input: A
-    /// Expected: A
-    #[test]
-    fn test_non_and_or_node() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
-
-        let a = builder.predicate("A");
-        builder.set_root(a).unwrap();
-        let mut expr = builder.finish();
-
-        let input = expr.to_syntax_string(&interner);
-        reduce_single_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
-        print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Predicate);
     }
 }
 #[cfg(test)]
