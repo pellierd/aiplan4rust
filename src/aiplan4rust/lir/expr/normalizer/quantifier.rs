@@ -1,47 +1,60 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 
-/// Simplifies a quantifier node (`forall` or `exists`) in a PDDL expression tree.
+/// Normalizes a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
 ///
-/// This function applies several simplifications in sequence:
-/// 1. **Canonicalize quantified variables**: sorts the first child (`TypedList`) to a canonical order
-///    to make structural comparison and deduplication easier.
-/// 2. **Remove empty quantifiers**: if the `TypedList` is empty, the quantifier is removed
-///    and replaced by its body.
-/// 3. **Fuse nested quantifiers**: merges nested quantifiers of the same type, e.g.,
-///    `(forall (x) (forall (y) body))` → `(forall (x y) body)`
-/// 4. **Simplify trivial body**: if the body is trivially true (e.g., `(and)`), the quantifier
-///    can be replaced with the neutral element (`and` for `forall`, `or` for `exists`).
+/// This function applies the following steps in order:
+/// 1. Canonicalizes the variables in the `TypedList` of the quantifier.
+/// 2. Removes the quantifier if the variable list is empty, replacing it with its body.
+/// 3. Fuses nested quantifiers of the same kind, combining their variable lists.
+/// 4. Simplifies the quantifier if its body is trivially true or false (e.g., `(forall (x) (and))` → `(and)`).
 ///
-/// # Arguments
+/// Each step is applied only if applicable. The first step that modifies the expression may
+/// terminate the normalization early if the node is replaced or simplified.
 ///
-/// * `node_id` - The ID of the quantifier node to simplify.
-/// * `expr` - Mutable reference to the expression tree containing the node.
+/// # Parameters
+/// - `node_id`: The `NodeId` of the quantifier node to normalize.
+/// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
+/// - `Ok(())` if normalization completes successfully (even if no changes were made).
+/// - `Err(ExprError)` if any step fails to access or modify nodes.
 ///
-/// * `Ok(())` if the simplifications succeeded or if the node is not a quantifier.
-/// * `Err(ExprError)` if node access or mutation fails.
+/// # Panics (in debug mode)
+/// Panics are triggered inside the called functions if the AST is malformed:
+/// - The node is not a quantifier (`Forall` or `Exists`).
+/// - The quantifier does not have exactly two children (TypedList + body).
+/// - The first child of the quantifier is not a `TypedList`.
+/// - Inner quantifiers in `fuse_nested_quantifiers` are malformed (same kind but not exactly two children).
+///
+/// # Notes
+/// - This function relies on the called functions (`canonicalize_quantifier_vars`,
+///   `remove_empty_quantifier`, `fuse_nested_quantifiers`, `simplify_quantifier_trivial_body`)
+///   to enforce structural checks via `debug_assert!`.
+/// - No redundant assertions are performed here to avoid duplication.
+/// - Intended to be used on nodes already known or assumed to be quantifiers.
+///
+/// # Example
+/// ```ignore
+/// let node_id = expr.root_id().unwrap();
+/// normalize(node_id, &mut expr)?;
+/// ```
 pub(crate) fn normalize(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {
     // Step 1: canonicalize the variables in the TypedList
     canonicalize_quantifier_vars(node_id, expr)?;
-
     // Step 2: remove empty quantifiers if the TypedList has no variables
     if remove_empty_quantifier(node_id, expr)? {
         return Ok(());
     }
-
     // Step 3: fuse nested quantifiers of the same type
     fuse_nested_quantifiers(node_id, expr)?;
-
     // Step 4: simplify trivial body (e.g., forall (x) (and) -> (and))
     if simplify_quantifier_trivial_body(node_id, expr)? {
         return Ok(());
     }
-
     Ok(())
 }
 
@@ -58,12 +71,12 @@ pub(crate) fn normalize(
 ///
 /// # Returns
 /// - `Ok(true)` if the quantifier was removed and replaced by its body.
-/// - `Ok(false)` if the quantifier was not removed (variable list is not empty
-///   or AST is malformed).
+/// - `Ok(false)` if the variable list is not empty.
 /// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
 ///
 /// # Panics (in debug mode)
 /// The function contains `debug_assert!` checks that will panic if:
+/// - The node is not a quantifier (`forall` or `exists`).
 /// - The quantifier node does not have at least two children (TypedList + body).
 /// - The first child is not a `TypedList`.
 ///
@@ -72,16 +85,14 @@ pub(crate) fn normalize(
 /// let node_id = expr.root_id().unwrap();
 /// remove_empty_quantifier(node_id, &mut expr)?;
 /// ```
-#[allow(dead_code)]
 fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
-    if node.kind() != ExprKind::Forall && node.kind() != ExprKind::Exists {
-        return Ok(false);
-    }
+    debug_assert!(
+        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+        "Node must be a quantifier (Forall or Exists)"
+    );
 
     let children = node.children();
-
-    // AST malformed: a quantifier must always have at least two children
     debug_assert!(
         children.len() >= 2,
         "Quantifier node must have at least two children: TypedList and body"
@@ -137,26 +148,42 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// - `Ok(())` if the operation succeeds.
 /// - `Err(ExprError)` if accessing or mutating the node fails.
 ///
+/// # Panics (in debug mode)
+/// The function contains `debug_assert!` checks that will panic if:
+/// - The node is not a quantifier (`Forall` or `Exists`).
+/// - The quantifier node has no children.
+/// - The first child is not a `TypedList`.
+///
 /// # Notes
 /// - Only the first child (the `TypedList`) is affected; the body of the quantifier is untouched.
-/// - This is useful to ensure that `(forall (x y) ...)` and `(forall (y x) ...)` have a
-///   canonical representation for deduplication and simplification.
+/// - These assertions help ensure that `(forall (x y) ...)` and `(forall (y x) ...)`
+///   have a canonical representation for deduplication and simplification.
+///
+/// # Example
+/// ```ignore
+/// let node_id = expr.root_id().unwrap();
+/// canonicalize_quantifier_vars(node_id, &mut expr)?;
+/// ```
+#[allow(dead_code)]
 pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let node = expr.try_node(node_id)?;
-    if node.kind() != ExprKind::Forall && node.kind() != ExprKind::Exists {
-        return Ok(());
-    }
+    debug_assert!(
+        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+        "Node must be a quantifier (Forall or Exists)"
+    );
 
     let children = node.children();
-    if children.is_empty() {
-        return Ok(()); // malformed quantifier, nothing to do
-    }
+    debug_assert!(
+        !children.is_empty(),
+        "Quantifier node must have at least one child (TypedList)"
+    );
 
     let vars_node_id = children[0];
     let vars_node = expr.try_node_mut(vars_node_id)?;
-    if vars_node.kind() != ExprKind::TypedList {
-        return Ok(()); // not a TypedList, skip
-    }
+    debug_assert!(
+        vars_node.kind() == ExprKind::TypedList,
+        "First child of a quantifier must be a TypedList"
+    );
 
     let vars_children = vars_node.children_mut();
     vars_children.sort(); // canonical order: assumes NodeId implements Ord
@@ -164,7 +191,7 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
     Ok(())
 }
 
-/// Fuses nested quantifiers of the same kind (forall or exists) into a single expression.
+/// Fuses nested quantifiers of the same kind (`forall` or `exists`) into a single expression.
 ///
 /// This function merges a quantifier expression with its immediate child quantifier
 /// of the same type. The variables from both quantifiers are concatenated into
@@ -184,25 +211,36 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
 /// - `Err(ExprError)` if accessing nodes or mutating the expression fails.
 ///
 /// # Panics (in debug mode)
-/// Will panic if the structure of the expressions is invalid:
-/// - Outer quantifier must have at least two children: TypedList + body.
-/// - First child must be a TypedList.
-/// - Inner quantifier must also have at least two children with a TypedList as first child.
+/// The function contains `debug_assert!` checks that will panic if the AST structure is invalid:
+/// - The outer quantifier must have exactly two children: TypedList + body.
+/// - The first child of the outer quantifier must be a `TypedList`.
+/// - If the inner quantifier has the same kind as the outer, it must also have exactly two children:
+///   a `TypedList` and a body. Otherwise, no fusion occurs.
+/// - These assertions ensure that the inner quantifier's structure is valid before merging.
+///
+/// # Notes
+/// - Variables from the inner quantifier are appended to the outer quantifier's variable list.
+/// - The body of the inner quantifier replaces the body of the outer quantifier.
+/// - Inner quantifiers of a different kind are ignored.
+/// - Only immediate nested quantifiers are fused; deeper nesting is not handled recursively.
+///
+/// # Example
+/// ```ignore
+/// let node_id = expr.root_id().unwrap();
+/// fuse_nested_quantifiers(node_id, &mut expr)?;
+/// ```
 #[allow(dead_code)]
 fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let node = expr.try_node(node_id)?;
-
-    // Only process Forall or Exists
-    if node.kind() != ExprKind::Forall && node.kind() != ExprKind::Exists {
-        return Ok(());
-    }
+    debug_assert!(
+        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+        "Node must be a quantifier (Forall or Exists)"
+    );
 
     let children = node.children();
-
-    // Outer quantifier must have at least 2 children: TypedList + body
     debug_assert!(
-        children.len() >= 2,
-        "Outer quantifier must have at least two children: TypedList and body"
+        children.len() == 2,
+        "Outer quantifier must have exactly two children: TypedList and body"
     );
 
     let vars_node_id = children[0];
@@ -215,19 +253,19 @@ fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
         "First child of outer quantifier must be a TypedList"
     );
 
-    // Proceed only if the inner node is a quantifier of the same kind and has at least 2 children
-    if body.kind() != node.kind() || body.children().len() < 2 {
-        return Ok(());
+    // Only consider inner quantifier if same kind
+    if body.kind() != node.kind() {
+        return Ok(()); // different kind, skip
     }
+
+    // Assert that the inner quantifier has exactly 2 children
+    debug_assert!(
+        body.children().len() == 2,
+        "Inner quantifier of the same kind must have exactly 2 children: TypedList + body"
+    );
 
     let inner_vars_node_id = body.children()[0];
     let inner_body_id = body.children()[1];
-    let inner_vars_node = expr.try_node(inner_vars_node_id)?;
-
-    debug_assert!(
-        inner_vars_node.kind() == ExprKind::TypedList,
-        "First child of inner quantifier must be a TypedList"
-    );
 
     // Move children of inner TypedList into outer TypedList
     let inner_children_ids = {
@@ -259,13 +297,39 @@ fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
 
 /// Simplifies quantified nodes whose body is trivially true or false.
 ///
-/// Rules:
-/// - (forall (...) (and)) → (and)        [true]
-/// - (forall (...) (or))  → (or)         [false]
-/// - (exists (...) (and)) → (and)        [true]
-/// - (exists (...) (or))  → (or)         [false]
+/// This function handles quantifier nodes (`forall` or `exists`) whose body is an
+/// empty logical conjunction (`and`) or disjunction (`or`). The simplification rules are:
+/// - `(forall (...) (and))` → `(and)`        [true]
+/// - `(forall (...) (or))`  → `(or)`         [false]
+/// - `(exists (...) (and))` → `(and)`        [true]
+/// - `(exists (...) (or))`  → `(or)`         [false]
 ///
-/// Returns `true` if the node was simplified, `false` otherwise.
+/// The quantifier is replaced by its trivial body if these conditions are met.
+///
+/// # Parameters
+/// - `node_id`: The `NodeId` of the quantifier node to simplify.
+/// - `expr`: Mutable reference to the expression tree containing the node.
+///
+/// # Returns
+/// - `Ok(true)` if the quantifier was simplified.
+/// - `Ok(false)` if no simplification was applicable.
+/// - `Err(ExprError)` if accessing or mutating nodes fails.
+///
+/// # Panics (in debug mode)
+/// The function contains `debug_assert!` checks that will panic if:
+/// - The node is not a quantifier (`Forall` or `Exists`).
+/// - The quantifier does not have exactly two children (TypedList + body).
+///
+/// # Notes
+/// - Only empty `and` or `or` bodies are considered trivial.
+/// - The body of the quantifier completely replaces the quantifier node.
+/// - Non-trivial bodies are left unchanged.
+///
+/// # Example
+/// ```ignore
+/// let node_id = expr.root_id().unwrap();
+/// simplify_quantifier_trivial_body(node_id, &mut expr)?;
+/// ```
 #[allow(dead_code)]
 fn simplify_quantifier_trivial_body(
     node_id: NodeId,
@@ -273,11 +337,12 @@ fn simplify_quantifier_trivial_body(
 ) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
     let kind = node.kind();
-    if node.kind() != ExprKind::Forall && node.kind() != ExprKind::Exists {
-        return Ok(false);
-    }
-    let children = node.children();
+    debug_assert!(
+        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+        "Node must be a quantifier (Forall or Exists)"
+    );
 
+    let children = node.children();
     debug_assert!(
         children.len() == 2,
         "Quantifier must have exactly 2 children"
@@ -314,6 +379,7 @@ fn simplify_quantifier_trivial_body(
 
     Ok(false)
 }
+
 
 #[cfg(test)]
 mod tests {
