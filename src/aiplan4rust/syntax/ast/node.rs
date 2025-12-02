@@ -244,6 +244,14 @@ impl SyntaxNode for AstNode {
         self.inner.content()
     }
 
+    /// Replaces the content of this AST node.
+    ///
+    /// # Arguments
+    /// * `content` - The new content to assign.
+    fn set_content(&mut self, content: AstContent) {
+        self.inner.set_content(content);
+    }
+
     /// Returns a mutable reference to the node's semantic content.
     ///
     /// # Returns

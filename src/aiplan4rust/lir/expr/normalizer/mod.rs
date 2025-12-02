@@ -5,3 +5,4 @@ pub(crate) mod not;
 mod arithmetic;
 pub(crate) mod comparison;
 mod assign;
+mod when;

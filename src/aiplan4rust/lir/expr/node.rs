@@ -45,6 +45,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -170,6 +171,14 @@ impl SyntaxNode for ExprNode {
 
     fn content_mut(&mut self) -> &mut Self::Content {
         self.inner.content_mut()
+    }
+
+    /// Replaces the content of this AST node.
+    ///
+    /// # Arguments
+    /// * `content` - The new content to assign.
+    fn set_content(&mut self, content: Content) {
+        self.inner.set_content(content);
     }
 
     /// Attempts to interpret this node as a symbol if its kind corresponds to

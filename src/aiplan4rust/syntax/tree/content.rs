@@ -53,7 +53,7 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// - [`InternerDisplay`] to support pretty-printing with identifier interning.
 /// - [`Clone`] for safe copying.
 /// - [`Debug`] for debugging purposes.
-pub trait SyntaxContent:  Display + InternerDisplay + SyntaxDisplay + Clone + Debug {
+pub trait SyntaxContent:  Display + InternerDisplay + SyntaxDisplay + Clone + Debug  + Default {
     /// Returns the content as an identifier if available.
     fn as_ident(&self) -> Option<Ident>;
 

@@ -109,25 +109,8 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 
     // Check if the TypedList is empty
     if vars_node.children().is_empty() {
-        // The body of the quantifier is the second child
         let body_id = children[1];
-
-        // Take ownership of the body's kind, content, and children
-        let (kind, content, body_children) = {
-            let body = expr.try_node_mut(body_id)?;
-            (
-                body.kind(),
-                std::mem::take(body.content_mut()),
-                std::mem::take(body.children_mut()),
-            )
-        };
-
-        // Replace the quantifier node with its body
-        let node_mut = expr.try_node_mut(node_id)?;
-        node_mut.set_kind(kind);
-        node_mut.set_content(content);
-        node_mut.set_children(body_children);
-
+        expr.move_to(body_id, node_id)?;
         return Ok(true);
     }
 

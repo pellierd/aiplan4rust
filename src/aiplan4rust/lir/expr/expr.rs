@@ -47,6 +47,7 @@ use std::ops::{Deref, DerefMut};
 use ahash::AHasher;
 use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::lang::{Ident, Optimization};
+use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
@@ -469,6 +470,109 @@ impl Expr {
         Ok(hasher.finish())
     }
 
+    /// Sets the kind, content, and children of a node at a given position.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - The ID of the node to update.
+    /// * `kind` - The new kind to assign to the node.
+    /// * `content` - The new content to assign to the node.
+    /// * `children` - The new children of the node.
+    ///
+    /// # Notes
+    ///
+    /// This function **replaces** all aspects of the node in a single operation.
+    /// Any previous content or children are overwritten.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let children = vec![child1_id, child2_id];
+    /// expr.set_node(node_id, ExprKind::And, Content::None, children)?;
+    /// ```
+    pub fn set_node(
+        &mut self,
+        node_id: NodeId,
+        kind: ExprKind,
+        content: Content,
+        children: Vec<NodeId>,
+    ) -> Result<(), ExprError> {
+        let node = self.try_node_mut(node_id)?;
+        node.set_kind(kind);
+        node.set_content(content);
+        node.set_children(children);
+        Ok(())
+    }
+
+    /// Moves the kind, content, and children from a source node into a target node.
+    ///
+    /// # Arguments
+    ///
+    /// * `source_id` - The ID of the node to move data from.
+    /// * `target_id` - The ID of the node to move data to.
+    ///
+    /// # Notes
+    ///
+    /// This function **takes ownership** of the source node's content and children,
+    /// leaving the source node effectively empty. This is useful for in-place
+    /// simplifications or transformations without cloning nodes.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// expr.move_to(source_id, target_id)?;
+    /// ```
+    pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), ExprError> {
+        let (kind, content, children) = {
+            let source = self.try_node_mut(source_id)?;
+            (source.kind(), std::mem::take(source.content_mut()), std::mem::take(source.children_mut()))
+        };
+        let target = self.try_node_mut(target_id)?;
+        target.set_kind(kind);
+        target.set_content(content);
+        target.set_children(children);
+        Ok(())
+    }
+
+    /// Sets the node at `node_id` to an empty `(and)` node.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - The ID of the node to modify.
+    ///
+    /// # Notes
+    ///
+    /// This sets the node kind to `ExprKind::And`, clears its content, and
+    /// removes all children.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// expr.set_empty_and(node_id)?;
+    /// ```
+    pub fn set_empty_and(&mut self, node_id: NodeId) -> Result<(), ExprError> {
+        self.set_node(node_id, ExprKind::And, Content::None, vec![])
+    }
+
+    /// Sets the node at `node_id` to an empty `(or)` node.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - The ID of the node to modify.
+    ///
+    /// # Notes
+    ///
+    /// This sets the node kind to `ExprKind::Or`, clears its content, and
+    /// removes all children.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// expr.set_empty_or(node_id)?;
+    /// ```
+    pub fn set_empty_or(&mut self, node_id: NodeId) -> Result<(), ExprError> {
+        self.set_node(node_id, ExprKind::Or, Content::None, vec![])
+    }
 }
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.

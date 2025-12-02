@@ -124,6 +124,26 @@ pub trait SyntaxNode: ArenaNode + Display {
     /// A mutable reference to the content of the syntax node, allowing modification.
     fn content_mut(&mut self) -> &mut Self::Content;
 
+    /// Sets the semantic content of the syntax node.
+    ///
+    /// This function replaces the current content of the node with the provided value.
+    /// It takes ownership of `new_content` and overwrites any existing content.
+    ///
+    /// # Parameters
+    /// - `new_content`: The new content to assign to this node.
+    ///
+    /// # Notes
+    /// - This is a direct replacement; any previous content will be dropped.
+    /// - Use `content_mut()` if you only need to modify the existing content without
+    ///   replacing it entirely.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let mut node = tree.try_node_mut(node_id)?;
+    /// node.set_content(Content::Number(42.0));
+    /// ```
+    fn set_content(&mut self, new_content: Self::Content);
+
     /// Checks whether the syntax node has no meaningful content.
     ///
     /// # Returns
@@ -374,7 +394,6 @@ pub trait SyntaxNode: ArenaNode + Display {
 
         format!("{}", DisplayWrapper { node: self, syntax_tree: arena, interner })
     }
-
 
     /// Returns the number of characters used per indentation level.
     ///
