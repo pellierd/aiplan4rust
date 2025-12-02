@@ -1,8 +1,10 @@
 use ordered_float::OrderedFloat;
 use thiserror::Error;
 use crate::aiplan4rust::lang::ArithmeticOp;
+use crate::aiplan4rust::lir::expr::ExprKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Errors specific to the `expr` module, primarily related to conversion failures.
 ///
@@ -56,7 +58,14 @@ pub enum ExprError {
     ArithmeticEvaluationError {
         op: ArithmeticOp,
         values: Vec<OrderedFloat<f64>>,
-    }
+    },
+
+    /// Erreur lorsqu’un nœud inattendu est rencontré dans un arbre normalisé
+    #[error("Unexpected node kind {kind:?} at node {node_id}")]
+    UnexpectedNodeKind {
+        node_id: NodeId,
+        kind: ExprKind,
+    },
 }
 
 impl ExprError {
@@ -101,5 +110,9 @@ impl ExprError {
         values: Vec<OrderedFloat<f64>>,
     ) -> Self {
         ExprError::ArithmeticEvaluationError { op, values }
+    }
+
+    pub fn unexpected_node_kind(node_id: NodeId, kind: ExprKind) -> Self {
+        ExprError::UnexpectedNodeKind { node_id, kind }
     }
 }

@@ -1,48 +1,43 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 
-/// Simplifies a quantified node (`forall` or `exists`) in a PDDL expression tree.
+/// Simplifies a quantifier node (`forall` or `exists`) in a PDDL expression tree.
 ///
-/// This function applies two simplifications to the specified quantifier node:
+/// This function applies several simplifications in sequence:
+/// 1. **Canonicalize quantified variables**: sorts the first child (`TypedList`) to a canonical order
+///    to make structural comparison and deduplication easier.
+/// 2. **Remove empty quantifiers**: if the `TypedList` is empty, the quantifier is removed
+///    and replaced by its body.
+/// 3. **Fuse nested quantifiers**: merges nested quantifiers of the same type, e.g.,
+///    `(forall (x) (forall (y) body))` → `(forall (x y) body)`
+/// 4. **Simplify trivial body**: if the body is trivially true (e.g., `(and)`), the quantifier
+///    can be replaced with the neutral element (`and` for `forall`, `or` for `exists`).
 ///
-/// 1. **Remove empty quantifier**: if the quantifier has an empty variable list,
-///    the node is replaced by its body.
-/// 2. **Fuse nested quantifiers**: if the node has a child quantifier of the same type,
-///    the variables from both quantifiers are combined, and the body of the inner
-///    quantifier replaces the body of the outer node.
+/// # Arguments
 ///
-/// It assumes that all children of the node have already been simplified (post-order traversal).
-///
-/// # Parameters
-/// - `node_id`: The `NodeId` of the quantifier node to simplify.
-/// - `expr`: Mutable reference to the expression tree containing the node.
+/// * `node_id` - The ID of the quantifier node to simplify.
+/// * `expr` - Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
-/// - `Ok(())` if simplification completes successfully or no simplification is applicable.
-/// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
 ///
-/// # Panics
-/// This function relies on `remove_empty_quantifier` and `fuse_nested_quantifiers`
-/// to perform `debug_assert!` checks on AST invariants:
-/// - Quantifier node must have at least two children (TypedList + body).
-/// - TypedList nodes must be of kind `TypedList`.
-/// - Nested quantifiers must also respect the two-children invariant.
-///
-/// # Example
-/// ```ignore
-/// let node_id = expr.root_id().unwrap();
-/// simplify_quantified_node(node_id, &mut expr)?;
-/// ```
-pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    // 1. remove (forall() body)
+/// * `Ok(())` if the simplifications succeeded or if the node is not a quantifier.
+/// * `Err(ExprError)` if node access or mutation fails.
+pub(crate) fn normalize(
+    node_id: NodeId,
+    expr: &mut Expr,
+) -> Result<(), ExprError> {
+    // Step 1: canonicalize the variables in the TypedList
+    canonicalize_quantifier_vars(node_id, expr)?;
+
+    // Step 2: remove empty quantifiers if the TypedList has no variables
     if remove_empty_quantifier(node_id, expr)? {
         return Ok(());
     }
 
-    // 2. fuse nested quantifiers
+    // Step 3: fuse nested quantifiers of the same type
     fuse_nested_quantifiers(node_id, expr)?;
 
-    // 3. trivial body (forall (x) (and)) → (and)
+    // Step 4: simplify trivial body (e.g., forall (x) (and) -> (and))
     if simplify_quantifier_trivial_body(node_id, expr)? {
         return Ok(());
     }
@@ -125,6 +120,48 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
     }
 
     Ok(false)
+}
+
+/// Canonicalizes the variable list of a quantifier node.
+///
+/// This function sorts the first child of a `Forall` or `Exists` node,
+/// which is expected to be a `TypedList` of quantified variables. The goal
+/// is to put the variables in a canonical order to make structural comparisons
+/// and simplifications more reliable.
+///
+/// # Parameters
+/// - `node_id`: The ID of the quantifier node (`Forall` or `Exists`) to process.
+/// - `expr`: Mutable reference to the expression tree containing the node.
+///
+/// # Returns
+/// - `Ok(())` if the operation succeeds.
+/// - `Err(ExprError)` if accessing or mutating the node fails.
+///
+/// # Notes
+/// - Only the first child (the `TypedList`) is affected; the body of the quantifier is untouched.
+/// - This is useful to ensure that `(forall (x y) ...)` and `(forall (y x) ...)` have a
+///   canonical representation for deduplication and simplification.
+pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    let node = expr.try_node(node_id)?;
+    if node.kind() != ExprKind::Forall && node.kind() != ExprKind::Exists {
+        return Ok(());
+    }
+
+    let children = node.children();
+    if children.is_empty() {
+        return Ok(()); // malformed quantifier, nothing to do
+    }
+
+    let vars_node_id = children[0];
+    let vars_node = expr.try_node_mut(vars_node_id)?;
+    if vars_node.kind() != ExprKind::TypedList {
+        return Ok(()); // not a TypedList, skip
+    }
+
+    let vars_children = vars_node.children_mut();
+    vars_children.sort(); // canonical order: assumes NodeId implements Ord
+
+    Ok(())
 }
 
 /// Fuses nested quantifiers of the same kind (forall or exists) into a single expression.
@@ -283,7 +320,7 @@ mod tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::lir::expr::transform::simplify::quantifier::simplify_quantifier;
+    use crate::aiplan4rust::lir::expr::normalizer::quantifier;
     use crate::aiplan4rust::syntax::SyntaxDisplay;
 
     /// Test that an empty forall quantifier is replaced by its body.
@@ -303,7 +340,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -336,7 +373,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -364,7 +401,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -392,7 +429,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -419,7 +456,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -451,7 +488,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -480,7 +517,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -489,7 +526,6 @@ mod tests {
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(output, "(and)");
     }
-
 
     /// Test that no simplification is applied on a non-empty, non-nested exists quantifier.
     /// Input: (exists (?X) (A))
@@ -509,7 +545,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_quantifier(root_id, &mut expr).unwrap();
+        quantifier::normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

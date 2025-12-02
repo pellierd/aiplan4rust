@@ -1,5 +1,5 @@
 //! This module defines the `LirBuilder` struct and associated functions to
-//! transform a linked and semantically verified syntax domain and problem
+//! normalizer a linked and semantically verified syntax domain and problem
 //! into a lifted intermediate representation (`LiftedProblem`).
 //!
 //! # Overview

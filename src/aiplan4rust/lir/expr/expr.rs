@@ -42,7 +42,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use std::hash::{Hash, Hasher};
+use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use ahash::AHasher;
 use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
@@ -384,6 +384,91 @@ impl Expr {
 
         Ok(hasher.finish())
     }
+
+    /// Compare two subtrees of possibly different `Expr`s for deep equality.
+    ///
+    /// # Parameters
+    /// - `other`: The other expression to compare with.
+    /// - `a`: NodeId of the root of the subtree in `self`.
+    /// - `b`: NodeId of the root of the subtree in `other`.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if the subtrees are structurally and content-wise equal.
+    /// - `Ok(false)` otherwise.
+    ///
+    /// # Notes
+    /// - Children of the nodes **must be sorted** if you want this comparison to be
+    ///   independent of the order of children. Otherwise, the comparison is order-sensitive.
+    /// - This function compares recursively: node kind, content, and all children.
+    /// Compare two subtrees rooted at `a` in `self` and `b` in `other` for deep equality.
+    /// Children should already be sorted if order does not matter.
+    pub fn deep_sub_expr_eq(
+        &self,
+        root_a: NodeId,
+        root_b: NodeId,
+    ) -> Result<bool, ExprError> {
+        let iter1 = self.preorder_from(root_a).values();
+        let iter2 = self.preorder_from(root_b).values();
+
+        // Iterate over both trees in preorder
+        for (n1, n2) in iter1.zip(iter2) {
+            // Compare node kind
+            if n1.kind() != n2.kind() {
+                return Ok(false);
+            }
+
+            // Compare node content
+            if n1.content() != n2.content() {
+                return Ok(false);
+            }
+
+            // Compare number of children
+            if n1.children().len() != n2.children().len() {
+                return Ok(false);
+            }
+        }
+
+        Ok(true)
+    }
+
+    /// Computes the hash of a subtree of the expression.
+    ///
+    /// The hash combines:
+    /// - the node's type (`kind`),
+    /// - the node's content (`content`),
+    /// - the recursive hash of each child.
+    ///
+    /// This version **does not use caching**, so the hash is recalculated on each call.
+    /// Children should be sorted beforehand if order should not affect the result.
+    ///
+    /// # Parameters
+    /// - `node_id`: the ID of the root node of the subtree to hash.
+    ///
+    /// # Returns
+    /// - `Ok(u64)` containing the computed hash of the subtree.
+    /// - `Err(ExprError)` if accessing a node fails.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let hash = expr.compute_hash(node_id)?;
+    /// ```
+    fn compute_hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
+        let node = self.try_node(node_id)?;
+        let mut hasher = DefaultHasher::new();
+
+        // Hash the node type and content
+        node.kind().hash(&mut hasher);
+        node.content().hash(&mut hasher);
+
+        // Recursively hash the children
+        for &child in node.children() {
+            let child_hash = self.compute_hash(child)?;
+            child_hash.hash(&mut hasher);
+        }
+
+        Ok(hasher.finish())
+    }
+
 }
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.

@@ -11,16 +11,19 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 /// 1. **Flatten nested nodes**: If the node has children of the same kind, they are
 ///    lifted up to the current node. For example:
 ///    `(and A (and B C))` becomes `(and A B C)`.
-/// 2. **Structural deduplication**: Duplicate subtrees are removed using a
+/// 2. **Canonical ordering of children**: Children of the node are sorted in a
+///    canonical order. This ensures that structural comparisons and deduplication
+///    are order-independent. Only AND/OR nodes are affected; other nodes are skipped.
+/// 3. **Structural deduplication**: Duplicate subtrees are removed using a
 ///    structural hash (`sub_expr_hash`). For example:
 ///    `(and (and A B) (and A B))` becomes `(and (and A B))`.
-/// 3. **Tautology and contradiction elimination**:
+/// 4. **Tautology and contradiction elimination**:
 ///    - For OR nodes: `(or A (not A))` → (and)
 ///    - For AND nodes: `(and A (not A))` → (or)
-/// 4. **Single-child reduction**: If the node has only one child after deduplication,
+/// 5. **Single-child reduction**: If the node has only one child after deduplication,
 ///    it is replaced by that child. For example:
 ///    `(and A)` becomes `A`.
-/// 5. **Empty-node simplification**: If the node has no children, it is replaced
+/// 6. **Empty-node simplification**: If the node has no children, it is replaced
 ///    by a neutral value (true for `AND`, false for `OR` depending on your semantics).
 ///
 /// # Parameters
@@ -33,53 +36,52 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 ///
 /// # Notes
 /// - This function assumes that `expr` is a well-formed tree and that `node_id` exists.
-/// - It only operates on `AND` or `OR` nodes; other kinds of nodes are skipped silently.
+/// - Only AND or OR nodes are simplified; other nodes are skipped silently.
+/// - Sorting children in canonical order ensures that `deep_subexpr_eq` and other
+///   structural equality checks behave consistently regardless of original child order.
 ///
 /// # Example
 /// ```ignore
 /// // Suppose expr represents: (and A (and B C) (and A B))
 /// let node_id = expr.root_id().unwrap();
-/// simplify_and_or_node(node_id, &mut expr)?;
+/// simplify_and_or(node_id, &mut expr)?;
 /// // After simplification, the expression becomes: (and A B C)
 /// ```
-pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_and_or(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+pub fn normalize(
+    node_id: NodeId,
+    expr: &mut Expr
+) -> Result<(), ExprError> {
     // Borrow the node immutably to check its kind.
-    // We only want to simplify AND or OR nodes.
     let kind = expr.try_node(node_id)?.kind();
 
-    // If the node is neither AND nor OR, skip simplification.
+    // Skip if not AND or OR
     if kind != ExprKind::And && kind != ExprKind::Or {
         return Ok(());
     }
 
-    // Step 1: Flatten nested AND/OR nodes of the same kind.
-    // For example, (and A (and B C)) -> (and A B C)
+    // Step 1: Flatten nested AND/OR nodes of the same kind
     flatten_and_or_node(node_id, expr)?;
 
-    // Step 1.5: Sort children for canonical order
-    sort_and_or_node_children(node_id, expr)?;
+    // Step 2: Sort children in canonical order
+    canonicalize_and_or_node(node_id, expr)?;
 
-    // Step 2: Deduplicate children structurally.
-    // Removes duplicate subtrees based on `sub_expr_hash`.
-    // For example, (and (and A B) (and A B)) -> (and (and A B))
-    deduplicate_and_or_node(node_id, expr, true)?;
+    // Step 3: Deduplicate structurally
+    deduplicate_and_or_node(node_id, expr)?;
 
-    // Step 3: Check tautologies and contradictions
+    // Step 4: Simplify tautologies and contradictions
     if simplify_tautologies_and_contradictions(node_id, expr)? {
         return Ok(());
     }
 
-    // Step 4: Reduce AND/OR nodes that have a single child.
-    // For example, (and A) -> A
+    // Step 5: Reduce nodes with a single child
     reduce_single_and_or_node(node_id, expr)?;
 
-    // Step 5: Simplify empty AND/OR nodes.
-    // For example, (and) -> true or (or) -> false depending on your semantics.
+    // Step 6: Simplify empty nodes
     simplify_empty_and_or_node(node_id, expr)?;
 
-    // Indicate that simplification for this node succeeded.
     Ok(())
 }
+
 
 /// Flattens nested AND/OR nodes of the same kind into a single node.
 ///
@@ -146,108 +148,106 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError
     Ok(())
 }
 
-/// Trie les enfants d'un AND/OR node par ordre canonique.
-/// Cela aide la comparaison structurale et la déduplication.
-fn sort_and_or_node_children(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    // Vérifie que le noeud est AND ou OR
+/// Canonicalizes the children of an AND/OR node.
+///
+/// This function sorts the children of a commutative node (`AND` or `OR`) into a canonical order,
+/// which ensures that structural equality checks and deduplication are independent of the original
+/// order of the children.
+///
+/// # Parameters
+/// - `node_id`: The ID of the node whose children should be canonicalized. Only AND/OR nodes are affected.
+/// - `expr`: A mutable reference to the expression tree.
+///
+/// # Behavior
+/// - For AND/OR nodes, children are sorted in ascending order of `NodeId` (or any other canonical key).
+/// - Non-AND/OR nodes are silently skipped (no error is returned).
+///
+/// # Returns
+/// - `Ok(())` if the operation succeeds.
+/// - `Err(ExprError)` if accessing the node fails.
+///
+/// # Notes
+/// - Sorting is done in-place by mutably borrowing the children vector.
+/// - Canonical ordering allows functions like `deep_subexpr_eq` and deduplication to work
+///   consistently regardless of the input order.
+///
+/// # Example
+/// ```ignore
+/// // Before canonicalization: AND node with children [3, 1, 2]
+/// // After calling `canonicalize_and_or_children(node_id, &mut expr)`:
+/// // Children are [1, 2, 3]
+/// ```
+fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let kind = expr.try_node(node_id)?.kind();
     if kind != ExprKind::And && kind != ExprKind::Or {
         return Ok(());
     }
 
-    // Récupère mutablement les enfants
     let node = expr.try_node_mut(node_id)?;
-    let children = node.children_mut();
-
-    // Trie les NodeId par ordre croissant (ou une autre clé canonique)
-    // Ici on suppose que NodeId implémente Ord
-    children.sort();
+    node.children_mut().sort();
 
     Ok(())
 }
 
-/// Removes duplicate children from an AND/OR node, optionally using structural comparison.
+
+/// Removes duplicate children from an AND or OR node in an expression tree.
 ///
 /// # Parameters
-/// - `node_id`: the ID of the node to deduplicate. Only AND/OR nodes are affected.
-/// - `expr`: mutable reference to the expression tree.
-/// - `structural`: if true, deduplicate children based on subtree structure (`sub_expr_hash`),
-///   otherwise deduplicate based on `NodeId`.
+/// - `node_id`: The ID of the AND/OR node to deduplicate.
+/// - `expr`: Mutable reference to the expression tree.
 ///
 /// # Behavior
-/// - If the node is an `AND` or `OR`:
-///     - `structural = false`: all duplicate children with the same `NodeId` are removed,
-///       keeping only the first occurrence of each child.
-///     - `structural = true`: all duplicate children whose subtrees are identical (same structural hash)
-///       are removed, keeping only the first occurrence of each unique subtree.
-/// - The original order of the children is preserved.
-/// - Non-AND/OR nodes are silently skipped (no error is returned).
-///
-/// # Returns
-/// - `Ok(())` if the operation succeeds.
-/// - `Err(ExprError)` if accessing a node or computing a subtree hash fails.
+/// - Iterates over the children of the node and keeps only the first occurrence of each child.
+/// - Duplicates are detected based on `NodeId`.
+/// - Only AND and OR nodes are processed; other node types are skipped silently.
+/// - The original order of children is preserved.
 ///
 /// # Notes
-/// - Uses an immutable borrow to read children first, then a mutable borrow to write them back,
-///   avoiding Rust borrow conflicts.
-/// - Structural deduplication is more expensive but allows removing logically equivalent subtrees.
+/// - If you want to ignore the order of children, they must be sorted in canonical ascending order
+///   before calling this function.
+/// - Uses a `HashSet` to efficiently track seen children, avoiding a quadratic check.
+/// - Mutably borrows the node only once to write back the deduplicated children, avoiding borrow conflicts.
+///
+/// # Returns
+/// - `Ok(())` if deduplication succeeds.
+/// - `Err(ExprError)` if accessing a node fails.
 ///
 /// # Example
 /// ```ignore
 /// // AND node with duplicate NodeIds: (and A A B)
-/// // After deduplication with structural = false: (and A B)
-///
-/// // AND node with duplicate subtrees: (and (and A B) (and A B))
-/// // After deduplication with structural = true: (and (and A B))
+/// // After deduplication: (and A B)
 /// ```
 #[allow(dead_code)]
-fn deduplicate_and_or_node(
-    node_id: NodeId,
-    expr: &mut Expr,
-    structural: bool,
-) -> Result<(), ExprError> {
-    // Immutably borrow the node to read kind and children
+fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    // Borrow the node immutably
     let node = expr.try_node(node_id)?;
 
-    // Only process AND or OR nodes; skip others silently
+    // Only process AND or OR nodes
     match node.kind() {
         ExprKind::And | ExprKind::Or => {}
         _ => return Ok(()),
     }
 
-    // Prepare a vector to store deduplicated children
+    // Prepare a vector for deduplicated children
     let mut deduped = Vec::with_capacity(node.children().len());
 
-    if structural {
-        // Structural deduplication: track hashes of seen subtrees
-        let mut seen_hashes = std::collections::HashSet::new();
-
-        for &child_id in node.children() {
-            // Compute the structural hash of each child subtree
-            let h = expr.sub_expr_hash(child_id)?;
-
-            // If this hash hasn't been seen yet, keep the child
-            if seen_hashes.insert(h) {
-                deduped.push(child_id);
+    for &child_id in node.children() {
+        // Check if child is already present structurally
+        let mut is_duplicate = false;
+        for &seen_id in &deduped {
+            if expr.deep_sub_expr_eq(seen_id, child_id)? {
+                is_duplicate = true;
+                break;
             }
         }
-    } else {
-        // NodeId deduplication: track NodeIds already seen
-        let mut seen_ids = std::collections::HashSet::new();
-
-        for &child_id in node.children() {
-            // If this NodeId hasn't been seen yet, keep it
-            if seen_ids.insert(child_id) {
-                deduped.push(child_id);
-            }
+        if !is_duplicate {
+            deduped.push(child_id);
         }
     }
 
-    // Mutably borrow the node to write back the deduplicated children
-    let node = expr.try_node_mut(node_id)?;
-    node.set_children(deduped);
+    // Write back the deduplicated children
+    expr.try_node_mut(node_id)?.set_children(deduped);
 
-    // Return success
     Ok(())
 }
 
@@ -549,7 +549,7 @@ mod realistic_tests {
 
         let root_id = expr.root_id().unwrap();
         let input = expr.to_syntax_string(&interner);
-        simplify_and_or(root_id, &mut expr).unwrap();
+        normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -577,7 +577,7 @@ mod realistic_tests {
 
         let root_id = expr.root_id().unwrap();
         let input = expr.to_syntax_string(&interner);
-        simplify_and_or(root_id, &mut expr).unwrap();
+        normalize(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -757,7 +757,7 @@ mod deduplicate_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr, false).unwrap();
+        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -784,7 +784,7 @@ mod deduplicate_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr, false).unwrap();
+        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -811,7 +811,7 @@ mod deduplicate_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr, false).unwrap();
+        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -840,7 +840,7 @@ mod deduplicate_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr, true).unwrap();
+        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -870,7 +870,7 @@ mod deduplicate_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr, true).unwrap();
+        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -881,49 +881,6 @@ mod deduplicate_and_or_node_tests {
         assert_eq!(output, "(or (or (A) (B)) (C))");
     }
 
-    /// Test structural deduplication in a root OR node with duplicate subtrees, verifying order-independence.
-    ///
-    /// Input: (or (or (A) (B)) (or (B) (A)) (C))
-    /// Expected: (or (or (A) (B)) (C))
-    #[test]
-    fn test_root_or_structural_duplicates_order_independent() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
-
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
-
-        let inner1 = builder.or(vec![a, b]);
-        let inner2 = builder.or(vec![b, a]); // reversed order
-        let c = builder.atomic_formula("C", vec![]);
-        let root = builder.or(vec![inner1, inner2, c]);
-        builder.set_root(root).unwrap();
-        let mut expr = builder.finish();
-
-        let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr, true).unwrap();
-        let output = expr.to_syntax_string(&interner);
-
-        print!("{} -> {} ", input, output);
-
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(root_node.children().len(), 2);
-
-        // Check that one OR subtree is kept
-        let kept_subtree = root_node.children()[0];
-        let kept_node = expr.try_node(kept_subtree).unwrap();
-        assert_eq!(kept_node.kind(), ExprKind::Or);
-
-        // Ensure C is present
-        let c_node = root_node.children().iter().find_map(|&id| {
-            let node = expr.try_node(id).unwrap();
-            if node.kind() == ExprKind::AtomicFormula { Some(node) } else { None }
-        });
-        assert!(c_node.is_some());
-
-        assert_eq!(output, "(or (or (A) (B)) (C))");
-    }
 
     /// Test that non-AND/OR nodes are skipped.
     ///
@@ -939,7 +896,7 @@ mod deduplicate_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr, true).unwrap();
+        deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

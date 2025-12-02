@@ -14,7 +14,7 @@
 //!   representing a single expression node in a syntax tree.
 //! - [`kind`]: Defines the `Kind` enum representing the different
 //!   kinds of expression nodes (logical operators, symbols, predicates, etc.).
-//! - [`transform`]: Contains utilities and functions for transforming
+//! - [`normalizer`]: Contains utilities and functions for transforming
 //!   or rewriting expressions.
 //! - [`expr`]: Defines the `Expr` type_checker, a wrapper around an expression
 //!   arena (syntax tree) that holds `ExprNode` instances and provides
@@ -45,7 +45,7 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 pub mod content;
 pub mod node;
 pub mod kind;
-pub mod transform;
+pub mod normalizer;
 pub mod expr;
 pub mod error;
 mod builder;

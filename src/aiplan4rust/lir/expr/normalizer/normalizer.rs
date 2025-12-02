@@ -1,9 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
-use crate::aiplan4rust::lir::expr::transform::simplify::and_or::simplify_and_or;
-use crate::aiplan4rust::lir::expr::transform::simplify::arithmetic::simplify_arithmetic_operation;
-use crate::aiplan4rust::lir::expr::transform::simplify::imply::simplify_imply;
-use crate::aiplan4rust::lir::expr::transform::simplify::not::simplify_not;
-use crate::aiplan4rust::lir::expr::transform::simplify::quantifier::simplify_quantifier;
+use crate::aiplan4rust::lir::expr::normalizer::{and_or, arithmetic, imply, not, quantifier};
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Simplifies a PDDL-like expression tree in a post-order traversal.
@@ -35,8 +31,12 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// # Example
 /// ```ignore
 /// let mut expr = build_expr_tree(); // some Expr tree
-pub fn simplify(expr: &mut Expr) -> Result<(), ExprError> {
+pub fn normalize(expr: &mut Expr) -> Result<(), ExprError> {
     let Some(root_id) = expr.root_id() else { return Ok(()); };
+
+    // Preprocess
+    imply::remove_imply(root_id, expr)?;
+    not::push_negations(root_id, expr)?;
 
     // Stack pour DFS post-order: (node_id, visited)
     let mut stack = vec![(root_id, false)];
@@ -54,11 +54,11 @@ pub fn simplify(expr: &mut Expr) -> Result<(), ExprError> {
     }
 
     for node_id in postorder {
-        simplify_node(node_id, expr)?;
+        normalize_node(node_id, expr)?;
     }
 
     /// TO ADD
-    /// Factorise les parties communes des expressions.
+    /// Factorise les parties commpostunes des expressions.
     /// Exemple: `(A ∧ B) ∨ (A ∧ C) -> A ∧ (B ∨ C)`.
     Ok(())
 }
@@ -91,24 +91,28 @@ pub fn simplify(expr: &mut Expr) -> Result<(), ExprError> {
 /// simplify_node(node_id, &mut expr)?;
 /// ```
 #[allow(dead_code)]
-fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+pub(crate) fn normalize_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+
     let kind = expr.try_node(node_id)?.kind();
 
     match kind {
         ExprKind::And | ExprKind::Or => {
-            simplify_and_or(node_id, expr)?;
+            and_or::normalize(node_id, expr)?;
         }
         ExprKind::Not => {
-            simplify_not(node_id, expr)?;
+            not::normalize(node_id, expr)?;
         }
         ExprKind::Forall | ExprKind::Exists => {
-            simplify_quantifier(node_id, expr)?;
+            quantifier::normalize(node_id, expr)?;
         }
         ExprKind::Imply => {
-            simplify_imply(node_id, expr)?;
+            return Err(ExprError::UnexpectedNodeKind {
+                node_id,
+                kind: ExprKind::Imply,
+            });
         }
         ExprKind::Operation => {
-            simplify_arithmetic_operation(node_id, expr)?;
+            arithmetic::normalize(node_id, expr)?;
         }
         _ => {} // Other node kinds are skipped
     }
@@ -148,7 +152,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -176,7 +180,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -204,10 +208,40 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
+        assert_eq!(output, "(or (A) (B) (C))");
+    }
+
+    /// Test structural deduplication in a root OR node with duplicate subtrees, verifying order-independence.
+    ///
+    /// Input: (or (or (A) (B)) (or (B) (A)) (C))
+    /// Expected: (or (A) (B) (C))
+    #[test]
+    fn test_root_or_structural_duplicates_order_independent() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+
+        let inner1 = builder.or(vec![a, b]);
+        let inner2 = builder.or(vec![b, a]); // reversed order
+        let c = builder.atomic_formula("C", vec![]);
+        let root = builder.or(vec![inner1, inner2, c]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        normalize(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        assert_eq!(root_node.children().len(), 3);
         assert_eq!(output, "(or (A) (B) (C))");
     }
 
@@ -228,7 +262,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -249,7 +283,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -270,7 +304,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -294,7 +328,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
+        normalize_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -315,7 +349,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
+        normalize_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -344,7 +378,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_node(expr.root_id().unwrap(), &mut expr).unwrap();
+        normalize_node(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -369,7 +403,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -396,7 +430,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -427,7 +461,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -454,7 +488,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -487,7 +521,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -514,10 +548,101 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify(&mut expr).unwrap();
+        normalize(&mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(+ 2 (* (A) 3))");
+    }
+
+    #[test]
+    fn test_normalize_simple_imply() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let imply = builder.imply(a, b);
+
+        builder.set_root(imply).unwrap();
+        let mut expr = builder.finish();
+
+        normalize(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        assert_eq!(output, "(or (B) (not (A)))");
+    }
+
+    #[test]
+    fn test_normalize_with_double_negation() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let not_a = builder.not(a);
+        let double_not_a = builder.not(not_a);
+        let b = builder.atomic_formula("B", vec![]);
+        let imply = builder.imply(double_not_a, b);
+
+        builder.set_root(imply).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        normalize(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        assert_eq!(output, "(or (B) (not (A)))");
+    }
+
+    #[test]
+    fn test_normalize_with_and_or_nodes() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
+        let and_bc = builder.and(vec![b, c]);
+        let imply = builder.imply(a, and_bc);
+
+        builder.set_root(imply).unwrap();
+        let mut expr = builder.finish();
+
+        normalize(&mut expr).unwrap();
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        let output = expr.to_syntax_string(&interner);
+        assert_eq!(output, "(or (and (B) (C)) (not (A)))");
+    }
+
+    #[test]
+    fn test_normalize_with_quantifiers() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let x = builder.variable("?X");
+        let vars = builder.typed_list(vec![x]);
+        let forall_node = builder.forall(vars, a);
+
+        let b = builder.atomic_formula("B", vec![]);
+        let y = builder.variable("?Y");
+        let vars = builder.typed_list(vec![y]);
+        let exists_node = builder.exists(vars, b);
+
+        let imply = builder.imply(forall_node, exists_node);
+        builder.set_root(imply).unwrap();
+        let mut expr = builder.finish();
+
+        normalize(&mut expr).unwrap();
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::Or);
+        let output = expr.to_syntax_string(&interner);
+        assert_eq!(output, "(or (exists (?Y) (B)) (not (forall (?X) (A))))");
     }
 }

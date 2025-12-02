@@ -4,9 +4,123 @@ use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
 
-// TO DO: Propose a flatten function to have polish arithmetic expression
+/// Simplifies an arithmetic expression node.
+///
+/// This function centralizes the arithmetic simplification process, ensuring that
+/// arithmetic expressions are normalized and constants are evaluated. It performs
+/// two main steps:
+///
+/// 1. **Normalization (flattening)**: Nested arithmetic operations of the same kind
+///    (`+` or `*`) are flattened into a single node. For example:
+///    - `(+ 1 (+ 2 3) 4)` → `(+ 1 2 3 4)`
+///    - `(* 2 (* 3 4))` → `(* 2 3 4)`
+///
+/// 2. **Reduction (constant evaluation)**: If all children of the operation are
+///    constants (`Number` nodes), the operation is evaluated and replaced by a
+///    single constant node.
+///
+/// # Parameters
+///
+/// * `node_id` - The ID of the arithmetic operation node to simplify.
+/// * `expr` - The mutable reference to the expression tree containing the node.
+///
+/// # Returns
+///
+/// * `Ok(())` if simplification succeeds or is not applicable.
+/// * `Err(ExprError)` if an arithmetic evaluation fails (e.g., division by zero).
+///
+/// # Notes
+///
+/// - Only arithmetic operation nodes (`ExprKind::Operation`) are affected.
+/// - Non-arithmetic nodes are skipped silently.
+/// - Flattening and constant evaluation are applied sequentially, preserving
+///   the tree structure while simplifying expressions.
+pub(super) fn normalize(
+    node_id: NodeId,
+    expr: &mut Expr,
+) -> Result<(), ExprError> {
+    let node = expr.try_node(node_id)?;
 
-/// Simplifies an arithmetic operation node by evaluating it if all children are constants.
+    if node.kind() != ExprKind::Operation {
+        return Ok(());
+    }
+
+    // Step 1: Flatten nested operations of the same type
+    standardize(node_id, expr)?;
+
+    // Step 2: Evaluate constants
+    reduce(node_id, expr)?;
+
+    Ok(())
+}
+
+/// Flattens nested arithmetic expressions of the same operator.
+///
+/// This function normalizes arithmetic expressions by pulling up children from
+/// nested operations of the same kind (`+` or `*`). It ensures that expressions
+/// like nested sums or products are represented in a flat, normalized form.
+///
+/// # Examples
+///
+/// - `(+ 1 (+ 2 3) 4)` → `(+ 1 2 3 4)`
+/// - `(* 2 (* 3 4))`   → `(* 2 3 4)`
+///
+/// # Parameters
+///
+/// * `node_id` - The ID of the arithmetic operation node to flatten.
+/// * `expr` - The mutable reference to the expression tree containing the node.
+///
+/// # Returns
+///
+/// * `Ok(())` if flattening succeeds or is not applicable.
+/// * `Err(ExprError)` if node access fails.
+///
+/// # Notes
+///
+/// - Only arithmetic operation nodes (`ExprKind::Operation`) are affected.
+/// - Non-arithmetic nodes are skipped silently.
+/// - This function does not evaluate constants; it only normalizes the tree structure.
+fn standardize(
+    node_id: NodeId,
+    expr: &mut Expr,
+) -> Result<(), ExprError> {
+    let node = expr.try_node(node_id)?;
+
+    // Only arithmetic operation nodes can be flattened
+    if node.kind() != ExprKind::Operation {
+        return Ok(());
+    }
+
+    let op = match node.content().as_arithmetic_op() {
+        Some(op) => op,
+        None => return Ok(()),
+    };
+
+    let mut new_children: Vec<NodeId> = Vec::with_capacity(node.children().len());
+
+    for &child_id in node.children() {
+        let child = expr.try_node(child_id)?;
+
+        // If child is the same arithmetic operation, pull up its children
+        if child.kind() == ExprKind::Operation {
+            if let Some(child_op) = child.content().as_arithmetic_op() {
+                if child_op == op {
+                    new_children.extend(child.children());
+                    continue;
+                }
+            }
+        }
+
+        new_children.push(child_id);
+    }
+
+    let mut node_mut = expr.try_node_mut(node_id)?;
+    node_mut.set_children(new_children);
+
+    Ok(())
+}
+
+/// Reduces an arithmetic operation node by evaluating it if all children are constants.
 ///
 /// If the node represents an arithmetic operation (`+`, `-`, `*`, `/`) and all its children
 /// are constants (`Number` nodes), the operation is computed and the node is replaced with
@@ -22,7 +136,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
 ///
 /// * `Ok(())` if the simplification succeeds or is not applicable.
 /// * `Err(ExprError)` if an arithmetic evaluation fails (e.g., division by zero).
-pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_arithmetic_operation(
+fn reduce(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {
@@ -60,7 +174,7 @@ pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_arithmeti
     }
 
     // Evaluate the operation
-    let result = evaluate_arithmetic_op(op, &values)?;
+    let result = evaluate_arithmetic_expression(op, &values)?;
 
     // Replace the node with a constant Number node
     let mut node_mut = expr.try_node_mut(node_id)?;
@@ -71,7 +185,7 @@ pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_arithmeti
     Ok(())
 }
 
-/// Evaluates an arithmetic operation on a slice of constant operands.
+/// Evaluates an arithmetic expression on a slice of constant operands.
 ///
 /// This function performs arithmetic evaluation for the four standard operators:
 /// - `Add` (`+`)
@@ -128,7 +242,7 @@ pub(in crate::aiplan4rust::lir::expr::transform::simplify) fn simplify_arithmeti
 /// - Operands are passed as a slice of `OrderedFloat<f64>` to maintain total ordering and avoid
 ///   floating-point equality pitfalls.
 /// - Errors include the operator and operands to help with debugging and reporting in expression trees.
-fn evaluate_arithmetic_op(
+fn evaluate_arithmetic_expression(
     op: ArithmeticOp,
     values: &[OrderedFloat<f64>],
 ) -> Result<OrderedFloat<f64>, ExprError> {
@@ -175,7 +289,7 @@ mod simplify_arithmetic_operation_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_arithmetic_operation(expr.root_id().unwrap(), &mut expr).unwrap();
+        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -202,7 +316,7 @@ mod simplify_arithmetic_operation_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_arithmetic_operation(expr.root_id().unwrap(), &mut expr).unwrap();
+        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -229,7 +343,7 @@ mod simplify_arithmetic_operation_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_arithmetic_operation(expr.root_id().unwrap(), &mut expr).unwrap();
+        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -256,7 +370,7 @@ mod simplify_arithmetic_operation_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        simplify_arithmetic_operation(expr.root_id().unwrap(), &mut expr).unwrap();
+        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -283,7 +397,7 @@ mod simplify_arithmetic_operation_tests {
 
         let input = expr.to_syntax_string(&interner);
 
-        let result = simplify_arithmetic_operation(expr.root_id().unwrap(), &mut expr);
+        let result = reduce(expr.root_id().unwrap(), &mut expr);
 
         print!("{} -> error: {:?} ", input, result);
 
