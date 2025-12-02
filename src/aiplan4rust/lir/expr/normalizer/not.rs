@@ -119,6 +119,7 @@ pub(crate) fn push_negations(root_id: NodeId, expr: &mut Expr) -> Result<(), Exp
 ///
 /// # Panics / Errors
 /// - Returns `ExprError` if any node cannot be accessed or mutated.
+#[allow(dead_code)]
 fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, ExprError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(
@@ -191,6 +192,7 @@ fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, Expr
 ///
 /// # Panics / Errors
 /// - Returns `ExprError` if the tree cannot be accessed or mutated correctly.
+#[allow(dead_code)]
 fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId, ExprError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::Not, "Node must be a Not");
@@ -263,6 +265,7 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
 /// Input:  (not (not X))
 /// Output: X
 /// ```
+#[allow(dead_code)]
 fn simplify_double_negation(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::Not, "Node must be a Not");
@@ -325,6 +328,7 @@ fn simplify_double_negation(node_id: NodeId, expr: &mut Expr) -> Result<bool, Ex
 ///   called during a post-order traversal.
 /// - After simplification, the node is no longer a `Not`. The caller must
 ///   avoid applying further `Not`-specific rules to it.
+#[allow(dead_code)]
 fn simplify_trivial_constant(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     // 1. Get the node
     let node = expr.try_node(node_id)?;

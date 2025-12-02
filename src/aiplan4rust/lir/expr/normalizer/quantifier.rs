@@ -85,6 +85,7 @@ pub(crate) fn normalize(
 /// let node_id = expr.root_id().unwrap();
 /// remove_empty_quantifier(node_id, &mut expr)?;
 /// ```
+#[allow(dead_code)]
 fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(
