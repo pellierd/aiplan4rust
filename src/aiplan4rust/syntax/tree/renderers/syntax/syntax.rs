@@ -613,7 +613,8 @@ pub fn render_with_indent<T: SyntaxNode>(
                 write!(f, "<missing-condition>")?;
             }
 
-            writeln!(f)?; // retour à la ligne après la condition
+            //writeln!(f)?; // retour à la ligne après la condition
+            writeln!(f, " ")?;
 
             // 3. Effet indenté
             if let Some(&effect_id) = children.get(1) {
