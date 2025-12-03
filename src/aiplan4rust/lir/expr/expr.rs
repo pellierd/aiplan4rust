@@ -411,26 +411,33 @@ impl Expr {
         let iter1 = self.preorder_from(root_a).values();
         let iter2 = self.preorder_from(root_b).values();
 
-        // Iterate over both trees in preorder
-        for (n1, n2) in iter1.zip(iter2) {
-            // Compare node kind
+        let mut i1 = iter1.peekable();
+        let mut i2 = iter2.peekable();
+
+        // Compare step-by-step
+        for (n1, n2) in i1.by_ref().zip(i2.by_ref()) {
             if n1.kind() != n2.kind() {
                 return Ok(false);
             }
-
-            // Compare node content
             if n1.content() != n2.content() {
                 return Ok(false);
             }
-
-            // Compare number of children
             if n1.children().len() != n2.children().len() {
                 return Ok(false);
             }
         }
 
+        // After the zip loop, check remaining nodes
+        let leftover1 = i1.peek().is_some();
+        let leftover2 = i2.peek().is_some();
+
+        if leftover1 || leftover2 {
+            return Ok(false); // different sizes => different structures
+        }
+
         Ok(true)
     }
+
 
     /// Computes the hash of a subtree of the expression.
     ///
@@ -555,6 +562,28 @@ impl Expr {
         self.set(node_id, ExprKind::And, Content::None, vec![])
     }
 
+    /// Checks whether a node in the expression tree is an empty AND node `(and)`.
+    ///
+    /// An empty AND node has kind `ExprKind::And` and no children.
+    /// In PDDL semantics, `(and)` represents a logical `true`.
+    ///
+    /// # Parameters
+    /// - `node_id`: The ID of the node to check.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if the node exists, is of kind `And`, and has no children.
+    /// - `Ok(false)` if the node exists but is not an empty AND.
+    /// - `Err(ExprError)` if the node cannot be accessed.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let and_id = expr_builder.and(vec![]);
+    /// assert!(expr.is_empty_and(and_id)?);
+    /// ```
+    pub fn is_empty_and(&self, node_id: NodeId) -> Result<bool, ExprError> {
+        Ok(self.try_node(node_id)?.is_empty_and())
+    }
+
     /// Sets the node at `node_id` to an empty `(or)` node.
     ///
     /// # Arguments
@@ -574,6 +603,29 @@ impl Expr {
     pub fn set_empty_or(&mut self, node_id: NodeId) -> Result<(), ExprError> {
         self.set(node_id, ExprKind::Or, Content::None, vec![])
     }
+
+    /// Checks whether a node in the expression tree is an empty OR node `(or)`.
+    ///
+    /// An empty OR node has kind `ExprKind::Or` and no children.
+    /// In PDDL semantics, `(or)` represents a logical `false`.
+    ///
+    /// # Parameters
+    /// - `node_id`: The ID of the node to check.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if the node exists, is of kind `Or`, and has no children.
+    /// - `Ok(false)` if the node exists but is not an empty OR.
+    /// - `Err(ExprError)` if the node cannot be accessed.
+    ///
+    /// # Examples
+    /// ```ignore
+    /// let or_id = expr_builder.or(vec![]);
+    /// assert!(expr.is_empty_or(or_id)?);
+    /// ```
+    pub fn is_empty_or(&self, node_id: NodeId) -> Result<bool, ExprError> {
+        Ok(self.try_node(node_id)?.is_empty_or())
+    }
+
 }
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.

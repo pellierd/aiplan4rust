@@ -77,6 +77,23 @@ impl ExprNode {
             inner: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
         }
     }
+
+    /// Checks if the expression is an `And` expression with no children.
+    ///
+    /// Returns `true` if `self` is of kind `ExprKind::And` and has no children,
+    /// otherwise returns `false`.
+    pub fn is_empty_and(&self) -> bool {
+        self.kind() == ExprKind::And && self.children().is_empty()
+    }
+
+    /// Checks if the expression is an `Or` expression with no children.
+    ///
+    /// Returns `true` if `self` is of kind `ExprKind::Or` and has no children,
+    /// otherwise returns `false`.
+    pub fn is_empty_or(&self) -> bool {
+        self.kind() == ExprKind::Or && self.children().is_empty()
+    }
+
 }
 
 /// Allows transparent access to the underlying `SyntaxBaseNode` via dereferencing.

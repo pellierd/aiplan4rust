@@ -79,29 +79,26 @@ fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprErro
     let cond_id = children[0];
     let eff_id = children[1];
 
-    let cond = expr.try_node(cond_id)?;
-    let eff = expr.try_node(eff_id)?;
-
     // Case 1: (when (and) E) -> E
-    if cond.kind() == ExprKind::And {
+    if expr.is_empty_and(cond_id)? {
         expr.move_to(eff_id, node_id)?;
         return Ok(true);
     }
 
     // Case 2: (when (or) E) -> (and)
-    if cond.kind() == ExprKind::Or {
+    if expr.is_empty_or(cond_id)? {
         expr.set_empty_and(node_id)?;
         return Ok(true);
     }
 
-    // Case 3: (when E E) -> (and)
-    if cond_id == eff_id {
+    // Case 3: (when C (and)) -> (and)
+    if expr.is_empty_and(eff_id)? {
         expr.set_empty_and(node_id)?;
         return Ok(true);
     }
 
-    // Case 4: (when C (and)) -> (and)
-    if eff.kind() == ExprKind::And {
+    // Case 4: (when E E) -> (and)
+    if expr.deep_sub_expr_eq(cond_id, eff_id)? {
         expr.set_empty_and(node_id)?;
         return Ok(true);
     }

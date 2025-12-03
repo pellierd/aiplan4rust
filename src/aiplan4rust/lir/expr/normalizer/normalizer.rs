@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
-use crate::aiplan4rust::lir::expr::normalizer::{and_or, arithmetic, assign, comparison, not, quantifier};
+use crate::aiplan4rust::lir::expr::normalizer::{and_or, arithmetic, assign, comparison, not, quantifier, when};
 use crate::aiplan4rust::lir::expr::transform::eliminate_imply::eliminate_imply;
 use crate::aiplan4rust::lir::expr::transform::push_negation::push_negation;
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -126,6 +126,10 @@ pub(crate) fn normalize_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Exp
         ExprKind::Operation => {
             arithmetic::normalize(node_id, expr)?;
         }
+        ExprKind::When => {
+            when::normalize(node_id, expr)?;
+        }
+
         _ => {} // Other node kinds are skipped
     }
 
@@ -656,5 +660,125 @@ mod tests {
         assert_eq!(root_node.kind(), ExprKind::Or);
         let output = expr.to_syntax_string(&interner);
         assert_eq!(output, "(or (exists (?Y) (B)) (not (forall (?X) (A))))");
+    }
+
+    /// Test 1: When with empty AND condition and non-trivial effect
+    /// Input: (when (and) (and A B C))
+    /// Expected Output: (and A B C)
+    #[test]
+    fn test_when_empty_and_complex_effect() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
+        let effect = builder.and(vec![a, b, c]);
+        let condition = builder.and(vec![]);
+        let when_node = builder.when(condition, effect);
+
+        builder.set_root(when_node).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner); // "(when (and) (and A B C))"
+        normalize(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner); // "(and A B C)"
+
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::And);
+        let children = root_node.children();
+        assert_eq!(root_node.children().len(), 3);
+        // Verify that all three children are AtomicFormula
+        for &child_id in children {
+            let child_node = expr.try_node(child_id).unwrap();
+            assert_eq!(child_node.kind(), ExprKind::AtomicFormula);
+        }
+    }
+
+    /// Test 2: When with empty OR condition and multiple AND effect
+    /// Input: (when (or) (and X Y Z))
+    /// Expected Output: (and)
+    #[test]
+    fn test_when_empty_or_complex_effect() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let x = builder.atomic_formula("X", vec![]);
+        let y = builder.atomic_formula("Y", vec![]);
+        let z = builder.atomic_formula("Z", vec![]);
+        let effect = builder.and(vec![x.clone(), y.clone(), z.clone()]);
+        let condition = builder.or(vec![]);
+        let when_node = builder.when(condition, effect);
+
+        builder.set_root(when_node).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner); // "(when (or) (and X Y Z))"
+        normalize(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner); // "(and)"
+
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::And);
+        assert_eq!(root_node.children().len(), 0); // fully simplified
+    }
+
+    /// Test 3: When with condition equal to complex effect
+    /// Input: (when (and A B) (and A B))
+    /// Expected Output: (and)
+    #[test]
+    fn test_when_condition_equal_effect() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let a = builder.atomic_formula("A", vec![]);
+        let b = builder.atomic_formula("B", vec![]);
+        let condition = builder.and(vec![a, b]);
+        let effect = builder.and(vec![a, b]);
+        let when_node = builder.when(condition, effect);
+
+        builder.set_root(when_node).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner); // "(when (and A B) (and A B))"
+        normalize(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner); // "(and)"
+
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::And);
+        assert_eq!(root_node.children().len(), 0); // fully simplified
+    }
+
+    /// Test 4: When with non-trivial condition and empty AND effect
+    /// Input: (when (and A B) (and))
+    /// Expected Output: (and)
+    #[test]
+    fn test_when_nontrivial_condition_empty_effect() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let cond_a = builder.atomic_formula("A", vec![]);
+        let cond_b = builder.atomic_formula("B", vec![]);
+        let condition = builder.and(vec![cond_a, cond_b]);
+        let empty_and = builder.and(vec![]);
+        let when_node = builder.when(condition, empty_and);
+
+        builder.set_root(when_node).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner); // "(when (and A B) (and))"
+        normalize(&mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner); // "(and)"
+
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::And);
+        assert_eq!(root_node.children().len(), 0);
     }
 }

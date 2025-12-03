@@ -269,11 +269,7 @@ fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
         let kind_new = inner_body_node_mut.kind();
         let content_new = std::mem::take(inner_body_node_mut.content_mut());
         let children_new = std::mem::take(inner_body_node_mut.children_mut());
-
-        let body_node_mut = expr.try_node_mut(body_id)?;
-        body_node_mut.set_kind(kind_new);
-        body_node_mut.set_content(content_new);
-        body_node_mut.set_children(children_new);
+        expr.set(body_id, kind_new, content_new, children_new)?;
     }
 
     Ok(())
@@ -346,14 +342,12 @@ fn simplify_quantifier_trivial_body(
             | (ExprKind::Exists, ExprKind::Or) => {
                 // Replace the quantifier by the trivial body
                 let body_mut = expr.try_node_mut(body_id)?;
-                let kind_new = body_mut.kind();
-                let content_new = std::mem::take(body_mut.content_mut());
-                let children_new = std::mem::take(body_mut.children_mut());
+                let body_kind = body_mut.kind();
+                let body_content = std::mem::take(body_mut.content_mut());
+                let body_children = std::mem::take(body_mut.children_mut());
 
-                let node_mut = expr.try_node_mut(node_id)?;
-                node_mut.set_kind(kind_new);
-                node_mut.set_content(content_new);
-                node_mut.set_children(children_new);
+                // Replace node_id with body
+                expr.set(node_id, body_kind, body_content, body_children)?;
 
                 return Ok(true);
             }
@@ -363,7 +357,6 @@ fn simplify_quantifier_trivial_body(
 
     Ok(false)
 }
-
 
 #[cfg(test)]
 mod tests {

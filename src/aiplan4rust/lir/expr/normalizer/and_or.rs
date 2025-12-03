@@ -444,8 +444,8 @@ fn simplify_empty_and_or_node(
         // If the child is empty and of the opposite type:
         //   - (and (or)) → becomes (or) → false
         //   - (or (and)) → becomes (and) → true
-        if (node_kind == ExprKind::And && is_empty_or(&child))
-            || (node_kind == ExprKind::Or && is_empty_and(&child))
+        if (node_kind == ExprKind::And && child.is_empty_or())
+            || (node_kind == ExprKind::Or && child.is_empty_and())
         {
             // Mutably borrow the parent node only here
             let node_mut = expr.try_node_mut(node_id)?;
@@ -477,34 +477,6 @@ fn simplify_empty_and_or_node(
     }
 
     Ok(simplified)
-}
-
-/// Checks whether a node is an empty AND `(and)` node.
-///
-/// # Parameters
-/// - `node`: A reference to the `ExprNode` to check.
-///
-/// # Returns
-/// - `true` if the node is of kind `ExprKind::And` and has no children (i.e., `(and)` in PDDL
-///     semantics, considered `true`).
-/// - `false` otherwise.
-#[allow(dead_code)]
-fn is_empty_and(node: &ExprNode) -> bool {
-    node.kind() == ExprKind::And && node.children().is_empty()
-}
-
-/// Checks whether a node is an empty OR `(or)` node.
-///
-/// # Parameters
-/// - `node`: A reference to the `ExprNode` to check.
-///
-/// # Returns
-/// - `true` if the node is of kind `ExprKind::Or` and has no children (i.e., `(or)` in PDDL
-///     semantics, considered `false`).
-/// - `false` otherwise.
-#[allow(dead_code)]
-fn is_empty_or(node: &ExprNode) -> bool {
-    node.kind() == ExprKind::Or && node.children().is_empty()
 }
 
 #[cfg(test)]

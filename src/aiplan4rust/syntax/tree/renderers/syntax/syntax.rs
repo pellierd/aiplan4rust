@@ -613,8 +613,7 @@ pub fn render_with_indent<T: SyntaxNode>(
                 write!(f, "<missing-condition>")?;
             }
 
-            //writeln!(f)?; // retour à la ligne après la condition
-            writeln!(f, " ")?;
+            write!(f, " ")?; // juste un espace, pas de writeln
 
             // 3. Effet indenté
             if let Some(&effect_id) = children.get(1) {
@@ -626,17 +625,18 @@ pub fn render_with_indent<T: SyntaxNode>(
                         indent + 1,
                     )?;
                 } else {
-                    writeln!(f, "{}<invalid-effect>", indent_str)?;
+                    write!(f, "<invalid-effect>")?;
                 }
             } else {
-                writeln!(f, "{}<missing-effect>", indent_str)?;
+                write!(f, "<missing-effect>")?;
             }
 
-            // 4. Fermeture sans retour ligne après
-            write!(f, "{})", indent_str)?;
+            // 4. Fermeture de la parenthèse
+            write!(f, ")")?;
 
             Ok(())
         }
+
 
         RenderKind::TaskNetworkDef => {
             let children = node.children();
