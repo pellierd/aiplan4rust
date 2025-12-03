@@ -490,7 +490,7 @@ impl Expr {
     /// let children = vec![child1_id, child2_id];
     /// expr.set_node(node_id, ExprKind::And, Content::None, children)?;
     /// ```
-    pub fn set_node(
+    pub fn set(
         &mut self,
         node_id: NodeId,
         kind: ExprKind,
@@ -525,12 +525,13 @@ impl Expr {
     pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), ExprError> {
         let (kind, content, children) = {
             let source = self.try_node_mut(source_id)?;
-            (source.kind(), std::mem::take(source.content_mut()), std::mem::take(source.children_mut()))
+            (
+                source.kind(),
+                std::mem::take(source.content_mut()),
+                std::mem::take(source.children_mut()),
+            )
         };
-        let target = self.try_node_mut(target_id)?;
-        target.set_kind(kind);
-        target.set_content(content);
-        target.set_children(children);
+        self.set(target_id, kind, content, children)?;
         Ok(())
     }
 
@@ -551,7 +552,7 @@ impl Expr {
     /// expr.set_empty_and(node_id)?;
     /// ```
     pub fn set_empty_and(&mut self, node_id: NodeId) -> Result<(), ExprError> {
-        self.set_node(node_id, ExprKind::And, Content::None, vec![])
+        self.set(node_id, ExprKind::And, Content::None, vec![])
     }
 
     /// Sets the node at `node_id` to an empty `(or)` node.
@@ -571,7 +572,7 @@ impl Expr {
     /// expr.set_empty_or(node_id)?;
     /// ```
     pub fn set_empty_or(&mut self, node_id: NodeId) -> Result<(), ExprError> {
-        self.set_node(node_id, ExprKind::Or, Content::None, vec![])
+        self.set(node_id, ExprKind::Or, Content::None, vec![])
     }
 }
 
