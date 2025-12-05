@@ -1,9 +1,10 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
-/// Simplifies an AND or OR node in a PDDL expression tree.
+/// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN expressions.
 ///
 /// This function performs several simplifications on a node of type `AND` or `OR`,
 /// processing the node in place. It does nothing if the node is of another kind.
@@ -18,13 +19,19 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 /// 3. **Structural deduplication**: Duplicate subtrees are removed using a
 ///    structural hash (`sub_expr_hash`). For example:
 ///    `(and (and A B) (and A B))` becomes `(and (and A B))`.
-/// 4. **Tautology and contradiction elimination**:
+/// 4. **Merge WHEN expressions**:
+///    - All `When` expressions among the children are grouped by their effect.
+///    - Conditions with the same effect are merged; if multiple conditions exist,
+///      they are combined under a new `Or` node.
+///    - Non-`When` children remain unchanged.
+///    - This step may modify the children, and the node will reflect merged `When`s.
+/// 5. **Tautology and contradiction elimination**:
 ///    - For OR nodes: `(or A (not A))` → (and)
 ///    - For AND nodes: `(and A (not A))` → (or)
-/// 5. **Single-child reduction**: If the node has only one child after deduplication,
+/// 6. **Single-child reduction**: If the node has only one child after deduplication,
 ///    it is replaced by that child. For example:
 ///    `(and A)` becomes `A`.
-/// 6. **Empty-node simplification**: If the node has no children, it is replaced
+/// 7. **Empty-node simplification**: If the node has no children, it is replaced
 ///    by a neutral value (true for `AND`, false for `OR` depending on your semantics).
 ///
 /// # Parameters
@@ -38,15 +45,17 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 /// # Notes
 /// - This function assumes that `expr` is a well-formed tree and that `node_id` exists.
 /// - Only AND or OR nodes are simplified; other nodes are skipped silently.
+/// - The `merge_when_in_place` step ensures that logically equivalent WHEN conditions
+///   are grouped and avoids redundant branches in the expression.
 /// - Sorting children in canonical order ensures that `deep_subexpr_eq` and other
 ///   structural equality checks behave consistently regardless of original child order.
 ///
 /// # Example
 /// ```ignore
-/// // Suppose expr represents: (and A (and B C) (and A B))
+/// // Suppose expr represents: (and A (and B C) (when X Y) (when Z Y))
 /// let node_id = expr.root_id().unwrap();
-/// simplify_and_or(node_id, &mut expr)?;
-/// // After simplification, the expression becomes: (and A B C)
+/// normalize(node_id, &mut expr)?;
+/// // After simplification, the expression becomes: (and A B C (when (or X Z) Y))
 /// ```
 pub(super) fn normalize(
     node_id: NodeId,
@@ -62,21 +71,25 @@ pub(super) fn normalize(
     // Step 3: Deduplicate structurally
     deduplicate_and_or_node(node_id, expr)?;
 
-    // Step 4: Simplify tautologies and contradictions
+    // Step 4: Merge WHEN expressions
+    merge_when(node_id, expr)?; // merge WHEN expressions grouped by effect
+
+    // Step 5: Simplify tautologies and contradictions
     if simplify_tautologies_and_contradictions(node_id, expr)? {
         return Ok(());
     }
 
-    // Step 5: Reduce nodes with a single child
+    // Step 6: Reduce nodes with a single child
     if reduce_single_and_or_node(node_id, expr)? {
         return Ok(());
     }
 
-    // Step 6: Simplify empty nodes
+    // Step 7: Simplify empty nodes
     simplify_empty_and_or_node(node_id, expr)?;
 
     Ok(())
 }
+
 
 /// Flattens nested AND/OR nodes of the same kind into a single node.
 ///
@@ -477,6 +490,253 @@ fn simplify_empty_and_or_node(
     }
 
     Ok(simplified)
+}
+
+/// Main function that merges `When` expressions under an `And` or `Or` node
+/// and updates the node in-place.
+///
+/// This function collects all `When` children, merges conditions that share
+/// the same effect, rebuilds the node's children with merged `When`s, and
+/// returns a boolean indicating whether any fusion (i.e., multiple conditions
+/// merged into an `Or`) occurred.
+///
+/// # Arguments
+///
+/// * `node_id` - The ID of the parent node (`And` or `Or`) whose children will be updated.
+/// * `expr` - Mutable reference to the `Expr` tree being updated.
+///
+/// # Returns
+///
+/// * `Ok(true)` if any fusion occurred (an `Or` was created).
+/// * `Ok(false)` if no fusion occurred (all `When`s had a single condition).
+/// * `Err(ExprError)` if an error occurs during collection, allocation, or normalization.
+///
+/// # Behavior
+///
+/// 1. Collects non-`When` children and merges `When` conditions by effect using `collect_and_merge_when`.
+/// 2. Rebuilds the node's children using `rebuild_children_with_merged_when`, which now returns a boolean.
+/// 3. Returns whether any fusion occurred.
+///
+/// # Example
+///
+/// ```ignore
+/// let fusion_occurred = merge_when_in_place(node_id, &mut expr)?;
+/// if fusion_occurred {
+///     println!("Some WHEN conditions were merged into OR nodes");
+/// }
+/// ```
+pub fn merge_when(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+    // Collect non-WHEN children and merged WHEN conditions
+    let (non_when, merged_map) = collect_and_merge_when(node_id, expr)?;
+
+    // Rebuild the node's children and get whether a fusion occurred
+    let fusion_occurred = rebuild_children_with_merged_when(node_id, non_when, merged_map, expr)?;
+
+    // Return the fusion flag
+    Ok(fusion_occurred)
+}
+
+/// Iterates over the children of a node, collects non-`When` children,
+/// and merges `When` expressions by their effect.
+///
+/// This function processes a logical `And` or `Or` node. It separates out the children
+/// that are **not** `When` expressions, and merges all `When` expressions that have
+/// the same effect. If multiple conditions share the same effect, they are grouped together.
+///
+/// # Arguments
+///
+/// * `node_id` - The ID of the parent node (`And` or `Or`) whose children are being processed.
+/// * `expr` - A reference to the expression tree containing the node.
+///
+/// # Returns
+///
+/// * `Ok((non_when, merged_when))` where:
+///     - `non_when` is a vector of NodeIds for children that are not `When` expressions.
+///     - `merged_when` is a vector of tuples `(effect_node, conditions)`:
+///         - `effect_node` is the NodeId of the effect of the `When`.
+///         - `conditions` is a vector of NodeIds representing all conditions associated with that effect.
+/// * `Err(ExprError)` if accessing the expression tree fails.
+///
+/// # Behavior
+///
+/// 1. Retrieve the node corresponding to `node_id` and assert it is an `And` or `Or`.
+/// 2. Initialize empty vectors:
+///     - `non_when` for children that are not `When`.
+///     - `merged_map` for grouping conditions by their effect.
+/// 3. Iterate over each child of the node:
+///     - If the child is not a `When`, add it to `non_when`.
+///     - If the child is a `When`:
+///         - Extract its condition (`cond_id`) and effect (`eff_id`).
+///         - Search `merged_map` for an existing entry with the same effect using `deep_sub_expr_eq`.
+///             - If found, append the condition to the existing list.
+///             - If not found, create a new entry `(eff_id, vec![cond_id])`.
+/// 4. Return `non_when` and `merged_map`.
+///
+/// # Notes
+///
+/// - `deep_sub_expr_eq` is used to compare effects structurally. Later, this could be optimized
+///   using precomputed hashes for faster comparisons.
+/// - The function preserves the original order of non-`When` nodes.
+///
+/// # Example
+///
+/// ```ignore
+/// // Suppose node_id is an AND node containing WHEN expressions
+/// let (non_when, merged_when) = collect_and_merge_when(node_id, &expr)?;
+/// // non_when contains all non-WHEN children
+/// // merged_when groups WHEN conditions by effect
+/// ```
+fn collect_and_merge_when(
+    node_id: NodeId,
+    expr: &Expr
+) -> Result<(Vec<NodeId>, Vec<(NodeId, Vec<NodeId>)>), ExprError> {
+    // Retrieve the node and ensure it is an AND or OR
+    let node = expr.try_node(node_id)?;
+    debug_assert!(
+        matches!(node.kind(), ExprKind::And | ExprKind::Or),
+        "rebuild_children_with_merged_when expects an AND or OR node"
+    );
+
+    // Vector to store non-WHEN children
+    let mut non_when: Vec<NodeId> = Vec::new();
+    // Vector to group conditions by their effect
+    let mut merged_map: Vec<(NodeId, Vec<NodeId>)> = Vec::new();
+
+    // Iterate over all children
+    for &child_id in node.children() {
+        let child = expr.try_node(child_id)?;
+        if child.kind() != ExprKind::When {
+            // Non-WHEN children go directly into the non_when vector
+            non_when.push(child_id);
+        } else {
+            // Ensure the WHEN node has exactly two children: condition and effect
+            debug_assert!(
+                child.children().len() == 2,
+                "WHEN node must have exactly two children: condition and effect"
+            );
+
+            // Extract condition and effect
+            let cond_id = child.children()[0];
+            let eff_id = child.children()[1];
+
+            // Merge conditions by effect
+            let mut found = false;
+            for (existing_eff_id, conds) in &mut merged_map {
+                if expr.deep_sub_expr_eq(*existing_eff_id, eff_id)? {
+                    conds.push(cond_id);
+                    found = true;
+                    break;
+                }
+            }
+
+            // If no existing entry with this effect, create a new one
+            if !found {
+                merged_map.push((eff_id, vec![cond_id]));
+            }
+        }
+    }
+
+    Ok((non_when, merged_map))
+}
+
+/// Rebuilds the children of a logical `And` or `Or` node by merging `When` expressions.
+/// Returns `true` if any fusion occurred (i.e., if multiple conditions were combined into an `Or`).
+///
+/// This function replaces `When` nodes with merged versions, combining conditions
+/// that share the same effect. Non-`When` children are preserved as-is.
+///
+/// # Arguments
+///
+/// * `node_id` - The ID of the parent node (`And` or `Or`) whose children will be updated.
+/// * `non_when` - A vector of NodeIds representing children that are **not** `When` expressions.
+/// * `merged_when` - A vector of tuples `(effect_node, conditions)` representing merged `When` expressions.
+///                   Each tuple contains the effect node ID and a vector of condition node IDs.
+/// * `expr` - Mutable reference to the `Expr` tree being updated.
+///
+/// # Returns
+///
+/// * `Ok(true)` if a fusion occurred (an `Or` node was created for multiple conditions).
+/// * `Ok(false)` if no fusion occurred (all `When` nodes had a single condition).
+/// * `Err(ExprError)` if an error occurs during node allocation or normalization.
+///
+/// # Behavior
+///
+/// 1. Retrieves the node and asserts it is an `And` or `Or`.
+/// 2. Pre-allocates a new vector for children, including space for `non_when` and merged `When` nodes.
+/// 3. Copies all `non_when` nodes into the new vector.
+/// 4. Iterates over each `(effect, conditions)` in `merged_when`:
+///     - If there is only one condition, use it directly.
+///     - If multiple conditions exist, create an `Or` node and normalize it, marking `fusion_occurred`.
+///     - Allocate a `When` node with the condition (or `Or`) and the effect.
+///     - Append the `When` node to the new children vector.
+/// 5. Replaces the children of `node_id` with the new vector.
+/// 6. Returns whether any fusion occurred.
+///
+/// # Notes
+///
+/// - Assumes `node_id` is an `And` or `Or`.
+/// - `normalize` is applied only to `Or` nodes with multiple conditions.
+///
+/// # Example
+///
+/// ```ignore
+/// let fusion = rebuild_children_with_merged_when(node_id, non_when_vec, merged_when_vec, &mut expr)?;
+/// if fusion {
+///     println!("Some WHEN conditions were merged into OR nodes");
+/// }
+/// ```
+fn rebuild_children_with_merged_when(
+    node_id: NodeId,
+    non_when: Vec<NodeId>,
+    merged_when: Vec<(NodeId, Vec<NodeId>)>,
+    expr: &mut Expr,
+) -> Result<bool, ExprError> {
+    // Retrieve the node and assert it is an AND or OR
+    let node = expr.try_node(node_id)?;
+    debug_assert!(
+        matches!(node.kind(), ExprKind::And | ExprKind::Or),
+        "rebuild_children_with_merged_when expects an AND or OR node"
+    );
+
+    // Pre-allocate the new children vector with enough space
+    let mut new_children = Vec::with_capacity(non_when.len() + merged_when.len());
+    new_children.extend(non_when); // Copy non-WHEN nodes directly
+
+    // Flag to indicate if any fusion occurred
+    let mut fusion_occurred = false;
+
+    // Iterate over merged WHEN tuples (effect, conditions)
+    for (eff_id, conds) in merged_when {
+        // Determine the condition node
+        let cond_node = if conds.len() == 1 {
+            // Single condition, use as-is
+            conds[0]
+        } else {
+            // Multiple conditions, create OR node → fusion
+            fusion_occurred = true;
+            let or_node = expr.alloc_with_children(
+                ExprNode::new(ExprKind::Or, Content::None, None),
+                conds,
+            );
+            normalize(or_node, expr)?; // Simplify OR node
+            or_node
+        };
+
+        // Create the WHEN node combining the condition(s) and effect
+        let when_node = expr.alloc_with_children(
+            ExprNode::new(ExprKind::When, Content::None, None),
+            vec![cond_node, eff_id],
+        );
+
+        // Append the WHEN node to the new children vector
+        new_children.push(when_node);
+    }
+
+    // Update the original node with the new children
+    expr.try_node_mut(node_id)?.set_children(new_children);
+
+    // Return whether a fusion occurred
+    Ok(fusion_occurred)
 }
 
 #[cfg(test)]
@@ -1284,4 +1544,143 @@ mod simplify_empty_and_or_node_tests {
         assert!(root_node.children().is_empty());
         assert_eq!(output, "(and)");
     }
+
+    #[test]
+    /// Test fusion of multiple WHENs with the same effect under an AND node.
+    /// Input: (and (when C1 E) (when C2 E))
+    /// Expected: (when (or C1 C2) E)
+    #[test]
+    fn test_when_merge_same_effect() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let c1 = builder.atomic_formula("C1", vec![]);
+        let c2 = builder.atomic_formula("C2", vec![]);
+        let e  = builder.atomic_formula("E", vec![]);
+
+        let w1 = builder.when(c1, e);
+        let w2 = builder.when(c2, e);
+
+        let root = builder.and(vec![w1, w2]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        normalize(root, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+        print!("{} -> {} ", input, output);
+
+        // Check that the root is a WHEN node after merge
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::When);
+        assert_eq!(root_node.children().len(), 2);
+
+        // First child of WHEN should be an OR node combining conditions
+        let cond_node = expr.try_node(root_node.children()[0]).unwrap();
+        assert_eq!(cond_node.kind(), ExprKind::Or);
+        assert_eq!(cond_node.children().len(), 2);
+        let c1 = expr.try_node(cond_node.children()[0]).unwrap();
+        assert_eq!(c1.kind(), ExprKind::AtomicFormula);
+        let c2 = expr.try_node(cond_node.children()[1]).unwrap();
+        assert_eq!(c2.kind(), ExprKind::AtomicFormula);
+
+        // Second child of WHEN should be the effect node
+        let eff_node = expr.try_node(root_node.children()[1]).unwrap();
+        assert_eq!(eff_node.kind(), ExprKind::AtomicFormula);
+    }
+
+
+    /// Test that WHENs with different effects are not merged.
+    /// Input: (and (when C1 E1) (when C2 E2))
+    /// Expected: (and (when C1 E1) (when C2 E2))
+    #[test]
+    fn test_when_not_merge_different_effect() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let c1 = builder.atomic_formula("C1", vec![]);
+        let c2 = builder.atomic_formula("C2", vec![]);
+        let e1 = builder.atomic_formula("E1", vec![]);
+        let e2 = builder.atomic_formula("E2", vec![]);
+
+        let w1 = builder.when(c1, e1);
+        let w2 = builder.when(c2, e2);
+
+        let root = builder.and(vec![w1, w2]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        normalize(root, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::And);
+        assert_eq!(root_node.children().len(), 2);
+        assert!(root_node.children().iter().all(|&id| {
+            expr.try_node(id).unwrap().kind() == ExprKind::When
+        }));
+    }
+
+    /// Test WHEN with a single condition is preserved as-is (no OR created).
+    /// Input: (and (when C E))
+    /// Expected: (when C E)
+    #[test]
+    fn test_when_single_condition() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+
+        let c = builder.atomic_formula("C", vec![]);
+        let e = builder.atomic_formula("E", vec![]);
+
+        let w = builder.when(c, e);
+        let root = builder.and(vec![w]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        normalize(root, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::When);
+        assert_eq!(root_node.children().len(), 2);
+        let cond_node = expr.try_node(root_node.children()[0]).unwrap();
+        assert_eq!(cond_node.kind(), ExprKind::AtomicFormula);
+        let eff_node = expr.try_node(root_node.children()[1]).unwrap();
+        assert_eq!(eff_node.kind(), ExprKind::AtomicFormula);
+    }
+
+    /// Test fusion of identical WHEN conditions under an AND node.
+    /// Input: (and (when C E) (when C E))
+    /// Expected: (when C E) after OR simplification
+    #[test]
+    fn test_when_merge_with_or_simplification() {
+        let mut interner = StringInterner::new();
+        let mut builder = ExprBuilder::new(&mut interner);
+        let c = builder.atomic_formula("C", vec![]);
+        let e = builder.atomic_formula("E", vec![]);
+        let w1 = builder.when(c, e);
+        let w2 = builder.when(c, e);
+        let root = builder.and(vec![w1, w2]);
+        builder.set_root(root).unwrap();
+        let mut expr = builder.finish();
+
+        let input = expr.to_syntax_string(&interner);
+        normalize(root, &mut expr).unwrap();
+        let output = expr.to_syntax_string(&interner);
+        print!("{} -> {} ", input, output);
+
+        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        assert_eq!(root_node.kind(), ExprKind::When);
+        assert_eq!(root_node.children().len(), 2);
+        let cond_node = expr.try_node(root_node.children()[0]).unwrap();
+        assert_eq!(cond_node.kind(), ExprKind::AtomicFormula);
+        let eff_node = expr.try_node(root_node.children()[1]).unwrap();
+        assert_eq!(eff_node.kind(), ExprKind::AtomicFormula);
+
+    }
+
 }
