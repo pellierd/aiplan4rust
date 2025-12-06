@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
@@ -216,257 +215,170 @@ fn push_time_specifier_into_quantifier(
     Ok(temporal_id)
 }
 
-/// Normalize a temporal expression by pushing time specifiers down and splitting into AtStart, AtEnd, Overall.
-/// Returns the new root ID of the normalized expression.
+/// Verifies that all literals in an expression tree are properly wrapped in a temporal specifier.
+///
+/// This function checks that every literal node (atomic formulas or `FComp` nodes),
+/// potentially under a `Not` node, has a parent that is a temporal specifier
+/// (`ExprKind::AtStart`, `ExprKind::AtEnd`, or `ExprKind::Overall`).
+///
+/// # Arguments
+///
+/// * `expr` - A reference to the expression tree to check.
+/// * `root_id` - The ID of the root node to start the check from.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if all literals are correctly wrapped in temporal specifiers.
+///
+/// # Errors
+///
+/// Returns `ExprError::missing_time_specifier(node_id)` if any literal node
+/// does not have a temporal specifier as its parent.
+#[allow(dead_code)]
+fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), ExprError> {
+    // Traverse the tree in post-order starting from root_id
+    for (node_id, node) in expr.postorder_from(root_id).ids() {
+        // Check if the current node is a literal (atomic formula or FComp node)
+        if expr.is_literal(node_id) {
+            // Get the parent node; if none exists, that's an error
+            let parent_id = node.parent()
+                .ok_or_else(|| ExprError::missing_time_specifier(node_id))?;
+
+            // Verify that the parent is a temporal specifier
+            if !expr.is_time_specifier(parent_id)? {
+                // If not, return an error indicating missing temporal wrapper
+                return Err(ExprError::missing_time_specifier(node_id));
+            }
+        }
+        // Non-literal nodes are ignored
+    }
+
+    // All literals verified successfully
+    Ok(())
+}
+
+/// Normalizes a temporal expression by pushing temporal specifiers down to atomic formulas
+/// and splitting the expression into three separate temporal contexts: `AtStart`, `AtEnd`, and `Overall`.
+///
+/// The normalized expression will have a new `And` root combining the three temporal subtrees.
+///
+/// # Arguments
+///
+/// * `root_id` - The ID of the root node of the expression to normalize.
+/// * `expr` - A mutable reference to the expression tree to modify.
+///
+/// # Returns
+///
+/// Returns `Ok(true)` if normalization was performed, `Ok(false)` if no temporal specifiers
+/// needed to be pushed. Returns an `ExprError` if any operation fails.
 pub fn normalize_temporal_expr(
     root_id: NodeId,
     expr: &mut Expr,
 ) -> Result<bool, ExprError> {
-    // 1. Push temporal specifiers down to atoms
+    // 1. Push temporal specifiers down to atomic formulas
+    // If there are no temporal specifiers to push, we can exit early
     if !push_time_specifier(root_id, expr)? {
         return Ok(false);
     }
 
-    // 2. Clone and filter the temporal subtrees
+    // 2. Clone and filter the expression subtree for each temporal kind
+    // Each call produces a new subtree containing only the specified temporal specifier
     let at_start = filter_temporal(expr.clone_subtree(root_id)?, ExprKind::AtStart, expr)?;
     let at_end = filter_temporal(expr.clone_subtree(root_id)?, ExprKind::AtEnd, expr)?;
     let overall = filter_temporal(expr.clone_subtree(root_id)?, ExprKind::Overall, expr)?;
 
-    // 3. Build a new 'And' root with the three temporal subtrees as children
+    // 3. Create a new 'And' node to combine the three temporal subtrees
     let and_node = ExprNode::new(ExprKind::And, ExprContent::None, None);
     let new_root_id = expr.alloc_root_with_children(
         and_node,
-        vec![at_start, at_end, overall],
+        vec![at_start, at_end, overall], // children are the three filtered temporal subtrees
     );
 
-    // 4. Update the tree's root
+    // 4. Update the tree's root to the new 'And' node
     expr.set_root_id(new_root_id)?;
 
+    // Normalization completed successfully
     Ok(true)
 }
 
-
-/// Verifies that all literals (atomic formulas or FComp nodes, possibly under Not)
-/// are properly wrapped in a temporal specifier (`AtStart`, `AtEnd`, or `Overall`).
-pub fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), ExprError> {
-    for (node_id, node) in expr.postorder_from(root_id).ids() {
-        if expr.is_literal(node_id) {
-            let parent_id = node.parent()
-                .ok_or_else(|| ExprError::missing_time_specifier(node_id))?;
-            if !expr.is_time_specifier(parent_id)? {
-                return Err(ExprError::missing_time_specifier(node_id));
-            }
-        }
-    }
-    Ok(())
-}
-
-/// Filter a temporal expression tree to keep only nodes of `keep_kind`.
-/// Assumes time specifiers are already pushed and `expr` is a cloned subtree.
-/// Returns the new root ID of the filtered subtree.
-/// Filters a cloned expression subtree to retain only the specified temporal kind.
-/// Any `TimeSpecifier` node that does not match `keep_kind` is removed.
-/// Nodes that match `keep_kind` are replaced by their child to avoid nesting.
+/// Filters a temporal expression subtree to retain only nodes of a specified temporal kind.
+///
+/// This function performs a depth-first traversal of a cloned expression subtree,
+/// removing any temporal specifier nodes that do not match `keep_kind`. Nodes that
+/// match `keep_kind` are replaced by their first child to avoid nested temporal specifiers.
+///
+/// # Behavior
+/// - Temporal nodes (`ExprKind::AtStart`, `ExprKind::AtEnd`, `ExprKind::Overall`)
+///   not matching `keep_kind` are removed from the tree.
+/// - Matching temporal nodes are replaced by their first child (if any) to flatten the tree.
+/// - Non-temporal nodes are left untouched.
+/// - The resulting filtered subtree is wrapped in a new temporal specifier node of `keep_kind`.
 ///
 /// # Arguments
 ///
 /// * `root_id` - The ID of the root node of the subtree to filter.
-/// * `keep_kind` - The `ExprKind` of the temporal specifier to keep.
-/// * `expr` - The expression tree being modified.
+/// * `keep_kind` - The `ExprKind` of the temporal specifier to retain.
+/// * `expr` - The mutable reference to the expression tree being modified.
 ///
 /// # Returns
 ///
-/// The ID of the new root node wrapped in the desired temporal specifier.
+/// Returns the `NodeId` of the new root node wrapped in the desired temporal specifier.
+///
+/// # Errors
+///
+/// Returns `ExprError` if any node operations (lookup, mutation, move) fail.
 pub fn filter_temporal(
     root_id: NodeId,
     keep_kind: ExprKind,
     expr: &mut Expr,
 ) -> Result<NodeId, ExprError> {
+    // Initialize a stack with the root node for DFS traversal
     let mut stack = vec![root_id];
 
-    // DFS post-order traversal
+    // Perform DFS in post-order
     while let Some(node_id) = stack.pop() {
-        // First, collect the data we need to avoid holding an immutable borrow
+        // Temporarily borrow node data to avoid holding multiple mutable borrows
         let (kind, children, parent_id) = {
-            let node = expr.try_node(node_id)?;
-            (node.kind(), node.children().to_vec(), node.parent())
+            let node = expr.try_node(node_id)?; // Get immutable reference to node
+            (node.kind(), node.children().to_vec(), node.parent()) // Extract kind, children, parent
         };
 
-        // Push children onto the stack
+        // Push all children onto the stack for traversal
         for &child_id in &children {
             stack.push(child_id);
         }
 
+        // Process only temporal nodes
         match kind {
             ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                 if kind == keep_kind {
-                    // Replace the timespecifier node by its child to avoid nested timespecifiers
+                    // If this node is of the desired kind, flatten it by replacing it with its first child
                     if !children.is_empty() {
                         let child_id = children[0];
-                        expr.move_to(child_id, node_id)?;
+                        expr.move_to(child_id, node_id)?; // Move child under this node's parent
                     }
                 } else {
-                    // Detach this timespecifier entirely
+                    // If this node is not of the desired kind, detach it from the tree
                     if let Some(pid) = parent_id {
-                        let parent = expr.try_node_mut(pid)?;
-                        parent.children_mut().retain(|&cid| cid != node_id);
+                        let parent = expr.try_node_mut(pid)?; // Mutable reference to parent
+                        parent.children_mut().retain(|&cid| cid != node_id); // Remove this node from parent's children
                     }
-                    expr.try_node_mut(node_id)?.set_parent(None);
+                    expr.try_node_mut(node_id)?.set_parent(None); // Clear parent reference
                 }
             }
-            _ => {} // Non-temporal nodes are left untouched
+            _ => {} // Non-temporal nodes are ignored
         }
     }
 
-    // Wrap the filtered subtree in a new temporal specifier
+    // After filtering, wrap the subtree in a new temporal specifier of the desired kind
     let time_spec_node = ExprNode::new(keep_kind, ExprContent::None, None);
-    let time_spec_id = expr.alloc(time_spec_node);
-    expr.try_node_mut(time_spec_id)?.add_child(root_id);
-    expr.try_node_mut(root_id)?.set_parent(Some(time_spec_id));
+    let time_spec_id = expr.alloc(time_spec_node); // Allocate a new node
+    expr.try_node_mut(time_spec_id)?.add_child(root_id); // Set original root as child
+    expr.try_node_mut(root_id)?.set_parent(Some(time_spec_id)); // Set new node as parent
 
+    // Return the ID of the new root node
     Ok(time_spec_id)
 }
-
-
-
-
-/// Normalizes a temporal expression by pushing temporal specifiers
-/// down to the atoms and constructing a normalized `(and (at_start ...) (at_end ...) (overall ...))`
-/// expression.
-///
-/// # Arguments
-/// * `root_id` - The root of the expression to normalize.
-/// * `expr` - The expression to modify in-place.
-///
-/// # Returns
-/// * `NodeId` of the new normalized root.
-pub fn normalize_temporal_expr_v1(
-    root_id: NodeId,
-    expr: &mut Expr,
-) -> Result<NodeId, ExprError> {
-
-    // 1. Push temporal specifiers down to atoms
-    push_time_specifier(root_id, expr)?;
-
-    // Cloner et filtrer chaque temporal subtree
-    let at_start = filter_temporal_v1(root_id, ExprKind::AtStart, expr)?;
-    let at_end = filter_temporal_v1(root_id, ExprKind::AtEnd, expr)?;
-    let overall = filter_temporal_v1(root_id, ExprKind::Overall, expr)?;
-
-    // Construire un nouveau root 'and' avec les trois sous-arbres
-    let and_node = ExprNode::new(ExprKind::And, ExprContent::None, None);
-    let new_root_id = expr.alloc_root_with_children(
-        and_node,
-        vec![at_start, at_end, overall],
-    );
-
-    Ok(new_root_id)
-}
-
-
-pub fn filter_temporal_v1(
-    root_id: NodeId,
-    keep_kind: ExprKind,
-    expr: &mut Expr,
-) -> Result<NodeId, ExprError> {
-    use std::collections::HashMap;
-
-    let mut map: HashMap<NodeId, Option<NodeId>> = HashMap::new();
-    let mut stack = vec![(root_id, false)];
-
-    // DFS post-order pour filtrer et cloner
-    while let Some((current_id, visited)) = stack.pop() {
-        if visited {
-            let old = expr.try_node(current_id)?;
-            let old_kind = old.kind();
-            let old_content = old.content().clone();
-            let old_children: Vec<NodeId> = old.children().to_vec();
-
-            let new_id_opt = match old_kind {
-                ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
-                    if old_kind == keep_kind {
-                        let child_id = old_children[0];
-                        // Cloner le sous-arbre filtré
-                        //Some(clone_sub_expr(expr, child_id)?)
-                        Some(expr.clone_subtree(child_id)?)
-                    } else {
-                        None
-                    }
-                }
-
-                ExprKind::And | ExprKind::Or | ExprKind::Not => {
-                    // filtrer les enfants existants
-                    let mut new_children = vec![];
-                    for &child_id in &old_children {
-                        if let Some(Some(cloned_child)) = map.get(&child_id) {
-                            new_children.push(*cloned_child);
-                        }
-                    }
-
-                    if new_children.is_empty() {
-                        None
-                    } else {
-                        let new_id = expr.alloc(ExprNode::new(old_kind, old_content, None));
-                        for &child_id in &new_children {
-                            expr.try_node_mut(new_id)?.add_child(child_id);
-                            expr.try_node_mut(child_id)?.set_parent(Some(new_id));
-                        }
-                        Some(new_id)
-                    }
-                }
-
-                // Atomes : clonage direct
-                _ => Some(expr.alloc(ExprNode::new(old_kind, old_content, None))),
-            };
-
-            map.insert(current_id, new_id_opt);
-        } else {
-            stack.push((current_id, true));
-            let old = expr.try_node(current_id)?;
-            for &child in old.children().iter().rev() {
-                stack.push((child, false));
-            }
-        }
-    }
-
-    // récupérer l'expression filtrée
-    let filtered_expr_id = match map.get(&root_id) {
-        Some(Some(id)) => *id,
-        _ => expr.alloc(ExprNode::new(ExprKind::Or, Default::default(), None)),
-    };
-
-    // créer le TimeSpecifier final
-    let time_spec_node = ExprNode::new(keep_kind, ExprContent::None, None);
-    let time_spec_id = expr.alloc(time_spec_node);
-    expr.try_node_mut(time_spec_id)?.add_child(filtered_expr_id);
-    expr.try_node_mut(filtered_expr_id)?.set_parent(Some(time_spec_id));
-
-    Ok(time_spec_id)
-}
-
-
-
-
-
-// Fonction utilitaire pour cloner un sous-arbre entier
-/*fn clone_subtree(expr: &mut Expr, node_id: NodeId) -> Result<NodeId, ExprError> {
-    let old = expr.try_node(node_id)?;
-    let kind = old.kind();
-    let content = old.content().clone();
-    let children: Vec<NodeId> = old.children().to_vec(); // clone des enfants
-
-    let new_id = expr.alloc(ExprNode::new(kind, content, None));
-
-    for &child_id in &children {
-        let cloned_child = clone_subtree(expr, child_id)?;
-        expr.try_node_mut(new_id)?.add_child(cloned_child);
-        expr.try_node_mut(cloned_child)?.set_parent(Some(new_id));
-    }
-
-    Ok(new_id)
-}*/
-
-
 
 
 #[cfg(test)]
