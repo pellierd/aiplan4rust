@@ -47,30 +47,38 @@ pub enum ExprError {
         content: AstContent,
     },
 
-    /// Indicates that an unsupported or unexpected `AstKind` variant was encountered.
-    #[error("Unsupported kind: {kind:?}")]
-    UnsupportedKind {
+    /// Indicates that an AST node cannot be translated into the intermediate representation (IR)
+    /// because its kind is unsupported by the pipeline.
+    #[error("Unsupported AST kind: {kind:?}")]
+    InvalidAstNode {
         /// The unsupported AST kind variant that triggered the error.
         kind: AstKind,
     },
 
-    #[error("Arithmetic  Evaluation error in operation {op:?} with operands {values:?}")]
+    /// Indicates an error during arithmetic evaluation of an operation with given operands.
+    #[error("Arithmetic evaluation error in operation {op:?} with operands {values:?}")]
     ArithmeticEvaluationError {
+        /// The arithmetic operation that failed.
         op: ArithmeticOp,
+        /// The operand values that caused the error.
         values: Vec<OrderedFloat<f64>>,
     },
 
-    /// Erreur lorsqu’un nœud inattendu est rencontré dans un arbre normalisé
-    #[error("Unexpected node kind {kind:?} at node {node_id}")]
-    UnexpectedNodeKind {
+    /// Indicates that an expression node in the IR is invalid for the current transformation.
+    /// The node may be misplaced or of a type that cannot be processed in this context.
+    #[error("Invalid expression node kind {kind:?} at node {node_id}")]
+    InvalidExprNode {
+        /// The ID of the expression node that is invalid.
         node_id: NodeId,
+        /// The kind of the expression node that is invalid.
         kind: ExprKind,
     },
 
-    /// Erreur lorsqu’un littéral n’est pas sous un temporal specifier
+    /// Indicates that a literal node is not properly wrapped in a temporal specifier
+    /// (`AtStart`, `AtEnd`, or `Overall`).
     #[error("Literal at node {node_id} is missing a temporal specifier")]
     MissingTimeSpecifier {
-        /// The node ID of the literal missing a time specifier
+        /// The node ID of the literal missing a temporal specifier.
         node_id: NodeId,
     },
 }
@@ -89,17 +97,27 @@ impl ExprError {
         ExprError::UnsupportedContent { content }
     }
 
-    /// Creates an `UnsupportedKind` error variant for the given `AstKind`.
+    /// Creates an `InvalidAstNode` error variant for a given `AstKind`.
+    ///
+    /// This error indicates that the AST node cannot be translated into the
+    /// intermediate representation (IR) because it is **unsupported** in the current pipeline.
     ///
     /// # Arguments
     ///
-    /// * `kind` - The unsupported AST kind variant encountered.
+    /// * `kind` - The AST kind that is invalid or unsupported.
     ///
     /// # Returns
     ///
-    /// A new `ExprError` representing the unsupported kind error.
-    pub fn unsupported_kind(kind: AstKind) -> Self {
-        ExprError::UnsupportedKind { kind }
+    /// A new `ExprError` representing that this AST node cannot be processed.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use your_crate::{ExprError, AstKind};
+    /// let err = ExprError::invalid_ast_node(AstKind::Task);
+    /// ```
+    pub fn invalid_ast_node(kind: AstKind) -> Self {
+        ExprError::InvalidAstNode { kind }
     }
 
     /// Creates an `ArithmeticEvaluationError` variant for a failed arithmetic operation.
@@ -119,25 +137,31 @@ impl ExprError {
         ExprError::ArithmeticEvaluationError { op, values }
     }
 
-    /// Creates an `UnexpectedNodeKind` error variant for a node with an unexpected kind.
+    /// Creates an `InvalidExprNode` error variant for a node with an invalid kind
+    /// in the context of the current transformation.
+    ///
+    /// This error indicates that the expression node exists in the intermediate
+    /// representation (IR) but **cannot be processed** by the current operation
+    /// because it is either misplaced or of a type that is not supported
+    /// in this context.
     ///
     /// # Arguments
     ///
     /// * `node_id` – The ID of the node that triggered the error.
-    /// * `kind` – The kind of the node that was unexpected.
+    /// * `kind` – The kind of the expression node that is invalid.
     ///
     /// # Returns
     ///
-    /// A new `ExprError` representing the unexpected node kind.
+    /// A new `ExprError` representing that this expression node cannot be processed.
     ///
     /// # Example
     ///
     /// ```rust
     /// # use your_crate::{ExprError, ExprKind, NodeId};
-    /// let err = ExprError::unexpected_node_kind(42, ExprKind::And);
+    /// let err = ExprError::invalid_expr_node(42, ExprKind::AtStart);
     /// ```
-    pub fn unexpected_node_kind(node_id: NodeId, kind: ExprKind) -> Self {
-        ExprError::UnexpectedNodeKind { node_id, kind }
+    pub fn invalid_expr_node(node_id: NodeId, kind: ExprKind) -> Self {
+        ExprError::InvalidExprNode { node_id, kind }
     }
 
     /// Creates a `MissingTimeSpecifier` error variant for a literal node that is missing a temporal specifier.

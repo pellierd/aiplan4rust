@@ -209,7 +209,7 @@ impl TryFrom<AstKind> for Kind {
             AstKind::TypedList => Ok(Kind::TypedList),
             AstKind::TypedItem => Ok(Kind::TypedSymbol),
             AstKind::TaskOrderingConstraint => Ok(Kind::TaskOrderingConstraint),
-            other => Err(ExprError::unsupported_kind(other)),
+            other => Err(ExprError::invalid_ast_node(other)),
         }
     }
 }

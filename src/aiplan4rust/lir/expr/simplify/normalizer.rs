@@ -113,7 +113,7 @@ pub(crate) fn normalize_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Exp
             quantifier::simplify(node_id, expr)?;
         }
         ExprKind::Imply => {
-            return Err(ExprError::UnexpectedNodeKind {
+            return Err(ExprError::InvalidExprNode {
                 node_id,
                 kind: ExprKind::Imply,
             });

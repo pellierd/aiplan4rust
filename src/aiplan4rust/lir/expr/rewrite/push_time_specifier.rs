@@ -10,11 +10,6 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 /// temporal specifier. Logical operators (`And`, `Or`) and quantifiers (`Forall`, `Exists`)
 /// are handled specifically to ensure correct propagation.
 ///
-/// # Preconditions
-/// - The expression tree should have already had negations normalized via `push_negation`.
-///   This ensures that all literals under `Not` nodes are in a form suitable for
-///   temporal propagation.
-///
 /// # Transformations applied
 /// - `(AtStart X)` → temporal specifier pushed down to children of `X`.
 /// - `(AtEnd X)` → temporal specifier pushed down similarly.
@@ -22,11 +17,20 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 /// - Handles logical operators (`And`, `Or`) by duplicating the temporal specifier for each child.
 /// - Handles quantifiers (`Forall`, `Exists`) by wrapping the body in a temporal node.
 ///
-/// # Dependencies
-/// - Must be called **after** `push_negation`.
-/// - The orchestration of preprocessing steps (`eliminate_imply`, `push_negation`, `push_time_specifier`)
-///   is handled in the `normalize` module, not here. Users should not call this directly; they
-///   should use the higher-level normalizer functions which ensure the correct order.
+/// # Preconditions
+/// - Must be called **after** `push_negation` to ensure all literals under `Not` nodes
+///   are in a form suitable for temporal propagation.
+/// - Part of the normalization pipeline orchestrated by the `normalize` module.
+///   Users should not call this directly; they should use the higher-level normalizer
+///   functions to guarantee the correct order.
+///
+/// # Supported child node kinds
+/// Only the following kinds of children under a temporal specifier are allowed:
+/// - `And`, `Or` (logical operators, De Morgan rules apply)
+/// - `Forall`, `Exists` (quantifiers, wrapped with temporal node)
+/// - `Not`, `FComp`, `AtomicFormula` (leaves, propagation stops here)
+///
+/// Any other kind of child node will trigger an **error** (`ExprError::invalid_expr_node`).
 ///
 /// # Parameters
 /// - `root_id`: NodeId of the root of the subtree to process.
@@ -35,19 +39,22 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 /// # Returns
 /// - `Ok(true)` if any modifications were made (new temporal nodes inserted).
 /// - `Ok(false)` if the tree was already in the desired form.
-/// - `Err(ExprError)` if node access or mutation fails.
+/// - `Err(ExprError::invalid_expr_node)` if a temporal specifier has a child of unsupported kind.
+/// - `Err(ExprError)` if accessing nodes fails.
 ///
 /// # Notes
 /// - Mutates the tree in place.
-/// - Uses a stack to manage nodes for depth-first propagation.
+/// - Uses a stack for depth-first traversal to handle temporal specifiers.
 /// - Newly created temporal nodes are pushed onto the stack for further processing.
 /// - Assumes each temporal specifier node has exactly one child.
-/// - Verifies temporal consistency after modifications to ensure each atomic formula
-///   is wrapped in a temporal specifier.
+///   If this invariant is violated, a `MalformedExprNode` or similar error should be raised
+///   to indicate an IR structural problem.
+/// - After this step, all atomic formulas are guaranteed to be wrapped in a temporal specifier,
+///   making them ready for further normalization or factorization.
 ///
 /// # Example usage
 /// ```rust
-/// // Called internally as part of the normalization pipeline in the `normalize` module
+/// // Part of the normalization pipeline managed by the `normalize` module
 /// push_time_specifier(root_id, &mut expr)?;
 /// ```
 #[allow(dead_code)]
@@ -92,8 +99,11 @@ pub(super) fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bo
                     // Continue processing from the new temporal node
                     stack.push(new_root_id);
                 }
+                ExprKind::Not | ExprKind::FComp | ExprKind::AtomicFormula => {
+                    continue;
+                }
                 _ => {
-                    // Atomic formula reached: no further propagation required
+                    return Err(ExprError::invalid_expr_node(child_id, child.kind()));
                 }
             }
         }

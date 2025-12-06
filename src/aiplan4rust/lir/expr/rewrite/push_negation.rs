@@ -20,7 +20,7 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// # Preconditions
 /// - Typically called after implications have been eliminated via `eliminate_imply`.
 /// - This function is part of the **normalization pipeline**, orchestrated by the
-///   `normalize` module. Users should not call this directly unless they are implementing
+///   `normalize` module. Users should not call this directly unless implementing
 ///   a custom normalization sequence.
 ///
 /// # Parameters
@@ -29,6 +29,10 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 ///
 /// # Returns
 /// - `Ok(())` if all negations are successfully pushed down.
+/// - `Err(ExprError::invalid_expr_node)` if a `Not` node has a child that is **invalid**
+///   for negation propagation. Only the following kinds are supported as children:
+///   `Not`, `And`, `Or`, `Forall`, `Exists`, `FComp`, or atomic formulas. Any other kind
+///   triggers this error.
 /// - `Err(ExprError)` if accessing or modifying nodes fails.
 ///
 /// # Notes
@@ -75,7 +79,12 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> 
                 let new_not_id = apply_quantifier_negation(node_id, expr)?;
                 stack.push(new_not_id);
             }
-            _ => {} // No action for other node types
+            ExprKind::Not | ExprKind::FComp | ExprKind::AtomicFormula => {
+                continue;
+            }
+            _ => {
+                return Err(ExprError::invalid_expr_node(child_id, child.kind()));
+            }
         }
     }
 
