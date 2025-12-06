@@ -161,10 +161,38 @@ impl SyntaxNode for ExprNode {
     type Kind = ExprKind;
     type Content = ExprContent;
 
+    /// Returns the kind of the node.
+    ///
+    /// The kind represents the type of expression the node encodes,
+    /// for example `AtomicFormula`, `FComp`, `And`, `Or`, `AtStart`, etc.
+    ///
+    /// # Returns
+    ///
+    /// The current kind of the node, of type `ExprKind`.
+    ///
+    /// # Example
+    /// ```
+    /// if node.kind() == ExprKind::AtomicFormula {
+    ///     println!("This node is an atomic formula");
+    /// }
+    /// ```
     fn kind(&self) -> Self::Kind {
         self.inner.kind()
     }
 
+    /// Sets the kind of the node.
+    ///
+    /// This replaces the current kind of the node with the specified one.
+    /// It does not modify the node's children or content; it only changes the type of the node.
+    ///
+    /// # Arguments
+    ///
+    /// * `kind` - The new `ExprKind` to assign to this node.
+    ///
+    /// # Example
+    /// ```
+    /// node.set_kind(ExprKind::AtStart);
+    /// ```
     fn set_kind(&mut self, kind: Self::Kind) {
         self.inner.set_kind(kind);
     }
@@ -183,10 +211,38 @@ impl SyntaxNode for ExprNode {
         RenderKind::from_expr_kind(self.kind())
     }
 
+    /// Returns a reference to the semantic content of the node.
+    ///
+    /// This allows read-only access to the data associated with the node,
+    /// such as arguments of an atomic formula, values of a fluent comparison,
+    /// or other metadata stored in `ExprContent`.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the node's content.
+    ///
+    /// # Example
+    /// ```
+    /// let content_ref = node.content();
+    /// ```
     fn content(&self) -> &Self::Content {
         &self.inner.content()
     }
 
+    /// Returns a mutable reference to the semantic content of the node.
+    ///
+    /// This allows modifying the data associated with the node, e.g., changing
+    /// arguments of an atomic formula, updating a fluent comparison, or
+    /// adjusting other metadata.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to the node's content.
+    ///
+    /// # Example
+    /// ```
+    /// node.content_mut().modify_something();
+    /// ```
     fn content_mut(&mut self) -> &mut Self::Content {
         self.inner.content_mut()
     }
@@ -252,6 +308,63 @@ impl SyntaxNode for ExprNode {
                 None,               // no parent
             ),
         }
+    }
+
+    /// Returns `true` if the node represents an **atomic formula**.
+    ///
+    /// In the expression tree, this typically corresponds to either:
+    /// - `AtomicFormula`: a basic predicate or proposition.
+    /// - `FComp`: a fluent comparison.
+    ///
+    /// # Example
+    /// ```
+    /// assert!(node.is_atomic_formula());
+    /// ```
+    fn is_atomic_formula(&self) -> bool {
+        matches!(self.kind(), ExprKind::AtomicFormula | ExprKind::FComp)
+    }
+
+    /// Returns `true` if the node is a **temporal specifier**.
+    ///
+    /// Temporal specifiers are nodes like:
+    /// - `AtStart`
+    /// - `AtEnd`
+    /// - `Overall`
+    ///
+    /// They indicate when the literal should hold in PDDL temporal expressions.
+    ///
+    /// # Example
+    /// ```
+    /// assert!(node.is_time_specifier());
+    /// ```
+    fn is_time_specifier(&self) -> bool {
+        matches!(self.kind(), ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall)
+    }
+
+    /// Returns `true` if the node represents a **logical operator**.
+    ///
+    /// Logical operators include:
+    /// - `And`
+    /// - `Or`
+    /// - `Not`
+    /// - `Imply`
+    ///
+    /// Useful for expression traversal, normalization, and propagation of temporal specifiers.
+    ///
+    /// # Example
+    /// ```
+    /// assert!(node.is_logic());
+    /// ```
+    fn is_logic(&self) -> bool {
+        matches!(self.kind(), ExprKind::And | ExprKind::Or | ExprKind::Not | ExprKind::Imply)
+    }
+
+    /// Returns `true` if this node represents a logical negation (`Not`).
+    ///
+    /// This enables generic algorithms (such as literal detection)
+    /// to operate independently of the specific `Kind` enum used.
+    fn is_not(&self) -> bool {
+        matches!(self.kind(), ExprKind::Not)
     }
 
     /// Recursively pretty-prints the syntax subtree rooted at this node,

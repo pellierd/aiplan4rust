@@ -33,9 +33,10 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -327,6 +328,30 @@ pub trait SyntaxNode: ArenaNode + Display {
     /// assert!(clone.children().is_empty());
     /// ```
     fn clone_shallow(&self) -> Self;
+
+    /// Returns `true` if the node represents an **atomic formula**.
+    ///
+    /// For `ExprNode`, this typically means `ExprKind::AtomicFormula` or `ExprKind::FComp`.
+    /// This is used to identify literals in logical expressions.
+    fn is_atomic_formula(&self) -> bool;
+
+    /// Returns `true` if the node is a **temporal specifier**.
+    ///
+    /// Temporal specifiers are nodes like `AtStart`, `AtEnd`, or `Overall` in a PDDL expression.
+    /// This is used for consistency verification and normalization of temporal expressions.
+    fn is_time_specifier(&self) -> bool;
+
+    /// Returns `true` if the node represents a **logical operator**.
+    ///
+    /// Logical operators typically include `And`, `Or`, and `Not`. This is useful for
+    /// traversals, normalization, or propagation of temporal specifiers through logical nodes.
+    fn is_logic(&self) -> bool;
+
+    /// Returns `true` if this node represents a logical negation (`Not`).
+    ///
+    /// This enables generic algorithms (such as literal detection)
+    /// to operate independently of the specific `Kind` enum used.
+    fn is_not(&self) -> bool;
 
     /// Formats the syntax node with access to the entire syntax tree and an interner.
     ///

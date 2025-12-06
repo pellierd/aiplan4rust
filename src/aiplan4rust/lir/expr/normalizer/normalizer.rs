@@ -67,6 +67,7 @@ fn pre_process(expr: &mut Expr) -> Result<(), ExprError> {
     let Some(root_id) = expr.root_id() else { return Ok(()); };
     eliminate_imply(root_id, expr)?;
     push_negation(root_id, expr)
+
 }
 
 /// Simplifies a node in a PDDL expression tree based on its kind.

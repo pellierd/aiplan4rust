@@ -455,6 +455,113 @@ where
         Ok(new_root_id)
     }
 
+    /// Returns `true` if the node represents an **atomic formula** or fluent comparison (`FComp`).
+    ///
+    /// # Arguments
+    /// * `node_id` - The ID of the node to check.
+    ///
+    /// # Returns
+    /// * `Ok(true)` if the node is an atomic formula or FComp.
+    /// * `Ok(false)` otherwise.
+    /// * `Err(ExprError)` if the node ID is invalid.
+    pub fn is_atomic_formula(&self, node_id: NodeId) -> Result<bool, SyntaxTreeError> {
+        let node = self.try_node(node_id)?;
+        Ok(node.is_atomic_formula())
+    }
+
+    /// Returns `true` if the node is a **temporal specifier** (`AtStart`, `AtEnd`, or `Overall`).
+    ///
+    /// # Arguments
+    /// * `node_id` - The ID of the node to check.
+    ///
+    /// # Returns
+    /// * `Ok(true)` if the node is a temporal specifier.
+    /// * `Ok(false)` otherwise.
+    /// * `Err(ExprError)` if the node ID is invalid.
+    pub fn is_time_specifier(&self, node_id: NodeId) -> Result<bool, SyntaxTreeError> {
+        let node = self.try_node(node_id)?;
+        Ok(node.is_time_specifier())
+    }
+
+    /// Returns `true` if the node represents a **logical operator** (`And`, `Or`, `Not`, `Imply`).
+    ///
+    /// # Arguments
+    /// * `node_id` - The ID of the node to check.
+    ///
+    /// # Returns
+    /// * `Ok(true)` if the node is a logical operator.
+    /// * `Ok(false)` otherwise.
+    /// * `Err(ExprError)` if the node ID is invalid.
+    pub fn is_logic(&self, node_id: NodeId) -> Result<bool, SyntaxTreeError> {
+        let node = self.try_node(node_id)?;
+        Ok(node.is_logic())
+    }
+
+    /// Returns `true` if the node represents a logical negation (`Not`).
+    ///
+    /// # Arguments
+    /// * `node_id` - The ID of the node to check.
+    ///
+    /// # Returns
+    /// * `Ok(true)` if the node is a `Not`.
+    /// * `Ok(false)` otherwise.
+    /// * `Err(ExprError)` if the node ID is invalid.
+    pub fn is_not(&self, node_id: NodeId) -> Result<bool, SyntaxTreeError> {
+        let node = self.try_node(node_id)?;
+        Ok(node.is_not())
+    }
+
+
+    /// Returns `true` if the node designated by `node_id` is a *literal*.
+    ///
+    /// A literal is defined as:
+    /// - an atomic formula (`AtomicFormula` or `FComp`), or
+    /// - a negated literal, i.e., a `Not` node whose child is itself a literal.
+    ///
+    /// This function recursively descends through a chain of `Not` nodes
+    /// until it reaches the underlying expression and verifies whether
+    /// that expression is an atomic formula.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` – The ID of the node to test.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the node is a literal (possibly negated), `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// A direct atomic formula:
+    /// ```
+    /// assert!(tree.is_literal(atom_id));
+    /// ```
+    ///
+    /// A negated atomic formula:
+    /// ```
+    /// assert!(tree.is_literal(not_id)); // where not_id has atom_id as child
+    /// ```
+    ///
+    /// A logical operator is *not* a literal:
+    /// ```
+    /// assert!(!tree.is_literal(and_id));
+    /// ```
+    pub fn is_literal(&self, node_id: NodeId) -> bool {
+        if let Ok(node) = self.try_node(node_id) {
+            match node.kind() {
+                kind if node.is_not() => {
+                    if let Some(&child_id) = node.children().first() {
+                        self.is_literal(child_id)
+                    } else {
+                        false
+                    }
+                }
+                _ => node.is_atomic_formula(),
+            }
+        } else {
+            false
+        }
+    }
 }
 
 impl<T> fmt::Display for SyntaxTree<T>

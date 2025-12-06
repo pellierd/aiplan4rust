@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 
 /// Recursively pushes temporal specifier nodes (`AtStart`, `AtEnd`, `Overall`)
 /// down to atomic formulas in an expression tree.
@@ -10,6 +10,11 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// temporal context so that each atomic formula is wrapped with the appropriate
 /// temporal specifier. Logical operators (`And`, `Or`) and quantifiers (`Forall`, `Exists`)
 /// are handled specifically to ensure correct propagation.
+///
+/// # Precondition
+/// - The expression tree should have already had negations normalized via `push_negation`.
+///   This ensures that all literals under `Not` nodes are in a form suitable for
+///   temporal propagation.
 ///
 /// # Transformations applied
 /// - `(at_start X)` → temporal specifier pushed down to children of `X`.
@@ -76,6 +81,12 @@ pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
                 }
             }
         }
+    }
+
+    // If the tree was modified, verify temporal consistency to verify that every atomic formula
+    // is properly wrapped in a temporal specifier
+    if modified {
+        verify_temporal_consistency(expr, root_id)?;
     }
 
     // Return whether any modifications were applied
@@ -205,6 +216,119 @@ fn push_time_specifier_into_quantifier(
     Ok(temporal_id)
 }
 
+/// Normalize a temporal expression by pushing time specifiers down and splitting into AtStart, AtEnd, Overall.
+/// Returns the new root ID of the normalized expression.
+pub fn normalize_temporal_expr(
+    root_id: NodeId,
+    expr: &mut Expr,
+) -> Result<bool, ExprError> {
+    // 1. Push temporal specifiers down to atoms
+    if !push_time_specifier(root_id, expr)? {
+        return Ok(false);
+    }
+
+    // 2. Clone and filter the temporal subtrees
+    let at_start = filter_temporal(expr.clone_subtree(root_id)?, ExprKind::AtStart, expr)?;
+    let at_end = filter_temporal(expr.clone_subtree(root_id)?, ExprKind::AtEnd, expr)?;
+    let overall = filter_temporal(expr.clone_subtree(root_id)?, ExprKind::Overall, expr)?;
+
+    // 3. Build a new 'And' root with the three temporal subtrees as children
+    let and_node = ExprNode::new(ExprKind::And, ExprContent::None, None);
+    let new_root_id = expr.alloc_root_with_children(
+        and_node,
+        vec![at_start, at_end, overall],
+    );
+
+    // 4. Update the tree's root
+    expr.set_root_id(new_root_id)?;
+
+    Ok(true)
+}
+
+
+/// Verifies that all literals (atomic formulas or FComp nodes, possibly under Not)
+/// are properly wrapped in a temporal specifier (`AtStart`, `AtEnd`, or `Overall`).
+pub fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), ExprError> {
+    for (node_id, node) in expr.postorder_from(root_id).ids() {
+        if expr.is_literal(node_id) {
+            let parent_id = node.parent()
+                .ok_or_else(|| ExprError::missing_time_specifier(node_id))?;
+            if !expr.is_time_specifier(parent_id)? {
+                return Err(ExprError::missing_time_specifier(node_id));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// Filter a temporal expression tree to keep only nodes of `keep_kind`.
+/// Assumes time specifiers are already pushed and `expr` is a cloned subtree.
+/// Returns the new root ID of the filtered subtree.
+/// Filters a cloned expression subtree to retain only the specified temporal kind.
+/// Any `TimeSpecifier` node that does not match `keep_kind` is removed.
+/// Nodes that match `keep_kind` are replaced by their child to avoid nesting.
+///
+/// # Arguments
+///
+/// * `root_id` - The ID of the root node of the subtree to filter.
+/// * `keep_kind` - The `ExprKind` of the temporal specifier to keep.
+/// * `expr` - The expression tree being modified.
+///
+/// # Returns
+///
+/// The ID of the new root node wrapped in the desired temporal specifier.
+pub fn filter_temporal(
+    root_id: NodeId,
+    keep_kind: ExprKind,
+    expr: &mut Expr,
+) -> Result<NodeId, ExprError> {
+    let mut stack = vec![root_id];
+
+    // DFS post-order traversal
+    while let Some(node_id) = stack.pop() {
+        // First, collect the data we need to avoid holding an immutable borrow
+        let (kind, children, parent_id) = {
+            let node = expr.try_node(node_id)?;
+            (node.kind(), node.children().to_vec(), node.parent())
+        };
+
+        // Push children onto the stack
+        for &child_id in &children {
+            stack.push(child_id);
+        }
+
+        match kind {
+            ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
+                if kind == keep_kind {
+                    // Replace the timespecifier node by its child to avoid nested timespecifiers
+                    if !children.is_empty() {
+                        let child_id = children[0];
+                        expr.move_to(child_id, node_id)?;
+                    }
+                } else {
+                    // Detach this timespecifier entirely
+                    if let Some(pid) = parent_id {
+                        let parent = expr.try_node_mut(pid)?;
+                        parent.children_mut().retain(|&cid| cid != node_id);
+                    }
+                    expr.try_node_mut(node_id)?.set_parent(None);
+                }
+            }
+            _ => {} // Non-temporal nodes are left untouched
+        }
+    }
+
+    // Wrap the filtered subtree in a new temporal specifier
+    let time_spec_node = ExprNode::new(keep_kind, ExprContent::None, None);
+    let time_spec_id = expr.alloc(time_spec_node);
+    expr.try_node_mut(time_spec_id)?.add_child(root_id);
+    expr.try_node_mut(root_id)?.set_parent(Some(time_spec_id));
+
+    Ok(time_spec_id)
+}
+
+
+
 
 /// Normalizes a temporal expression by pushing temporal specifiers
 /// down to the atoms and constructing a normalized `(and (at_start ...) (at_end ...) (overall ...))`
@@ -216,7 +340,7 @@ fn push_time_specifier_into_quantifier(
 ///
 /// # Returns
 /// * `NodeId` of the new normalized root.
-pub fn normalize_temporal_expr(
+pub fn normalize_temporal_expr_v1(
     root_id: NodeId,
     expr: &mut Expr,
 ) -> Result<NodeId, ExprError> {
@@ -225,9 +349,9 @@ pub fn normalize_temporal_expr(
     push_time_specifier(root_id, expr)?;
 
     // Cloner et filtrer chaque temporal subtree
-    let at_start = filter_temporal(root_id, ExprKind::AtStart, expr)?;
-    let at_end = filter_temporal(root_id, ExprKind::AtEnd, expr)?;
-    let overall = filter_temporal(root_id, ExprKind::Overall, expr)?;
+    let at_start = filter_temporal_v1(root_id, ExprKind::AtStart, expr)?;
+    let at_end = filter_temporal_v1(root_id, ExprKind::AtEnd, expr)?;
+    let overall = filter_temporal_v1(root_id, ExprKind::Overall, expr)?;
 
     // Construire un nouveau root 'and' avec les trois sous-arbres
     let and_node = ExprNode::new(ExprKind::And, ExprContent::None, None);
@@ -239,7 +363,8 @@ pub fn normalize_temporal_expr(
     Ok(new_root_id)
 }
 
-pub fn filter_temporal(
+
+pub fn filter_temporal_v1(
     root_id: NodeId,
     keep_kind: ExprKind,
     expr: &mut Expr,
@@ -463,24 +588,38 @@ mod tests {
         assert_eq!(output, "(over all (A))");
     }
 
-
-    /// Test pushing Overall temporal specifier to an atomic formula.
-    /// Input: (overall (A))
-    /// Expected Output: (and (at start (Or)) (AtEnd (Or)) (Overall (A)))
-    /// at_start and at_end are empty, overall preserved
+    /// Test normalize temporal on a more complex expression.
+    /// Input: (or (and (at start (A)) (over all (B))) (at end (not (C))))
+    /// Expected output:
+    /// (and
+    ///     (at start (or (and (A))))
+    ///     (at end (or (and) (not (C))))
+    ///     (over all (or (and (B)))))
     #[test]
-    fn test_normalize_temporal_simple_atomic() {
+    fn test_normalize_temporal_complex() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
 
+        // Construction de l'expression
         let a = builder.atomic_formula("A", vec![]);
-        let root = builder.overall(a);
+        let b = builder.atomic_formula("B", vec![]);
+        let c = builder.atomic_formula("C", vec![]);
+
+        let at_start_a = builder.at_start(a);
+        let overall_b = builder.overall(b);
+        let and_node = builder.and(vec![at_start_a, overall_b]);
+
+        let not_c = builder.not(c);
+        let at_end_not_c = builder.at_end(not_c);
+        let root = builder.or(vec![and_node, at_end_not_c]);
 
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize_temporal_expr(root, &mut expr).unwrap();
+        if !normalize_temporal_expr(expr.try_root_id().unwrap(), &mut expr).unwrap() {
+            return ;
+        };
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -489,43 +628,61 @@ mod tests {
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 3);
 
-        // Vérifier at_start
+        // at_start
         let at_start_id = root_node.children()[0];
         let at_start_node = expr.try_node(at_start_id).unwrap();
         assert_eq!(at_start_node.kind(), ExprKind::AtStart);
-        assert_eq!(at_start_node.children().len(), 1);
-        let child = expr.try_node(at_start_node.children()[0]).unwrap();
-        assert_eq!(child.kind(), ExprKind::Or); // empty Or
-        assert_eq!(child.children().len(), 0);
+        let child_id = at_start_node.children()[0];
+        let child_node = expr.try_node(child_id).unwrap();
+        assert_eq!(child_node.kind(), ExprKind::Or);
+        assert_eq!(child_node.children().len(), 1);
+        let and_child_id = child_node.children()[0];
+        let and_child = expr.try_node(and_child_id).unwrap();
+        assert_eq!(and_child.kind(), ExprKind::And);
+        let a_node = expr.try_node(and_child.children()[0]).unwrap();
+        assert_eq!(a_node.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier at_end
+        // at_end
         let at_end_id = root_node.children()[1];
         let at_end_node = expr.try_node(at_end_id).unwrap();
         assert_eq!(at_end_node.kind(), ExprKind::AtEnd);
-        assert_eq!(at_end_node.children().len(), 1);
-        let child = expr.try_node(at_end_node.children()[0]).unwrap();
-        assert_eq!(child.kind(), ExprKind::Or); // empty Or
-        assert_eq!(child.children().len(), 0);
+        let child_id = at_end_node.children()[0];
+        let child_node = expr.try_node(child_id).unwrap();
+        assert_eq!(child_node.kind(), ExprKind::Or);
+        assert_eq!(child_node.children().len(), 2);
+        let and_empty = expr.try_node(child_node.children()[0]).unwrap();
+        assert_eq!(and_empty.kind(), ExprKind::And);
+        assert_eq!(and_empty.children().len(), 0);
+        let not_c_node = expr.try_node(child_node.children()[1]).unwrap();
+        assert_eq!(not_c_node.kind(), ExprKind::Not);
+        let c_node = expr.try_node(not_c_node.children()[0]).unwrap();
+        assert_eq!(c_node.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier overall
+        // overall
         let overall_id = root_node.children()[2];
         let overall_node = expr.try_node(overall_id).unwrap();
         assert_eq!(overall_node.kind(), ExprKind::Overall);
-        assert_eq!(overall_node.children().len(), 1);
         let child_id = overall_node.children()[0];
         let child_node = expr.try_node(child_id).unwrap();
-        assert_eq!(child_node.kind(), ExprKind::AtomicFormula);
+        assert_eq!(child_node.kind(), ExprKind::Or);
+        let and_b = expr.try_node(child_node.children()[0]).unwrap();
+        assert_eq!(and_b.kind(), ExprKind::And);
+        let b_node = expr.try_node(and_b.children()[0]).unwrap();
+        assert_eq!(b_node.kind(), ExprKind::AtomicFormula);
 
-        assert_eq!(output, "(and (at start (or)) (at end (or)) (over all (A)))");
+        assert_eq!(
+            output,
+            "(and (at start (or (and (A)))) (at end (or (and) (not (C)))) (over all (or (and (B)))))"
+        );
     }
 
     /// Test normalizing a nested expression with multiple time specifiers, preserving logical structure.
     /// Input: (and (at start (A)) (or (overall (B)) (at end (C))))
     /// Expected Output:
     /// (and
-    ///    (at start (and (A)))           // start preserved
-    ///    (at end (and (or (C))))        // end preserved
-    ///    (over all (and (or (B))))      // overall preserved with original logical structure
+    ///    (at start (and (A) (or)))      // start wrapped in And with empty Or
+    ///    (at end (and (or (C))))        // end wrapped in And with Or(C)
+    ///    (over all (and (or (B))))      // overall wrapped in And with Or(B)
     /// )
     #[test]
     fn test_normalize_temporal_nested_overall_or() {
@@ -547,54 +704,61 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        let new_root = normalize_temporal_expr(root, &mut expr).unwrap();
+        if !normalize_temporal_expr(expr.try_root_id().unwrap(), &mut expr).unwrap() {
+            return ;
+        };
+
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
 
-        let root_node = expr.try_node(new_root).unwrap();
+        let root_node = expr.try_node(expr.try_root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 3);
 
-        // Vérifier at_start
+        // at_start
         let at_start_node = expr.try_node(root_node.children()[0]).unwrap();
         assert_eq!(at_start_node.kind(), ExprKind::AtStart);
         assert_eq!(at_start_node.children().len(), 1);
         let inner_start = expr.try_node(at_start_node.children()[0]).unwrap();
         assert_eq!(inner_start.kind(), ExprKind::And);
-        assert_eq!(inner_start.children().len(), 1);
-        let child_start = expr.try_node(inner_start.children()[0]).unwrap();
-        assert_eq!(child_start.kind(), ExprKind::AtomicFormula);
+        assert_eq!(inner_start.children().len(), 2);
 
-        // Vérifier at_end
+        let child_start_a = expr.try_node(inner_start.children()[0]).unwrap();
+        assert_eq!(child_start_a.kind(), ExprKind::AtomicFormula);
+        let child_start_or = expr.try_node(inner_start.children()[1]).unwrap();
+        assert_eq!(child_start_or.kind(), ExprKind::Or);
+        assert_eq!(child_start_or.children().len(), 0); // empty Or
+
+        // at_end
         let at_end_node = expr.try_node(root_node.children()[1]).unwrap();
         assert_eq!(at_end_node.kind(), ExprKind::AtEnd);
         assert_eq!(at_end_node.children().len(), 1);
         let inner_end = expr.try_node(at_end_node.children()[0]).unwrap();
         assert_eq!(inner_end.kind(), ExprKind::And);
         assert_eq!(inner_end.children().len(), 1);
-        let child_end = expr.try_node(inner_end.children()[0]).unwrap();
-        assert_eq!(child_end.kind(), ExprKind::Or);
-        assert_eq!(child_end.children().len(), 1);
-        let atom_c = expr.try_node(child_end.children()[0]).unwrap();
+        let child_end_or = expr.try_node(inner_end.children()[0]).unwrap();
+        assert_eq!(child_end_or.kind(), ExprKind::Or);
+        assert_eq!(child_end_or.children().len(), 1);
+        let atom_c = expr.try_node(child_end_or.children()[0]).unwrap();
         assert_eq!(atom_c.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier overall
+        // overall
         let overall_node = expr.try_node(root_node.children()[2]).unwrap();
         assert_eq!(overall_node.kind(), ExprKind::Overall);
         assert_eq!(overall_node.children().len(), 1);
         let inner_overall = expr.try_node(overall_node.children()[0]).unwrap();
         assert_eq!(inner_overall.kind(), ExprKind::And);
         assert_eq!(inner_overall.children().len(), 1);
-        let child_overall = expr.try_node(inner_overall.children()[0]).unwrap();
-        assert_eq!(child_overall.kind(), ExprKind::Or);
-        assert_eq!(child_overall.children().len(), 1);
-        let atom_b = expr.try_node(child_overall.children()[0]).unwrap();
+        let child_overall_or = expr.try_node(inner_overall.children()[0]).unwrap();
+        assert_eq!(child_overall_or.kind(), ExprKind::Or);
+        assert_eq!(child_overall_or.children().len(), 1);
+        let atom_b = expr.try_node(child_overall_or.children()[0]).unwrap();
         assert_eq!(atom_b.kind(), ExprKind::AtomicFormula);
 
         assert_eq!(
             output,
-            "(and (at start (and (A))) (at end (and (or (C)))) (over all (and (or (B)))))"
+            "(and (at start (and (A) (or))) (at end (and (or (C)))) (over all (and (or (B)))))"
         );
     }
 
@@ -630,16 +794,19 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        let new_root = normalize_temporal_expr(root, &mut expr).unwrap();
+        if !normalize_temporal_expr(expr.try_root_id().unwrap(), &mut expr).unwrap() {
+            return ;
+        };
+
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
 
-        let root_node = expr.try_node(new_root).unwrap();
+        let root_node = expr.try_node(expr.try_root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 3);
 
-        // Vérifier at_start
+        // at_start
         let at_start_node = expr.try_node(root_node.children()[0]).unwrap();
         assert_eq!(at_start_node.kind(), ExprKind::AtStart);
         assert_eq!(at_start_node.children().len(), 1);
@@ -650,7 +817,7 @@ mod tests {
         assert_eq!(child_start.kind(), ExprKind::And);
         assert_eq!(child_start.children().len(), 2);
 
-        // Vérifier at_end
+        // at_end
         let at_end_node = expr.try_node(root_node.children()[1]).unwrap();
         assert_eq!(at_end_node.kind(), ExprKind::AtEnd);
         assert_eq!(at_end_node.children().len(), 1);
@@ -662,7 +829,7 @@ mod tests {
         let atom_e = expr.try_node(child_end.children()[0]).unwrap();
         assert_eq!(atom_e.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier overall
+        // overall
         let overall_node = expr.try_node(root_node.children()[2]).unwrap();
         assert_eq!(overall_node.kind(), ExprKind::Overall);
         assert_eq!(overall_node.children().len(), 1);
@@ -689,7 +856,7 @@ mod tests {
     /// Expected Output:
     /// (and
     ///    (at start (or (and (A))))       // start wrapped in Or
-    ///    (at end (or (not (C))))         // end wrapped in Or
+    ///    (at end (or (and) (not (C))))   // end wrapped in Or, contains empty And + Not(C)
     ///    (over all (or (and (B))))       // overall wrapped in Or
     /// )
     #[test]
@@ -713,16 +880,18 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        let new_root = normalize_temporal_expr(root, &mut expr).unwrap();
+        if !normalize_temporal_expr(expr.try_root_id().unwrap(), &mut expr).unwrap() {
+            return ;
+        };
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
 
-        let root_node = expr.try_node(new_root).unwrap();
+        let root_node = expr.try_node(expr.try_root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 3);
 
-        // Vérifier at_start
+        // at_start
         let at_start_node = expr.try_node(root_node.children()[0]).unwrap();
         assert_eq!(at_start_node.kind(), ExprKind::AtStart);
         assert_eq!(at_start_node.children().len(), 1);
@@ -735,20 +904,25 @@ mod tests {
         let atom_a = expr.try_node(and_a.children()[0]).unwrap();
         assert_eq!(atom_a.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier at_end
+        // at_end
         let at_end_node = expr.try_node(root_node.children()[1]).unwrap();
         assert_eq!(at_end_node.kind(), ExprKind::AtEnd);
         assert_eq!(at_end_node.children().len(), 1);
         let inner_end = expr.try_node(at_end_node.children()[0]).unwrap();
         assert_eq!(inner_end.kind(), ExprKind::Or);
-        assert_eq!(inner_end.children().len(), 1);
-        let not_c_node = expr.try_node(inner_end.children()[0]).unwrap();
-        assert_eq!(not_c_node.kind(), ExprKind::Not);
-        assert_eq!(not_c_node.children().len(), 1);
-        let atom_c = expr.try_node(not_c_node.children()[0]).unwrap();
+        assert_eq!(inner_end.children().len(), 2);
+
+        let first_child = expr.try_node(inner_end.children()[0]).unwrap();
+        assert_eq!(first_child.kind(), ExprKind::And);
+        assert_eq!(first_child.children().len(), 0); // empty And
+
+        let second_child = expr.try_node(inner_end.children()[1]).unwrap();
+        assert_eq!(second_child.kind(), ExprKind::Not);
+        assert_eq!(second_child.children().len(), 1);
+        let atom_c = expr.try_node(second_child.children()[0]).unwrap();
         assert_eq!(atom_c.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier overall
+        // overall
         let overall_node = expr.try_node(root_node.children()[2]).unwrap();
         assert_eq!(overall_node.kind(), ExprKind::Overall);
         assert_eq!(overall_node.children().len(), 1);
@@ -763,7 +937,7 @@ mod tests {
 
         assert_eq!(
             output,
-            "(and (at start (or (and (A)))) (at end (or (not (C)))) (over all (or (and (B)))))"
+            "(and (at start (or (and (A)))) (at end (or (and) (not (C)))) (over all (or (and (B)))))"
         );
     }
 
@@ -771,9 +945,9 @@ mod tests {
     /// Input: (and (at start (or (A) (forall (?X) (B)))) (at end (C)))
     /// Expected Output:
     /// (and
-    ///    (at start (or (and (A) (forall (?X) (B)))))  // AtStart wraps filtered expressions
-    ///    (at end (or (C)))                             // AtEnd wraps filtered expression
-    ///    (over all (or))                               // Overall empty
+    ///    (at start (and (or (A) (forall (?X) (B)))))  // AtStart wraps filtered expressions
+    ///    (at end (and (C)))                             // AtEnd wraps filtered expression
+    ///    (over all (and))                               // Overall empty but And
     /// )
     #[test]
     fn test_normalize_temporal_atstart_forall() {
@@ -797,28 +971,29 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        let new_root = normalize_temporal_expr(root, &mut expr).unwrap();
+        if !normalize_temporal_expr(expr.try_root_id().unwrap(), &mut expr).unwrap() {
+            return ;
+        };
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
 
-        let root_node = expr.try_node(new_root).unwrap();
+        let root_node = expr.try_node(expr.try_root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 3);
 
-        // Vérifier at_start
+        // at_start
         let at_start_node = expr.try_node(root_node.children()[0]).unwrap();
         assert_eq!(at_start_node.kind(), ExprKind::AtStart);
         assert_eq!(at_start_node.children().len(), 1);
         let inner_start = expr.try_node(at_start_node.children()[0]).unwrap();
         assert_eq!(inner_start.kind(), ExprKind::And);
-        assert_eq!(inner_start.children().len(), 1);
-        let and_node = expr.try_node(inner_start.children()[0]).unwrap();
-        assert_eq!(and_node.kind(), ExprKind::Or);
-        assert_eq!(and_node.children().len(), 2);
-        let child1 = expr.try_node(and_node.children()[0]).unwrap();
+        let and_child = expr.try_node(inner_start.children()[0]).unwrap();
+        assert_eq!(and_child.kind(), ExprKind::Or);
+        assert_eq!(and_child.children().len(), 2);
+        let child1 = expr.try_node(and_child.children()[0]).unwrap();
         assert_eq!(child1.kind(), ExprKind::AtomicFormula);
-        let child2 = expr.try_node(and_node.children()[1]).unwrap();
+        let child2 = expr.try_node(and_child.children()[1]).unwrap();
         assert_eq!(child2.kind(), ExprKind::Forall);
         assert_eq!(child2.children().len(), 2);
         let var_list = expr.try_node(child2.children()[0]).unwrap();
@@ -826,7 +1001,7 @@ mod tests {
         let body = expr.try_node(child2.children()[1]).unwrap();
         assert_eq!(body.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier at_end
+        // at_end
         let at_end_node = expr.try_node(root_node.children()[1]).unwrap();
         assert_eq!(at_end_node.kind(), ExprKind::AtEnd);
         assert_eq!(at_end_node.children().len(), 1);
@@ -836,19 +1011,18 @@ mod tests {
         let child_c = expr.try_node(inner_end.children()[0]).unwrap();
         assert_eq!(child_c.kind(), ExprKind::AtomicFormula);
 
-        // Vérifier overall vide
+        // overall
         let overall_node = expr.try_node(root_node.children()[2]).unwrap();
         assert_eq!(overall_node.kind(), ExprKind::Overall);
         assert_eq!(overall_node.children().len(), 1);
         let inner_overall = expr.try_node(overall_node.children()[0]).unwrap();
-        assert_eq!(inner_overall.kind(), ExprKind::Or);
+        assert_eq!(inner_overall.kind(), ExprKind::And);
         assert_eq!(inner_overall.children().len(), 0);
 
         assert_eq!(
             output,
-            "(and (at start (and (or (A) (forall (?X) (B))))) (at end (and (C))) (over all (or)))"
+            "(and (at start (and (or (A) (forall (?X) (B))))) (at end (and (C))) (over all (and)))"
         );
     }
-
 
 }

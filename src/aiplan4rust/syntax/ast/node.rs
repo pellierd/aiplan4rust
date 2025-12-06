@@ -337,6 +337,63 @@ impl SyntaxNode for AstNode {
         }
     }
 
+    /// Returns `true` if the node represents an **atomic formula**.
+    ///
+    /// In the AST, this typically corresponds to either:
+    /// - `AtomicFormula`: a basic predicate or proposition.
+    /// - `FComp`: a fluent comparison.
+    ///
+    /// # Example
+    /// ```
+    /// assert!(node.is_atomic_formula());
+    /// ```
+    fn is_atomic_formula(&self) -> bool {
+        matches!(self.kind(), AstKind::AtomicFormula | AstKind::FComp)
+    }
+
+    /// Returns `true` if the node is a **temporal specifier**.
+    ///
+    /// Temporal specifiers are nodes like:
+    /// - `AtStart`
+    /// - `AtEnd`
+    /// - `Overall`
+    ///
+    /// They indicate when the literal should hold in PDDL temporal expressions.
+    ///
+    /// # Example
+    /// ```
+    /// assert!(node.is_time_specifier());
+    /// ```
+    fn is_time_specifier(&self) -> bool {
+        matches!(self.kind(), AstKind::AtStart | AstKind::AtEnd | AstKind::Overall)
+    }
+
+    /// Returns `true` if the node represents a **logical operator**.
+    ///
+    /// Logical operators include:
+    /// - `And`
+    /// - `Or`
+    /// - `Not`
+    /// - `Imply`
+    ///
+    /// Useful for expression traversal, normalization, and propagation of temporal specifiers.
+    ///
+    /// # Example
+    /// ```
+    /// assert!(node.is_logic());
+    /// ```
+    fn is_logic(&self) -> bool {
+        matches!(self.kind(), AstKind::And | AstKind::Or | AstKind::Not | AstKind::Imply)
+    }
+
+    /// Returns `true` if this node represents a logical negation (`Not`).
+    ///
+    /// This enables generic algorithms (such as literal detection)
+    /// to operate independently of the specific `Kind` enum used.
+    fn is_not(&self) -> bool {
+        matches!(self.kind(), AstKind::Not)
+    }
+
     /// Formats the AST node for display, using a syntax tree and string interner.
     ///
     /// # Arguments

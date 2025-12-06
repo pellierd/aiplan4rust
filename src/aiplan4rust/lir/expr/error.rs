@@ -66,6 +66,13 @@ pub enum ExprError {
         node_id: NodeId,
         kind: ExprKind,
     },
+
+    /// Erreur lorsqu’un littéral n’est pas sous un temporal specifier
+    #[error("Literal at node {node_id} is missing a temporal specifier")]
+    MissingTimeSpecifier {
+        /// The node ID of the literal missing a time specifier
+        node_id: NodeId,
+    },
 }
 
 impl ExprError {
@@ -112,7 +119,44 @@ impl ExprError {
         ExprError::ArithmeticEvaluationError { op, values }
     }
 
+    /// Creates an `UnexpectedNodeKind` error variant for a node with an unexpected kind.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` – The ID of the node that triggered the error.
+    /// * `kind` – The kind of the node that was unexpected.
+    ///
+    /// # Returns
+    ///
+    /// A new `ExprError` representing the unexpected node kind.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use your_crate::{ExprError, ExprKind, NodeId};
+    /// let err = ExprError::unexpected_node_kind(42, ExprKind::And);
+    /// ```
     pub fn unexpected_node_kind(node_id: NodeId, kind: ExprKind) -> Self {
         ExprError::UnexpectedNodeKind { node_id, kind }
+    }
+
+    /// Creates a `MissingTimeSpecifier` error variant for a literal node that is missing a temporal specifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` – The ID of the literal node that is missing a temporal specifier.
+    ///
+    /// # Returns
+    ///
+    /// A new `ExprError` representing the missing time specifier error.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use your_crate::{ExprError, NodeId};
+    /// let err = ExprError::missing_time_specifier(101);
+    /// ```
+    pub fn missing_time_specifier(node_id: NodeId) -> Self {
+        ExprError::MissingTimeSpecifier { node_id }
     }
 }
