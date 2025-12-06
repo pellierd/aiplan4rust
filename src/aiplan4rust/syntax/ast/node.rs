@@ -305,6 +305,38 @@ impl SyntaxNode for AstNode {
         }
     }
 
+    /// Creates a shallow clone of the node.
+    ///
+    /// This clone copies the node's kind, content, and span, but **does not include**
+    /// its parent or children. The resulting node has an empty children list and no parent.
+    ///
+    /// Typically used when reconstructing a subtree with [`SyntaxTree::clone_subtree`],
+    /// where each node is cloned individually before linking to new parent nodes.
+    ///
+    /// # Returns
+    /// A new `AstNode` with the same kind, content, and span, but without parent or children.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let node: AstNode = ...;
+    /// let shallow = node.clone_shallow();
+    /// assert_eq!(shallow.kind(), node.kind());
+    /// assert_eq!(shallow.content(), node.content());
+    /// assert!(shallow.children().is_empty());
+    /// assert!(shallow.parent().is_none());
+    /// ```
+    fn clone_shallow(&self) -> Self {
+        AstNode {
+            inner: SyntaxBaseNode::new(
+                self.inner.kind(),
+                self.inner.content().clone(),
+                Vec::new(),
+                None,
+            ),
+            span: self.span.clone(),
+        }
+    }
+
     /// Formats the AST node for display, using a syntax tree and string interner.
     ///
     /// # Arguments

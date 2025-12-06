@@ -46,6 +46,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::expr::kind::Kind;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -72,7 +73,7 @@ impl ExprNode {
     /// # Returns
     ///
     /// A new `ExprNode` instance with empty children.
-    pub fn new(kind: ExprKind, content: ExprContent, parent: Option<NodeId>) -> Self {
+    pub fn new(kind: ExprKind, content: Content, parent: Option<NodeId>) -> Self {
         ExprNode {
             inner: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
         }
@@ -219,6 +220,38 @@ impl SyntaxNode for ExprNode {
 
         let ident = self.try_ident()?;
         Ok(Some(Symbol::new(ident, symbol_kind)))
+    }
+
+    /// Creates a shallow clone of the expression node.
+    ///
+    /// This clone copies the node's kind and content, but **does not include**
+    /// its parent or children. The resulting node has an empty children list and no parent.
+    ///
+    /// This is typically used when reconstructing a subtree in-place within
+    /// a [`SyntaxTree`] or [`Expr`] using methods like [`SyntaxTree::clone_subtree`]
+    /// or `Expr`’s equivalent subtree-cloning functions.
+    ///
+    /// # Returns
+    /// A new `ExprNode` with the same kind and content, but without parent or children.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let node: ExprNode = ...;
+    /// let shallow = node.clone_shallow();
+    /// assert_eq!(shallow.kind(), node.kind());
+    /// assert_eq!(shallow.content(), node.content());
+    /// assert!(shallow.children().is_empty());
+    /// assert!(shallow.parent().is_none());
+    /// ```
+    fn clone_shallow(&self) -> Self {
+        ExprNode {
+            inner: SyntaxBaseNode::new(
+                self.inner.kind(),
+                self.inner.content().clone(),
+                Vec::new(),         // no children
+                None,               // no parent
+            ),
+        }
     }
 
     /// Recursively pretty-prints the syntax subtree rooted at this node,

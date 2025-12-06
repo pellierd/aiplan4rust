@@ -306,6 +306,28 @@ pub trait SyntaxNode: ArenaNode + Display {
         self.content_mut().remap_idents(map);
     }
 
+    /// Creates a shallow clone of the node.
+    ///
+    /// This method clones the node itself, including its kind and content,
+    /// but **does not clone its children**. The resulting node has an empty
+    /// children list and can be inserted into a tree independently.
+    ///
+    /// This function is primarily used by [`SyntaxTree::clone_subtree`]
+    /// to clone individual nodes while recursively reconstructing a subtree.
+    ///
+    /// # Returns
+    /// A new instance of the same node type with the same kind and content.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let original: ExprNode = ...;
+    /// let clone = original.clone_shallow();
+    /// assert_eq!(clone.kind(), original.kind());
+    /// assert_eq!(clone.content(), original.content());
+    /// assert!(clone.children().is_empty());
+    /// ```
+    fn clone_shallow(&self) -> Self;
+
     /// Formats the syntax node with access to the entire syntax tree and an interner.
     ///
     /// This method enables the formatter to access related nodes in the syntax tree,

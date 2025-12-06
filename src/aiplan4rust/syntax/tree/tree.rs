@@ -398,6 +398,63 @@ where
     pub fn depth(&self, root: NodeId) -> usize {
         self.arena.depth(root)
     }
+
+    /// Clones a subtree *within the same* `SyntaxTree` and returns
+    /// the `NodeId` of the new root node.
+    ///
+    /// This method performs a deep clone of the subtree rooted at `root_id`,
+    /// using [`clone_shallow()`] (or `clone_swallow()`) for each node.
+    /// Only the node itself is cloned; children are handled iteratively.
+    /// All cloned nodes are allocated in the same tree, with parent/child
+    /// relationships rebuilt.
+    ///
+    /// # Parameters
+    /// - `root_id`: the root of the subtree to clone.
+    ///
+    /// # Returns
+    /// - `Ok(NodeId)` pointing to the cloned root node.
+    ///
+    /// # Errors
+    /// - `SyntaxTreeError::NodeNotFound` if `root_id` does not exist.
+    pub fn clone_subtree(
+        &mut self,
+        root_id: NodeId,
+    ) -> Result<NodeId, SyntaxTreeError> {
+
+        // --- Clone root node (shallow, children are empty) ---
+        let root_node = self.try_node(root_id)?;                 // read original root
+        let children = root_node.children().to_vec();            // capture children before cloning
+        let new_root_id = self.alloc(root_node.clone_shallow()); // use clone_shallow/clone_swallow
+        self.try_node_mut(new_root_id)?.set_parent(None);        // cloned root has no parent
+
+        // Stack holds nodes to clone: (old_node_id, new_parent_id)
+        let mut stack: Vec<(NodeId, NodeId)> = Vec::new();
+
+        // Push root's children onto stack
+        for &child_id in children.iter().rev() {
+            stack.push((child_id, new_root_id));
+        }
+
+        // --- Iterative DFS clone ---
+        while let Some((old_id, new_parent_id)) = stack.pop() {
+            let old_node = self.try_node(old_id)?;               // original node
+            let children = old_node.children().to_vec();         // capture children before cloning
+
+            let new_id = self.alloc(old_node.clone_shallow());   // clone node shallowly (clone_swallow)
+
+            // Attach cloned node to its new parent
+            self.try_node_mut(new_parent_id)?.add_child(new_id);
+            self.try_node_mut(new_id)?.set_parent(Some(new_parent_id));
+
+            // Push children for cloning
+            for &child_id in children.iter().rev() {
+                stack.push((child_id, new_id));
+            }
+        }
+
+        Ok(new_root_id)
+    }
+
 }
 
 impl<T> fmt::Display for SyntaxTree<T>
