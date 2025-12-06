@@ -36,7 +36,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
 /// * `Ok(true)` if any simplification or normalization occurred.
 /// * `Ok(false)` if no change was made.
 /// * `Err(ExprError)` on structural access issues.
-pub(crate) fn normalize(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::FComp {
@@ -331,7 +331,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -358,7 +358,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -384,7 +384,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -414,7 +414,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -441,7 +441,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -467,7 +467,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -493,7 +493,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

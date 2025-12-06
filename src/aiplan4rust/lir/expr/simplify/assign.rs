@@ -10,7 +10,7 @@ const ZERO: OrderedFloat<f64> = OrderedFloat(0.0);
 /// Represents the numeric value 1.0, used for detecting trivial `scale-up` or `scale-down` assignments.
 const ONE: OrderedFloat<f64> = OrderedFloat(1.0);
 
-/// Normalizes an `Assign` node in the expression tree by simplifying trivial assignments.
+/// Simplifies an `Assign` node in the expression tree by simplifying trivial assignments.
 ///
 /// This function inspects the assignment operator and its value, and transforms
 /// trivial assignments (e.g., `increase 0`, `decrease 0`, `scale-up 1`, `scale-down 1`)
@@ -31,7 +31,7 @@ const ONE: OrderedFloat<f64> = OrderedFloat(1.0);
 ///   and should be called as part of the assignment normalization pipeline.
 /// - The function preserves the expression tree structure by replacing trivial
 ///   assignments rather than removing nodes from the parent.
-pub(super) fn normalize(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     simplify_trivial_assignments(node_id, expr)
 }
 
@@ -134,7 +134,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(assign_node, &mut expr).unwrap();
+        simplify(assign_node, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -159,7 +159,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(assign_node, &mut expr).unwrap();
+        simplify(assign_node, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -184,7 +184,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(assign_node, &mut expr).unwrap();
+        simplify(assign_node, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -209,7 +209,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(assign_node, &mut expr).unwrap();
+        simplify(assign_node, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -234,7 +234,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(assign_node, &mut expr).unwrap();
+        simplify(assign_node, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -260,7 +260,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(assign_node, &mut expr).unwrap();
+        simplify(assign_node, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

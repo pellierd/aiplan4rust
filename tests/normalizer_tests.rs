@@ -7,7 +7,7 @@ use crate::common::io::{collect_domain_files, delete_all_files_with_extension};
 use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
 use aiplan4rust::Language;
 
-/// Integration test for parser + normalizer on all files in a directory.
+/// Integration test for parser + simplify on all files in a directory.
 ///
 /// Iterates over all domain files in the specified directory, performing:
 /// 1. Parsing each file.
@@ -71,7 +71,7 @@ pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool
 }
 
 
-/// Combined parser + normalizer integration test on an HDDL directory.
+/// Combined parser + simplify integration test on an HDDL directory.
 ///
 /// This test iterates over all files in the given `domain_path` directory
 /// corresponding to HDDL domains and performs for each file:
@@ -82,7 +82,7 @@ pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool
 /// 4. Checking the validity of the normalized AST.
 ///
 /// The test fails (panics) if any error occurs during any of these steps,
-/// indicating a problem in the parser + normalizer pipeline.
+/// indicating a problem in the parser + simplify pipeline.
 ///
 /// # Arguments
 ///

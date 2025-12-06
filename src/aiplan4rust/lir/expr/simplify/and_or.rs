@@ -57,7 +57,7 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 /// normalize(node_id, &mut expr)?;
 /// // After simplification, the expression becomes: (and A B C (when (or X Z) Y))
 /// ```
-pub(super) fn normalize(
+pub(super) fn simplify(
     node_id: NodeId,
     expr: &mut Expr
 ) -> Result<(), ExprError> {
@@ -89,7 +89,6 @@ pub(super) fn normalize(
 
     Ok(())
 }
-
 
 /// Flattens nested AND/OR nodes of the same kind into a single node.
 ///
@@ -718,7 +717,7 @@ fn rebuild_children_with_merged_when(
                 ExprNode::new(ExprKind::Or, Content::None, None),
                 conds,
             );
-            normalize(or_node, expr)?; // Simplify OR node
+            simplify(or_node, expr)?; // Simplify OR node
             or_node
         };
 
@@ -767,7 +766,7 @@ mod realistic_tests {
 
         let root_id = expr.root_id().unwrap();
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -795,7 +794,7 @@ mod realistic_tests {
 
         let root_id = expr.root_id().unwrap();
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -1566,7 +1565,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
         print!("{} -> {} ", input, output);
 
@@ -1611,7 +1610,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
         print!("{} -> {} ", input, output);
 
@@ -1640,7 +1639,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
         print!("{} -> {} ", input, output);
 
@@ -1669,7 +1668,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
         print!("{} -> {} ", input, output);
 

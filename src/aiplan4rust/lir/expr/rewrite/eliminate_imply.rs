@@ -2,7 +2,11 @@ use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, Expr
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Removes all `Imply` nodes in the subtree rooted at `node_id` by transforming
-/// each `A -> B` into `(or (not A) B)`.
+/// each `A -> B` into `(Or(Not(A), B))`.
+///
+/// This function is the first step in the normalization pipeline. It ensures that
+/// implications are eliminated so that subsequent transformations (pushing negations,
+/// temporal factorization, simplification) can operate on a simpler logical structure.
 ///
 /// # Behavior
 /// - Traverses the subtree in **post-order** (DFS) to ensure children are processed before their parent.
@@ -11,6 +15,16 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 ///   - The consequence `B` is kept as-is.
 ///   - The current `Imply` node is converted into `Or(Not(A), B)`.
 /// - Non-`Imply` nodes are left unchanged.
+///
+/// # Preconditions
+/// - None; this function can be called on any expression tree.
+/// - It should be the **first step** in the normalization pipeline, before `push_negation` and
+///   `push_time_specifier`.
+///
+/// # Dependencies
+/// - Independent function; does not require any preprocessing.
+/// - Subsequent steps (`push_negation`, `push_time_specifier`, `factorize_time_specifier`) depend
+///   on this function having been applied first.
 ///
 /// # Parameters
 /// - `node_id`: The root `NodeId` of the subtree to process.
@@ -28,11 +42,13 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// - This function removes **all** `Imply` nodes in the given subtree, not just a single node.
 /// - Further simplifications (like flattening `Or` or handling double negations) should
 ///   be applied separately if desired.
+/// - The function is safe to call independently, but in practice it is used as the first step
+///   of the normalization workflow orchestrated by the `normalize` module.
 ///
 /// # Example
 /// ```ignore
 /// // Suppose `expr` contains multiple Imply nodes in a subtree rooted at node_id
-/// remove_imply(node_id, &mut expr)?;
+/// eliminate_imply(node_id, &mut expr)?;
 /// // All Imply nodes in that subtree are now replaced by Or(Not(premise), consequence)
 /// ```
 pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {

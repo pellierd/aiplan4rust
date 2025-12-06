@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 
-/// Normalizes a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
+/// Simplifies a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
 ///
 /// This function applies the following steps in order:
 /// 1. Canonicalizes the variables in the `TypedList` of the quantifier.
@@ -39,7 +39,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 /// let node_id = expr.root_id().unwrap();
 /// normalize(node_id, &mut expr)?;
 /// ```
-pub(crate) fn normalize(
+pub(super) fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {
@@ -363,7 +363,7 @@ mod tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::lir::expr::normalizer::quantifier;
+    use crate::aiplan4rust::lir::expr::simplify::quantifier;
     use crate::aiplan4rust::syntax::SyntaxDisplay;
 
     /// Test that an empty forall quantifier is replaced by its body.
@@ -383,7 +383,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -416,7 +416,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -444,7 +444,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -472,7 +472,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -499,7 +499,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -531,7 +531,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -560,7 +560,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -588,7 +588,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        quantifier::normalize(root_id, &mut expr).unwrap();
+        quantifier::simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

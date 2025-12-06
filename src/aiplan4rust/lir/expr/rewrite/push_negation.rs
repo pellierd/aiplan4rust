@@ -5,13 +5,23 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// Recursively pushes negations down the expression tree using De Morgan’s laws
 /// and quantifier negation rules.
 ///
+/// This function ensures that negations (`Not` nodes) are propagated down to atomic
+/// formulas, preparing the expression tree for subsequent processing such as temporal
+/// factorization or simplification.
+///
 /// # Transformations applied
-/// 1. De Morgan’s laws:
+/// 1. **De Morgan’s laws**:
 ///    - `Not(And(...))` → `Or(Not(...))`
 ///    - `Not(Or(...))` → `And(Not(...))`
-/// 2. Quantifier negation rules:
+/// 2. **Quantifier negation rules**:
 ///    - `Not(Forall x φ)` → `Exists x Not(φ)`
 ///    - `Not(Exists x φ)` → `Forall x Not(φ)`
+///
+/// # Preconditions
+/// - Typically called after implications have been eliminated via `eliminate_imply`.
+/// - This function is part of the **normalization pipeline**, orchestrated by the
+///   `normalize` module. Users should not call this directly unless they are implementing
+///   a custom normalization sequence.
 ///
 /// # Parameters
 /// - `root_id`: NodeId of the root of the subtree to process.
@@ -22,9 +32,18 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// - `Err(ExprError)` if accessing or modifying nodes fails.
 ///
 /// # Notes
-/// - This function mutates the tree in place.
-/// - Newly created `Not` nodes are added to the stack for further processing.
-/// - Assumes that each `Not` node has exactly one child; this is verified with a `debug_assert!`.
+/// - Mutates the tree in place.
+/// - Uses a stack for depth-first traversal to handle `Not` nodes.
+/// - Newly created `Not` nodes are pushed onto the stack for further processing.
+/// - Assumes that each `Not` node has exactly one child; verified with a `debug_assert!`.
+/// - After this step, all literals are in a form suitable for temporal specifier propagation
+///   (`push_time_specifier`) and factorization (`factorize_time_specifier`).
+///
+/// # Example usage
+/// ```rust
+/// // Part of the normalization pipeline managed by the `normalize` module
+/// push_negation(root_id, &mut expr)?;
+/// ```
 pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let mut stack = vec![root_id];
 
@@ -75,7 +94,7 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> 
 /// `Not` nodes are returned so they can be processed further.
 ///
 /// # Parameters
-/// - `node_id`: NodeId of the `Not` node to transform.
+/// - `node_id`: NodeId of the `Not` node to rewrite.
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -197,7 +216,6 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
 
     Ok(new_not_id)
 }
-
 
 #[cfg(test)]
 mod tests {

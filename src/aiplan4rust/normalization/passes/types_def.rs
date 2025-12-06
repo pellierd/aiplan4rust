@@ -273,7 +273,7 @@ fn emit_implicit_either_type_warnings(
                 ident,
                 duplicate_types,
                 duplicate_spans,
-                Provider::Normalizer, // Mark the normalizer as the source of this warning
+                Provider::Normalizer, // Mark the simplify as the source of this warning
                 ast.source_id(),      // Source file name where the warning originates
                 first_span.clone(),   // Location span in the source code for the warning
             );

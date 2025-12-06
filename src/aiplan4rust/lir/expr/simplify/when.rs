@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::syntax::tree::NodeId;
 
-/// Normalizes a `When` expression node according to PDDL simplification rules.
+/// Simplifies a `When` expression node according to PDDL simplification rules.
 ///
 /// This function delegates to [`simplify_when_node`] to reduce a `When` node
 /// into a simpler, canonical form. Normalization may modify the expression
@@ -26,7 +26,7 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// // Result: E
 /// normalize(when_id, &mut expr)?;
 /// ```
-pub(super) fn normalize(
+pub(super) fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<bool, ExprError> {
@@ -129,7 +129,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -153,7 +153,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -177,7 +177,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -202,7 +202,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -227,7 +227,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        let changed = normalize(root_id, &mut expr).unwrap();
+        let changed = simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

@@ -33,7 +33,7 @@ pub enum Provider {
     /// The parser component responsible for syntactic analysis.
     Parser,
 
-    /// The normalizer component responsible for normalizing or transforming data structures.
+    /// The simplify component responsible for normalizing or transforming data structures.
     Normalizer,
 
     /// The analyzer component responsible for semantic or other analysis.

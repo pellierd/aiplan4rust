@@ -20,7 +20,7 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// # Returns
 /// - `Ok(())` if normalization succeeds or if no simplification is applicable.
 /// - `Err(ExprError)` if any node cannot be accessed or mutated.
-pub(crate) fn normalize(
+pub(super) fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {
@@ -187,7 +187,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -214,7 +214,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -241,7 +241,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -264,7 +264,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -288,7 +288,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);
@@ -313,7 +313,7 @@ mod tests {
         let mut expr = builder.finish();
 
         let input = expr.to_syntax_string(&interner);
-        normalize(root, &mut expr).unwrap();
+        simplify(root, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

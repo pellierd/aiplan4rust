@@ -115,7 +115,7 @@ impl Normalizer {
 
     /// Internal method: orchestrates the normalization pipeline.
     ///
-    /// Applies a fixed sequence of passes that normalizer the AST in place.
+    /// Applies a fixed sequence of passes that simplify the AST in place.
     /// Any diagnostics encountered during the process are accumulated internally.
     ///
     /// # Arguments

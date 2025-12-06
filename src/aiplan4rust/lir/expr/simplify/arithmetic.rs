@@ -35,7 +35,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
 /// - Non-arithmetic nodes are skipped silently.
 /// - Flattening and constant evaluation are applied sequentially, preserving
 ///   the tree structure while simplifying expressions.
-pub(super) fn normalize(
+pub(super) fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<(), ExprError> {

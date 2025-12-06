@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
-use crate::aiplan4rust::lir::expr::normalizer::{and_or, arithmetic, assign, comparison, not, quantifier, when};
-use crate::aiplan4rust::lir::expr::transform::eliminate_imply::eliminate_imply;
-use crate::aiplan4rust::lir::expr::transform::push_negation::push_negation;
+use crate::aiplan4rust::lir::expr::simplify::{and_or, arithmetic, assign, comparison, not, quantifier, when};
+use crate::aiplan4rust::lir::expr::rewrite::eliminate_imply::eliminate_imply;
+use crate::aiplan4rust::lir::expr::rewrite::push_negation::push_negation;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Simplifies a PDDL-like expression tree in a post-order traversal.
@@ -104,13 +104,13 @@ pub(crate) fn normalize_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Exp
 
     match kind {
         ExprKind::And | ExprKind::Or => {
-            and_or::normalize(node_id, expr)?;
+            and_or::simplify(node_id, expr)?;
         }
         ExprKind::Not => {
-            not::normalize(node_id, expr)?;
+            not::simplify(node_id, expr)?;
         }
         ExprKind::Forall | ExprKind::Exists => {
-            quantifier::normalize(node_id, expr)?;
+            quantifier::simplify(node_id, expr)?;
         }
         ExprKind::Imply => {
             return Err(ExprError::UnexpectedNodeKind {
@@ -119,16 +119,16 @@ pub(crate) fn normalize_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Exp
             });
         }
         ExprKind::Assign => {
-            assign::normalize(node_id, expr)?;
+            assign::simplify(node_id, expr)?;
         }
         ExprKind::FComp => {
-            comparison::normalize(node_id, expr)?;
+            comparison::simplify(node_id, expr)?;
         }
         ExprKind::Operation => {
-            arithmetic::normalize(node_id, expr)?;
+            arithmetic::simplify(node_id, expr)?;
         }
         ExprKind::When => {
-            when::normalize(node_id, expr)?;
+            when::simplify(node_id, expr)?;
         }
 
         _ => {} // Other node kinds are skipped
