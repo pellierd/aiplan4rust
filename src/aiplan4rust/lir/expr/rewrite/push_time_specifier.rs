@@ -57,8 +57,7 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 /// // Part of the normalization pipeline managed by the `normalize` module
 /// push_time_specifier(root_id, &mut expr)?;
 /// ```
-#[allow(dead_code)]
-pub(super) fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     // Initialize a stack for depth-first traversal starting with the root
     let mut stack = vec![root_id];
     let mut modified = false;

@@ -50,6 +50,7 @@ pub mod expr;
 pub mod error;
 mod builder;
 mod rewrite;
+mod normalize;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode;

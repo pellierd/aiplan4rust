@@ -23,3 +23,8 @@ pub mod eliminate_imply;
 pub mod push_negation;
 pub mod push_time_specifier;
 pub mod factorize_time_specifier;
+
+pub use eliminate_imply::eliminate_imply as eliminate_imply;
+pub use push_negation::push_negation as push_negation;
+pub use push_time_specifier::push_time_specifier as push_time_specifier;
+pub use factorize_time_specifier::factorize_time_specifier as factorize_time_specifier;
