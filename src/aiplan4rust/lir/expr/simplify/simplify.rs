@@ -1,4 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
+use crate::aiplan4rust::lir::expr::kind::Kind;
 use crate::aiplan4rust::lir::expr::simplify::{and_or, arithmetic, assign, comparison, not, quantifier, when};
 use crate::aiplan4rust::syntax::tree::NodeId;
 
@@ -119,7 +120,46 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
             when::simplify(node_id, expr)?;
         }
 
-        _ => {} // Other node kinds are skipped
+
+        Kind::Type => {}
+        Kind::TypedList => {}
+        Kind::AtStart => {}
+        Kind::AtEnd => {}
+        Kind::Overall => {}
+        Kind::Always => {}
+        Kind::Sometime => {}
+        Kind::Within => {}
+        Kind::AtMostOnce => {}
+        Kind::SometimeAfter => {}
+        Kind::SometimeBefore => {}
+        Kind::AlwaysWithin => {}
+        Kind::HoldDuring => {}
+        Kind::HoldAfter => {}
+
+        // RIEN A FAIRE
+        Kind::TypedSymbol => {}
+        Kind::FunctionTerm => {}
+        Kind::AtomicFormula => {}
+        Kind::Number => {}
+        Kind::Preference => {}
+        Kind::Constant => {}
+        Kind::Variable => {}
+        Kind::FunctionSymbol => {}
+        Kind::PrimitiveType => {}
+        Kind::Predicate => {}
+        Kind::TaskSymbol => {}
+        Kind::PrefName => {}
+        Kind::TimedInitialLiteral => {}
+        Kind::Metric => {}
+        Kind::TotalTime => {}
+        Kind::IsViolated => {}
+        Kind::Length => {}
+        Kind::Serial => {}
+        Kind::Parallel => {}
+        Kind::Task => {}
+        Kind::TaskID => {}
+        Kind::TaggedTask => {}
+        Kind::TaskOrderingConstraint => {}
     }
 
     Ok(())

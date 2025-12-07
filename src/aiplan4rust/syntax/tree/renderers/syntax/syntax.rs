@@ -3,8 +3,7 @@ use std::fmt::Formatter;
 use std::ptr::write;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::expr::ExprContent::ArithmeticOp;
+
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -226,7 +225,7 @@ pub fn render_with_indent<T: SyntaxNode>(
                         // Write indentation before the single type_checker
                         write!(f, "{}", indent_str)?;
                         // Recursively format the type_checker content with the current indentation
-                        write!(f, "{}",  ty_node.content().to_string_with_interner(interner))
+                        write!(f, "{}",  ty_node.content().to_syntax_string(interner))
                     } else {
                         write!(f, "{}<invalid_node>", indent_str)
                     }
@@ -240,7 +239,7 @@ pub fn render_with_indent<T: SyntaxNode>(
                         write!(f, " ")?;
                         if let Some(ty_node) = arena.get_node(*child_id) {
                             // Format each type_checker content recursively, no extra indent here since on the same line
-                            write!(f, "{}",  ty_node.content().to_string_with_interner(interner))?;
+                            write!(f, "{}",  ty_node.content().to_syntax_string(interner))?;
                         } else {
                             write!(f, "<invalid_node>")?;
                         }

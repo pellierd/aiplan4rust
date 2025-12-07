@@ -205,7 +205,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     /// NodeId of the newly created Type node.
-    pub fn type_(&mut self, children: Vec<NodeId>) -> NodeId {
+    pub fn either_type(&mut self, children: Vec<NodeId>) -> NodeId {
         self.nary(ExprKind::Type, children)
     }
 

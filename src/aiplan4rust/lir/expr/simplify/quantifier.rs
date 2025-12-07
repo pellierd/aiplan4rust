@@ -117,12 +117,14 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
     Ok(false)
 }
 
-/// Canonicalizes the variable list of a quantifier node.
+/// Canonicalizes the variable list of a quantifier node and their types.
 ///
 /// This function sorts the first child of a `Forall` or `Exists` node,
-/// which is expected to be a `TypedList` of quantified variables. The goal
-/// is to put the variables in a canonical order to make structural comparisons
-/// and simplifications more reliable.
+/// which is expected to be a `TypedList` of quantified variables. For each
+/// variable, the function also sorts the children of its `Type` node, ensuring
+/// that the list of types for each variable is in canonical order. This
+/// guarantees a consistent representation of quantifiers for structural
+/// comparisons, deduplication, and simplifications.
 ///
 /// # Parameters
 /// - `node_id`: The ID of the quantifier node (`Forall` or `Exists`) to process.
@@ -137,11 +139,14 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// - The node is not a quantifier (`Forall` or `Exists`).
 /// - The quantifier node has no children.
 /// - The first child is not a `TypedList`.
+/// - A variable node does not have exactly two children (name and type).
+/// - The second child of a variable is not a `Type` node.
 ///
 /// # Notes
-/// - Only the first child (the `TypedList`) is affected; the body of the quantifier is untouched.
-/// - These assertions help ensure that `(forall (x y) ...)` and `(forall (y x) ...)`
-///   have a canonical representation for deduplication and simplification.
+/// - Only the first child (the `TypedList`) and the type lists of each variable
+///   are affected; the body of the quantifier is untouched.
+/// - This ensures that `(forall (?x - (A B)) (?y - (C D)) ...)` and
+///   `(forall (?y - (D C)) (?x - (B A)) ...)` have a canonical representation.
 ///
 /// # Example
 /// ```ignore
@@ -150,30 +155,62 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// ```
 #[allow(dead_code)]
 pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    // Get the quantifier node (either Forall or Exists) using its NodeId
     let node = expr.try_node(node_id)?;
     debug_assert!(
         node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
         "Node must be a quantifier (Forall or Exists)"
     );
 
+    // Get the children of the quantifier node
     let children = node.children();
     debug_assert!(
         !children.is_empty(),
         "Quantifier node must have at least one child (TypedList)"
     );
 
+    // The first child of the quantifier node should be a TypedList node holding the variables
     let vars_node_id = children[0];
+
+    // Borrow the TypedList node mutably to allow sorting the variable nodes themselves
     let vars_node = expr.try_node_mut(vars_node_id)?;
     debug_assert!(
         vars_node.kind() == ExprKind::TypedList,
         "First child of a quantifier must be a TypedList"
     );
 
+    // Sort the variable nodes (children of TypedList) in canonical order
     let vars_children = vars_node.children_mut();
-    vars_children.sort(); // canonical order: assumes NodeId implements Ord
+    vars_children.sort();
 
+    // Copy the NodeIds of the variables into a Vec to avoid overlapping mutable/immutable borrows
+    let vars_children_ids: Vec<NodeId> = expr.try_node(vars_node_id)?.children().to_vec();
+
+    // Iterate over each variable
+    for var_id in vars_children_ids {
+        // Borrow the variable node immutably to access its children (name and type)
+        let var_children = expr.try_node(var_id)?.children();
+        debug_assert!(
+            var_children.len() == 2,
+            "Typed symbol node must have exactly two children (name and type){}", var_children.len()
+        );
+
+        // Borrow the type node mutably to sort its children
+        let type_node_id = var_children[1];
+        let type_node = expr.try_node_mut(type_node_id)?;
+        debug_assert!(
+            type_node.kind() == ExprKind::Type,
+            "The second child of a variable must be a Type node"
+        );
+
+        // Sort the children of the Type node in canonical order
+        type_node.children_mut().sort();
+    }
+
+    // All variables and their type children are now in canonical order
     Ok(())
 }
+
 
 /// Fuses nested quantifiers of the same kind (`forall` or `exists`) into a single expression.
 ///
@@ -360,7 +397,7 @@ fn simplify_quantifier_trivial_body(
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::interner::StringInterner;
+    use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::simplify::quantifier;
@@ -394,8 +431,8 @@ mod tests {
     }
 
     /// Test that nested forall quantifiers are fused.
-    /// Input: (forall (?X) (forall (?Y) (A)))
-    /// Expected: (forall (?X ?Y) (A))
+    /// Input: (forall (?X - T2) (forall (?Y - T1) (A)))
+    /// Expected: (forall (?X - T2 ?Y - T1) (A))
     #[test]
     fn test_fuse_nested_forall() {
         let mut interner = StringInterner::new();
@@ -404,11 +441,17 @@ mod tests {
         let atomic_a = builder.atomic_formula("A", vec![]);
 
         let y = builder.variable("?Y");
-        let inner_vars = builder.typed_list(vec![y]);
+        let t1 = builder.primitive_type("T1");
+        let either = builder.either_type(vec![t1]);
+        let typed_y = builder.typed_symbol(y, either);
+        let inner_vars = builder.typed_list(vec![typed_y]);
         let inner_forall = builder.forall(inner_vars, atomic_a);
 
         let x = builder.variable("?X");
-        let outer_vars = builder.typed_list(vec![x]);
+        let t2 = builder.primitive_type("T2");
+        let either = builder.either_type(vec![t2]);
+        let typed_x = builder.typed_symbol(x, either);
+        let outer_vars = builder.typed_list(vec![typed_x]);
         let outer_forall = builder.forall(outer_vars, inner_forall);
 
         builder.set_root(outer_forall).unwrap();
@@ -423,11 +466,11 @@ mod tests {
 
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Forall);
-        assert_eq!(output, "(forall (?X ?Y) (A))");
+        assert_eq!(output, "(forall (?X - T2 ?Y - T1) (A))");
     }
 
     /// Test that a quantifier with trivial body is replaced by its body.
-    /// Input: (forall (?X) (and))
+    /// Input: (forall (?X - T) (and))
     /// Expected: (and)
     #[test]
     fn test_trivial_body_forall() {
@@ -436,7 +479,10 @@ mod tests {
 
         let empty_and = builder.and(vec![]);
         let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
+        let t = builder.primitive_type("T");
+        let either = builder.either_type(vec![t]);
+        let typed_x = builder.typed_symbol(x, either);
+        let vars = builder.typed_list(vec![typed_x]);
         let forall_node = builder.forall(vars, empty_and);
 
         builder.set_root(forall_node).unwrap();
@@ -455,16 +501,19 @@ mod tests {
     }
 
     /// Test that no simplification is applied when quantifier is non-empty, non-nested, non-trivial.
-    /// Input: (forall (?X) (A))
+    /// Input: (forall (?X - T) (A))
     /// Expected unchanged
     #[test]
-    fn test_no_simplification() {
+    fn test_no_simplification_forall() {
         let mut interner = StringInterner::new();
         let mut builder = ExprBuilder::new(&mut interner);
 
         let atomic_a = builder.atomic_formula("A", vec![]);
         let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
+        let t = builder.primitive_type("T");
+        let either = builder.either_type(vec![t]);
+        let typed_x = builder.typed_symbol(x, either);
+        let vars = builder.typed_list(vec![typed_x]);
         let forall_node = builder.forall(vars, atomic_a);
 
         builder.set_root(forall_node).unwrap();
@@ -479,7 +528,7 @@ mod tests {
 
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Forall);
-        assert_eq!(output, "(forall (?X) (A))");
+        assert_eq!(output, "(forall (?X - T) (A))");
     }
 
     /// Test that an empty exists quantifier is replaced by its body.
@@ -510,8 +559,8 @@ mod tests {
     }
 
     /// Test that nested exists quantifiers are fused into a single node.
-    /// Input: (exists (?X) (exists (?Y) (A)))
-    /// Expected: (exists (?X ?Y) (A))
+    /// Input: (exists (?X - T2) (exists (?Y - T1) (A)))
+    /// Expected: (exists (?Y - T1 ?X - T2) (A))
     #[test]
     fn test_fuse_nested_exists() {
         let mut interner = StringInterner::new();
@@ -519,11 +568,17 @@ mod tests {
 
         let atomic_a = builder.atomic_formula("A", vec![]);
         let y = builder.variable("?Y");
-        let inner_vars = builder.typed_list(vec![y]);
+        let t1 = builder.primitive_type("T1");
+        let either = builder.either_type(vec![t1]);
+        let typed_y = builder.typed_symbol(y, either);
+        let inner_vars = builder.typed_list(vec![typed_y]);
         let inner_exists = builder.exists(inner_vars, atomic_a);
 
         let x = builder.variable("?X");
-        let outer_vars = builder.typed_list(vec![x]);
+        let t2 = builder.primitive_type("T2");
+        let either = builder.either_type(vec![t2]);
+        let typed_x = builder.typed_symbol(x, either);
+        let outer_vars = builder.typed_list(vec![typed_x]);
         let outer_exists = builder.exists(outer_vars, inner_exists);
 
         builder.set_root(outer_exists).unwrap();
@@ -538,12 +593,12 @@ mod tests {
 
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Exists);
-        assert_eq!(output, "(exists (?X ?Y) (A))");
+        assert_eq!(output, "(exists (?X - T2 ?Y - T1) (A))");
     }
 
 
     /// Test that an exists quantifier with a trivial body is replaced by its body.
-    /// Input: (exists (?X) (and))
+    /// Input: (exists (?X - T) (and))
     /// Expected: (and)
     #[test]
     fn test_trivial_body_exists() {
@@ -552,7 +607,10 @@ mod tests {
 
         let empty_and = builder.and(vec![]);
         let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
+        let t = builder.primitive_type("T");
+        let either = builder.either_type(vec![t]);
+        let typed_x = builder.typed_symbol(x, either);
+        let vars = builder.typed_list(vec![typed_x]);
         let exists_node = builder.exists(vars, empty_and);
 
         builder.set_root(exists_node).unwrap();
@@ -571,8 +629,8 @@ mod tests {
     }
 
     /// Test that no simplification is applied on a non-empty, non-nested exists quantifier.
-    /// Input: (exists (?X) (A))
-    /// Expected unchanged: (exists (?X) (A))
+    /// Input: (exists (?X - T) (A))
+    /// Expected unchanged: (exists (?X - T) (A))
     #[test]
     fn test_no_simplification_exists() {
         let mut interner = StringInterner::new();
@@ -580,7 +638,10 @@ mod tests {
 
         let atomic_a = builder.atomic_formula("A", vec![]);
         let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
+        let t = builder.primitive_type("T");
+        let either = builder.either_type(vec![t]);
+        let typed_x = builder.typed_symbol(x, either);
+        let vars = builder.typed_list(vec![typed_x]);
         let exists_node = builder.exists(vars, atomic_a);
 
         builder.set_root(exists_node).unwrap();
@@ -595,7 +656,7 @@ mod tests {
 
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Exists);
-        assert_eq!(output, "(exists (?X) (A))");
+        assert_eq!(output, "(exists (?X - T) (A))");
     }
 
 }

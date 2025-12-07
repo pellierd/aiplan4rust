@@ -550,6 +550,9 @@ mod tests {
         assert_eq!(output, "(or (and (B) (C)) (not (A)))");
     }
 
+    /// Normalization with nested quantifiers
+    /// Input: (imply (forall (?X - T1) (A)) (exists (?Y - T2) (B)))
+    /// Expected Output: (or (exists (?Y - T2) (B)) (not (forall (?X - T1) (A))))
     #[test]
     fn test_normalize_with_quantifiers() {
         let mut interner = StringInterner::new();
@@ -557,12 +560,18 @@ mod tests {
 
         let a = builder.atomic_formula("A", vec![]);
         let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
+        let t1 = builder.primitive_type("T1");
+        let either = builder.either_type(vec![t1]);
+        let typed_x = builder.typed_symbol(x, either);
+        let vars = builder.typed_list(vec![typed_x]);
         let forall_node = builder.forall(vars, a);
 
         let b = builder.atomic_formula("B", vec![]);
         let y = builder.variable("?Y");
-        let vars = builder.typed_list(vec![y]);
+        let t2 = builder.primitive_type("T2");
+        let either = builder.either_type(vec![t2]);
+        let typed_y = builder.typed_symbol(y, either);
+        let vars = builder.typed_list(vec![typed_y]);
         let exists_node = builder.exists(vars, b);
 
         let imply = builder.imply(forall_node, exists_node);
@@ -573,7 +582,7 @@ mod tests {
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
         let output = expr.to_syntax_string(&interner);
-        assert_eq!(output, "(or (exists (?Y) (B)) (not (forall (?X) (A))))");
+        assert_eq!(output, "(or (exists (?Y - T2) (B)) (not (forall (?X - T1) (A))))");
     }
 
     /// Test 1: When with empty AND condition and non-trivial effect
