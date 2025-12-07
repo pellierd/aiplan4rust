@@ -50,13 +50,15 @@ pub mod expr;
 pub mod error;
 mod builder;
 mod rewrite;
-mod normalize;
+pub mod normalize;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode;
 pub use kind::Kind as ExprKind;
 pub use expr::Expr;
 pub use error::ExprError;
+
+pub use normalize::normalize;
 
 /// Alias for expression node identifiers within the syntax tree.
 pub type ExprId = NodeId;

@@ -1,6 +1,6 @@
-pub mod and_or;
-pub mod quantifier;
-pub mod not;
+mod and_or;
+mod quantifier;
+mod not;
 mod arithmetic;
 mod comparison;
 mod assign;

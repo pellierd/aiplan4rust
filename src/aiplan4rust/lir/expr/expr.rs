@@ -36,7 +36,7 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
@@ -44,7 +44,6 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use ahash::AHasher;
 use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::lang::{Ident, Optimization};
 use crate::aiplan4rust::lir::expr::content::Content;
@@ -318,74 +317,6 @@ impl Expr {
         self.tree.remap_idents_from(id, map);
     }
 
-    /// Computes a structural hash for a sub-expression (subtree) rooted at `node_id`.
-    ///
-    /// This hash can be used for deduplication, equality checking, or caching subtrees in PDDL-like ASTs.
-    /// The hash is **structural**, meaning it considers the node type, the node content, and all children recursively.
-    /// For commutative nodes (AND and OR), child order does not affect the hash, ensuring that (and A B) and (and B A) produce the same hash.
-    ///
-    /// # Parameters
-    /// - `node_id`: The ID of the node to hash. This node serves as the root of the sub-expression.
-    /// - `self`: A reference to the expression tree containing the node and its children.
-    ///
-    /// # Returns
-    /// - `Ok(u64)`: A 64-bit hash representing the structure of the sub-expression.
-    /// - `Err(ExprError)`: If the `node_id` is invalid or cannot be accessed.
-    ///
-    /// # Behavior
-    /// 1. Retrieves the node corresponding to `node_id`.
-    /// 2. Hashes the kind of the node (ExprKind) to distinguish types (Predicate, And, Or, Not, etc.).
-    /// 3. Hashes the node content (ExprContent), ensuring that nodes of the same kind but different content produce different hashes.
-    /// 4. Recursively computes hashes for all children.
-    ///    - For commutative nodes (AND, OR), child hashes are sorted before combining, making the hash insensitive to child order.
-    ///    - For non-commutative nodes, child hashes are combined in the original order.
-    /// 5. Combines all child hashes into the node's hasher to produce a final hash.
-    ///
-    /// # Notes
-    /// - The function is recursive and works for any depth of the expression tree.
-    /// - It requires that `ExprContent` implements `Hash`.
-    /// - It produces a consistent hash for structurally equivalent subtrees, suitable for structural deduplication.
-    /// - Commutative nodes (AND/OR) are insensitive to the order of their children.
-    ///
-    /// # Example
-    /// ```ignore
-    /// // Suppose expr contains: (and A (or B C)) or (and (or C B) A)
-    /// let root_id = expr.root_id().unwrap();
-    /// let hash = expr.sub_expr_hash(root_id)?;
-    /// println!("Hash of root subtree: {}", hash);
-    /// ```
-    pub fn sub_expr_hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
-        let node = self.try_node(node_id)?;
-        let mut hasher = AHasher::default();
-
-        // Hash the node type first
-        node.kind().hash(&mut hasher);
-
-        // Hash the node content (name, value, arguments, etc.)
-        // This ensures nodes of the same kind but different content have distinct hashes
-        node.content().hash(&mut hasher);
-
-        // Recursively hash all children
-        let mut child_hashes = Vec::with_capacity(node.children().len());
-        for &child_id in node.children() {
-            let h = self.sub_expr_hash(child_id)?;
-            child_hashes.push(h);
-        }
-
-        // For commutative nodes, sort child hashes so order does not matter
-        match node.kind() {
-            ExprKind::And | ExprKind::Or => child_hashes.sort_unstable(),
-            _ => {}
-        }
-
-        // Combine all child hashes into the node hash
-        for h in child_hashes {
-            h.hash(&mut hasher);
-        }
-
-        Ok(hasher.finish())
-    }
-
     /// Compare two subtrees of possibly different `Expr`s for deep equality.
     ///
     /// # Parameters
@@ -438,7 +369,6 @@ impl Expr {
         Ok(true)
     }
 
-
     /// Computes the hash of a subtree of the expression.
     ///
     /// The hash combines:
@@ -458,9 +388,9 @@ impl Expr {
     ///
     /// # Example
     /// ```ignore
-    /// let hash = expr.compute_hash(node_id)?;
+    /// let hash = expr.hash(node_id)?;
     /// ```
-    fn compute_hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
+    fn hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
         let node = self.try_node(node_id)?;
         let mut hasher = DefaultHasher::new();
 
@@ -470,7 +400,7 @@ impl Expr {
 
         // Recursively hash the children
         for &child in node.children() {
-            let child_hash = self.compute_hash(child)?;
+            let child_hash = self.hash(child)?;
             child_hash.hash(&mut hasher);
         }
 
@@ -626,6 +556,36 @@ impl Expr {
         Ok(self.try_node(node_id)?.is_empty_or())
     }
 
+    /// Normalizes the expression in-place.
+    ///
+    /// This function applies the normalization process defined in the
+    /// [`normalize`](crate::normalize) module to `self`. Normalization
+    /// typically means transforming the expression into a standard or
+    /// canonical form, which can be useful for comparison, evaluation,
+    /// or optimization.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`ExprError`] if normalization fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use your_crate::{Expr, ExprError};
+    /// # fn example() -> Result<(), ExprError> {
+    /// let mut expr = Expr::new(...);
+    /// expr.normalize()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Note
+    ///
+    /// For more details on the normalization process and the rules applied,
+    /// see the [`normalize`](crate::normalize) module.
+    pub fn normalize(&mut self) -> Result<(), ExprError> {
+        normalize(self)
+    }
 }
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
