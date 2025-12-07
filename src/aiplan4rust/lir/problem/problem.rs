@@ -45,10 +45,11 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedMethod};
+use crate::aiplan4rust::lir::problem::{normalize, InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
 /// Represents a lifted planning problem defined in PDDL syntax.
@@ -624,6 +625,22 @@ impl Problem {
     /// Sets the initial task network.
     pub fn set_initial_task_network(&mut self, initial_task_network: InitialTaskNetwork) {
         self.initial_task_network = initial_task_network;
+    }
+
+    /// Normalizes all expressions and normalizable components of this `Problem`.
+    ///
+    /// This includes:
+    /// - Problem-level expressions: `domain_constraints`, `init`, `goal`,
+    ///   `problem_constraints`, `metric_spec`, `length_spec`.
+    /// - All actions (`precondition` and `effect`).
+    /// - All methods (`precondition` and task network logical constraints).
+    /// - The initial task network (`logical_constraints` only).
+    ///
+    /// # Errors
+    ///
+    /// Returns a `LirError` if normalization of any expression fails.
+    pub fn normalize(&mut self) -> Result<(), LirError> {
+        Ok(normalize::normalize_problem(self)?)
     }
 
 }
