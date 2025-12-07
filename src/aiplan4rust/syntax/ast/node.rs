@@ -178,9 +178,20 @@ impl ArenaNode for AstNode {
     /// Returns a slice of child node IDs.
     ///
     /// # Returns
-    /// A slice (`&[NodeId]`) of all direct children of this node.
+    ///
+    /// A slice (`&[NodeId]`) containing all direct children of this node.
     fn children(&self) -> &[NodeId] {
         self.inner.children()
+    }
+
+    /// Returns a mutable slice of child node IDs.
+    ///
+    /// # Returns
+    ///
+    /// A mutable slice (`&mut Vec<NodeId>`) containing all direct children of this node,
+    /// allowing modification of the children.
+    fn children_mut(&mut self) -> &mut Vec<crate::aiplan4rust::core::arena::NodeId> {
+        self.inner.children_mut()
     }
 
     /// Replaces this node's children with a new list of children.
@@ -244,20 +255,20 @@ impl SyntaxNode for AstNode {
         self.inner.content()
     }
 
-    /// Replaces the content of this AST node.
-    ///
-    /// # Arguments
-    /// * `content` - The new content to assign.
-    fn set_content(&mut self, content: AstContent) {
-        self.inner.set_content(content);
-    }
-
     /// Returns a mutable reference to the node's semantic content.
     ///
     /// # Returns
     /// A mutable reference to the `AstContent` allowing in-place modification.
     fn content_mut(&mut self) -> &mut Self::Content {
         self.inner.content_mut()
+    }
+
+    /// Replaces the content of this AST node.
+    ///
+    /// # Arguments
+    /// * `content` - The new content to assign.
+    fn set_content(&mut self, content: AstContent) {
+        self.inner.set_content(content);
     }
 
     /// Converts this node into an optional `SymbolRef`, if applicable.

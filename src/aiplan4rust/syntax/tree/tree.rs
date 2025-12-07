@@ -399,6 +399,63 @@ where
         self.arena.depth(root)
     }
 
+    /// Replaces the kind, content, and children of a node in the tree.
+    ///
+    /// # Arguments
+    ///
+    /// * `node_id` - The ID of the node to update.
+    /// * `kind` - The new kind to set.
+    /// * `content` - The new content to set.
+    /// * `children` - The new list of children node IDs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `node_id` is invalid.
+    pub fn set(
+        &mut self,
+        node_id: NodeId,
+        kind: T::Kind,
+        content: T::Content,
+        children: Vec<NodeId>,
+    ) -> Result<(), SyntaxTreeError> {
+        let node = self.try_node_mut(node_id)?; // assuming try_node_mut returns &mut T or error
+        node.set_kind(kind);
+        *node.content_mut() = content;
+        *node.children_mut() = children;
+        Ok(())
+    }
+
+   /// Moves the kind, content, and children from a source node into a target node.
+    ///
+    /// # Arguments
+    ///
+    /// * `source_id` - The ID of the node to move data from.
+    /// * `target_id` - The ID of the node to move data to.
+    ///
+    /// # Notes
+    ///
+    /// This function **takes ownership** of the source node's content and children,
+    /// leaving the source node effectively empty. This is useful for in-place
+    /// simplifications or transformations without cloning nodes.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// tree.move_node_to(source_id, target_id)?;
+    /// ```
+    pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), SyntaxTreeError> {
+        let (kind, content, children) = {
+            let source = self.try_node_mut(source_id)?;
+            (
+                source.kind(),
+                std::mem::take(source.content_mut()),
+                std::mem::take(source.children_mut()),
+            )
+        };
+        self.set(target_id, kind, content, children)?;
+        Ok(())
+    }
+
     /// Clones a subtree *within the same* `SyntaxTree` and returns
     /// the `NodeId` of the new root node.
     ///
@@ -510,7 +567,6 @@ where
         let node = self.try_node(node_id)?;
         Ok(node.is_not())
     }
-
 
     /// Returns `true` if the node designated by `node_id` is a *literal*.
     ///

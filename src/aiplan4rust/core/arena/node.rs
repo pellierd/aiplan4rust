@@ -114,8 +114,15 @@ pub trait ArenaNode: Clone + Debug {
     ///
     /// # Returns
     ///
-    /// A slice of `NodeId` representing the children.
+    /// A slice of `NodeId` representing the children of this node.
     fn children(&self) -> &[NodeId];
+
+    /// Returns a mutable slice of immediate child node IDs.
+    ///
+    /// # Returns
+    ///
+    /// A mutable slice of `NodeId` allowing modification of this node's children.
+    fn children_mut(&mut self) -> &mut Vec<NodeId>;
 
     /// Replaces the current children with the given list.
     ///

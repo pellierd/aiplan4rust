@@ -407,71 +407,6 @@ impl Expr {
         Ok(hasher.finish())
     }
 
-    /// Sets the kind, content, and children of a node at a given position.
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` - The ID of the node to update.
-    /// * `kind` - The new kind to assign to the node.
-    /// * `content` - The new content to assign to the node.
-    /// * `children` - The new children of the node.
-    ///
-    /// # Notes
-    ///
-    /// This function **replaces** all aspects of the node in a single operation.
-    /// Any previous content or children are overwritten.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let children = vec![child1_id, child2_id];
-    /// expr.set_node(node_id, ExprKind::And, Content::None, children)?;
-    /// ```
-    pub fn set(
-        &mut self,
-        node_id: NodeId,
-        kind: ExprKind,
-        content: Content,
-        children: Vec<NodeId>,
-    ) -> Result<(), ExprError> {
-        let node = self.try_node_mut(node_id)?;
-        node.set_kind(kind);
-        node.set_content(content);
-        node.set_children(children);
-        Ok(())
-    }
-
-    /// Moves the kind, content, and children from a source node into a target node.
-    ///
-    /// # Arguments
-    ///
-    /// * `source_id` - The ID of the node to move data from.
-    /// * `target_id` - The ID of the node to move data to.
-    ///
-    /// # Notes
-    ///
-    /// This function **takes ownership** of the source node's content and children,
-    /// leaving the source node effectively empty. This is useful for in-place
-    /// simplifications or transformations without cloning nodes.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// expr.move_to(source_id, target_id)?;
-    /// ```
-    pub fn move_to(&mut self, source_id: NodeId, target_id: NodeId) -> Result<(), ExprError> {
-        let (kind, content, children) = {
-            let source = self.try_node_mut(source_id)?;
-            (
-                source.kind(),
-                std::mem::take(source.content_mut()),
-                std::mem::take(source.children_mut()),
-            )
-        };
-        self.set(target_id, kind, content, children)?;
-        Ok(())
-    }
-
     /// Sets the node at `node_id` to an empty `(and)` node.
     ///
     /// # Arguments
@@ -489,7 +424,7 @@ impl Expr {
     /// expr.set_empty_and(node_id)?;
     /// ```
     pub fn set_empty_and(&mut self, node_id: NodeId) -> Result<(), ExprError> {
-        self.set(node_id, ExprKind::And, Content::None, vec![])
+        Ok(self.set(node_id, ExprKind::And, Content::None, vec![])?)
     }
 
     /// Checks whether a node in the expression tree is an empty AND node `(and)`.
@@ -531,7 +466,7 @@ impl Expr {
     /// expr.set_empty_or(node_id)?;
     /// ```
     pub fn set_empty_or(&mut self, node_id: NodeId) -> Result<(), ExprError> {
-        self.set(node_id, ExprKind::Or, Content::None, vec![])
+        Ok(self.set(node_id, ExprKind::Or, Content::None, vec![])?)
     }
 
     /// Checks whether a node in the expression tree is an empty OR node `(or)`.

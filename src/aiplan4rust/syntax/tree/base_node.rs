@@ -199,6 +199,16 @@ impl<K: Copy + Debug + Display + PartialEq, C: SyntaxContent + PartialEq> ArenaN
         self.base_node.children()
     }
 
+    /// Returns a mutable slice of child node IDs.
+    ///
+    /// # Returns
+    ///
+    /// A mutable slice containing the IDs of all child nodes of this node,
+    /// allowing modification of the children.
+    fn children_mut(&mut self) -> &mut Vec<NodeId> {
+        self.base_node.children_mut()
+    }
+
     /// Sets the list of child node IDs.
     ///
     /// # Arguments

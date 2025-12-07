@@ -128,22 +128,57 @@ impl fmt::Display for ExprNode {
 ///
 /// Provides methods to get/set parent, children, and add a child node.
 impl ArenaNode for ExprNode {
+    /// Returns the parent node ID of this node, if any.
+    ///
+    /// # Returns
+    ///
+    /// An `Option<NodeId>` containing the parent node ID, or `None` if this node has no parent.
     fn parent(&self) -> Option<NodeId> {
         self.inner.parent()
     }
 
+    /// Sets the parent node ID of this node.
+    ///
+    /// # Arguments
+    ///
+    /// * `parent` - An `Option<NodeId>` representing the new parent node. Use `None` to remove the parent.
     fn set_parent(&mut self, parent: Option<NodeId>) {
         self.inner.set_parent(parent)
     }
 
+    /// Returns a slice of child node IDs.
+    ///
+    /// # Returns
+    ///
+    /// A slice (`&[NodeId]`) containing all direct children of this node.
     fn children(&self) -> &[NodeId] {
         self.inner.children()
     }
 
+    /// Returns a mutable slice of child node IDs.
+    ///
+    /// # Returns
+    ///
+    /// A mutable slice (`&mut Vec<NodeId>`) containing all direct children of this node,
+    /// allowing modification of the children.
+    fn children_mut(&mut self) -> &mut Vec<NodeId> {
+        self.inner.children_mut()
+    }
+
+    /// Replaces all child node IDs of this node.
+    ///
+    /// # Arguments
+    ///
+    /// * `children` - A `Vec<NodeId>` containing the new list of children.
     fn set_children(&mut self, children: Vec<NodeId>) {
         self.inner.set_children(children)
     }
 
+    /// Adds a child node ID to this node.
+    ///
+    /// # Arguments
+    ///
+    /// * `child` - The `NodeId` of the child node to add.
     fn add_child(&mut self, child: NodeId) {
         self.inner.add_child(child)
     }
