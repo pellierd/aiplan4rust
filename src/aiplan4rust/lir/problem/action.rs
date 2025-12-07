@@ -55,6 +55,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::lir::problem::normalize;
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
@@ -150,6 +151,24 @@ impl Action {
         &self.precondition
     }
 
+    /// Returns a mutable reference to the precondition expression of the action.
+    ///
+    /// This allows in-place modifications of the precondition,
+    /// for example, to normalize or transform the expression.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use aiplan4rust::lir::Action;
+    /// # use aiplan4rust::lir::expr::Expr;
+    /// let mut action = Action::default();
+    /// let pre = action.precondition_mut();
+    /// // Modify `pre` directly, e.g., normalize(pre);
+    /// ```
+    pub fn precondition_mut(&mut self) -> &mut Expr {
+        &mut self.precondition
+    }
+
     /// Replaces the precondition expression.
     ///
     /// # Arguments
@@ -166,6 +185,24 @@ impl Action {
         &self.effect
     }
 
+    /// Returns a mutable reference to the effect expression of the action.
+    ///
+    /// This allows in-place modifications of the effect,
+    /// for example, to normalize or transform the expression.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use aiplan4rust::lir::Action;
+    /// # use aiplan4rust::lir::expr::Expr;
+    /// let mut action = Action::default();
+    /// let eff = action.effect_mut();
+    /// // Modify `eff` directly, e.g., normalize(eff);
+    /// ```
+    pub fn effect_mut(&mut self) -> &mut Expr {
+        &mut self.effect
+    }
+
     /// Replaces the effect expression.
     ///
     /// # Arguments
@@ -173,6 +210,24 @@ impl Action {
     /// * `eff` - The new effect expression.
     pub fn set_effect(&mut self, eff: Expr) {
         self.effect = eff;
+    }
+
+    /// Normalizes the action in-place by normalizing its precondition and effect.
+    ///
+    /// This ensures that both expressions are in canonical form.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `LirError` if normalization fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let mut action = Action::default();
+    /// action.normalize()?;
+    /// ```
+    pub fn normalize(&mut self) -> Result<(), LirError> {
+        Ok(normalize::normalize_action(self)?)
     }
 }
 

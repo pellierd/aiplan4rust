@@ -1,8 +1,8 @@
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::lang::AssignOp;
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, NodeId, ExprNode};
+use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::SyntaxContent;
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
 
 /// Represents the numeric value 0.0, used for detecting trivial `increase` or `decrease` assignments.
 const ZERO: OrderedFloat<f64> = OrderedFloat(0.0);

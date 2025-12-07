@@ -40,8 +40,6 @@
 //! This modular design promotes clear separation of concerns,
 //! making the expression representation extensible and easier to maintain.
 
-use crate::aiplan4rust::syntax::tree::NodeId;
-
 pub mod content;
 pub mod node;
 pub mod kind;

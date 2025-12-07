@@ -4,6 +4,7 @@ pub mod problem;
 pub mod method;
 pub mod task_network;
 pub mod initial_task_network;
+pub mod normalize;
 
 pub use problem::Problem as LiftedProblem;
 pub use action::Action as LiftedAction;
