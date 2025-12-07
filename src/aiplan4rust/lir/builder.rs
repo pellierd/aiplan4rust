@@ -43,7 +43,7 @@ use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{LiftedAction, LiftedMethod, InitialTaskNetwork, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{LiftedAction, LiftedMethod, InitialTaskNetwork, LiftedProblem, normalize};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
@@ -138,12 +138,33 @@ impl LirBuilder {
         &mut self,
         context: &mut LinkedSemanticContext,
     ) -> Result<LirBuilderResult, LirError> {
+        // 1. Create a new empty LiftedProblem
         let mut lifted_problem = LiftedProblem::new();
+
+        // 2. Populate the LiftedProblem with all domain elements
+        //    such as types, constants, predicates, functions, actions, and methods
         self.extract_domain(context, &mut lifted_problem)?;
+
+        // 3. Populate the LiftedProblem with all problem elements
+        //    such as objects, initial state, goal, constraints, metric, and initial task network
         self.extract_problem(context, &mut lifted_problem)?;
+
+        // 4. Retrieve the StringInterner from the context to handle identifiers
         let interner = context.take_interner();
+
+        // 5. Assign the interner to the LiftedProblem
         lifted_problem.set_interner(interner);
-        Ok(LirBuilderResult::success(lifted_problem, std::mem::take(&mut self.diagnostic_manager)))
+
+        // 6. Normalize all expressions in the problem to canonical form
+        //    This includes actions, methods, initial task network, and constraints
+        normalize::normalize_problem(&mut lifted_problem)?;
+
+        // 7. Return the successful result containing the constructed LiftedProblem
+        //    and the diagnostics collected during the build process
+        Ok(LirBuilderResult::success(
+            lifted_problem,
+            std::mem::take(&mut self.diagnostic_manager),
+        ))
     }
 
     pub fn build_with_diagnostic_manager(
