@@ -37,7 +37,7 @@ use crate::aiplan4rust::core::arena::node::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::problem::LiftedTaskNetwork;
+use crate::aiplan4rust::lir::problem::{normalize, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::subtree::SyntaxSubtree;
 
@@ -130,6 +130,14 @@ impl Method {
         self.precondition = pre;
     }
 
+    /// Returns a mutable reference to the method's precondition expression.
+    ///
+    /// This allows in-place modifications of the precondition,
+    /// for example to normalize or transform the expression.
+    pub fn precondition_mut(&mut self) -> &mut Expr {
+        &mut self.precondition
+    }
+
     /// Sets the task network representing subtasks and constraints.
     pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
         self.task_network = task_network;
@@ -144,6 +152,27 @@ impl Method {
     pub fn task_network_mut(&mut self) -> &mut LiftedTaskNetwork {
         &mut self.task_network
     }
+
+    /// Normalizes the method in-place by normalizing its precondition
+    /// and task network.
+    ///
+    /// This ensures that both the `precondition` and the expressions
+    /// in the `task_network` are in canonical form.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `LirError` if normalization fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let mut method = Method::default();
+    /// method.normalize()?;
+    /// ```
+    pub fn normalize(&mut self) -> Result<(), LirError> {
+        Ok(normalize::normalize_method(self)?)
+    }
+
 }
 
 /// Attempts to construct a [`Method`] from a given [`SyntaxSubtree`]

@@ -6,7 +6,7 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lir::problem::LiftedTaskNetwork;
+use crate::aiplan4rust::lir::problem::{normalize, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -72,6 +72,18 @@ impl InitialTaskNetwork {
     /// Sets the task network to a new `LiftedTaskNetwork`.
     pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
         self.task_network = task_network;
+    }
+
+    /// Normalizes the underlying `task_network` of this `InitialTaskNetwork`.
+    ///
+    /// Only the `logical_constraints` of the `task_network` are normalized,
+    /// since `tasks` and `ordering_constraints` are always in a fixed canonical form.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `ExprError` if normalization of the `logical_constraints` fails.
+    pub fn normalize(&mut self) -> Result<(), LirError> {
+        Ok(normalize::normalize_initial_task_network(self)?)
     }
 }
 

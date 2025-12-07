@@ -45,6 +45,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
+use crate::aiplan4rust::lir::problem::normalize;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
@@ -169,6 +170,26 @@ impl TaskNetwork {
     /// - `logical_constraints`: The new [`Expr`] representing the logical constraints.
     pub fn set_logical_constraints(&mut self, logical_constraints: Expr) {
         self.logical_constraints = logical_constraints;
+    }
+
+    /// Normalizes the task network in-place by normalizing its logical constraints.
+    ///
+    /// This ensures that the expressions within the task network are in canonical form.
+    /// Currently, only `logical_constraints` require normalization; `tasks` and
+    /// `ordering_constraints` are structurally fixed and do not need normalization.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `LirError` if normalization fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let mut network = TaskNetwork::default();
+    /// network.normalize()?;
+    /// ```
+    pub fn normalize(&mut self) -> Result<(), LirError> {
+        Ok(normalize::normalize_task_network(self)?)
     }
 }
 
