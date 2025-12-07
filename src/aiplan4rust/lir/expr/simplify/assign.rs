@@ -22,8 +22,6 @@ const ONE: OrderedFloat<f64> = OrderedFloat(1.0);
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
-/// - `Ok(true)` if the node was simplified (trivial assignment replaced by `And`).
-/// - `Ok(false)` if no simplification was needed.
 /// - `Err(ExprError)` if accessing nodes or contents fails.
 ///
 /// # Notes
@@ -31,8 +29,9 @@ const ONE: OrderedFloat<f64> = OrderedFloat(1.0);
 ///   and should be called as part of the assignment normalization pipeline.
 /// - The function preserves the expression tree structure by replacing trivial
 ///   assignments rather than removing nodes from the parent.
-pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
-    simplify_trivial_assignments(node_id, expr)
+pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    simplify_trivial_assignments(node_id, expr)?;
+    Ok(())
 }
 
 /// Simplifies trivial assignment nodes in the expression tree.

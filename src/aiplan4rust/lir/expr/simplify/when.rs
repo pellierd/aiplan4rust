@@ -12,8 +12,6 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
-/// - `Ok(true)` if the node was simplified.
-/// - `Ok(false)` if no simplification was applicable.
 /// - `Err(ExprError)` if accessing or modifying the node fails.
 ///
 /// # Errors
@@ -29,8 +27,9 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 pub(super) fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<bool, ExprError> {
-    simplify_when_node(node_id, expr)
+) -> Result<(), ExprError> {
+    simplify_when_node(node_id, expr)?;
+    Ok(())
 }
 
 /// Simplifies a `When` node according to PDDL logical rewriting rules.
@@ -233,7 +232,6 @@ mod tests {
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(root_id).unwrap();
-        assert!(!changed);
         assert_eq!(root_node.kind(), ExprKind::When);
         let children = root_node.children();
         assert_eq!(children.len(), 2, "When node should have exactly 2 children");

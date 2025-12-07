@@ -33,14 +33,12 @@ use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
 ///
 /// # Returns
 ///
-/// * `Ok(true)` if any simplification or normalization occurred.
-/// * `Ok(false)` if no change was made.
 /// * `Err(ExprError)` on structural access issues.
-pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::FComp {
-        return Ok(false);
+        return Ok(());
     }
 
     let mut changed = false;
@@ -57,15 +55,15 @@ pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprErr
 
     // Step 3: Evaluate constant comparisons
     if simplify_comparison_constants(node_id, expr)? {
-        return Ok(true); // Node replaced → further steps irrelevant
+        return Ok(()); // Node replaced → further steps irrelevant
     }
 
     // Step 4: Simplify trivial identities (x = x, x < x, ...)
     if simplify_comparison_trivial_identity(node_id, expr)? {
-        return Ok(true);
+        return Ok(());
     }
 
-    Ok(changed)
+    Ok(())
 }
 
 
