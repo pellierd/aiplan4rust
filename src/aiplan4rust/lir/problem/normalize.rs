@@ -1,9 +1,48 @@
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::expr;
-use crate::aiplan4rust::lir::problem::InitialTaskNetwork;
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::lir::problem::method::Method;
 use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
+
+/// Normalizes all expressions and normalizable components of a `Problem`.
+///
+/// This function applies expression normalization to:
+/// - All actions (`precondition` and `effect`)
+/// - All methods (`precondition` and logical constraints in their task networks)
+/// - The initial task network (`logical_constraints` only)
+/// - Problem-level expressions: `domain_constraints`, `init`, `goal`, `problem_constraints`,
+///   `metric_spec`, and `length_spec`
+///
+/// # Arguments
+///
+/// * `problem` - A mutable reference to the `Problem` to normalize.
+///
+/// # Errors
+///
+/// Returns an `ExprError` if normalization fails for any expression.
+pub(crate) fn normalize_problem(problem: &mut LiftedProblem) -> Result<(), ExprError> {
+    // Normalize problem-level expressions
+    expr::normalize(&mut problem.goal_mut())?;
+    expr::normalize(&mut problem.domain_constraints_mut())?;
+    expr::normalize(&mut problem.problem_constraints_mut())?;
+    expr::normalize(&mut problem.metric_spec_mut())?;
+
+    // Normalize all actions
+    for action in problem.actions_mut() {
+        normalize_action(action)?;
+    }
+
+    // Normalize all methods
+    for method in problem.methods_mut() {
+        normalize_method(method)?;
+    }
+
+    // Normalize the initial task network
+    normalize_initial_task_network(&mut problem.initial_task_network_mut())?;
+
+    Ok(())
+}
 
 /// Normalizes the expressions of an `Action`.
 ///
