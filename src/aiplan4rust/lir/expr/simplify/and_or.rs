@@ -2,7 +2,6 @@ use std::collections::HashSet;
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
 /// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN expressions.
 ///
@@ -118,7 +117,6 @@ pub(super) fn simplify(
 /// - Uses `std::mem::take` to temporarily take ownership of children vectors, avoiding
 ///   borrow checker conflicts.
 /// - Useful for simplifying logical expressions in PDDL-like ASTs by reducing unnecessary nesting.
-#[allow(dead_code)]
 fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     // Borrow the node immutably to check its kind.
     let kind = expr.try_node(node_id)?.kind();
@@ -230,7 +228,6 @@ fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Expr
 /// // AND node with duplicate NodeIds: (and A A B)
 /// // After deduplication: (and A B)
 /// ```
-#[allow(dead_code)]
 fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     // Borrow the node immutably
     let node = expr.try_node(node_id)?;
@@ -361,7 +358,6 @@ pub fn simplify_tautologies_and_contradictions(
 /// # Notes
 /// - Intended to be called as part of the simplification pipeline on AND/OR nodes only.
 /// - Reductions are safe and preserve the logical meaning of the expression.
-#[allow(dead_code)]
 fn reduce_single_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
@@ -429,7 +425,6 @@ fn reduce_single_and_or_node(
 ///   - `(and)` with no children → `true`
 ///   - `(or)` with no children → `false`
 ///   - No explicit `true` or `false` constants are introduced.
-#[allow(dead_code)]
 fn simplify_empty_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
@@ -743,6 +738,7 @@ mod realistic_tests {
     use super::*;
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
+    use crate::aiplan4rust::syntax::SyntaxDisplay;
 
     /// Realistic test: AND root with nested AND/OR children, duplicates, and empty OR
     ///
@@ -1544,7 +1540,6 @@ mod simplify_empty_and_or_node_tests {
         assert_eq!(output, "(and)");
     }
 
-    #[test]
     /// Test fusion of multiple WHENs with the same effect under an AND node.
     /// Input: (and (when C1 E) (when C2 E))
     /// Expected: (when (or C1 C2) E)

@@ -1,11 +1,10 @@
 use test_case::test_case;
 
-use std::io::Write;
 use std::path::{Path};
 
 use aiplan4rust::{Language};
 mod common;
-use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, get_file_stem_as_string, write_linking_diag_to_file};
+use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, get_file_stem_as_string};
 use crate::common::pipeline::{link, analyze_file};
 
 /// Tests the linker on all problem files found in the given domain directory.

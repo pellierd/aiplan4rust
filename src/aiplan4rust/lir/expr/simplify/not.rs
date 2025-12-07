@@ -68,7 +68,6 @@ pub(super) fn simplify(
 /// Input:  (not (not X))
 /// Output: X
 /// ```
-#[allow(dead_code)]
 fn simplify_double_negation(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::Not, "Node must be a Not");
@@ -131,7 +130,6 @@ fn simplify_double_negation(node_id: NodeId, expr: &mut Expr) -> Result<bool, Ex
 ///   called during a post-order traversal.
 /// - After simplification, the node is no longer a `Not`. The caller must
 ///   avoid applying further `Not`-specific rules to it.
-#[allow(dead_code)]
 fn simplify_trivial_constant(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     // 1. Get the node
     let node = expr.try_node(node_id)?;

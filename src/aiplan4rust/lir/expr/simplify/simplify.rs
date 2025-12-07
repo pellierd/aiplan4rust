@@ -83,9 +83,6 @@ pub fn simplify(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
         simplify_node(node_id, expr)?;
     }
 
-    /// TO ADD
-    /// Factorise les parties commpostunes des expressions.
-    /// Exemple: `(A ∧ B) ∨ (A ∧ C) -> A ∧ (B ∨ C)`.
     Ok(())
 }
 
@@ -116,7 +113,6 @@ pub fn simplify(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
 /// let node_id = expr.root_id().unwrap();
 /// simplify_node(node_id, &mut expr)?;
 /// ```
-#[allow(dead_code)]
 fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let kind = expr.try_node(node_id)?.kind();
 

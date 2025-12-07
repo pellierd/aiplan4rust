@@ -1,4 +1,3 @@
-use std::io::Read;
 use std::path::Path;
 use test_case::test_case;
 

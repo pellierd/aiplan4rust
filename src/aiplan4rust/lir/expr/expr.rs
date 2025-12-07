@@ -390,6 +390,7 @@ impl Expr {
     /// ```ignore
     /// let hash = expr.hash(node_id)?;
     /// ```
+    #[allow(dead_code)]
     fn hash(&self, node_id: NodeId) -> Result<u64, ExprError> {
         let node = self.try_node(node_id)?;
         let mut hasher = DefaultHasher::new();

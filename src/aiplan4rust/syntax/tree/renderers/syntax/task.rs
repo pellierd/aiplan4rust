@@ -41,12 +41,10 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::syntax;
-use crate::aiplan4rust::syntax::ast::renderer;
 use crate::aiplan4rust::syntax::tree::{renderers, SyntaxNode, SyntaxTree};
 
 /// Renders a `task` AST node in an indented, syntax-like format with optional prefix.

@@ -165,7 +165,7 @@ impl<T: ArenaNode> ArenaTree<T> {
     /// # Returns
     ///
     /// * `NodeId` - The identifier corresponding to the newly allocated root node.
-    pub fn alloc_root_with_children(&mut self, mut node: T, children: Vec<NodeId>) -> NodeId {
+    pub fn alloc_root_with_children(&mut self, node: T, children: Vec<NodeId>) -> NodeId {
         let id = self.alloc_with_children(node, children);
         self.root_id = Some(id);
         id

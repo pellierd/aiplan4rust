@@ -41,17 +41,11 @@ pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError
         return Ok(());
     }
 
-    let mut changed = false;
-
     // Step 1: Normalize asymmetric comparisons (> → <, >= → <=)
-    if normalize_comparison(node_id, expr)? {
-        changed = true;
-    }
+    normalize_comparison(node_id, expr)?;
 
     // Step 2: Canonicalize commutative comparisons (=)
-    if canonicalize_comparison(node_id, expr)? {
-        changed = true;
-    }
+    canonicalize_comparison(node_id, expr)?;
 
     // Step 3: Evaluate constant comparisons
     if simplify_comparison_constants(node_id, expr)? {
@@ -72,7 +66,7 @@ pub(super) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError
 ///   (>= a b) → (<= b a)
 ///
 /// Returns Ok(true) if modified.
-pub fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
 
     // We only handle FComp nodes
@@ -118,7 +112,7 @@ pub fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, Ex
 ///   (= b a) → (= a b)
 ///
 /// Returns Ok(true) if reordered.
-pub fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::FComp {
@@ -264,7 +258,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
 /// * `Ok(true)` if the node was simplified.
 /// * `Ok(false)` if no simplification was possible (different terms, not FComp, etc.).
 /// * `Err(ExprError)` if accessing or mutating the node fails.
-pub fn simplify_comparison_trivial_identity(
+fn simplify_comparison_trivial_identity(
     node_id: NodeId,
     expr: &mut Expr,
 ) -> Result<bool, ExprError> {
@@ -294,7 +288,7 @@ pub fn simplify_comparison_trivial_identity(
                 | Some(BinaryComp::LessEq)
         );
 
-        let mut node_mut = expr.try_node_mut(node_id)?;
+        let node_mut = expr.try_node_mut(node_id)?;
         node_mut.set_kind(if is_true { ExprKind::And } else { ExprKind::Or });
         node_mut.set_content(Content::None);
         node_mut.set_children(vec![]);

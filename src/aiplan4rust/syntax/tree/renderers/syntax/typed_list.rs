@@ -17,7 +17,6 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::tree::renderers;

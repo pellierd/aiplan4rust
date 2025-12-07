@@ -226,7 +226,7 @@ mod tests {
         let root_id = expr.root_id().unwrap();
 
         let input = expr.to_syntax_string(&interner);
-        let changed = simplify(root_id, &mut expr).unwrap();
+        simplify(root_id, &mut expr).unwrap();
         let output = expr.to_syntax_string(&interner);
 
         print!("{} -> {} ", input, output);

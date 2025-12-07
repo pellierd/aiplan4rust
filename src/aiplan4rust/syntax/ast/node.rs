@@ -438,9 +438,8 @@ impl SyntaxNode for AstNode {
         f: &mut Formatter<'_>,
         syntax_tree: &SyntaxTree<Self>,
         interner: &StringInterner,
-        indent: usize,
+        _indent: usize,
     ) -> fmt::Result {
         syntax::tree::renderers::syntax_rendering(self, f, syntax_tree, interner)
-//        renderer::syntax::render_with_indent(self, f, syntax_tree, interner, indent)
     }
 }

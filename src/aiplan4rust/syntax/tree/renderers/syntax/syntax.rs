@@ -1,7 +1,6 @@
 use std::fmt;
 use std::fmt::Formatter;
-use std::ptr::write;
-use crate::aiplan4rust::core::arena::ArenaNode;
+
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};

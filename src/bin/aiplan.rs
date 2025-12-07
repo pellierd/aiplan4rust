@@ -112,7 +112,7 @@ fn link(domain_file: &str, problem_file: &str, format: SerdeFormat, output: &str
                 }
             } else {
                 let mut renderer = Renderer::new(linker_result.diagnostic_manager(), linker_result.interner());
-                renderer.display();
+                let _ =  renderer.display();
             }
         }
         Err(e) => {
@@ -141,7 +141,7 @@ pub fn parse(
     match frontend.parse(domain_file, problem_file, language) {
         Ok(result) => {
             let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
-            renderer.display();
+            let _ = renderer.display();
             
 
             // Count errors and warnings
@@ -203,7 +203,7 @@ pub fn parse_file(input_file: &str, language: &Language, format: SerdeFormat, ou
     match frontend.parse_file(input_file, language) {
         Ok(result) => {
             let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner()) ;
-            renderer.display();
+            let _ = renderer.display();
 
             // Compte les erreurs et les warnings
             let error_count = result.diagnostic_manager().count_diagnostics_of_severity(Severity::Error);

@@ -33,14 +33,12 @@ use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 
-use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
-use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::renderers::kind::Kind;
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 
 /// Trait representing a node in a syntax tree.

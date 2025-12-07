@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
+use crate::aiplan4rust::lir::expr::{Expr, ExprError};
 use crate::aiplan4rust::lir::expr::rewrite::eliminate_imply;
 use crate::aiplan4rust::lir::expr::rewrite::factorize_time_specifier;
 use crate::aiplan4rust::lir::expr::rewrite::push_negation;
@@ -45,9 +45,9 @@ pub fn normalize(expr: &mut Expr) -> Result<(), ExprError> {
     }
 
     simplify(root_id, expr)?;
-    /// TO ADD
-    /// Factorise les parties commpostunes des expressions.
-    /// Exemple: `(A ∧ B) ∨ (A ∧ C) -> A ∧ (B ∨ C)`.
+    // TO ADD as post-processing afet simplify
+    // Factorization
+    // Example: `(A ∧ B) ∨ (A ∧ C) -> A ∧ (B ∨ C)`.
     Ok(())
 }
 

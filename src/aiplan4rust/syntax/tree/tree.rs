@@ -604,15 +604,14 @@ where
     /// ```
     pub fn is_literal(&self, node_id: NodeId) -> bool {
         if let Ok(node) = self.try_node(node_id) {
-            match node.kind() {
-                kind if node.is_not() => {
-                    if let Some(&child_id) = node.children().first() {
-                        self.is_literal(child_id)
-                    } else {
-                        false
-                    }
+            if node.is_not() {
+                if let Some(&child_id) = node.children().first() {
+                    self.is_literal(child_id)
+                } else {
+                    false
                 }
-                _ => node.is_atomic_formula(),
+            } else {
+                node.is_atomic_formula()
             }
         } else {
             false

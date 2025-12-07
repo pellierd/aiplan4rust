@@ -85,7 +85,6 @@ pub(super) fn simplify(
 /// let node_id = expr.root_id().unwrap();
 /// remove_empty_quantifier(node_id, &mut expr)?;
 /// ```
-#[allow(dead_code)]
 fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(
@@ -153,7 +152,6 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// let node_id = expr.root_id().unwrap();
 /// canonicalize_quantifier_vars(node_id, &mut expr)?;
 /// ```
-#[allow(dead_code)]
 pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     // Get the quantifier node (either Forall or Exists) using its NodeId
     let node = expr.try_node(node_id)?;
@@ -211,7 +209,6 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
     Ok(())
 }
 
-
 /// Fuses nested quantifiers of the same kind (`forall` or `exists`) into a single expression.
 ///
 /// This function merges a quantifier expression with its immediate child quantifier
@@ -250,7 +247,6 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
 /// let node_id = expr.root_id().unwrap();
 /// fuse_nested_quantifiers(node_id, &mut expr)?;
 /// ```
-#[allow(dead_code)]
 fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(
@@ -347,7 +343,6 @@ fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
 /// let node_id = expr.root_id().unwrap();
 /// simplify_quantifier_trivial_body(node_id, &mut expr)?;
 /// ```
-#[allow(dead_code)]
 fn simplify_quantifier_trivial_body(
     node_id: NodeId,
     expr: &mut Expr
@@ -397,7 +392,7 @@ fn simplify_quantifier_trivial_body(
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::simplify::quantifier;

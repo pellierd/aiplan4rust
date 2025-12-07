@@ -318,7 +318,7 @@ mod tests {
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 2);
 
-        for (i, &child_id) in root_node.children().iter().enumerate() {
+        for &child_id in root_node.children().iter() {
             let child_node = expr.try_node(child_id).unwrap();
             assert_eq!(child_node.kind(), ExprKind::AtStart);
             assert_eq!(child_node.children().len(), 1);

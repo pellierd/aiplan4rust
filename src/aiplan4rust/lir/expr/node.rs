@@ -46,7 +46,6 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::expr::kind::Kind;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
