@@ -6,7 +6,7 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lir::LiftedTaskNetwork;
+use crate::aiplan4rust::lir::problem::LiftedTaskNetwork;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;

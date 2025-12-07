@@ -43,13 +43,13 @@ use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{LiftedAction, LiftedMethod, InitialTaskNetwork, LirBuilderResult, LirError};
-use crate::aiplan4rust::lir::LiftedProblem;
+use crate::aiplan4rust::lir::problem::{LiftedAction, LiftedMethod, InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
+use crate::aiplan4rust::lir::{LirBuilderResult, LirError};
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked

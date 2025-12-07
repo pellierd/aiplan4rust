@@ -45,7 +45,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedMethod};
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};

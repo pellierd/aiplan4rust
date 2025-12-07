@@ -26,20 +26,20 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lang::TypedSymbol;
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::LiftedTaskNetwork;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::interner::ident::Ident;
+use crate::aiplan4rust::lang::typed_list::TypedList;
+use crate::aiplan4rust::lang::typed_symbol::TypedSymbol;
+use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
+use crate::aiplan4rust::lir::expr::expr::Expr;
+use crate::aiplan4rust::syntax::ast::node::AstNode;
+use crate::aiplan4rust::syntax::display::SyntaxDisplay;
+use crate::aiplan4rust::core::arena::node::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::lir::problem::LiftedTaskNetwork;
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::tree::subtree::SyntaxSubtree;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Method {

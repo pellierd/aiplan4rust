@@ -15,7 +15,7 @@
 //! - Use [`LirBuilderResult::lifted_problem`] to obtain the constructed IR when available.
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::lir::LiftedProblem;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::fmt;
 use crate::aiplan4rust::interner::StringInterner;
 
