@@ -5,7 +5,7 @@ pub mod syntax;
 pub mod semantic;
 pub mod normalization;
 pub mod interner;
-mod lir;
+pub mod lir;
 pub mod serialization;
 pub mod lang;
 

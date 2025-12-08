@@ -46,7 +46,7 @@ pub mod builder;
 pub mod expr;
 
 pub mod atomic_skeleton;
-mod builder_result;
+pub mod builder_result;
 pub mod error;
 pub mod problem;
 

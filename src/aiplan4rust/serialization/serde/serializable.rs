@@ -96,7 +96,6 @@ pub trait Serializable: Serialize + DeserializeOwned {
         Ok(())
     }
 
-
     /// Serializes the object and writes it to a file, automatically inferring
     /// the serialization format from the file extension.
     ///
@@ -135,7 +134,6 @@ pub trait Serializable: Serialize + DeserializeOwned {
         let format = Self::format_from_path(path)?;
         self.serialize_to_file(format, path)
     }
-
 
     /// Deserializes an object from a string in the specified serialization format.
     ///

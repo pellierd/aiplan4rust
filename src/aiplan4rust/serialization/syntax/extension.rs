@@ -10,7 +10,7 @@ use std::fmt::{self, Display};
 use std::str::FromStr;
 
 use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::serialization::syntax::PlanningFormat;
+use crate::aiplan4rust::serialization::syntax::SyntaxFormat;
 
 /// Enumeration of supported syntax language file extensions.
 ///
@@ -49,14 +49,14 @@ impl Extension {
 /// # Examples
 ///
 /// ```
-/// let ext: Extension = PlanningFormat::Pddl.into();
+/// let ext: Extension = SyntaxFormat::Pddl.into();
 /// assert_eq!(ext.as_str(), "pddl");
 /// ```
-impl From<PlanningFormat> for Extension {
-    fn from(format: PlanningFormat) -> Self {
+impl From<SyntaxFormat> for Extension {
+    fn from(format: SyntaxFormat) -> Self {
         match format {
-            PlanningFormat::Pddl => Extension::Pddl,
-            PlanningFormat::Hddl => Extension::Hddl,
+            SyntaxFormat::Pddl => Extension::Pddl,
+            SyntaxFormat::Hddl => Extension::Hddl,
         }
     }
 }

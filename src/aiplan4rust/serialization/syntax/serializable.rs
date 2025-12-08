@@ -43,7 +43,7 @@
 
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::serialization::syntax::PlanningFormat;
+use crate::aiplan4rust::serialization::syntax::SyntaxFormat;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Trait for serializing and deserializing syntax structures that require an [`Interner`].
@@ -164,13 +164,13 @@ pub trait Serializable: SyntaxDisplay {
     /// Returns a [`SerializationError`] if:
     /// - The file has no extension (`MissingExtensionError`).
     /// - The extension is not recognized as a supported format (`UnsupportedExtensionError`).
-    fn format_from_path(path: &str) -> Result<PlanningFormat, SerializationError> {
+    fn format_from_path(path: &str) -> Result<SyntaxFormat, SerializationError> {
         let ext = std::path::Path::new(path)
             .extension()
             .and_then(|e| e.to_str())
             .ok_or_else(|| SerializationError::missing_extension())?;
 
-        ext.parse::<PlanningFormat>()
+        ext.parse::<SyntaxFormat>()
             .map_err(|_| SerializationError::unsupported_extension(ext))
     }
 }
