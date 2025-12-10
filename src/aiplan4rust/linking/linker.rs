@@ -294,14 +294,6 @@ pub fn perform_linking_checks(
         diagnostic_manager,
     )?;
 
-    // Check for symbols declared but never used in the problem
-    check &= semantic::checks::check_unused_symbols(
-        problem,
-        &[],
-        Provider::Linker,
-        diagnostic_manager,
-    )?;
-
     // If structural checks passed, perform type_checker-dependent semantic checks
     if check {
         // Initialize a type_checker checker with the domain's symbol table
