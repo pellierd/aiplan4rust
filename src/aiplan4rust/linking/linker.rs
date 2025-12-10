@@ -34,12 +34,11 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::interner::{InternerError, InternerMergeResult, Literal};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::linking::error::LinkingError;
-use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::AnalyzerResult;
 
 use std::collections::HashMap;
@@ -128,12 +127,13 @@ impl Linker {
                 let global_interner = result.take_interner();
 
                 // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
-                let problem_ident_map = result.take_ident_map();
-                remap_problem_idents(&mut problem_ctx, &problem_ident_map)?;
+                let ident_map = result.take_ident_map();
+                let literal_map = result.take_literal_map();
+                remap_problem(&mut problem_ctx, &ident_map, &literal_map)?;
+                // Collect diagnostics from domain and problem diagnostic managers
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                let problem_literal_map = result.take_literal_map();
-                problem_diag_mgr.remap(&problem_ident_map, &problem_literal_map);
+                problem_diag_mgr.remap(&ident_map, &literal_map);
                 self.diagnostic_manager.add_diagnostic_from(problem_diag_mgr);
 
                 // Step 3: Resolve external references in the problem with respect to the domain
@@ -180,33 +180,47 @@ impl Linker {
     }
 }
 
-/// Remaps identifiers in the problem's AST and symbol table using the provided mapping.
+/// Remaps identifiers and literals in the problem's AST and symbol table.
 ///
 /// This function updates all identifier references within the problem's AST and symbol table
-/// to their corresponding global identifiers, based on the `problem_ident_map`.
-///
-/// It ensures that the problem’s identifiers are correctly aligned with the global interner,
+/// using `problem_ident_map`, and updates the source literal ID using `literal_map`.
+/// It ensures that the problem’s identifiers and literals are aligned with the global interner,
 /// facilitating consistent symbol resolution across linked semantic contexts.
 ///
 /// **Important:** This function does **not** modify the string interner itself; it only updates
-/// the identifier references (e.g., indices or keys) in the problem's AST and symbol table.
+/// the identifier and literal references (indices/keys) in the problem's AST and symbol table.
 ///
 /// # Arguments
 ///
-/// * `problem` - A mutable reference to the problem semantic context whose identifiers will be remapped.
-/// * `problem_ident_map` - A `HashMap` mapping local problem identifiers (`Ident`) to their
-///   corresponding global identifiers.
+/// * `problem` - A mutable reference to the problem semantic context whose identifiers
+///   and source literal will be remapped.
+/// * `ident_map` - A `HashMap` mapping local problem identifiers (`Ident`) to
+///   their corresponding global identifiers.
+/// * `literal_map` - A `HashMap` mapping local problem literals (`Literal`) to their
+///   corresponding global literals.
 ///
 /// # Returns
 ///
-/// Returns `Ok(())` if remapping succeeded for both AST and symbol table, otherwise returns
-/// a `SymbolTableError` if remapping the symbol table fails.
-fn remap_problem_idents(
+/// Returns `Ok(())` if remapping succeeded for both identifiers and literals, otherwise
+/// returns a [`LinkingError`] encapsulating either a `SymbolTableError` or an `InternerError`.
+pub fn remap_problem(
     problem: &mut SemanticContext,
-    problem_ident_map: &HashMap<Ident, Ident>,
-) -> Result<(), SymbolTableError> {
-    problem.ast_mut().remap_idents(problem_ident_map);
-    problem.symbol_table_mut().remap_idents(problem_ident_map)
+    ident_map: &HashMap<Ident, Ident>,
+    literal_map: &HashMap<Literal, Literal>,
+) -> Result<(), LinkingError> {
+    // Step 1: remap identifiers in AST
+    problem.ast_mut().remap_idents(ident_map);
+
+    // Step 2: remap identifiers in the symbol table
+    problem.symbol_table_mut().remap_idents(ident_map)?;
+
+    // Step 3: remap the source literal
+    let new_source_id = literal_map
+        .get(&problem.source_id())
+        .ok_or_else(|| InternerError::missing_remap_literal(problem.source_id()))?;
+    problem.set_source_id(*new_source_id);
+
+    Ok(())
 }
 
 /// Performs semantic and structural linking checks between a domain and a problem.

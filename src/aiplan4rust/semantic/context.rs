@@ -103,6 +103,12 @@ pub struct Context {
 }
 
 impl Context {
+    pub fn set_source_id(&mut self, source_id: Literal) {
+       self.source_id =  source_id;
+    }
+}
+
+impl Context {
     /// Creates a new semantic context from its components.
     ///
     /// # Parameters

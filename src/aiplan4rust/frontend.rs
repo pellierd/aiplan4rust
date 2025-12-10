@@ -63,6 +63,10 @@ impl Frontend {
         let domain = self.parse_file(domain_path, language)?;
         let problem = self.parse_file(problem_path, language)?;
 
+        // Ma logique n'est pas bonne si erreur
+        // Fusionner les diagnostics manager et l'interner
+        // et retourner un LirBuilderResult::failure si erreur
+
         // Step 2: Link domain and problem semantic contexts
         let mut linker = Linker::new();
         let mut linker_result = linker.link(domain, problem)?;
@@ -76,6 +80,7 @@ impl Frontend {
             )?;
             Ok(builder_result)
         } else {
+            //println!("Linking failed, no linked semantic context available.");
             // Linking failed: return diagnostics and interner only
             let diagnostic_manager = linker_result.take_diagnostic_manager();
             let interner = linker_result.take_interner();

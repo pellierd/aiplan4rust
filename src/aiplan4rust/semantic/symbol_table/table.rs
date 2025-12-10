@@ -25,7 +25,7 @@
 //! assert!(table.iter().count() == 0);
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
@@ -970,10 +970,12 @@ impl Table {
         let mut new_symbols = LinkedHashMap::with_capacity(self.symbols.len());
 
         for (key, symbol) in std::mem::take(&mut self.symbols) {
-            let new_key = map.get(&key).cloned().unwrap_or(key);
+            let new_key = map.get(&key)
+                .cloned()
+                .ok_or_else(|| InternerError::missing_remap_ident(key))?;
 
             if new_symbols.contains_key(&new_key) {
-                return Err(SymbolTableError::remapped_identifier_conflict(new_key));
+                return Err(InternerError::remapped_identifier_conflict(new_key))?;
             }
 
             new_symbols.insert(new_key, symbol);

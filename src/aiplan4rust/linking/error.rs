@@ -19,6 +19,7 @@
 //! error handling ecosystem.
 
 use thiserror::Error;
+use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::SemanticError;
@@ -49,4 +50,8 @@ pub enum LinkingError {
     /// Error from symbol table operations such as lookup or insertion.
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
+
+    /// Error related to the string interner.
+    #[error(transparent)]
+    Interner(#[from] InternerError),
 }

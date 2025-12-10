@@ -8,6 +8,7 @@
 use thiserror::Error;
 
 use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::error::InvalidNodeArityError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
@@ -19,7 +20,6 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 /// Represents all the errors that can occur during symbol table construction and resolution.
 #[derive(Debug, Error)]
 pub enum SymbolTableError {
-
     /// Error originating from the syntax tree layer.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
@@ -27,6 +27,10 @@ pub enum SymbolTableError {
     /// Error related to the memory arena used for allocations.
     #[error(transparent)]
     Arena(#[from] ArenaError),
+
+    /// Error related to the string interner.
+    #[error(transparent)]
+    Interner(#[from] InternerError),
 
     /// Multiple declarations found for a single usage node, causing ambiguity.
     #[error("Multiple declarations found for usage at node {node_id:?}")]
@@ -96,12 +100,6 @@ pub enum SymbolTableError {
         kind: SymbolKind,
     },
 
-    /// Identifier remapping conflict: multiple symbols mapped to the same identifier.
-    #[error("Identifier remapping conflict: multiple symbols mapped to the same identifier '{new_ident}'")]
-    RemappedIdentifierConflict {
-        /// The new conflicting identifier that multiple entries were mapped to.
-        new_ident: Ident,
-    }
 }
 
 impl SymbolTableError {
@@ -254,18 +252,5 @@ impl SymbolTableError {
             usage_kind,
             count,
         }
-    }
-
-    /// Creates a new `RemappedIdentifierConflict` error with the conflicting identifier.
-    ///
-    /// # Arguments
-    ///
-    /// * `new_ident` - The identifier to which multiple symbols have been remapped.
-    ///
-    /// # Returns
-    ///
-    /// A new `SymbolTableError::RemappedIdentifierConflict` instance.
-    pub fn remapped_identifier_conflict(new_ident: Ident) -> Self {
-        SymbolTableError::RemappedIdentifierConflict { new_ident }
     }
 }
