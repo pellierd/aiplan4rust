@@ -174,6 +174,9 @@ impl Linker {
                 let problem_interner = problem.take_interner();
                 let mut result = InternerMergeResult::from_domain_and_problem(&domain_interner, &problem_interner);
                 let global_interner = result.take_interner();
+                self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
+                let mut problem_diag_mgr = problem.take_diagnostic_manager();
+                problem_diag_mgr.remap(result.ident_map(), result.literal_map());
                 Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner))
             }
         }
@@ -203,7 +206,7 @@ impl Linker {
 ///
 /// Returns `Ok(())` if remapping succeeded for both identifiers and literals, otherwise
 /// returns a [`LinkingError`] encapsulating either a `SymbolTableError` or an `InternerError`.
-pub fn remap_problem(
+fn remap_problem(
     problem: &mut SemanticContext,
     ident_map: &HashMap<Ident, Ident>,
     literal_map: &HashMap<Literal, Literal>,
@@ -269,7 +272,7 @@ pub fn remap_problem(
 ///     eprintln!("Some linking checks failed");
 /// }
 /// ```
-pub fn perform_linking_checks(
+fn perform_linking_checks(
     domain: &SemanticContext,
     problem: &CheckContext,
     diagnostic_manager: &mut DiagnosticManager,
@@ -360,7 +363,7 @@ pub fn perform_linking_checks(
 /// ```ignore
 /// resolve_external_references(&domain_context, &mut problem_context)?;
 /// ```
-pub fn resolve_external_references(
+fn resolve_external_references(
     domain: &SemanticContext,
     problem: &mut SemanticContext,
 ) -> Result<(), LinkingError> {
