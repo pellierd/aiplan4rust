@@ -37,7 +37,7 @@ use crate::aiplan4rust::core::arena::node::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::problem::{normalize, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::subtree::SyntaxSubtree;
 
@@ -247,24 +247,10 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Method {
     }
 }
 
-
 impl fmt::Display for Method {
     /// Formats the `Method` for human-readable output.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params = self.parameters()
-            .iter()
-            .map(|p| p.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        writeln!(f, "################# METHOD ##################")?;
-        writeln!(f, "NAME [{}]", self.name())?;
-        writeln!(f, "PARAMETERS [{}]", params)?;
-        writeln!(f, "TASK [{}]", self.task())?;
-        writeln!(f, "PRECONDITION")?;
-        writeln!(f, "{}", self.precondition())?;
-        writeln!(f, "{}", self.task_network())?;
-        Ok(())
+        write!(f, "{}", renderers::default::render_method(self))
     }
 }
 

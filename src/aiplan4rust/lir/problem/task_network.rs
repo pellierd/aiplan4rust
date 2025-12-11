@@ -45,7 +45,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::problem::normalize;
+use crate::aiplan4rust::lir::problem::{normalize, renderers};
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
@@ -254,15 +254,12 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
     }
 }
 
-
 impl Display for TaskNetwork {
     /// Formats the `TaskNetwork` as a human-readable string.
     ///
     /// This representation displays the tasks, ordering constraints, and logical constraints.
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "Tasks: {}", self.tasks)?;
-        writeln!(f, "Ordering: {}", self.ordering_constraints)?;
-        writeln!(f, "Constraints: {}", self.logical_constraints)
+        write!(f, "{}", renderers::default::render_task_network(self))
     }
 }
 

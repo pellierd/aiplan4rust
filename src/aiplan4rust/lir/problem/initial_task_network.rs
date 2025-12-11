@@ -6,7 +6,7 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lir::problem::{normalize, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -144,8 +144,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for InitialTaskNetwork {
 impl Display for InitialTaskNetwork {
     /// Formats the initial task network for display purposes.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        writeln!(f, "Parameters: {}", self.parameters)?;
-        writeln!(f, "Task Network: {}", self.task_network)
+        write!(f, "{}", renderers::default::render_initial_task_network(self))
     }
 }
 

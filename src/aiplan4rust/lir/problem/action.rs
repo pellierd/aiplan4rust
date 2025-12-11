@@ -55,7 +55,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::problem::normalize;
+use crate::aiplan4rust::lir::problem::{normalize, renderers};
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
@@ -303,20 +303,7 @@ impl fmt::Display for Action {
     ///
     /// Prints the name, parameters, precondition, and effect in a human-readable way.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let params = self
-            .parameters()
-            .iter()
-            .map(|p| p.to_string())
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        writeln!(f, "################# ACTION ##################")?;
-        writeln!(f, "NAME [{}]", self.name())?;
-        writeln!(f, "PARAMETERS [{}]", params)?;
-        writeln!(f, "PRECONDITION")?;
-        writeln!(f, "{}", self.precondition)?;
-        writeln!(f, "EFFECT")?;
-        writeln!(f, "{}", self.effect)
+        write!(f, "{}", renderers::default::render_action(self))
     }
 }
 

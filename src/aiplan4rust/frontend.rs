@@ -71,6 +71,9 @@ impl Frontend {
                 &mut linked_semantic_context,
                 linker_result.take_diagnostic_manager(),
             )?;
+
+            print!("------------- PROBLEM -------------\n{}", builder_result.lifted_problem().unwrap());
+            println!("-----------------------------------");
             Ok(builder_result)
         } else {
             //println!("Linking failed, no linked semantic context available.");
