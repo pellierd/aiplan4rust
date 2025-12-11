@@ -1,7 +1,6 @@
 use aiplan4rust::aiplan4rust::cli::aiplan_cli::{
-    build_cli, FILES_ARG, FORMAT_ARG, LANGUAGE_ARG, LINK_SUBCOMMAND, OUTPUT_ARG, PARSE_SUBCOMMAND,
+    build_cli, FILES_ARG, FORMAT_ARG, LINK_SUBCOMMAND, OUTPUT_ARG, PARSE_SUBCOMMAND,
 };
-use aiplan4rust::aiplan4rust::syntax::Language;
 use aiplan4rust::aiplan4rust::serialization::serde::{SerdeExtension, SerdeFormat};
 use aiplan4rust::aiplan4rust::Frontend;
 use aiplan4rust::aiplan4rust::diagnostic::{Renderer, Severity};
@@ -43,11 +42,6 @@ fn handle_link_command(matches: &ArgMatches) {
 /// # Arguments:
 /// - `matches`: Parsed command-line arguments for the `parse` subcommand.
 fn handle_parse_command(matches: &ArgMatches) {
-    // Retrieve the language argument
-    let language = matches
-        .get_one::<Language>(LANGUAGE_ARG)
-        .unwrap_or(&Language::PDDL); // Default to PDDL if not provided
-
     if let Some(files) = matches.get_many::<String>(FILES_ARG) {
         let files_vec: Vec<String> = files.cloned().collect();
         let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
@@ -61,7 +55,7 @@ fn handle_parse_command(matches: &ArgMatches) {
                     .unwrap_or_else(|| {
                         generate_lifted_domain_or_problem_filename(input_file, format)
                     });
-                parse_file(input_file, &language, format, &output);
+                parse_file(input_file, format, &output);
             }
             2 => {
                 let domain_file = &files_vec[0];
@@ -72,7 +66,7 @@ fn handle_parse_command(matches: &ArgMatches) {
                     .unwrap_or_else(|| {
                         generate_lifted_planning_task_filename(domain_file, problem_file, format)
                     });
-                parse(domain_file, problem_file, &language, format, &output);
+                parse(domain_file, problem_file, format, &output);
             }
             _ => {
                 eprintln!("Error: You must provide one or two files.");
@@ -124,7 +118,6 @@ fn link(domain_file: &str, problem_file: &str, format: SerdeFormat, output: &str
 pub fn parse(
     domain_file: &str,
     problem_file: &str,
-    language: &Language,
     format: SerdeFormat,
     output: &str,
 ) {
@@ -138,7 +131,7 @@ pub fn parse(
     );
 
     let frontend = Frontend::new();
-    match frontend.parse(domain_file, problem_file, language) {
+    match frontend.parse(domain_file, problem_file) {
         Ok(result) => {
             let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
             let _ = renderer.display();
@@ -185,7 +178,7 @@ pub fn parse(
     }
 }
 
-pub fn parse_file(input_file: &str, language: &Language, format: SerdeFormat, output: &str) {
+pub fn parse_file(input_file: &str, format: SerdeFormat, output: &str) {
     let start_time = Instant::now(); // Démarre le chronomètre
 
     let full_path = Path::new(input_file)
@@ -200,7 +193,7 @@ pub fn parse_file(input_file: &str, language: &Language, format: SerdeFormat, ou
     );
 
     let frontend = Frontend::new();
-    match frontend.parse_file(input_file, language) {
+    match frontend.parse_file(input_file) {
         Ok(result) => {
             let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner()) ;
             let _ = renderer.display();

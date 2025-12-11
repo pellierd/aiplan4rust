@@ -1,7 +1,6 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::linking::LinkerResult;
-use crate::aiplan4rust::syntax::Language;
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
@@ -47,7 +46,6 @@ impl Frontend {
     ///
     /// * `domain_path` - Path to the domain file.
     /// * `problem_path` - Path to the problem file.
-    /// * `language` - The language to parse (e.g. PDDL, HDDL).
     ///
     /// # Returns
     ///
@@ -57,11 +55,10 @@ impl Frontend {
         &self,
         domain_path: &str,
         problem_path: &str,
-        language: &Language,
     ) -> Result<LirBuilderResult, AiplanError> {
         // Step 1: Parse, normalize, and analyze both domain and problem files
-        let domain = self.parse_file(domain_path, language)?;
-        let problem = self.parse_file(problem_path, language)?;
+        let domain = self.parse_file(domain_path)?;
+        let problem = self.parse_file(problem_path)?;
 
         // Step 2: Link domain and problem semantic contexts
         let mut linker = Linker::new();
@@ -131,7 +128,6 @@ impl Frontend {
     ///
     /// # Parameters
     /// - `source_path`: The path to the source file.
-    /// - `language`: The language to parse.
     ///
     /// # Returns
     /// An `AnalyzerResult` if all steps succeed or partially succeed. Any fatal error
@@ -139,14 +135,13 @@ impl Frontend {
     pub fn parse_file(
         &self,
         source_path: &str,
-        language: &Language,
     ) -> Result<AnalyzerResult, AiplanError> {
         // Read the file content
         let content = self.read_file(source_path)?;
 
         // Parse
         let mut parser = Parser::new();
-        let parser_result = parser.parse(source_path, &content, language)?;
+        let parser_result = parser.parse(source_path, &content)?;
 
         // Normalize
         let mut normalizer = Normalizer::new();
