@@ -644,18 +644,15 @@ impl Problem {
     }
 
     pub fn to_string_with_interner(&self) -> String {
-        let mut s = String::new();
-        let _ = renderers::interner::render_problem(&mut s, &self, self.interner());
-        s
+        format!("{}", self)
     }
 
 }
 
 impl Display for Problem {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::default::render_problem(f, &self)
+        renderers::interner::render_problem(f, &self, &self.interner())
     }
 }
-
 
 impl SerdeSerializable for Problem {}

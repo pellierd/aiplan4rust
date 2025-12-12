@@ -277,10 +277,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
                 AstKind::PreconditionDef => {
                     let pre_node_id = child_node.try_child(0)?;
                     let pre_node = ast.try_node(pre_node_id)?;
-                    print!("AST**********\n{}\n", pre_node);
-
                     precondition = Expr::try_from(&SyntaxSubtree::new(pre_node, ast))?;
-                    print!("EXPR**********\n{}\n", precondition);
                 }
                 AstKind::EffectDef => {
                     let eff_node_id = child_node.try_child(0)?;

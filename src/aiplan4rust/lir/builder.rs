@@ -155,8 +155,8 @@ impl LirBuilder {
         // 5. Assign the interner to the LiftedProblem
         lifted_problem.set_interner(interner);
 
-        print!("------------- PROBLEM -------------\n{}", lifted_problem.to_string_with_interner());
-        println!("-----------------------------------");
+        //print!("------------- PROBLEM -------------\n{}", lifted_problem.to_string_with_interner());
+        //println!("-----------------------------------");
 
         print!("------------- PROBLEM -------------\n{}", lifted_problem);
         println!("-----------------------------------");

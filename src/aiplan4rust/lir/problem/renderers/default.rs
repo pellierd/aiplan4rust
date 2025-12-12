@@ -1,10 +1,52 @@
-use std::fmt::Write;
+use std::fmt;
 use crate::aiplan4rust::lir::problem::{
     InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork,
 };
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
 
-pub fn render_problem(f: &mut impl Write, problem: &LiftedProblem) -> std::fmt::Result {
+/// Renders a `LiftedProblem` in a structured, human-readable format to a `Formatter`.
+///
+/// This function prints all parts of the problem in sections with centered titles
+/// using `writeln_centered`. Each section may contain lists of items or multi-line
+/// content, depending on the part of the problem being rendered.
+///
+/// # Sections Rendered
+/// The output includes the following sections, in order:
+/// 1. **Problem Header**: Displays the domain and problem names.
+/// 2. **Requirements**: Lists any domain requirements (or indicates none).
+/// 3. **Types**: Declared types in the problem.
+/// 4. **Constants**: Problem constants.
+/// 5. **Predicates**: Predicates defined in the domain.
+/// 6. **Functions**: Functions defined in the domain.
+/// 7. **Domain Constraints**: Global constraints of the domain.
+/// 8. **Actions**: Each action with name, parameters, precondition, and effect.
+/// 9. **Methods**: Each method with name, parameters, precondition, and task network.
+/// 10. **Init**: The initial state of the problem.
+/// 11. **Goal**: The goal specification.
+/// 12. **Problem Constraints**: Constraints specific to the problem instance.
+/// 13. **Metric Spec**: Metrics for plan evaluation.
+/// 14. **Length Spec**: Optional length limit or plan length information.
+/// 15. **Initial Task Network**: The initial hierarchical task network.
+///
+/// # Parameters
+/// - `f`: A mutable reference to a `std::fmt::Formatter` where the formatted output will be written.
+/// - `problem`: The `LiftedProblem` instance to render.
+///
+/// # Returns
+/// Returns a `std::fmt::Result` indicating whether writing to the formatter was successful.
+///
+/// # Example
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::LiftedProblem;
+///
+/// let problem: LiftedProblem = /* create or obtain a problem instance */;
+/// let mut output = String::new();
+/// // Use a Formatter adapter if necessary
+/// let _ = render_problem(&mut std::fmt::Formatter::new(&mut output), &problem);
+/// println!("{}", output);
+/// ```
+pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> std::fmt::Result {
     // Titre principal
     writeln_centered(f, "PROBLEM", 80, '=')?;
     writeln!(f, "DOMAIN NAME  : {}", problem.domain_name())?;
@@ -148,7 +190,37 @@ pub fn render_problem(f: &mut impl Write, problem: &LiftedProblem) -> std::fmt::
     Ok(())
 }
 
-pub fn render_action(f: &mut impl Write, action: &LiftedAction) -> std::fmt::Result {
+/// Renders a `LiftedAction` in a structured, human-readable format to a `Formatter`.
+///
+/// This function prints the action in a clear, indented style with a centered
+/// section title. The output includes:
+/// - **Name**: The action's name.
+/// - **Parameters**: A comma-separated list of parameters.
+/// - **Precondition**: The precondition expression, printed line by line.
+/// - **Effect**: The effect expression, printed line by line.
+///
+/// The section title is centered using `writeln_centered` with a fixed width
+/// (80 characters) and a custom fill character (`'-'`).
+///
+/// # Parameters
+/// - `f`: A mutable reference to a `std::fmt::Formatter` where the output will be written.
+/// - `action`: The `LiftedAction` instance to render.
+///
+/// # Returns
+/// Returns a `std::fmt::Result` indicating whether writing to the formatter succeeded.
+///
+/// # Example
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::LiftedAction;
+///
+/// let action: LiftedAction = /* create or obtain an action */;
+/// let mut output = String::new();
+/// // If rendering via Formatter, use a wrapper:
+/// let _ = render_action(&mut std::fmt::Formatter::new(&mut output), &action);
+/// println!("{}", output);
+/// ```
+pub fn render_action(f: &mut fmt::Formatter<'_>, action: &LiftedAction) -> std::fmt::Result {
     let params = action
         .parameters()
         .iter()
@@ -170,7 +242,38 @@ pub fn render_action(f: &mut impl Write, action: &LiftedAction) -> std::fmt::Res
     Ok(())
 }
 
-pub fn render_method(f: &mut impl Write, method: &LiftedMethod) -> std::fmt::Result {
+/// Renders a `LiftedMethod` in a structured, human-readable format to a `Formatter`.
+///
+/// This function prints the method with a centered section title and a clear, indented layout.
+/// The output includes:
+/// - **Name**: The method's name.
+/// - **Parameters**: A comma-separated list of parameters.
+/// - **Task**: The associated task, printed on a separate line.
+/// - **Precondition**: The method's precondition, printed line by line.
+/// - **Task Network**: The hierarchical task network of the method, rendered via `render_task_network`.
+///
+/// The section title is centered using `writeln_centered` with a fixed width (80 characters)
+/// and a custom fill character (`'-'`).
+///
+/// # Parameters
+/// - `f`: A mutable reference to a `std::fmt::Formatter` where the formatted output will be written.
+/// - `method`: The `LiftedMethod` instance to render.
+///
+/// # Returns
+/// Returns a `std::fmt::Result` indicating whether writing to the formatter succeeded.
+///
+/// # Example
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::LiftedMethod;
+///
+/// let method: LiftedMethod = /* obtain or create a method */;
+/// let mut output = String::new();
+/// // If rendering via Formatter, use a wrapper:
+/// let _ = render_method(&mut std::fmt::Formatter::new(&mut output), &method);
+/// println!("{}", output);
+/// ```
+pub fn render_method(f: &mut fmt::Formatter<'_>, method: &LiftedMethod) -> std::fmt::Result {
     let params = method
         .parameters()
         .iter()
@@ -181,31 +284,83 @@ pub fn render_method(f: &mut impl Write, method: &LiftedMethod) -> std::fmt::Res
     writeln_centered(f, "METHOD", 80, '-')?;
     writeln!(f, "NAME: {}", method.name())?;
     writeln!(f, "PARAMETERS: {}", params)?;
-    writeln!(f, "TASK: {}", method.task())?;
+    writeln!(f, "TASK:\n  {}", method.task())?;
     writeln!(f, "PRECONDITION:")?;
     for line in format!("{}", method.precondition()).lines() {
         writeln!(f, "  {}", line)?;
     }
-    writeln!(f, "TASK NETWORK:")?;
-    for line in format!("{}", method.task_network()).lines() {
-        writeln!(f, "  {}", line)?;
-    }
+    render_task_network(f, &method.task_network())?;
     Ok(())
 }
 
 
-pub fn render_task_network(f: &mut impl Write, network: &LiftedTaskNetwork) -> std::fmt::Result {
-    writeln!(f, "TASKS: {}", network.tasks())?;
-    writeln!(f, "ORDERING: {}", network.ordering_constraints())?;
-    writeln!(f, "CONSTRAINTS: {}", network.logical_constraints())?;
+/// Renders a `LiftedTaskNetwork` in a human-readable, structured format to a `Formatter`.
+///
+/// This function prints the task network in three sections:
+/// - **Tasks**: Lists all tasks in the network.
+/// - **Ordering**: Shows the ordering constraints between tasks.
+/// - **Constraints**: Displays logical constraints associated with the task network.
+///
+/// Each section is printed on its own line, with content indented for readability.
+///
+/// # Parameters
+/// - `f`: A mutable reference to a `std::fmt::Formatter` where the output will be written.
+/// - `network`: The `LiftedTaskNetwork` instance to render.
+///
+/// # Returns
+/// Returns a `std::fmt::Result` indicating whether writing to the formatter succeeded.
+///
+/// # Example
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::LiftedTaskNetwork;
+///
+/// let network: LiftedTaskNetwork = /* obtain or create a task network */;
+/// let mut output = String::new();
+/// // If rendering via Formatter, use a wrapper:
+/// let _ = render_task_network(&mut std::fmt::Formatter::new(&mut output), &network);
+/// println!("{}", output);
+/// ```
+pub fn render_task_network(f: &mut fmt::Formatter<'_>, network: &LiftedTaskNetwork) -> std::fmt::Result {
+    writeln!(f, "TASKS:\n  {}", network.tasks())?;
+    writeln!(f, "ORDERING:\n  {}", network.ordering_constraints())?;
+    writeln!(f, "CONSTRAINTS:\n  {}", network.logical_constraints())?;
     Ok(())
 }
 
-pub fn render_initial_task_network(f: &mut impl Write, network: &InitialTaskNetwork) -> std::fmt::Result {
+/// Renders an `InitialTaskNetwork` in a human-readable, structured format to a `Formatter`.
+///
+/// This function prints the initial task network in four sections:
+/// - **Parameters**: Lists all parameters of the initial task network.
+/// - **Tasks**: Lists all tasks in the network.
+/// - **Ordering**: Shows the ordering constraints between tasks.
+/// - **Constraints**: Displays logical constraints associated with the task network.
+///
+/// Each section is printed on its own line, with content indented for readability.
+///
+/// # Parameters
+/// - `f`: A mutable reference to a `std::fmt::Formatter` where the output will be written.
+/// - `network`: The `InitialTaskNetwork` instance to render.
+///
+/// # Returns
+/// Returns a `std::fmt::Result` indicating whether writing to the formatter succeeded.
+///
+/// # Example
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::InitialTaskNetwork;
+///
+/// let initial_network: InitialTaskNetwork = /* obtain or create initial task network */;
+/// let mut output = String::new();
+/// // If rendering via Formatter, use a wrapper:
+/// let _ = render_initial_task_network(&mut std::fmt::Formatter::new(&mut output), &initial_network);
+/// println!("{}", output);
+/// ```
+pub fn render_initial_task_network(f: &mut fmt::Formatter<'_>, network: &InitialTaskNetwork) -> std::fmt::Result {
     writeln!(f, "PARAMETERS: {}", network.parameters())?;
     let tn = network.task_network();
-    writeln!(f, "TASKS: {}", tn.tasks())?;
-    writeln!(f, "ORDERING: {}", tn.ordering_constraints())?;
-    writeln!(f, "CONSTRAINTS: {}", tn.logical_constraints())?;
+    writeln!(f, "TASKS:\n  {}", tn.tasks())?;
+    writeln!(f, "ORDERING:\n  {}", tn.ordering_constraints())?;
+    writeln!(f, "CONSTRAINTS:\n  {}", tn.logical_constraints())?;
     Ok(())
 }
