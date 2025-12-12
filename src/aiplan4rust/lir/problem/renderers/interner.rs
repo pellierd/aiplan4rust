@@ -99,6 +99,17 @@ pub fn render_problem(
     }
     writeln!(f)?;
 
+    // Objects
+    writeln_centered(f, "OBJECTS", 80, '=')?;
+    if problem.objects().is_empty() {
+        writeln!(f, "  - no objects")?;
+    } else {
+        for o in problem.objects() {
+            writeln!(f, "  - {}", o.to_string_with_interner(interner))?;
+        }
+    }
+    writeln!(f)?;
+
     // Predicates
     writeln_centered(f, "PREDICATES", 80, '=')?;
     if problem.predicates().is_empty() {
