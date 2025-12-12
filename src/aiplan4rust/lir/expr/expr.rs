@@ -554,35 +554,51 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
 
     fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
         let mut expr = Expr::new();
-        let mut stack = Vec::new();
+        let root_ast = subtree.node();
 
-        // Stack elements: (AST node, optional parent ExprNodeId)
-        stack.push((subtree.node(), None));
+        // Create root node
+        let root_kind = ExprKind::try_from(root_ast.kind())?;
+        let root_content = ExprContent::try_from(root_ast.content())?;
+        let root_node = ExprNode::new(root_kind, root_content, None);
+        let root_id = expr.alloc(root_node);
+        expr.set_root_id(root_id)?;
 
-        while let Some((current_ast_node, parent_expr_id_opt)) = stack.pop() {
-            // Convert AST kind and content to Expr kind and content
+        let mut stack: Vec<(&AstNode, NodeId)> = Vec::new();
+
+        // Helper function with explicit lifetime
+        fn push_children<'a>(
+            stack: &mut Vec<(&'a AstNode, NodeId)>,
+            subtree: &'a SyntaxSubtree<'a, AstNode>,
+            ast_node: &'a AstNode,
+            parent_id: NodeId,
+        ) -> Result<(), SyntaxTreeError> {
+            for &child_id in ast_node.children().iter().rev() {
+                let child_node = subtree.tree().try_node(child_id)?;
+                stack.push((child_node, parent_id));
+            }
+            Ok(())
+        }
+
+        // Push root children
+        push_children(&mut stack, subtree, root_ast, root_id)?;
+
+        // DFS traversal
+        while let Some((current_ast_node, parent_id)) = stack.pop() {
             let kind = ExprKind::try_from(current_ast_node.kind())?;
             let content = ExprContent::try_from(current_ast_node.content())?;
 
-            // Create ExprNode and allocate in the expression arena
-            let expr_node = ExprNode::new(kind, content, parent_expr_id_opt);
-            let expr_node_id = expr.alloc(expr_node);
+            let node = ExprNode::new(kind, content, Some(parent_id));
+            let node_id = expr.alloc(node);
 
-            // Link this node as child of parent if parent exists
-            if let Some(parent_id) = parent_expr_id_opt {
-                expr.try_node_mut(parent_id)?.add_child(expr_node_id);
-            }
+            expr.try_node_mut(parent_id)?.add_child(node_id);
 
-            // Add children of the current AST node to the stack in reverse order,
-            // to maintain left-to-right traversal order
-            for &child_id in current_ast_node.children().iter().rev() {
-                let child_node = subtree.tree().try_node(child_id)?;
-                stack.push((child_node, Some(expr_node_id)));
-            }
+            // Push children of the current node
+            push_children(&mut stack, subtree, current_ast_node, node_id)?;
         }
 
         Ok(expr)
     }
+
 }
 
 impl Deref for Expr {

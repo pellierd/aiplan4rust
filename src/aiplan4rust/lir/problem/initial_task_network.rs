@@ -144,15 +144,14 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for InitialTaskNetwork {
 impl Display for InitialTaskNetwork {
     /// Formats the initial task network for display purposes.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", renderers::default::render_initial_task_network(self))
+        renderers::default::render_initial_task_network(f, self)
     }
 }
 
 impl InternerDisplay for InitialTaskNetwork {
     /// Formats the initial task network using a string interner for symbol resolution.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        writeln!(f, "Parameters: {}", self.parameters.to_string_with_interner(interner))?;
-        writeln!(f, "Task Network: {}", self.task_network.to_string_with_interner(interner))
+        renderers::interner::render_initial_task_network(f, self, interner)
     }
 }
 

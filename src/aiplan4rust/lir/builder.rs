@@ -155,6 +155,12 @@ impl LirBuilder {
         // 5. Assign the interner to the LiftedProblem
         lifted_problem.set_interner(interner);
 
+        print!("------------- PROBLEM -------------\n{}", lifted_problem.to_string_with_interner());
+        println!("-----------------------------------");
+
+        print!("------------- PROBLEM -------------\n{}", lifted_problem);
+        println!("-----------------------------------");
+
         // 6. Normalize all expressions in the problem to canonical form
         //    This includes actions, methods, initial task network, and constraints
         normalize::normalize_problem(&mut lifted_problem)?;

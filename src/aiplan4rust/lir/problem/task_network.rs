@@ -259,7 +259,7 @@ impl Display for TaskNetwork {
     ///
     /// This representation displays the tasks, ordering constraints, and logical constraints.
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", renderers::default::render_task_network(self))
+        renderers::default::render_task_network(f, self)
     }
 }
 
@@ -268,9 +268,7 @@ impl InternerDisplay for TaskNetwork {
     ///
     /// This representation is useful for reconstructing meaningful names in debug output.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
-        write!(f, "TASKS\n{}", self.tasks.to_string_with_interner(interner))?;
-        write!(f, "ORDERING\n{}", self.ordering_constraints.to_string_with_interner(interner))?;
-        write!(f, "CONSTRAINTS\n{}", self.logical_constraints.to_string_with_interner(interner))
+        renderers::interner::render_task_network(f, self, interner)
     }
 }
 

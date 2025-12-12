@@ -250,7 +250,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Method {
 impl fmt::Display for Method {
     /// Formats the `Method` for human-readable output.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", renderers::default::render_method(self))
+        renderers::default::render_method(f, self)
     }
 }
 
@@ -261,20 +261,7 @@ impl InternerDisplay for Method {
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        let params = self.parameters()
-            .iter()
-            .map(|p| p.to_string_with_interner(interner))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        writeln!(f, "################# METHOD ##################")?;
-        writeln!(f, "NAME [{}]", self.name().to_string_with_interner(interner))?;
-        writeln!(f, "PARAMETERS [{}]", params)?;
-        writeln!(f, "TASK [{}]", self.task())?;
-        writeln!(f, "PRECONDITIONS")?;
-        self.precondition().fmt_with_interner(f, interner)?;
-        self.task_network().fmt_with_interner(f, interner)?;
-        Ok(())
+       renderers::interner::render_method(f, self, interner)
     }
 }
 

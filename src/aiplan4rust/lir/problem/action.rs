@@ -39,6 +39,7 @@
 //!
 //! Parsing from AST may fail with `LirError` if the structure is invalid or missing expected parts.
 
+use std::fmt;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
@@ -49,11 +50,10 @@ use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 use serde::{Deserialize, Serialize};
-use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lir::problem::{normalize, renderers};
 
@@ -277,7 +277,10 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
                 AstKind::PreconditionDef => {
                     let pre_node_id = child_node.try_child(0)?;
                     let pre_node = ast.try_node(pre_node_id)?;
+                    print!("AST**********\n{}\n", pre_node);
+
                     precondition = Expr::try_from(&SyntaxSubtree::new(pre_node, ast))?;
+                    print!("EXPR**********\n{}\n", precondition);
                 }
                 AstKind::EffectDef => {
                     let eff_node_id = child_node.try_child(0)?;
@@ -303,7 +306,7 @@ impl fmt::Display for Action {
     ///
     /// Prints the name, parameters, precondition, and effect in a human-readable way.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", renderers::default::render_action(self))
+        renderers::default::render_action(f, self)
     }
 }
 
@@ -313,27 +316,10 @@ impl InternerDisplay for Action {
     /// Useful for pretty-printing names and parameters with interning.
     fn fmt_with_interner(
         &self,
-        f: &mut std::fmt::Formatter<'_>,
+        f: &mut Formatter<'_>,
         interner: &StringInterner,
-    ) -> std::fmt::Result {
-        let params = self
-            .parameters()
-            .iter()
-            .map(|p| p.to_string_with_interner(interner))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        writeln!(f, "################# ACTION ##################")?;
-        writeln!(
-            f,
-            "NAME [{}]",
-            self.name().to_string_with_interner(interner)
-        )?;
-        writeln!(f, "PARAMETERS [{}]", params)?;
-        writeln!(f, "PRECONDITION")?;
-        self.precondition.fmt_with_interner(f, interner)?;
-        writeln!(f, " EFFECT")?;
-        self.effect.fmt_with_interner(f, interner)
+    ) -> fmt::Result {
+        renderers::interner::render_action(f, self, interner)
     }
 }
 

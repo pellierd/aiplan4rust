@@ -1,191 +1,154 @@
+use std::fmt::Write;
 use crate::aiplan4rust::lir::problem::{
     InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork,
 };
+use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
 
-/// Renders a `LiftedProblem` as a human-readable string.
-///
-/// This function formats the problem for display, showing:
-/// - Domain and problem names
-/// - Requirements, types, constants, predicates, functions
-/// - Domain constraints
-/// - Actions and methods (using their `Display` implementations)
-/// - Initial state and goal
-/// - Problem constraints, metric and length specifications
-/// - Initial task network
-///
-/// # Example
-///
-/// ```rust
-/// use crate::renderers::default::render_problem;
-/// use crate::aiplan4rust::lir::problem::LiftedProblem;
-///
-/// let problem: LiftedProblem = /* create or get a problem */;
-/// println!("{}", render_problem(&problem));
-/// ```
-pub fn render_problem(problem: &LiftedProblem) -> String {
-    let mut s = String::new();
-
+pub fn render_problem(f: &mut impl Write, problem: &LiftedProblem) -> std::fmt::Result {
     // Titre principal
-    s.push_str("############################ PROBLEM #############################\n");
-    s.push_str(&format!("  DOMAIN NAME  : {}\n", problem.domain_name()));
-    s.push_str(&format!("  PROBLEM NAME : {}\n\n", problem.problem_name()));
+    writeln_centered(f, "PROBLEM", 80, '=')?;
+    writeln!(f, "DOMAIN NAME  : {}", problem.domain_name())?;
+    writeln!(f, "PROBLEM NAME : {}\n", problem.problem_name())?;
 
     // Requirements
-    s.push_str("=========================== REQUIREMENTS =========================\n");
+    writeln_centered(f, "REQUIREMENTS", 80, '=')?;
     let mut reqs: Vec<_> = problem.requirements().iter().collect();
     if reqs.is_empty() {
-        s.push_str("  - no requirements\n");
+        writeln!(f, "  - no requirements")?;
     } else {
         reqs.sort();
         for r in reqs {
-            s.push_str(&format!("  - {}\n", r));
+            writeln!(f, "  - {}", r)?;
         }
     }
-    s.push_str("\n");
+    writeln!(f)?;
 
     // Types
-    s.push_str("============================== TYPES =============================\n");
+    writeln_centered(f, "TYPES", 80, '=')?;
     if problem.types().is_empty() {
-        s.push_str("  - no types\n");
+        writeln!(f, "  - no types")?;
     } else {
         for t in problem.types() {
-            s.push_str(&format!("  - {}\n", t));
+            writeln!(f, "  - {}", t)?;
         }
     }
-    s.push_str("\n");
+    writeln!(f)?;
 
     // Constants
-    s.push_str("============================ CONSTANTS ===========================\n");
+    writeln_centered(f, "CONSTANTS", 80, '=')?;
     if problem.constants().is_empty() {
-        s.push_str("  - no constants\n");
+        writeln!(f, "  - no constants")?;
     } else {
         for c in problem.constants() {
-            s.push_str(&format!("  - {}\n", c));
+            writeln!(f, "  - {}", c)?;
         }
     }
-    s.push_str("\n");
+    writeln!(f)?;
 
     // Predicates
-    s.push_str("=========================== PREDICATES ===========================\n");
+    writeln_centered(f, "PREDICATES", 80, '=')?;
     if problem.predicates().is_empty() {
-        s.push_str("  - no predicates\n");
+        writeln!(f, "  - no predicates")?;
     } else {
         for p in problem.predicates() {
-            s.push_str(&format!("  - {}\n", p));
+            writeln!(f, "  - {}", p)?;
         }
     }
-    s.push_str("\n");
+    writeln!(f)?;
 
     // Functions
-    s.push_str("=========================== FUNCTIONS ============================\n");
+    writeln_centered(f, "FUNCTIONS", 80, '=')?;
     if problem.functions().is_empty() {
-        s.push_str("  - no functions\n");
+        writeln!(f, "  - no functions")?;
     } else {
         for fct in problem.functions() {
-            s.push_str(&format!("  - {}\n", fct));
+            writeln!(f, "  - {}", fct)?;
         }
     }
-    s.push_str("\n");
+    writeln!(f)?;
 
     // Domain constraints
-    s.push_str("======================= DOMAIN CONSTRAINTS =======================\n");
+    writeln_centered(f, "DOMAIN CONSTRAINTS", 80, '=')?;
     let dc = problem.domain_constraints();
     if dc.is_empty() {
-        s.push_str("  - no domain constraints\n\n");
+        writeln!(f, "  - no domain constraints\n")?;
     } else {
-        s.push_str(&format!("{}\n\n", dc));
+        writeln!(f, "{}\n", dc)?;
     }
 
     // Actions
     if problem.actions().is_empty() {
-        s.push_str("  - no actions\n\n");
+        writeln!(f, "  - no actions\n")?;
     } else {
         for action in problem.actions() {
-            s.push_str(&render_action(action));
-            s.push_str("\n");
+            render_action(f, action)?;
+            writeln!(f)?;
         }
     }
 
     // Methods
     if problem.methods().is_empty() {
-        s.push_str("  - no methods\n\n");
+        writeln!(f, "  - no methods\n")?;
     } else {
         for method in problem.methods() {
-            s.push_str(&render_method(method));
-            s.push_str("\n");
+            render_method(f, method)?;
+            writeln!(f)?;
         }
     }
 
     // Init
-    s.push_str("============================== INIT ==============================\n");
+    writeln_centered(f, "INIT", 80, '=')?;
     let init = problem.init();
     if init.is_empty() {
-        s.push_str("  - no init\n\n");
+        writeln!(f, "  - no init\n")?;
     } else {
-        s.push_str(&format!("{}\n\n", init));
+        writeln!(f, "{}\n", init)?;
     }
 
     // Goal
-    s.push_str("============================== GOAL ==============================\n");
+    writeln_centered(f, "GOAL", 80, '=')?;
     let goal = problem.goal();
     if goal.is_empty() {
-        s.push_str("  - no goal\n\n");
+        writeln!(f, "  - no goal\n")?;
     } else {
-        s.push_str(&format!("{}\n\n", goal));
+        writeln!(f, "{}\n", goal)?;
     }
 
     // Problem constraints
-    s.push_str("======================= PROBLEM CONSTRAINTS ======================\n");
+    writeln_centered(f, "PROBLEM CONSTRAINTS", 80, '=')?;
     let pc = problem.problem_constraints();
     if pc.is_empty() {
-        s.push_str("  - no problem constraints\n\n");
+        writeln!(f, "  - no problem constraints\n")?;
     } else {
-        s.push_str(&format!("{}\n\n", pc));
+        writeln!(f, "{}\n", pc)?;
     }
 
     // Metric spec
-    s.push_str("=========================== METRIC SPEC ==========================\n");
+    writeln_centered(f, "METRIC SPEC", 80, '=')?;
     let metric = problem.metric_spec();
     if metric.is_empty() {
-        s.push_str("  - no metric spec\n\n");
+        writeln!(f, "  - no metric spec\n")?;
     } else {
-        s.push_str(&format!("{}\n\n", metric));
+        writeln!(f, "{}\n", metric)?;
     }
 
     // Length spec
-    s.push_str("=========================== LENGTH SPEC ==========================\n");
+    writeln_centered(f, "LENGTH SPEC", 80, '=')?;
     let length = problem.length_spec();
     if length.is_empty() {
-        s.push_str("  - no length spec\n\n");
+        writeln!(f, "  - no length spec\n")?;
     } else {
-        s.push_str(&format!("{}\n\n", length));
+        writeln!(f, "{}\n", length)?;
     }
 
     // Initial Task Network
-    s.push_str("===================== INITIAL TASK NETWORK ======================\n");
-    s.push_str(&format!("{}\n", problem.initial_task_network()));
+    writeln_centered(f, "INITIAL TASK NETWORK", 80, '=')?;
+    render_initial_task_network(f, problem.initial_task_network())?;
 
-    s
+    Ok(())
 }
 
-/// Renders an `Action` as a human-readable string.
-///
-/// This function formats the action by displaying:
-/// - The name of the action
-/// - Its parameters
-/// - Its precondition
-/// - Its effect
-///
-/// # Example
-///
-/// ```rust
-/// use crate::renderers::default::render_action;
-/// use crate::aiplan4rust::lir::problem::action::Action;
-///
-/// let action: Action = /* create or get an action */;
-/// println!("{}", render_action(&action));
-/// ```
-pub fn render_action(action: &LiftedAction) -> String {
+pub fn render_action(f: &mut impl Write, action: &LiftedAction) -> std::fmt::Result {
     let params = action
         .parameters()
         .iter()
@@ -193,41 +156,21 @@ pub fn render_action(action: &LiftedAction) -> String {
         .collect::<Vec<_>>()
         .join(", ");
 
-    let mut s = String::new();
-    s.push_str("============================= ACTION =============================\n");
-    s.push_str(&format!("  NAME: {}\n", action.name()));
-    s.push_str(&format!("  PARAMETERS: {}\n", params));
-    s.push_str("  PRECONDITION:\n");
+    writeln_centered(f, "ACTION", 80, '-')?;
+    writeln!(f, "NAME: {}", action.name())?;
+    writeln!(f, "PARAMETERS: {}", params)?;
+    writeln!(f, "PRECONDITION:")?;
     for line in format!("{}", action.precondition()).lines() {
-        s.push_str(&format!("    {}\n", line));
+        writeln!(f, "  {}", line)?;
     }
-    s.push_str("  EFFECT:\n");
+    writeln!(f, "EFFECT:")?;
     for line in format!("{}", action.effect()).lines() {
-        s.push_str(&format!("    {}\n", line));
+        writeln!(f, "  {}", line)?;
     }
-
-    s
+    Ok(())
 }
 
-/// Renders a `Method` as a human-readable string.
-///
-/// This function formats the method by displaying:
-/// - Its name
-/// - Its parameters
-/// - The associated task
-/// - Its precondition
-/// - Its task network
-///
-/// # Example
-///
-/// ```rust
-/// use crate::aiplan4rust::lir::problem::renderers::default::render_method;
-/// use crate::aiplan4rust::lir::problem::method::Method;
-///
-/// let method: Method = /* create or get a method */;
-/// println!("{}", render_method(&method));
-/// ```
-pub fn render_method(method: &LiftedMethod) -> String {
+pub fn render_method(f: &mut impl Write, method: &LiftedMethod) -> std::fmt::Result {
     let params = method
         .parameters()
         .iter()
@@ -235,72 +178,34 @@ pub fn render_method(method: &LiftedMethod) -> String {
         .collect::<Vec<_>>()
         .join(", ");
 
-    let mut s = String::new();
-    s.push_str("============================= METHOD =============================\n");
-    s.push_str(&format!("  NAME: {}\n", method.name()));
-    s.push_str(&format!("  PARAMETERS: {}\n", params));
-    s.push_str(&format!("  TASK: {}\n", method.task()));
-
-    // PRECONDITION
-    s.push_str("  PRECONDITION:\n");
+    writeln_centered(f, "METHOD", 80, '-')?;
+    writeln!(f, "NAME: {}", method.name())?;
+    writeln!(f, "PARAMETERS: {}", params)?;
+    writeln!(f, "TASK: {}", method.task())?;
+    writeln!(f, "PRECONDITION:")?;
     for line in format!("{}", method.precondition()).lines() {
-        s.push_str(&format!("    {}\n", line));
+        writeln!(f, "  {}", line)?;
     }
-
-    // TASK NETWORK
-    s.push_str("  TASK NETWORK:\n");
+    writeln!(f, "TASK NETWORK:")?;
     for line in format!("{}", method.task_network()).lines() {
-        s.push_str(&format!("    {}\n", line));
+        writeln!(f, "  {}", line)?;
     }
-
-    s
+    Ok(())
 }
 
 
-/// Renders a `TaskNetwork` as a human-readable string.
-///
-/// This function formats the task network by displaying:
-/// - The list of tasks
-/// - Ordering constraints
-/// - Logical constraints
-///
-/// # Example
-///
-/// ```rust
-/// use crate::renderers::default::render_task_network;
-/// use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
-///
-/// let tn: TaskNetwork = /* create or get a TaskNetwork */;
-/// println!("{}", render_task_network(&tn));
-/// ```
-pub fn render_task_network(network: &LiftedTaskNetwork) -> String {
-    format!(
-        "  TASKS: {}\n  ORDERING: {}\n  CONSTRAINTS: {}",
-        network.tasks(),
-        network.ordering_constraints(),
-        network.logical_constraints()
-    )
+pub fn render_task_network(f: &mut impl Write, network: &LiftedTaskNetwork) -> std::fmt::Result {
+    writeln!(f, "TASKS: {}", network.tasks())?;
+    writeln!(f, "ORDERING: {}", network.ordering_constraints())?;
+    writeln!(f, "CONSTRAINTS: {}", network.logical_constraints())?;
+    Ok(())
 }
 
-/// Renders an `InitialTaskNetwork` as a human-readable string.
-///
-/// This function formats the initial task network by displaying:
-/// - Its parameters
-/// - Its task network
-///
-/// # Example
-///
-/// ```rust
-/// use crate::aiplan4rust::lir::problem::renderers::default::render_initial_task_network;
-/// use crate::aiplan4rust::lir::problem::task_network::InitialTaskNetwork;
-///
-/// let init_network: InitialTaskNetwork = /* create or get the initial task network */;
-/// println!("{}", render_initial_task_network(&init_network));
-/// ```
-pub fn render_initial_task_network(network: &InitialTaskNetwork) -> String {
-    format!(
-        "  PARAMETERS: {}\n{}",
-        network.parameters(),
-        network.task_network()
-    )
+pub fn render_initial_task_network(f: &mut impl Write, network: &InitialTaskNetwork) -> std::fmt::Result {
+    writeln!(f, "PARAMETERS: {}", network.parameters())?;
+    let tn = network.task_network();
+    writeln!(f, "TASKS: {}", tn.tasks())?;
+    writeln!(f, "ORDERING: {}", tn.ordering_constraints())?;
+    writeln!(f, "CONSTRAINTS: {}", tn.logical_constraints())?;
+    Ok(())
 }
