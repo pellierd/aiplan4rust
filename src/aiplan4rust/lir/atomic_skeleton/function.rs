@@ -28,7 +28,7 @@ use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
@@ -171,22 +171,22 @@ impl InternerDisplay for Function {
     }
 }
 
-impl SyntaxDisplay for Function {
+impl SyntaxInternerDisplay for Function {
     /// Displays the function in a syntax-oriented form (e.g., PDDL-style).
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
         // Write the header with indentation
-        self.header.fmt_syntax_with_indent(f, interner, indent)?;
+        self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
 
         // Write the separator " - "
         write!(f, " - ")?;
 
         // Write the type_checker by converting it to string and then writing to formatter
-        let ty_str = self.ty.to_syntax_string(interner);
+        let ty_str = self.ty.to_syntax_string_with_interner(interner);
         write!(f, "{}", ty_str)?;
 
         Ok(())

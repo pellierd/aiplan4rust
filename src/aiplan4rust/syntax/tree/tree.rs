@@ -27,7 +27,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// High-level syntax tree built on top of [`ArenaTree`], specialized for syntax node manipulation.
@@ -663,7 +663,7 @@ where
     }
 }
 
-impl<T> SyntaxDisplay for SyntaxTree<T>
+impl<T> SyntaxInternerDisplay for SyntaxTree<T>
 where
     T: SyntaxNode,
     T::Content: SyntaxContent,
@@ -679,7 +679,7 @@ where
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting was successful.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,

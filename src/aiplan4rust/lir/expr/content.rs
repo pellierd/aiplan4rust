@@ -61,7 +61,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lir::expr::error::ExprError;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -131,7 +131,7 @@ impl InternerDisplay for Content {
     }
 }
 
-impl SyntaxDisplay for Content {
+impl SyntaxInternerDisplay for Content {
     // Formats the `Content` value using the provided formatter and string interner,
     /// applying indentation according to `indent`.
     ///
@@ -144,7 +144,7 @@ impl SyntaxDisplay for Content {
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting succeeded.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,
@@ -155,7 +155,7 @@ impl SyntaxDisplay for Content {
         f.write_str(&indent_str)?;
 
         match self {
-            Content::Ident(idx) => idx.fmt_syntax_with_indent(f, interner, indent),
+            Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
             _ => fmt::Display::fmt(self, f),
         }
     }

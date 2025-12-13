@@ -32,7 +32,7 @@ use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;
 use crate::aiplan4rust::syntax::lexer::token::SUB;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
@@ -140,7 +140,7 @@ impl InternerDisplay for ArithmeticOp {
 /// let s = op.fmt_planning(&mut formatter, &interner)?;
 /// // Output uses the standard Display implementation.
 /// ```
-impl SyntaxDisplay for ArithmeticOp {
+impl SyntaxInternerDisplay for ArithmeticOp {
     /// Formats the `ArithmeticOp` using the given formatter.
     ///
     /// # Arguments
@@ -151,7 +151,7 @@ impl SyntaxDisplay for ArithmeticOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting succeeded or failed.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)

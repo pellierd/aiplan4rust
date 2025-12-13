@@ -396,7 +396,7 @@ mod tests {
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::simplify::quantifier;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test that an empty forall quantifier is replaced by its body.
     /// Input: (forall () (A))
@@ -414,9 +414,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -453,9 +453,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -484,9 +484,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -515,9 +515,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -542,9 +542,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -580,9 +580,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -612,9 +612,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -643,9 +643,9 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.root_id().unwrap();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 

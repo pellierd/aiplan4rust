@@ -16,7 +16,7 @@ use colored::Colorize;
 use crate::aiplan4rust::interner::{Ident, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
-use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
+use crate::aiplan4rust::syntax::{Span, SyntaxInternerDisplay};
 use crate::Severity;
 
 /// Number of spaces to which a tab character (`\t`) expands.
@@ -84,7 +84,7 @@ pub(crate) fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner
 /// inside the `Type` are resolved using it; otherwise, the default string representation is used.
 pub(crate) fn type_to_string(ty: &Type, interner: Option<&StringInterner>) -> String {
     if let Some(interner) = interner {
-        ty.to_syntax_string(interner)
+        ty.to_syntax_string_with_interner(interner)
     } else {
         ty.to_string()
     }

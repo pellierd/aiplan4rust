@@ -738,7 +738,7 @@ mod realistic_tests {
     use super::*;
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Realistic test: AND root with nested AND/OR children, duplicates, and empty OR
     ///
@@ -761,9 +761,9 @@ mod realistic_tests {
         let mut expr = builder.finish();
 
         let root_id = expr.root_id().unwrap();
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(or)");
@@ -789,9 +789,9 @@ mod realistic_tests {
         let mut expr = builder.finish();
 
         let root_id = expr.root_id().unwrap();
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(and)");
@@ -804,7 +804,7 @@ mod flatten_and_or_node_tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use super::*;
 
     /// Test flattening a root AND node with nested AND children.
@@ -826,9 +826,9 @@ mod flatten_and_or_node_tests {
         let mut expr = builder.finish();
 
         let root_id = expr.root_id().unwrap();
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         flatten_and_or_node(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -856,9 +856,9 @@ mod flatten_and_or_node_tests {
         let mut expr = builder.finish();
 
         let root_id = expr.root_id().unwrap();
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         flatten_and_or_node(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -886,9 +886,9 @@ mod flatten_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         flatten_and_or_node(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -914,9 +914,9 @@ mod flatten_and_or_node_tests {
         let mut expr = builder.finish();
 
         let root_id = expr.root_id().unwrap();
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         flatten_and_or_node(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -931,7 +931,7 @@ mod deduplicate_and_or_node_tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use super::*;
 
     /// Test NodeId-based deduplication in a root AND node.
@@ -949,9 +949,9 @@ mod deduplicate_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -976,9 +976,9 @@ mod deduplicate_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -1003,9 +1003,9 @@ mod deduplicate_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -1032,9 +1032,9 @@ mod deduplicate_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -1062,9 +1062,9 @@ mod deduplicate_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         deduplicate_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -1081,7 +1081,7 @@ mod simplify_tautologies_and_contradictions_tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use super::*;
 
     /// Input: (or A (not A))
@@ -1097,9 +1097,9 @@ mod simplify_tautologies_and_contradictions_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert!(changed);
@@ -1122,9 +1122,9 @@ mod simplify_tautologies_and_contradictions_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert!(changed);
@@ -1147,9 +1147,9 @@ mod simplify_tautologies_and_contradictions_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert!(!changed);
@@ -1171,9 +1171,9 @@ mod simplify_tautologies_and_contradictions_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         let changed = simplify_tautologies_and_contradictions(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert!(!changed);
@@ -1187,7 +1187,7 @@ mod simplify_tautologies_and_contradictions_tests {
 mod reduce_single_and_or_node_tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use super::*;
     /// Test root AND with a single child
     ///
@@ -1203,9 +1203,9 @@ mod reduce_single_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce_single_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1227,9 +1227,9 @@ mod reduce_single_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce_single_and_or_node(inner_and, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1255,9 +1255,9 @@ mod reduce_single_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce_single_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1279,9 +1279,9 @@ mod reduce_single_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce_single_and_or_node(inner_or, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1308,9 +1308,9 @@ mod reduce_single_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce_single_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1323,7 +1323,7 @@ mod simplify_empty_and_or_node_tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use super::*;
 
     /// Test that an AND node with an empty AND child removes the empty child.
@@ -1340,9 +1340,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1365,9 +1365,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1391,9 +1391,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1422,9 +1422,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1447,9 +1447,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1472,9 +1472,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1498,9 +1498,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1529,9 +1529,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify_empty_and_or_node(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1559,9 +1559,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         // Check that the root is a WHEN node after merge
@@ -1604,9 +1604,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1633,9 +1633,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -1662,9 +1662,9 @@ mod simplify_empty_and_or_node_tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();

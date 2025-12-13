@@ -271,7 +271,7 @@ mod simplify_arithmetic_operation_tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use ordered_float::OrderedFloat;
 
     /// Input: (+ 2 3)
@@ -288,9 +288,9 @@ mod simplify_arithmetic_operation_tests {
         builder.set_root(add).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -315,9 +315,9 @@ mod simplify_arithmetic_operation_tests {
         builder.set_root(sub).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -342,9 +342,9 @@ mod simplify_arithmetic_operation_tests {
         builder.set_root(mul).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -369,9 +369,9 @@ mod simplify_arithmetic_operation_tests {
         builder.set_root(div).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -395,7 +395,7 @@ mod simplify_arithmetic_operation_tests {
         builder.set_root(div).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
 
         let result = reduce(expr.root_id().unwrap(), &mut expr);
 

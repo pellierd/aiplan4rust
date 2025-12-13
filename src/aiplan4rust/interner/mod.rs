@@ -37,6 +37,7 @@ pub mod id;
 pub use interner::StringInterner;
 pub use merge_result::InternerMergeResult;
 pub use display::InternerDisplay;
+pub use display::SelfInternerDisplay;
 pub use error::InternerError;
 pub use id::Id as InternerId;
 pub use literal::Literal;

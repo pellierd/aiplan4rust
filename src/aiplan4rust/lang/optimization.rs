@@ -18,7 +18,7 @@
 
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
@@ -143,7 +143,7 @@ impl InternerDisplay for Optimization {
 /// let s = opt.to_string_syntax(&interner);
 /// assert_eq!(s, "Enabled");
 /// ```
-impl SyntaxDisplay for Optimization {
+impl SyntaxInternerDisplay for Optimization {
     /// Formats the `Optimization` for syntax syntax display.
     ///
     /// Delegates to the `Display` trait implementation.
@@ -156,7 +156,7 @@ impl SyntaxDisplay for Optimization {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)

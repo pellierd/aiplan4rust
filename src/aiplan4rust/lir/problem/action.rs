@@ -51,7 +51,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 use serde::{Deserialize, Serialize};
 use std::fmt::Formatter;
@@ -320,11 +320,11 @@ impl InternerDisplay for Action {
     }
 }
 
-impl SyntaxDisplay for Action {
+impl SyntaxInternerDisplay for Action {
     /// Formats the `Action` syntax for display, delegating to `fmt_with_interner`.
     ///
     /// The output is indented according to the `indent` parameter.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,

@@ -1,10 +1,10 @@
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedMethod, LiftedProblem};
-use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
 /// Wrapper around the domain view of a lifted problem.
 ///
@@ -75,35 +75,22 @@ impl<'a> DomainDef<'a> {
     pub fn domain_constraints(&self) -> &Expr {
         self.problem.domain_constraints()
     }
-
-    /*/// Returns the domain definition as a syntax string.
-    ///
-    /// Uses the internal `StringInterner` from the wrapped `LiftedProblem`.
-    pub fn to_syntax_string(&self) -> String {
-        let mut output = String::new();
-        // Render the domain using the internal interner
-        renderers::syntax::render_domain_def(&mut output, &self.problem.domain_def(), self.interner())
-            .expect("Failed to render domain"); // panic if rendering fails
-        output
-    }*/
-
 }
 
 impl<'a> SyntaxDisplay for DomainDef<'a> {
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, _indent: usize) -> fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::syntax::render_domain_def(f, &self.problem.domain_def(), self.interner())
     }
 }
 
-impl<'a> InternerDisplay for DomainDef<'a> {
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
-        // To do
-        renderers::interner::render_problem(f, self.problem, self.problem.interner())
+impl<'a> SelfInternerDisplay for DomainDef<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        renderers::interner::render_domain_def(f, &self.problem.domain_def(), self.interner())
     }
 }
+
 impl<'a> Display for DomainDef<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        // To do
         renderers::default::render_problem(f, self.problem)
     }
 }

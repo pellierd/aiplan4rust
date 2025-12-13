@@ -36,7 +36,7 @@ use crate::aiplan4rust::lang::{
     ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement,
 };
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -209,7 +209,7 @@ impl InternerDisplay for Content {
 /// let content = Content::Ident(idx);
 /// content.fmt_planning(&mut formatter, &interner, 0)?;
 /// ```
-impl SyntaxDisplay for Content {
+impl SyntaxInternerDisplay for Content {
     /// Formats the `Content` value using the provided formatter and string interner,
     /// applying indentation according to `indent`.
     ///
@@ -222,7 +222,7 @@ impl SyntaxDisplay for Content {
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting succeeded.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,
@@ -233,7 +233,7 @@ impl SyntaxDisplay for Content {
         f.write_str(&indent_str)?;
 
         match self {
-            Content::Ident(idx) => idx.fmt_syntax_with_indent(f, interner, indent),
+            Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
             _ => fmt::Display::fmt(self, f),
         }
     }

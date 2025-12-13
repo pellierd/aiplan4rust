@@ -27,7 +27,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
@@ -192,14 +192,14 @@ impl InternerDisplay for NamedTypedList {
     }
 }
 
-impl SyntaxDisplay for NamedTypedList {
+impl SyntaxInternerDisplay for NamedTypedList {
     /// Formats the syntax representation of the `NamedTypedList` using an interner.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         syntax::display::write_indent(f,indent)?;
         write!(f, "{}", Token::LParen)?;
-        self.name.fmt_syntax_with_indent(f, interner, indent)?;
+        self.name.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
         write!(f, " ")?;
-        self.parameters.fmt_syntax_with_indent(f, interner, indent)?;
+        self.parameters.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
         write!(f, "{}", Token::RParen)
     }
 }

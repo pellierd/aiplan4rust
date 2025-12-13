@@ -44,7 +44,7 @@
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxFormat;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Trait for serializing and deserializing syntax structures that require an [`Interner`].
 ///
@@ -68,7 +68,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 ///   - [`SerializationError::UnsupportedExtensionError`] if the extension is unknown.
 ///
 /// [`Interner`]: crate::aiplan4rust::interner::StringInterner
-pub trait Serializable: SyntaxDisplay {
+pub trait Serializable: SyntaxInternerDisplay {
     /// Serializes the object into a string using the provided `interner`.
     ///
     /// # Arguments

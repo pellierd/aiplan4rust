@@ -38,18 +38,20 @@
 
 use std::collections::HashSet;
 
+use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::core::arena::ArenaNode;
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{LiftedAction, LiftedMethod, InitialTaskNetwork, LiftedProblem, normalize};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
+use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::problem::{
+    normalize, InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem,
+};
 use crate::aiplan4rust::lir::{LirBuilderResult, LirError};
+use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
@@ -84,7 +86,6 @@ pub struct LirBuilder {
 }
 
 impl LirBuilder {
-
     /// Creates a new instance of IRBuilder.
     pub fn new() -> Self {
         LirBuilder {
@@ -161,9 +162,11 @@ impl LirBuilder {
         //print!("------------- PROBLEM -------------\n{}", lifted_problem);
         //println!("-----------------------------------");
 
-        print!("------------- DOMAIN -------------\n{}", lifted_problem.to_syntax_string());
+        print!(
+            "------------- DOMAIN -------------\n{}",
+            lifted_problem.syntax_string()
+        );
         println!("-----------------------------------");
-
 
         // 6. Normalize all expressions in the problem to canonical form
         //    This includes actions, methods, initial task network, and constraints
@@ -180,7 +183,7 @@ impl LirBuilder {
     pub fn build_with_diagnostic_manager(
         &mut self,
         context: &mut LinkedSemanticContext,
-        diagnostic_manager: DiagnosticManager
+        diagnostic_manager: DiagnosticManager,
     ) -> Result<LirBuilderResult, LirError> {
         self.diagnostic_manager = diagnostic_manager;
         self.build(context)
@@ -293,7 +296,6 @@ impl LirBuilder {
 
         Ok(())
     }
-
 }
 
 // ---------- Extraction Helpers ---------- //
@@ -302,59 +304,62 @@ impl LirBuilder {
 fn extract_requirements(
     subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<Requirement>, LirError> {
-    extract_set(subtree, |child_subtree| Ok(child_subtree.node().try_requirement()?))
+    extract_set(subtree, |child_subtree| {
+        Ok(child_subtree.node().try_requirement()?)
+    })
 }
 
 /// Extracts predicates from a `PredicatesDef` syntax subtree.
 fn extract_atomic_formula_skeleton(
     subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<AtomicFormulaSkeleton>, LirError> {
-    extract_set(subtree, |child_subtree| AtomicFormulaSkeleton::try_from(child_subtree))
+    extract_set(subtree, |child_subtree| {
+        AtomicFormulaSkeleton::try_from(child_subtree)
+    })
 }
 
 /// Extracts functions from a `FunctionsDef` syntax subtree.
 fn extract_atomic_function_skeleton(
     subtree: &SyntaxSubtree<AstNode>,
 ) -> Result<HashSet<AtomicFunctionSkeleton>, LirError> {
-    extract_set(subtree, |child_subtree| AtomicFunctionSkeleton::try_from(child_subtree))
+    extract_set(subtree, |child_subtree| {
+        AtomicFunctionSkeleton::try_from(child_subtree)
+    })
 }
 
 /// Extracts types from a `TypesDef` syntax subtree.
-fn extract_types(
-    subtree: &SyntaxSubtree<AstNode>,
-) -> Result<HashSet<TypedSymbol>, LirError> {
-    extract_set_from_first_child(subtree, |child_subtree| Ok(TypedSymbol::try_from(child_subtree)?))
+fn extract_types(subtree: &SyntaxSubtree<AstNode>) -> Result<HashSet<TypedSymbol>, LirError> {
+    extract_set_from_first_child(subtree, |child_subtree| {
+        Ok(TypedSymbol::try_from(child_subtree)?)
+    })
 }
 
 /// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax subtree.
-fn extract_constants(
-    subtree: &SyntaxSubtree<AstNode>,
-) -> Result<HashSet<TypedSymbol>, LirError> {
-    extract_set_from_first_child(subtree, |child_subtree| Ok(TypedSymbol::try_from(child_subtree)?))
+fn extract_constants(subtree: &SyntaxSubtree<AstNode>) -> Result<HashSet<TypedSymbol>, LirError> {
+    extract_set_from_first_child(subtree, |child_subtree| {
+        Ok(TypedSymbol::try_from(child_subtree)?)
+    })
 }
 
 /// Extracts an expression from the first child of an `Init` syntax subtree.
-fn extract_init(
-    subtree: &SyntaxSubtree<AstNode>,
-) -> Result<Expr, LirError> {
+fn extract_init(subtree: &SyntaxSubtree<AstNode>) -> Result<Expr, LirError> {
     extract_expr_first_child(subtree)
 }
 
 /// Extracts the goal expression from a `Goal` syntax subtree.
-fn extract_goal(
-    subtree: &SyntaxSubtree<AstNode>,
-) -> Result<Expr, LirError> {
+fn extract_goal(subtree: &SyntaxSubtree<AstNode>) -> Result<Expr, LirError> {
     extract_expr_first_child(subtree)
 }
 
 /// Extracts an expression from the first child syntax subtree.
 /// Used for `Init`, `Goal`, `Metric`, etc.
-fn extract_expr_first_child(
-    subtree: &SyntaxSubtree<AstNode>,
-) -> Result<Expr, LirError> {
+fn extract_expr_first_child(subtree: &SyntaxSubtree<AstNode>) -> Result<Expr, LirError> {
     let child_id = subtree.node().try_child(0)?;
     let child_node = subtree.tree().try_node(child_id)?;
-    Ok(Expr::try_from(&SyntaxSubtree::new(child_node, subtree.tree()))?)
+    Ok(Expr::try_from(&SyntaxSubtree::new(
+        child_node,
+        subtree.tree(),
+    ))?)
 }
 
 /// Generic helper to extract a set of elements from direct children of a syntax subtree.

@@ -9,7 +9,7 @@ use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -155,9 +155,9 @@ impl InternerDisplay for InitialTaskNetwork {
     }
 }
 
-impl SyntaxDisplay for InitialTaskNetwork {
+impl SyntaxInternerDisplay for InitialTaskNetwork {
     /// Formats the initial task network syntax using a string interner.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         // Write the indentation prefix
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;

@@ -117,7 +117,7 @@ mod tests {
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test trivial (increase (F) 0) -> (and)
     #[test]
@@ -132,9 +132,9 @@ mod tests {
         builder.set_root(assign_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -157,9 +157,9 @@ mod tests {
         builder.set_root(assign_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -182,9 +182,9 @@ mod tests {
         builder.set_root(assign_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -207,9 +207,9 @@ mod tests {
         builder.set_root(assign_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -232,9 +232,9 @@ mod tests {
         builder.set_root(assign_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -258,9 +258,9 @@ mod tests {
         builder.set_root(assign_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 

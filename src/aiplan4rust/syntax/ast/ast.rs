@@ -57,7 +57,7 @@
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, Literal, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
+use crate::aiplan4rust::syntax::{FastLineTable, SyntaxInternerDisplay};
 use crate::aiplan4rust::syntax::ast::error::AstError;
 use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId, SyntaxNode};
 
@@ -401,7 +401,7 @@ impl Ast {
     /// println!("{}", pddl);
     /// ```
     pub fn to_syntax_string(&self) -> String {
-        self.syntax_tree().to_syntax_string(self.interner())
+        self.syntax_tree().to_syntax_string_with_interner(self.interner())
     }
 
     /// Returns a string representing the AST formatted as PDDL syntax,
@@ -426,7 +426,7 @@ impl Ast {
         buf.push_str(&format!(";; Generated at: {:?}\n\n", self.generated_at));
 
         // Append the PDDL syntax representation of the AST
-        buf.push_str(&self.syntax_tree().to_syntax_string(self.interner()));
+        buf.push_str(&self.syntax_tree().to_syntax_string_with_interner(self.interner()));
 
         buf
     }

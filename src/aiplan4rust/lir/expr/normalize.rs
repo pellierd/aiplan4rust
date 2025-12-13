@@ -57,7 +57,7 @@ mod tests {
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Complex nested AND flattening + structural deduplication.
     ///
@@ -81,9 +81,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(and (A) (B) (C) (D))");
@@ -109,9 +109,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(and (A) (B) (C))");
@@ -137,9 +137,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(or (A) (B) (C))");
@@ -164,9 +164,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -191,9 +191,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(A)");
@@ -212,9 +212,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(and)");
@@ -233,9 +233,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(or)");
@@ -257,9 +257,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(A)");
@@ -278,9 +278,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -307,9 +307,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(and (A) (B))");
@@ -332,9 +332,9 @@ mod tests {
         builder.set_root(outer_imply).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -359,9 +359,9 @@ mod tests {
         builder.set_root(outer_imply).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -390,9 +390,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "11");
@@ -417,9 +417,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "7");
@@ -450,9 +450,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "16");
@@ -477,9 +477,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
         assert_eq!(output, "(+ 2 (* (A) 3))");
@@ -498,7 +498,7 @@ mod tests {
         let mut expr = builder.finish();
 
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
@@ -519,9 +519,9 @@ mod tests {
         builder.set_root(imply).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         print!("{} -> {} ", input, output);
 
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
@@ -546,7 +546,7 @@ mod tests {
         normalize(&mut expr).unwrap();
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         assert_eq!(output, "(or (and (B) (C)) (not (A)))");
     }
 
@@ -581,7 +581,7 @@ mod tests {
         normalize(&mut expr).unwrap();
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Or);
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
         assert_eq!(output, "(or (exists (?Y - T2) (B)) (not (forall (?X - T1) (A))))");
     }
 
@@ -603,9 +603,9 @@ mod tests {
         builder.set_root(when_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner); // "(when (and) (and A B C))"
+        let input = expr.to_syntax_string_with_interner(&interner); // "(when (and) (and A B C))"
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner); // "(and A B C)"
+        let output = expr.to_syntax_string_with_interner(&interner); // "(and A B C)"
 
         print!("{} -> {} ", input, output);
 
@@ -638,9 +638,9 @@ mod tests {
         builder.set_root(when_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner); // "(when (or) (and X Y Z))"
+        let input = expr.to_syntax_string_with_interner(&interner); // "(when (or) (and X Y Z))"
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner); // "(and)"
+        let output = expr.to_syntax_string_with_interner(&interner); // "(and)"
 
         print!("{} -> {} ", input, output);
 
@@ -666,9 +666,9 @@ mod tests {
         builder.set_root(when_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner); // "(when (and A B) (and A B))"
+        let input = expr.to_syntax_string_with_interner(&interner); // "(when (and A B) (and A B))"
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner); // "(and)"
+        let output = expr.to_syntax_string_with_interner(&interner); // "(and)"
 
         print!("{} -> {} ", input, output);
 
@@ -694,9 +694,9 @@ mod tests {
         builder.set_root(when_node).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner); // "(when (and A B) (and))"
+        let input = expr.to_syntax_string_with_interner(&interner); // "(when (and A B) (and))"
         normalize(&mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner); // "(and)"
+        let output = expr.to_syntax_string_with_interner(&interner); // "(and)"
 
         print!("{} -> {} ", input, output);
 

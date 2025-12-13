@@ -43,7 +43,7 @@
 //! 5. **Diagnostics** — Error reporting with severity metadata and spans.
 //!
 //! # Syntax Display Trait
-//! The [`SyntaxDisplay`] trait facilitates conversion of AST nodes into language-specific
+//! The [`SyntaxInternerDisplay`] trait facilitates conversion of AST nodes into language-specific
 //! representations for pretty-printing or serialization purposes.
 //!
 //! # Notes
@@ -57,7 +57,7 @@
 //! - [`parser_result`] — Output wrapper from the parsing process
 //! - [`grammar`] — Grammar-specific parsing logic
 //! - [`ast`] — Abstract syntax tree arena definitions
-//! - [`display`] — Provides the [`SyntaxDisplay`] trait and formatting utilities
+//! - [`display`] — Provides the [`SyntaxInternerDisplay`] trait and formatting utilities
 //! - [`span`] — Source position tracking using spans
 //! - [`fast_line_table`] — Efficient mapping from file offsets to line/column numbers
 //!
@@ -67,7 +67,7 @@
 //! - [`Parser`] — Main parser interface
 //! - [`ParserResult`] — Parser output type_checker
 //! - [`Span`] — Source span utility
-//! - [`SyntaxDisplay`] — Trait for AST formatting
+//! - [`SyntaxInternerDisplay`] — Trait for AST formatting
 //! - [`FastLineTable`] — File line tracking utility
 
 pub mod language;
@@ -88,6 +88,7 @@ pub use ast::Ast;
 pub use context::ParseContext;
 pub use context::ParseContextError;
 pub use display::write_indent;
+pub use display::SyntaxInternerDisplay;
 pub use display::SyntaxDisplay;
 pub use error::SyntaxError;
 pub use fast_line_table::FastLineTable;

@@ -30,7 +30,7 @@ use crate::aiplan4rust::lang::error::LangError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// A list of `TypedSymbol` items.
 ///
@@ -279,7 +279,7 @@ impl InternerDisplay for TypedList {
 /// ```text
 /// (?x - location ?y - (either robot vehicle))
 /// ```
-impl SyntaxDisplay for TypedList {
+impl SyntaxInternerDisplay for TypedList {
     /// Formats the `TypedList` in PDDL syntax.
     ///
     /// This function writes:
@@ -301,7 +301,7 @@ impl SyntaxDisplay for TypedList {
     /// ```text
     /// (?x - location ?y - robot)
     /// ```
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -314,7 +314,7 @@ impl SyntaxDisplay for TypedList {
             if !first {
                 write!(f, " ")?;
             }
-            sym.fmt_syntax(f, interner)?;
+            sym.fmt_syntax_with_interner(f, interner)?;
             first = false;
         }
         Ok(())

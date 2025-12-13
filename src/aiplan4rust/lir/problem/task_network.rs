@@ -42,7 +42,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::problem::{normalize, renderers};
@@ -316,11 +316,11 @@ impl InternerDisplay for TaskNetwork {
     }
 }
 
-impl SyntaxDisplay for TaskNetwork {
+impl SyntaxInternerDisplay for TaskNetwork {
     /// Formats the `TaskNetwork` in a syntax-oriented form using the provided [`StringInterner`].
     ///
     /// This representation can be used to regenerate source-like output.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> std::fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> std::fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         self.fmt_with_interner(f, interner)

@@ -38,7 +38,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
@@ -660,7 +660,7 @@ impl InternerDisplay for Expr {
     }
 }
 
-impl SyntaxDisplay for Expr {
+impl SyntaxInternerDisplay for Expr {
     /// Formats the expression with indentation and interner support for pretty printing.
     ///
     /// # Arguments
@@ -672,9 +672,9 @@ impl SyntaxDisplay for Expr {
     /// # Returns
     ///
     /// A formatting result indicating success or failure.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
-        self.tree.fmt_syntax_with_indent(f, interner, indent)
+        self.tree.fmt_syntax_with_interner_and_indent(f, interner, indent)
     }
 }

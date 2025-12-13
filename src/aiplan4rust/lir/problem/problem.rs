@@ -658,16 +658,12 @@ impl Problem {
         ProblemDef::new(self)
     }
 
-    pub fn to_string_with_interner(&self) -> String {
+    pub fn string_with_interner(&self) -> String {
         format!("{}", self)
     }
 
-    pub fn to_syntax_string(&self) -> String {
-        let domain = DomainDef::new(self);
-        let domain_str = domain.to_syntax_string(self.interner());
-        let problem = ProblemDef::new(self);
-        let problem_str = problem.to_syntax_string(self.interner());
-        format!("{}\n{}", domain_str, problem_str)
+    pub fn syntax_string(&self) -> String {
+        format!("{}\n{}", self.domain_def().to_syntax_string(), self.problem_def().to_syntax_string())
     }
 }
 

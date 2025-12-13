@@ -45,7 +45,7 @@ use crate::aiplan4rust::syntax::lexer::token::STRIPS;
 use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
 use crate::aiplan4rust::syntax::lexer::token::TYPING;
 use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
@@ -254,7 +254,7 @@ impl InternerDisplay for Requirement {
 /// let s = req.to_string_syntax(&interner);
 /// assert_eq!(s, "Mandatory");
 /// ```
-impl SyntaxDisplay for Requirement {
+impl SyntaxInternerDisplay for Requirement {
     /// Formats the `Requirement` for syntax syntax display.
     ///
     /// Delegates the formatting to the `Display` trait implementation.
@@ -263,7 +263,7 @@ impl SyntaxDisplay for Requirement {
     ///
     /// * `f` - The formatter to write the output to.
     /// * `_interner` - The string interner (unused in this implementation).
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)

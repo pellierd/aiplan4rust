@@ -16,7 +16,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxDisplay};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Represents a reference to a declared symbol, consisting of its identifier and kind.
 ///
@@ -138,7 +138,7 @@ impl InternerDisplay for Symbol {
     }
 }
 
-impl SyntaxDisplay for Symbol {
+impl SyntaxInternerDisplay for Symbol {
     /// Formats the symbol with indentation, resolving the identifier name using
     /// the provided interner.
     ///
@@ -154,7 +154,7 @@ impl SyntaxDisplay for Symbol {
     /// # Returns
     ///
     /// Returns `fmt::Result` indicating success or failure of the write operation.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,

@@ -32,7 +32,7 @@ use crate::aiplan4rust::lang::typed_symbol::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use crate::aiplan4rust::syntax::ast::node::AstNode;
-use crate::aiplan4rust::syntax::display::SyntaxDisplay;
+use crate::aiplan4rust::syntax::display::SyntaxInternerDisplay;
 use crate::aiplan4rust::core::arena::node::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -265,9 +265,9 @@ impl InternerDisplay for Method {
     }
 }
 
-impl SyntaxDisplay for Method {
+impl SyntaxInternerDisplay for Method {
     /// Formats the `Method` syntax with a string interner.
-    fn fmt_syntax_with_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         // Write the indentation prefix
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;

@@ -24,7 +24,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///
@@ -56,7 +56,7 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 /// # Implementation Notes
 ///
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] transparently.
-/// - Supports pretty-printing with or without an interner (see [`InternerDisplay`] and [`SyntaxDisplay`]).
+/// - Supports pretty-printing with or without an interner (see [`InternerDisplay`] and [`SyntaxInternerDisplay`]).
 /// - Can be constructed directly or parsed from an AST syntax via [`FromAst`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Formula {
@@ -144,14 +144,14 @@ impl InternerDisplay for Formula {
     }
 }
 
-impl SyntaxDisplay for Formula {
+impl SyntaxInternerDisplay for Formula {
     /// Formats the formula in a syntax-oriented form (e.g., PDDL representation).
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        self.header.fmt_syntax_with_indent(f, interner, indent)
+        self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)
     }
 }

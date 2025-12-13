@@ -35,7 +35,7 @@ use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::InternerDisplay;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Trait representing the semantic content of a syntax node.
@@ -53,7 +53,7 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// - [`InternerDisplay`] to support pretty-printing with identifier interning.
 /// - [`Clone`] for safe copying.
 /// - [`Debug`] for debugging purposes.
-pub trait SyntaxContent:  Display + InternerDisplay + SyntaxDisplay + Clone + Debug  + Default {
+pub trait SyntaxContent:  Display + InternerDisplay + SyntaxInternerDisplay + Clone + Debug  + Default {
     /// Returns the content as an identifier if available.
     fn as_ident(&self) -> Option<Ident>;
 

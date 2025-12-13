@@ -45,13 +45,13 @@
 //! [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
 //! [`InternerId`]: crate::aiplan4rust::interner::InternerId
 //! [`InternerDisplay`]: crate::aiplan4rust::interner::InternerDisplay
-//! [`SyntaxDisplay`]: crate::aiplan4rust::syntax::SyntaxDisplay
+//! [`SyntaxDisplay`]: crate::aiplan4rust::syntax::SyntaxInternerDisplay
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerId, StringInterner};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxDisplay};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// An interned identifier represented by a `usize` index.
 ///
@@ -225,7 +225,7 @@ impl InternerDisplay for Ident {
     }
 }
 
-impl SyntaxDisplay for Ident {
+impl SyntaxInternerDisplay for Ident {
     /// Formats the identifier with indentation and using the `StringInterner`.
     ///
     /// # Arguments
@@ -237,7 +237,7 @@ impl SyntaxDisplay for Ident {
     /// # Returns
     ///
     /// A `fmt::Result`.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,

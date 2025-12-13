@@ -45,13 +45,13 @@
 //! [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
 //! [`InternerId`]: crate::aiplan4rust::interner::InternerId
 //! [`InternerDisplay`]: crate::aiplan4rust::interner::InternerDisplay
-//! [`SyntaxDisplay`]: crate::aiplan4rust::syntax::SyntaxDisplay
+//! [`SyntaxDisplay`]: crate::aiplan4rust::syntax::SyntaxInternerDisplay
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerId, StringInterner};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxDisplay};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// An interned literal string identifier.
 ///
@@ -217,7 +217,7 @@ impl InternerDisplay for Literal {
     }
 }
 
-impl SyntaxDisplay for Literal {
+impl SyntaxInternerDisplay for Literal {
     /// Formats the literal with indentation for pretty-printing in syntax trees.
     ///
     /// # Arguments
@@ -227,7 +227,7 @@ impl SyntaxDisplay for Literal {
     ///
     /// # Returns
     /// * `fmt::Result` indicating success or failure.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,

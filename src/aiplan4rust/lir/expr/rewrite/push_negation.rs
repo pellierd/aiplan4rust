@@ -232,7 +232,7 @@ mod tests {
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxDisplay;
+    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test pushing negation through AND using De Morgan's law.
     /// Input: (not (and (A) (B))) -> (or (not (A)) (not (B)))
@@ -249,9 +249,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -281,9 +281,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -314,9 +314,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -347,9 +347,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -377,9 +377,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -410,9 +410,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 
@@ -466,9 +466,9 @@ mod tests {
         builder.set_root(root).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string(&interner);
+        let input = expr.to_syntax_string_with_interner(&interner);
         push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string(&interner);
+        let output = expr.to_syntax_string_with_interner(&interner);
 
         print!("{} -> {} ", input, output);
 

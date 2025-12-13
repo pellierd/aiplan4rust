@@ -5,7 +5,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 use crate::aiplan4rust::syntax::tree::renderers::syntax::{task, typed_list};
 
@@ -146,7 +146,7 @@ pub fn render_with_indent<T: SyntaxNode>(
         RenderKind::TypesDef => {
             f.write_str(&indent_str)?;
             write!(f, "(")?;
-            node.render_kind().fmt_syntax(f, interner)?;
+            node.render_kind().fmt_syntax_with_interner(f, interner)?;
             writeln!(f)?;
 
             if let Some(child_id) = node.children().first() {
@@ -179,7 +179,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
                 // Try to get the syntax
                 if let Some(child_node) = arena.get_node(*child_id) {
-                    write!(f, "{}",  child_node.content().to_syntax_string(interner))?;
+                    write!(f, "{}",  child_node.content().to_syntax_string_with_interner(interner))?;
                 } else {
                     write!(f, "<invalid_node>")?;
                 }
@@ -224,7 +224,7 @@ pub fn render_with_indent<T: SyntaxNode>(
                         // Write indentation before the single type_checker
                         write!(f, "{}", indent_str)?;
                         // Recursively format the type_checker content with the current indentation
-                        write!(f, "{}",  ty_node.content().to_syntax_string(interner))
+                        write!(f, "{}",  ty_node.content().to_syntax_string_with_interner(interner))
                     } else {
                         write!(f, "{}<invalid_node>", indent_str)
                     }
@@ -238,7 +238,7 @@ pub fn render_with_indent<T: SyntaxNode>(
                         write!(f, " ")?;
                         if let Some(ty_node) = arena.get_node(*child_id) {
                             // Format each type_checker content recursively, no extra indent here since on the same line
-                            write!(f, "{}",  ty_node.content().to_syntax_string(interner))?;
+                            write!(f, "{}",  ty_node.content().to_syntax_string_with_interner(interner))?;
                         } else {
                             write!(f, "<invalid_node>")?;
                         }
@@ -455,7 +455,7 @@ pub fn render_with_indent<T: SyntaxNode>(
         | RenderKind::TaskLogicalConstraintDef => {
             // Write the kind label
             write!(f, "{}", indent_str)?;
-            node.render_kind().fmt_syntax(f, interner)?;
+            node.render_kind().fmt_syntax_with_interner(f, interner)?;
 
             // Newline after the label
             writeln!(f)?;
@@ -534,7 +534,7 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, "{}(", indent_str)?;
 
             // Write the operator keyword using syntax syntax formatting
-            node.render_kind().fmt_syntax(f, interner)?;
+            node.render_kind().fmt_syntax_with_interner(f, interner)?;
 
             // Format each child syntax, separated by spaces
             for child_id in node.children() {
@@ -555,7 +555,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
             // 1. (forall / (exists + début ligne
             write!(f, "{}(", indent_str)?;
-            node.render_kind().fmt_syntax(f, interner)?;
+            node.render_kind().fmt_syntax_with_interner(f, interner)?;
             write!(f, " ")?;
 
             // 2. Variables quantifiées (sur la même ligne)
@@ -597,7 +597,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
             // 1. (when + début ligne
             write!(f, "{}(", indent_str)?;
-            node.render_kind().fmt_syntax(f, interner)?;
+            node.render_kind().fmt_syntax_with_interner(f, interner)?;
             write!(f, " ")?;
 
             // 2. Condition sur la même ligne
@@ -680,7 +680,7 @@ pub fn render_with_indent<T: SyntaxNode>(
         RenderKind::OrderedSubtaskDef | RenderKind::PartiallyOrderedSubtaskDef => {
             // Write the type_checker of subtask with current indentation
             write!(f, "{}", indent_str)?;
-            node.render_kind().fmt_syntax(f, interner)?;
+            node.render_kind().fmt_syntax_with_interner(f, interner)?;
             writeln!(f)?;
 
             let mut children = node.children().iter();
@@ -692,7 +692,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
                     // Begin the clause with increased indentation: (and
                     write!(f, "{}(", RenderKind::make_indent(indent + 1))?;
-                    and_node.render_kind().fmt_syntax(f, interner)?; // prints "and"
+                    and_node.render_kind().fmt_syntax_with_interner(f, interner)?; // prints "and"
 
                     if and_children.is_empty() {
                         // Empty case, close the clause on the same line
@@ -786,7 +786,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
                     // Write opening line for the 'and' clause with increased indentation
                     write!(f, "{}(", T::make_indent(indent + 1))?;
-                    and_node.render_kind().fmt_syntax(f, interner)?; // prints "and"
+                    and_node.render_kind().fmt_syntax_with_interner(f, interner)?; // prints "and"
 
                     if and_children.is_empty() {
                         write!(f, ")")?;
@@ -991,7 +991,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
             // Opening line
             write!(f, "{}(", indent_str)?;
-            node.render_kind().fmt_syntax(f, interner)?;
+            node.render_kind().fmt_syntax_with_interner(f, interner)?;
             writeln!(f)?;
 
             // Children on their own line(s), indented
@@ -1168,7 +1168,7 @@ pub fn render_with_indent<T: SyntaxNode>(
         | RenderKind::PrefName
         | RenderKind::Requirement
         | RenderKind::TaskID => {
-            write!(f, "{}{}", indent_str, node.content().to_syntax_string(interner))
+            write!(f, "{}{}", indent_str, node.content().to_syntax_string_with_interner(interner))
         }
 
         RenderKind::TotalTime => {

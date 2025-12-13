@@ -20,7 +20,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -152,8 +152,8 @@ impl InternerDisplay for TypedSymbol {
 /// y - location
 /// z - (either robot vehicle)
 /// ```
-impl SyntaxDisplay for TypedSymbol {
-    fn fmt_syntax_with_indent(
+impl SyntaxInternerDisplay for TypedSymbol {
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
@@ -171,7 +171,7 @@ impl SyntaxDisplay for TypedSymbol {
         // If the type_checker is not empty, print " - " followed by the type_checker
         if !self.ty.is_empty() {
             write!(f, " - ")?;
-            self.ty.fmt_syntax(f, interner)?;
+            self.ty.fmt_syntax_with_interner(f, interner)?;
         }
 
         Ok(())

@@ -17,7 +17,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::lang::error::LangError;
 
@@ -318,8 +318,8 @@ impl InternerDisplay for Type {
 /// t.fmt_planning(&mut s, &interner).unwrap();
 /// assert_eq!(s, "(either robot vehicle)");
 /// ```
-impl SyntaxDisplay for Type {
-    fn fmt_syntax_with_indent(
+impl SyntaxInternerDisplay for Type {
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
         interner: &StringInterner,

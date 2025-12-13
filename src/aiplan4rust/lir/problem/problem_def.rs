@@ -6,7 +6,7 @@
 
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork,LiftedProblem};
-use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
@@ -88,14 +88,13 @@ impl<'a> ProblemDef<'a> {
 }
 
 impl<'a> SyntaxDisplay for ProblemDef<'a> {
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, _indent: usize) -> fmt::Result {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::syntax::render_problem_def(f, &self.problem.problem_def(), self.interner())
     }
 }
 
-impl<'a> InternerDisplay for ProblemDef<'a> {
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
-        // To do
+impl<'a> SelfInternerDisplay for ProblemDef<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::interner::render_problem(f, self.problem, self.problem.interner())
     }
 }

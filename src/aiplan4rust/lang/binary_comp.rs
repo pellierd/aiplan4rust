@@ -33,7 +33,7 @@ use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
 use crate::aiplan4rust::syntax::lexer::token::LESS;
 use crate::aiplan4rust::syntax::lexer::token::LESS_EQ;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
@@ -149,7 +149,7 @@ impl InternerDisplay for BinaryComp {
 /// let comp = BinaryComp::Eq;
 /// let s = comp.to_string_with_interner(&interner); // Delegates to Display
 /// ```
-impl SyntaxDisplay for BinaryComp {
+impl SyntaxInternerDisplay for BinaryComp {
     /// Formats the `BinaryComp` using the provided formatter.
     ///
     /// # Arguments
@@ -160,7 +160,7 @@ impl SyntaxDisplay for BinaryComp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
         let indent_str = Self::make_indent(indent);
         f.write_str(&indent_str)?;
         fmt::Display::fmt(self, f)

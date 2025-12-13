@@ -16,7 +16,7 @@ use crate::aiplan4rust::syntax::lexer::token::{
     PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER,
     SOMETIME_BEFORE, SUBTASKS, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN,
 };
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -404,7 +404,7 @@ impl fmt::Display for Kind {
     }
 }
 
-impl SyntaxDisplay for Kind {
+impl SyntaxInternerDisplay for Kind {
     /// Formats the `Kind` enum as a syntax keyword string with indentation.
     ///
     /// This method writes an appropriate keyword corresponding to the variant of
@@ -430,7 +430,7 @@ impl SyntaxDisplay for Kind {
     /// kind.fmt_syntax_with_indent(&mut output, &interner, 4).unwrap();
     /// assert_eq!(output, "    action");
     /// ```
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         _interner: &StringInterner,

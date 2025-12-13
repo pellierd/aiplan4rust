@@ -24,7 +24,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents a syntax task declaration in HDDL.
 ///
@@ -137,16 +137,16 @@ impl InternerDisplay for Task {
     }
 }
 
-impl SyntaxDisplay for Task {
+impl SyntaxInternerDisplay for Task {
     /// Formats the task in a syntax-oriented representation.
     ///
     /// This can be used to reconstruct or pretty-print the original declaration.
-    fn fmt_syntax_with_indent(
+    fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        self.header.fmt_syntax_with_indent(f, interner, indent)
+        self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)
     }
 }
