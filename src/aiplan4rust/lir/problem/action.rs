@@ -299,18 +299,57 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
 }
 
 impl fmt::Display for Action {
-    /// Formats the `Action` for display purposes.
+    /// Formats the `Action` for human-readable output.
     ///
-    /// Prints the name, parameters, precondition, and effect in a human-readable way.
+    /// This implementation uses the default renderer to display the action's
+    /// name, parameters, precondition, and effect in a readable form.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write into.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let action: Action = todo!();
+    /// let mut s = String::new();
+    /// write!(&mut s, "{}", action).unwrap();
+    /// println!("{}", s);
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         renderers::default::render_action(f, self)
     }
 }
 
 impl InternerDisplay for Action {
-    /// Formats the `Action` using a string interner for symbol resolution.
+    /// Formats the `Action` using a [`StringInterner`] to resolve interned symbols.
     ///
-    /// Useful for pretty-printing names and parameters with interning.
+    /// This implementation resolves names and parameters for human-readable output.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write into.
+    /// * `interner` - The [`StringInterner`] used to resolve identifiers.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let action: Action = todo!();
+    /// # let interner: StringInterner = todo!();
+    /// let mut s = String::new();
+    /// action.fmt_with_interner(&mut s, &interner).unwrap();
+    /// println!("{}", s);
+    /// ```
     fn fmt_with_interner(
         &self,
         f: &mut Formatter<'_>,
@@ -321,9 +360,31 @@ impl InternerDisplay for Action {
 }
 
 impl SyntaxInternerDisplay for Action {
-    /// Formats the `Action` syntax for display, delegating to `fmt_with_interner`.
+    /// Formats the `Action` in a syntax-oriented form using a [`StringInterner`] and indentation.
     ///
-    /// The output is indented according to the `indent` parameter.
+    /// Produces a PDDL-like syntax representation of the action, including
+    /// parameters, precondition, and effect, with indentation according to `indent`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write into.
+    /// * `interner` - The [`StringInterner`] used to resolve interned identifiers.
+    /// * `indent` - The indentation level for the rendered syntax.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let action: Action = todo!();
+    /// # let interner: StringInterner = todo!();
+    /// let mut s = String::new();
+    /// action.fmt_syntax_with_interner_and_indent(&mut s, &interner, 2).unwrap();
+    /// println!("{}", s);
+    /// ```
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,

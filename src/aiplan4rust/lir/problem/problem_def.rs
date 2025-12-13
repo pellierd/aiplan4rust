@@ -1,11 +1,40 @@
-//! Wrappers for domain and problem views.
+//! Module `problem_def`
 //!
-//! This module provides lightweight wrapper structs for `Domain` and `Problem`
-//! that delegate access to a `LiftedProblem` while allowing specialized rendering
-//! and domain-/problem-specific logic.
+//! This module provides wrapper structs for domain and problem views of a
+//! [`LiftedProblem`]. The wrappers offer convenient read-only access to
+//! domain- or problem-specific information and specialized rendering capabilities.
+//!
+//! The primary wrapper in this module is [`ProblemDef`], which focuses on
+//! problem-level details such as objects, initial/goal state, constraints,
+//! metrics, length, and the initial task network.
+//!
+//! These wrappers implement formatting traits to allow flexible rendering:
+//! - [`SyntaxDisplay`] – produces a syntax-oriented string representation.
+//! - [`SelfInternerDisplay`] – uses the internal `StringInterner` for resolving identifiers.
+//! - [`Display`] – default string representation for convenience.
+//!
+//! # Example
+//!
+//! ```rust
+//! use crate::aiplan4rust::lir::problem::{LiftedProblem, ProblemDef};
+//!
+//! # let problem: LiftedProblem = todo!();
+//! let problem_wrapper = ProblemDef::new(&problem);
+//!
+//! // Access problem-level information
+//! let name = problem_wrapper.problem_name();
+//! let domain = problem_wrapper.domain_name();
+//! let objects = problem_wrapper.objects();
+//! let init_state = problem_wrapper.init();
+//! let goal_state = problem_wrapper.goal();
+//! let constraints = problem_wrapper.problem_constraints();
+//! let metric = problem_wrapper.metric_spec();
+//! let length = problem_wrapper.length_spec();
+//! let task_network = problem_wrapper.initial_task_network();
+//! ```
 
 use std::fmt::{self, Display, Formatter};
-use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork,LiftedProblem};
+use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
@@ -13,94 +42,170 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around a specific problem instance within a domain.
 ///
-/// Provides access to problem-specific information such as:
-/// - Problem name
-/// - Objects
-/// - Initial state
-/// - Goal state
-/// - Problem-specific constraints
-/// - Metric and length specifications
-/// - Initial task network
+/// `ProblemDef` provides convenient access to problem-specific information
+/// extracted from a [`LiftedProblem`]. It allows read-only inspection of all
+/// elements defining a problem, including objects, initial/goal states,
+/// constraints, metrics, length, and the initial task network.
+///
+/// This struct is typically used when analyzing or rendering a problem without
+/// modifying it.
 #[derive(Debug, Clone)]
 pub struct ProblemDef<'a> {
     problem: &'a LiftedProblem,
 }
 
 impl<'a> ProblemDef<'a> {
-    /// Constructs a new `Problem` wrapper from a reference to a `LiftedProblem`.
+    /// Constructs a new `ProblemDef` wrapper from a reference to a `LiftedProblem`.
+    ///
+    /// # Parameters
+    /// - `problem`: Reference to the [`LiftedProblem`] to wrap.
+    ///
+    /// # Returns
+    /// A new `ProblemDef` instance wrapping the provided problem.
     pub fn new(problem: &'a LiftedProblem) -> Self {
         Self { problem }
     }
 
     /// Returns the set of requirements declared in the domain.
+    ///
+    /// # Returns
+    /// Reference to a [`HashSet`] of [`Requirement`] representing the domain requirements.
     pub fn requirements(&self) -> &std::collections::HashSet<Requirement> {
         self.problem.requirements()
     }
 
     /// Returns the problem name.
+    ///
+    /// # Returns
+    /// An [`Ident`] representing the problem name.
     pub fn problem_name(&self) -> Ident {
         self.problem.problem_name()
     }
 
+    /// Returns the domain name associated with this problem.
+    ///
+    /// # Returns
+    /// An [`Ident`] representing the domain name.
     pub fn domain_name(&self) -> Ident {
         self.problem.domain_name()
     }
 
     /// Returns the string interner associated with this problem.
+    ///
+    /// # Returns
+    /// Reference to the [`StringInterner`] used by the problem.
     pub fn interner(&self) -> &StringInterner {
         self.problem.interner()
     }
 
     /// Returns the objects defined in this problem.
+    ///
+    /// # Returns
+    /// Reference to a [`HashSet`] of [`TypedSymbol`] representing problem objects.
     pub fn objects(&self) -> &std::collections::HashSet<TypedSymbol> {
         self.problem.objects()
     }
 
-    /// Returns the initial state.
+    /// Returns the initial state expression.
+    ///
+    /// # Returns
+    /// Reference to an [`Expr`] representing the initial state of the problem.
     pub fn init(&self) -> &Expr {
         self.problem.init()
     }
 
-    /// Returns the goal expression.
+    /// Returns the goal state expression.
+    ///
+    /// # Returns
+    /// Reference to an [`Expr`] representing the goal condition of the problem.
     pub fn goal(&self) -> &Expr {
         self.problem.goal()
     }
 
-    /// Returns the problem-specific constraints.
+    /// Returns problem-specific constraints.
+    ///
+    /// # Returns
+    /// Reference to an [`Expr`] representing constraints defined specifically for this problem.
     pub fn problem_constraints(&self) -> &Expr {
         self.problem.problem_constraints()
     }
 
-    /// Returns the metric specification.
+    /// Returns the metric specification for the problem.
+    ///
+    /// # Returns
+    /// Reference to an [`Expr`] representing the metric expression, if any.
     pub fn metric_spec(&self) -> &Expr {
         self.problem.metric_spec()
     }
 
-    /// Returns the length specification.
+    /// Returns the length specification for the problem.
+    ///
+    /// # Returns
+    /// Reference to an [`Expr`] representing the length specification, if any.
     pub fn length_spec(&self) -> &Expr {
         self.problem.length_spec()
     }
 
-    /// Returns the initial task network.
+    /// Returns the initial task network of the problem.
+    ///
+    /// # Returns
+    /// Reference to an [`InitialTaskNetwork`] representing the problem's initial task network.
     pub fn initial_task_network(&self) -> &InitialTaskNetwork {
         self.problem.initial_task_network()
     }
 }
 
 impl<'a> SyntaxDisplay for ProblemDef<'a> {
+    /// Formats the problem as a syntax string suitable for output or serialization.
+    ///
+    /// This implementation delegates to `renderers::syntax::render_problem_def`,
+    /// passing the underlying [`LiftedProblem`] and its associated [`StringInterner`].
+    ///
+    /// # Parameters
+    /// - `f`: The [`Formatter`] to write the formatted output into.
+    ///
+    /// # Returns
+    /// [`fmt::Result`] indicating whether formatting succeeded or failed.
     fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::syntax::render_problem_def(f, &self.problem.problem_def(), self.interner())
     }
 }
 
 impl<'a> SelfInternerDisplay for ProblemDef<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    /// Formats the problem using its internal [`StringInterner`].
+    ///
+    /// This allows resolving interned identifiers when rendering the problem.
+    /// Delegates to `renderers::interner::render_problem`.
+    ///
+    /// # Parameters
+    /// - `f`: The [`Formatter`] to write the output into.
+    ///
+    /// # Returns
+    /// [`fmt::Result`] indicating success or failure.
+    fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::interner::render_problem(f, self.problem, self.problem.interner())
     }
 }
+
 impl<'a> Display for ProblemDef<'a> {
+    /// Provides the default human-readable string representation of the problem.
+    ///
+    /// This implementation delegates to `renderers::default::render_problem`.
+    ///
+    /// # Parameters
+    /// - `f`: The [`Formatter`] to write the output into.
+    ///
+    /// # Returns
+    /// [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Display;
+    /// let problem_def: ProblemDef = /* obtain ProblemDef */;
+    /// println!("{}", problem_def); // Uses this Display implementation
+    /// ```
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        // To do
         renderers::default::render_problem(f, self.problem)
     }
 }

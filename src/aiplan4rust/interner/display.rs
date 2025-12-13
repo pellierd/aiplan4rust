@@ -147,7 +147,7 @@ pub trait SelfInternerDisplay {
     /// # Returns
     ///
     /// A [`fmt::Result`] indicating success or failure of the formatting.
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
+    fn fmt_interner(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
 
     /// Attempts to format the value into a `String` using its internal interner.
     ///
@@ -207,6 +207,6 @@ impl<'a, T: SelfInternerDisplay + ?Sized> fmt::Display for SelfInternerDisplayWr
     ///
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(f)
+        self.value.fmt_interner(f)
     }
 }

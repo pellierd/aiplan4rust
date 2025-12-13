@@ -44,7 +44,7 @@ use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::problem::{normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedMethod};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
@@ -650,27 +650,108 @@ impl Problem {
         Ok(normalize::normalize_problem(self)?)
     }
 
+    /// Returns a wrapper around the domain view of this problem.
+    ///
+    /// The returned [`DomainDef`] provides read-only access to all domain-level
+    /// information, such as types, constants, predicates, functions, actions,
+    /// methods, requirements, and domain-level constraints.
+    ///
+    /// # Returns
+    /// A [`DomainDef`] instance borrowing the current `LiftedProblem`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let problem: LiftedProblem = /* obtain LiftedProblem */;
+    /// let domain = problem.domain_def();
+    /// println!("Domain name: {}", domain.domain_name());
+    /// ```
     pub fn domain_def(&self) -> DomainDef<'_> {
         DomainDef::new(self)
     }
 
+    /// Returns a wrapper around the problem view of this problem.
+    ///
+    /// The returned [`ProblemDef`] provides read-only access to all problem-specific
+    /// information, such as objects, initial state, goal state, problem constraints,
+    /// metric and length specifications, and the initial task network.
+    ///
+    /// # Returns
+    /// A [`ProblemDef`] instance borrowing the current `LiftedProblem`.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// let problem: LiftedProblem = /* obtain LiftedProblem */;
+    /// let problem_def = problem.problem_def();
+    /// println!("Problem name: {}", problem_def.problem_name());
+    /// ```
     pub fn problem_def(&self) -> ProblemDef<'_> {
         ProblemDef::new(self)
     }
 
-    pub fn string_with_interner(&self) -> String {
-        format!("{}", self)
-    }
+}
 
-    pub fn syntax_string(&self) -> String {
-        format!("{}\n{}", self.domain_def().to_syntax_string(), self.problem_def().to_syntax_string())
+impl SyntaxDisplay for Problem {
+    /// Formats the entire problem, including both domain and problem definitions,
+    /// as a syntax string.
+    ///
+    /// This implementation delegates rendering to the syntax renderers for
+    /// the domain (`render_domain_def`) and the problem (`render_problem_def`),
+    /// inserting a newline between them.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the syntax string into.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        renderers::syntax::render_domain_def(f, &self.domain_def(), &self.interner())?;
+        writeln!(f)?;
+        renderers::syntax::render_problem_def(f, &self.problem_def(), &self.interner())
+    }
+}
+
+impl SelfInternerDisplay for Problem {
+    /// Formats the problem using its internal `StringInterner`, including both
+    /// domain and problem definitions.
+    ///
+    /// This implementation delegates rendering to the interner-aware renderers
+    /// for the domain (`render_domain_def`) and the problem (`render_problem_def`),
+    /// inserting a newline between them.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the string into.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        renderers::interner::render_domain_def(f, &self.domain_def(), &self.interner())?;
+        writeln!(f)?;
+        renderers::interner::render_problem_def(f, &self.problem_def(), &self.interner())
     }
 }
 
 impl Display for Problem {
+    /// Implements standard Rust [`Display`] for the problem.
+    ///
+    /// Delegates to the default interner-aware renderer for the entire problem.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the output into.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::interner::render_problem(f, &self, &self.interner())
     }
 }
 
-impl SerdeSerializable for Problem {}
+impl SerdeSerializable for Problem {
+}

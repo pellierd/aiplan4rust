@@ -158,9 +158,6 @@ impl InternerDisplay for InitialTaskNetwork {
 impl SyntaxInternerDisplay for InitialTaskNetwork {
     /// Formats the initial task network syntax using a string interner.
     fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
-        // Write the indentation prefix
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-        self.fmt_with_interner(f, interner)
+        renderers::syntax::render_initial_task_network(f, self, interner, indent)
     }
 }

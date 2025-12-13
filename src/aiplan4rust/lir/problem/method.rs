@@ -249,28 +249,101 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Method {
 
 impl fmt::Display for Method {
     /// Formats the `Method` for human-readable output.
+    ///
+    /// This implementation uses the default renderer to produce a readable
+    /// representation of the method, including its name, parameters,
+    /// task, precondition, and task network.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write into.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let method: Method = todo!();
+    /// let mut s = String::new();
+    /// write!(&mut s, "{}", method).unwrap();
+    /// println!("{}", s);
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         renderers::default::render_method(f, self)
     }
 }
 
 impl InternerDisplay for Method {
-    /// Formats the `Method` using a string interner for name resolution.
+    /// Formats the `Method` using a [`StringInterner`] for name resolution.
+    ///
+    /// This implementation resolves interned identifiers for the method's
+    /// name and parameters before rendering, producing a string that
+    /// reflects the human-readable names of all symbols.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write into.
+    /// * `interner` - The [`StringInterner`] used to resolve interned identifiers.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let method: Method = todo!();
+    /// # let interner: StringInterner = todo!();
+    /// let mut s = String::new();
+    /// method.fmt_with_interner(&mut s, &interner).unwrap();
+    /// println!("{}", s);
+    /// ```
     fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-       renderers::interner::render_method(f, self, interner)
+        renderers::interner::render_method(f, self, interner)
     }
 }
 
 impl SyntaxInternerDisplay for Method {
-    /// Formats the `Method` syntax with a string interner.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
-        // Write the indentation prefix
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-        self.fmt_with_interner(f, interner)
+    /// Formats the `Method` syntax with a [`StringInterner`] and optional indentation.
+    ///
+    /// This implementation produces a PDDL-like syntax representation of the method,
+    /// including its parameters, task, precondition, and task network, indented
+    /// according to the `indent` parameter for readability.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write into.
+    /// * `interner` - The [`StringInterner`] used to resolve interned identifiers.
+    /// * `indent` - The indentation level to apply to the rendered syntax.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let method: Method = todo!();
+    /// # let interner: StringInterner = todo!();
+    /// let mut s = String::new();
+    /// method.fmt_syntax_with_interner_and_indent(&mut s, &interner, 2).unwrap();
+    /// println!("{}", s);
+    /// ```
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize
+    ) -> fmt::Result {
+        renderers::syntax::render_method(f, self, interner, indent)
     }
 }
