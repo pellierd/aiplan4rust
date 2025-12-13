@@ -4,6 +4,7 @@ use crate::aiplan4rust::lir::problem::{
 };
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
+use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 
 /// Renders a `LiftedProblem` in a human-readable, nicely formatted way using a `Formatter`.
 ///
@@ -156,6 +157,270 @@ pub fn render_problem(
             writeln!(f)?;
         }
     }
+
+    // Init
+    writeln_centered(f, "INIT", 80, '=')?;
+    writeln!(f, "{}\n", problem.init().to_string_with_interner(interner))?;
+
+    // Goal
+    writeln_centered(f, "GOAL", 80, '=')?;
+    writeln!(f, "{}\n", problem.goal().to_string_with_interner(interner))?;
+
+    // Problem constraints
+    writeln_centered(f, "PROBLEM CONSTRAINTS", 80, '=')?;
+    writeln!(f, "{}\n", problem.problem_constraints().to_string_with_interner(interner))?;
+
+    // Metric spec
+    writeln_centered(f, "METRIC SPEC", 80, '=')?;
+    writeln!(f, "{}\n", problem.metric_spec().to_string_with_interner(interner))?;
+
+    // Length spec
+    writeln_centered(f, "LENGTH SPEC", 80, '=')?;
+    writeln!(f, "{}\n", problem.length_spec().to_string_with_interner(interner))?;
+
+    // Initial Task Network
+    writeln_centered(f, "INITIAL TASK NETWORK", 80, '=')?;
+    render_initial_task_network(f, problem.initial_task_network(), interner)?;
+    writeln!(f)?;
+
+    Ok(())
+}
+
+/// Renders a human-readable representation of a `DomainDef` into a formatter.
+///
+/// This function formats and writes the full contents of a planning domain,
+/// including its metadata, requirements, types, constants, predicates,
+/// functions, domain constraints, actions, and methods. The output is intended
+/// for inspection, debugging, or pretty-printing rather than for direct
+/// consumption by a planner.
+///
+/// # Parameters
+///
+/// - `f`: A mutable reference to a [`fmt::Formatter`] used as the output target.
+/// - `problem`: The [`DomainDef`] to be rendered.
+/// - `interner`: A [`StringInterner`] used to resolve identifiers into readable strings.
+///
+/// # Returns
+///
+/// Returns [`fmt::Result`]. An error is propagated if any write operation to
+/// the formatter fails.
+///
+/// # Output Structure
+///
+/// The rendered output is organized into clearly delimited sections:
+/// - **Domain header** (domain name)
+/// - **Requirements**
+/// - **Types**
+/// - **Constants**
+/// - **Predicates**
+/// - **Functions**
+/// - **Domain constraints**
+/// - **Actions**
+/// - **Methods**
+///
+/// Each section is preceded by a centered title for improved readability.
+///
+/// # Notes
+///
+/// - Identifiers that cannot be resolved by the interner are rendered as
+///   `"<unknown>"`.
+/// - Empty sections (e.g., no types, predicates, actions, or methods) are
+///   explicitly indicated in the output.
+/// - Actions and methods are rendered using their dedicated helper functions
+///   ([`render_action`] and [`render_method`]).
+/// - This function writes directly to the provided formatter and does not
+///   allocate intermediate strings.
+///
+/// # See Also
+///
+/// - [`render_action`]
+/// - [`render_method`]
+/// - [`DomainDef`]
+pub fn render_domain_def(
+    f: &mut fmt::Formatter<'_>,
+    domain: &DomainDef,
+    interner: &StringInterner,
+) -> fmt::Result {
+    writeln_centered(f, "DOMAIN DEF", 80, '=')?;
+    writeln!(
+        f,
+        "DOMAIN NAME  : {}",
+        interner.resolve_ident(domain.domain_name()).unwrap_or("<unknown>")
+    )?;
+
+    // Requirements
+    writeln_centered(f, "REQUIREMENTS", 80, '=')?;
+    let mut reqs: Vec<_> = domain.requirements().iter().collect();
+    if reqs.is_empty() {
+        writeln!(f, "  - no requirements")?;
+    } else {
+        reqs.sort();
+        for r in reqs {
+            writeln!(f, "  - {}", r)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Types
+    writeln_centered(f, "TYPES", 80, '=')?;
+    if domain.types().is_empty() {
+        writeln!(f, "  - no types")?;
+    } else {
+        for t in domain.types() {
+            writeln!(f, "  - {}", t.to_string_with_interner(interner))?;
+        }
+    }
+    writeln!(f)?;
+
+    // Constants
+    writeln_centered(f, "CONSTANTS", 80, '=')?;
+    if domain.constants().is_empty() {
+        writeln!(f, "  - no constants")?;
+    } else {
+        for c in domain.constants() {
+            writeln!(f, "  - {}", c.to_string_with_interner(interner))?;
+        }
+    }
+    writeln!(f)?;
+
+    // Predicates
+    writeln_centered(f, "PREDICATES", 80, '=')?;
+    if domain.predicates().is_empty() {
+        writeln!(f, "  - no predicates")?;
+    } else {
+        for p in domain.predicates() {
+            writeln!(f, "  - {}", p.to_string_with_interner(interner))?;
+        }
+    }
+    writeln!(f)?;
+
+    // Functions
+    writeln_centered(f, "FUNCTIONS", 80, '=')?;
+    if domain.functions().is_empty() {
+        writeln!(f, "  - no functions")?;
+    } else {
+        for func in domain.functions() {
+            writeln!(f, "  - {}", func.to_string_with_interner(interner))?;
+        }
+    }
+    writeln!(f)?;
+
+    // Domain constraints
+    writeln_centered(f, "DOMAIN CONSTRAINTS", 80, '=')?;
+    let dc = domain.domain_constraints();
+    writeln!(f, "{}\n", dc.to_string_with_interner(interner))?;
+
+    // Actions
+    if domain.actions().is_empty() {
+        writeln!(f, "  - no actions\n")?;
+    } else {
+        for action in domain.actions() {
+            render_action(f, action, interner)?;
+            writeln!(f)?;
+        }
+    }
+
+    // Methods
+    if domain.methods().is_empty() {
+        writeln!(f, "  - no methods\n")?;
+    } else {
+        for method in domain.methods() {
+            render_method(f, method, interner)?;
+            writeln!(f)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Renders a human-readable representation of a `ProblemDef` into a formatter.
+///
+/// This function formats and writes the full contents of a planning problem,
+/// including its metadata, requirements, constants, objects, initial state,
+/// goal, constraints, metrics, length specification, and initial task network.
+/// The output is intended for inspection, debugging, or pretty-printing
+/// rather than for direct consumption by a planner.
+///
+/// # Parameters
+///
+/// - `f`: A mutable reference to a [`fmt::Formatter`] used as the output target.
+/// - `problem`: The [`ProblemDef`] to be rendered.
+/// - `interner`: A [`StringInterner`] used to resolve identifiers into readable strings.
+///
+/// # Returns
+///
+/// Returns [`fmt::Result`]. An error is propagated if any write operation to
+/// the formatter fails.
+///
+/// # Output Structure
+///
+/// The rendered output is organized into clearly delimited sections:
+/// - **Problem header** (domain name and problem name)
+/// - **Requirements**
+/// - **Constants**
+/// - **Objects**
+/// - **Init**
+/// - **Goal**
+/// - **Problem constraints**
+/// - **Metric specification**
+/// - **Length specification**
+/// - **Initial task network**
+///
+/// Each section is preceded by a centered title for improved readability.
+///
+/// # Notes
+///
+/// - Identifiers that cannot be resolved by the interner are rendered as
+///   `"<unknown>"`.
+/// - Empty sections (e.g., no requirements, constants, or objects) are
+///   explicitly indicated in the output.
+/// - This function does not allocate intermediate strings; it writes directly
+///   to the provided formatter.
+///
+/// # See Also
+///
+/// - [`render_initial_task_network`]
+/// - [`ProblemDef`]
+pub fn render_problem_def(
+    f: &mut fmt::Formatter<'_>,
+    problem: &ProblemDef,
+    interner: &StringInterner,
+) -> fmt::Result {
+    writeln_centered(f, "PROBLEM DEF", 80, '=')?;
+    writeln!(
+        f,
+        "DOMAIN NAME  : {}",
+        interner.resolve_ident(problem.domain_name()).unwrap_or("<unknown>")
+    )?;
+    writeln!(
+        f,
+        "PROBLEM NAME : {}\n",
+        interner.resolve_ident(problem.problem_name()).unwrap_or("<unknown>")
+    )?;
+
+    // Requirements
+    writeln_centered(f, "REQUIREMENTS", 80, '=')?;
+    let mut reqs: Vec<_> = problem.requirements().iter().collect();
+    if reqs.is_empty() {
+        writeln!(f, "  - no requirements")?;
+    } else {
+        reqs.sort();
+        for r in reqs {
+            writeln!(f, "  - {}", r)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Objects
+    writeln_centered(f, "OBJECTS", 80, '=')?;
+    if problem.objects().is_empty() {
+        writeln!(f, "  - no objects")?;
+    } else {
+        for o in problem.objects() {
+            writeln!(f, "  - {}", o.to_string_with_interner(interner))?;
+        }
+    }
+    writeln!(f)?;
 
     // Init
     writeln_centered(f, "INIT", 80, '=')?;

@@ -50,7 +50,9 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents a lifted planning problem defined in PDDL syntax.
 ///
@@ -83,7 +85,9 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 /// # Example
 ///
 /// ```
-/// let mut problem = PlanningProblem::new();
+/// use aiplan4rust::aiplan4rust::interner::Ident;
+/// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
+/// let mut problem = LiftedProblem::new();
 /// problem.set_domain_name(Ident::new("my_domain"));
 /// problem.set_problem_name(Ident::new("my_problem"));
 ///
@@ -163,7 +167,8 @@ impl Problem {
     /// # Example
     ///
     /// ```
-    /// let problem = PlanningProblem::new();
+    /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
+    /// let problem = LiftedProblem::new();
     /// assert!(problem.actions().is_empty());
     /// assert!(problem.types().is_empty());
     /// ```
@@ -230,7 +235,7 @@ impl Problem {
     /// # Example
     ///
     /// ```
-    /// let mut problem = PlanningProblem::new();
+    /// let mut problem = LiftedProblem::new();
     /// problem.set_domain_name(Ident::new("transport"));
     /// ```
     pub fn set_domain_name(&mut self, name: Ident) {
@@ -247,7 +252,8 @@ impl Problem {
     /// # Example
     ///
     /// ```
-    /// let mut problem = PlanningProblem::new();
+    /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
+    /// let mut problem = LiftedProblem::new();
     /// problem.set_problem_name(Ident::new("logistics"));
     /// ```
     pub fn set_problem_name(&mut self, name: Ident) {
@@ -288,7 +294,8 @@ impl Problem {
     /// # Example
     ///
     /// ```
-    /// let problem = PlanningProblem::new();
+    /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
+    /// let problem = LiftedProblem::new();
     /// assert!(problem.types().is_empty());
     /// ```
     pub fn types(&self) -> &HashSet<TypedSymbol> {
@@ -643,10 +650,25 @@ impl Problem {
         Ok(normalize::normalize_problem(self)?)
     }
 
+    pub fn domain_def(&self) -> DomainDef<'_> {
+        DomainDef::new(self)
+    }
+
+    pub fn problem_def(&self) -> ProblemDef<'_> {
+        ProblemDef::new(self)
+    }
+
     pub fn to_string_with_interner(&self) -> String {
         format!("{}", self)
     }
 
+    pub fn to_syntax_string(&self) -> String {
+        let domain = DomainDef::new(self);
+        let domain_str = domain.to_syntax_string(self.interner());
+        let problem = ProblemDef::new(self);
+        let problem_str = problem.to_syntax_string(self.interner());
+        format!("{}\n{}", domain_str, problem_str)
+    }
 }
 
 impl Display for Problem {

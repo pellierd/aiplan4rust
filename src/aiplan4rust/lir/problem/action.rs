@@ -330,8 +330,6 @@ impl SyntaxDisplay for Action {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-        self.fmt_with_interner(f, interner)
+        renderers::syntax::render_action(f, self, interner, indent)
     }
 }

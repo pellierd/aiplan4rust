@@ -158,8 +158,12 @@ impl LirBuilder {
         //print!("------------- PROBLEM -------------\n{}", lifted_problem.to_string_with_interner());
         //println!("-----------------------------------");
 
-        print!("------------- PROBLEM -------------\n{}", lifted_problem);
+        //print!("------------- PROBLEM -------------\n{}", lifted_problem);
+        //println!("-----------------------------------");
+
+        print!("------------- DOMAIN -------------\n{}", lifted_problem.to_syntax_string());
         println!("-----------------------------------");
+
 
         // 6. Normalize all expressions in the problem to canonical form
         //    This includes actions, methods, initial task network, and constraints

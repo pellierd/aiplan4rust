@@ -30,6 +30,8 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
+use crate::aiplan4rust::syntax;
+use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// Abstract skeleton core to both predicates and functions in PDDL.
@@ -193,8 +195,11 @@ impl InternerDisplay for NamedTypedList {
 impl SyntaxDisplay for NamedTypedList {
     /// Formats the syntax representation of the `NamedTypedList` using an interner.
     fn fmt_syntax_with_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-        self.fmt_with_interner(f, interner)
+        syntax::display::write_indent(f,indent)?;
+        write!(f, "{}", Token::LParen)?;
+        self.name.fmt_syntax_with_indent(f, interner, indent)?;
+        write!(f, " ")?;
+        self.parameters.fmt_syntax_with_indent(f, interner, indent)?;
+        write!(f, "{}", Token::RParen)
     }
 }

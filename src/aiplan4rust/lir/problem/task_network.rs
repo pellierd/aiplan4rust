@@ -62,26 +62,45 @@ pub struct TaskNetwork {
     tasks: Expr,
     ordering_constraints: Expr,
     logical_constraints: Expr,
+    is_declared_total_ordered: bool,
 }
 
 #[allow(dead_code)]
 impl TaskNetwork {
-    /// Creates a new `TaskNetwork` with the specified tasks and constraints.
+    /// Creates a new `TaskNetwork` with the specified tasks, constraints, and ordering declaration.
     ///
     /// # Parameters
     ///
     /// - `tasks`: An [`Expr`] representing the tasks included in the network.
-    /// - `ordering_constraints`: An [`Expr`] specifying the ordering between tasks.
+    /// - `ordering_constraints`: An [`Expr`] specifying ordering relationships between tasks.
     /// - `logical_constraints`: An [`Expr`] specifying additional logical constraints among the tasks.
+    /// - `is_declared_total_ordered`: A `bool` indicating whether the task network is explicitly declared as totally ordered (`true`) or allows partial/unordered execution (`false`).
     ///
     /// # Returns
     ///
-    /// A new [`TaskNetwork`] instance.
-    pub fn new(tasks: Expr, ordering_constraints: Expr, logical_constraints: Expr) -> Self {
+    /// A new [`TaskNetwork`] instance with the provided tasks, constraints, and ordering declaration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// let tn = TaskNetwork::new(
+    ///     tasks_expr,
+    ///     ordering_constraints_expr,
+    ///     logical_constraints_expr,
+    ///     true // declared as totally ordered
+    /// );
+    /// ```
+    pub fn new(
+        tasks: Expr,
+        ordering_constraints: Expr,
+        logical_constraints: Expr,
+        is_declared_total_ordered: bool,
+    ) -> Self {
         Self {
             tasks,
             ordering_constraints,
             logical_constraints,
+            is_declared_total_ordered,
         }
     }
 
@@ -172,6 +191,24 @@ impl TaskNetwork {
         self.logical_constraints = logical_constraints;
     }
 
+    /// Returns `true` if the task network was explicitly declared as totally ordered.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the network is declared as totally ordered; `false` otherwise.
+    pub fn is_declared_total_ordered(&self) -> bool {
+        self.is_declared_total_ordered
+    }
+
+    /// Sets whether the task network should be considered explicitly totally ordered.
+    ///
+    /// # Parameters
+    ///
+    /// - `value`: A boolean indicating the new ordering declaration (`true` = total order, `false` = partial/unordered).
+    pub fn set_declared_total_ordered(&mut self, value: bool) {
+        self.is_declared_total_ordered = value;
+    }
+
     /// Normalizes the task network in-place by normalizing its logical constraints.
     ///
     /// This ensures that the expressions within the task network are in canonical form.
@@ -225,14 +262,21 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
         let mut tasks = Expr::empty_and();
         let mut ordering = Expr::empty_and();
         let mut constraints = Expr::empty_and();
+        let mut is_declared_total_ordered = false;
 
         for &child_id in children {
             let child_node = ast.try_node(child_id)?;
             match child_node.kind() {
-                AstKind::PartiallyOrderedSubtaskDef | AstKind::OrderedSubtaskDef => {
+                AstKind::PartiallyOrderedSubtaskDef  => {
                     let tasks_node_id = child_node.try_child(0)?;
                     let tasks_node = ast.try_node(tasks_node_id)?;
                     tasks = Expr::try_from(&SyntaxSubtree::new(tasks_node, ast))?;
+                }
+                AstKind::OrderedSubtaskDef => {
+                    let tasks_node_id = child_node.try_child(0)?;
+                    let tasks_node = ast.try_node(tasks_node_id)?;
+                    tasks = Expr::try_from(&SyntaxSubtree::new(tasks_node, ast))?;
+                    is_declared_total_ordered = true;
                 }
                 AstKind::TaskOrderingConstraintDef => {
                     let ordering_node_id = child_node.try_child(0)?;
@@ -250,7 +294,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
             }
         }
 
-        Ok(TaskNetwork::new(tasks, ordering, constraints))
+        Ok(TaskNetwork::new(tasks, ordering, constraints, is_declared_total_ordered))
     }
 }
 

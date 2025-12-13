@@ -446,7 +446,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
         RenderKind::Task => {
             // Call fmt_task with increased indentation level for nested formatting
-            task::render(node, f, arena, interner, true, 0)
+            task::render(node, f, arena, interner, false, 0)
         }
 
         RenderKind::PreconditionDef

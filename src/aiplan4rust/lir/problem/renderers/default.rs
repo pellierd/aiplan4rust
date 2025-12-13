@@ -3,6 +3,7 @@ use crate::aiplan4rust::lir::problem::{
     InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork,
 };
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
+use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 
 /// Renders a `LiftedProblem` in a structured, human-readable format to a `Formatter`.
 ///
@@ -148,6 +149,272 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
             writeln!(f)?;
         }
     }
+
+    // Init
+    writeln_centered(f, "INIT", 80, '=')?;
+    let init = problem.init();
+    if init.is_empty() {
+        writeln!(f, "  - no init\n")?;
+    } else {
+        writeln!(f, "{}\n", init)?;
+    }
+
+    // Goal
+    writeln_centered(f, "GOAL", 80, '=')?;
+    let goal = problem.goal();
+    if goal.is_empty() {
+        writeln!(f, "  - no goal\n")?;
+    } else {
+        writeln!(f, "{}\n", goal)?;
+    }
+
+    // Problem constraints
+    writeln_centered(f, "PROBLEM CONSTRAINTS", 80, '=')?;
+    let pc = problem.problem_constraints();
+    if pc.is_empty() {
+        writeln!(f, "  - no problem constraints\n")?;
+    } else {
+        writeln!(f, "{}\n", pc)?;
+    }
+
+    // Metric spec
+    writeln_centered(f, "METRIC SPEC", 80, '=')?;
+    let metric = problem.metric_spec();
+    if metric.is_empty() {
+        writeln!(f, "  - no metric spec\n")?;
+    } else {
+        writeln!(f, "{}\n", metric)?;
+    }
+
+    // Length spec
+    writeln_centered(f, "LENGTH SPEC", 80, '=')?;
+    let length = problem.length_spec();
+    if length.is_empty() {
+        writeln!(f, "  - no length spec\n")?;
+    } else {
+        writeln!(f, "{}\n", length)?;
+    }
+
+    // Initial Task Network
+    writeln_centered(f, "INITIAL TASK NETWORK", 80, '=')?;
+    render_initial_task_network(f, problem.initial_task_network())?;
+
+    Ok(())
+}
+
+/// Renders a human-readable representation of a `DomainDef` into a formatter.
+///
+/// This function pretty-prints the contents of a planning domain, including
+/// its name, requirements, types, constants, predicates, functions, domain
+/// constraints, actions, and methods. The output is intended for inspection,
+/// debugging, or presentation purposes rather than for strict PDDL/HDDL export.
+///
+/// # Parameters
+///
+/// - `f`: A mutable reference to a [`fmt::Formatter`] used as the output target.
+/// - `domain`: The [`DomainDef`] to be rendered.
+///
+/// # Returns
+///
+/// Returns [`fmt::Result`]. Any formatting or I/O error encountered while
+/// writing to the formatter is propagated to the caller.
+///
+/// # Output Structure
+///
+/// The rendered output is organized into clearly delimited sections:
+/// - **Domain header** (domain name)
+/// - **Requirements**
+/// - **Types**
+/// - **Constants**
+/// - **Predicates**
+/// - **Functions**
+/// - **Domain constraints**
+/// - **Actions**
+/// - **Methods**
+///
+/// Each section is preceded by a centered title for improved readability.
+///
+/// # Notes
+///
+/// - Empty sections (e.g., no types, predicates, actions, or methods) are
+///   explicitly indicated in the output.
+/// - Actions and methods are rendered using their dedicated helper functions
+///   ([`render_action`] and [`render_method`]).
+/// - This function writes directly to the provided formatter and does not
+///   allocate intermediate strings.
+///
+/// # See Also
+///
+/// - [`render_action`]
+/// - [`render_method`]
+/// - [`DomainDef`]
+pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std::fmt::Result {
+    writeln_centered(f, "DOMAIN DEF", 80, '=')?;
+    writeln!(f, "DOMAIN NAME  : {}", domain.domain_name())?;
+
+    // Requirements
+    writeln_centered(f, "REQUIREMENTS", 80, '=')?;
+    let mut reqs: Vec<_> = domain.requirements().iter().collect();
+    if reqs.is_empty() {
+        writeln!(f, "  - no requirements")?;
+    } else {
+        reqs.sort();
+        for r in reqs {
+            writeln!(f, "  - {}", r)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Types
+    writeln_centered(f, "TYPES", 80, '=')?;
+    if domain.types().is_empty() {
+        writeln!(f, "  - no types")?;
+    } else {
+        for t in domain.types() {
+            writeln!(f, "  - {}", t)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Constants
+    writeln_centered(f, "CONSTANTS", 80, '=')?;
+    if domain.constants().is_empty() {
+        writeln!(f, "  - no constants")?;
+    } else {
+        for c in domain.constants() {
+            writeln!(f, "  - {}", c)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Predicates
+    writeln_centered(f, "PREDICATES", 80, '=')?;
+    if domain.predicates().is_empty() {
+        writeln!(f, "  - no predicates")?;
+    } else {
+        for p in domain.predicates() {
+            writeln!(f, "  - {}", p)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Functions
+    writeln_centered(f, "FUNCTIONS", 80, '=')?;
+    if domain.functions().is_empty() {
+        writeln!(f, "  - no functions")?;
+    } else {
+        for fct in domain.functions() {
+            writeln!(f, "  - {}", fct)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Domain constraints
+    writeln_centered(f, "DOMAIN CONSTRAINTS", 80, '=')?;
+    let dc = domain.domain_constraints();
+    if dc.is_empty() {
+        writeln!(f, "  - no domain constraints\n")?;
+    } else {
+        writeln!(f, "{}\n", dc)?;
+    }
+
+    // Actions
+    if domain.actions().is_empty() {
+        writeln!(f, "  - no actions\n")?;
+    } else {
+        for action in domain.actions() {
+            render_action(f, action)?;
+            writeln!(f)?;
+        }
+    }
+
+    // Methods
+    if domain.methods().is_empty() {
+        writeln!(f, "  - no methods\n")?;
+    } else {
+        for method in domain.methods() {
+            render_method(f, method)?;
+            writeln!(f)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Renders a human-readable representation of a `ProblemDef` into a formatter.
+///
+/// This function pretty-prints the contents of a planning problem, including
+/// its domain name, problem name, requirements, objects, initial state (init),
+/// goal, problem constraints, metric specification, length specification, and
+/// the initial task network. The output is intended for inspection,
+/// debugging, or presentation purposes rather than for direct PDDL/HDDL export.
+///
+/// # Parameters
+///
+/// - `f`: A mutable reference to a [`fmt::Formatter`] used as the output target.
+/// - `problem`: The [`ProblemDef`] to be rendered.
+///
+/// # Returns
+///
+/// Returns [`std::fmt::Result`]. Any formatting or I/O error encountered while
+/// writing to the formatter is propagated to the caller.
+///
+/// # Output Structure
+///
+/// The rendered output is organized into clearly delimited sections:
+/// - **Problem header** (domain name and problem name)
+/// - **Requirements**
+/// - **Objects**
+/// - **Init**
+/// - **Goal**
+/// - **Problem constraints**
+/// - **Metric specification**
+/// - **Length specification**
+/// - **Initial Task Network**
+///
+/// Each section is preceded by a centered title for improved readability.
+///
+/// # Notes
+///
+/// - Empty sections (e.g., no requirements, objects, init, goal) are explicitly
+///   indicated in the output.
+/// - The initial task network is rendered using the helper function
+///   [`render_initial_task_network`].
+/// - This function writes directly to the provided formatter and does not
+///   allocate intermediate strings.
+///
+/// # See Also
+///
+/// - [`render_initial_task_network`]
+/// - [`ProblemDef`]
+pub fn render_problem_def(f: &mut fmt::Formatter<'_>, problem: &ProblemDef) -> std::fmt::Result {
+    writeln_centered(f, "PROBLEM DEF", 80, '=')?;
+    writeln!(f, "DOMAIN NAME  : {}", problem.domain_name())?;
+    writeln!(f, "PROBLEM NAME : {}\n", problem.problem_name())?;
+
+    // Requirements
+    writeln_centered(f, "REQUIREMENTS", 80, '=')?;
+    let mut reqs: Vec<_> = problem.requirements().iter().collect();
+    if reqs.is_empty() {
+        writeln!(f, "  - no requirements")?;
+    } else {
+        reqs.sort();
+        for r in reqs {
+            writeln!(f, "  - {}", r)?;
+        }
+    }
+    writeln!(f)?;
+
+    // Objects
+    writeln_centered(f, "OBJECTS", 80, '=')?;
+    if problem.objects().is_empty() {
+        writeln!(f, "  - no objects")?;
+    } else {
+        for o in problem.objects() {
+            writeln!(f, "  - {}", o)?;
+        }
+    }
+    writeln!(f)?;
 
     // Init
     writeln_centered(f, "INIT", 80, '=')?;
