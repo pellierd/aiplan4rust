@@ -20,12 +20,12 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
+use crate::aiplan4rust::lang::error::LangError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use crate::aiplan4rust::lang::error::LangError;
 
 /// Represents a typed symbol identified by an [`Ident`],
 /// with one or more associated types.
@@ -159,9 +159,7 @@ impl SyntaxInternerDisplay for TypedSymbol {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+        write_indent(f, indent)?;
         // Print the name of the symbol
         match interner.resolve_ident(self.symbol) {
             Some(name) => write!(f, "{}", name)?,

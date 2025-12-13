@@ -23,6 +23,7 @@
 //! println!("{}", req); // prints "strips"
 //! ```
 
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::lexer::token::ACTION_COSTS;
 use crate::aiplan4rust::syntax::lexer::token::ADL;
 use crate::aiplan4rust::syntax::lexer::token::CONDITIONAL_EFFECTS;
@@ -45,8 +46,7 @@ use crate::aiplan4rust::syntax::lexer::token::STRIPS;
 use crate::aiplan4rust::syntax::lexer::token::TIME_INITIAL_LITERALS;
 use crate::aiplan4rust::syntax::lexer::token::TYPING;
 use crate::aiplan4rust::syntax::lexer::token::UNIVERSAL_PRECONDITIONS;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -208,7 +208,6 @@ impl fmt::Display for Requirement {
     }
 }
 
-
 /// Implements the `DisplayWithInterner` trait for `Requirement`.
 ///
 /// This implementation formats a `Requirement` value by
@@ -239,7 +238,6 @@ impl InternerDisplay for Requirement {
     }
 }
 
-
 /// Implements the `PlanningSyntaxDisplay` trait for `Requirement`.
 ///
 /// This implementation provides user-facing syntax formatting for `Requirement` values.
@@ -263,9 +261,13 @@ impl SyntaxInternerDisplay for Requirement {
     ///
     /// * `f` - The formatter to write the output to.
     /// * `_interner` - The string interner (unused in this implementation).
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        _interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        write_indent(f, indent)?;
         fmt::Display::fmt(self, f)
     }
 }

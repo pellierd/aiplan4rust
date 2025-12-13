@@ -22,19 +22,19 @@
 //! # Example
 //!
 //! ```rust
-//! use your_crate::BinaryComp;
+//! use crate::aiplan4rust::lang::BinaryComp;
 //!
 //! let op = BinaryComp::GreaterEq;
 //! assert_eq!(op.to_string(), ">=");
 //! ```
 
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::lexer::token::EQUAL;
 use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
 use crate::aiplan4rust::syntax::lexer::token::LESS;
 use crate::aiplan4rust::syntax::lexer::token::LESS_EQ;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -105,7 +105,6 @@ impl fmt::Display for BinaryComp {
     }
 }
 
-
 /// Implements the `DisplayWithInterner` trait for `BinaryComp`.
 ///
 /// Since `BinaryComp` can be formatted directly using the standard
@@ -160,9 +159,13 @@ impl SyntaxInternerDisplay for BinaryComp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        _interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        write_indent(f, indent)?;
         fmt::Display::fmt(self, f)
     }
 }

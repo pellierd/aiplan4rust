@@ -5,7 +5,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 use crate::aiplan4rust::syntax::tree::renderers::syntax::{task, typed_list};
 
@@ -691,7 +691,8 @@ pub fn render_with_indent<T: SyntaxNode>(
                     let and_children = and_node.children();
 
                     // Begin the clause with increased indentation: (and
-                    write!(f, "{}(", RenderKind::make_indent(indent + 1))?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "(")?;
                     and_node.render_kind().fmt_syntax_with_interner(f, interner)?; // prints "and"
 
                     if and_children.is_empty() {

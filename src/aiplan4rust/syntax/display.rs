@@ -110,41 +110,6 @@ pub fn write_indent(f: &mut std::fmt::Formatter<'_>, level: usize) -> std::fmt::
 /// - [`DEFAULT_INDENT_WIDTH`]: number of characters per indent level (default: 2).
 /// - [`DEFAULT_INDENT_CHAR`]: character used for indentation (default: space).
 pub trait SyntaxInternerDisplay {
-    /// Default indentation width per level.
-    const DEFAULT_INDENT_WIDTH: usize = 2;
-
-    /// Default indentation character.
-    const DEFAULT_INDENT_CHAR: char = ' ';
-
-    /// Returns the indentation width to use.
-    ///
-    /// Can be overridden to customize indentation width.
-    fn indent_width(&self) -> usize {
-        Self::DEFAULT_INDENT_WIDTH
-    }
-
-    /// Returns the indentation character to use.
-    ///
-    /// Can be overridden to customize indent character.
-    fn indent_char(&self) -> char {
-        Self::DEFAULT_INDENT_CHAR
-    }
-
-    /// Generates an indentation string for a given level.
-    ///
-    /// The string contains `indent_width * level` occurrences of `indent_char`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let indent = MyType::make_indent(3); // "      " (6 spaces if indent_width=2)
-    /// ```
-    fn make_indent(level: usize) -> String {
-        let total = level * Self::DEFAULT_INDENT_WIDTH;
-        std::iter::repeat(Self::DEFAULT_INDENT_CHAR)
-            .take(total)
-            .collect()
-    }
 
     /// Formats the value with a given indent level and an interner for resolving interned identifiers.
     ///

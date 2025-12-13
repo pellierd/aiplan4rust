@@ -34,21 +34,21 @@
 //! is unsupported, returning an [`ExprError`].
 //!
 
-use std::collections::HashMap;
+use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{Ident, Optimization};
+use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::lang::{Ident, Optimization};
-use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
 ///
@@ -178,11 +178,7 @@ impl Expr {
     /// An `Expr` with root `ExprNode` of kind `Length` and empty content.
     pub fn empty_length_spec() -> Self {
         let mut expr = Expr::new();
-        let root = ExprNode::new(
-            ExprKind::Length,
-            ExprContent::None,
-            None,
-        );
+        let root = ExprNode::new(ExprKind::Length, ExprContent::None, None);
         expr.alloc(root);
         expr
     }
@@ -248,7 +244,6 @@ impl Expr {
     pub fn alloc_root_with_children(&mut self, node: ExprNode, children: Vec<NodeId>) -> NodeId {
         self.tree.alloc_root_with_children(node, children)
     }
-
 
     /// Get an immutable reference to a node by ID.
     pub fn try_node(&self, id: NodeId) -> Result<&ExprNode, SyntaxTreeError> {
@@ -334,11 +329,7 @@ impl Expr {
     /// - This function compares recursively: node kind, content, and all children.
     /// Compare two subtrees rooted at `a` in `self` and `b` in `other` for deep equality.
     /// Children should already be sorted if order does not matter.
-    pub fn deep_sub_expr_eq(
-        &self,
-        root_a: NodeId,
-        root_b: NodeId,
-    ) -> Result<bool, ExprError> {
+    pub fn deep_sub_expr_eq(&self, root_a: NodeId, root_b: NodeId) -> Result<bool, ExprError> {
         let iter1 = self.preorder_from(root_a).values();
         let iter2 = self.preorder_from(root_b).values();
 
@@ -598,7 +589,6 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
 
         Ok(expr)
     }
-
 }
 
 impl Deref for Expr {
@@ -655,7 +645,11 @@ impl InternerDisplay for Expr {
     /// # Returns
     ///
     /// A formatting result indicating success or failure.
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
         self.tree.fmt_with_interner(f, interner)
     }
 }
@@ -672,9 +666,14 @@ impl SyntaxInternerDisplay for Expr {
     /// # Returns
     ///
     /// A formatting result indicating success or failure.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-        self.tree.fmt_syntax_with_interner_and_indent(f, interner, indent)
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        write_indent(f, indent)?;
+        self.tree
+            .fmt_syntax_with_interner_and_indent(f, interner, indent)
     }
 }

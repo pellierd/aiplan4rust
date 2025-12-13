@@ -4,7 +4,6 @@ use test_case::test_case;
 mod common;
 use crate::common::io::{collect_domain_files, delete_all_files_with_extension};
 use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
-use aiplan4rust::Language;
 
 /// Integration test for parser + simplify on all files in a directory.
 ///

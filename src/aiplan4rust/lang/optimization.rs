@@ -18,7 +18,7 @@
 
 use crate::aiplan4rust::syntax::lexer::token::MAXIMIZE;
 use crate::aiplan4rust::syntax::lexer::token::MINIMIZE;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::Deserialize;
@@ -157,8 +157,7 @@ impl SyntaxInternerDisplay for Optimization {
     ///
     /// A `fmt::Result` indicating success or failure.
     fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+        write_indent(f, indent)?;
         fmt::Display::fmt(self, f)
     }
 }

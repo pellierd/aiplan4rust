@@ -52,16 +52,16 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::AstContent;
 use crate::aiplan4rust::syntax::tree::SyntaxContent;
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::expr::error::ExprError;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -151,9 +151,7 @@ impl SyntaxInternerDisplay for Content {
         indent: usize,
     ) -> fmt::Result {
         // Write the indentation prefix
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-
+        write_indent(f, indent)?;
         match self {
             Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
             _ => fmt::Display::fmt(self, f),
@@ -249,9 +247,9 @@ impl TryFrom<&AstContent> for Content {
             AstContent::AssignOp(op) => Ok(Content::AssignOp(*op)),
             AstContent::ArithmeticOp(op) => Ok(Content::ArithmeticOp(*op)),
             AstContent::Optimization(op) => Ok(Content::Optimization(*op)),
-            AstContent::Requirement(req) => {
-                Err(ExprError::unsupported_content(AstContent::Requirement(*req)))
-            }
+            AstContent::Requirement(req) => Err(ExprError::unsupported_content(
+                AstContent::Requirement(*req),
+            )),
             AstContent::None => Ok(Content::None),
         }
     }

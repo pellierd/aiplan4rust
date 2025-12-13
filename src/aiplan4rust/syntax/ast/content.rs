@@ -36,7 +36,7 @@ use crate::aiplan4rust::lang::{
     ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, Requirement,
 };
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -228,10 +228,7 @@ impl SyntaxInternerDisplay for Content {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        // Write the indentation prefix
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
-
+        write_indent(f, indent)?;
         match self {
             Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
             _ => fmt::Display::fmt(self, f),

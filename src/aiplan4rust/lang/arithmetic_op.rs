@@ -27,13 +27,12 @@
 //! and the syntax display system, allowing seamless formatting of PDDL numeric
 //! expressions in user-friendly syntax.
 
-
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::lexer::token::ADD;
 use crate::aiplan4rust::syntax::lexer::token::DIV;
 use crate::aiplan4rust::syntax::lexer::token::MUL;
 use crate::aiplan4rust::syntax::lexer::token::SUB;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -151,9 +150,13 @@ impl SyntaxInternerDisplay for ArithmeticOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating whether formatting succeeded or failed.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        _interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        write_indent(f, indent)?;
         fmt::Display::fmt(self, f)
     }
 }

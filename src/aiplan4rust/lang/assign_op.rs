@@ -23,7 +23,7 @@
 //! # Example
 //!
 //! ```rust
-//! use your_crate::AssignOp;
+//! use crate::aiplan4rust::lang::AssignOp;
 //!
 //! let op = AssignOp::Increase;
 //! assert_eq!(format!("{}", op), ":increase");
@@ -33,13 +33,13 @@
 //!
 //! Works seamlessly with lexer tokens and syntax display for syntax languages.
 
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::lexer::token::ASSIGN;
 use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_DOWN;
 use crate::aiplan4rust::syntax::lexer::token::SCALE_UP;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -106,7 +106,6 @@ impl fmt::Display for AssignOp {
     }
 }
 
-
 /// Implements the `DisplayWithInterner` trait for `AssignOp`.
 ///
 /// Since `AssignOp` can be formatted directly using the standard
@@ -138,7 +137,6 @@ impl InternerDisplay for AssignOp {
     }
 }
 
-
 /// Implements the `PlanningSyntaxDisplay` trait for `AssignOp`.
 ///
 /// This implementation formats the `AssignOp` by delegating
@@ -166,9 +164,13 @@ impl SyntaxInternerDisplay for AssignOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        _interner: &StringInterner,
+        indent: usize,
+    ) -> fmt::Result {
+        write_indent(f, indent)?;
         fmt::Display::fmt(self, f)
     }
 }

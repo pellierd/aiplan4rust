@@ -22,15 +22,15 @@
 //! }
 //! ```
 
-use std::fmt;
-use std::ops::{Deref, DerefMut};
-use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::error::LangError;
-use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::lang::TypedSymbol;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::ops::{Deref, DerefMut};
 
 /// A list of `TypedSymbol` items.
 ///
@@ -59,7 +59,9 @@ impl TypedList {
     ///
     /// A fresh `TypedSymbolList` containing no elements.
     pub fn new() -> Self {
-        Self { symbols: Vec::new() }
+        Self {
+            symbols: Vec::new(),
+        }
     }
 
     /// Returns an empty instance of the type_checker.
@@ -185,7 +187,6 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TypedList {
     }
 }
 
-
 /// Implements `Display` for `TypedList`.
 ///
 /// This implementation formats the `TypedList` as a space-separated list of symbols
@@ -252,7 +253,11 @@ impl InternerDisplay for TypedList {
     ///
     /// * `f` - The formatter.
     /// * `interner` - The interner to resolve symbol names.
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
         write!(f, "(")?;
         let mut first = true;
         for sym in &self.symbols {
@@ -305,10 +310,9 @@ impl SyntaxInternerDisplay for TypedList {
         &self,
         f: &mut std::fmt::Formatter<'_>,
         interner: &StringInterner,
-        indent: usize
-    ) -> std::fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+        indent: usize,
+    ) -> fmt::Result {
+        write_indent(f, indent)?;
         let mut first = true;
         for sym in &self.symbols {
             if !first {

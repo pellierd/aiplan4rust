@@ -28,7 +28,7 @@ use crate::aiplan4rust::syntax::lexer::token::{
     PREDICATES, PREFERENCE, PROBLEM, REQUIREMENTS, SERIAL, SOMETIME, SOMETIME_AFTER,
     SOMETIME_BEFORE, SUBTASKS, TASK, TOTAL_TIME, TYPES, WHEN, WITHIN,
 };
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -620,8 +620,7 @@ impl SyntaxInternerDisplay for Kind {
         _interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+        write_indent(f, indent)?;
         let s = match self {
             Kind::Constant => "",
             Kind::Variable => "",

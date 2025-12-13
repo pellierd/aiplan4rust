@@ -13,18 +13,18 @@
 //!
 //! Typical usage includes parsing, type_checker checking, and semantic analysis of syntax domain languages.
 
-use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::lang::error::LangError;
+use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
+use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
+use std::collections::HashMap;
 
+use once_cell::sync::Lazy;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use once_cell::sync::Lazy;
-use serde::{Serialize, Deserialize};
 
 /// Represents a type_checker in a syntax problem IR.
 ///
@@ -41,14 +41,15 @@ pub struct Type {
 }
 
 impl Type {
-
     /// Creates a new empty `Type` with no members.
     ///
     /// # Returns
     ///
     /// A new `Type` instance with an empty list of members.
     pub fn new() -> Self {
-        Self { members: Vec::new() }
+        Self {
+            members: Vec::new(),
+        }
     }
 
     /// Returns a static reference to the constant `OBJECT_TYPE`.
@@ -325,8 +326,7 @@ impl SyntaxInternerDisplay for Type {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        let indent_str = Self::make_indent(indent);
-        f.write_str(&indent_str)?;
+        write_indent(f, indent)?;
         match self.members.len() {
             0 => write!(f, "object"), // Pas de .to_string()
             1 => {
