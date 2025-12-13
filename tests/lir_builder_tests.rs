@@ -7,7 +7,7 @@ use crate::common::io::{collect_domain_files, delete_all_files_with_extension, f
 use crate::common::pipeline::{analyze_file, link};
 
 /// Test the LIR Builder on all problems in a domain directory
-pub fn test_lir_builder_all_files(domain_dir: &Path, language: &Language) -> bool {
+pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
     // Cleanup
 
     delete_all_files_with_extension(domain_dir, "linking.diag");
@@ -32,24 +32,24 @@ pub fn test_lir_builder_all_files(domain_dir: &Path, language: &Language) -> boo
         } else if domain_path1.exists() {
             domain_path1
         } else {
-            errors.push(format!("❌ No domain file found for {}", problem_path.display()));
+            errors.push(format!("No domain file found for {}", problem_path.display()));
             continue;
         };
 
         // Analyze domain
-        let domain = match analyze_file(&domain_path, language, "domain", &mut true) {
+        let domain = match analyze_file(&domain_path, "domain", &mut true) {
             Some(r) => r,
             None => {
-                errors.push(format!("❌ Domain analysis failed for {}", domain_path.display()));
+                errors.push(format!("Domain analysis failed for {}", domain_path.display()));
                 continue;
             }
         };
 
         // Analyze problem
-        let problem = match analyze_file(&problem_path, language, "problem", &mut true) {
+        let problem = match analyze_file(&problem_path, "problem", &mut true) {
             Some(r) => r,
             None => {
-                errors.push(format!("❌ Problem analysis failed for {}", problem_path.display()));
+                errors.push(format!("Problem analysis failed for {}", problem_path.display()));
                 continue;
             }
         };
@@ -58,7 +58,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path, language: &Language) -> boo
         let mut linker_result = match link(domain, problem, &domain_path, &problem_path) {
             Some(ctx) => ctx,
             None => {
-                errors.push(format!("❌ Linking failed for problem {} and domain {}", problem_path.display(), domain_path.display()));
+                errors.push(format!("Linking failed for problem {} and domain {}", problem_path.display(), domain_path.display()));
                 continue;
             }
         };
@@ -67,7 +67,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path, language: &Language) -> boo
         let mut linked_context = match linker_result.take_linked_semantic_context() {
             Some(ctx) => ctx,
             None => {
-                errors.push(format!("❌ Linking produced no LinkedSemanticContext for problem {}", problem_path.display()));
+                errors.push(format!("Linking produced no LinkedSemanticContext for problem {}", problem_path.display()));
                 continue;
             }
         };
@@ -77,7 +77,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path, language: &Language) -> boo
         match lir_builder.build(&mut linked_context) {
             Ok(result) => {
                 if result.lifted_problem().is_none() {
-                    errors.push(format!("❌ LIR Builder produced no lifted problem for {}", problem_path.display()));
+                    errors.push(format!("LIR Builder produced no lifted problem for {}", problem_path.display()));
                 }
 
                 // Optional: write diagnostics to a file
@@ -87,7 +87,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path, language: &Language) -> boo
                 }
             }
             Err(e) => {
-                errors.push(format!("❌ LIR Builder error for {}: {}", problem_path.display(), e));
+                errors.push(format!("LIR Builder error for {}: {}", problem_path.display(), e));
             }
         }
     }
@@ -139,7 +139,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path, language: &Language) -> boo
 pub fn test_hddl_lir_builder(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
-        test_lir_builder_all_files(path, &Language::HDDL),
+        test_lir_builder_all_files(path),
         "LIR Builder integration test failed for directory {}",
         domain_path
     );

@@ -263,7 +263,7 @@ pub fn write_ast_to_file(ast: &Ast, file_path: &Path, context: &str) {
         .write_all(header.as_bytes())
         .unwrap_or_else(|_| panic!("Failed to write header to AST file: {}", ast_path.display()));
 
-    let ast_str = ast.to_string_with_interner();
+    let ast_str = ast.to_string();
     ast_file
         .write_all(ast_str.as_bytes())
         .unwrap_or_else(|_| panic!("Failed to write AST to file: {}", ast_path.display()));

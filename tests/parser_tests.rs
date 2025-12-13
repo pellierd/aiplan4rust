@@ -18,13 +18,12 @@ use crate::common::io::delete_all_files_with_extension;
 /// # Arguments
 ///
 /// * `domain_dir` - Path to the directory containing domain files.
-/// * `language` - Language context to use for parsing.
 ///
 /// # Returns
 ///
 /// * `true` if parsing and validation succeed for all files.
 /// * `false` if any file fails to parse or validate.
-pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
+pub fn test_parse_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
 
     // Clean up old diagnostic and AST files before testing
@@ -35,7 +34,7 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
     let files = collect_domain_files(domain_dir);
 
     for file_path in files {
-        match parse_and_check_ast(&file_path, language) {
+        match parse_and_check_ast(&file_path) {
             Some(parser_result) => {
                 let diag_mgr = parser_result.diagnostic_manager();
 
@@ -128,7 +127,7 @@ pub fn test_parse_all_files(domain_dir: &Path, language: &Language) -> bool {
 pub fn test_hddl_parser(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
-        test_parse_all_files(path, &Language::HDDL),
+        test_parse_all_files(path),
         "Parsing test failed for directory {}",
         domain_path
     );

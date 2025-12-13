@@ -7,7 +7,7 @@ use crate::common::io::delete_all_files_with_extension;
 use crate::common::pipeline::{analyze, normalize_and_check_ast, parse_and_check_ast};
 use test_case::test_case;
 
-pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
+pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
 
     // Clean up old .diag and .ast files
@@ -19,7 +19,7 @@ pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
 
     for file_path in files {
         // Parse and validate the raw AST from the file
-        let parser_result = match parse_and_check_ast(&file_path, language) {
+        let parser_result = match parse_and_check_ast(&file_path) {
             Some(result) => result,
             None => {
                 eprintln!("Parsing failed for file {}", file_path.display());
@@ -89,7 +89,7 @@ pub fn test_analyser_all_files(domain_dir: &Path, language: &Language) -> bool {
 pub fn test_hddl_analyzer(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
-        test_analyser_all_files(path, &Language::HDDL),
+        test_analyser_all_files(path),
         "Parsing test failed for directory {}",
         domain_path
     );

@@ -21,7 +21,6 @@ use aiplan4rust::Language;
 /// # Arguments
 ///
 /// * `domain_dir` - Path to the directory containing domain files to test.
-/// * `language` - The language used for parsing.
 ///
 /// # Errors
 ///
@@ -34,7 +33,7 @@ use aiplan4rust::Language;
 /// let success = test_parse_and_normalize_all_files(Path::new("tests/integration/hddl/ipc20/partial-order/barman-bdi"), &Language::HDDL);
 /// assert!(success);
 /// ```
-pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool {
+pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
     let mut success = true;
 
     // Delete all existing .diag files
@@ -47,7 +46,7 @@ pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool
 
     for file_path in files {
         // Parse and validate the raw AST from the file
-        let parser_result = match parse_and_check_ast(&file_path, language) {
+        let parser_result = match parse_and_check_ast(&file_path) {
             Some(result) => result,
             None => {
                 eprintln!("Parsing failed for file {}", file_path.display());
@@ -139,7 +138,7 @@ pub fn test_normalizer_all_files(domain_dir: &Path, language: &Language) -> bool
 pub fn test_hddl_normalizer(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
-        test_normalizer_all_files(path, &Language::HDDL),
+        test_normalizer_all_files(path),
         "Parser + Normalizer integration test failed for directory {}",
         domain_path
     );

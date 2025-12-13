@@ -3,7 +3,7 @@ use std::io::Write;
 use std::path::Path;
 use test_case::test_case;
 
-use aiplan4rust::{Renderer, Frontend, Language};
+use aiplan4rust::{Renderer, Frontend};
 
 mod common;
 use crate::common::io::collect_domain_files;
@@ -22,7 +22,7 @@ use crate::common::io::get_file_stem_as_string;
 ///     - Reports any errors encountered.
 ///
 /// Returns `true` if all problem/domain pairs were successfully parsed and validated.
-fn test_domain(domain_dir: &Path, language: &Language) -> bool {
+fn test_domain(domain_dir: &Path) -> bool {
     // Collect all files in the directory
     let files = collect_domain_files(domain_dir);
 
@@ -69,7 +69,6 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
         let result = frontend.parse(
             domain_path.to_str().unwrap(),
             problem_path.to_str().unwrap(),
-            language,
         );
 
         // Prepare a diagnostics output file
@@ -163,7 +162,7 @@ fn test_domain(domain_dir: &Path, language: &Language) -> bool {
 fn test_each_domain(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
-        test_domain(path, &Language::HDDL),
+        test_domain(path),
         "Domain test failed for {}",
         domain_path
     );

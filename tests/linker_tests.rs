@@ -21,7 +21,6 @@ use crate::common::pipeline::{link, analyze_file};
 /// # Parameters
 ///
 /// - `domain_dir`: Path to the directory containing domain and problem files.
-/// - `language`: The language context used during parsing and analysis.
 ///
 /// # Returns
 ///
@@ -43,7 +42,7 @@ use crate::common::pipeline::{link, analyze_file};
 ///     eprintln!("Some linking tests failed.");
 /// }
 /// ```
-pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
+pub fn test_linker_all_files(domain_dir: &Path) -> bool {
     // Remove old diagnostic and AST files
     delete_all_files_with_extension(domain_dir, "diag");
     delete_all_files_with_extension(domain_dir, "ast");
@@ -73,13 +72,13 @@ pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
         };
 
         // Analyze domain file
-        let domain = match analyze_file(&domain_path, language, "domain", &mut success) {
+        let domain = match analyze_file(&domain_path, "domain", &mut success) {
             Some(res) => res,
             None => continue,
         };
 
         // Analyze problem file
-        let problem = match analyze_file(&problem_path, language, "problem", &mut success) {
+        let problem = match analyze_file(&problem_path, "problem", &mut success) {
             Some(res) => res,
             None => continue,
         };
@@ -162,7 +161,7 @@ pub fn test_linker_all_files(domain_dir: &Path, language: &Language) -> bool {
 pub fn test_hddl_linker(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
-        test_linker_all_files(path, &Language::HDDL),
+        test_linker_all_files(path),
         "Linking test failed for directory {}",
         domain_path
     );

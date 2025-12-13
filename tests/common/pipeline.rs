@@ -7,10 +7,10 @@ use crate::common::io::{
 };
 use aiplan4rust::aiplan4rust::linking::LinkerResult;
 use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
-use aiplan4rust::aiplan4rust::syntax::ParserResult;
+use aiplan4rust::aiplan4rust::syntax::{ParserResult, SyntaxDisplay};
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
-use aiplan4rust::{check_well_formed, AnalyzerResult, Language, Normalizer, Parser, Severity};
+use aiplan4rust::{check_well_formed, AnalyzerResult, Normalizer, Parser, Severity};
 use std::path::Path;
 
 /// Parses the source file to produce a ParserResult with a raw AST and checks its well-formedness.
@@ -22,7 +22,6 @@ use std::path::Path;
 /// # Arguments
 ///
 /// * `file_path` - The path to the source file to be parsed.
-/// * `language` - The language specification used by the parser.
 ///
 /// # Returns
 ///
@@ -47,12 +46,12 @@ use std::path::Path;
 ///     // handle parse or validation failure
 /// }
 /// ```
-pub fn parse_and_check_ast(file_path: &Path, language: &Language) -> Option<ParserResult> {
+pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
     let content = read_file(file_path);
     let path_str = file_path.to_str().expect("File path is not valid UTF-8");
     let mut parser = Parser::new();
 
-    match parser.parse(path_str, &content, language) {
+    match parser.parse(path_str, &content) {
         Ok(parser_result) => {
             if let Some(raw_ast) = parser_result.ast() {
                 if let Err(e) = check_well_formed(raw_ast) {
@@ -142,7 +141,7 @@ pub fn normalize_and_check_ast(
                         file_path.display(),
                         e
                     );
-                    eprintln!("{}", normalized_ast.to_string_with_interner());
+                    eprintln!("{}", normalized_ast.to_syntax_string());
                     write_diagnostics_to_file(
                         normalizer_result.diagnostic_manager(),
                         normalizer_result.interner(),
@@ -293,7 +292,6 @@ pub fn analyze(
 /// # Arguments
 ///
 /// * `file_path` - Path to the file being processed.
-/// * `language` - Language definition used for parsing and validation.
 /// * `context` - Human-readable context used for error logging.
 /// * `success` - Mutable flag to indicate whether the analysis was fully successful.
 ///
@@ -303,12 +301,11 @@ pub fn analyze(
 /// On failure, `success` is set to `false` and errors are printed to stderr.
 pub fn analyze_file(
     file_path: &Path,
-    language: &Language,
     context: &str,      // e.g., "domain" or "problem"
     success: &mut bool, // mutable reference to update success flag
 ) -> Option<AnalyzerResult> {
     // Step 1: Parse the source file into an AST + diagnostics
-    let parser_result = match parse_and_check_ast(file_path, language) {
+    let parser_result = match parse_and_check_ast(file_path) {
         Some(result) => result,
         None => {
             eprintln!("Parsing failed for {}: {}", context, file_path.display());

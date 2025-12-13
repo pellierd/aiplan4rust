@@ -54,16 +54,16 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, Literal, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, Literal, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::{FastLineTable, SyntaxInternerDisplay};
+use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay, SyntaxInternerDisplay};
 use crate::aiplan4rust::syntax::ast::error::AstError;
 use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId, SyntaxNode};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::time::SystemTime;
 
 /// Represents a complete Abstract Syntax Tree (AST) along with its context.
@@ -373,37 +373,6 @@ impl Ast {
         Ok(())
     }
 
-    /// Returns a string representation of the AST with symbols resolved
-    /// using the associated [`StringInterner`].
-    ///
-    /// This method prints the AST nodes in a detailed debug-like format,
-    /// showing node names along with their interned strings for clarity.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let s = ast.to_string_with_interner();
-    /// println!("{}", s);
-    /// ```
-    pub fn to_string_with_interner(&self) -> String {
-        self.syntax_tree().to_string_with_interner(self.interner())
-    }
-
-    /// Returns a string representation of the AST formatted as PDDL syntax.
-    ///
-    /// This method produces a PDDL-compliant serialization of the AST,
-    /// suitable for outputting a valid PDDL domain or problem description.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let pddl = ast.to_syntax_string();
-    /// println!("{}", pddl);
-    /// ```
-    pub fn to_syntax_string(&self) -> String {
-        self.syntax_tree().to_syntax_string_with_interner(self.interner())
-    }
-
     /// Returns a string representing the AST formatted as PDDL syntax,
     /// including metadata as PDDL-style comments.
     ///
@@ -455,6 +424,62 @@ impl Ast {
         node.to_string_with_interner(self.syntax_tree(), self.interner())
     }
 
+}
+
+impl SyntaxDisplay for Ast {
+    /// Formats the `Ast` as a syntax-oriented string.
+    ///
+    /// This implementation delegates to the AST's syntax tree, rendering it
+    /// with its internal interner and starting at indentation level 0.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the syntax string into.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let ast: Ast = todo!();
+    /// let mut s = String::new();
+    /// ast.fmt_syntax(&mut s).unwrap();
+    /// println!("{}", s);
+    /// ```
+    fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.syntax_tree().fmt_syntax_with_interner_and_indent(f, self.interner(), 0)
+    }
+}
+
+impl SelfInternerDisplay for Ast {
+    /// Formats the `Ast` using its internal [`StringInterner`].
+    ///
+    /// This implementation delegates to the AST's syntax tree and resolves all
+    /// interned identifiers using the AST's interner, producing a human-readable string.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - The formatter to write the string into.
+    ///
+    /// # Returns
+    ///
+    /// A [`fmt::Result`] indicating success or failure.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::fmt::Write;
+    /// # let ast: Ast = todo!();
+    /// let mut s = String::new();
+    /// ast.fmt_interner(&mut s).unwrap();
+    /// println!("{}", s);
+    /// ```
+    fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.syntax_tree().fmt_with_interner(f, self.interner())
+    }
 }
 
 impl fmt::Display for Ast {
