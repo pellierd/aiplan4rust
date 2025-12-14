@@ -36,12 +36,16 @@
 //! let methods = domain.methods();
 //! let constraints = domain.domain_constraints();
 //! ```
+
 use std::fmt::{self, Display, Formatter};
+
 use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::serialization::syntax::serializable::Serializable;
+use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
 /// Wrapper around the domain view of a lifted problem.
@@ -250,5 +254,40 @@ impl<'a> Display for DomainDef<'a> {
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::default::render_problem(f, self.problem)
+    }
+}
+
+impl<'a> Serializable for DomainDef<'a> {
+    /// Serializes the domain definition into a syntax string.
+    ///
+    /// This uses the internal [`StringInterner`] of the domain to resolve
+    /// all identifiers into their string representations. The resulting
+    /// string is a normalized, human-readable representation of the domain,
+    /// suitable for saving to a file or for comparison with other serialized domains.
+    ///
+    /// # Returns
+    ///
+    /// A `String` containing the serialized domain.
+    ///
+    /// # Errors
+    ///
+    /// This method may return a [`SerializationError`] if any internal
+    /// formatting fails, although in the current implementation this is
+    /// unlikely since `to_syntax_string` is infallible.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use crate::aiplan4rust::lir::problem::{DomainDef, LiftedProblem};
+    /// # let problem: LiftedProblem = todo!();
+    /// let domain = DomainDef::new(&problem);
+    /// let serialized = domain.serialize_to_string().unwrap();
+    /// println!("{}", serialized);
+    /// ```
+    fn serialize_to_string(
+        &self,
+    ) -> Result<String, SerializationError> {
+        // Use the existing SyntaxInternerDisplay implementation
+        Ok(self.to_syntax_string())
     }
 }

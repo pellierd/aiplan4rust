@@ -52,7 +52,6 @@ use crate::aiplan4rust::lir::problem::{
 use crate::aiplan4rust::lir::{LirBuilderResult, LirError};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
@@ -163,11 +162,6 @@ impl LirBuilder {
         //print!("------------- PROBLEM -------------\n{}", lifted_problem);
         //println!("-----------------------------------");
 
-        print!(
-            "------------- DOMAIN -------------\n{}",
-            lifted_problem.to_syntax_string()
-        );
-        println!("-----------------------------------");
 
         // 6. Normalize all expressions in the problem to canonical form
         //    This includes actions, methods, initial task network, and constraints

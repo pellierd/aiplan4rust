@@ -38,6 +38,8 @@ use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProb
 use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::serialization::SerializationError;
+use crate::aiplan4rust::serialization::syntax::serializable::Serializable;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around a specific problem instance within a domain.
@@ -207,5 +209,42 @@ impl<'a> Display for ProblemDef<'a> {
     /// ```
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::default::render_problem(f, self.problem)
+    }
+}
+
+impl<'a> Serializable for ProblemDef<'a> {
+    /// Serializes the problem definition into a syntax string.
+    ///
+    /// This method produces a normalized, human-readable representation of the problem,
+    /// including all objects, initial state, goals, and tasks. It uses the internal
+    /// [`StringInterner`] of the problem to resolve all identifiers.
+    ///
+    /// The resulting string is suitable for saving to a file, re-parsing, or comparing
+    /// problem definitions in a normalized form.
+    ///
+    /// # Returns
+    ///
+    /// A `String` containing the serialized problem.
+    ///
+    /// # Errors
+    ///
+    /// This method may return a [`SerializationError`] if internal formatting fails,
+    /// although with the current implementation this is unlikely because `to_syntax_string`
+    /// is infallible.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use crate::aiplan4rust::lir::problem::{ProblemDef, LiftedProblem};
+    /// # let problem: LiftedProblem = todo!();
+    /// let problem_def = ProblemDef::new(&problem);
+    /// let serialized = problem_def.serialize_to_string().unwrap();
+    /// println!("{}", serialized);
+    /// ```
+    fn serialize_to_string(
+        &self,
+    ) -> Result<String, SerializationError> {
+        // Use the existing SyntaxInternerDisplay implementation
+        Ok(self.to_syntax_string())
     }
 }

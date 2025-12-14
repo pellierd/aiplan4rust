@@ -1,176 +1,95 @@
 //! Module providing the `Serializable` trait for syntax structures requiring an interner.
 //!
-//! This module defines the `Serializable` trait, which enables serialization and
-//! deserialization of AST-like structures that rely on a [`StringInterner`] for symbol management.
+//! This module defines the [`Serializable`] trait, which enables serialization of AST-like
+//! or syntax structures that rely on a [`StringInterner`] for symbol management.
 //!
-//! # Supported Formats
+//! # Supported Use Case
 //!
-//! The trait supports serialization and deserialization to/from multiple formats, including:
-//! - JSON
-//! - YAML
-//! - TOML
-//! - CBOR
-//! - MessagePack
+//! The trait is intended for objects such as normalized domains or problems, where you want
+//! to serialize them to a string or a file for reproducibility, caching, or verification
+//! by re-parsing the serialized content.
+//!
+//! Currently, deserialization is **not** required, but could be added later if needed.
 //!
 //! # Error Handling
 //!
-//! Format inference from file paths uses [`SerializationError`], which includes:
-//! - `MissingExtensionError` for paths without extensions.
-//! - `UnsupportedExtensionError` for unrecognized file extensions.
+//! All methods return a [`SerializationError`] wrapped in a `Result`.
+//! File-related errors (read/write) and unsupported formats/extensions are handled explicitly.
 //!
-//! # Usage
-//!
-//! Implementors of `Serializable` must provide implementations for:
-//! - Serializing to string or file,
-//! - Deserializing from string or file,
-//! - Inferring format from file path.
+//! [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
+//! [`SerializationError`]: crate::aiplan4rust::serialization::SerializationError
 //!
 //! # Examples
 //!
 //! ```rust
 //! use crate::aiplan4rust::serialization::Serializable;
 //! use crate::aiplan4rust::interner::StringInterner;
+//! use crate::aiplan4rust::lir::problem::DomainDef;
 //!
-//! // Assuming `MyAst` implements Serializable:
-//! let interner = StringInterner::new();
-//! let ast = MyAst::new();
-//! let serialized = ast.serialize_to_string(&interner)?;
-//! let deserialized = MyAst::deserialize_from_str(&serialized, &mut interner)?;
+//! # let domain_def: DomainDef = todo!();
+//! let interner = domain_def.interner();
+//!
+//! // Serialize to string
+//! let serialized = domain_def.serialize_to_string(interner)?;
+//!
+//! // Serialize to file
+//! domain_def.serialize_to_file(interner, "domain.txt")?;
 //! ```
-//!
-//! [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
-//! [`SerializationError`]: crate::aiplan4rust::serialization::SerializationError
 
-use crate::aiplan4rust::interner::StringInterner;
+use std::fs;
+use std::io::Write;
 use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::serialization::syntax::SyntaxFormat;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
 
-/// Trait for serializing and deserializing syntax structures that require an [`Interner`].
+/// Trait for serializing syntax structures that contains a [`StringInterner`], i.e.,
+/// [`DomainDef`], [`ProblemDef`] or [`Ast`]?
 ///
-/// This trait provides functionality to serialize objects into various formats and
-/// deserialize objects from strings or files. The supported serialization formats include:
-/// - JSON
-/// - YAML
-/// - TOML
-/// - CBOR
-/// - MessagePack
+/// This trait provides functionality to convert objects to a string representation
+/// or write them directly to a file. It is intended for structures like normalized
+/// ASTs, domain definitions, or problems in PDDL-like syntax.
 ///
-/// Serialization and deserialization require an [`StringInterner`] to correctly
-/// handle symbol resolution during the process.
-///
-/// # Error Handling
-///
-/// All methods return an [`SerializationError`] wrapped in a `Result`.
-/// - Serialization and deserialization failures return [`SerializationError`].
-/// - Format inference failures return [`SerializationError`], specifically:
-///   - [`SerializationError::MissingExtensionError`] if the file has no extension.
-///   - [`SerializationError::UnsupportedExtensionError`] if the extension is unknown.
-///
-/// [`Interner`]: crate::aiplan4rust::interner::StringInterner
-pub trait Serializable: SyntaxInternerDisplay {
-    /// Serializes the object into a string using the provided `interner`.
-    ///
-    /// # Arguments
-    ///
-    /// * `interner` - The `StringInterner` instance used for symbol resolution.
+pub trait Serializable: SyntaxDisplay {
+    /// Serializes the object into a string using the provided interner.
     ///
     /// # Returns
     ///
-    /// A `String` containing the serialized representation of the object.
+    /// A `String` containing the serialized representation.
     ///
     /// # Errors
     ///
-    /// Returns an [`SerializationError`] if serialization fails.
+    /// Returns a [`SerializationError`] if serialization fails.
     fn serialize_to_string(
         &self,
-        interner: &StringInterner,
     ) -> Result<String, SerializationError>;
 
-    /// Serializes the object and writes the output to a file at the specified path.
+    /// Serializes the object and writes the output to a file.
     ///
     /// # Arguments
     ///
-    /// * `interner` - The `StringInterner` used for symbol resolution.
-    /// * `path` - The file system path where the serialized data will be written.
+    /// * `path` - Path of the file to write the serialized content.
     ///
     /// # Returns
     ///
-    /// `Ok(())` if the serialization and write succeed.
+    /// `Ok(())` if the file was written successfully.
     ///
     /// # Errors
     ///
-    /// Returns an [`SerializationError`] if serialization or file writing fails.
+    /// Returns a [`SerializationError`] if serialization or file writing fails.
     fn serialize_to_file(
         &self,
-        interner: &StringInterner,
         path: &str,
-    ) -> Result<(), SerializationError>;
+    ) -> Result<(), SerializationError> {
+        // Serialize to string first
+        let content = self.serialize_to_string()?;
 
-    /// Deserializes an instance from a string slice.
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - A string slice containing serialized data.
-    /// * `interner` - A mutable reference to a `StringInterner` for resolving symbols.
-    ///
-    /// # Returns
-    ///
-    /// The deserialized instance of the implementing type.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`SerializationError`] if deserialization fails.
-    fn deserialize_from_str(
-        s: &str,
-        interner: &mut StringInterner,
-    ) -> Result<Self, SerializationError>
-    where
-        Self: Sized;
+        // Attempt to create/open the file
+        let mut file = fs::File::create(path)
+            .map_err(|e| SerializationError::file_write(format!("{}: {}", path, e)))?;
 
-    /// Deserializes an instance from a file.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - Path to the file containing serialized data.
-    /// * `interner` - A mutable reference to a `StringInterner` for resolving symbols.
-    ///
-    /// # Returns
-    ///
-    /// The deserialized instance of the implementing type.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`SerializationError`] if reading the file or deserialization fails.
-    fn deserialize_from_file(
-        path: &str,
-        interner: &mut StringInterner,
-    ) -> Result<Self, SerializationError>
-    where
-        Self: Sized;
+        // Write the serialized content
+        file.write_all(content.as_bytes())
+            .map_err(|e| SerializationError::file_write(format!("{}: {}", path, e)))?;
 
-    /// Infers the serialization format from a file path's extension.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The file path whose extension is used to determine the format.
-    ///
-    /// # Returns
-    ///
-    /// A `PlanningFormat` representing the inferred format.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`SerializationError`] if:
-    /// - The file has no extension (`MissingExtensionError`).
-    /// - The extension is not recognized as a supported format (`UnsupportedExtensionError`).
-    fn format_from_path(path: &str) -> Result<SyntaxFormat, SerializationError> {
-        let ext = std::path::Path::new(path)
-            .extension()
-            .and_then(|e| e.to_str())
-            .ok_or_else(|| SerializationError::missing_extension())?;
-
-        ext.parse::<SyntaxFormat>()
-            .map_err(|_| SerializationError::unsupported_extension(ext))
+        Ok(())
     }
 }
