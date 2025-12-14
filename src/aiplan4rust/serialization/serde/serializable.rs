@@ -194,8 +194,6 @@ pub trait Serializable: Serialize + DeserializeOwned {
         }
     }
 
-
-
     /// Deserializes an object from a file in the specified format.
     ///
     /// # Arguments

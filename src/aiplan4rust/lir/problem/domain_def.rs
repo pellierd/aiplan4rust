@@ -44,8 +44,8 @@ use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::serialization::syntax::serializable::Serializable;
 use crate::aiplan4rust::serialization::SerializationError;
+use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
 /// Wrapper around the domain view of a lifted problem.
@@ -257,7 +257,7 @@ impl<'a> Display for DomainDef<'a> {
     }
 }
 
-impl<'a> Serializable for DomainDef<'a> {
+impl<'a> SyntaxSerializable for DomainDef<'a> {
     /// Serializes the domain definition into a syntax string.
     ///
     /// This uses the internal [`StringInterner`] of the domain to resolve

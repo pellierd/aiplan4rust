@@ -65,6 +65,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::time::SystemTime;
+use crate::aiplan4rust::serialization::SerializationError;
+use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 
 /// Represents a complete Abstract Syntax Tree (AST) along with its context.
 ///
@@ -493,5 +495,29 @@ impl fmt::Display for Ast {
         writeln!(f, " - Nodes:\n")?;
         self.syntax_tree().fmt_with_interner(f, self.interner())?;
         Ok(())
+    }
+}
+
+/// Implements serialization for the AST.
+///
+/// The AST is serialized using its `SyntaxDisplay` implementation, producing
+/// a normalized, human-readable representation of the syntax tree. This allows
+/// saving the AST to a file for later inspection, comparison, or re-parsing.
+///
+/// # Example
+///
+/// ```rust
+/// # use crate::aiplan4rust::syntax::ast::Ast;
+/// # let ast: Ast = todo!();
+/// let serialized = ast.serialize_to_string().unwrap();
+/// println!("{}", serialized);
+/// ast.serialize_to_file("ast_normalized.pddl").unwrap();
+/// ```
+impl SyntaxSerializable for Ast {
+    /// Serializes the AST to a string using its interner.
+    ///
+    /// Returns a normalized string representation of the AST.
+    fn serialize_to_string(&self) -> Result<String, SerializationError> {
+        Ok(self.to_syntax_string_with_comments())
     }
 }

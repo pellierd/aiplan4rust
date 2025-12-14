@@ -39,7 +39,7 @@ use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::serialization::syntax::serializable::Serializable;
+use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around a specific problem instance within a domain.
@@ -212,7 +212,7 @@ impl<'a> Display for ProblemDef<'a> {
     }
 }
 
-impl<'a> Serializable for ProblemDef<'a> {
+impl<'a> SyntaxSerializable for ProblemDef<'a> {
     /// Serializes the problem definition into a syntax string.
     ///
     /// This method produces a normalized, human-readable representation of the problem,
