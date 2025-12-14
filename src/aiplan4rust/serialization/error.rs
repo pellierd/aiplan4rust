@@ -77,6 +77,17 @@ pub enum SerializationError {
     /// MessagePack-specific serialization failure.
     #[error("MessagePack serialization error: {0}")]
     MessagePackSerializationError(String),
+
+    /// Indicates that the magic number in the header is invalid.
+    ///
+    /// This usually means that the file was not produced by the application
+    /// or is corrupted.
+    #[error("Invalid magic number in file header")]
+    InvalidMagic,
+
+    /// Error returned when a serialized string or file does not contain a valid header.
+    #[error("Invalid or missing header in serialized data")]
+    InvalidHeader,
 }
 
 impl SerializationError {
@@ -169,5 +180,19 @@ impl SerializationError {
     /// Constructs a `MessagePackSerializationError`.
     pub fn messagepack_serialization<S: Into<String>>(msg: S) -> Self {
         Self::MessagePackSerializationError(msg.into())
+    }
+
+    /// Constructs an `InvalidMagic` error.
+    pub fn invalid_magic() -> Self {
+        Self::InvalidMagic
+    }
+
+    /// Constructs an `InvalidHeader` error.
+    ///
+    /// This error occurs when a serialized string or file does not contain a valid header,
+    /// for example if the header cannot be separated from the payload using
+    /// `HEADER_PAYLOAD_SEPARATOR` or is malformed JSON.
+    pub fn invalid_header() -> Self {
+        Self::InvalidHeader
     }
 }

@@ -20,9 +20,10 @@ use crate::aiplan4rust::serialization::serde::SerdeExtension;
 use std::fmt;
 use std::str::FromStr;
 use clap::ValueEnum;
+use serde::{Deserialize, Serialize};
 
 /// Represents supported serialization formats (JSON, YAML).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, ValueEnum, Serialize, Deserialize)]
 pub enum Format {
     /// JSON format (default)
     #[default]

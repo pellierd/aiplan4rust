@@ -40,19 +40,23 @@
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
+use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
+use crate::aiplan4rust::lir::atomic_skeleton::{
+    AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
+};
+use crate::aiplan4rust::lir::expr::Expr;
+use crate::aiplan4rust::lir::problem::{
+    normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedMethod,
+};
+use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
+use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::syntax::SyntaxDisplay;
+use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lir::problem::{normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedMethod};
-use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
-use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Represents a lifted planning problem defined in PDDL syntax.
 ///
@@ -96,7 +100,6 @@ use crate::aiplan4rust::syntax::SyntaxDisplay;
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
-
     /// The interner used for string deduplication.
     interner: StringInterner,
 
@@ -156,7 +159,6 @@ pub struct Problem {
 
     /// The initial task network of the problem.
     initial_task_network: InitialTaskNetwork,
-
 }
 
 #[allow(dead_code)]
@@ -382,7 +384,7 @@ impl Problem {
     /// Adds multiple predicates.
     pub fn add_predicates<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item =AtomicFormulaSkeleton>,
+        I: IntoIterator<Item = AtomicFormulaSkeleton>,
     {
         self.predicates.extend(iter);
     }
@@ -407,7 +409,7 @@ impl Problem {
     /// Adds multiple functions.
     pub fn add_functions<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item =AtomicFunctionSkeleton>,
+        I: IntoIterator<Item = AtomicFunctionSkeleton>,
     {
         self.functions.extend(iter);
     }
@@ -449,7 +451,7 @@ impl Problem {
     /// Adds multiple tasks.
     pub fn add_tasks<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item =AtomicTaskSkeleton>,
+        I: IntoIterator<Item = AtomicTaskSkeleton>,
     {
         self.tasks.extend(iter);
     }
@@ -689,7 +691,6 @@ impl Problem {
     pub fn problem_def(&self) -> ProblemDef<'_> {
         ProblemDef::new(self)
     }
-
 }
 
 impl SyntaxDisplay for Problem {
@@ -753,5 +754,4 @@ impl Display for Problem {
     }
 }
 
-impl SerdeSerializable for Problem {
-}
+impl SerdeSerializable for Problem {}

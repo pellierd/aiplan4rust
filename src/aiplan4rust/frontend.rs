@@ -5,13 +5,14 @@ use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
 use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 
 use std::fs::File;
 use std::io::Read;
 use std::string::String;
+
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -80,8 +81,7 @@ impl Frontend {
             Ok(LirBuilderResult::failure(diagnostic_manager, interner))
         }
     }
-
-
+    
     /// Parses the source file at the given path and performs semantic analysis on the parsed syntax
     /// arena.
     ///
@@ -179,11 +179,11 @@ impl Frontend {
         lifted_problem_path: &str,
     ) -> Result<LinkerResult, AiplanError> {
         // Deserialize the domain semantic context from file
-        let lifted_domain = SemanticContext::deserialize_from_file_auto_format(lifted_domain_path)?;
+        let lifted_domain = SemanticContext::deserialize_from_file_with_auto_format(lifted_domain_path)?;
         let domain = AnalyzerResult::success(lifted_domain, DiagnosticManager::new());
 
         // Deserialize the problem semantic context from file
-        let lifted_problem = SemanticContext::deserialize_from_file_auto_format(lifted_problem_path)?;
+        let lifted_problem = SemanticContext::deserialize_from_file_with_auto_format(lifted_problem_path)?;
         let problem = AnalyzerResult::success(lifted_problem, DiagnosticManager::new());
 
         // Perform semantic linking between domain and problem contexts
