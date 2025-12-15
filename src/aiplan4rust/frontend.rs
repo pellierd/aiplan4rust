@@ -81,7 +81,7 @@ impl Frontend {
             Ok(LirBuilderResult::failure(diagnostic_manager, interner))
         }
     }
-    
+
     /// Parses the source file at the given path and performs semantic analysis on the parsed syntax
     /// arena.
     ///

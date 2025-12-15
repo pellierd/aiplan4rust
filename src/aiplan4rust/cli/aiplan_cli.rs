@@ -1,4 +1,5 @@
 use clap::{Arg, Command};
+use crate::aiplan4rust::cli::parse::cli::build_parse_subcommand;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 
 /// Application version.
@@ -10,24 +11,49 @@ pub const ABOUT: &str = "aiplan";
 
 /// Subcommand names.
 pub const LINK_SUBCOMMAND: &str = "link";
-pub const PARSE_SUBCOMMAND: &str = "parse";
 
-/// Argument short and long flags.
-pub const OUTPUT_SHORT: char = 'o';
+
+/// Short and long flags for specifying a single output file.
+pub const OUTPUT_SHORT: char = 'o'; // file
 pub const OUTPUT_LONG: &str = "output";
+
+/// Short and long flags for specifying an output directory.
+pub const OUT_DIR_SHORT: char = 'd'; // directory
+pub const OUT_DIR_LONG: &str = "out-dir";
+
 pub const FORMAT_SHORT: char = 'f';
 pub const FORMAT_LONG: &str = "format";
-pub const LANGUAGE_SHORT: char = 'l';
-pub const LANGUAGE_LONG: &str = "language";
+
 
 /// Output formats.
 pub const JSON: &str = "json";
 pub const YAML: &str = "yaml";
+pub const TOML: &str = "toml";
+pub const CBOR: &str = "cbor";
+pub const MESSAGEPACK: &str = "messagepack";
+
+// All supported output formats.
+pub const SUPPORTED_FORMATS: &[&str] = &[
+    JSON,
+    YAML,
+    TOML,
+    CBOR,
+    MESSAGEPACK,
+];
 
 /// Argument names.
 pub const FILES_ARG: &str = "files";
 pub const OUTPUT_ARG: &str = "output";
 pub const FORMAT_ARG: &str = "format";
+pub const OUT_DIR_ARG: &str = "out-dir";
+
+pub const CURRENT_DIR: &str = ".";
+
+// Texte d'aide pour chaque argument
+pub const FILES_HELP: &str = "The domain and/or problem files to parse";
+pub const OUTPUT_HELP: &str = "Output filename (single input file only)";
+pub const OUT_DIR_HELP: &str = "Output directory for the output file(s) (default: current directory)";
+pub const FORMAT_HELP: &str = "Output format (json, yaml, toml, cbor, messagepack)";
 
 /// Builds the main CLI command for the `aiplan` application.
 ///
@@ -73,45 +99,6 @@ pub fn build_link_subcommand() -> Command {
                 .help("Output file name for the combined result (e.g., domain_problem.json)")
                 .value_parser(clap::value_parser!(String))
                 .required(true),
-        )
-        .arg(
-            Arg::new(FORMAT_ARG)
-                .short(FORMAT_SHORT)
-                .long(FORMAT_LONG)
-                .help("Defines the output format (json or yaml)")
-                .value_parser(clap::value_parser!(SerdeFormat))
-                .default_value(JSON),
-        )
-}
-
-/// Builds the `parse` subcommand.
-///
-/// The `parse` subcommand parses a PDDL or HDDL domain and/or problem file and
-/// optionally generates an output file in the specified format.
-///
-/// # Arguments
-/// - `files` (required, 1 or 2): domain and/or problem files
-/// - `output` (optional): output file name
-/// - `format` (optional, default `json`): output format (`json` or `yaml`)
-///
-/// # Returns
-/// A [`Command`] representing the `parse` subcommand.
-pub fn build_parse_subcommand() -> Command {
-    Command::new(PARSE_SUBCOMMAND)
-        .about("Parse a PDDL domain and/or problem file, and generate an output file")
-        .arg(
-            Arg::new(FILES_ARG)
-                .help("The domain and/or problem files")
-                .required(true)
-                .num_args(1..=2),
-        )
-        .arg(
-            Arg::new(OUTPUT_ARG)
-                .short(OUTPUT_SHORT)
-                .long(OUTPUT_LONG)
-                .help("Specify the output file name")
-                .value_parser(clap::value_parser!(String))
-                .required(false),
         )
         .arg(
             Arg::new(FORMAT_ARG)

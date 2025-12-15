@@ -1,16 +1,14 @@
-use aiplan4rust::aiplan4rust::cli::aiplan_cli::{
-    build_cli, FILES_ARG, FORMAT_ARG, LINK_SUBCOMMAND, OUTPUT_ARG, PARSE_SUBCOMMAND,
-};
+
+use aiplan4rust::aiplan4rust::cli::aiplan_cli::{build_cli, FILES_ARG, FORMAT_ARG, LINK_SUBCOMMAND, OUTPUT_ARG};
 use aiplan4rust::aiplan4rust::serialization::serde::{SerdeExtension, SerdeFormat};
 use aiplan4rust::aiplan4rust::Frontend;
-use aiplan4rust::aiplan4rust::diagnostic::{Renderer, Severity};
+use aiplan4rust::aiplan4rust::diagnostic::{Renderer};
 use aiplan4rust::aiplan4rust::serialization::serde::SerdeSerializable;
 
 use clap::ArgMatches;
-use std::path::Path;
-use std::time::Instant;
-use colored::Colorize;
-
+use std::path::{Path};
+use aiplan4rust::aiplan4rust::cli::parse::cli::PARSE_SUBCOMMAND;
+use aiplan4rust::aiplan4rust::cli::parse::handle_parse_command;
 
 /// Handles the `link` command logic.
 ///
@@ -33,47 +31,7 @@ fn handle_link_command(matches: &ArgMatches) {
     }
 }
 
-/// Handles the `parse` command logic.
-///
-/// This function retrieves the domain and/or problem files from the CLI arguments,
-/// determines whether one or two files are provided, and calls the appropriate parsing function.
-/// If an output file is not specified, a default name is generated.
-///
-/// # Arguments:
-/// - `matches`: Parsed command-line arguments for the `parse` subcommand.
-fn handle_parse_command(matches: &ArgMatches) {
-    if let Some(files) = matches.get_many::<String>(FILES_ARG) {
-        let files_vec: Vec<String> = files.cloned().collect();
-        let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
 
-        match files_vec.len() {
-            1 => {
-                let input_file = &files_vec[0];
-                let output = matches
-                    .get_one::<String>(OUTPUT_ARG)
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        generate_lifted_domain_or_problem_filename(input_file, format)
-                    });
-                parse_file(input_file, format, &output);
-            }
-            2 => {
-                let domain_file = &files_vec[0];
-                let problem_file = &files_vec[1];
-                let output = matches
-                    .get_one::<String>(OUTPUT_ARG)
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        generate_lifted_planning_task_filename(domain_file, problem_file, format)
-                    });
-                parse(domain_file, problem_file, format, &output);
-            }
-            _ => {
-                eprintln!("Error: You must provide one or two files.");
-            }
-        }
-    }
-}
 
 /// Main entry point for the application.
 ///
@@ -115,7 +73,7 @@ fn link(domain_file: &str, problem_file: &str, format: SerdeFormat, output: &str
     }
 }
 
-pub fn parse(
+/*pub fn parse(
     domain_file: &str,
     problem_file: &str,
     format: SerdeFormat,
@@ -176,102 +134,10 @@ pub fn parse(
             eprintln!("{}", e);
         }
     }
-}
-
-pub fn parse_file(input_file: &str, format: SerdeFormat, output: &str) {
-    let start_time = Instant::now(); // Démarre le chronomètre
-
-    let full_path = Path::new(input_file)
-        .canonicalize()
-        .map(|p| p.display().to_string())
-        .unwrap_or_else(|_| input_file.to_string());
-
-    println!(
-        "{:>10} aiplan4rust v0.1.0 ({})",
-        "Parsing".green().bold(),
-        full_path
-    );
-
-    let frontend = Frontend::new();
-    match frontend.parse_file(input_file) {
-        Ok(result) => {
-            let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner()) ;
-            let _ = renderer.display();
-
-            // Compte les erreurs et les warnings
-            let error_count = result.diagnostic_manager().count_diagnostics_of_severity(Severity::Error);
-            let warning_count = result.diagnostic_manager().count_diagnostics_of_severity(Severity::Warning);
-
-            // Chronomètre
-            let elapsed_time = start_time.elapsed().as_secs_f32();
-
-            // Affichage du message de fin
-            println!(
-                "{} {} error(s), {} warning(s) target(s) in {:.2}s",
-                "Finished".green().bold(),
-                format!("{}", error_count),
-                format!("{}", warning_count),
-                elapsed_time
-            );
-
-            // Si des erreurs sont présentes, indiquer qu'aucun fichier n'a été produit
-            if error_count > 0 {
-                println!(
-                    "{} No output file produced due to errors.",
-                    "===> ".blue().bold());
-            } else {
-                // Si aucun problème, afficher que le fichier a été produit
-                if let Some(context) = result.semantic_context() {
-                    if let Err(e) = context.serialize_to_file(format, output) {
-                        eprintln!("Error saving file: {}", e);
-                    } else {
-                        let absolute_output = Path::new(output)
-                            .canonicalize()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_else(|_| output.to_string());
-
-                        println!(
-                            "{} Output file produced ({})",
-                            "===> ".blue().bold(),
-                            absolute_output
-                        );
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("{}", e);
-        }
-    }
-}
+}*/
 
 
-/// Generates an output file name based on the input file and the specified format.
-///
-/// # Parameters
-/// - `input_file`: A string slice representing the input file path.
-/// - `format`: A reference to a `FileFormat` enumeration that specifies the desired output file format.
-///
-/// # Returns
-/// A string representing the output file name with the same base name as the input file, but with
-/// the extension corresponding to the specified format.
-///
-/// # Example
-/// ```rust
-/// let filename = generate_lifted_domain_or_problem_filename("example.pddl", &FileFormat::Json);
-/// assert_eq!(filename, "example.json");
-/// ```
-///
-/// # Notes
-/// If the input file doesn't have an extension, it will be used as is as the base name.
-fn generate_lifted_domain_or_problem_filename(input_file: &str, format: SerdeFormat) -> String {
-    let base_name = input_file
-        .rsplit_once('.')
-        .map(|(name, _ext)| name)
-        .unwrap_or(input_file);
-    let extension = SerdeExtension::from(format).as_str();
-    format!("{}.{}", base_name, extension)
-}
+
 
 /// Generates an output file name based on the domain and problem file names and the specified format.
 ///
