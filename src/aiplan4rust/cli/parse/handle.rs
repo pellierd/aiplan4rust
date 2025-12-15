@@ -1,214 +1,291 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::time::Instant;
-use clap::ArgMatches;
 use clap::error::ErrorKind;
+use clap::ArgMatches;
 use colored::Colorize;
-use crate::aiplan4rust::cli::aiplan_cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
-use crate::aiplan4rust::serialization::serde::{SerdeExtension, SerdeFormat, SerdeSerializable};
+use std::path::Path;
+use std::time::Instant;
+
+use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
+use crate::aiplan4rust::cli::handle::{
+    ensure_dir_exists, ensure_parent_dir_exists, generate_parsed_filename, save_output_file,
+};
+use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use crate::{Frontend, Renderer, Severity};
 
-/// Handles the `parse` command logic.
+/// Handles the logic for the `parse` CLI subcommand.
 ///
-/// This function retrieves the domain and/or problem files from the CLI arguments,
-/// determines whether one or two files are provided, and calls the appropriate parsing function.
-/// If an output file is not specified, a default name is generated.
+/// This function performs the following steps:
+/// 1. Validates the provided CLI arguments using `validate_parse_args`.
+/// 2. Retrieves the domain and/or problem files specified by the user.
+/// 3. Determines whether a single input file or multiple files are provided.
+/// 4. Generates appropriate output filenames if not explicitly provided.
+/// 5. Ensures that all necessary output directories exist.
+/// 6. Calls the `parse` function for each input file.
 ///
-/// # Arguments:
-/// - `matches`: Parsed command-line arguments for the `parse` subcommand.
-/// Handles the `parse` command logic.
+/// # Behavior
+/// - **Single input file**:
+///     - Uses `-o/--output` if provided.
+///     - If no output file is specified, a default filename is generated based on the input file and serialization format.
+/// - **Multiple input files**:
+///     - `-o/--output` is forbidden (validation ensures this).
+///     - Requires `-d/--out-dir` to specify the output directory; defaults to the current directory if not provided.
+///     - Generates output filenames inside the specified output directory for each input file.
+///
+/// # Arguments
+/// * `matches` - A reference to `ArgMatches` containing the parsed CLI arguments for the `parse` subcommand.
+///
+/// # Panics
+/// - The function will terminate the process (`std::process::exit(1)`) if argument validation fails.
+/// - The function may also exit if it fails to create required directories or write output files.
+///
+/// # Example
+/// ```rust
+/// let matches = build_parse_subcommand().get_matches();
+/// handle_parse_command(&matches);
+/// ```
 pub fn handle_parse_command(matches: &ArgMatches) {
-    // Validate arguments first
+    // Validate CLI arguments first; exit on error
     if let Err(err) = validate_parse_args(matches) {
-        err.print().expect("Error printing clap error");
+        if let Err(print_err) = err.print() {
+            eprintln!("Failed to print clap error: {}", print_err);
+        }
         std::process::exit(1);
     }
 
-    // Retrieve the input files
-    let files: Vec<String> = matches
-        .get_many::<String>(FILES_ARG)
-        .unwrap()
-        .cloned()
-        .collect();
+    // Collect the input files from the CLI
+    let files: Vec<String> = match matches.get_many::<String>(FILES_ARG) {
+        Some(values) => values.cloned().collect(),
+        None => {
+            eprintln!("Error: no input files provided.");
+            std::process::exit(1);
+        }
+    };
 
+    // Retrieve the output serialization format (default: JSON)
     let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
 
     match files.len() {
         1 => {
+            // Single input file
             let input_file = &files[0];
             let output = matches
                 .get_one::<String>(OUTPUT_ARG)
                 .cloned()
                 .unwrap_or_else(|| generate_parsed_filename(input_file, format, None));
 
-            // Ensure parent directories exist
+            // Ensure parent directory exists
             ensure_parent_dir_exists(&output);
-            parse(input_file, format, &output);
+
+            // Parse and write the output file
+            parse_from_files(input_file, format, &output);
         }
         _ => {
-            // Multiple files
+            // Multiple input files
             let out_dir = matches
                 .get_one::<String>(OUT_DIR_ARG)
                 .cloned()
-                .unwrap_or_else(|| ".".to_string()); // default to current directory
+                .unwrap_or_else(|| CURRENT_DIR.to_string()); // default to current directory
 
+            // Ensure the output directory exists
             ensure_dir_exists(&out_dir);
 
             for input_file in &files {
                 let output_path = generate_parsed_filename(input_file, format, Some(&out_dir));
 
-                // Ensure parent directories exist for each file
+                // Ensure parent directories exist for each output file
                 ensure_parent_dir_exists(&output_path);
-                parse(input_file, format, &output_path);
 
+                // Parse and write each output file
+                parse_from_files(input_file, format, &output_path);
             }
         }
     }
 }
 
-fn parse(input_file: &str, format: SerdeFormat, output: &str) {
-    let start_time = Instant::now(); // Démarre le chronomètre
+/// Parses a single input PDDL/HDDL file and optionally writes the serialized output to a file.
+///
+/// This function performs the following steps:
+/// 1. Displays a parsing start message including the absolute path of the input file.
+/// 2. Parses the input file using the `Frontend`.
+/// 3. Renders any diagnostics (errors and warnings) to the console.
+/// 4. Displays the parsing result including the number of errors, warnings, and elapsed time.
+/// 5. If there are no errors, serializes the semantic context to the specified output file.
+///
+/// # Arguments
+/// * `input_file` - Path to the input PDDL/HDDL file to parse.
+/// * `format` - The serialization format for the output file (e.g., JSON, YAML, TOML).
+/// * `output` - Path to the output file where the serialized content will be written.
+///
+/// # Behavior
+/// - If parsing fails, the error is printed and the function returns early.
+/// - If parsing succeeds but there are errors in the input file, no output file is produced.
+/// - If parsing succeeds with no errors, the semantic context is serialized to the output file.
+///
+/// # Example
+/// ```rust
+/// let input_file = "domain.pddl";
+/// let output_file = "domain.json";
+/// parse(input_file, SerdeFormat::Json, output_file);
+/// ```
+fn parse_from_files(input_file: &str, format: SerdeFormat, output: &str) {
+    let start_time = Instant::now();
 
-    let full_path = Path::new(input_file)
+    // Display parsing start message and get absolute path
+    display_parsing_start(input_file);
+
+    // Perform parsing
+    let frontend = Frontend::new();
+    let result = match frontend.parse_file(input_file) {
+        Ok(res) => res,
+        Err(e) => {
+            eprintln!("{}", e);
+            return; // Early return on parsing error
+        }
+    };
+
+    // Render diagnostics
+    let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
+    renderer.display().unwrap_or_else(|e| {
+        eprintln!("Warning: failed to render diagnostics: {}", e);
+    });
+
+    // Count errors and warnings
+    let error_count = result
+        .diagnostic_manager()
+        .count_diagnostics_of_severity(Severity::Error);
+    let warning_count = result
+        .diagnostic_manager()
+        .count_diagnostics_of_severity(Severity::Warning);
+    let elapsed_time = start_time.elapsed().as_secs_f32();
+
+    // Display parsing result summary
+    display_parsing_result(error_count, warning_count, elapsed_time);
+
+    // Early return if errors exist
+    if error_count > 0 {
+        println!(
+            "{} No output file produced due to errors.",
+            "===> ".blue().bold()
+        );
+        return;
+    }
+
+    // Serialize semantic context to output file
+    if let Some(context) = result.semantic_context() {
+        save_output_file(context, format, output);
+    }
+}
+
+/// Displays a parsing start message for a given input file and returns its absolute path.
+///
+/// This function performs the following steps:
+/// 1. Resolves the absolute (canonical) path of the input file.
+///    - If canonicalization fails, the original path is returned.
+/// 2. Prints a formatted message indicating that parsing has started, including:
+///    - The tool name (`aiplan4rust`)
+///    - The tool version, automatically obtained from Cargo.toml
+///    - The input file path
+///
+/// # Arguments
+/// * `input_file` - Path to the input PDDL/HDDL file to parse.
+///
+/// # Returns
+/// * `String` - The absolute path of the input file, or the original path if canonicalization fails.
+///
+/// # Example
+/// ```rust
+/// let input_file = "domain.pddl";
+/// let absolute_path = display_parsing_start(input_file);
+/// println!("Parsing started for: {}", absolute_path);
+/// ```
+fn display_parsing_start(input_file: &str) -> String {
+    // Resolve the absolute path; fallback to the original path if canonicalization fails
+    let input_path = Path::new(input_file)
         .canonicalize()
         .map(|p| p.display().to_string())
         .unwrap_or_else(|_| input_file.to_string());
 
+    // Use the version from Cargo.toml automatically
+    let version = env!("CARGO_PKG_VERSION");
+
+    // Print the parsing start message
     println!(
-        "\n{:>10} aiplan4rust v0.1.0 ({})",
+        "\n{:>10} aiplan4rust v{} ({})",
         "Parsing".green().bold(),
-        full_path
+        version,
+        input_path
     );
 
-    let frontend = Frontend::new();
-    match frontend.parse_file(input_file) {
-        Ok(result) => {
-            let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner()) ;
-            let _ = renderer.display();
-
-            // Compte les erreurs et les warnings
-            let error_count = result.diagnostic_manager().count_diagnostics_of_severity(Severity::Error);
-            let warning_count = result.diagnostic_manager().count_diagnostics_of_severity(Severity::Warning);
-
-            // Chronomètre
-            let elapsed_time = start_time.elapsed().as_secs_f32();
-
-            // Affichage du message de fin
-            println!(
-                "{} {} error(s), {} warning(s) target(s) in {:.2}s",
-                "Finished".green().bold(),
-                format!("{}", error_count),
-                format!("{}", warning_count),
-                elapsed_time
-            );
-
-            // Si des erreurs sont présentes, indiquer qu'aucun fichier n'a été produit
-            if error_count > 0 {
-                println!(
-                    "{} No output file produced due to errors.",
-                    "===> ".blue().bold());
-            } else {
-                // Si aucun problème, afficher que le fichier a été produit
-                if let Some(context) = result.semantic_context() {
-                    if let Err(e) = context.serialize_to_file(format, output) {
-                        eprintln!("Error saving file: {}", e);
-                    } else {
-                        let absolute_output = Path::new(output)
-                            .canonicalize()
-                            .map(|p| p.display().to_string())
-                            .unwrap_or_else(|_| output.to_string());
-
-                        println!(
-                            "{} Output file produced ({})",
-                            "===> ".blue().bold(),
-                            absolute_output
-                        );
-                    }
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("{}", e);
-        }
-    }
+    input_path
 }
 
-/// Generates the output filename based on input file, format, and optional output directory.
-fn generate_parsed_filename(
-    input_file: &str,
-    format: SerdeFormat,
-    out_dir: Option<&str>,
-) -> String {
-    let base_name = Path::new(input_file)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or(input_file);
-    let extension = SerdeExtension::from(format).as_str();
-
-    match out_dir {
-        Some(dir) => {
-            let mut path = PathBuf::from(dir);
-            path.push(format!("{}.{}", base_name, extension));
-            path.to_string_lossy().into_owned()
-        }
-        None => format!("{}.{}", base_name, extension),
-    }
-}
-
-/// Ensures that the parent directory of a given file path exists.
-/// Exits the process on error.
-fn ensure_parent_dir_exists(path: &str) {
-    if let Some(parent) = Path::new(path).parent() {
-        if !parent.exists() {
-            if let Err(e) = fs::create_dir_all(parent) {
-                eprintln!("Error creating output directory {}: {}", parent.display(), e);
-                std::process::exit(1);
-            }
-        }
-    }
-}
-
-/// Ensures that the given directory exists.
-/// Exits the process on error.
-fn ensure_dir_exists(dir: &str) {
-    if !Path::new(dir).exists() {
-        if let Err(e) = fs::create_dir_all(dir) {
-            eprintln!("Error creating directory {}: {}", dir, e);
-            std::process::exit(1);
-        }
-    }
-}
-
-/// Validates the parse subcommand arguments.
+/// Displays a summary of the parsing results, including the number of errors,
+/// warnings, and the total elapsed time for parsing.
 ///
-/// Rules:
-/// 1. If multiple files are provided, `-o/--output` is forbidden.
-/// 2. If multiple files are provided, `-d/--out-dir` must be specified.
-/// 3. `-f/--format` is always optional and defaults to Json.
+/// This function prints a formatted message to the console in the following format:
+/// `"Finished <error_count> error(s), <warning_count> warning(s) in <elapsed_time>s"`.
+///
+/// # Arguments
+/// * `error_count` - The number of errors encountered during parsing.
+/// * `warning_count` - The number of warnings encountered during parsing.
+/// * `elapsed_time` - The total time elapsed during parsing in seconds.
+///
+/// # Example
+/// ```rust
+/// let errors = 2;
+/// let warnings = 5;
+/// let elapsed = 0.42;
+/// display_parsing_result(errors, warnings, elapsed);
+/// // Output: "Finished 2 error(s), 5 warning(s) in 0.42s"
+/// ```
+fn display_parsing_result(error_count: usize, warning_count: usize, elapsed_time: f32) {
+    println!(
+        "{} {} error(s), {} warning(s) in {:.2}s",
+        "Finished".green().bold(),
+        error_count,
+        warning_count,
+        elapsed_time
+    );
+}
+
+/// Validates the arguments for the `parse` subcommand.
+///
+/// This function enforces the following rules for the CLI:
+/// 1. If multiple input files are provided, `-o/--output` is forbidden.
+/// 2. The output directory argument `-d/--out-dir` is optional for multiple files
+///    because a default (`"."`) is provided.
+/// 3. The format argument `-f/--format` is always optional and defaults to JSON.
+///
+/// # Arguments
+/// * `matches` - The parsed command-line arguments from `clap`.
+///
+/// # Returns
+/// * `Ok(())` if all validations pass.
+/// * `Err(clap::Error)` if any validation rule is violated.
+///
+/// # Example
+/// ```rust
+/// use aiplan4rust::cli::parse::{build_parse_subcommand, validate_parse_args};
+/// let matches = build_parse_subcommand().get_matches();
+/// validate_parse_args(&matches)?;
+/// ```
 fn validate_parse_args(matches: &ArgMatches) -> Result<(), clap::Error> {
-    let files: Vec<&String> = matches
+    // Count the number of input files provided
+    let file_count = matches
         .get_many::<String>(FILES_ARG)
-        .unwrap_or_default()
-        .collect();
+        .map(|v| v.len())
+        .unwrap_or(0);
 
-    let output_provided = matches.get_one::<String>(OUTPUT_ARG).is_some();
-    let out_dir_provided = matches.get_one::<String>(OUT_DIR_ARG).is_some();
+    // Check if the output file argument was provided
+    let output_provided = matches.contains_id(OUTPUT_ARG);
 
-    if files.len() > 1 {
-        if output_provided {
-            return Err(clap::Error::raw(
-                ErrorKind::ArgumentConflict,
-                "`-o/--output` is only valid for a single input file; use `-d/--out-dir` for multiple files",
-            ));
-        }
-
-        if !out_dir_provided {
-            return Err(clap::Error::raw(
-                ErrorKind::MissingRequiredArgument,
-                "Multiple input files require `-d/--out-dir` to specify the output directory",
-            ));
-        }
+    // If multiple files are provided, -o is forbidden
+    if file_count > 1 && output_provided {
+        return Err(clap::Error::raw(
+            ErrorKind::ArgumentConflict,
+            "`-o/--output` cannot be used with multiple input files; use `-d/--out-dir` instead",
+        ));
     }
 
+    // No need to require -d/--out-dir because we have a default value
     Ok(())
 }

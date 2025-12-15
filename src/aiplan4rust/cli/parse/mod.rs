@@ -27,3 +27,4 @@ pub mod handle;
 
 /// Re-export the main handler function for the `parse` command.
 pub use handle::handle_parse_command;
+pub use cli::PARSE_SUBCOMMAND;
