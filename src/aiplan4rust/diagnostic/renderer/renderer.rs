@@ -21,7 +21,7 @@
 //! Create a `Renderer` with references to a `DiagnosticManager` and `StringInterner`,
 //! then invoke its methods to write formatted diagnostics to your desired output.
 
-use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager};
+use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticError, DiagnosticManager};
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::diagnostic::renderer::{formatting, message, suggestion};
 
@@ -95,15 +95,15 @@ impl<'a> Renderer<'a> {
     ///
     /// # Errors
     ///
-    /// Returns an `std::io::Error` if writing to the output fails.
+    /// Returns a `DiagnosticError::Io` if writing to the output fails.
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```rust
     /// let mut renderer = Renderer::new(&diagnostic_manager, &interner);
     /// renderer.display()?;
     /// ```
-    pub fn display(&mut self) -> std::io::Result<()> {
+    pub fn display(&mut self) -> Result<(), DiagnosticError> {
         let writer = &mut self.output;
         Renderer::write_to(self.diagnostic_manager, self.interner, writer, true)
     }
@@ -129,17 +129,18 @@ impl<'a> Renderer<'a> {
     /// # Returns
     ///
     /// * `Ok(())` on success.
-    /// * `Err(io::Error)` if an I/O error occurs while writing to the writer.
+    /// * `Err(DiagnosticError::Io)` if an I/O error occurs while writing to the writer.
     ///
     /// # Example
     ///
     /// ```rust
-    /// use my_crate::diagnostics::write_to;
+    /// use crate::aiplan4rust::diagnostics::{DiagnosticManager, StringInterner, write_to, DiagnosticError};
     ///
     /// let diagnostics = DiagnosticManager::new();
     /// let interner = StringInterner::default();
     ///
-    /// write_to(&diagnostics, &interner, &mut std::io::stdout(), true).unwrap();
+    /// write_to(&diagnostics, &interner, &mut std::io::stdout(), true)?;
+    /// # Ok::<(), DiagnosticError>(())
     /// ```
     ///
     /// # Output Format
@@ -153,13 +154,12 @@ impl<'a> Renderer<'a> {
     ///    │
     /// = help: expected `:domain` section here
     /// ```
-    ///
     pub fn write_to<W: Write>(
         diagnostic_manager: &DiagnosticManager,
         interner: &StringInterner,
         writer: &mut W,
         color: bool,
-    ) -> io::Result<()> {
+    ) -> Result<(), DiagnosticError> {
         // Iterate over all diagnostics to format and print them
         for diagnostic in diagnostic_manager.diagnostics() {
             let mut output = String::new();

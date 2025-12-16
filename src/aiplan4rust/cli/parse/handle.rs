@@ -5,11 +5,10 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
-use crate::aiplan4rust::cli::handle::{
-    ensure_dir_exists, ensure_parent_dir_exists, generate_parsed_filename, save_output_file,
-};
+use crate::aiplan4rust::cli::handle::{ensure_dir_exists, ensure_parent_dir_exists, generate_default_output_filename, save_output_file};
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use crate::{Frontend, Renderer, Severity};
+use crate::aiplan4rust::cli::error::CliError;
 
 /// Handles the logic for the `parse` CLI subcommand.
 ///
@@ -42,7 +41,7 @@ use crate::{Frontend, Renderer, Severity};
 /// let matches = build_parse_subcommand().get_matches();
 /// handle_parse_command(&matches);
 /// ```
-pub fn handle_parse_command(matches: &ArgMatches) {
+pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
     // Validate CLI arguments first; exit on error
     if let Err(err) = validate_parse_args(matches) {
         if let Err(print_err) = err.print() {
@@ -67,16 +66,18 @@ pub fn handle_parse_command(matches: &ArgMatches) {
         1 => {
             // Single input file
             let input_file = &files[0];
-            let output = matches
-                .get_one::<String>(OUTPUT_ARG)
-                .cloned()
-                .unwrap_or_else(|| generate_parsed_filename(input_file, format, None));
+            let output = match matches.get_one::<String>(OUTPUT_ARG) {
+                Some(s) => s.clone(),
+                None => generate_default_output_filename(input_file, None, format, None)?,
+            };
+
 
             // Ensure parent directory exists
             ensure_parent_dir_exists(&output);
 
             // Parse and write the output file
             parse_from_files(input_file, format, &output);
+            Ok(())
         }
         _ => {
             // Multiple input files
@@ -89,7 +90,7 @@ pub fn handle_parse_command(matches: &ArgMatches) {
             ensure_dir_exists(&out_dir);
 
             for input_file in &files {
-                let output_path = generate_parsed_filename(input_file, format, Some(&out_dir));
+                let output_path = generate_default_output_filename(input_file, None, format, Some(&out_dir))?;
 
                 // Ensure parent directories exist for each output file
                 ensure_parent_dir_exists(&output_path);
@@ -97,6 +98,7 @@ pub fn handle_parse_command(matches: &ArgMatches) {
                 // Parse and write each output file
                 parse_from_files(input_file, format, &output_path);
             }
+            Ok(())
         }
     }
 }

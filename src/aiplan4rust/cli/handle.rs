@@ -1,7 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use colored::Colorize;
-use crate::aiplan4rust::serialization::serde::{SerdeExtension, SerdeFormat, SerdeSerializable};
+use crate::aiplan4rust::cli::error::CliError;
+use crate::aiplan4rust::serialization::serde::{SerdeFormat, SerdeSerializable};
 
 /// Saves the parsed semantic context to a file and prints the output file location.
 ///
@@ -43,28 +44,6 @@ pub fn save_output_file(context: &impl SerdeSerializable, format: SerdeFormat, o
     );
 }
 
-/// Generates the output filename based on input file, format, and optional output directory.
-pub fn generate_parsed_filename(
-    input_file: &str,
-    format: SerdeFormat,
-    out_dir: Option<&str>,
-) -> String {
-    let base_name = Path::new(input_file)
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or(input_file);
-    let extension = SerdeExtension::from(format).as_str();
-
-    match out_dir {
-        Some(dir) => {
-            let mut path = PathBuf::from(dir);
-            path.push(format!("{}.{}", base_name, extension));
-            path.to_string_lossy().into_owned()
-        }
-        None => format!("{}.{}", base_name, extension),
-    }
-}
-
 /// Ensures that the parent directory of a given file path exists.
 /// Exits the process on error.
 pub fn ensure_parent_dir_exists(path: &str) {
@@ -87,4 +66,62 @@ pub fn ensure_dir_exists(dir: &str) {
             std::process::exit(1);
         }
     }
+}
+
+/// Generates a default output filename from domain and optionally problem files.
+///
+/// The generated filename will be:
+/// - If `problem_file` is `Some`: `{domain_stem}-{problem_stem}.{format}`
+/// - If `problem_file` is `None`: `{domain_stem}.{format}`
+///
+/// If `out_dir` is provided, the filename is joined to that directory.
+///
+/// # Arguments
+///
+/// * `domain_file` - Path to the domain file.
+/// * `problem_file` - Optional path to the problem file.
+/// * `format` - Desired serialization format for the output.
+/// * `out_dir` - Optional output directory.
+///
+/// # Errors
+///
+/// Returns a `CliError` if either input file has an invalid filename.
+///
+/// # Examples
+///
+/// ```rust
+/// let output = generate_default_output_filename("domain.pddl", Some("problem.pddl"), SerdeFormat::Json, None)?;
+/// let output_single = generate_default_output_filename("domain.pddl", None, SerdeFormat::Json, None)?;
+/// ```
+pub fn generate_default_output_filename(
+    domain_file: &str,
+    problem_file: Option<&str>,
+    format: SerdeFormat,
+    out_dir: Option<&str>,
+) -> Result<String, CliError> {
+    // Extract domain stem
+    let domain_stem = Path::new(domain_file)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| CliError::invalid_file_name(domain_file))?;
+
+    // Build filename depending on optional problem file
+    let filename = match problem_file {
+        Some(problem) => {
+            let problem_stem = Path::new(problem)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .ok_or_else(|| CliError::invalid_file_name(problem))?;
+            format!("{}-{}.{}", domain_stem, problem_stem, format)
+        }
+        None => format!("{}.{}", domain_stem, format),
+    };
+
+    // Join with output directory if provided
+    let path = match out_dir {
+        Some(dir) => Path::new(dir).join(filename),
+        None => PathBuf::from(filename),
+    };
+
+    Ok(path.to_string_lossy().into_owned())
 }

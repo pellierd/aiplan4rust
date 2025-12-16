@@ -1,7 +1,4 @@
-use crate::aiplan4rust::cli::cli::{
-    FILES_ARG, FILES_HELP, FORMAT_ARG, FORMAT_HELP, FORMAT_LONG, FORMAT_SHORT, JSON, OUTPUT_ARG,
-    OUTPUT_HELP, OUTPUT_LONG, OUTPUT_SHORT,
-};
+use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FILES_HELP, FORMAT_ARG, FORMAT_HELP, FORMAT_LONG, FORMAT_SHORT, JSON, OUTPUT_ARG, OUTPUT_HELP, OUTPUT_LONG, OUTPUT_SHORT, OUT_DIR_ARG, OUT_DIR_HELP, OUT_DIR_LONG, OUT_DIR_SHORT};
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use clap::{Arg, Command};
 
@@ -14,12 +11,12 @@ pub const LINK_ABOUT: &str = "Combine a domain and problem file into a combined 
 /// Builds the `link` subcommand for the CLI.
 pub fn build_link_subcommand() -> Command {
     Command::new(LINK_SUBCOMMAND)
-        .about(LINK_ABOUT) // use the constant
+        .about(LINK_ABOUT)
         .arg(
             Arg::new(FILES_ARG)
                 .help(FILES_HELP)
                 .required(true)
-                .num_args(2), // exactly two files: domain + problem
+                .num_args(2), // domain + problem
         )
         .arg(
             Arg::new(OUTPUT_ARG)
@@ -27,7 +24,14 @@ pub fn build_link_subcommand() -> Command {
                 .long(OUTPUT_LONG)
                 .help(OUTPUT_HELP)
                 .value_parser(clap::value_parser!(String))
-                .required(true),
+                .required(false),
+        )
+        .arg(
+            Arg::new(OUT_DIR_ARG)
+                .short(OUT_DIR_SHORT)
+                .long(OUT_DIR_LONG)
+                .help(OUT_DIR_HELP)
+                .default_value(CURRENT_DIR),
         )
         .arg(
             Arg::new(FORMAT_ARG)

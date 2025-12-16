@@ -1,9 +1,11 @@
-use std::time::Instant;
 use clap::ArgMatches;
 use colored::Colorize;
 use crate::aiplan4rust::serialization::serde::{SerdeFormat, SerdeSerializable};
 use crate::{Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
+use crate::aiplan4rust::cli::error::CliError;
+use crate::aiplan4rust::cli::handle::{ensure_parent_dir_exists, generate_default_output_filename};
+use crate::aiplan4rust::serialization::serde;
 
 /// Handles the `link` command logic.
 ///
@@ -13,43 +15,88 @@ use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
 ///
 /// # Arguments:
 /// - `matches`: Parsed command-line arguments for the `link` subcommand.
-pub fn handle_link_command(matches: &ArgMatches) {
-    if let Some(files) = matches.get_many::<String>(FILES_ARG) {
-        let files_vec: Vec<String> = files.cloned().collect();
-        if files_vec.len() == 2 {
-            let output = matches.get_one::<String>(OUTPUT_ARG).unwrap();
-            let format = matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
-            link_from_semantic_context(&files_vec[0], &files_vec[1], *format, output);
-        } else {
-            eprintln!("Error: You must provide exactly two files (domain and problem).")
+/// Handles the `link` subcommand for the CLI.
+///
+/// This function validates input files, determines whether they are already parsed,
+/// generates the output filename if not provided, and then either links directly
+/// or parses then links depending on the file state.
+pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
+    // Collect input files from the CLI arguments
+    let files: Vec<String> = match matches.get_many::<String>(FILES_ARG) {
+        Some(values) => values.cloned().collect(), // Clone each value into a Vec<String>
+        None => return Err(CliError::missing_input_files()), // Error if no files provided
+    };
+
+    // Ensure exactly two files are provided (domain + problem)
+    if files.len() != 2 {
+        return Err(CliError::InvalidFileCount);
+    }
+
+    // Assign domain and problem file paths
+    let domain_file = &files[0];  // First file is domain
+    let problem_file = &files[1]; // Second file is problem
+
+    // Get the output serialization format (default: JSON)
+    let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
+
+    // Determine the output filename
+    let output = match matches.get_one::<String>(OUTPUT_ARG) {
+        Some(s) => s.clone(), // Use user-provided output filename
+        None => generate_default_output_filename(domain_file, Some(problem_file), format, None)?, // Auto-generate if not provided
+    };
+
+    // Ensure that the parent directory of the output file exists
+    ensure_parent_dir_exists(&output);
+
+    // Detect whether each input file is already serialized (parsed)
+    let domain_parsed = serde::is_serialized_file(domain_file);
+    let problem_parsed = serde::is_serialized_file(problem_file);
+
+    // Decide action based on file parsing state
+    match (domain_parsed, problem_parsed) {
+        (true, true) => {
+            // Both files are parsed → link only
+            link(domain_file, problem_file, format, &output)?
+        }
+        (false, false) => {
+            // Both files are raw → parse and then link
+            link_from_files(domain_file, problem_file, format, &output)?
+        }
+        _ => {
+            // Mixed state: one parsed, one raw → inconsistent
+            return Err(CliError::inconsistent_files());
         }
     }
+
+    Ok(())
 }
 
-
-fn link_from_semantic_context(domain_file: &str, problem_file: &str, format: SerdeFormat, output: &str) {
+fn link(
+    domain_file: &str,
+    problem_file: &str,
+    format: SerdeFormat,
+    output: &str,
+) -> Result<(), CliError> {
+    // Create a frontend instance
     let frontend = Frontend::new();
 
-    // Appel de la méthode link sur frontend
-    match frontend.link(domain_file, problem_file) {
-        Ok(linker_result) => {
-            if let Some(planning_task) = linker_result.linked_semantic_context() {
-                if let Err(e) =
-                    planning_task.serialize_to_file(format, output)
-                {
-                    eprintln!("Error saving file: {}", e);
-                } else {
-                    println!("Output saved to {}", output);
-                }
-            } else {
-                let mut renderer = Renderer::new(linker_result.diagnostic_manager(), linker_result.interner());
-                let _ =  renderer.display();
-            }
-        }
-        Err(e) => {
-            eprintln!("Error during linking: {}", e);
-        }
+    // Perform linking, propagate any errors
+    let linker_result = frontend.link(domain_file, problem_file)?;
+
+    // If linking produced a semantic context, serialize it
+    if let Some(planning_task) = linker_result.linked_semantic_context() {
+        planning_task.serialize_to_file(format, output)?; // propagate SerializationError as CliError
+        println!("Output saved to {}", output);
+    } else {
+        // Otherwise, render diagnostics
+        let mut renderer = Renderer::new(
+            linker_result.diagnostic_manager(),
+            linker_result.interner(),
+        );
+        renderer.display()?;
     }
+
+    Ok(())
 }
 
 pub fn link_from_files(
@@ -57,7 +104,9 @@ pub fn link_from_files(
     problem_file: &str,
     format: SerdeFormat,
     output: &str,
-) {
+) -> Result<(), CliError> {
+    use std::time::Instant;
+
     let start_time = Instant::now();
 
     println!(
@@ -68,49 +117,44 @@ pub fn link_from_files(
     );
 
     let frontend = Frontend::new();
-    match frontend.parse(domain_file, problem_file) {
-        Ok(result) => {
-            let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
-            let _ = renderer.display();
 
+    // Parse domain and problem files
+    let result = frontend.parse(domain_file, problem_file)?; // AiplanError se convertit en CliError
 
-            // Count errors and warnings
-            let dm = result.diagnostic_manager();
-            let error_count = dm.count_diagnostics_of_severity(Severity::Error);
-            let warning_count = dm.count_diagnostics_of_severity(Severity::Warning);
+    // Display diagnostics (propagation via DiagnosticError)
+    let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
+    renderer.display()?; // DiagnosticError se convertit en CliError
 
-            // Elapsed time
-            let elapsed = start_time.elapsed().as_secs_f32();
+    // Count errors and warnings
+    let dm = result.diagnostic_manager();
+    let error_count = dm.count_diagnostics_of_severity(Severity::Error);
+    let warning_count = dm.count_diagnostics_of_severity(Severity::Warning);
 
-            println!(
-                "{} {} error(s), {} warning(s) in {:.2}s",
-                "Finished".green().bold(),
-                error_count,
-                warning_count,
-                elapsed
-            );
+    // Elapsed time
+    let elapsed = start_time.elapsed().as_secs_f32();
 
-            if error_count > 0 {
-                println!(
-                    "{} No output file produced due to errors.",
-                    "===>".blue().bold()
-                );
-            } else if let Some(lifted_problem) = result.lifted_problem() {
-                if let Err(e) =
-                    lifted_problem.serialize_to_file(format, output)
-                {
-                    eprintln!("Error saving file: {}", e);
-                } else {
-                    println!(
-                        "{} Output saved to {}",
-                        "===>".blue().bold(),
-                        output
-                    );
-                }
-            }
-        }
-        Err(e) => {
-            eprintln!("{}", e);
-        }
+    println!(
+        "{} {} error(s), {} warning(s) in {:.2}s",
+        "Finished".green().bold(),
+        error_count,
+        warning_count,
+        elapsed
+    );
+
+    if error_count > 0 {
+        println!(
+            "{} No output file produced due to errors.",
+            "===>".blue().bold()
+        );
+    } else if let Some(lifted_problem) = result.lifted_problem() {
+        // Serialize the lifted problem
+        lifted_problem.serialize_to_file(format, output)?; // SerializationError se convertit en CliError
+        println!(
+            "{} Output saved to {}",
+            "===>".blue().bold(),
+            output
+        );
     }
+
+    Ok(())
 }

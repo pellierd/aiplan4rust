@@ -347,6 +347,37 @@ pub trait Serializable: Serialize + DeserializeOwned {
     }
 }
 
+/// Reads the header of a serialized file and validates the magic number.
+///
+/// # Arguments
+/// * `path` - Path to the serialized file.
+///
+/// # Returns
+/// * `Ok(SerdeHeader)` if the file contains a valid header.
+/// * `Err(SerializationError)` if the file cannot be read or the header is invalid.
+pub fn read_header_file(path: &str) -> Result<SerdeHeader, SerializationError> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| SerializationError::file_read(e.to_string()))?;
+    let (header, _) = parse_header_and_payload(&content)?;
+    if !header.validate_magic() {
+        return Err(SerializationError::invalid_magic());
+    }
+    Ok(header)
+}
+
+/// Returns true if the file contains a valid serialized output.
+///
+/// # Arguments
+/// * `path` - Path to the serialized file.
+///
+/// # Returns
+/// * `true` if the file has a valid header and magic number.
+/// * `false` otherwise.
+pub fn is_serialized_file(path: &str) -> bool {
+    read_header_file(path).is_ok()
+}
+
+
 /// Infers the serialization `Format` from a file path's extension.
 ///
 /// # Arguments
