@@ -3,11 +3,15 @@ use thiserror::Error;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::diagnostic::DiagnosticError;
 use crate::aiplan4rust::serialization::SerializationError;
+use crate::aiplan4rust::source::SourceError;
 
 #[derive(Error, Debug)]
 pub enum CliError {
     #[error(transparent)]
     Clap(#[from] clap::Error),
+
+    #[error(transparent)]
+    Source(#[from] SourceError),
 
     #[error(transparent)]
     Serialization(#[from] SerializationError),

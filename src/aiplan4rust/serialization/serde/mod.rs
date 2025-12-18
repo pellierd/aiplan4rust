@@ -17,5 +17,3 @@ pub use format::Format as SerdeFormat;
 pub use extension::Extension as SerdeExtension;
 pub use serializable::Serializable as SerdeSerializable;
 pub use header::Header as SerdeHeader;
-pub use serializable::is_serialized_file;
-pub use serializable::read_header_file;

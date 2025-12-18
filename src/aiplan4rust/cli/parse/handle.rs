@@ -9,6 +9,7 @@ use crate::aiplan4rust::cli::handle::{ensure_dir_exists, ensure_parent_dir_exist
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use crate::{Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::error::CliError;
+use crate::aiplan4rust::source::Source;
 
 /// Handles the logic for the `parse` CLI subcommand.
 ///
@@ -128,7 +129,7 @@ pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
 /// let output_file = "domain.json";
 /// parse(input_file, SerdeFormat::Json, output_file);
 /// ```
-fn parse_from_files(input_file: &str, format: SerdeFormat, output: &str) {
+fn parse_from_files(input_file: &str, format: SerdeFormat, output: &str) -> Result<(), CliError> {
     let start_time = Instant::now();
 
     // Display parsing start message and get absolute path
@@ -136,11 +137,12 @@ fn parse_from_files(input_file: &str, format: SerdeFormat, output: &str) {
 
     // Perform parsing
     let frontend = Frontend::new();
-    let result = match frontend.parse_file(input_file) {
+    let source = Source::from_path_str(input_file)?;
+    let result = match frontend.parse_file(&source) {
         Ok(res) => res,
         Err(e) => {
             eprintln!("{}", e);
-            return; // Early return on parsing error
+            return Ok(());
         }
     };
 
@@ -168,13 +170,14 @@ fn parse_from_files(input_file: &str, format: SerdeFormat, output: &str) {
             "{} No output file produced due to errors.",
             "===> ".blue().bold()
         );
-        return;
+        return Ok(());
     }
 
     // Serialize semantic context to output file
     if let Some(context) = result.semantic_context() {
         save_output_file(context, format, output);
     }
+    Ok(())
 }
 
 /// Displays a parsing start message for a given input file and returns its absolute path.

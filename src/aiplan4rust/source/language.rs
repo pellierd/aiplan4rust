@@ -27,6 +27,8 @@
 //! - [`PDDL_LANGUAGE`]: The string literal `"pddl"` used as a language identifier.
 //! - [`HDDL_LANGUAGE`]: The string literal `"hddl"` used as a language identifier.
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 
@@ -85,6 +87,17 @@ impl FromStr for Language {
             PDDL_LANGUAGE => Ok(Language::PDDL),
             HDDL_LANGUAGE => Ok(Language::HDDL),
             _ => Err(format!("Invalid language: '{}'", s)),
+        }
+    }
+}
+
+
+
+impl Display for Language {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Language::PDDL => write!(f, "{}", PDDL_LANGUAGE),
+            Language::HDDL => write!(f, "{}", HDDL_LANGUAGE),
         }
     }
 }

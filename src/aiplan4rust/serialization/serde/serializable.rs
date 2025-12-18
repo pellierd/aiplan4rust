@@ -12,6 +12,7 @@ use crate::aiplan4rust::serialization::serde::{SerdeFormat, SerdeHeader};
 use crate::aiplan4rust::serialization::SerializationError;
 use base64::{engine::general_purpose, Engine as _};
 use serde::{de::DeserializeOwned, Serialize};
+use crate::aiplan4rust::serialization::header::Header;
 
 /// Separator used to distinguish the serialized header from the payload in a string.
 ///
@@ -235,7 +236,7 @@ pub trait Serializable: Serialize + DeserializeOwned {
     where
         Self: Sized,
     {
-        let (header, payload_str) = parse_header_and_payload(s)?;
+        let (header, payload_str) = Header::parse_header_and_payload(s)?;
 
         // Validate magic number
         if !header.validate_magic() {
@@ -347,35 +348,7 @@ pub trait Serializable: Serialize + DeserializeOwned {
     }
 }
 
-/// Reads the header of a serialized file and validates the magic number.
-///
-/// # Arguments
-/// * `path` - Path to the serialized file.
-///
-/// # Returns
-/// * `Ok(SerdeHeader)` if the file contains a valid header.
-/// * `Err(SerializationError)` if the file cannot be read or the header is invalid.
-pub fn read_header_file(path: &str) -> Result<SerdeHeader, SerializationError> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| SerializationError::file_read(e.to_string()))?;
-    let (header, _) = parse_header_and_payload(&content)?;
-    if !header.validate_magic() {
-        return Err(SerializationError::invalid_magic());
-    }
-    Ok(header)
-}
 
-/// Returns true if the file contains a valid serialized output.
-///
-/// # Arguments
-/// * `path` - Path to the serialized file.
-///
-/// # Returns
-/// * `true` if the file has a valid header and magic number.
-/// * `false` otherwise.
-pub fn is_serialized_file(path: &str) -> bool {
-    read_header_file(path).is_ok()
-}
 
 
 /// Infers the serialization `Format` from a file path's extension.
@@ -408,62 +381,4 @@ fn format_from_path(path: &str) -> Result<SerdeFormat, SerializationError> {
 
     ext.parse::<SerdeFormat>()
         .map_err(|_| SerializationError::unsupported_extension(ext))
-}
-
-/// Parses a serialized string into a `SerdeHeader` and the corresponding payload.
-///
-/// This helper function splits the input string `s` into two parts:
-/// 1. The header, serialized as JSON.
-/// 2. The payload, as a string, which can be in any supported format (JSON, YAML, TOML, CBOR, MessagePack).
-///
-/// The header and payload must be separated by the constant `HEADER_PAYLOAD_SEPARATOR`
-/// (typically `"\n---\n"`). This separator ensures that the header and payload
-/// are clearly distinguished, even if the payload contains newline characters.
-///
-/// # Arguments
-///
-/// * `s` - A string slice containing the serialized header and payload.
-///
-/// # Returns
-///
-/// Returns a tuple `(SerdeHeader, &str)`:
-/// - `SerdeHeader`: the deserialized header containing metadata such as format, version, and timestamp.
-/// - `&str`: the remaining string slice containing the payload.
-///
-/// # Errors
-///
-/// Returns a `SerializationError` if:
-/// - The input does not contain the separator (`InvalidHeader`).
-/// - The header cannot be parsed as JSON (`JsonDeserializationError`).
-///
-/// # Example
-///
-/// ```rust
-/// # use crate::aiplan4rust::serialization::{SerdeHeader, SerializationError};
-/// # const HEADER_PAYLOAD_SEPARATOR: &str = "\n---\n";
-/// # fn parse_header_and_payload(s: &str) -> Result<(SerdeHeader, &str), SerializationError> { unimplemented!() }
-/// let serialized = r#"{
-///     "magic": "AIPL",
-///     "version": 1,
-///     "format": "Json",
-///     "generated_at": "2025-12-14T12:00:00Z"
-/// }
-/// ---
-/// {
-///     "key": "value"
-/// }"#;
-///
-/// let (header, payload) = parse_header_and_payload(serialized)?;
-/// assert_eq!(header.magic, "AIPL");
-/// assert!(payload.contains(r#""key": "value""#));
-/// ```
-fn parse_header_and_payload(s: &str) -> Result<(SerdeHeader, &str), SerializationError> {
-    let parts: Vec<&str> = s.splitn(2, HEADER_PAYLOAD_SEPARATOR).collect();
-    if parts.len() != 2 {
-        return Err(SerializationError::invalid_header());
-    }
-
-    let header: SerdeHeader = serde_json::from_str(parts[0])
-        .map_err(|e| SerializationError::json_deserialization(e.to_string()))?;
-    Ok((header, parts[1]))
 }

@@ -3,41 +3,34 @@
 //!
 //! It encapsulates errors from multiple subsystems such as the parser,
 //! lexical analysis, AST construction, syntax tree handling, arena management,
-//! and parsing context validation.
+//! parsing context validation, and source handling.
 //!
 //! # Overview of [`SyntaxError`] variants:
-//! - [`ParseError`]: Errors originating from the LALRPOP parser.
+//! - [`ParseError`]: Errors originating from the LALRPOP parser, including lexical issues.
 //! - [`Ast`]: Errors related to AST construction or manipulation.
 //! - [`ParseContext`]: Errors in parsing context validation.
 //! - [`SyntaxTee`]: Errors from syntax tree operations.
-//! - [`Arena`]: Errors from the arena data structure.
+//! - [`Arena`]: Errors from the arena data structure managing nodes.
+//! - [`Source`]: Errors related to source handling, including invalid, unknown, or serialized sources.
 //!
 //! The module also provides helper methods to extract the underlying parse error
-//! and create internal errors with custom messages.
+//! and to create errors from source-related issues.
 
 use thiserror::Error;
 use lalrpop_util::ParseError;
 
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::source::SourceError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Enum representing all possible syntax-related errors encountered
-/// during parsing, AST processing, and syntax tree handling.
+/// during parsing, AST processing, syntax tree handling, and source management.
 ///
 /// This enum aggregates errors from various subsystems and wraps
 /// them with meaningful messages for easier error management.
-///
-/// # Variants
-///
-/// - `ParseError`: Errors during parsing, including lexical errors.
-/// - `Ast`: Errors from AST manipulation.
-/// - `ParseContext`: Errors related to parse context validation.
-/// - `SyntaxTee`: Errors originating from syntax tree processing.
-/// - `Arena`: Errors from the arena structure managing nodes.
-/// - `InternalError`: General internal errors with a custom message.
 #[derive(Debug, Error)]
 pub enum SyntaxError {
     /// Error returned by the parser during parsing.
@@ -59,6 +52,10 @@ pub enum SyntaxError {
     /// Error from the arena node management subsystem.
     #[error(transparent)]
     Arena(#[from] ArenaError),
+
+    /// Error from source handling (e.g., unexpected serialized source or unknown source format).
+    #[error(transparent)]
+    Source(#[from] SourceError),
 }
 
 impl SyntaxError {
@@ -73,5 +70,4 @@ impl SyntaxError {
             _ => None,
         }
     }
-
 }

@@ -9,6 +9,8 @@ use serde::{Serialize, Deserialize};
 
 use crate::aiplan4rust::serialization::serde::format::Format;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
+use crate::aiplan4rust::serialization::{SerdeHeader, SerializationError};
+use crate::aiplan4rust::serialization::serializable::HEADER_PAYLOAD_SEPARATOR;
 
 /// Fixed-size magic number for identifying files produced by the application.
 pub const MAGIC: &[u8; 4] = b"AIPL";
@@ -84,6 +86,92 @@ impl Header {
     /// ```
     pub fn validate_magic(&self) -> bool {
         &self.magic == MAGIC
+    }
+
+    /// Attempts to parse the header from a serialized source content string
+    /// and validates its magic number.
+    ///
+    /// # Arguments
+    /// * `content` - The source content as a string slice.
+    ///
+    /// # Returns
+    /// * `Some(SerdeHeader)` if the content contains a valid header.
+    /// * `None` if the content does not contain a valid serialized header.
+    pub fn read_header_from_source_content(content: &str) -> Option<SerdeHeader> {
+        let (header, _) = Self::parse_header_and_payload(content).ok()?;
+        if !header.validate_magic() {
+            return None;
+        }
+        Some(header)
+    }
+
+    /// Checks if the given source content represents a valid serialized file.
+    ///
+    /// # Arguments
+    /// * `content` - The source content as a string slice.
+    ///
+    /// # Returns
+    /// * `true` if the content has a valid serialized header and magic number.
+    /// * `false` otherwise.
+    pub fn is_serialized_file(content: &str) -> bool {
+        Self::read_header_from_source_content(content).is_some()
+    }
+
+    /// Parses a serialized string into a `SerdeHeader` and the corresponding payload.
+    ///
+    /// This helper function splits the input string `s` into two parts:
+    /// 1. The header, serialized as JSON.
+    /// 2. The payload, as a string, which can be in any supported format (JSON, YAML, TOML, CBOR, MessagePack).
+    ///
+    /// The header and payload must be separated by the constant `HEADER_PAYLOAD_SEPARATOR`
+    /// (typically `"\n---\n"`). This separator ensures that the header and payload
+    /// are clearly distinguished, even if the payload contains newline characters.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - A string slice containing the serialized header and payload.
+    ///
+    /// # Returns
+    ///
+    /// Returns a tuple `(SerdeHeader, &str)`:
+    /// - `SerdeHeader`: the deserialized header containing metadata such as format, version, and timestamp.
+    /// - `&str`: the remaining string slice containing the payload.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `SerializationError` if:
+    /// - The input does not contain the separator (`InvalidHeader`).
+    /// - The header cannot be parsed as JSON (`JsonDeserializationError`).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use crate::aiplan4rust::serialization::{SerdeHeader, SerializationError};
+    /// # const HEADER_PAYLOAD_SEPARATOR: &str = "\n---\n";
+    /// # fn parse_header_and_payload(s: &str) -> Result<(SerdeHeader, &str), SerializationError> { unimplemented!() }
+    /// let serialized = r#"{
+    ///     "magic": "AIPL",
+    ///     "version": 1,
+    ///     "format": "Json",
+    ///     "generated_at": "2025-12-14T12:00:00Z"
+    /// }
+    /// ---
+    /// {
+    ///     "key": "value"
+    /// }"#;
+    ///
+    /// let (header, payload) = parse_header_and_payload(serialized)?;
+    /// assert_eq!(header.magic, "AIPL");
+    /// assert!(payload.contains(r#""key": "value""#));
+    /// ```
+    pub fn parse_header_and_payload(s: &str) -> Result<(SerdeHeader, &str), SerializationError> {
+        let mut parts = s.splitn(2, HEADER_PAYLOAD_SEPARATOR);
+        let header_str = parts.next().ok_or_else(SerializationError::invalid_header)?;
+        let payload = parts.next().ok_or_else(SerializationError::invalid_header)?;
+
+        let header: SerdeHeader = serde_json::from_str(header_str)
+            .map_err(|e| SerializationError::json_deserialization(e.to_string()))?;
+        Ok((header, payload))
     }
 }
 

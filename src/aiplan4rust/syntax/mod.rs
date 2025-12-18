@@ -70,7 +70,6 @@
 //! - [`SyntaxInternerDisplay`] — Trait for AST formatting
 //! - [`FastLineTable`] — File line tracking utility
 
-pub mod language;
 pub mod lexer;
 pub mod parser;
 pub mod grammar;
@@ -92,7 +91,6 @@ pub use display::SyntaxInternerDisplay;
 pub use display::SyntaxDisplay;
 pub use error::SyntaxError;
 pub use fast_line_table::FastLineTable;
-pub use language::Language;
 pub use parser::Parser;
 pub use parser_result::ParserResult;
 pub use span::Span;

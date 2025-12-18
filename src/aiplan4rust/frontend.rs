@@ -12,7 +12,7 @@ use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use std::fs::File;
 use std::io::Read;
 use std::string::String;
-
+use crate::aiplan4rust::source::Source;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -54,12 +54,12 @@ impl Frontend {
     /// * `Err(AiplanError)` on failure during parsing, normalization, or analysis.
     pub fn parse(
         &self,
-        domain_path: &str,
-        problem_path: &str,
+        domain_source: &Source,
+        problem_source: &Source,
     ) -> Result<LirBuilderResult, AiplanError> {
         // Step 1: Parse, normalize, and analyze both domain and problem files
-        let domain = self.parse_file(domain_path)?;
-        let problem = self.parse_file(problem_path)?;
+        let domain = self.parse_file(&domain_source)?;
+        let problem = self.parse_file(&problem_source)?;
 
         // Step 2: Link domain and problem semantic contexts
         let mut linker = Linker::new();
@@ -134,14 +134,12 @@ impl Frontend {
     /// (like file read error or normalization failure) is returned as an `AiplanError`.
     pub fn parse_file(
         &self,
-        source_path: &str,
+        source: &Source,
     ) -> Result<AnalyzerResult, AiplanError> {
-        // Read the file content
-        let content = self.read_file(source_path)?;
 
         // Parse
         let mut parser = Parser::new();
-        let parser_result = parser.parse(source_path, &content)?;
+        let parser_result = parser.parse(source)?;
 
         // Normalize
         let mut normalizer = Normalizer::new();
@@ -175,15 +173,15 @@ impl Frontend {
     /// Returns `Err` if either file fails to deserialize or if the linking logic produces an unrecoverable error.
     pub fn link(
         &self,
-        lifted_domain_path: &str,
-        lifted_problem_path: &str,
+        domain: &Source,
+        problem: &Source,
     ) -> Result<LinkerResult, AiplanError> {
         // Deserialize the domain semantic context from file
-        let lifted_domain = SemanticContext::deserialize_from_file_with_auto_format(lifted_domain_path)?;
+        let lifted_domain = SemanticContext::deserialize_from_file_with_auto_format(&domain.path_str())?;
         let domain = AnalyzerResult::success(lifted_domain, DiagnosticManager::new());
 
         // Deserialize the problem semantic context from file
-        let lifted_problem = SemanticContext::deserialize_from_file_with_auto_format(lifted_problem_path)?;
+        let lifted_problem = SemanticContext::deserialize_from_file_with_auto_format(&problem.path_str())?;
         let problem = AnalyzerResult::success(lifted_problem, DiagnosticManager::new());
 
         // Perform semantic linking between domain and problem contexts
@@ -192,79 +190,5 @@ impl Frontend {
 
         // Return the linker result (which includes semantic context and diagnostics)
         Ok(linker_result)
-    }
-
-    /// Reads the content of a source file into a `String`.
-    ///
-    /// This function attempts to open the file at the specified path and read its contents into a
-    /// `String`. If the file cannot be opened or read, it returns a `ParserInternalError`
-    /// describing the problem.
-    ///
-    /// # Arguments
-    /// - `path`: A reference to the `PathBuf` representing the path of the source file to be read.
-    ///
-    /// # Returns
-    /// - `Ok(String)`: The content of the file as a `String` if reading was successful. If the file
-    ///   is empty, an empty string will be returned.
-    /// - `Err(ParserInternalError)`: An error occurred while opening or reading the file.
-    ///
-    /// # Errors
-    /// - If the file cannot be opened (e.g., it doesn't exist or there are permission issues), a
-    ///   `ParserInternalError` with a message indicating the failure to open the file is returned.
-    /// - If the file cannot be read (e.g., due to an encoding issue or I/O error), a
-    ///   `ParserInternalError` with a message indicating the failure to read the file is returned.
-    ///
-    /// # Special Cases
-    /// - **Empty files**: If the file is empty, this function will return an empty `String`. No
-    ///   error is raised in this case.
-    /// - **Large files**: This function reads the entire file into memory, which could be
-    ///   problematic for very large files. If handling large files, consider reading the file in
-    ///   chunks to prevent memory overload.
-    /// - **Invalid paths**: If the `path` is invalid (e.g., it points to a non-existent file or a
-    ///   directory), an error will be returned indicating that the file could not be opened.
-    ///
-    /// # Example
-    /// ```rust
-    /// let path = PathBuf::from("path/to/source/file.pddl");
-    /// let result = parser.read_source_file(&path);
-    /// match result {
-    ///     Ok(content) => { /* Process the content of the file */ },
-    ///     Err(error) => { /* Handle error opening or reading the file */ },
-    /// }
-    /// ```
-    /// # Notes
-    /// - The file will be read entirely into memory, so this function may not be suitable for very
-    ///   large files. For large files, consider using a streaming approach to read the file in
-    ///   chunks.
-    /// - If the file is empty, an empty `String` will be returned without an error.
-    /// - If the file is large, it could put a strain on memory usage. Ensure that the file size is
-    ///   manageable for your system.
-    fn read_file(&self, path: &str) -> Result<String, AiplanError> {
-        // Initialize an empty String to store the file's content.
-        let mut source = String::new();
-
-        // Attempt to open the file.
-        match File::open(path) {
-            // If file is successfully opened, attempt to read its content.
-            Ok(mut file) => {
-                // If reading the file fails, return a ParserInternalError with the failure message.
-                if let Err(e) = file.read_to_string(&mut source) {
-                    return Err(AiplanError::InternalError(format!(
-                        "Error reading the file: {}",
-                        e
-                    )));
-                }
-            }
-            // If the file cannot be opened, return a ParserInternalError with the failure message.
-            Err(e) => {
-                return Err(AiplanError::InternalError(format!(
-                    "Error opening the file: {}",
-                    e
-                )));
-            }
-        }
-
-        // Return the file's content if reading was successful.
-        Ok(source)
     }
 }

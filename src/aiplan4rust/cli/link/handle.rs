@@ -5,7 +5,8 @@ use crate::{Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
 use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::cli::handle::{ensure_parent_dir_exists, generate_default_output_filename};
-use crate::aiplan4rust::serialization::serde;
+use crate::aiplan4rust::serialization::header::Header;
+use crate::aiplan4rust::source::Source;
 
 /// Handles the `link` command logic.
 ///
@@ -49,18 +50,20 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
     ensure_parent_dir_exists(&output);
 
     // Detect whether each input file is already serialized (parsed)
-    let domain_parsed = serde::is_serialized_file(domain_file);
-    let problem_parsed = serde::is_serialized_file(problem_file);
+    let domain_parsed = Header::is_serialized_file(domain_file);
+    let problem_parsed = Header::is_serialized_file(problem_file);
 
+    let domain = Source::from_path_str(domain_file)?;
+    let problem = Source::from_path_str(problem_file)?;
     // Decide action based on file parsing state
     match (domain_parsed, problem_parsed) {
         (true, true) => {
             // Both files are parsed → link only
-            link(domain_file, problem_file, format, &output)?
+            link(&domain, &problem, format, &output)?
         }
         (false, false) => {
             // Both files are raw → parse and then link
-            link_from_files(domain_file, problem_file, format, &output)?
+            link_from_files(&domain, &problem, format, &output)?
         }
         _ => {
             // Mixed state: one parsed, one raw → inconsistent
@@ -72,8 +75,8 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
 }
 
 fn link(
-    domain_file: &str,
-    problem_file: &str,
+    domain: &Source,
+    problem: &Source,
     format: SerdeFormat,
     output: &str,
 ) -> Result<(), CliError> {
@@ -81,7 +84,7 @@ fn link(
     let frontend = Frontend::new();
 
     // Perform linking, propagate any errors
-    let linker_result = frontend.link(domain_file, problem_file)?;
+    let linker_result = frontend.link(domain, problem)?;
 
     // If linking produced a semantic context, serialize it
     if let Some(planning_task) = linker_result.linked_semantic_context() {
@@ -100,8 +103,8 @@ fn link(
 }
 
 pub fn link_from_files(
-    domain_file: &str,
-    problem_file: &str,
+    domain: &Source,
+    problem: &Source,
     format: SerdeFormat,
     output: &str,
 ) -> Result<(), CliError> {
@@ -112,14 +115,14 @@ pub fn link_from_files(
     println!(
         "{:>10} aiplan4rust v0.1.0 (domain: {}, problem: {})",
         "Parsing".green().bold(),
-        domain_file,
-        problem_file
+        domain.path_str(),
+        problem.path_str()
     );
 
     let frontend = Frontend::new();
 
     // Parse domain and problem files
-    let result = frontend.parse(domain_file, problem_file)?; // AiplanError se convertit en CliError
+    let result = frontend.parse(domain, problem)?; // AiplanError se convertit en CliError
 
     // Display diagnostics (propagation via DiagnosticError)
     let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
