@@ -2,8 +2,9 @@ use std::path::PathBuf;
 use thiserror::Error;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::diagnostic::DiagnosticError;
+use crate::aiplan4rust::io::error::IOError;
 use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::source::SourceError;
+
 
 #[derive(Error, Debug)]
 pub enum CliError {
@@ -11,7 +12,7 @@ pub enum CliError {
     Clap(#[from] clap::Error),
 
     #[error(transparent)]
-    Source(#[from] SourceError),
+    IO(#[from] IOError),
 
     #[error(transparent)]
     Serialization(#[from] SerializationError),
@@ -22,13 +23,14 @@ pub enum CliError {
     #[error(transparent)]
     Diagnostic(#[from] DiagnosticError),
 
+    /// Invalid command-line argument
+    #[error("Invalid argument: {0}")]
+    InvalidArgument(String),
 
-    /// Cannot extract a valid file stem from the given path.
-    ///
-    /// This usually happens when the path does not contain a valid filename
-    /// or when the filename is not valid UTF-8.
-    #[error("Invalid file name: '{0}'")]
-    InvalidFileName(String),
+
+
+
+
 
     /// Failed to build an output path.
     #[error("Failed to build output path in directory '{dir}': {reason}")]
@@ -51,13 +53,15 @@ pub enum CliError {
 
 
 impl CliError {
-    /// Creates an error indicating that a file name is invalid.
+
+    /// Creates an error indicating that a CLI argument is invalid.
     ///
-    /// This is typically used when a file path does not contain a valid
-    /// filename or when the filename is not valid UTF-8.
-    pub fn invalid_file_name(path: impl Into<String>) -> Self {
-        CliError::InvalidFileName(path.into())
+    /// # Arguments
+    /// * `msg` - A human-readable explanation of what is invalid.
+    pub fn invalid_argument(msg: impl Into<String>) -> Self {
+        CliError::InvalidArgument(msg.into())
     }
+
 
     /// Creates an error indicating that an output path could not be constructed.
     ///

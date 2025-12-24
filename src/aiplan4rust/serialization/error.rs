@@ -10,6 +10,34 @@ use thiserror::Error;
 /// Represents all possible errors that may occur during serialization or deserialization operations.
 #[derive(Debug, Error)]
 pub enum SerializationError {
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("UTF-8 conversion error: {0}")]
+    Utf8(#[from] std::str::Utf8Error),
+
+    #[error("Serde JSON error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
+
+    #[error("Serde YAML error: {0}")]
+    SerdeYaml(#[from] serde_yaml::Error),
+
+    #[error("Serde TOML error: {0}")]
+    SerdeToml(#[from] toml::de::Error),
+
+    #[error("Serde TOML serialization error: {0}")]
+    SerdeTomlSer(#[from] toml::ser::Error),
+
+    #[error("CBOR deserialization error: {0}")]
+    Cbor(#[from] serde_cbor::Error),
+
+    #[error("MessagePack deserialization error: {0}")]
+    MessagePack(#[from] rmp_serde::decode::Error),
+
+    #[error("MessagePack serialization error: {0}")]
+    MessagePackSer(#[from] rmp_serde::encode::Error),
+
     /// Returned when a file extension is not supported.
     #[error("Unsupported extension: {0}")]
     UnsupportedExtensionError(String),
@@ -30,54 +58,6 @@ pub enum SerializationError {
     #[error("Failed to write file: {0}")]
     FileWriteError(String),
 
-    /// Returned when general deserialization fails.
-    #[error("Deserialization error: {0}")]
-    DeserializationError(String),
-
-    /// Returned when base64 decoding fails.
-    #[error("Base64 decode error: {0}")]
-    Base64DecodeError(String),
-
-    /// JSON-specific deserialization failure.
-    #[error("JSON deserialization error: {0}")]
-    JsonDeserializationError(String),
-
-    /// YAML-specific deserialization failure.
-    #[error("YAML deserialization error: {0}")]
-    YamlDeserializationError(String),
-
-    /// TOML-specific deserialization failure.
-    #[error("TOML deserialization error: {0}")]
-    TomlDeserializationError(String),
-
-    /// CBOR-specific deserialization failure.
-    #[error("CBOR deserialization error: {0}")]
-    CborDeserializationError(String),
-
-    /// MessagePack-specific deserialization failure.
-    #[error("MessagePack deserialization error: {0}")]
-    MessagePackDeserializationError(String),
-
-    /// JSON-specific serialization failure.
-    #[error("JSON serialization error: {0}")]
-    JsonSerializationError(String),
-
-    /// YAML-specific serialization failure.
-    #[error("YAML serialization error: {0}")]
-    YamlSerializationError(String),
-
-    /// TOML-specific serialization failure.
-    #[error("TOML serialization error: {0}")]
-    TomlSerializationError(String),
-
-    /// CBOR-specific serialization failure.
-    #[error("CBOR serialization error: {0}")]
-    CborSerializationError(String),
-
-    /// MessagePack-specific serialization failure.
-    #[error("MessagePack serialization error: {0}")]
-    MessagePackSerializationError(String),
-
     /// Indicates that the magic number in the header is invalid.
     ///
     /// This usually means that the file was not produced by the application
@@ -88,6 +68,10 @@ pub enum SerializationError {
     /// Error returned when a serialized string or file does not contain a valid header.
     #[error("Invalid or missing header in serialized data")]
     InvalidHeader,
+
+    /// Returned when the type of the serialized object is not supported.
+    #[error("Unsupported object type for serialization")]
+    SerializationUnsupportedType,
 }
 
 impl SerializationError {
@@ -122,66 +106,6 @@ impl SerializationError {
         Self::FileWriteError(msg.into())
     }
 
-    /// Constructs a general `DeserializationError`.
-    pub fn deserialization<S: Into<String>>(msg: S) -> Self {
-        Self::DeserializationError(msg.into())
-    }
-
-    /// Constructs a `Base64DecodeError`.
-    pub fn base64_decode<S: Into<String>>(msg: S) -> Self {
-        Self::Base64DecodeError(msg.into())
-    }
-
-    /// Constructs a `JsonDeserializationError`.
-    pub fn json_deserialization<S: Into<String>>(msg: S) -> Self {
-        Self::JsonDeserializationError(msg.into())
-    }
-
-    /// Constructs a `YamlDeserializationError`.
-    pub fn yaml_deserialization<S: Into<String>>(msg: S) -> Self {
-        Self::YamlDeserializationError(msg.into())
-    }
-
-    /// Constructs a `TomlDeserializationError`.
-    pub fn toml_deserialization<S: Into<String>>(msg: S) -> Self {
-        Self::TomlDeserializationError(msg.into())
-    }
-
-    /// Constructs a `CborDeserializationError`.
-    pub fn cbor_deserialization<S: Into<String>>(msg: S) -> Self {
-        Self::CborDeserializationError(msg.into())
-    }
-
-    /// Constructs a `MessagePackDeserializationError`.
-    pub fn messagepack_deserialization<S: Into<String>>(msg: S) -> Self {
-        Self::MessagePackDeserializationError(msg.into())
-    }
-
-    /// Constructs a `JsonSerializationError`.
-    pub fn json_serialization<S: Into<String>>(msg: S) -> Self {
-        Self::JsonSerializationError(msg.into())
-    }
-
-    /// Constructs a `YamlSerializationError`.
-    pub fn yaml_serialization<S: Into<String>>(msg: S) -> Self {
-        Self::YamlSerializationError(msg.into())
-    }
-
-    /// Constructs a `TomlSerializationError`.
-    pub fn toml_serialization<S: Into<String>>(msg: S) -> Self {
-        Self::TomlSerializationError(msg.into())
-    }
-
-    /// Constructs a `CborSerializationError`.
-    pub fn cbor_serialization<S: Into<String>>(msg: S) -> Self {
-        Self::CborSerializationError(msg.into())
-    }
-
-    /// Constructs a `MessagePackSerializationError`.
-    pub fn messagepack_serialization<S: Into<String>>(msg: S) -> Self {
-        Self::MessagePackSerializationError(msg.into())
-    }
-
     /// Constructs an `InvalidMagic` error.
     pub fn invalid_magic() -> Self {
         Self::InvalidMagic
@@ -194,5 +118,14 @@ impl SerializationError {
     /// `HEADER_PAYLOAD_SEPARATOR` or is malformed JSON.
     pub fn invalid_header() -> Self {
         Self::InvalidHeader
+    }
+
+    /// Constructs a `SerializationUnsupportedType` error.
+    ///
+    /// This error occurs when attempting to serialize an object whose type
+    /// is not supported by the serialization system, e.g., a type not listed
+    /// in `SerdeSerializableType`.
+    pub fn unsupported_serialization_type() -> Self {
+        Self::SerializationUnsupportedType
     }
 }

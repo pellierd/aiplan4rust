@@ -754,4 +754,4 @@ impl Display for Problem {
     }
 }
 
-impl SerdeSerializable for Problem {}
+impl SerdeSerializable for Problem { }

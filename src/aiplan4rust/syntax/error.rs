@@ -21,7 +21,7 @@ use lalrpop_util::ParseError;
 
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::core::arena::ArenaError;
-use crate::aiplan4rust::source::SourceError;
+use crate::aiplan4rust::io::error::IOError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -53,9 +53,19 @@ pub enum SyntaxError {
     #[error(transparent)]
     Arena(#[from] ArenaError),
 
-    /// Error from source handling (e.g., unexpected serialized source or unknown source format).
+    /// Error originating from input source handling.
+    ///
+    /// This error is raised when loading or interpreting an [`Input`] fails,
+    /// including:
+    /// - I/O failures while reading a source file
+    /// - Invalid or corrupted serialized IR headers
+    /// - Unsupported or inconsistent input formats (e.g. mixed raw and IR sources)
+    /// - Unknown or unrecognized source content
+    ///
+    /// This variant transparently wraps [`IOError`] so that low-level I/O and
+    /// deserialization details are preserved.
     #[error(transparent)]
-    Source(#[from] SourceError),
+    IO(#[from] IOError),
 }
 
 impl SyntaxError {

@@ -430,4 +430,4 @@ impl TryFrom<&mut Ast> for Context {
     }
 }
 
-impl SerdeSerializable for Context {}
+impl SerdeSerializable for Context { }

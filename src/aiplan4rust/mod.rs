@@ -14,7 +14,7 @@ pub mod validation;
 pub mod error;
 
 pub mod core;
-pub mod source;
+pub mod io;
 
 pub use frontend::Frontend;
 pub use normalization::Normalizer;

@@ -8,11 +8,7 @@ use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
-
-use std::fs::File;
-use std::io::Read;
-use std::string::String;
-use crate::aiplan4rust::source::Source;
+use crate::aiplan4rust::io::input::Input;
 
 #[derive(Debug)]
 pub struct Frontend {}
@@ -54,8 +50,8 @@ impl Frontend {
     /// * `Err(AiplanError)` on failure during parsing, normalization, or analysis.
     pub fn parse(
         &self,
-        domain_source: &Source,
-        problem_source: &Source,
+        domain_source: &Input,
+        problem_source: &Input,
     ) -> Result<LirBuilderResult, AiplanError> {
         // Step 1: Parse, normalize, and analyze both domain and problem files
         let domain = self.parse_file(&domain_source)?;
@@ -134,7 +130,7 @@ impl Frontend {
     /// (like file read error or normalization failure) is returned as an `AiplanError`.
     pub fn parse_file(
         &self,
-        source: &Source,
+        source: &Input,
     ) -> Result<AnalyzerResult, AiplanError> {
 
         // Parse
@@ -173,15 +169,15 @@ impl Frontend {
     /// Returns `Err` if either file fails to deserialize or if the linking logic produces an unrecoverable error.
     pub fn link(
         &self,
-        domain: &Source,
-        problem: &Source,
+        domain: &Input,
+        problem: &Input,
     ) -> Result<LinkerResult, AiplanError> {
         // Deserialize the domain semantic context from file
-        let lifted_domain = SemanticContext::deserialize_from_file_with_auto_format(&domain.path_str())?;
+        let lifted_domain = SemanticContext::deserialize_from_file_with_auto_format(&domain.path())?;
         let domain = AnalyzerResult::success(lifted_domain, DiagnosticManager::new());
 
         // Deserialize the problem semantic context from file
-        let lifted_problem = SemanticContext::deserialize_from_file_with_auto_format(&problem.path_str())?;
+        let lifted_problem = SemanticContext::deserialize_from_file_with_auto_format(&problem.path())?;
         let problem = AnalyzerResult::success(lifted_problem, DiagnosticManager::new());
 
         // Perform semantic linking between domain and problem contexts

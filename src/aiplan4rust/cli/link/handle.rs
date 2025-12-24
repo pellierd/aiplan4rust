@@ -1,12 +1,16 @@
+use std::path::{Path, PathBuf};
 use clap::ArgMatches;
 use colored::Colorize;
 use crate::aiplan4rust::serialization::serde::{SerdeFormat, SerdeSerializable};
 use crate::{Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
 use crate::aiplan4rust::cli::error::CliError;
-use crate::aiplan4rust::cli::handle::{ensure_parent_dir_exists, generate_default_output_filename};
-use crate::aiplan4rust::serialization::header::Header;
-use crate::aiplan4rust::source::Source;
+use crate::aiplan4rust::cli::handle::ensure_parent_dir_exists;
+use crate::aiplan4rust::io::{Extension, Output};
+use crate::aiplan4rust::io::input::Input;
+use crate::aiplan4rust::io::ir_kind::IRKind;
+use crate::aiplan4rust::io::raw_kind::RawKind;
+
 
 /// Handles the `link` command logic.
 ///
@@ -22,63 +26,109 @@ use crate::aiplan4rust::source::Source;
 /// generates the output filename if not provided, and then either links directly
 /// or parses then links depending on the file state.
 pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
-    // Collect input files from the CLI arguments
+    // Collecte les fichiers depuis les arguments CLI
     let files: Vec<String> = match matches.get_many::<String>(FILES_ARG) {
-        Some(values) => values.cloned().collect(), // Clone each value into a Vec<String>
-        None => return Err(CliError::missing_input_files()), // Error if no files provided
+        Some(values) => values.cloned().collect(),
+        None => return Err(CliError::missing_input_files()),
     };
 
-    // Ensure exactly two files are provided (domain + problem)
+    // Vérifie qu'on a exactement deux fichiers : domain + problem
     if files.len() != 2 {
         return Err(CliError::InvalidFileCount);
     }
 
-    // Assign domain and problem file paths
-    let domain_file = &files[0];  // First file is domain
-    let problem_file = &files[1]; // Second file is problem
+    let domain_file = PathBuf::from(&files[0]);
+    let problem_file = PathBuf::from(&files[1]);
 
-    // Get the output serialization format (default: JSON)
+    // Récupère le format de sortie (default: JSON)
     let format = *matches.get_one::<SerdeFormat>(FORMAT_ARG).unwrap();
 
-    // Determine the output filename
-    let output = match matches.get_one::<String>(OUTPUT_ARG) {
-        Some(s) => s.clone(), // Use user-provided output filename
-        None => generate_default_output_filename(domain_file, Some(problem_file), format, None)?, // Auto-generate if not provided
+    // Détermine le nom du fichier de sortie
+    let output_path = match matches.get_one::<String>(OUTPUT_ARG) {
+        Some(s) => PathBuf::from(s),
+        None => Output::default_output_path(
+            &domain_file,
+            Some(&problem_file),
+            Extension::Lifted,
+            None,
+        )?,
     };
 
-    // Ensure that the parent directory of the output file exists
-    ensure_parent_dir_exists(&output);
+    ensure_parent_dir_exists(&output_path);
 
-    // Detect whether each input file is already serialized (parsed)
-    let domain_parsed = Header::is_serialized_file(domain_file);
-    let problem_parsed = Header::is_serialized_file(problem_file);
+    // Charge les sources
+    // Charge les sources
+    let domain = Input::read_from_file(domain_file)?;
+    let problem = Input::read_from_file(problem_file)?;
 
-    let domain = Source::from_path_str(domain_file)?;
-    let problem = Source::from_path_str(problem_file)?;
-    // Decide action based on file parsing state
-    match (domain_parsed, problem_parsed) {
-        (true, true) => {
-            // Both files are parsed → link only
-            link(&domain, &problem, format, &output)?
+    match (&domain, &problem) {
+        // ---------------------------------------------------------------------
+        // Deux fichiers IR → link direct
+        // ---------------------------------------------------------------------
+        (
+            Input::IR { content: domain_content, .. },
+            Input::IR { content: problem_content, .. },
+        ) => {
+            // Vérifie que les types IR correspondent aux attentes
+            if domain_content.kind() != IRKind::ParsedDomain
+                || problem_content.kind() != IRKind::ParsedProblem
+            {
+                return Err(CliError::inconsistent_files());
+            }
+
+            link(&domain, &problem, format, &output_path)?;
         }
-        (false, false) => {
-            // Both files are raw → parse and then link
-            link_from_files(&domain, &problem, format, &output)?
+        // ---------------------------------------------------------------------
+        // Deux fichiers Raw → parse + link
+        // ---------------------------------------------------------------------
+        (
+            Input::Raw { content: domain_content, .. },
+            Input::Raw { content: problem_content, .. },
+        ) => {
+            // Vérifie le rôle
+            if domain_content.kind() != RawKind::Domain
+                || problem_content.kind() != RawKind::Problem
+            {
+                return Err(CliError::inconsistent_files());
+            }
+
+            link_from_files(&domain, &problem, format, &output_path)?;
         }
+
+        // ---------------------------------------------------------------------
+        // Cas non supportés → erreur
+        // ---------------------------------------------------------------------
+        (
+            Input::UnknownText { .. }
+            | Input::BinaryUnknown { .. },
+            _
+        )
+        | (
+            _,
+            Input::UnknownText { .. }
+            | Input::BinaryUnknown { .. },
+        ) => {
+            return Err(CliError::inconsistent_files());
+        }
+
+        // ---------------------------------------------------------------------
+        // Mix Raw / IR ou autres combinaisons invalides
+        // ---------------------------------------------------------------------
         _ => {
-            // Mixed state: one parsed, one raw → inconsistent
             return Err(CliError::inconsistent_files());
         }
     }
 
+
     Ok(())
 }
 
+
 fn link(
-    domain: &Source,
-    problem: &Source,
+    domain: &Input,
+    problem: &Input,
     format: SerdeFormat,
-    output: &str,
+    output: &PathBuf,
 ) -> Result<(), CliError> {
     // Create a frontend instance
     let frontend = Frontend::new();
@@ -89,7 +139,7 @@ fn link(
     // If linking produced a semantic context, serialize it
     if let Some(planning_task) = linker_result.linked_semantic_context() {
         planning_task.serialize_to_file(format, output)?; // propagate SerializationError as CliError
-        println!("Output saved to {}", output);
+        println!("Output saved to {}", output.to_string_lossy());
     } else {
         // Otherwise, render diagnostics
         let mut renderer = Renderer::new(
@@ -103,10 +153,10 @@ fn link(
 }
 
 pub fn link_from_files(
-    domain: &Source,
-    problem: &Source,
+    domain: &Input,
+    problem: &Input,
     format: SerdeFormat,
-    output: &str,
+    output: &PathBuf,
 ) -> Result<(), CliError> {
     use std::time::Instant;
 
@@ -115,8 +165,8 @@ pub fn link_from_files(
     println!(
         "{:>10} aiplan4rust v0.1.0 (domain: {}, problem: {})",
         "Parsing".green().bold(),
-        domain.path_str(),
-        problem.path_str()
+        domain.path().to_string_lossy(),
+        problem.path().to_string_lossy()
     );
 
     let frontend = Frontend::new();
@@ -155,7 +205,7 @@ pub fn link_from_files(
         println!(
             "{} Output saved to {}",
             "===>".blue().bold(),
-            output
+            output.to_string_lossy()
         );
     }
 

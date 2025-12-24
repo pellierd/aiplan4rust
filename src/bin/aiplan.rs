@@ -17,15 +17,23 @@ fn main() {
 
     let matches = build_cli().get_matches();
 
-    if let Some(matches) = matches.subcommand_matches(LINK_SUBCOMMAND) {
-        handle_link_command(matches);
+    // Récupérer le résultat et gérer les erreurs
+    let result = if let Some(matches) = matches.subcommand_matches(LINK_SUBCOMMAND) {
+        handle_link_command(matches)
     } else if let Some(matches) = matches.subcommand_matches(PARSE_SUBCOMMAND) {
-        handle_parse_command(matches);
+        handle_parse_command(matches)
+    } else {
+        // Aucun sous-commande fourni
+        eprintln!("No subcommand provided.");
+        std::process::exit(1);
+    };
+
+    // Vérifier si une erreur est survenue et l'afficher
+    if let Err(err) = result {
+        eprintln!("Error: {:?}", err);
+        std::process::exit(1); // Optionnel : sortir avec code d'erreur
     }
 }
-
-
-
 
 /// Generates an output file name based on the domain and problem file names and the specified format.
 ///

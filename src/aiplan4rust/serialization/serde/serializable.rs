@@ -8,31 +8,9 @@
 //! The trait handles serialization to/from strings and files, with error handling
 //! via `ParserInternalError`.
 
-use crate::aiplan4rust::serialization::serde::{SerdeFormat, SerdeHeader};
+use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use crate::aiplan4rust::serialization::SerializationError;
-use base64::{engine::general_purpose, Engine as _};
 use serde::{de::DeserializeOwned, Serialize};
-use crate::aiplan4rust::serialization::header::Header;
-
-/// Separator used to distinguish the serialized header from the payload in a string.
-///
-/// When serializing objects with a header (`SerdeHeader`) and a payload, this
-/// constant defines the unique sequence of characters that separates the two.
-///
-/// Typically used in functions like [`parse_header_and_payload`] and
-/// [`Serializable::serialize_to_string`] to reliably split or join header and payload.
-///
-/// # Example
-///
-/// ```rust
-/// # const HEADER_PAYLOAD_SEPARATOR: &str = "\n---\n";
-/// let serialized = format!("{{\"magic\":\"AIPL\"}}{}{{\"key\":\"value\"}}", HEADER_PAYLOAD_SEPARATOR);
-/// let parts: Vec<&str> = serialized.splitn(2, HEADER_PAYLOAD_SEPARATOR).collect();
-/// assert_eq!(parts.len(), 2);
-/// assert!(parts[0].contains("magic"));
-/// assert!(parts[1].contains("key"));
-/// ```
-pub const HEADER_PAYLOAD_SEPARATOR: &str = "\n---\n";
 
 /// Trait for serializing and deserializing objects using Serde-supported formats.
 ///
@@ -41,12 +19,11 @@ pub const HEADER_PAYLOAD_SEPARATOR: &str = "\n---\n";
 /// It provides methods to serialize/deserialize to/from strings and files,
 /// returning errors wrapped in `SerializationError` on failure.
 pub trait Serializable: Serialize + DeserializeOwned {
-    /// Serializes the object into a string in the specified format, wrapped in an `Envelope`.
+
+    /// Serializes the object into bytes in the specified format.
     ///
-    /// The object is first wrapped in a `SerdeEnvelope` that contains a `SerdeHeader`
-    /// (including magic number, version, format, and generation timestamp) and the
-    /// object itself as the payload. This allows identifying files produced by this
-    /// application and validating their format/version before deserialization.
+    /// This function supports both text-based formats (JSON, YAML, TOML) and binary formats
+    /// (CBOR, MessagePack). It returns the serialized bytes directly without any envelope or header.
     ///
     /// # Arguments
     ///
@@ -54,76 +31,39 @@ pub trait Serializable: Serialize + DeserializeOwned {
     ///
     /// # Returns
     ///
-    /// Returns a `String` containing the serialized representation of the envelope,
-    /// or a `SerializationError` if serialization fails.
+    /// Returns a `Vec<u8>` containing the serialized object, or a [`SerializationError`] if serialization fails.
     ///
     /// # Errors
     ///
-    /// Serialization can fail if:
-    /// - The object cannot be converted to the specified format.
-    /// - Encoding fails (for binary formats like `Cbor` and `MessagePack`).
+    /// Propagates errors from the underlying serialization libraries:
+    /// - [`SerializationError::SerdeJson`] for JSON
+    /// - [`SerializationError::SerdeYaml`] for YAML
+    /// - [`SerializationError::SerdeToml`] for TOML
+    /// - [`SerializationError::Cbor`] for CBOR
+    /// - [`SerializationError::MessagePack`] for MessagePack
     ///
     /// # Examples
     ///
     /// ```rust
-    /// // Serialize an object to JSON, wrapped in an envelope with header
-    /// let json_str = obj.serialize_to_string(SerdeFormat::Json)?;
-    ///
-    /// // Serialize an object to YAML, wrapped in an envelope with header
-    /// let yaml_str = obj.serialize_to_string(SerdeFormat::Yaml)?;
+    /// let json_bytes = obj.serialize_to_bytes(SerdeFormat::Json)?;
+    /// let cbor_bytes = obj.serialize_to_bytes(SerdeFormat::Cbor)?;
     /// ```
-    /// Serializes the object to a string, prepending a JSON header.
-    ///
-    /// # Arguments
-    ///
-    /// * `format` - The desired format for the payload (`Json`, `Yaml`, `Toml`, `Cbor`, `MessagePack`).
-    ///
-    /// # Returns
-    ///
-    /// Returns a `String` containing the serialized header followed by the serialized payload,
-    /// or a `SerializationError` if serialization fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `SerializationError` if either header or payload serialization fails.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let serialized = obj.serialize_to_string(SerdeFormat::Json)?;
-    /// ```
-    fn serialize_to_string(&self, format: SerdeFormat) -> Result<String, SerializationError> {
-        // Serialize the header as JSON
-        let header = SerdeHeader::new(format, 1);
-        let header_str = serde_json::to_string_pretty(&header)
-            .map_err(|e| SerializationError::json_serialization(e.to_string()))?;
-
-        // Serialize the payload in the specified format
-        let payload_str = match format {
-            SerdeFormat::Json => serde_json::to_string_pretty(self)
-                .map_err(|e| SerializationError::json_serialization(e.to_string()))?,
-            SerdeFormat::Yaml => serde_yaml::to_string(self)
-                .map_err(|e| SerializationError::yaml_serialization(e.to_string()))?,
-            SerdeFormat::Toml => toml::to_string(self)
-                .map_err(|e| SerializationError::toml_serialization(e.to_string()))?,
-            SerdeFormat::Cbor => {
-                let bytes = serde_cbor::to_vec(self)
-                    .map_err(|e| SerializationError::cbor_serialization(e.to_string()))?;
-                general_purpose::STANDARD.encode(&bytes)
-            }
-            SerdeFormat::MessagePack => {
-                let bytes = rmp_serde::to_vec(self)
-                    .map_err(|e| SerializationError::messagepack_serialization(e.to_string()))?;
-                general_purpose::STANDARD.encode(&bytes)
-            }
+    fn serialize_to_bytes(&self, format: SerdeFormat) -> Result<Vec<u8>, SerializationError> {
+        let bytes = match format {
+            SerdeFormat::Json => serde_json::to_string_pretty(self)?.into_bytes(),
+            SerdeFormat::Yaml => serde_yaml::to_string(self)?.into_bytes(),
+            SerdeFormat::Toml => toml::to_string(self)?.into_bytes(),
+            SerdeFormat::Cbor => serde_cbor::to_vec(self)?,
+            SerdeFormat::MessagePack => rmp_serde::to_vec(self)?,
         };
 
-        // Combine header and payload with a newline separator
-        Ok(format!("{}\n---\n{}", header_str, payload_str))
+        Ok(bytes)
     }
 
-    /// Serializes the object (wrapped in a `SerdeEnvelope` with header) and writes it to a file
-    /// in the specified format.
+    /// Serializes the object to a file in the specified format.
+    ///
+    /// This function serializes the object into the given `SerdeFormat` (JSON, YAML, TOML, CBOR,
+    /// or MessagePack) and writes the resulting bytes to the specified file path.
     ///
     /// # Arguments
     ///
@@ -132,25 +72,34 @@ pub trait Serializable: Serialize + DeserializeOwned {
     ///
     /// # Returns
     ///
-    /// `Ok(())` if the object is successfully serialized and written to the file,
-    /// or a `SerializationError` if serialization or file writing fails.
+    /// Returns `Ok(())` if the object was successfully serialized and written to the file.
+    /// Returns a [`SerializationError`] if serialization fails or if writing to the file fails.
     ///
     /// # Errors
     ///
     /// This function can return:
-    /// - `SerializationError::JsonSerializationError`, `YamlSerializationError`, etc., if serialization fails.
-    /// - `SerializationError::FileWriteError` if writing to the specified file fails.
+    /// - Any serialization error from the underlying format (`SerdeJson`, `SerdeYaml`, `SerdeToml`,
+    ///   `Cbor`, `MessagePack`).
+    /// - `SerializationError::Io` if writing to the file fails.
     ///
     /// # Examples
     ///
     /// ```rust
+    /// # use aiplan4rust::serialization::{SerdeFormat, Serializable};
+    /// # let obj: MyType = /* ... */ ;
     /// obj.serialize_to_file(SerdeFormat::Json, "output.json")?;
+    /// obj.serialize_to_file(SerdeFormat::Yaml, std::path::Path::new("config.yaml"))?;
     /// ```
-    fn serialize_to_file(&self, format: SerdeFormat, path: &str) -> Result<(), SerializationError> {
-        let content = self.serialize_to_string(format)?;
-        std::fs::write(path, content).map_err(|e| SerializationError::file_write(e.to_string()))?;
+    fn serialize_to_file<P: AsRef<std::path::Path>>(
+        &self,
+        format: SerdeFormat,
+        path: P,
+    ) -> Result<(), SerializationError> {
+        let content = self.serialize_to_bytes(format)?;
+        std::fs::write(path.as_ref(), content).map_err(SerializationError::from)?;
         Ok(())
     }
+
 
     /// Serializes the object (wrapped in a `SerdeEnvelope` with header) and writes it to a file,
     /// automatically inferring the serialization format from the file extension.
@@ -180,140 +129,131 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// # Examples
     ///
     /// ```rust
-    /// // Serialize to JSON due to `.json` extension
+    /// # use std::path::PathBuf;
+    /// # let obj: MyType = /* ... */ ;
     /// obj.serialize_to_file_with_auto_format("output.json")?;
-    ///
-    /// // Serialize to YAML due to `.yaml` extension
-    /// obj.serialize_to_file_with_auto_format("config.yaml")?;
+    /// obj.serialize_to_file_with_auto_format(PathBuf::from("config.yaml"))?;
     /// ```
-    fn serialize_to_file_with_auto_format(&self, path: &str) -> Result<(), SerializationError> {
-        let format = format_from_path(path)?;
-        self.serialize_to_file(format, path)
+    fn serialize_to_file_with_auto_format<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> Result<(), SerializationError> {
+        let path_ref = path.as_ref();
+
+        // Infer format from file extension
+        let format = format_from_path(path_ref)?;
+
+        // Serialize and write
+        self.serialize_to_file(format, path_ref.to_path_buf())
     }
 
-    /// Deserializes an object from a string containing a header and a payload.
+
+    /// Deserializes an object from a byte slice using the specified serialization format.
     ///
-    /// This function expects the input string `s` to contain a serialized `Header`
-    /// followed by the actual payload. The header is used to:
-    /// 1. Validate the magic number to ensure the data comes from our application.
-    /// 2. Determine the format of the payload (`Json`, `Yaml`, `Toml`, `Cbor`, or `MessagePack`).
+    /// This function operates directly on raw bytes and supports both text-based formats
+    /// (JSON, YAML, TOML) and binary formats (CBOR, MessagePack). It does **not** require
+    /// any header or envelope structure—only the raw serialized data is expected.
     ///
     /// # Arguments
     ///
-    /// * `s` - A string slice containing the serialized data (header + payload).
+    /// * `bytes` - A byte slice containing the serialized object.
+    /// * `format` - The serialization format (`Json`, `Yaml`, `Toml`, `Cbor`, or `MessagePack`).
     ///
     /// # Returns
     ///
-    /// Returns the deserialized object of type `Self` on success, or a [`SerializationError`] if deserialization fails.
+    /// Returns the deserialized object of type `T` on success, or a [`SerializationError`]
+    /// if deserialization fails.
     ///
     /// # Errors
     ///
-    /// Returns a [`SerializationError`] in the following cases:
-    /// - [`SerializationError::JsonDeserializationError`] if the header or payload cannot be parsed as JSON when expected.
-    /// - [`SerializationError::YamlDeserializationError`] if the payload cannot be parsed as YAML.
-    /// - [`SerializationError::TomlDeserializationError`] if the payload cannot be parsed as TOML.
-    /// - [`SerializationError::Base64DecodeError`] if base64 decoding of CBOR or MessagePack fails.
-    /// - [`SerializationError::CborDeserializationError`] if CBOR deserialization fails.
-    /// - [`SerializationError::MessagePackDeserializationError`] if MessagePack deserialization fails.
-    /// - [`SerializationError::InvalidMagic`] if the header's magic number is incorrect.
+    /// Returns a [`SerializationError`] if:
+    /// - The byte slice cannot be interpreted as UTF-8 for text-based formats (JSON, YAML, TOML).
+    /// - The deserialization fails for the specified format (e.g., malformed JSON, invalid CBOR, etc.).
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```rust
-    /// let serialized_str = r#"{
-    ///     "magic": "AIPL",
-    ///     "version": 1,
-    ///     "format": "Json",
-    ///     "generated_at": "2025-12-14T12:00:00Z"
+    /// # use aiplan4rust::serialization::{SerdeFormat, SerializationError};
+    /// # use serde::Deserialize;
+    /// #[derive(Deserialize)]
+    /// struct MyType {
+    ///     key: String,
     /// }
-    /// {
-    ///     "key": "value"
-    /// }"#;
     ///
-    /// let obj: MyType = MyType::deserialize_from_str(serialized_str)?;
+    /// let payload_bytes: &[u8] = br#"{"key":"value"}"#;
+    /// let obj: MyType = deserialize_from_bytes(payload_bytes, SerdeFormat::Json)?;
     /// ```
-    fn deserialize_from_str(s: &str) -> Result<Self, SerializationError>
-    where
-        Self: Sized,
-    {
-        let (header, payload_str) = Header::parse_header_and_payload(s)?;
-
-        // Validate magic number
-        if !header.validate_magic() {
-            return Err(SerializationError::invalid_magic());
-        }
-
-        // Deserialize payload according to the format specified in header
-        match header.format {
-            SerdeFormat::Json => serde_json::from_str(payload_str)
-                .map_err(|e| SerializationError::json_deserialization(e.to_string())),
-            SerdeFormat::Yaml => serde_yaml::from_str(payload_str)
-                .map_err(|e| SerializationError::yaml_deserialization(e.to_string())),
-            SerdeFormat::Toml => toml::from_str(payload_str)
-                .map_err(|e| SerializationError::toml_deserialization(e.to_string())),
-            SerdeFormat::Cbor => {
-                let bytes = general_purpose::STANDARD
-                    .decode(payload_str)
-                    .map_err(|e| SerializationError::base64_decode(e.to_string()))?;
-                serde_cbor::from_slice(&bytes)
-                    .map_err(|e| SerializationError::cbor_deserialization(e.to_string()))
+    fn deserialize_from_bytes<T: DeserializeOwned>(
+        bytes: &[u8],
+        format: SerdeFormat,
+    ) -> Result<T, SerializationError> {
+        match format {
+            SerdeFormat::Json => {
+                let s = std::str::from_utf8(bytes)?;
+                serde_json::from_str(s).map_err(SerializationError::from)
             }
-            SerdeFormat::MessagePack => {
-                let bytes = general_purpose::STANDARD
-                    .decode(payload_str)
-                    .map_err(|e| SerializationError::base64_decode(e.to_string()))?;
-                rmp_serde::from_slice(&bytes)
-                    .map_err(|e| SerializationError::messagepack_deserialization(e.to_string()))
+            SerdeFormat::Yaml => {
+                let s = std::str::from_utf8(bytes)?;
+                serde_yaml::from_str(s).map_err(SerializationError::from)
             }
+            SerdeFormat::Toml => {
+                let s = std::str::from_utf8(bytes)?;
+                toml::from_str(s).map_err(|e| SerializationError::SerdeToml(e))
+            }
+            SerdeFormat::Cbor => serde_cbor::from_slice(bytes).map_err(SerializationError::from),
+            SerdeFormat::MessagePack => rmp_serde::from_slice(bytes).map_err(SerializationError::from),
         }
     }
 
-    /// Deserializes an object from a file using the header to determine the format.
+    /// Deserializes an object from a file using the specified serialization format.
     ///
-    /// This function reads the file at the specified path and expects the content
-    /// to start with a valid `Header` (magic number, version, format, and timestamp).
-    /// The header is used to determine the serialization format of the payload.
+    /// This function reads the file at the given path as raw bytes, which allows
+    /// supporting both text-based and binary serialization formats (JSON, YAML, TOML,
+    /// CBOR, MessagePack). The provided `format` argument specifies how the payload
+    /// should be deserialized.
     ///
     /// # Arguments
     ///
-    /// * `path` - Path to the file containing serialized data.
+    /// * `path` - Path to the file containing the serialized data.
+    /// * `format` - The serialization format of the payload (`SerdeFormat`).
     ///
     /// # Returns
     ///
-    /// Returns the deserialized object on success, or a [`SerializationError`] on failure.
+    /// Returns the deserialized object of type `Self` on success, or a [`SerializationError`] if an error occurs.
     ///
     /// # Errors
     ///
     /// This function may return errors including, but not limited to:
     /// - [`SerializationError::FileReadError`] if the file cannot be read.
-    /// - [`SerializationError::DeserializationError`] if parsing the payload fails.
-    /// - [`SerializationError::InvalidMagic`] if the header's magic number is incorrect.
+    /// - [`SerializationError::Utf8`] if the file contains invalid UTF-8 when required by the format.
+    /// - [`SerializationError::SerdeJson`], [`SerializationError::SerdeYaml`], [`SerializationError::SerdeToml`],
+    ///   [`SerializationError::Cbor`], or [`SerializationError::MessagePack`] if deserialization fails for the given format.
     ///
-    /// # Examples
+    /// # Example
     ///
     /// ```rust
-    /// let obj: MyType = MyType::deserialize_from_file("data.json")?;
+    /// let obj: MyType = MyType::deserialize_from_file_with_format("data.json", SerdeFormat::Json)?;
     /// ```
-    fn deserialize_from_file(path: &str) -> Result<Self, SerializationError>
+    fn deserialize_from_file(
+        path: &str,
+        format: SerdeFormat,
+    ) -> Result<Self, SerializationError>
     where
         Self: Sized + Serialize + DeserializeOwned,
     {
-        // Read the entire file content
-        let content = std::fs::read_to_string(path)
-            .map_err(|e| SerializationError::file_read(e.to_string()))?;
+        // Read the file as bytes
+        let bytes = std::fs::read(path)?; // IO errors are automatically propagated via #[from]
 
-        // Use the header to determine the payload format and deserialize
-        Self::deserialize_from_str(&content)
-            .map_err(|e| SerializationError::deserialization(e.to_string()))
+        // Deserialize directly from bytes using the provided format
+        Self::deserialize_from_bytes(&bytes, format)
     }
 
-    /// Deserializes an object from a file, automatically detecting the payload format
-    /// based on the file extension while still validating the file header.
+    /// Deserializes an object from a file, automatically inferring the serialization format
+    /// from the file extension while still validating the file header.
     ///
     /// The file is expected to start with a valid `SerdeHeader` (magic number, version,
-    /// format, timestamp) serialized in JSON, followed by the actual payload. The header
-    /// is always in JSON, but the payload format is inferred either from the header or
-    /// automatically from the file extension.
+    /// format, timestamp) serialized in JSON, followed by the payload. The header is always
+    /// in JSON, but the payload format is inferred from the file extension.
     ///
     /// # Supported formats and recognized extensions
     ///
@@ -332,24 +272,32 @@ pub trait Serializable: Serialize + DeserializeOwned {
     /// - The file extension is not recognized as a supported format (`unsupported_extension`).
     /// - The file cannot be read (`file_read` error variant).
     /// - The header cannot be parsed or has an invalid magic number (`InvalidMagic`).
-    /// - The payload cannot be deserialized according to the format in the header.
+    /// - The payload cannot be deserialized according to the inferred format.
     ///
     /// # Example
     ///
     /// ```rust
-    /// let obj: MyType = MyType::deserialize_from_file_auto_format("config.yaml")?;
+    /// let obj: MyType = MyType::deserialize_from_file_with_auto_format("config.yaml")?;
     /// ```
-    fn deserialize_from_file_with_auto_format(path: &str) -> Result<Self, SerializationError>
+    fn deserialize_from_file_with_auto_format<P: AsRef<std::path::Path>>(
+        path: P,
+    ) -> Result<Self, SerializationError>
     where
         Self: Sized,
     {
-        // Deserialize file content using the header to determine payload format
-        Self::deserialize_from_file(path)
+        let path_ref = path.as_ref();
+
+        // Infer format from file extension
+        let format = format_from_path(path_ref)?;
+
+        // Read the file as bytes
+        let bytes = std::fs::read(path_ref).map_err(SerializationError::from)?;
+
+        // Deserialize using the inferred format
+        Self::deserialize_from_bytes(&bytes, format)
     }
+
 }
-
-
-
 
 /// Infers the serialization `Format` from a file path's extension.
 ///
@@ -373,8 +321,10 @@ pub trait Serializable: Serialize + DeserializeOwned {
 /// let format = format_from_path("config.yaml")?;
 /// assert_eq!(format, SerdeFormat::Yaml);
 /// ```
-fn format_from_path(path: &str) -> Result<SerdeFormat, SerializationError> {
-    let ext = std::path::Path::new(path)
+fn format_from_path(path: impl AsRef<std::path::Path>) -> Result<SerdeFormat, SerializationError> {
+    let path = path.as_ref();
+
+    let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .ok_or_else(|| SerializationError::missing_extension())?;

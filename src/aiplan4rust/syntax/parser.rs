@@ -7,10 +7,10 @@
 use lalrpop_util::ErrorRecovery;
 use std::mem;
 use std::time::SystemTime;
-use logos::Logos;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
 use crate::aiplan4rust::interner::Literal;
-use crate::aiplan4rust::source::{Language, Source};
+use crate::aiplan4rust::io::input::Input;
+use crate::aiplan4rust::io::language::Language;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
@@ -31,12 +31,12 @@ use crate::aiplan4rust::syntax::{
 ///
 /// # Example
 /// ```rust
+/// use aiplan4rust::aiplan4rust::io::input::Input;
 /// use aiplan4rust::aiplan4rust::syntax::Parser;
-/// use aiplan4rust::aiplan4rust::source::Source;
 ///
-/// let source = Source::from_path_str("./domain.pddl");
+/// let input = Input::read_from_file("./domain.pddl");
 /// let mut parser = Parser::new();
-/// let result = parser.parse(&source);
+/// let result = parser.parse(&input);
 ///
 /// match result {
 ///     Ok(parser_result) => {
@@ -108,31 +108,32 @@ impl Parser {
     /// - Lexical and syntactic errors from parsing are captured in the `ParserResult` diagnostics.
     pub fn parse(
         &mut self,
-        source: &Source,
+        input: &Input,
     ) -> Result<ParserResult, SyntaxError> {
 
         // Run the parser for the specified language variant (PDDL or HDDL)
-        let raw_info = source.try_raw_info()?; // Get raw info, or return error if source is Serialized/Unknown
+        let content = input.try_raw_content()?; // Get raw info, or return error if source is Serialized/Unknown
+        let inner = content.inner();
 
         let mut context = ParseContext::new(); // Initialize a new parsing context
-        let lexer = Lexer::new(source.content()); // Create a lexer for tokenizing the source content
+        let lexer = Lexer::new(inner); // Create a lexer for tokenizing the source content
 
         // Parse the source according to its detected language (PDDL or HDDL)
-        let parse_result = match raw_info.language() {
+        let parse_result = match content.language() {
             Language::PDDL => lalrpop::parse_pddl(&mut context, lexer),
             Language::HDDL => lalrpop::parse_hddl(&mut context, lexer),
         };
 
         // Extract the string interner from the parsing context (used to store unique strings)
         let mut interner = context.take_interner();
-        let source_id = interner.intern_literal(source.path_str().to_string());
+        let source_id = interner.intern_literal(input.path().to_string_lossy());
 
         // Register the source text with the diagnostic manager
         self.diagnostic_manager
-            .add_source(source_id, source.content().to_string());
+            .add_source(source_id, inner.to_string());
 
         // Build a fast line table from the source for quick byte-to-line/column lookups
-        let fast_line_table = FastLineTable::new(source.content());
+        let fast_line_table = FastLineTable::new(inner);
 
         // Convert any collected LALRPOP errors into diagnostics and add them to the manager
         self.handle_syntax_diagnostics(&context.borrow_errors_mut(), source_id, &fast_line_table);
@@ -179,7 +180,7 @@ impl Parser {
             }
             Err(e) => match e.as_parse_error() {
                 Some(parse_err) => {
-                    let source = interner.intern_literal(source.path_str().to_string());
+                    let source = interner.intern_literal(input.path().to_string_lossy());
                     let diagnostic =
                         Diagnostic::from((parse_err, source, &fast_line_table));
                     self.diagnostic_manager.add_diagnostic(diagnostic);
