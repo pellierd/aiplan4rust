@@ -6,28 +6,27 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
-use crate::aiplan4rust::serialization::serde::SerdeFormat;
 use crate::{AnalyzerResult, Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::error::CliError;
-use crate::aiplan4rust::io::{Extension, IRContent, Output};
 use crate::aiplan4rust::io::error::IOError;
+use crate::aiplan4rust::io::{Extension, IRContent, Output};
 use crate::aiplan4rust::io::input::Input;
 use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::serialization::SerdeFormat;
 use crate::aiplan4rust::syntax::ast::AstKind;
 
-/// Handles the logic for the `parse` CLI subcommand.
+/// Handles the `parse` CLI subcommand.
+///
+/// This function coordinates the entire parsing workflow for one or more input files,
+/// delegating the heavy lifting to `process_and_parse_inputs`.
 ///
 /// # Step-by-step behavior
 ///
-/// 1. **Validate CLI arguments** using `validate_parse_args`.
-/// 2. **Collect input files** specified by the user and convert them to `PathBuf`.
+/// 1. **Validate CLI arguments** using `check_parse_args`.
+/// 2. **Collect input files** specified by the user and convert them into `PathBuf`.
 /// 3. **Retrieve the output format**; defaults to `JSON` if not explicitly provided.
 /// 4. **Determine the output directory** for multiple files, defaulting to the current directory if unspecified.
-/// 5. **Loop through each input file**:
-///     - If a single input file and `-o/--output` is provided, use it as the output path.
-///     - Otherwise, generate a default output path based on the input file, optional problem file, extension, and output directory.
-/// 6. **Parse each input file** and save the output using `parse_from_files`.
-///    - Directory creation and file writing are handled internally by `parse_from_files` and `save_parse_output`.
+/// 5. **Delegate the parsing and statistics accumulation** to `process_and_parse_inputs`.
 ///
 /// # Behavior details
 ///
@@ -58,53 +57,73 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 /// handle_parse_command(&matches)?;
 /// ```
 pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
-    use std::time::Instant;
-
+    // Validate CLI arguments
     check_parse_args(matches)?;
 
+    // Collect input files
     let input_paths: Vec<PathBuf> = matches
         .get_many::<String>(FILES_ARG)
         .ok_or_else(|| CliError::invalid_argument("No input files provided"))?
         .map(PathBuf::from)
         .collect();
 
+    // Retrieve the output format
     let format = *matches
         .get_one::<SerdeFormat>(FORMAT_ARG)
         .ok_or_else(|| CliError::invalid_argument("No output format provided"))?;
 
+    // Determine the output directory
     let out_dir = matches
         .get_one::<String>(OUT_DIR_ARG)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CURRENT_DIR));
 
-    // Statistiques globales
+    // Delegate processing to the factorized function
+    parse_inputs(&input_paths, &out_dir, format)?;
+
+    Ok(())
+}
+
+/// Processes a list of input files: reads them, parses them, and accumulates statistics.
+///
+/// This function performs two passes:
+/// 1. Reads all inputs and separates those that can be parsed from those to be ignored.
+/// 2. Parses the valid inputs, accumulates warning/error counts, and prints a global summary.
+///
+/// # Arguments
+///
+/// * `input_paths` - Slice of paths to the input files.
+/// * `out_dir` - Directory where parsed files should be written if output paths are not specified.
+/// * `format` - Output serialization format.
+///
+/// # Returns
+///
+/// Returns `Ok(())` if all processing completed, or a `CliError` if an unrecoverable error occurs.
+pub fn parse_inputs(
+    input_paths: &[PathBuf],
+    out_dir: &Path,
+    format: SerdeFormat,
+) -> Result<(), CliError> {
     let mut files_parsed = 0usize;
     let mut files_ignored = 0usize;
     let mut total_warnings = 0usize;
     let mut total_errors = 0usize;
     let start_time = Instant::now();
 
-    // Première passe : afficher les fichiers ignorés
+    // First pass: read inputs and collect valid ones
     let mut inputs_to_parse: Vec<(Input, PathBuf)> = Vec::new();
-
-    for input_path in &input_paths {
-        let output_path = match matches.get_one::<String>(OUTPUT_ARG) {
-            Some(s) if input_paths.len() == 1 => PathBuf::from(s),
-            _ => Output::default_output_path(input_path, None, Extension::Parsed, Some(&out_dir))?,
-        };
-
+    for input_path in input_paths {
+        let output_path = Output::default_output_path(input_path, None, Extension::Parsed, Some(out_dir))?;
         match read_input_with_warning(input_path)? {
             Some(input) => inputs_to_parse.push((input, output_path)),
             None => files_ignored += 1,
         }
     }
 
-    // Deuxième passe : parse et accumulateur de stats
+    // Second pass: parse inputs and accumulate stats
     for (input, output_path) in inputs_to_parse {
-        let parse_start = Instant::now();
-        let result = parse(input, output_path.clone(), format)?;
+        let result = parse_from_raw_input(&input, output_path.clone(), format)?;
 
-        // Accumuler stats
         total_warnings += result
             .diagnostic_manager()
             .count_diagnostics_of_severity(Severity::Warning);
@@ -115,7 +134,7 @@ pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
         files_parsed += 1;
     }
 
-    // Résumé global
+    // Print global summary if multiple files were processed
     if input_paths.len() > 1 {
         let total_time = start_time.elapsed().as_secs_f32();
         println!(
@@ -132,12 +151,37 @@ pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
     Ok(())
 }
 
-
-/// Tries to read a PDDL/HDDL input file.
-/// Returns `Some(Input)` if successful, `None` if the input is not raw (warning).
-/// Returns a fatal `CliError` for other errors.
+/// Attempts to read a PDDL/HDDL input file and classify its content.
+///
+/// This function performs the following steps:
+/// 1. Checks whether the given path points to a regular file. If not, prints a warning and returns `Ok(None)`.
+/// 2. Reads the file into an `Input` structure using `Input::read_from_file`.
+/// 3. Determines whether the input is of type **Raw**:
+///     - If yes, returns `Ok(Some(Input))`.
+///     - If not, prints a warning describing the type of the file (IR, unknown text, binary, or other) and returns `Ok(None)`.
+///
+/// # Arguments
+///
+/// * `input_path` - A reference to a `Path` representing the file to read.
+///
+/// # Returns
+///
+/// * `Ok(Some(Input))` - The file was successfully read and is a raw PDDL/HDDL input.
+/// * `Ok(None)` - The file was successfully read but is not a raw input (non-fatal, skipped).
+/// * `Err(CliError)` - A fatal error occurred during file reading (e.g., I/O error).
+///
+/// # Example
+///
+/// ```rust
+/// let path = Path::new("domain.pddl");
+/// match read_input_with_warning(path) {
+///     Ok(Some(input)) => println!("Successfully read raw input: {:?}", input),
+///     Ok(None) => println!("File ignored because it is not raw."),
+///     Err(e) => eprintln!("Fatal error: {}", e),
+/// }
+/// ```
 fn read_input_with_warning(input_path: &Path) -> Result<Option<Input>, CliError> {
-    // Vérifier d'abord si c'est un fichier régulier
+    // 1. Check if the path is a regular file
     if !input_path.is_file() {
         println!(
             "{} '{}' is not a file — ignored",
@@ -147,33 +191,30 @@ fn read_input_with_warning(input_path: &Path) -> Result<Option<Input>, CliError>
         return Ok(None);
     }
 
-    // Lire le fichier et détecter son type
+    // 2. Read the file into an Input object
     let input = Input::read_from_file(input_path)?;
 
-    // Vérifier si c'est du Raw
+    // 3. Check if the input is a raw PDDL/HDDL file
     if input.is_raw() {
-        Ok(Some(input))
-    } else {
-        // Non-fatal, print a warning et skip
-        let kind = if input.is_ir() {
-            "IR file"
-        } else if input.is_unknown_text() {
-            "unknown text file"
-        } else if input.is_binary_unknown() {
-            "binary file"
-        } else {
-            "unknown content"
-        };
-
-        println!(
-            "{} '{}' is not a valid PDDL/HDDL input ({}) — ignored",
-            "warning:".yellow().bold(),
-            input_path.display(),
-            kind
-        );
-
-        Ok(None)
+        return Ok(Some(input));
     }
+
+    // 4. If not raw, determine its kind for a warning message
+    let kind = match () {
+        _ if input.is_ir() => "IR file",
+        _ if input.is_unknown_text() => "unknown text file",
+        _ if input.is_binary_unknown() => "binary file",
+        _ => "unknown content",
+    };
+
+    println!(
+        "{} '{}' is not a valid PDDL/HDDL input ({}) — ignored",
+        "warning:".yellow().bold(),
+        input_path.display(),
+        kind
+    );
+
+    Ok(None)
 }
 
 /// Parses a single PDDL/HDDL input file and optionally writes its semantic context to an output file.
@@ -217,8 +258,8 @@ fn read_input_with_warning(input_path: &Path) -> Result<Option<Input>, CliError>
 /// // Console output:
 /// // "Finished 0 error(s), 1 warning(s) in 0.42s"
 /// ```
-fn parse(
-    input: Input,
+fn parse_from_raw_input(
+    input: &Input,
     output_path: PathBuf,
     format: SerdeFormat,
 ) -> Result<AnalyzerResult, CliError> {
@@ -232,7 +273,7 @@ fn parse(
     let frontend = Frontend::new();
 
     // Parse the already validated input
-    let mut result = frontend.parse_file(&input)?;
+    let mut result = frontend.parse_from_raw_input(input)?;
 
     // Compute elapsed parsing time
     let elapsed_time = start_time.elapsed().as_secs_f32();

@@ -129,6 +129,11 @@ impl BuilderResult {
         self.lifted_problem.as_mut()
     }
 
+    /// Takes ownership of the constructed LIR, if available.
+    pub fn take_lifted_problem(&mut self) -> Option<LiftedProblem> {
+        self.lifted_problem.take()
+    }
+
     /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager

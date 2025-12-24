@@ -66,7 +66,7 @@ fn test_domain(domain_dir: &Path) -> bool {
 
         // Initialize the parser frontend
         let frontend = Frontend::new();
-        let result = frontend.parse(
+        let result = frontend.link_from_raw_input(
             domain_path.to_str().unwrap(),
             problem_path.to_str().unwrap(),
         );
