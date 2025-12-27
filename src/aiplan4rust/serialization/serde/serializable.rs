@@ -138,6 +138,7 @@ pub trait Serializable: Serialize + DeserializeOwned {
         &self,
         path: P,
     ) -> Result<(), SerializationError> {
+
         let path_ref = path.as_ref();
 
         // Infer format from file extension

@@ -19,7 +19,7 @@ impl Extension {
             Extension::Pddl => "pddl",
             Extension::Hddl => "hddl",
             Extension::Parsed => "prs",
-            Extension::Lifted => "lift",
+            Extension::Lifted => "lft",
             Extension::Ground => "grd",
         }
     }

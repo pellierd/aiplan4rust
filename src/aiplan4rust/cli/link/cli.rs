@@ -16,7 +16,7 @@ pub fn build_link_subcommand() -> Command {
             Arg::new(FILES_ARG)
                 .help(FILES_HELP)
                 .required(true)
-                .num_args(2), // domain + problem
+                .num_args(2..), // domain + problems
         )
         .arg(
             Arg::new(OUTPUT_ARG)

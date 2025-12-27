@@ -209,10 +209,8 @@ impl Frontend {
         domain: &Input,
         problem: &Input,
     ) -> Result<LirBuilderResult, AiplanError> {
-        // 1. Deserialize semantic contexts
-        let lifted_domain = SemanticContext::deserialize_from_file_with_auto_format(domain.path())?;
-        let lifted_problem =
-            SemanticContext::deserialize_from_file_with_auto_format(problem.path())?;
+        let lifted_domain = domain.parsed_content_owned()?;
+        let lifted_problem = problem.parsed_content_owned()?;
 
         let domain = AnalyzerResult::success(lifted_domain, DiagnosticManager::new());
         let problem = AnalyzerResult::success(lifted_problem, DiagnosticManager::new());

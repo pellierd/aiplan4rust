@@ -9,7 +9,10 @@ use crate::aiplan4rust::io::IRKind;
 use crate::aiplan4rust::io::language::Language;
 use crate::aiplan4rust::io::raw::content::RawContent;
 use crate::aiplan4rust::io::raw::kind::RawKind;
-use crate::aiplan4rust::serialization::SerializationError;
+use crate::aiplan4rust::lir;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::semantic::SemanticContext;
+use crate::aiplan4rust::serialization::{SerdeSerializable, SerializationError};
 use crate::aiplan4rust::syntax::lexer::Token;
 
 /// Représentation d'une source pour le pipeline
@@ -32,6 +35,7 @@ pub enum Input {
         content: Vec<u8>,
     },
 }
+
 
 impl Input {
 
@@ -121,9 +125,24 @@ impl Input {
         // Attempt to read IR header and payload
         match Self::try_to_read_ir(&bytes)? {
             Some((header, payload)) => {
-                let content = IRContent::deserialize_from_bytes(payload, header.ir_kind(), header.format())?;
-                Ok(Input::new_ir(path, content))
-            }
+                match header.ir_kind() {
+                    IRKind::ParsedDomain => {
+                        let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
+                        let content = IRContent::ParsedDomain(sc, header.format());
+                        Ok(Input::new_ir(path, content))
+                    }
+                    IRKind::ParsedProblem => {
+                        let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
+                        let content = IRContent::ParsedProblem(sc, header.format());
+                        Ok(Input::new_ir(path, content))
+                    }
+                    IRKind::LiftedProblem => {
+                        let pb = LiftedProblem::deserialize_from_bytes(payload, header.format())?;
+                        let content = IRContent::LiftedProblem(pb, header.format());
+                        Ok(Input::new_ir(path, content))
+                    }
+                }
+           }
             None => {
                 // No IR header found → fallback to UTF-8
                 match String::from_utf8(bytes) {
@@ -321,6 +340,29 @@ impl Input {
         match self {
             Input::Binary { content, .. } => Ok(content),
             _ => Err(IOError::missing_unknown_binary_content()),
+        }
+    }
+
+    pub fn try_parsed_content(&self) -> Result<&SemanticContext, IOError> {
+        match self {
+            Input::IR { content, .. } => match content {
+                IRContent::ParsedDomain(domain, _) => Ok(domain),
+                IRContent::ParsedProblem(problem, _) => Ok(problem),
+                _ => Err(IOError::missing_ir_content()),
+            },
+            _ => Err(IOError::missing_ir_content()),
+        }
+    }
+
+    /// Retourne le contenu Parsed (Context) par valeur, sans consommer l'Input.
+    pub fn parsed_content_owned(&self) -> Result<SemanticContext, IOError> {
+        match self {
+            Input::IR { content, .. } => match content {
+                IRContent::ParsedDomain(domain, _) => Ok(domain.clone()),  // clone seulement le contenu
+                IRContent::ParsedProblem(problem, _) => Ok(problem.clone()),
+                _ => Err(IOError::MissingIRContent),
+            },
+            _ => Err(IOError::MissingIRContent),
         }
     }
 

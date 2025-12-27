@@ -1,22 +1,41 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use clap::ArgMatches;
-use colored::Colorize;
-use crate::aiplan4rust::serialization::serde::SerdeFormat;
-use crate::{Frontend, Renderer, Severity};
+//! This module provides the CLI linking workflow for `aiplan4rust`.
+//!
+//! It defines functions to handle the `link` subcommand, validate domain and problem files,
+//! filter inputs based on their type (Raw or Parsed/IR), and perform linking of a single domain
+//! with one or multiple problem files. The module also manages output serialization,
+//! diagnostics reporting, and timing statistics.
+//!
+//! # Key Responsibilities
+//!
+//! - **Reading Inputs:** Handles reading of domain and problem files from paths, including error handling.
+//! - **Validation:** Validates that domain and problem files are of compatible types (Raw or IR/Parsed)
+//!   and that they are well-formed.
+//! - **Filtering:** Filters out invalid or incompatible problem files, printing warnings for ignored files.
+//! - **Linking:** Links each valid problem with the domain, producing lifted outputs if no errors occur.
+//! - **Serialization:** Supports output in multiple formats (e.g., JSON, YAML) using `SerdeFormat`.
+//! - **Diagnostics:** Tracks and prints errors and warnings encountered during linking.
+//! - **CLI Integration:** Uses `clap::ArgMatches` to parse command-line arguments for the `link` subcommand.
+
 use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
 use crate::aiplan4rust::cli::error::CliError;
-use crate::aiplan4rust::io::{Extension, IRContent, Output};
 use crate::aiplan4rust::io::error::IOError;
 use crate::aiplan4rust::io::input::Input;
+use crate::aiplan4rust::io::{Extension, IRContent, Output};
+use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::serialization::serde::SerdeFormat;
+use crate::{Frontend, Renderer, Severity};
+use clap::ArgMatches;
+use colored::Colorize;
+use std::fs;
+use std::path::PathBuf;
 
 /// Handles the `link` CLI subcommand.
 ///
 /// This function orchestrates the workflow for linking a single domain file
 /// with one or more problem files. It determines whether the domain and problems
-/// are in IR or Raw format, reads the inputs, computes output paths, and delegates
-/// the linking and statistics accumulation to `link_inputs`.
+/// are in IR or Raw format, reads the inputs, validates them, computes output paths,
+/// and delegates the linking and statistics accumulation to `link_inputs`.
 ///
 /// # Behavior
 ///
@@ -27,6 +46,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 /// - Each problem is linked individually with the domain, producing separate output files.
 /// - If a single problem file is provided and an explicit output path is given,
 ///   it will be used; otherwise, default output paths are generated.
+/// - Warnings are printed for any invalid domain or problem files.
 ///
 /// # Arguments
 ///
@@ -37,6 +57,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 /// Returns `Ok(())` if all linking operations succeed.
 /// Returns `Err(CliError)` if:
 /// - No input files are provided,
+/// - Domain or problem files cannot be read or are invalid,
 /// - Domain and problem types are inconsistent,
 /// - Any file reading or linking operation fails.
 ///
@@ -47,122 +68,127 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 /// handle_link_command(&matches)?;
 /// ```
 pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
-    // Collect files from CLI arguments
+    // --- Collect files from CLI arguments ---
     let files: Vec<String> = matches
         .get_many::<String>(FILES_ARG)
         .ok_or_else(CliError::missing_input_files)?
         .cloned()
         .collect();
 
-    // Determine output format (default: JSON)
+    // --- Determine output format (default to JSON) ---
     let format = *matches
         .get_one::<SerdeFormat>(FORMAT_ARG)
         .ok_or_else(|| CliError::invalid_argument("No output format provided"))?;
 
-    // Optional output path (used only if a single problem file)
+    // --- Optional output path ---
     let output_opt = matches.get_one::<String>(OUTPUT_ARG).map(PathBuf::from);
 
-    // Separate domain and problem files
+    // --- Validate domain file ---
     let domain_file = PathBuf::from(&files[0]);
-    let problem_files: Vec<PathBuf> = files[1..].iter().map(PathBuf::from).collect();
+    let domain = match validate_domain(&domain_file) {
+        Some(d) => d,
+        None => {
+            println!("Warning: no valid domain found, link command skipped");
+            return Ok(());
+        }
+    };
 
-    // Delegate the linking workflow without passing matches
-    link_inputs(&domain_file, &problem_files, format, output_opt)?;
+    // --- Validate problem files ---
+    let problem_files: Vec<PathBuf> = files[1..].iter().map(PathBuf::from).collect();
+    let problems = validate_problems(&domain, problem_files)?;
+
+    if problems.is_empty() {
+        println!("Warning: no valid problem files found, nothing to do");
+        return Ok(());
+    }
+
+    // --- Execute linking workflow with validated inputs ---
+    link_inputs(&domain, &problems, format, output_opt)?;
 
     Ok(())
 }
 
-/// Links a single domain file with multiple problem files.
+/// Links a single domain file with multiple problem files, producing lifted outputs.
 ///
-/// This function performs two passes over the problem files:
-/// 1. **Filter and read valid problem inputs** according to the domain type (IR or Raw),
-///    computing the output paths.
-/// 2. **Link the domain with each valid problem**, producing lifted output files
-///    and accumulating statistics.
+/// This function performs two main steps over the problem files:
+/// 1. **Compute output paths** for each problem, optionally using an explicit path
+///    if only one problem file is provided.
+/// 2. **Link the domain with each problem**, producing separate lifted outputs for each.
 ///
 /// # Behavior
 ///
-/// - The first file is treated as the **domain**; the rest are **problem files**.
-/// - The domain file can be either IR or Raw. All problem files must match the domain type.
-/// - Each problem is linked individually with the domain, producing separate output files.
-/// - If a single problem file is provided and an explicit output path is given, it is used.
-/// - Prints a summary including the number of linked and ignored problems, and the total elapsed time.
+/// - The first argument (`domain`) is the domain input; all others are problem inputs.
+/// - The domain can be either parsed (IR) or raw. All problems must match the domain type.
+/// - Each problem is linked individually; if a single problem is provided and an explicit
+///   output path is given, it will be used.
+/// - A summary of the operation is printed, including the number of problems linked and
+///   the total elapsed time.
 ///
 /// # Arguments
 ///
-/// * `domain_file` - Path to the domain file (IR or Raw).
-/// * `problem_files` - Slice of paths to problem files (must match domain type).
-/// * `format` - Serialization format for output files (e.g., JSON, YAML).
+/// * `domain` - Reference to a validated `Input` representing the domain file.
+/// * `problems` - Slice of validated `Input`s representing problem files.
+/// * `format` - Serialization format for the output (`SerdeFormat`).
 /// * `output_opt` - Optional explicit output path, used only if a single problem file.
 ///
 /// # Returns
 ///
-/// Returns `Ok(())` if all linking succeeds, or `Err(CliError)` if:
-/// - The domain file is invalid,
-/// - Problem files are inconsistent with the domain type,
-/// - Any reading or linking operation fails.
+/// Returns `Ok(())` if all linking succeeds.
+/// Returns `Err(CliError)` if any linking or output path computation fails.
 ///
 /// # Example
 ///
 /// ```rust
-/// let domain = Path::new("domain.pddl");
-/// let problems = vec![PathBuf::from("problem1.pddl"), PathBuf::from("problem2.pddl")];
-/// link_inputs(domain, &problems, SerdeFormat::Json, None)?;
+/// let domain = Input::read_from_file("domain.pddl")?;
+/// let problems = vec![Input::read_from_file("problem1.pddl")?, Input::read_from_file("problem2.pddl")?];
+/// link_inputs(&domain, &problems, SerdeFormat::Json, None)?;
 /// ```
 fn link_inputs(
-    domain_file: &Path,
-    problem_files: &[PathBuf],
+    domain: &Input,
+    problems: &Vec<Input>,
     format: SerdeFormat,
     output_opt: Option<PathBuf>,
 ) -> Result<(), CliError> {
     use std::time::Instant;
 
-    // Read domain and determine type (IR or Raw)
-    let domain = read_domain_input(domain_file)?;
-    let expect_ir = domain.is_ir();
-    let expect_raw = domain.is_raw();
-
-    // Initialize statistics
-    let mut files_linked = 0usize;
-    let mut files_ignored = 0usize;
     let start_time = Instant::now();
 
-    // First pass: read problems and filter by type
-    let mut valid_problems: Vec<(Input, PathBuf)> = Vec::new();
-    for problem_file in problem_files {
-        if let Some(problem) = read_input_problem(problem_file, expect_ir, expect_raw)? {
-            let output_path = if problem_files.len() == 1 {
-                output_opt.clone().unwrap_or_else(|| {
-                    Output::default_output_path(domain_file, Some(problem_file), Extension::Lifted, None)
-                        .expect("failed to determine default output path")
-                })
-            } else {
-                Output::default_output_path(domain_file, Some(problem_file), Extension::Lifted, None)?
-            };
-            valid_problems.push((problem, output_path));
+    for problem in problems {
+        // Déterminer le chemin de sortie
+        let output_path = if problems.len() == 1 {
+            output_opt.clone().unwrap_or_else(|| {
+                Output::default_output_path(
+                    domain.path(),
+                    Some(problem.path()),
+                    Extension::Lifted,
+                    None,
+                )
+                .expect("failed to determine default output path")
+            })
         } else {
-            files_ignored += 1;
+            Output::default_output_path(
+                domain.path(),
+                Some(problem.path()),
+                Extension::Lifted,
+                None,
+            )?
+        };
+
+        // Linking
+        if domain.is_parsed_domain() {
+            link_from_parsed_input(domain, &problem, format, &output_path)?;
+        } else {
+            link_from_raw_input(domain, &problem, format, &output_path)?;
         }
     }
 
-    // Second pass: link domain with each valid problem
-    for (problem, output_path) in valid_problems {
-        if expect_ir {
-            link_from_parsed_input(&domain, &problem, format, &output_path)?;
-        } else {
-            link_from_raw_input(&domain, &problem, format, &output_path)?;
-        }
-        files_linked += 1;
-    }
-
-    // Print global summary if multiple problems were processed
-    if problem_files.len() > 1 {
+    // Résumé global si plusieurs problèmes
+    if problems.len() > 1 {
         let total_time = start_time.elapsed().as_secs_f32();
         println!(
-            "\n{} {} problem(s) linked successfully, {} problem(s) ignored in {:.2}s",
+            "\n{} {} problem(s) linked in {:.2}s",
             "Finished".green().bold(),
-            files_linked,
-            files_ignored,
+            problems.len(),
             total_time
         );
     }
@@ -170,75 +196,43 @@ fn link_inputs(
     Ok(())
 }
 
-
-
-/// Reads a domain file and ensures it is either IR or Raw.
+/// Links a parsed domain and problem input, producing a serialized output if successful.
+///
+/// This function performs the following steps:
+/// 1. Creates a `Frontend` instance to handle linking operations.
+/// 2. Invokes the frontend to link the parsed domain and problem inputs.
+/// 3. Renders diagnostics (errors and warnings) to the console using `Renderer`.
+/// 4. If the linking produces a lifted problem (semantic context), serializes and saves it
+///    to the specified output path.
 ///
 /// # Arguments
-/// * `domain_path` - Path to the domain file.
+///
+/// * `domain` - A reference to an `Input` representing the parsed domain file.
+/// * `problem` - A reference to an `Input` representing the parsed problem file.
+/// * `format` - The serialization format for the output (`SerdeFormat`).
+/// * `output` - The path where the lifted problem will be saved.
 ///
 /// # Returns
-/// * `Ok(Input)` if the domain file is valid (IR or Raw)
-/// * `Err(CliError)` if the file is not a regular file or not IR/Raw
-fn read_domain_input(domain_path: &Path) -> Result<Input, CliError> {
-    if !domain_path.is_file() {
-        return Err(CliError::invalid_argument(&format!(
-            "'{}' is not a file",
-            domain_path.display()
-        )));
-    }
-
-    let domain = Input::read_from_file(domain_path)?;
-
-    if !domain.is_ir() && !domain.is_raw() {
-        return Err(CliError::invalid_argument(
-            "Domain file must be IR or Raw",
-        ));
-    }
-
-    Ok(domain)
-}
-
-fn read_input_problem(input_path: &Path, expect_ir: bool, expect_raw: bool) -> Result<Option<Input>, CliError> {
-    // 1. Check if path is a file
-    if !input_path.is_file() {
-        println!(
-            "{} '{}' is not a file — ignored",
-            "warning:".yellow().bold(),
-            input_path.display()
-        );
-        return Ok(None);
-    }
-
-    // 2. Read the input
-    let input = Input::read_from_file(input_path)?;
-
-    // 3. Check type consistency
-    if (expect_ir && !input.is_ir()) || (expect_raw && !input.is_raw()) {
-        let kind = if input.is_ir() {
-            "IR file"
-        } else if input.is_raw() {
-            "Raw file"
-        } else if input.is_text() {
-            "unknown text file"
-        } else if input.is_binary() {
-            "binary file"
-        } else {
-            "unknown content"
-        };
-
-        println!(
-            "{} '{}' type is inconsistent with expected type — ignored ({})",
-            "warning:".yellow().bold(),
-            input_path.display(),
-            kind
-        );
-        return Ok(None);
-    }
-
-    Ok(Some(input))
-}
-
+///
+/// Returns `Ok(())` on success.
+/// Returns a `CliError` if any of the following occur:
+/// - Linking of the parsed inputs fails.
+/// - Rendering of diagnostics fails.
+/// - Saving the lifted problem fails.
+///
+/// # Behavior
+///
+/// - Diagnostics are always displayed, even if linking fails.
+/// - Only produces an output file if a lifted problem is successfully created.
+///
+/// # Examples
+///
+/// ```no_run
+/// let domain = Input::read_from_file("domain.prs").unwrap();
+/// let problem = Input::read_from_file("pb01.prs").unwrap();
+/// let output = PathBuf::from("pb01.lifted");
+/// link_from_parsed_input(&domain, &problem, SerdeFormat::JSON, &output).unwrap();
+/// ```
 fn link_from_parsed_input(
     domain: &Input,
     problem: &Input,
@@ -251,23 +245,62 @@ fn link_from_parsed_input(
     // Perform linking, propagate any errors
     let mut builder_result = frontend.link_from_parsed_input(domain, problem)?;
 
+    // Display diagnostics
+    let mut renderer = Renderer::new(
+        builder_result.diagnostic_manager(),
+        builder_result.interner(),
+    );
+    renderer.display()?;
+
     // If linking produced a semantic context, serialize it
     if let Some(lifted_problem) = builder_result.take_lifted_problem() {
         save_link_output(lifted_problem, format, output)?;
         println!("Output saved to {}", output.to_string_lossy());
-    } else {
-        // Otherwise, render diagnostics
-        let mut renderer = Renderer::new(
-            builder_result.diagnostic_manager(),
-            builder_result.interner(),
-        );
-        renderer.display()?;
     }
 
     Ok(())
 }
 
-pub fn link_from_raw_input(
+/// Links a raw domain and problem input, producing a serialized output if no errors occur.
+///
+/// This function performs the following steps:
+/// 1. Logs the start of the linking process, including the domain and problem file paths.
+/// 2. Uses the `Frontend` to parse the domain and problem inputs.
+/// 3. Renders diagnostics (errors and warnings) to the console using `Renderer`.
+/// 4. Counts the number of errors and warnings encountered during parsing.
+/// 5. Prints a summary including elapsed time, errors, and warnings.
+/// 6. If there are no errors, serializes and saves the lifted problem to the specified output path.
+///
+/// # Arguments
+///
+/// * `domain` - A reference to an `Input` representing the domain file. Must be a raw input.
+/// * `problem` - A reference to an `Input` representing the problem file. Must be a raw input.
+/// * `format` - The desired serialization format for the output (`SerdeFormat`).
+/// * `output` - Path to the file where the serialized output will be saved.
+///
+/// # Returns
+///
+/// Returns `Ok(())` on success.
+/// Returns a `CliError` if any of the following occur:
+/// - Parsing of domain or problem fails.
+/// - Diagnostics rendering fails.
+/// - Saving the lifted problem fails.
+///
+/// # Behavior
+///
+/// - If parsing produces warnings but no errors, the output is still saved.
+/// - If any errors are encountered, the output is not produced.
+/// - Timing of the linking process is printed for user feedback.
+///
+/// # Examples
+///
+/// ```no_run
+/// let domain = Input::read_from_file("domain.hddl").unwrap();
+/// let problem = Input::read_from_file("pb01.hddl").unwrap();
+/// let output = PathBuf::from("pb01.lifted");
+/// link_from_raw_input(&domain, &problem, SerdeFormat::JSON, &output).unwrap();
+/// ```
+fn link_from_raw_input(
     domain: &Input,
     problem: &Input,
     format: SerdeFormat,
@@ -287,7 +320,7 @@ pub fn link_from_raw_input(
     let frontend = Frontend::new();
 
     // Parse domain and problem files
-    let mut result = frontend.link_from_raw_input(domain, problem)?; // AiplanError se convertit en CliError
+    let mut result = frontend.link_from_raw_input(domain, problem)?;
 
     // Display diagnostics (propagation via DiagnosticError)
     let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
@@ -391,45 +424,322 @@ pub fn save_link_output<P: Into<PathBuf>>(
     Ok(())
 }
 
-/*pub fn validate_domain_and_problems(
-    domain_path: &PathBuf,
-    problem_paths: &[PathBuf],
-) -> Result<(Input, Vec<Input>), CliError> {
-    let domain_input = Input::read_from_file(domain_path)?;
+/// Lit et valide le domain : doit être RawDomain ou ParsedDomain
+/// Validates a domain file.
+///
+/// This function attempts to read the domain file from the given path and checks
+/// if it is either a RawDomain or ParsedDomain. If the domain cannot be read or
+/// is of an incompatible type, a warning is printed and `None` is returned.
+///
+/// # Parameters
+///
+/// * `path` - The path to the domain file to validate.
+///
+/// # Returns
+///
+/// * `Some(Input)` - If the domain is successfully read and is of a valid type.
+/// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
+pub fn validate_domain(path: &PathBuf) -> Option<Input> {
+    match Input::read_from_file(path) {
+        // Domain successfully read and has a valid type
+        Ok(d) if d.is_raw() || d.is_parsed_domain() => Some(d),
 
-    // Détecte le type global et la langue du domain
-    let (domain_type_is_raw, domain_lang) = if domain_input.is_raw_domain() {
-        (true, domain_input.raw_content().unwrap().language())
-    } else if domain_input.is_parsed_domain() {
-        (false, domain_input.try_ir_content().language())
-    } else {
-        return Err(CliError::invalid_argument(format!(
-            "Domain file '{}' must be a raw domain or parsed IR domain",
-            domain_path.display()
-        )));
-    };
-
-    let mut problem_inputs = Vec::with_capacity(problem_paths.len());
-
-    for p_path in problem_paths {
-        let p_input = Input::read_from_file(p_path)?;
-
-        // Vérifie le type global et le rôle
-        let compatible = if domain_type_is_raw {
-            p_input.is_raw_problem() && p_input.try_raw_content()?.language() == domain_lang
-        } else {
-            p_input.is_parsed_problem() && p_input.try_ir_content()?.language() == domain_lang
-        };
-
-        if !compatible {
-            return Err(CliError::invalid_argument(format!(
-                "Problem file '{}' is incompatible with domain '{}'",
-                p_path.display(), domain_path.display()
-            )));
+        // Domain read but type is invalid
+        Ok(d) => {
+            println!(
+                "Warning: domain '{}' ignored: must be a RawDomain or ParsedDomain",
+                d.path().display()
+            );
+            None
         }
 
-        problem_inputs.push(p_input);
+        // Domain file could not be read
+        Err(e) => {
+            println!(
+                "Warning: unable to read domain file '{}': {}",
+                path.display(),
+                e
+            );
+            None
+        }
+    }
+}
+
+/// Validates a list of problem files against the provided domain.
+///
+/// This function reads all problem files from the given paths, filters out
+/// invalid or unreadable files, and then validates them according to the
+/// type of the domain (raw or parsed). Only problems that are compatible
+/// with the domain type and language/hierarchy are returned.
+///
+/// # Parameters
+///
+/// * `domain` - The reference to the domain input used for validation.
+/// * `problem_paths` - A vector of paths to problem files to validate.
+///
+/// # Returns
+///
+/// * `Ok(Vec<Input>)` - A vector of valid `Input` problems compatible with the domain.
+/// * `Err(CliError)` - If any I/O or validation error occurs during processing.
+///
+/// # Notes
+///
+/// Problems that cannot be read are ignored and a warning is printed.
+pub fn validate_problems(
+    domain: &Input,
+    problem_paths: Vec<PathBuf>,
+) -> Result<Vec<Input>, CliError> {
+    // Read and collect all problems that can be successfully read from files
+    let problems: Vec<Input> = problem_paths
+        .into_iter()
+        .filter_map(|p| match Input::read_from_file(&p) {
+            Ok(p) => Some(p),
+            Err(e) => {
+                // Warn if a problem file cannot be read
+                println!(
+                    "Warning: unable to read problem file '{}', it will be ignored: {}",
+                    p.display(),
+                    e
+                );
+                None
+            }
+        })
+        .collect();
+
+    // Depending on the domain type, filter the problems accordingly
+    if domain.is_raw() {
+        Ok(filter_raw_problems(domain, problems)?)
+    } else if domain.is_parsed_domain() {
+        Ok(filter_parsed_problems(domain, problems)?)
+    } else {
+        // Domain type unrecognized, return an empty list
+        Ok(vec![])
+    }
+}
+
+/// Attempts to read a problem input from the given file path.
+///
+/// This function tries to read an `Input` from the specified file. If the
+/// reading succeeds, the problem input is returned. If the reading fails,
+/// a warning message is printed to stdout and `None` is returned.
+///
+/// # Parameters
+///
+/// * `path` - The path to the problem file to be read.
+///
+/// # Returns
+///
+/// * `Some(Input)` - The successfully read problem input.
+/// * `None` - If the file could not be read, after printing a warning.
+///
+/// # Warnings
+///
+/// A warning is printed for any problem file that could not be read, specifying
+/// the path of the ignored file.
+///
+/// # Examples
+///
+/// ```rust
+/// # use std::path::PathBuf;
+/// # use aiplan4rust::io::Input;
+/// # fn example() {
+/// let problem_path = PathBuf::from("pb01.hddl");
+/// if let Some(problem) = read_problem(problem_path) {
+///     println!("Problem read successfully");
+/// } else {
+///     println!("Problem was ignored");
+/// }
+/// # }
+/// ```
+fn read_problem(path: PathBuf) -> Option<Input> {
+    match Input::read_from_file(&path) {
+        Ok(p) => Some(p),
+        Err(_) => {
+            println!(
+                "Warning: unable to read problem file '{}', it will be ignored",
+                path.display()
+            );
+            None
+        }
+    }
+}
+
+/// Filters a list of problem inputs against a validated raw domain.
+///
+/// This function performs several checks to ensure that each problem is compatible
+/// with the given domain:
+///
+/// 1. The input must be a problem (not a domain or unrelated file).
+/// 2. The problem must be in raw format.
+/// 3. The problem's language must match the language of the domain.
+///
+/// Any problem failing one of these checks is ignored, and a warning message
+/// is printed to stdout. Valid problems are collected and returned.
+///
+/// # Parameters
+///
+/// * `domain` - A reference to a validated raw domain input. The domain's language
+///   is used to filter compatible problems.
+/// * `problems` - A vector of candidate problem inputs to be validated.
+///
+/// # Returns
+///
+/// * `Ok(Vec<Input>)` - A vector containing only the valid raw problems.
+/// * `Err(CliError)` - If the domain's raw content cannot be accessed, this error
+///   is returned.
+///
+/// # Warnings
+///
+/// Warnings are printed for each problem that is ignored, specifying the reason:
+///
+/// * Not a problem input.
+/// * Not in raw format.
+/// * Language mismatch with the domain.
+///
+/// # Examples
+///
+/// ```rust
+/// # use aiplan4rust::io::Input;
+/// # use aiplan4rust::cli::error::CliError;
+/// # fn example(domain: &Input, problems: Vec<Input>) -> Result<(), CliError> {
+/// let valid_problems = filter_raw_problems(domain, problems)?;
+/// println!("{} valid problems found", valid_problems.len());
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Notes
+///
+/// This function assumes that the domain input has already been validated as raw.
+/// It does not perform any transformation on the problems; it only filters them
+/// based on the criteria described above.
+fn filter_raw_problems(domain: &Input, problems: Vec<Input>) -> Result<Vec<Input>, CliError> {
+    // --- Extract the language of the domain ---
+    // Fail early if the domain raw content is not accessible
+    let domain_lang = domain.try_raw_content()?.language();
+
+    // --- Prepare a vector to accumulate valid problems ---
+    let mut valid_problems = Vec::new();
+
+    // --- Iterate over each candidate problem ---
+    for p in problems {
+        // Step 1: Check if the input is a problem
+        if p.is_problem() {
+            // Step 2: Check if the problem is raw
+            if p.is_raw() {
+                // Step 3: Try extracting the raw content
+                let c = p.try_raw_content()?;
+                // Step 4: Compare problem language with domain language
+                if c.language() == domain_lang {
+                    // Problem is valid: add to the list
+                    valid_problems.push(p);
+                } else {
+                    // Language mismatch
+                    println!(
+                        "Warning: problem '{}' ignored: language does not match domain",
+                        p.path().display()
+                    );
+                }
+            } else {
+                // Problem is not raw
+                println!(
+                    "Warning: problem '{}' ignored: must be a raw problem",
+                    p.path().display()
+                );
+            }
+        } else {
+            // Input is not a problem
+            println!(
+                "Warning: problem '{}' ignored: not a problem file",
+                p.path().display()
+            );
+        }
     }
 
-    Ok((domain_input, problem_inputs))
-}*/
+    // --- Return all valid raw problems ---
+    Ok(valid_problems)
+}
+
+/// Filters and validates parsed (IR) problem inputs against a parsed domain.
+///
+/// This function checks that each problem:
+/// - is a parsed problem input (not raw, not a domain),
+/// - has a valid parsed semantic context,
+/// - satisfies the domain requirements (e.g. hierarchy support).
+///
+/// # Behavior
+///
+/// - Incompatible or irrelevant inputs are **ignored with a warning** printed to stdout.
+/// - Semantic or structural errors when extracting parsed content are treated as **hard errors**
+///   and cause the function to return `Err`.
+/// - The domain is assumed to be already validated as a parsed domain.
+///
+/// # Warnings
+///
+/// A problem input is ignored (with a warning) if:
+/// - it is not a parsed problem,
+/// - it is not hierarchical while the domain requires hierarchy.
+///
+/// # Errors
+///
+/// This function returns an error if:
+/// - the domain parsed content cannot be extracted,
+/// - a problem claims to be parsed but its semantic content is invalid.
+///
+/// # Returns
+///
+/// A vector containing only the parsed problem inputs that are compatible
+/// with the given domain.
+///
+/// # Examples
+///
+/// ```no_run
+/// let valid_problems = filter_parsed_problems(&domain, problems)?;
+/// ```
+///
+/// # Design notes
+///
+/// This function follows a CLI-oriented design:
+/// - **validation issues** are reported as warnings,
+/// - **internal inconsistencies** are surfaced as errors,
+/// - control flow remains explicit and readable (no `continue`, no deep nesting).
+fn filter_parsed_problems(domain: &Input, problems: Vec<Input>) -> Result<Vec<Input>, CliError> {
+    // Extract the parsed semantic context from the domain.
+    // This must succeed; otherwise the domain is invalid.
+    let domain_sc = domain.try_parsed_content()?;
+
+    // Check whether the domain requires hierarchical constructs.
+    let domain_requires_hierarchy = domain_sc.is_required(Requirement::Hierarchy);
+
+    // Accumulate only the problems that are valid for this domain.
+    let mut valid_problems = Vec::new();
+
+    // Iterate over all candidate problem inputs.
+    for p in problems {
+        // The input must be a parsed problem (not a domain, not raw).
+        if !p.is_parsed_problem() {
+            println!(
+                "Warning: problem IR '{}' ignored: expected a parsed problem",
+                p.path().display()
+            );
+        } else {
+            // Extract the parsed semantic context of the problem.
+            // If this fails, it is considered a hard error.
+            let problem_sc = p.try_parsed_content()?;
+
+            // If the domain is hierarchical, the problem must be hierarchical as well.
+            if domain_requires_hierarchy && !problem_sc.is_required(Requirement::Hierarchy) {
+                println!(
+                    "Warning: problem IR '{}' ignored: must be hierarchical because the domain is hierarchical",
+                    p.path().display()
+                );
+            } else {
+                // The problem is compatible with the domain and can be kept.
+                valid_problems.push(p);
+            }
+        }
+    }
+
+    // Return the list of valid parsed problems.
+    Ok(valid_problems)
+}
