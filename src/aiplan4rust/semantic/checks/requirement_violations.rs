@@ -237,7 +237,7 @@ fn report_warning_requirement_violation(
     required: Vec<Requirement>,
 ) -> bool {
     if required.iter().any(|r| !requirements.contains(r)) {
-        let warning = Diagnostic::warning_requirement_violation(
+        let warning = Diagnostic::warning_missing_requirement(
             node.kind().clone(),
             required,
             provider,

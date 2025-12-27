@@ -3,11 +3,12 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use logos::Logos;
 use crate::aiplan4rust::io::error::IOError;
-use crate::aiplan4rust::io::header::{Header, HEADER_PAYLOAD_SEPARATOR};
-use crate::aiplan4rust::io::ir_content::IRContent;
+use crate::aiplan4rust::io::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
+use crate::aiplan4rust::io::ir::content::IRContent;
+use crate::aiplan4rust::io::IRKind;
 use crate::aiplan4rust::io::language::Language;
-use crate::aiplan4rust::io::raw_content::RawContent;
-use crate::aiplan4rust::io::raw_kind::RawKind;
+use crate::aiplan4rust::io::raw::content::RawContent;
+use crate::aiplan4rust::io::raw::kind::RawKind;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::syntax::lexer::Token;
 
@@ -22,11 +23,11 @@ pub enum Input {
         path: PathBuf,
         content: IRContent,
     },
-    UnknownText {
+    Text {
         path: PathBuf,
         content: String,
     },
-    BinaryUnknown {
+    Binary {
         path: PathBuf,
         content: Vec<u8>,
     },
@@ -54,16 +55,16 @@ impl Input {
     }
 
     // Constructeur pour TextUnknown
-    pub fn new_unknown_text(path: impl Into<PathBuf>, content: impl Into<String>) -> Self {
-        Input::UnknownText {
+    pub fn new_text(path: impl Into<PathBuf>, content: impl Into<String>) -> Self {
+        Input::Text {
             path: path.into(),
             content: content.into(),
         }
     }
 
     // Constructeur pour BinaryUnknown
-    pub fn new_binary_unknown(path: impl Into<PathBuf>, content: Vec<u8>) -> Self {
-        Input::BinaryUnknown {
+    pub fn new_binary(path: impl Into<PathBuf>, content: Vec<u8>) -> Self {
+        Input::Binary {
             path: path.into(),
             content,
         }
@@ -133,11 +134,11 @@ impl Input {
                             return Ok(Input::new_raw(path, content))
                         }
 
-                        Ok(Input::UnknownText { path, content })
+                        Ok(Input::Text { path, content })
                     }
                     Err(e) => {
                         // Binary unknown
-                        Ok(Input::BinaryUnknown { path, content: e.into_bytes() })
+                        Ok(Input::Binary { path, content: e.into_bytes() })
                     }
                 }
             }
@@ -273,8 +274,8 @@ impl Input {
         match self {
             Input::Raw { path, .. } => path,
             Input::IR { path, .. } => path,
-            Input::UnknownText { path, .. } => path,
-            Input::BinaryUnknown { path, .. } => path,
+            Input::Text { path, .. } => path,
+            Input::Binary { path, .. } => path,
         }
     }
 
@@ -309,38 +310,58 @@ impl Input {
     }
 
     // --- Unknown binary content ---
-    pub fn unknown_binary_content(&self) -> Option<&[u8]> {
+    pub fn binary_content(&self) -> Option<&[u8]> {
         match self {
-            Input::BinaryUnknown { content, .. } => Some(content),
+            Input::Binary { content, .. } => Some(content),
             _ => None,
         }
     }
 
-    pub fn try_unknown_binary_content(&self) -> Result<&[u8], IOError> {
+    pub fn try_binary_content(&self) -> Result<&[u8], IOError> {
         match self {
-            Input::BinaryUnknown { content, .. } => Ok(content),
+            Input::Binary { content, .. } => Ok(content),
             _ => Err(IOError::missing_unknown_binary_content()),
         }
     }
 
     // --- Unknown text content ---
-    pub fn unknown_text_content(&self) -> Option<&String> {
+    pub fn text_content(&self) -> Option<&String> {
         match self {
-            Input::UnknownText { content, .. } => Some(content),
+            Input::Text { content, .. } => Some(content),
             _ => None,
         }
     }
 
-    pub fn try_unknown_text_content(&self) -> Result<&String, IOError> {
+    pub fn try_text_content(&self) -> Result<&String, IOError> {
         match self {
-            Input::UnknownText { content, .. } => Ok(content),
+            Input::Text { content, .. } => Ok(content),
             _ => Err(IOError::missing_unknown_text_content()),
         }
     }
 
-    /// Returns true if this Input is a raw source.
+    /// Returns true if this Input is a raw source (PDDL or HDDL)
     pub fn is_raw(&self) -> bool {
         matches!(self, Input::Raw { .. })
+    }
+
+    /// Returns true if this Input is a raw domain (PDDL or HDDL)
+    pub fn is_raw_domain(&self) -> bool {
+        matches!(self, Input::Raw { content, .. } if content.kind() == RawKind::Domain)
+    }
+
+    /// Returns true if this Input is a raw problem (PDDL or HDDL)
+    pub fn is_raw_problem(&self) -> bool {
+        matches!(self, Input::Raw { content, .. } if content.kind() == RawKind::Problem)
+    }
+
+    /// Returns true if this Input is a raw PDDL source
+    pub fn is_raw_pddl(&self) -> bool {
+        matches!(self, Input::Raw { content, .. } if content.language() == Language::PDDL)
+    }
+
+    /// Returns true if this Input is a raw HDDL source
+    pub fn is_raw_hddl(&self) -> bool {
+        matches!(self, Input::Raw { content, .. } if content.language() == Language::HDDL)
     }
 
     /// Returns true if this Input is an intermediate representation (IR).
@@ -348,14 +369,57 @@ impl Input {
         matches!(self, Input::IR { .. })
     }
 
+    /// Returns true if this Input is a parsed IR domain (ParsedDomain)
+    pub fn is_parsed_domain(&self) -> bool {
+        matches!(self.ir_kind(), Some(IRKind::ParsedDomain))
+    }
+
+    /// Returns true if this Input is a parsed IR problem (ParsedProblem)
+    pub fn is_parsed_problem(&self) -> bool {
+        matches!(self.ir_kind(), Some(IRKind::ParsedProblem))
+    }
+
+    /// Returns true if this Input is a lifted IR problem (LiftedProblem)
+    pub fn is_lifted_problem(&self) -> bool {
+        matches!(self.ir_kind(), Some(IRKind::LiftedProblem))
+    }
+
     /// Returns true if this Input is an unknown text source.
-    pub fn is_unknown_text(&self) -> bool {
-        matches!(self, Input::UnknownText { .. })
+    pub fn is_text(&self) -> bool {
+        matches!(self, Input::Text { .. })
     }
 
     /// Returns true if this Input is an unknown binary source.
-    pub fn is_binary_unknown(&self) -> bool {
-        matches!(self, Input::BinaryUnknown { .. })
+    pub fn is_binary(&self) -> bool {
+        matches!(self, Input::Binary { .. })
+    }
+
+    /// Retourne Some(RawKind) si c'est Raw, None sinon
+    pub fn raw_kind(&self) -> Option<RawKind> {
+        match self {
+            Input::Raw { content, .. } => Some(content.kind()),
+            _ => None,
+        }
+    }
+
+    /// Retourne Some(IRKind) si c'est IR, None sinon
+    pub fn ir_kind(&self) -> Option<IRKind> {
+        match self {
+            Input::IR { content, .. } => Some(content.kind()),
+            _ => None,
+        }
+    }
+
+    // --- Domain / Problem helpers ---
+    pub fn is_domain(&self) -> bool {
+        matches!(self.raw_kind(), Some(RawKind::Domain))
+            || matches!(self.ir_kind(), Some(IRKind::ParsedDomain))
+    }
+
+    pub fn is_problem(&self) -> bool {
+        matches!(self.raw_kind(), Some(RawKind::Problem))
+            || matches!(self.ir_kind(), Some(IRKind::ParsedProblem))
+            || matches!(self.ir_kind(), Some(IRKind::LiftedProblem))
     }
 }
 
@@ -387,7 +451,6 @@ fn infer_raw_kind(input: &str) -> Option<RawKind> {
 /// Détecte la langue (PDDL ou HDDL) à partir du texte brut
 fn detect_raw_language(input: &str) -> Language {
     let mut lexer = Token::lexer(input);
-    let mut language = Language::PDDL;
 
     while let Some(token_res) = lexer.next() {
         let token = match token_res {
@@ -401,10 +464,10 @@ fn detect_raw_language(input: &str) -> Language {
             | Token::Method
             | Token::MethodPreconditions
             | Token::Hierarchy
-            | Token::Htn => language = Language::HDDL,
+            | Token::Htn => return Language::HDDL,
             _ => {}
         }
     }
 
-    language
+    Language::PDDL
 }

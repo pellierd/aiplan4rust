@@ -1,4 +1,4 @@
-use crate::aiplan4rust::io::ir_kind::IRKind;
+use crate::aiplan4rust::io::ir::kind::IRKind;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::SerializationError;

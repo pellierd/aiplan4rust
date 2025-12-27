@@ -4,19 +4,6 @@
 //! This enum consolidates errors from various subsystems involved in linking,
 //! including semantic analysis, linking-specific checks, semantic consistency checks,
 //! and symbol table operations.
-//!
-//! # Variants
-//!
-//! - [`Semantic`]: Wraps errors from the core semantic analysis phase.
-//! - [`LinkingCheck`]: Wraps errors arising from linking-specific validations.
-//! - [`SemanticCheckError`]: Wraps errors from semantic consistency checks.
-//! - [`SymbolTable`]: Wraps errors related to symbol table operations.
-//!
-//! # Integration
-//!
-//! This enum implements the `std::error::Error` trait via `thiserror::Error`,
-//! enabling seamless error composition and propagation within Rust's
-//! error handling ecosystem.
 
 use thiserror::Error;
 use crate::aiplan4rust::interner::InternerError;
@@ -30,9 +17,6 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 /// This enum aggregates errors from multiple components involved
 /// in linking domain and problem semantic contexts, facilitating
 /// unified error handling.
-///
-/// Each variant transparently wraps a specific error type
-/// from the corresponding subsystem.
 #[derive(Debug, Error)]
 pub enum LinkingError {
     /// Error arising from semantic analysis failures.
@@ -54,4 +38,45 @@ pub enum LinkingError {
     /// Error related to the string interner.
     #[error(transparent)]
     Interner(#[from] InternerError),
+
+    /// Occurs when a domain syntax tree was expected but a problem syntax tree was provided.
+    #[error("Expected a domain syntax tree, but got a problem syntax tree")]
+    NotADomainSyntaxTree,
+
+    /// Occurs when a problem syntax tree was expected but a domain syntax tree was provided.
+    #[error("Expected a problem syntax tree, but got a domain syntax tree")]
+    NotAProblemSyntaxTree,
+
+    /// Occurs when a hierarchical consistency check fails between domain and problem syntax trees.
+    #[error("Domain and problem syntax trees are not consistent in hierarchical structure")]
+    HierarchicalMismatch,
+
+    /// Occurs when the syntax tree is empty or missing required nodes.
+    #[error("Syntax tree is empty or missing required nodes")]
+    EmptySyntaxTree,
+}
+
+impl LinkingError {
+    /// Returns a `LinkingError` for the case when a domain syntax tree was expected
+    /// but a problem syntax tree is provided.
+    pub fn not_a_domain_syntax_tree() -> Self {
+        LinkingError::NotADomainSyntaxTree
+    }
+
+    /// Returns a `LinkingError` for the case when a problem syntax tree was expected
+    /// but a domain syntax tree is provided.
+    pub fn not_a_problem_syntax_tree() -> Self {
+        LinkingError::NotAProblemSyntaxTree
+    }
+
+    /// Returns a `LinkingError` for hierarchical consistency mismatch between
+    /// domain and problem syntax trees.
+    pub fn hierarchical_mismatch() -> Self {
+        LinkingError::HierarchicalMismatch
+    }
+
+    /// Returns a `LinkingError` when the syntax tree is empty.
+    pub fn empty_syntax_tree() -> Self {
+        LinkingError::EmptySyntaxTree
+    }
 }

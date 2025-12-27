@@ -64,6 +64,9 @@ use std::fmt::Formatter;
 pub enum Requirement {
     /// Represents the basic STRIPS formalism, which supports only add and delete effects.
     Strips,
+    /// A general requirement encompassing `NegativePreconditions`, `DisjunctivePreconditions`,
+    /// `Equality`, `ExistentialPreconditions`, `UniversalPreconditions`, and `ConditionalEffects`.
+    Adl,
     /// Enables the use of typed objects and variables.
     Typing,
     /// Allows the use of negated atoms in preconditions.
@@ -86,9 +89,6 @@ pub enum Requirement {
     NumericFluents,
     /// Supports function with type_checker that differ from number
     ObjectFluents,
-    /// A general requirement encompassing `NegativePreconditions`, `DisjunctivePreconditions`,
-    /// `Equality`, `ExistentialPreconditions`, `UniversalPreconditions`, and `ConditionalEffects`.
-    Adl,
     /// Allows the definition of durative (temporal) actions.
     DurativeActions,
     /// Enables constraints on action durations.

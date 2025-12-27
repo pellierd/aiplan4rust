@@ -64,7 +64,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
         };
 
         // Extraire le LinkedSemanticContext du LinkerResult
-        let mut linked_context = match linker_result.take_linked_semantic_context() {
+        let linked_context = match linker_result.take_linked_semantic_context() {
             Some(ctx) => ctx,
             None => {
                 errors.push(format!("Linking produced no LinkedSemanticContext for problem {}", problem_path.display()));
@@ -74,7 +74,7 @@ pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
 
         // LIR Builder
         let mut lir_builder = LirBuilder::new();
-        match lir_builder.build(&mut linked_context) {
+        match lir_builder.build(linked_context) {
             Ok(result) => {
                 if result.lifted_problem().is_none() {
                     errors.push(format!("LIR Builder produced no lifted problem for {}", problem_path.display()));

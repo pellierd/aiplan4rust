@@ -113,14 +113,6 @@ impl AnalyzerResult {
         self.context.as_ref()
     }
 
-    /// Returns a mutable reference to the semantic context, if present.
-    ///
-    /// # Returns
-    /// `Some(&mut SemanticContext)` if available, or `None` if analysis failed.
-    pub fn semantic_context_mut(&mut self) -> Option<&mut SemanticContext> {
-        self.context.as_mut()
-    }
-
     /// Takes ownership of the semantic context out of the `AnalyzerResult`, leaving `None` in its place.
     ///
     /// # Returns
@@ -135,14 +127,6 @@ impl AnalyzerResult {
     /// Reference to the `DiagnosticManager` collecting errors and warnings.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         &self.diagnostic_manager
-    }
-
-    /// Returns a mutable reference to the diagnostic manager.
-    ///
-    /// # Returns
-    /// Mutable reference to the `DiagnosticManager`.
-    pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
-        &mut self.diagnostic_manager
     }
 
     /// Takes ownership of the diagnostic manager out of the `AnalyzerResult`, leaving a default empty one in its place.
@@ -166,19 +150,6 @@ impl AnalyzerResult {
         }
     }
 
-    /// Returns a mutable reference to the `StringInterner` used for symbol resolution.
-    ///
-    /// This function panics if neither the semantic context nor the local interner is present.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
-        if let Some(context) = &mut self.context {
-            context.interner_mut()
-        } else {
-            self.interner
-                .as_mut()
-                .expect("Expected a mutable StringInterner to be present")
-        }
-    }
-
     /// Consumes and returns the `StringInterner` used for symbol resolution.
     ///
     /// This function panics if neither the semantic context nor the local interner is present.
@@ -186,7 +157,7 @@ impl AnalyzerResult {
     /// After calling this, the corresponding interner field becomes `None`.
     pub fn take_interner(&mut self) -> StringInterner {
         if let Some(context) = &mut self.context {
-            std::mem::take(context.interner_mut())
+            context.take_interner()
         } else {
             self.interner
                 .take()

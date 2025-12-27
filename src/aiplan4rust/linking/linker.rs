@@ -34,14 +34,13 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::{InternerError, InternerMergeResult, Literal};
+use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::AnalyzerResult;
 
-use std::collections::HashMap;
 use std::mem::take;
 
 /// The `Linker` struct is responsible for performing the linking phase
@@ -117,7 +116,7 @@ impl Linker {
         mut problem: AnalyzerResult,
     ) -> Result<LinkerResult, LinkingError> {
         match (domain.take_semantic_context(), problem.take_semantic_context()) {
-            (Some(mut domain_ctx), Some(mut problem_ctx)) => {
+            (Some(domain_ctx), Some(mut problem_ctx)) => {
 
                 // Step 1: Merge the string interners from domain and problem to form a global interner
                 let mut result = InternerMergeResult::from_domain_and_problem(
@@ -129,7 +128,7 @@ impl Linker {
                 // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
                 let ident_map = result.take_ident_map();
                 let literal_map = result.take_literal_map();
-                remap_problem(&mut problem_ctx, &ident_map, &literal_map)?;
+                problem_ctx.remap(&ident_map, &literal_map)?;
                 // Collect diagnostics from domain and problem diagnostic managers
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
@@ -146,7 +145,7 @@ impl Linker {
                     problem_ctx.symbol_table(),
                     &global_interner,
                     problem_ctx.source_id(),
-                    problem_ctx.requirements(),
+                    problem_ctx.declared_requirements(),
                 );
                 perform_linking_checks(&domain_ctx, &problem_check_ctx, &mut self.diagnostic_manager)?;
 
@@ -157,14 +156,10 @@ impl Linker {
 
                 // Step 7: Construct the final linked semantic context
                 let semantic_context = LinkedSemanticContext::new(
-                    domain_ctx.take_syntax_tree(),
-                    problem_ctx.take_syntax_tree(),
-                    domain_ctx.take_symbol_table(),
-                    problem_ctx.take_symbol_table(),
+                    domain_ctx,
+                    problem_ctx,
                     global_interner,
-                    domain_ctx.source_id(),
-                    problem_ctx.source_id(),
-                );
+                )?;
 
                 // Step 8: Return the result with the semantic context and diagnostics
                 Ok(LinkerResult::success(semantic_context, take(&mut self.diagnostic_manager)))
@@ -181,49 +176,6 @@ impl Linker {
             }
         }
     }
-}
-
-/// Remaps identifiers and literals in the problem's AST and symbol table.
-///
-/// This function updates all identifier references within the problem's AST and symbol table
-/// using `problem_ident_map`, and updates the source literal ID using `literal_map`.
-/// It ensures that the problem’s identifiers and literals are aligned with the global interner,
-/// facilitating consistent symbol resolution across linked semantic contexts.
-///
-/// **Important:** This function does **not** modify the string interner itself; it only updates
-/// the identifier and literal references (indices/keys) in the problem's AST and symbol table.
-///
-/// # Arguments
-///
-/// * `problem` - A mutable reference to the problem semantic context whose identifiers
-///   and source literal will be remapped.
-/// * `ident_map` - A `HashMap` mapping local problem identifiers (`Ident`) to
-///   their corresponding global identifiers.
-/// * `literal_map` - A `HashMap` mapping local problem literals (`Literal`) to their
-///   corresponding global literals.
-///
-/// # Returns
-///
-/// Returns `Ok(())` if remapping succeeded for both identifiers and literals, otherwise
-/// returns a [`LinkingError`] encapsulating either a `SymbolTableError` or an `InternerError`.
-fn remap_problem(
-    problem: &mut SemanticContext,
-    ident_map: &HashMap<Ident, Ident>,
-    literal_map: &HashMap<Literal, Literal>,
-) -> Result<(), LinkingError> {
-    // Step 1: remap identifiers in AST
-    problem.ast_mut().remap_idents(ident_map);
-
-    // Step 2: remap identifiers in the symbol table
-    problem.symbol_table_mut().remap_idents(ident_map)?;
-
-    // Step 3: remap the source literal
-    let new_source_id = literal_map
-        .get(&problem.source_id())
-        .ok_or_else(|| InternerError::missing_remap_literal(problem.source_id()))?;
-    problem.set_source_id(*new_source_id);
-
-    Ok(())
 }
 
 /// Performs semantic and structural linking checks between a domain and a problem.
@@ -321,7 +273,7 @@ fn perform_linking_checks(
         semantic::checks::check_task_ordering(problem, Provider::Linker, diagnostic_manager)?;
 
         // Merge requirements from domain and problem contexts
-        let mut requirements = domain.requirements().clone();
+        let mut requirements = domain.declared_requirements().clone();
         requirements.extend(problem.requirements().clone());
 
         // Check for any requirement violations
@@ -378,13 +330,10 @@ fn resolve_external_references(
         &mut undeclared,
     )?;
 
-    let problem_symbol_table = problem.symbol_table_mut();
-
-    // For each declared symbol, inject the corresponding declaration into the problem symbol table
+    // For each declared symbol, inject the corresponding declaration into the problem context
     for (symbol_name, declaration) in declared {
-        if let Some(symbol) = problem_symbol_table.get_symbol_mut(symbol_name) {
-            symbol.add_declaration(declaration);
-        }
+        // add_declaration returns a bool, but we can ignore it if we don't care
+        problem.add_declaration(symbol_name, declaration);
     }
 
     Ok(())

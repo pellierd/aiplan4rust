@@ -4,6 +4,7 @@ use std::path::Path;
 use test_case::test_case;
 
 use aiplan4rust::{Renderer, Frontend};
+use aiplan4rust::aiplan4rust::io::Input;
 
 mod common;
 use crate::common::io::collect_domain_files;
@@ -65,11 +66,26 @@ fn test_domain(domain_dir: &Path) -> bool {
         );
 
         // Initialize the parser frontend
+        let domain = Input::read_from_file(&domain_path)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "TEST FAILURE: failed to read input file '{}': {:?}",
+                    domain_path.display(),
+                    e
+                )
+            });
+
+        let problem = Input::read_from_file(&problem_path)
+            .unwrap_or_else(|e| {
+                panic!(
+                    "TEST FAILURE: failed to read input file '{}': {:?}",
+                    problem_path.display(),
+                    e
+                )
+            });
+
         let frontend = Frontend::new();
-        let result = frontend.link_from_raw_input(
-            domain_path.to_str().unwrap(),
-            problem_path.to_str().unwrap(),
-        );
+        let result = frontend.link_from_raw_input(&domain, &problem);
 
         // Prepare a diagnostics output file
         let diag_path = domain_dir.join(format!("{}.diag", problem_stem));
@@ -159,7 +175,7 @@ fn test_domain(domain_dir: &Path) -> bool {
 #[test_case("tests/integration/hddl/ipc20/total-order/towers"; "ipc20_total_order_towers")]
 #[test_case("tests/integration/hddl/ipc20/total-order/transport"; "ipc20_total_order_transport")]
 #[test_case("tests/integration/hddl/ipc20/total-order/woodworking"; "ipc20_total_order_woodworking")]
-fn test_each_domain(domain_path: &str) {
+fn test_frontend_link_from_raw(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(
         test_domain(path),

@@ -156,10 +156,10 @@ impl Frontend {
         let mut linker_result = linker.link(domain, problem)?;
 
         // Step 3: If linking succeeded, build the LIR
-        if let Some(mut linked_semantic_context) = linker_result.take_linked_semantic_context() {
+        if let Some(linked_semantic_context) = linker_result.take_linked_semantic_context() {
             let mut ir_builder = LirBuilder::new();
             let builder_result = ir_builder.build_with_diagnostic_manager(
-                &mut linked_semantic_context,
+                linked_semantic_context,
                 linker_result.take_diagnostic_manager(),
             )?;
             Ok(builder_result)
@@ -222,10 +222,10 @@ impl Frontend {
         let mut linker_result = linker.link(domain, problem)?;
 
         // 3. Build LIR if possible
-        if let Some(mut linked_context) = linker_result.take_linked_semantic_context() {
+        if let Some(linked_context) = linker_result.take_linked_semantic_context() {
             let mut lir_builder = LirBuilder::new();
             let lir_result = lir_builder.build_with_diagnostic_manager(
-                &mut linked_context,
+                linked_context,
                 linker_result.take_diagnostic_manager(),
             )?;
             Ok(lir_result)

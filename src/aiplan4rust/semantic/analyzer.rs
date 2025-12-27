@@ -56,13 +56,13 @@
 //! Semantic errors are returned as variants of [`SemanticError`]. These may include unexpected AST node kinds,
 //! type errors, symbol resolution errors, and other domain-specific semantic validation failures.
 
-use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
+use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::normalization::NormalizerResult;
-use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic;
 use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::semantic::{SemanticContext, SemanticError, TypeChecker};
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 
 /// The `Analyzer` struct is responsible for performing semantic analysis on a `SyntaxTree`.
@@ -90,7 +90,7 @@ use crate::aiplan4rust::syntax::ast::{Ast, AstKind};
 #[derive(Debug)]
 pub struct Analyzer {
     /// Manages and tracks parsing and semantic diagnostics encountered during analysis.
-    diagnostic_manager: DiagnosticManager
+    diagnostic_manager: DiagnosticManager,
 }
 
 impl Analyzer {
@@ -150,14 +150,17 @@ impl Analyzer {
     /// # Note
     ///
     /// The AST inside the `NormalizerResult` may be mutated during analysis, and internal structures may be consumed.
-    pub fn analyze(&mut self, normalizer_result: &mut NormalizerResult) -> Result<AnalyzerResult, SemanticError> {
+    pub fn analyze(
+        &mut self,
+        normalizer_result: &mut NormalizerResult,
+    ) -> Result<AnalyzerResult, SemanticError> {
         // Match on the normalized AST to decide how to continue.
         match normalizer_result.take_ast() {
             Some(mut ast) => {
-
                 // Take diagnostics accumulated during normalization.
                 let diagnostic_manager = normalizer_result.take_diagnostic_manager();
-                self.diagnostic_manager.add_diagnostic_from(diagnostic_manager);
+                self.diagnostic_manager
+                    .add_diagnostic_from(diagnostic_manager);
 
                 // Analyze the normalized AST.
                 let analysis_result = self.perform_analysis(&mut ast)?;
@@ -189,11 +192,7 @@ impl Analyzer {
     /// # Errors
     ///
     /// Returns a `SemanticError` if the root node kind is not supported.
-    fn perform_analysis(
-        &mut self,
-        ast: &mut Ast,
-    ) -> Result<AnalyzerResult, SemanticError> {
-
+    fn perform_analysis(&mut self, ast: &mut Ast) -> Result<AnalyzerResult, SemanticError> {
         // Build semantic context from AST
         let mut context = SemanticContext::try_from(ast)?;
         let check_ctx = CheckContext::from(&context);
@@ -210,14 +209,20 @@ impl Analyzer {
             found => {
                 return Err(SemanticError::unexpected_ast_kind(
                     root_ref.id(),
-                    vec![AstKind::Domain, AstKind::Problem],
+                    vec![
+                        AstKind::Domain,
+                        AstKind::Problem,
+                    ],
                     found,
                 ));
             }
         }
 
         // Build the AnalyzerResult based on presence of errors
-        if !self.diagnostic_manager.has_diagnostics_of_severity(Severity::Error) {
+        if !self
+            .diagnostic_manager
+            .has_diagnostics_of_severity(Severity::Error)
+        {
             Ok(AnalyzerResult::success(
                 context,
                 std::mem::take(&mut self.diagnostic_manager),
@@ -245,7 +250,7 @@ impl Analyzer {
     /// or `Err(SemanticError)` if an internal error occurs.
     fn check_domain(
         context: &CheckContext,
-        diagnostic_manager: &mut DiagnosticManager
+        diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
         // Skip checking unused symbols of kind Constant in domain
         let skip_symbols_unused = &[SymbolKind::Constant];
@@ -314,7 +319,7 @@ impl Analyzer {
     /// or `Err(SemanticError)` if internal errors occur.
     fn check_problem(
         context: &CheckContext,
-        diagnostic_manager: &mut DiagnosticManager
+        diagnostic_manager: &mut DiagnosticManager,
     ) -> Result<bool, SemanticError> {
         // Skip these kinds during undeclared symbol check in problems
         let skip_types_undeclared = &[
@@ -325,18 +330,11 @@ impl Analyzer {
             SymbolKind::Task,
         ];
 
-        let mut checked = Self::check_symbols(
-            context,
-            skip_types_undeclared,
-            &[],
-            diagnostic_manager,
-        )?;
+        let mut checked =
+            Self::check_symbols(context, skip_types_undeclared, &[], diagnostic_manager)?;
 
-        checked &= semantic::checks::check_task_ordering(
-            context,
-            Provider::Analyzer,
-            diagnostic_manager,
-        )?;
+        checked &=
+            semantic::checks::check_task_ordering(context, Provider::Analyzer, diagnostic_manager)?;
 
         Ok(checked)
     }

@@ -69,6 +69,7 @@ pub mod error;
 
 /// Type checking module (internal, not publicly exposed).
 mod type_checker;
+mod requirements;
 
 pub use analyzer_result::AnalyzerResult;
 pub use analyzer::Analyzer;

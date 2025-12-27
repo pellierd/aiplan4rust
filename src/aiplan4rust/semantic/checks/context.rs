@@ -175,7 +175,7 @@ impl<'a> From<&'a SemanticContext> for Context<'a> {
             symbols: &ctx.symbol_table(),
             interner: &ctx.interner(),
             source_id: ctx.source_id(),
-            requirements: &ctx.requirements(),
+            requirements: &ctx.declared_requirements(),
         }
     }
 }

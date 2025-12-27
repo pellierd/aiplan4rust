@@ -413,7 +413,7 @@ impl Diagnostic {
     /// - `provider`: The origin of the diagnostic.
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source where the violation occurs.
-    pub fn warning_requirement_violation(
+    pub fn warning_missing_requirement(
         node_kind: AstKind,
         required: Vec<Requirement>,
         provider: Provider,

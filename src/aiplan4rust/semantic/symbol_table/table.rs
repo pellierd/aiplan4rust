@@ -497,7 +497,6 @@ impl Table {
             .collect()
     }
 
-
     /// Retrieves the declaration associated with a usage identified by a specific AST syntax node ID.
     ///
     /// This function searches through all symbols and their usages in the symbol table to find a usage

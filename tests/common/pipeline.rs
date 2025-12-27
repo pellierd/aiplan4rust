@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::common::io::{
-    read_file, write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file,
+    write_ast_to_file, write_diagnostics_to_file, write_error_diagnostic_file,
     write_error_diagnostic_file_for_domain_and_problem, write_linking_diag_to_file,
     write_symbol_table_to_file,
 };
@@ -12,6 +12,7 @@ use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{check_well_formed, AnalyzerResult, Normalizer, Parser, Severity};
 use std::path::Path;
+use aiplan4rust::aiplan4rust::io::Input;
 
 /// Parses the source file to produce a ParserResult with a raw AST and checks its well-formedness.
 ///
@@ -47,11 +48,16 @@ use std::path::Path;
 /// }
 /// ```
 pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
-    let content = read_file(file_path);
-    let path_str = file_path.to_str().expect("File path is not valid UTF-8");
+    let input = Input::read_from_file(file_path)
+        .unwrap_or_else(|e| {
+            panic!(
+                "TEST FAILURE: failed to read input file '{}': {:?}",
+                file_path.display(),
+                e
+            )
+        });
     let mut parser = Parser::new();
-
-    match parser.parse(path_str, &content) {
+    match parser.parse(&input) {
         Ok(parser_result) => {
             if let Some(raw_ast) = parser_result.ast() {
                 if let Err(e) = check_well_formed(raw_ast) {

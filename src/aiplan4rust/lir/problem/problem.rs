@@ -46,9 +46,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{
-    normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedMethod,
-};
+use crate::aiplan4rust::lir::problem::{extract, normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -57,6 +55,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use crate::aiplan4rust::linking::LinkedSemanticContext;
 
 /// Represents a lifted planning problem defined in PDDL syntax.
 ///
@@ -174,12 +173,12 @@ impl Problem {
     /// assert!(problem.actions().is_empty());
     /// assert!(problem.types().is_empty());
     /// ```
-    pub fn new() -> Self {
+    pub fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
         Self {
-            interner: StringInterner::new(),
+            interner,
             domain_name: Ident::default(),
             problem_name: Ident::default(),
-            requirements: HashSet::new(),
+            requirements,
             types: HashSet::new(),
             constants: HashSet::new(),
             predicates: Vec::new(),
@@ -229,7 +228,7 @@ impl Problem {
 
     /// Returns the identifier of the domain.
     pub fn domain_name(&self) -> Ident {
-        self.domain_name.clone()
+        self.domain_name
     }
 
     /// Sets the identifier of the domain.
@@ -287,6 +286,42 @@ impl Problem {
         I: IntoIterator<Item = Requirement>,
     {
         self.requirements.extend(iter);
+    }
+
+    /// Checks if a given semantic requirement is actually required by the AST content.
+    ///
+    /// Required requirements represent the minimal set of features that are actively used
+    /// in the domain or problem definitions. A requirement may be declared in the context
+    /// but not actually required if it is never referenced in the ASTs.
+    ///
+    /// # Arguments
+    /// * `requirement` - The semantic requirement to check.
+    ///
+    /// # Returns
+    /// `true` if the requirement is required by the AST (i.e., used in the domain/problem),
+    /// `false` otherwise.
+    ///
+    /// # Example
+    /// ```rust
+    /// if context.is_required(Requirement::DurativeActions) {
+    ///     println!("DurativeActions are actually used in this context.");
+    /// }
+    /// ```
+    pub fn is_required(&self, requirement: Requirement) -> bool {
+        self.requirements.contains(&requirement)
+    }
+
+    /// Replaces the current set of requirements with a new set.
+    ///
+    /// # Arguments
+    /// * `new_requirements` - The new set of requirements to use.
+    ///
+    /// # Example
+    /// ```rust
+    /// problem.set_requirements(HashSet::from([Requirement::DurativeActions]));
+    /// ```
+    pub fn set_requirements(&mut self, new_requirements: HashSet<Requirement>) {
+        self.requirements = new_requirements;
     }
 
     // === Types ===
@@ -736,6 +771,53 @@ impl SelfInternerDisplay for Problem {
         renderers::interner::render_problem_def(f, &self.problem_def(), &self.interner())
     }
 }
+
+impl TryFrom<LinkedSemanticContext> for Problem {
+    type Error = LirError;
+
+    /// Attempts to create a `LiftedProblem` from a fully linked and semantically verified
+    /// `LinkedSemanticContext`.
+    ///
+    /// This conversion performs the following steps:
+    /// 1. Consumes the `StringInterner` from the context to manage identifiers.
+    /// 2. Consumes the required `Requirement`s from the context to reflect the actual
+    ///    semantic requirements used in the domain and problem.
+    /// 3. Creates a new `LiftedProblem` initialized with the interner and requirements.
+    /// 4. Extracts all domain-level elements (types, constants, predicates, functions,
+    ///    actions, methods) from the context and populates the problem.
+    /// 5. Extracts all problem-level elements (objects, initial state, goals,
+    ///    constraints, metrics, initial task network) and populates the problem.
+    /// 6. Normalizes all expressions in the problem to canonical form.
+    ///
+    /// After this conversion, the `LiftedProblem` contains a fully constructed,
+    /// semantically consistent, and normalized representation of the lifted problem.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `LirError` if any extraction or normalization step fails.
+    fn try_from(mut context: LinkedSemanticContext) -> Result<Self, Self::Error> {
+
+        // 1. Consume interner and required requirements from the context
+        let interner = context.take_interner();
+        let requirements = context.take_required_requirements();
+
+        // 2. Create a new lifted problem with interner and requirements
+        let mut problem = LiftedProblem::new(interner, requirements);
+
+        // 3. Extract domain-level elements
+        extract::extract_domain(&context, &mut problem)?;
+
+        // 4. Extract problem-level elements
+        extract::extract_problem(&context, &mut problem)?;
+
+        // 5. Normalize all expressions in the problem
+        normalize::normalize_problem(&mut problem)?;
+
+        // 6. Return the fully constructed and normalized problem
+        Ok(problem)
+    }
+}
+
 
 impl Display for Problem {
     /// Implements standard Rust [`Display`] for the problem.

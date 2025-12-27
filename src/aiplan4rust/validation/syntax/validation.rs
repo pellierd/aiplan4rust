@@ -319,13 +319,14 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
             syntax::checks::check_duartive_action_def_body(ast, node)
         }
         AstKind::Domain => {
-            // TODO
+            //eprintln!("TODO: handling AstKind::Domain is not implemented yet");
             Ok(())
+        }
 
-        }
         AstKind::Problem => {
-            // TODO
+            //eprintln!("TODO: handling AstKind::Problem is not implemented yet");
             Ok(())
         }
+
     }
 }

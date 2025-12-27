@@ -202,8 +202,8 @@ fn read_input_with_warning(input_path: &Path) -> Result<Option<Input>, CliError>
     // 4. If not raw, determine its kind for a warning message
     let kind = match () {
         _ if input.is_ir() => "IR file",
-        _ if input.is_unknown_text() => "unknown text file",
-        _ if input.is_binary_unknown() => "binary file",
+        _ if input.is_text() => "unknown text file",
+        _ if input.is_binary() => "binary file",
         _ => "unknown content",
     };
 

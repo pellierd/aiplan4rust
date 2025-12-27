@@ -20,11 +20,11 @@
 //! enabling better error handling and easier testing.
 
 use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::lang::{Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::SymbolTable;
-use crate::aiplan4rust::syntax::ast::{AstNode, Ast, AstKind};
-use crate::aiplan4rust::lang::{Type, TypedSymbol, TypedList};
+use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::NodeRef;
 
 /// A builder for constructing a [`SymbolTable`] from an abstract syntax arena (AST).
@@ -46,7 +46,6 @@ use crate::aiplan4rust::syntax::tree::NodeRef;
 pub(crate) struct SymbolTableBuilder {
     table: SymbolTable,
 }
-
 
 impl SymbolTableBuilder {
     /// Creates a new `SymbolTableBuilder` with an empty symbol table.
@@ -139,7 +138,10 @@ impl SymbolTableBuilder {
                 // Return an error if the root node kind is not Domain or Problem
                 return Err(SymbolTableError::unexpected_node_kind(
                     root_ref.id(),
-                    vec![AstKind::Domain, AstKind::Problem],
+                    vec![
+                        AstKind::Domain,
+                        AstKind::Problem,
+                    ],
                     found,
                 ));
             }
@@ -151,7 +153,6 @@ impl SymbolTableBuilder {
         // Return the fully constructed symbol table, replacing the internal table with an empty one
         Ok(std::mem::take(&mut self.table))
     }
-
 
     /// Initializes the symbol table by processing nodes from the Abstract Syntax Tree (AST).
     ///
@@ -240,8 +241,7 @@ impl SymbolTableBuilder {
         // Match on the AST node kind to determine the appropriate processing logic
         match node_ref.node().kind() {
             // For domain and problem names, add declaration symbols directly without recursion
-            AstKind::DomainName
-            | AstKind::ProblemName => {
+            AstKind::DomainName | AstKind::ProblemName => {
                 self.add_declaration_symbol(node_ref, ast, scope.clone(), None, None)?;
             }
 
@@ -251,9 +251,7 @@ impl SymbolTableBuilder {
             }
 
             // For primitive types, constants, and variables, record symbol usages
-            AstKind::PrimitiveType
-            | AstKind::Constant
-            | AstKind::Variable => {
+            AstKind::PrimitiveType | AstKind::Constant | AstKind::Variable => {
                 self.add_symbol_usage(node_ref, ast, scope.clone())?;
             }
 
@@ -319,7 +317,6 @@ impl SymbolTableBuilder {
         Ok(())
     }
 
-
     /// Adds a new symbol declaration to the symbol table.
     ///
     /// This function extracts the symbol's name and kind from the given AST syntax node
@@ -356,7 +353,6 @@ impl SymbolTableBuilder {
         types: Option<Type>,
         arguments: Option<TypedList>,
     ) -> Result<(), SymbolTableError> {
-
         // Extract the symbol reference from the AST node ID.
         // This retrieves symbol metadata such as the identifier name and kind.
         let symbol_ref = ast.syntax_tree().try_symbol(node_ref.id())?;
@@ -378,9 +374,9 @@ impl SymbolTableBuilder {
                 origin,
                 types,
                 arguments,
-                node_ref.node().span().clone(),  // Source code span for error diagnostics.
-                node_ref.id(),                   // AST node identifier.
-                None                            // Optional additional data (currently None).
+                node_ref.node().span().clone(), // Source code span for error diagnostics.
+                node_ref.id(),                  // AST node identifier.
+                None,                           // Optional additional data (currently None).
             );
             // Append this declaration to the existing symbol's declarations list.
             symbol.add_declaration(declaration);
@@ -410,7 +406,6 @@ impl SymbolTableBuilder {
         // Return success indicating the symbol declaration was added properly.
         Ok(())
     }
-
 
     /// Adds the usage of a symbol found in the given AST syntax to the symbol table.
     ///
@@ -453,9 +448,9 @@ impl SymbolTableBuilder {
         // Determine the symbol reference based on the AST node kind.
         // For complex kinds (AtomicFormula, FunctionTerm, Task), extract the first child node.
         let symbol_ref = if matches!(
-        node_ref.node().kind(),
-        AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
-    ) {
+            node_ref.node().kind(),
+            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+        ) {
             // Retrieve the first child node ID
             let first_child_id = node_ref.node().children()[0];
             // Get a reference to the first child node
@@ -480,7 +475,7 @@ impl SymbolTableBuilder {
                 scope,
                 origin,
                 node_ref.node().span().clone(), // Source span for error reporting/tracking
-                node_ref.id(),                   // AST node ID
+                node_ref.id(),                  // AST node ID
             );
             symbol.add_usage(usage);
         } else {
@@ -500,7 +495,6 @@ impl SymbolTableBuilder {
 
         Ok(())
     }
-
 
     /// Initializes the symbol table from a `TypedList` AST syntax node.
     ///
@@ -614,14 +608,14 @@ impl SymbolTableBuilder {
                 // Parse the type annotation from the second child
                 let ty_id = node.try_child(1)?;
                 self.init_from_type(&syntax_tree.try_node_ref(ty_id)?, ast, scope.clone())?
-            },
+            }
             n => {
                 // Invalid number of children for TypedItem node
                 return Err(SymbolTableError::invalid_node_arity(
-                    node_ref.id(),              // node_id
-                    AstKind::TypedItem,         // node_type
-                    n,                          // actual child count
-                    vec![1, 2],    // expected arity
+                    node_ref.id(),      // node_id
+                    AstKind::TypedItem, // node_type
+                    n,                  // actual child count
+                    vec![1, 2],         // expected arity
                 ));
             }
         };
@@ -630,7 +624,6 @@ impl SymbolTableBuilder {
         let elt_id = node.try_child(0)?;
         self.init_from_typed_item_elements(&syntax_tree.try_node_ref(elt_id)?, ast, scope, types)
     }
-
 
     /// Helper function to process an individual element of a `TypedList`.
     ///
@@ -671,12 +664,23 @@ impl SymbolTableBuilder {
         match node_ref.node().kind() {
             AstKind::PrimitiveType | AstKind::Constant | AstKind::Variable => {
                 // Add a declaration symbol with the provided types for simple typed elements
-                self.add_declaration_symbol(node_ref, ast, scope.clone(), Some(types.clone()), None)?;
+                self.add_declaration_symbol(
+                    node_ref,
+                    ast,
+                    scope.clone(),
+                    Some(types.clone()),
+                    None,
+                )?;
             }
 
             AstKind::AtomicFunctionSkeleton => {
                 // Recursively initialize symbols for atomic function skeleton elements
-                self.init_from_atomic_function_skeleton(node_ref, ast, scope.clone(), types.clone())?;
+                self.init_from_atomic_function_skeleton(
+                    node_ref,
+                    ast,
+                    scope.clone(),
+                    types.clone(),
+                )?;
             }
 
             found => {
@@ -769,11 +773,7 @@ impl SymbolTableBuilder {
         let arguments = &ast.syntax_tree().try_node_ref(arguments_id)?;
 
         // Initialize symbols for the argument list in a new nested scope
-        self.init_from_typed_list(
-            arguments,
-            ast,
-            Scope::new(node_ref.id(), Some(&scope)),
-        )?;
+        self.init_from_typed_list(arguments, ast, Scope::new(node_ref.id(), Some(&scope)))?;
 
         // Extract typed argument symbols and compute arity
         let arguments = self.extract_arguments_from_typed_list(arguments, ast)?;
@@ -830,10 +830,7 @@ impl SymbolTableBuilder {
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
         self.init_from_def(
-            node_ref,
-            ast,
-            scope,
-            true, // The definition includes a body
+            node_ref, ast, scope, true, // The definition includes a body
         )
     }
 
@@ -876,10 +873,7 @@ impl SymbolTableBuilder {
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
         self.init_from_def(
-            node_ref,
-            ast,
-            scope,
-            true, // Method definitions have a body
+            node_ref, ast, scope, true, // Method definitions have a body
         )
     }
 
@@ -922,10 +916,7 @@ impl SymbolTableBuilder {
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
         self.init_from_def(
-            node_ref,
-            ast,
-            scope,
-            true, // Durative actions have a body
+            node_ref, ast, scope, true, // Durative actions have a body
         )
     }
 
@@ -968,10 +959,7 @@ impl SymbolTableBuilder {
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
         self.init_from_def(
-            node_ref,
-            ast,
-            scope,
-            false, // Tasks do not have a body
+            node_ref, ast, scope, false, // Tasks do not have a body
         )
     }
 
@@ -1053,7 +1041,6 @@ impl SymbolTableBuilder {
 
         Ok(())
     }
-
 
     /// Initializes the syntax state from an `AtomicFormula`, `FunctionTerm`, or `Task` AST syntax.
     ///
@@ -1144,7 +1131,7 @@ impl SymbolTableBuilder {
 
         // Ensure the node is a quantified expression: `Exists` or `Forall`
         match node.kind() {
-            AstKind::Exists | AstKind::Forall => {},
+            AstKind::Exists | AstKind::Forall => {}
             other => {
                 return Err(SymbolTableError::unexpected_node_kind(
                     node_ref.id(),
@@ -1172,7 +1159,6 @@ impl SymbolTableBuilder {
 
         Ok(())
     }
-
 
     /// Initializes the symbol table for an atomic formula skeleton from the AST.
     ///
@@ -1233,23 +1219,13 @@ impl SymbolTableBuilder {
         let arguments = &syntax_tree.try_node_ref(arguments_id)?;
 
         // Step 3: Initialize symbols from the argument list (typed variables/constants)
-        self.init_from_typed_list(
-            arguments,
-            ast,
-            Scope::new(node_ref.id(), Some(&scope)),
-        )?;
+        self.init_from_typed_list(arguments, ast, Scope::new(node_ref.id(), Some(&scope)))?;
 
         // Step 4: Extract typed arguments from the list
         let extracted_arguments = self.extract_arguments_from_typed_list(arguments, ast)?;
 
         // Step 5: Register the predicate symbol declaration with its arguments
-        self.add_declaration_symbol(
-            predicate,
-            ast,
-            scope,
-            None,
-            Some(extracted_arguments),
-        )?;
+        self.add_declaration_symbol(predicate, ast, scope, None, Some(extracted_arguments))?;
 
         Ok(())
     }
@@ -1434,7 +1410,6 @@ impl SymbolTableBuilder {
         Ok(super_types)
     }
 
-
     /// Initializes type_checker information and records symbol usage in the given scope.
     ///
     /// This function processes an AST node of kind `Type`, which is expected to list one or more
@@ -1467,13 +1442,12 @@ impl SymbolTableBuilder {
 
         // --- Register each primitive type as a symbol usage ---
         for ty in type_ref.node().children() {
-            let ty_ref = ast.syntax_tree().try_node_ref(*ty)?;  // Get reference to each type node
+            let ty_ref = ast.syntax_tree().try_node_ref(*ty)?; // Get reference to each type node
             self.add_symbol_usage(&ty_ref, ast, scope.clone())?; // Track usage in the current scope
         }
 
         Ok(super_types)
     }
-
 
     /// Initializes the symbol table from a tagged task definition in the AST.
     ///
@@ -1509,22 +1483,21 @@ impl SymbolTableBuilder {
         let node = node_ref.node();
 
         // --- Extract the tag identifier child (expected to be a TaskID) ---
-        let tag_id = node.try_child(0)?;                  // Error if missing
-        let tag = syntax_tree.try_node_ref(tag_id)?;      // Error if invalid node reference
+        let tag_id = node.try_child(0)?; // Error if missing
+        let tag = syntax_tree.try_node_ref(tag_id)?; // Error if invalid node reference
 
         // --- Register the tag as a declaration symbol in the current scope ---
         self.add_declaration_symbol(&tag, ast, scope.clone(), None, None)?; // May fail if duplicate, invalid kind, etc.
 
         // --- Extract the task definition (second child) ---
-        let task_id = node.try_child(1)?;                 // Error if missing
-        let task = syntax_tree.try_node_ref(task_id)?;    // Error if invalid reference
+        let task_id = node.try_child(1)?; // Error if missing
+        let task = syntax_tree.try_node_ref(task_id)?; // Error if invalid reference
 
         // --- Initialize symbols for the task formula (likely a predicate or action expression) ---
         self.init_from_atomic_formula(&task, ast, scope.clone())?; // Recursively builds symbol table for inner task
 
         Ok(())
     }
-
 
     /// Initializes a task ordering constraint from the given AST syntax node.
     ///

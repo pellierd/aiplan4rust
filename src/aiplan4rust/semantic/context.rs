@@ -51,17 +51,18 @@
 //! This design enables streamlined error propagation and reporting during
 //! semantic analysis.
 
-use crate::aiplan4rust::interner::{InternerError, Literal, StringInterner};
-use crate::aiplan4rust::semantic::{SemanticError, SymbolTable};
-use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstKind};
+use crate::aiplan4rust::interner::{Ident, InternerError, Literal, StringInterner};
 use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::semantic::{requirements, SemanticError, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
 
-use std::collections::HashSet;
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::semantic::symbol::Declaration;
 
 /// Holds the results of semantic analysis, including the syntax tree, symbol table,
 /// declared requirements, and associated metadata.
@@ -86,7 +87,10 @@ pub struct Context {
     syntax_tree: SyntaxTree<AstNode>,
 
     /// The set of semantic requirements declared in the source.
-    requirements: HashSet<Requirement>,
+    declared_requirements: HashSet<Requirement>,
+
+    /// The set of semantic requirements required by the source.
+    required_requirements: HashSet<Requirement>,
 
     /// The symbol table built during semantic analysis.
     symbol_table: SymbolTable,
@@ -103,97 +107,131 @@ pub struct Context {
 }
 
 impl Context {
-    pub fn set_source_id(&mut self, source_id: Literal) {
-       self.source_id =  source_id;
-    }
-}
 
-impl Context {
-    /// Creates a new semantic context from its components.
+    /// Creates a new semantic context from its components and validates the syntax tree.
     ///
     /// # Parameters
-    /// - `syntax_tree`: The arena-based AST nodes.
-    /// - `source_id`: The source file or input name.
-    /// - `requirements`: The set of semantic requirements extracted.
-    /// - `symbol_table`: The symbol table constructed during analysis.
-    /// - `interner`: The string interner instance.
-    /// - `generated_at`: The timestamp marking the analysis time.
+    /// - `syntax_tree`: The syntax tree representing the domain or problem AST.
+    /// - `source_id`: Identifier of the source file or input from which this context is derived.
+    /// - `symbol_table`: The symbol table constructed for this context.
+    /// - `interner`: The string interner used to optimize string storage and comparisons.
+    /// - `generated_at`: The timestamp indicating when the analysis was performed.
     ///
     /// # Returns
-    /// A new `Context` instance.
-    pub fn new(
+    /// A `Result` containing the new `Context` instance if the syntax tree is valid,
+    /// or a `SemanticError` if any invariant is violated.
+    fn new(
         syntax_tree: SyntaxTree<AstNode>,
         source_id: Literal,
-        requirements: HashSet<Requirement>,
         symbol_table: SymbolTable,
         interner: StringInterner,
         generated_at: SystemTime,
-    ) -> Self {
-        Self {
+    ) -> Result<Self, SemanticError> {
+        // Validate that the syntax tree is not empty and the root is domain/problem
+        Self::check_invariant(&syntax_tree)?;
+        let declared_requirements = requirements::extract_declared_requirements(&syntax_tree)?;
+        let required_requirements = requirements::extract_required_requirements(&syntax_tree);
+
+        Ok(Self {
             syntax_tree,
             source_id,
-            requirements,
+            declared_requirements,
+            required_requirements,
             symbol_table,
             interner,
             generated_at,
-        }
+        })
     }
 
-    /// Extracts all semantic requirements from the syntax tree.
-    ///
-    /// This assumes all requirements are grouped under a single `RequireDef` node.
+    /// Checks that a syntax tree satisfies the required invariants:
+    /// - The syntax tree is not empty.
+    /// - The root node is a domain or problem: `Domain`, `Problem`.
     ///
     /// # Arguments
-    /// - `syntax_tree`: Reference to the arena-based syntax tree.
-    ///
-    /// # Returns
-    /// A set of all declared and implied `Requirement`s.
+    /// - `tree`: The `SyntaxTree` to validate.
     ///
     /// # Errors
-    /// Returns `SemanticError` if traversing the tree fails.
-    fn extract_requirements(syntax_tree: &SyntaxTree<AstNode>) -> Result<HashSet<Requirement>, SemanticError> {
-        let mut requirements = HashSet::new();
+    /// - Returns `SemanticError::empty_syntax_tree()` if the tree is empty.
+    /// - Returns `SemanticError::unexpected_syntax_tree_root()` if the root node is not a valid domain or problem.
+    fn check_invariant(tree: &SyntaxTree<AstNode>) -> Result<(), SemanticError> {
+        // Check that the tree is not empty
+        let root_node = match tree.root_node() {
+            Some(root) => root,
+            None => return Err(SemanticError::empty_syntax_tree()),
+        };
 
-        // Find the first RequireDef node
-        let mut requirement_def_node = None;
-        for node in syntax_tree.preorder().values() {
-            if matches!(node.kind(), AstKind::RequireDef) {
-                requirement_def_node = Some(node);
-                break;
-            }
+        // Check that the root node is a valid domain or problem
+        match root_node.kind() {
+            AstKind::Domain | AstKind::Problem => Ok(()),
+            _ => Err(SemanticError::unexpected_syntax_tree_root()),
         }
-
-        if let Some(req_def) = requirement_def_node {
-            // Collect all Requirement children
-            for child in req_def.children() {
-                let node = syntax_tree.try_node(*child)?;
-                if matches!(node.kind(), AstKind::Requirement) {
-                    if let Ok(req) = node.try_requirement() {
-                        requirements.extend(req.imply());
-                    }
-                }
-            }
-        }
-
-        Ok(requirements)
     }
 
-    /// Checks if a given semantic requirement is declared.
+    /// Returns `true` if the syntax tree in this context is empty.
+    ///
+    /// An AST is considered empty if it has no root node.
+    pub fn is_empty(&self) -> bool {
+        self.syntax_tree.is_empty()
+    }
+
+    /// Returns `true` if this context represents a **domain** AST.
+    ///
+    /// Checks the `AstKind` of the root node and returns `true` if it is `Domain`.
+    ///
+    /// Returns `false` if the AST is empty or the root is a problem.
+    pub fn is_domain(&self) -> bool {
+        matches!(
+            self.syntax_tree.root_node().map(|root| root.kind()),
+            Some(AstKind::Domain)
+        )
+    }
+
+    /// Returns `true` if this context represents a **problem** AST.
+    ///
+    /// Checks the `AstKind` of the root node and returns `true` if it is `Problem`.
+    ///
+    /// Returns `false` if the AST is empty or the root is a domain.
+    pub fn is_problem(&self) -> bool {
+        matches!(
+            self.syntax_tree.root_node().map(|root| root.kind()),
+            Some(AstKind::Problem)
+        )
+    }
+
+    /// Checks if a given semantic requirement is declared in the context.
     ///
     /// # Arguments
-    /// - `requirement`: Reference to the `Requirement` to check.
+    /// * `requirement` - The semantic requirement to check.
     ///
     /// # Returns
     /// `true` if the requirement is declared, `false` otherwise.
     ///
     /// # Example
-    /// ```rust
-    /// if context.has_requirement(&Requirement::Fluent) {
-    ///     println!("Fluent feature is enabled.");
+    /// ```
+    /// if context.is_declared(Requirement::Fluents) {
+    ///     println!("Fluents requirement is declared in this context.");
     /// }
     /// ```
-    pub fn has_requirement(&self, requirement: &Requirement) -> bool {
-        self.requirements.contains(requirement)
+    pub fn is_declared(&self, requirement: Requirement) -> bool {
+        self.declared_requirements.contains(&requirement)
+    }
+
+    /// Checks if a given semantic requirement is actually required by the AST content.
+    ///
+    /// # Arguments
+    /// * `requirement` - The semantic requirement to check.
+    ///
+    /// # Returns
+    /// `true` if the requirement is required by the AST, `false` otherwise.
+    ///
+    /// # Example
+    /// ```
+    /// if context.is_required(Requirement::DurativeActions) {
+    ///     println!("DurativeActions are required by this context.");
+    /// }
+    /// ```
+    pub fn is_required(&self, requirement: Requirement) -> bool {
+        self.required_requirements.contains(&requirement)
     }
 
     /// Returns a reference to the AST node by its ID if it exists.
@@ -211,29 +249,19 @@ impl Context {
         &self.syntax_tree
     }
 
-    /// Returns a mutable reference to the syntax tree.
-    pub fn ast_mut(&mut self) -> &mut SyntaxTree<AstNode> {
-        &mut self.syntax_tree
-    }
-
     /// Takes ownership of the syntax tree, leaving an empty one in its place.
     pub fn take_syntax_tree(&mut self) -> SyntaxTree<AstNode> {
         std::mem::take(&mut self.syntax_tree)
     }
 
-    /// Returns a reference to the set of semantic requirements.
-    pub fn requirements(&self) -> &HashSet<Requirement> {
-        &self.requirements
+    /// Returns a reference to the set of declared semantic requirements.
+    pub fn declared_requirements(&self) -> &HashSet<Requirement> {
+        &self.declared_requirements
     }
 
-    /// Returns a mutable reference to the set of semantic requirements.
-    pub fn requirements_mut(&mut self) -> &mut HashSet<Requirement> {
-        &mut self.requirements
-    }
-
-    /// Takes ownership of the requirements set, leaving it empty.
-    pub fn take_requirements(&mut self) -> HashSet<Requirement> {
-        std::mem::take(&mut self.requirements)
+    /// Returns a reference to the set of required semantic requirements.
+    pub fn required_requirements(&self) -> &HashSet<Requirement> {
+        &self.required_requirements
     }
 
     /// Returns a reference to the symbol table.
@@ -241,9 +269,26 @@ impl Context {
         &self.symbol_table
     }
 
-    /// Returns a mutable reference to the symbol table.
-    pub fn symbol_table_mut(&mut self) -> &mut SymbolTable {
-        &mut self.symbol_table
+    /// Attempts to add a declaration to an existing symbol.
+    ///
+    /// If the symbol identified by `symbol_name` exists, the declaration is added
+    /// and the method returns `true`. If the symbol does not exist, the context
+    /// is left unchanged and `false` is returned.
+    ///
+    /// This operation is best-effort and does not report errors. It is intended
+    /// for controlled enrichment of the semantic context without exposing the
+    /// underlying symbol table.
+    pub fn add_declaration(
+        &mut self,
+        symbol_name: Ident,
+        declaration: Declaration,
+    ) -> bool {
+        let Some(symbol) = self.symbol_table.get_symbol_mut(symbol_name) else {
+            return false;
+        };
+
+        symbol.add_declaration(declaration);
+        true
     }
 
     /// Takes ownership of the symbol table, leaving an empty one in its place.
@@ -321,15 +366,6 @@ impl Context {
         &self.interner
     }
 
-    /// Returns a mutable reference to the string interner.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the [`StringInterner`].
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
-        &mut self.interner
-    }
-
     /// Consumes and returns the `StringInterner`, leaving `None` in its place.
     ///
     /// # Returns
@@ -337,6 +373,44 @@ impl Context {
     /// The taken [`StringInterner`].
     pub fn take_interner(&mut self) -> StringInterner {
         std::mem::take(&mut self.interner)
+    }
+
+    /// Remaps identifiers and literals in this semantic context.
+    ///
+    /// This method updates all identifier references within the AST and symbol table
+    /// using `ident_map`, and updates the source literal using `literal_map`.
+    /// It ensures consistency with a global interner.
+    ///
+    /// **Important:** Does not modify the string interner itself; only updates
+    /// identifiers and literal references.
+    ///
+    /// # Arguments
+    ///
+    /// * `ident_map` - Maps local identifiers (`Ident`) to global identifiers.
+    /// * `literal_map` - Maps local literals (`Literal`) to global literals.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` if remapping succeeds, otherwise a [`SemanticError`] wrapping
+    /// a `SymbolTableError` or `InternerError`.
+    pub fn remap(
+        &mut self,
+        ident_map: &HashMap<Ident, Ident>,
+        literal_map: &HashMap<Literal, Literal>,
+    ) -> Result<(), SemanticError> {
+        // Step 1: remap identifiers in AST directly
+        self.syntax_tree.remap_idents(ident_map);
+
+        // Step 2: remap identifiers in the symbol table directly
+        self.symbol_table.remap_idents(ident_map)?;
+
+        // Step 3: remap the source literal
+        let new_source_id = literal_map
+            .get(&self.source_id)
+            .ok_or_else(|| InternerError::missing_remap_literal(self.source_id))?;
+        self.source_id = *new_source_id;
+
+        Ok(())
     }
 }
 
@@ -372,12 +446,23 @@ impl fmt::Display for Context {
         writeln!(f, "Semantic Context Report:\n")?;
         writeln!(f, "Source: {}", self.source_name_string())?;
 
-        let duration_since_epoch = self.generated_at.duration_since(std::time::UNIX_EPOCH)
+        let duration_since_epoch = self
+            .generated_at
+            .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_else(|_| std::time::Duration::new(0, 0));
-        writeln!(f, "Generated at: {} seconds since UNIX epoch\n", duration_since_epoch.as_secs())?;
+        writeln!(
+            f,
+            "Generated at: {} seconds since UNIX epoch\n",
+            duration_since_epoch.as_secs()
+        )?;
 
-        writeln!(f, "Requirements:")?;
-        for req in &self.requirements {
+        writeln!(f, "Declared requirements:")?;
+        for req in &self.declared_requirements {
+            writeln!(f, "  - {}", req)?;
+        }
+
+        writeln!(f, "Required requirements:")?;
+        for req in &self.required_requirements {
             writeln!(f, "  - {}", req)?;
         }
 
@@ -416,18 +501,16 @@ impl TryFrom<&mut Ast> for Context {
     fn try_from(ast: &mut Ast) -> Result<Self, Self::Error> {
         let symbol_table = SymbolTable::try_from(&*ast)?;
         let syntax_tree = ast.take_syntax_tree();
-        let requirements = Self::extract_requirements(&syntax_tree)?;
         let interner = ast.take_interner();
 
         Ok(Context::new(
             syntax_tree,
             ast.source_id(),
-            requirements,
             symbol_table,
             interner,
             SystemTime::now(),
-        ))
+        )?)
     }
 }
 
-impl SerdeSerializable for Context { }
+impl SerdeSerializable for Context {}

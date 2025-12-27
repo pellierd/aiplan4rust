@@ -168,7 +168,7 @@ impl LinkerResult {
         }
     }
 
-    /// Returns a mutable reference to the `StringInterner` used during linking.
+    /*/// Returns a mutable reference to the `StringInterner` used during linking.
     ///
     /// If the `LinkedSemanticContext` is present, returns a mutable reference to its internal interner.
     /// Otherwise, returns a mutable reference to the local interner stored in the `LinkerResult`.
@@ -182,7 +182,7 @@ impl LinkerResult {
         } else {
             self.interner.as_mut().expect("No interner available")
         }
-    }
+    }*/
 
     /// Consumes and returns the `StringInterner` used during linking.
     ///
@@ -197,7 +197,7 @@ impl LinkerResult {
     /// Panics if neither the context nor the local interner is present.
     pub fn take_interner(&mut self) -> StringInterner {
         if let Some(context) = &mut self.context {
-            std::mem::take(context.interner_mut())
+            context.take_interner()
         } else {
             self.interner.take().expect("No interner available")
         }

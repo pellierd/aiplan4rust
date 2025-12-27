@@ -3,7 +3,7 @@
 use std::fmt::Display;
 use chrono::Utc;
 use serde::{Serialize, Deserialize};
-use crate::aiplan4rust::io::ir_kind::IRKind;
+use crate::aiplan4rust::io::ir::kind::IRKind;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
 
 /// Fixed-size magic number for identifying files produced by the application.

@@ -251,7 +251,6 @@ pub enum Kind {
     /// Represents an error or problem in domain/problem definition.
     Error,
 
-
     // HDDL Dialect Extensions
 
     /// Represents a task in HDDL.

@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use std::fmt;
 use crate::aiplan4rust::io::error::IOError;
 use crate::aiplan4rust::io::Extension;
-use crate::aiplan4rust::io::header::{Header, HEADER_PAYLOAD_SEPARATOR};
-use crate::aiplan4rust::io::ir_content::IRContent;
-use crate::aiplan4rust::io::raw_content::RawContent;
+use crate::aiplan4rust::io::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
+use crate::aiplan4rust::io::ir::content::IRContent;
+use crate::aiplan4rust::io::raw::content::RawContent;
 
 #[derive(Debug)]
 pub enum Output {

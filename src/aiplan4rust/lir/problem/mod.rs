@@ -4,10 +4,11 @@ pub mod problem;
 pub mod method;
 pub mod task_network;
 pub mod initial_task_network;
-pub mod normalize;
+pub(crate) mod normalize;
 pub mod renderers;
 pub mod domain_def;
 pub mod problem_def;
+pub(crate) mod extract;
 
 pub use problem::Problem as LiftedProblem;
 pub use problem_def::ProblemDef;

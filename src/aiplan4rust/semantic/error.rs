@@ -4,15 +4,15 @@
 //! type checking, and syntax tree validation.
 //!
 //! It includes specific error types that are shared across the semantic analysis stages:
-//! - `UnexpectedNodeKindError`: Represents errors when an AST node has an unexpected kind.
-//! - `InvalidNodeArityError`: Represents errors when an AST node has an invalid number of children.
+//! - `UnexpectedNodeKindError`: Indicates an AST node has an unexpected kind.
+//! - `InvalidNodeArityError`: Indicates an AST node has an invalid number of children.
 //!
 //! Additionally, the module provides a general enum, `SemanticError`, which wraps all
 //! these specific error types to enable convenient and consistent error handling across
 //! the semantic analysis pipeline.
 
 use thiserror::Error;
-
+use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
@@ -20,14 +20,14 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
-/// Error indicating an AST node has a kind different than expected.
+/// Indicates an AST node has a kind different than expected.
 ///
-/// This error is returned when a semantic check encounters an AST node whose kind
-/// does not match the expected kind(s). This typically means there is a structural or
+/// This error occurs when a semantic check encounters an AST node whose kind
+/// does not match the expected kind(s), which typically means a structural or
 /// semantic inconsistency in the AST.
 ///
 /// # Fields
-/// - `expected`: The list of acceptable AST kinds expected at this node.
+/// - `expected`: The list of acceptable AST kinds at this node.
 /// - `found`: The actual kind found at the node.
 /// - `node_id`: The unique identifier of the AST node in question.
 #[derive(Debug, Error)]
@@ -50,10 +50,10 @@ impl UnexpectedNodeKindError {
     }
 }
 
-/// Error indicating an AST node has an invalid number of children.
+/// Indicates an AST node has an invalid number of children.
 ///
-/// This error is raised when the number of children nodes does not meet the expected arity
-/// for a given AST node kind, which usually violates the language grammar or semantic rules.
+/// This error occurs when the number of children nodes does not meet the expected arity
+/// for a given AST node kind, violating the language grammar or semantic rules.
 ///
 /// # Fields
 /// - `node_type`: The AST kind of the node.
@@ -95,17 +95,19 @@ impl InvalidNodeArityError {
 /// Represents all possible semantic errors that can occur during
 /// parsing, analysis, and type checking phases.
 ///
-/// This enum aggregates various error types related to the syntax tree,
-/// symbol table, type checking, semantic checks, and specific AST node issues.
+/// This enum aggregates error types related to syntax trees, symbol tables,
+/// type checking, semantic checks, and specific AST node issues.
 ///
 /// # Variants
 ///
-/// - `SyntaxTree`: Errors related to the syntax tree construction or traversal.
+/// - `SyntaxTree`: Errors related to syntax tree construction or traversal.
 /// - `SymbolTable`: Errors originating from symbol table operations.
 /// - `TypeChecker`: Errors encountered during type checking phases.
 /// - `SemanticCheck`: Errors raised by semantic validation and checks.
 /// - `UnexpectedNodeKind`: Errors for AST nodes with an unexpected kind.
 /// - `InvalidNodeArity`: Errors for AST nodes with an invalid number of children.
+/// - `EmptySyntaxTree`: Error when a syntax tree is empty.
+/// - `UnexpectedSyntaxTreeRootError`: Error when the syntax tree root is not a domain or problem.
 #[derive(Debug, Error)]
 pub enum SemanticError {
     /// Errors related to the syntax tree.
@@ -131,15 +133,27 @@ pub enum SemanticError {
     /// Errors for invalid number of children in an AST node.
     #[error(transparent)]
     InvalidNodeArity(#[from] InvalidNodeArityError),
+
+    /// Error related to the string interner.
+    #[error(transparent)]
+    Interner(#[from] InternerError),
+
+    /// Occurs when the syntax tree is empty or missing required nodes.
+    #[error("Syntax tree is empty or missing required nodes")]
+    EmptySyntaxTree,
+
+    /// Occurs when the syntax tree root is neither a domain nor a problem.
+    #[error("Syntax tree root is invalid: expected a domain or a problem")]
+    UnexpectedSyntaxTreeRootError,
 }
 
 impl SemanticError {
-    /// Helper constructor for creating a `SemanticError` variant for an unexpected AST kind.
+    /// Creates a `SemanticError` for an AST node that has an unexpected kind.
     ///
-    /// # Arguments
-    /// - `node_id`: The ID of the node where the error occurred.
-    /// - `expected`: The expected AST node kinds.
-    /// - `found`: The actual AST node kind found.
+    /// # Parameters
+    /// - `node_id`: The unique identifier of the AST node where the mismatch occurred.
+    /// - `expected`: A vector of AST node kinds that were expected at this node.
+    /// - `found`: The actual AST node kind found at this node.
     ///
     /// # Returns
     /// A `SemanticError` wrapping an `UnexpectedNodeKindError`.
@@ -153,13 +167,13 @@ impl SemanticError {
         )
     }
 
-    /// Helper constructor for creating a `SemanticError` variant for an invalid node arity.
+    /// Creates a `SemanticError` for an AST node that has an invalid number of children.
     ///
-    /// # Arguments
-    /// - `node_type`: The AST node kind where the error occurred.
-    /// - `node_id`: The ID of the node.
-    /// - `child_count`: The actual number of children.
-    /// - `expected_arity`: The list of acceptable number of children.
+    /// # Parameters
+    /// - `node_id`: The unique identifier of the AST node.
+    /// - `node_type`: The kind of the AST node.
+    /// - `child_count`: The actual number of children present at this node.
+    /// - `expected_arity`: A list of allowed numbers of children for this node kind.
     ///
     /// # Returns
     /// A `SemanticError` wrapping an `InvalidNodeArityError`.
@@ -172,5 +186,21 @@ impl SemanticError {
         SemanticError::InvalidNodeArity(
             InvalidNodeArityError::new(node_id, node_type, child_count, expected_arity)
         )
+    }
+
+    /// Returns a `SemanticError` when the syntax tree is empty or missing required nodes.
+    ///
+    /// # Returns
+    /// A `SemanticError` variant `EmptySyntaxTree`.
+    pub fn empty_syntax_tree() -> Self {
+        SemanticError::EmptySyntaxTree
+    }
+
+    /// Returns a `SemanticError` when the syntax tree root is not a domain or a problem.
+    ///
+    /// # Returns
+    /// A `SemanticError` variant `UnexpectedSyntaxTreeRootError`.
+    pub fn unexpected_syntax_tree_root() -> Self {
+        SemanticError::UnexpectedSyntaxTreeRootError
     }
 }
