@@ -1,11 +1,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::fmt;
-use crate::aiplan4rust::io::error::IOError;
-use crate::aiplan4rust::io::Extension;
-use crate::aiplan4rust::io::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
-use crate::aiplan4rust::io::ir::content::IRContent;
-use crate::aiplan4rust::io::raw::content::RawContent;
+use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::artefact::Extension;
+use crate::aiplan4rust::artefact::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
+use crate::aiplan4rust::artefact::ir::content::IRContent;
+use crate::aiplan4rust::artefact::raw::content::RawContent;
 
 #[derive(Debug)]
 pub enum Output {
@@ -43,10 +43,10 @@ impl Output {
         }
     }
 
-    pub fn try_raw_content(&self) -> Result<&RawContent, IOError> {
+    pub fn try_raw_content(&self) -> Result<&RawContent, ArtefactError> {
         match self {
             Output::Raw { content, .. } => Ok(content),
-            _ => Err(IOError::missing_raw_content()),
+            _ => Err(ArtefactError::missing_raw_content()),
         }
     }
 
@@ -58,15 +58,15 @@ impl Output {
         }
     }
 
-    pub fn try_ir_content(&self) -> Result<&IRContent, IOError> {
+    pub fn try_ir_content(&self) -> Result<&IRContent, ArtefactError> {
         match self {
             Output::IR { content, .. } => Ok(content),
-            _ => Err(IOError::missing_ir_content()),
+            _ => Err(ArtefactError::missing_ir_content()),
         }
     }
 
 
-    pub fn write(&self) -> Result<(), IOError> {
+    pub fn write(&self) -> Result<(), ArtefactError> {
         match self {
             Output::Raw { content, .. } => fs::write(self.path(), content.inner())?,
             Output::IR { content, .. } => {
@@ -79,7 +79,7 @@ impl Output {
 
     fn serialize_with_header(
         content: &IRContent,
-    ) -> Result<Vec<u8>, IOError> {
+    ) -> Result<Vec<u8>, ArtefactError> {
         // Crée le header
         let format = content.format();
         let header = Header::new(format, 1, content.kind());
@@ -169,7 +169,7 @@ impl Output {
         problem_path: Option<&Path>,
         extension: Extension,
         out_dir: Option<&Path>,
-    ) -> Result<PathBuf, IOError> {
+    ) -> Result<PathBuf, ArtefactError> {
         // Extract domain stem using the helper
         let domain_stem = Self::file_stem_or_error(domain_path)?;
 
@@ -209,10 +209,10 @@ impl Output {
     /// let stem = file_stem_or_error(path).unwrap();
     /// assert_eq!(stem, "domain");
     /// ```
-    fn file_stem_or_error(path: &Path) -> Result<&str, IOError> {
+    fn file_stem_or_error(path: &Path) -> Result<&str, ArtefactError> {
         path.file_stem()
             .and_then(|s| s.to_str())
-            .ok_or_else(|| IOError::invalid_file_name(path.display().to_string()))
+            .ok_or_else(|| ArtefactError::invalid_file_name(path.display().to_string()))
     }
 
 }

@@ -1,7 +1,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::io::error::IOError;
+use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::normalization::NormalizationError;
@@ -51,7 +51,7 @@ pub enum AiplanError {
     WellNormalize(#[from] WellNormalizedError),
 
     #[error(transparent)]
-    IO(#[from] IOError),
+    IO(#[from] ArtefactError),
 
 }
 

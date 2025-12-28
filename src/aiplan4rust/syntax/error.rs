@@ -21,7 +21,7 @@ use lalrpop_util::ParseError;
 
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::core::arena::ArenaError;
-use crate::aiplan4rust::io::error::IOError;
+use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -62,10 +62,10 @@ pub enum SyntaxError {
     /// - Unsupported or inconsistent input formats (e.g. mixed raw and IR sources)
     /// - Unknown or unrecognized source content
     ///
-    /// This variant transparently wraps [`IOError`] so that low-level I/O and
+    /// This variant transparently wraps [`ArtefactError`] so that low-level I/O and
     /// deserialization details are preserved.
     #[error(transparent)]
-    IO(#[from] IOError),
+    IO(#[from] ArtefactError),
 }
 
 impl SyntaxError {

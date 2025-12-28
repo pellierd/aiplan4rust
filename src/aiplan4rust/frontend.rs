@@ -15,7 +15,7 @@
 //! ```
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::io::input::Input;
+use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
 use crate::aiplan4rust::normalization::Normalizer;
@@ -96,7 +96,7 @@ impl Frontend {
     /// let input = Input::read_from_file("domain.pddl")?; // must be raw
     /// let analysis_result = frontend.parse_from_raw_input(&input)?;
     /// ```
-    pub fn parse_from_raw_input(&self, input: &Input) -> Result<AnalyzerResult, AiplanError> {
+    pub fn parse_from_raw_input(&self, input: &Source) -> Result<AnalyzerResult, AiplanError> {
         // Step 1: Parse
         let mut parser = Parser::new();
         let parser_result = parser.parse(input)?;
@@ -144,8 +144,8 @@ impl Frontend {
     /// ```
     pub fn link_from_raw_input(
         &self,
-        domain_input: &Input,
-        problem_input: &Input,
+        domain_input: &Source,
+        problem_input: &Source,
     ) -> Result<LirBuilderResult, AiplanError> {
         // Step 1: Parse, normalize, and analyze both domain and problem files
         let domain = self.parse_from_raw_input(&domain_input)?;
@@ -206,8 +206,8 @@ impl Frontend {
     /// ```
     pub fn link_from_parsed_input(
         &self,
-        domain: &Input,
-        problem: &Input,
+        domain: &Source,
+        problem: &Source,
     ) -> Result<LirBuilderResult, AiplanError> {
         let lifted_domain = domain.parsed_content_owned()?;
         let lifted_problem = problem.parsed_content_owned()?;

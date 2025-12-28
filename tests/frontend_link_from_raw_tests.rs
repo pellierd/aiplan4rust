@@ -4,7 +4,7 @@ use std::path::Path;
 use test_case::test_case;
 
 use aiplan4rust::{Renderer, Frontend};
-use aiplan4rust::aiplan4rust::io::Input;
+use aiplan4rust::aiplan4rust::artefact::Source;
 
 mod common;
 use crate::common::io::collect_domain_files;
@@ -66,7 +66,7 @@ fn test_domain(domain_dir: &Path) -> bool {
         );
 
         // Initialize the parser frontend
-        let domain = Input::read_from_file(&domain_path)
+        let domain = Source::read_from_file(&domain_path)
             .unwrap_or_else(|e| {
                 panic!(
                     "TEST FAILURE: failed to read input file '{}': {:?}",
@@ -75,7 +75,7 @@ fn test_domain(domain_dir: &Path) -> bool {
                 )
             });
 
-        let problem = Input::read_from_file(&problem_path)
+        let problem = Source::read_from_file(&problem_path)
             .unwrap_or_else(|e| {
                 panic!(
                     "TEST FAILURE: failed to read input file '{}': {:?}",

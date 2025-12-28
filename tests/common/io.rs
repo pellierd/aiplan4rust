@@ -21,7 +21,7 @@ const PROBLEM_PREFIX: &str = "pb";
 /// Substring that, if present in a filename, excludes the file from being considered a problem file.
 const DOMAIN_SUFFIX_EXCLUSION: &str = "-domain";
 
-/// Reads the file at `path`, returning a `Result<String>` if successful or an `io::Error` if not.
+/// Reads the file at `path`, returning a `Result<String>` if successful or an `artefact::Error` if not.
 ///
 /// # Arguments
 /// * `path` - Path to the file.
@@ -62,7 +62,7 @@ pub fn read_file(path: &Path) -> String {
 /// * `domain_dir` - A reference to the directory to search.
 ///
 /// # Returns
-/// A `Result` containing a vector of `PathBuf` if successful, or an `io::Error`.
+/// A `Result` containing a vector of `PathBuf` if successful, or an `artefact::Error`.
 pub fn try_collect_domain_files(domain_dir: &Path) -> io::Result<Vec<PathBuf>> {
     let entries = fs::read_dir(domain_dir)?;
 

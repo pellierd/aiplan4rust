@@ -12,7 +12,7 @@ use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
 use aiplan4rust::{check_well_formed, AnalyzerResult, Normalizer, Parser, Severity};
 use std::path::Path;
-use aiplan4rust::aiplan4rust::io::Input;
+use aiplan4rust::aiplan4rust::artefact::Source;
 
 /// Parses the source file to produce a ParserResult with a raw AST and checks its well-formedness.
 ///
@@ -48,7 +48,7 @@ use aiplan4rust::aiplan4rust::io::Input;
 /// }
 /// ```
 pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
-    let input = Input::read_from_file(file_path)
+    let input = Source::read_from_file(file_path)
         .unwrap_or_else(|e| {
             panic!(
                 "TEST FAILURE: failed to read input file '{}': {:?}",

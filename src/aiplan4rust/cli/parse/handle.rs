@@ -8,9 +8,9 @@ use std::time::Instant;
 use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
 use crate::{AnalyzerResult, Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::error::CliError;
-use crate::aiplan4rust::io::error::IOError;
-use crate::aiplan4rust::io::{Extension, IRContent, Output};
-use crate::aiplan4rust::io::input::Input;
+use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::artefact::{Extension, IRContent, Output};
+use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::SerdeFormat;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -111,7 +111,7 @@ pub fn parse_inputs(
     let start_time = Instant::now();
 
     // First pass: read inputs and collect valid ones
-    let mut inputs_to_parse: Vec<(Input, PathBuf)> = Vec::new();
+    let mut inputs_to_parse: Vec<(Source, PathBuf)> = Vec::new();
     for input_path in input_paths {
         let output_path = Output::default_output_path(input_path, None, Extension::Parsed, Some(out_dir))?;
         match read_input_with_warning(input_path)? {
@@ -180,7 +180,7 @@ pub fn parse_inputs(
 ///     Err(e) => eprintln!("Fatal error: {}", e),
 /// }
 /// ```
-fn read_input_with_warning(input_path: &Path) -> Result<Option<Input>, CliError> {
+fn read_input_with_warning(input_path: &Path) -> Result<Option<Source>, CliError> {
     // 1. Check if the path is a regular file
     if !input_path.is_file() {
         println!(
@@ -192,7 +192,7 @@ fn read_input_with_warning(input_path: &Path) -> Result<Option<Input>, CliError>
     }
 
     // 2. Read the file into an Input object
-    let input = Input::read_from_file(input_path)?;
+    let input = Source::read_from_file(input_path)?;
 
     // 3. Check if the input is a raw PDDL/HDDL file
     if input.is_raw() {
@@ -259,7 +259,7 @@ fn read_input_with_warning(input_path: &Path) -> Result<Option<Input>, CliError>
 /// // "Finished 0 error(s), 1 warning(s) in 0.42s"
 /// ```
 fn parse_from_raw_input(
-    input: &Input,
+    input: &Source,
     output_path: PathBuf,
     format: SerdeFormat,
 ) -> Result<AnalyzerResult, CliError> {
@@ -462,7 +462,7 @@ pub fn save_parse_output<P: Into<PathBuf>>(
     context: SemanticContext,
     format: SerdeFormat,
     output_path: P,
-) -> Result<(), IOError> {
+) -> Result<(), ArtefactError> {
     // Convert the generic path type into a PathBuf
     let output_path = output_path.into();
 

@@ -9,8 +9,8 @@ use std::mem;
 use std::time::SystemTime;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
 use crate::aiplan4rust::interner::Literal;
-use crate::aiplan4rust::io::input::Input;
-use crate::aiplan4rust::io::language::Language;
+use crate::aiplan4rust::artefact::source::Source;
+use crate::aiplan4rust::artefact::language::Language;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
@@ -31,10 +31,10 @@ use crate::aiplan4rust::syntax::{
 ///
 /// # Example
 /// ```rust
-/// use aiplan4rust::aiplan4rust::io::input::Input;
+/// use aiplan4rust::aiplan4rust::artefact::source::Source;
 /// use aiplan4rust::aiplan4rust::syntax::Parser;
 ///
-/// let input = Input::read_from_file("./domain.pddl");
+/// let input = Source::read_from_file("./domain.pddl");
 /// let mut parser = Parser::new();
 /// let result = parser.parse(&input);
 ///
@@ -108,7 +108,7 @@ impl Parser {
     /// - Lexical and syntactic errors from parsing are captured in the `ParserResult` diagnostics.
     pub fn parse(
         &mut self,
-        input: &Input,
+        input: &Source,
     ) -> Result<ParserResult, SyntaxError> {
 
         // Run the parser for the specified language variant (PDDL or HDDL)

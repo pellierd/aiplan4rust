@@ -18,9 +18,9 @@
 
 use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
 use crate::aiplan4rust::cli::error::CliError;
-use crate::aiplan4rust::io::error::IOError;
-use crate::aiplan4rust::io::input::Input;
-use crate::aiplan4rust::io::{Extension, IRContent, Output};
+use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::artefact::source::Source;
+use crate::aiplan4rust::artefact::{Extension, IRContent, Output};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
@@ -144,8 +144,8 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
 /// link_inputs(&domain, &problems, SerdeFormat::Json, None)?;
 /// ```
 fn link_inputs(
-    domain: &Input,
-    problems: &Vec<Input>,
+    domain: &Source,
+    problems: &Vec<Source>,
     format: SerdeFormat,
     output_opt: Option<PathBuf>,
 ) -> Result<(), CliError> {
@@ -234,8 +234,8 @@ fn link_inputs(
 /// link_from_parsed_input(&domain, &problem, SerdeFormat::JSON, &output).unwrap();
 /// ```
 fn link_from_parsed_input(
-    domain: &Input,
-    problem: &Input,
+    domain: &Source,
+    problem: &Source,
     format: SerdeFormat,
     output: &PathBuf,
 ) -> Result<(), CliError> {
@@ -301,8 +301,8 @@ fn link_from_parsed_input(
 /// link_from_raw_input(&domain, &problem, SerdeFormat::JSON, &output).unwrap();
 /// ```
 fn link_from_raw_input(
-    domain: &Input,
-    problem: &Input,
+    domain: &Source,
+    problem: &Source,
     format: SerdeFormat,
     output: &PathBuf,
 ) -> Result<(), CliError> {
@@ -394,7 +394,7 @@ pub fn save_link_output<P: Into<PathBuf>>(
     lifted_problem: LiftedProblem,
     format: SerdeFormat,
     output_path: P,
-) -> Result<(), IOError> {
+) -> Result<(), ArtefactError> {
     let output_path = output_path.into();
 
     // Create all parent directories if they do not exist
@@ -439,8 +439,8 @@ pub fn save_link_output<P: Into<PathBuf>>(
 ///
 /// * `Some(Input)` - If the domain is successfully read and is of a valid type.
 /// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
-pub fn validate_domain(path: &PathBuf) -> Option<Input> {
-    match Input::read_from_file(path) {
+pub fn validate_domain(path: &PathBuf) -> Option<Source> {
+    match Source::read_from_file(path) {
         // Domain successfully read and has a valid type
         Ok(d) if d.is_raw() || d.is_parsed_domain() => Some(d),
 
@@ -486,13 +486,13 @@ pub fn validate_domain(path: &PathBuf) -> Option<Input> {
 ///
 /// Problems that cannot be read are ignored and a warning is printed.
 pub fn validate_problems(
-    domain: &Input,
+    domain: &Source,
     problem_paths: Vec<PathBuf>,
-) -> Result<Vec<Input>, CliError> {
+) -> Result<Vec<Source>, CliError> {
     // Read and collect all problems that can be successfully read from files
-    let problems: Vec<Input> = problem_paths
+    let problems: Vec<Source> = problem_paths
         .into_iter()
-        .filter_map(|p| match Input::read_from_file(&p) {
+        .filter_map(|p| match Source::read_from_file(&p) {
             Ok(p) => Some(p),
             Err(e) => {
                 // Warn if a problem file cannot be read
@@ -551,8 +551,8 @@ pub fn validate_problems(
 /// }
 /// # }
 /// ```
-fn read_problem(path: PathBuf) -> Option<Input> {
-    match Input::read_from_file(&path) {
+fn read_problem(path: PathBuf) -> Option<Source> {
+    match Source::read_from_file(&path) {
         Ok(p) => Some(p),
         Err(_) => {
             println!(
@@ -613,7 +613,7 @@ fn read_problem(path: PathBuf) -> Option<Input> {
 /// This function assumes that the domain input has already been validated as raw.
 /// It does not perform any transformation on the problems; it only filters them
 /// based on the criteria described above.
-fn filter_raw_problems(domain: &Input, problems: Vec<Input>) -> Result<Vec<Input>, CliError> {
+fn filter_raw_problems(domain: &Source, problems: Vec<Source>) -> Result<Vec<Source>, CliError> {
     // --- Extract the language of the domain ---
     // Fail early if the domain raw content is not accessible
     let domain_lang = domain.try_raw_content()?.language();
@@ -703,7 +703,7 @@ fn filter_raw_problems(domain: &Input, problems: Vec<Input>) -> Result<Vec<Input
 /// - **validation issues** are reported as warnings,
 /// - **internal inconsistencies** are surfaced as errors,
 /// - control flow remains explicit and readable (no `continue`, no deep nesting).
-fn filter_parsed_problems(domain: &Input, problems: Vec<Input>) -> Result<Vec<Input>, CliError> {
+fn filter_parsed_problems(domain: &Source, problems: Vec<Source>) -> Result<Vec<Source>, CliError> {
     // Extract the parsed semantic context from the domain.
     // This must succeed; otherwise the domain is invalid.
     let domain_sc = domain.try_parsed_content()?;

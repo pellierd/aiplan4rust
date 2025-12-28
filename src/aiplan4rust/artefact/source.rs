@@ -2,14 +2,13 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use logos::Logos;
-use crate::aiplan4rust::io::error::IOError;
-use crate::aiplan4rust::io::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
-use crate::aiplan4rust::io::ir::content::IRContent;
-use crate::aiplan4rust::io::IRKind;
-use crate::aiplan4rust::io::language::Language;
-use crate::aiplan4rust::io::raw::content::RawContent;
-use crate::aiplan4rust::io::raw::kind::RawKind;
-use crate::aiplan4rust::lir;
+use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::artefact::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
+use crate::aiplan4rust::artefact::ir::content::IRContent;
+use crate::aiplan4rust::artefact::IRKind;
+use crate::aiplan4rust::artefact::language::Language;
+use crate::aiplan4rust::artefact::raw::content::RawContent;
+use crate::aiplan4rust::artefact::raw::kind::RawKind;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeSerializable, SerializationError};
@@ -17,7 +16,7 @@ use crate::aiplan4rust::syntax::lexer::Token;
 
 /// Représentation d'une source pour le pipeline
 #[derive(Debug, Clone)]
-pub enum Input {
+pub enum Source {
     Raw {
         path: PathBuf,
         content: RawContent,
@@ -37,11 +36,11 @@ pub enum Input {
 }
 
 
-impl Input {
+impl Source {
 
     // Constructeur pour le variant Raw
     pub fn new_raw(path: impl Into<PathBuf>, content: RawContent) -> Self {
-        Input::Raw {
+        Source::Raw {
             path: path.into(),
             content,
         }
@@ -52,7 +51,7 @@ impl Input {
         path: impl Into<PathBuf>,
         content: IRContent,
     ) -> Self {
-        Input::IR {
+        Source::IR {
             path: path.into(),
             content,
         }
@@ -60,7 +59,7 @@ impl Input {
 
     // Constructeur pour TextUnknown
     pub fn new_text(path: impl Into<PathBuf>, content: impl Into<String>) -> Self {
-        Input::Text {
+        Source::Text {
             path: path.into(),
             content: content.into(),
         }
@@ -68,7 +67,7 @@ impl Input {
 
     // Constructeur pour BinaryUnknown
     pub fn new_binary(path: impl Into<PathBuf>, content: Vec<u8>) -> Self {
-        Input::Binary {
+        Source::Binary {
             path: path.into(),
             content,
         }
@@ -79,7 +78,7 @@ impl Input {
     // -------------------------------------------------------------------------
 
     /// Lit un fichier et retourne le bon `Input` (Raw / IR / Unknown)
-    pub fn read_from_file(path: impl AsRef<Path>) -> Result<Self, IOError> {
+    pub fn read_from_file(path: impl AsRef<Path>) -> Result<Self, ArtefactError> {
         let path_buf = path.as_ref().to_path_buf();
         let bytes = Self::read_file(&path_buf)?;
         Self::read_from_bytes(path_buf, bytes)
@@ -105,7 +104,7 @@ impl Input {
     ///
     /// # Returns
     ///
-    /// Returns a fully constructed [`Input`] variant based on the content and detected format.
+    /// Returns a fully constructed [`Source`] variant based on the content and detected format.
     ///
     /// # Errors
     ///
@@ -121,7 +120,7 @@ impl Input {
     /// let bytes: Vec<u8> = std::fs::read("example.ir").unwrap();
     /// let input = Input::read_from_bytes(PathBuf::from("example.ir"), bytes).unwrap();
     /// ```
-    pub fn read_from_bytes(path: PathBuf, bytes: Vec<u8>) -> Result<Self, IOError> {
+    pub fn read_from_bytes(path: PathBuf, bytes: Vec<u8>) -> Result<Self, ArtefactError> {
         // Attempt to read IR header and payload
         match Self::try_to_read_ir(&bytes)? {
             Some((header, payload)) => {
@@ -129,17 +128,17 @@ impl Input {
                     IRKind::ParsedDomain => {
                         let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
                         let content = IRContent::ParsedDomain(sc, header.format());
-                        Ok(Input::new_ir(path, content))
+                        Ok(Source::new_ir(path, content))
                     }
                     IRKind::ParsedProblem => {
                         let sc = SemanticContext::deserialize_from_bytes(payload, header.format())?;
                         let content = IRContent::ParsedProblem(sc, header.format());
-                        Ok(Input::new_ir(path, content))
+                        Ok(Source::new_ir(path, content))
                     }
                     IRKind::LiftedProblem => {
                         let pb = LiftedProblem::deserialize_from_bytes(payload, header.format())?;
                         let content = IRContent::LiftedProblem(pb, header.format());
-                        Ok(Input::new_ir(path, content))
+                        Ok(Source::new_ir(path, content))
                     }
                 }
            }
@@ -150,14 +149,14 @@ impl Input {
                         if let Some(kind) = infer_raw_kind(&content) {
                             let language = detect_raw_language(&content);
                             let content = RawContent::new(kind, language, content);
-                            return Ok(Input::new_raw(path, content))
+                            return Ok(Source::new_raw(path, content))
                         }
 
-                        Ok(Input::Text { path, content })
+                        Ok(Source::Text { path, content })
                     }
                     Err(e) => {
                         // Binary unknown
-                        Ok(Input::Binary { path, content: e.into_bytes() })
+                        Ok(Source::Binary { path, content: e.into_bytes() })
                     }
                 }
             }
@@ -204,12 +203,10 @@ impl Input {
     /// - This function reads the entire file into memory. For very large files, this may
     ///   cause high memory usage. Consider using buffered reading if needed.
     /// - Unlike `read_to_string`, this does not attempt to interpret the bytes as UTF-8.
-    fn read_file(path: &Path) -> Result<Vec<u8>, IOError> {
-        let mut file = File::open(path)
-            .map_err(|e| IOError::open_failed(path.to_path_buf(), e))?;
+    fn read_file(path: &Path) -> Result<Vec<u8>, ArtefactError> {
+        let mut file = File::open(path)?;
         let mut content = Vec::new();
-        file.read_to_end(&mut content)
-            .map_err(|e| IOError::read_failed(path.to_path_buf(), e))?;
+        file.read_to_end(&mut content)?;
         Ok(content)
     }
 
@@ -291,124 +288,124 @@ impl Input {
 
     pub fn path(&self) -> &Path {
         match self {
-            Input::Raw { path, .. } => path,
-            Input::IR { path, .. } => path,
-            Input::Text { path, .. } => path,
-            Input::Binary { path, .. } => path,
+            Source::Raw { path, .. } => path,
+            Source::IR { path, .. } => path,
+            Source::Text { path, .. } => path,
+            Source::Binary { path, .. } => path,
         }
     }
 
     // --- RawContent ---
     pub fn raw_content(&self) -> Option<&RawContent> {
         match self {
-            Input::Raw { content, .. } => Some(content),
+            Source::Raw { content, .. } => Some(content),
             _ => None,
         }
     }
 
-    pub fn try_raw_content(&self) -> Result<&RawContent, IOError> {
+    pub fn try_raw_content(&self) -> Result<&RawContent, ArtefactError> {
         match self {
-            Input::Raw { content, .. } => Ok(content),
-            _ => Err(IOError::missing_raw_content()),
+            Source::Raw { content, .. } => Ok(content),
+            _ => Err(ArtefactError::missing_raw_content()),
         }
     }
 
     // --- IRContent ---
     pub fn ir_content(&self) -> Option<&IRContent> {
         match self {
-            Input::IR { content, .. } => Some(content),
+            Source::IR { content, .. } => Some(content),
             _ => None,
         }
     }
 
-    pub fn try_ir_content(&self) -> Result<&IRContent, IOError> {
+    pub fn try_ir_content(&self) -> Result<&IRContent, ArtefactError> {
         match self {
-            Input::IR { content, .. } => Ok(content),
-            _ => Err(IOError::missing_ir_content()),
+            Source::IR { content, .. } => Ok(content),
+            _ => Err(ArtefactError::missing_ir_content()),
         }
     }
 
     // --- Unknown binary content ---
     pub fn binary_content(&self) -> Option<&[u8]> {
         match self {
-            Input::Binary { content, .. } => Some(content),
+            Source::Binary { content, .. } => Some(content),
             _ => None,
         }
     }
 
-    pub fn try_binary_content(&self) -> Result<&[u8], IOError> {
+    pub fn try_binary_content(&self) -> Result<&[u8], ArtefactError> {
         match self {
-            Input::Binary { content, .. } => Ok(content),
-            _ => Err(IOError::missing_unknown_binary_content()),
+            Source::Binary { content, .. } => Ok(content),
+            _ => Err(ArtefactError::missing_binary_content()),
         }
     }
 
-    pub fn try_parsed_content(&self) -> Result<&SemanticContext, IOError> {
+    pub fn try_parsed_content(&self) -> Result<&SemanticContext, ArtefactError> {
         match self {
-            Input::IR { content, .. } => match content {
+            Source::IR { content, .. } => match content {
                 IRContent::ParsedDomain(domain, _) => Ok(domain),
                 IRContent::ParsedProblem(problem, _) => Ok(problem),
-                _ => Err(IOError::missing_ir_content()),
+                _ => Err(ArtefactError::missing_ir_content()),
             },
-            _ => Err(IOError::missing_ir_content()),
+            _ => Err(ArtefactError::missing_ir_content()),
         }
     }
 
     /// Retourne le contenu Parsed (Context) par valeur, sans consommer l'Input.
-    pub fn parsed_content_owned(&self) -> Result<SemanticContext, IOError> {
+    pub fn parsed_content_owned(&self) -> Result<SemanticContext, ArtefactError> {
         match self {
-            Input::IR { content, .. } => match content {
+            Source::IR { content, .. } => match content {
                 IRContent::ParsedDomain(domain, _) => Ok(domain.clone()),  // clone seulement le contenu
                 IRContent::ParsedProblem(problem, _) => Ok(problem.clone()),
-                _ => Err(IOError::MissingIRContent),
+                _ => Err(ArtefactError::MissingIRContent),
             },
-            _ => Err(IOError::MissingIRContent),
+            _ => Err(ArtefactError::MissingIRContent),
         }
     }
 
     // --- Unknown text content ---
     pub fn text_content(&self) -> Option<&String> {
         match self {
-            Input::Text { content, .. } => Some(content),
+            Source::Text { content, .. } => Some(content),
             _ => None,
         }
     }
 
-    pub fn try_text_content(&self) -> Result<&String, IOError> {
+    pub fn try_text_content(&self) -> Result<&String, ArtefactError> {
         match self {
-            Input::Text { content, .. } => Ok(content),
-            _ => Err(IOError::missing_unknown_text_content()),
+            Source::Text { content, .. } => Ok(content),
+            _ => Err(ArtefactError::missing_text_content()),
         }
     }
 
     /// Returns true if this Input is a raw source (PDDL or HDDL)
     pub fn is_raw(&self) -> bool {
-        matches!(self, Input::Raw { .. })
+        matches!(self, Source::Raw { .. })
     }
 
     /// Returns true if this Input is a raw domain (PDDL or HDDL)
     pub fn is_raw_domain(&self) -> bool {
-        matches!(self, Input::Raw { content, .. } if content.kind() == RawKind::Domain)
+        matches!(self, Source::Raw { content, .. } if content.kind() == RawKind::Domain)
     }
 
     /// Returns true if this Input is a raw problem (PDDL or HDDL)
     pub fn is_raw_problem(&self) -> bool {
-        matches!(self, Input::Raw { content, .. } if content.kind() == RawKind::Problem)
+        matches!(self, Source::Raw { content, .. } if content.kind() == RawKind::Problem)
     }
 
     /// Returns true if this Input is a raw PDDL source
     pub fn is_raw_pddl(&self) -> bool {
-        matches!(self, Input::Raw { content, .. } if content.language() == Language::PDDL)
+        matches!(self, Source::Raw { content, .. } if content.language() == Language::PDDL)
     }
 
     /// Returns true if this Input is a raw HDDL source
     pub fn is_raw_hddl(&self) -> bool {
-        matches!(self, Input::Raw { content, .. } if content.language() == Language::HDDL)
+        matches!(self, Source::Raw { content, .. } if content.language() == Language::HDDL)
     }
 
     /// Returns true if this Input is an intermediate representation (IR).
     pub fn is_ir(&self) -> bool {
-        matches!(self, Input::IR { .. })
+        matches!(self, Source::IR { .. })
     }
 
     /// Returns true if this Input is a parsed IR domain (ParsedDomain)
@@ -428,18 +425,18 @@ impl Input {
 
     /// Returns true if this Input is an unknown text source.
     pub fn is_text(&self) -> bool {
-        matches!(self, Input::Text { .. })
+        matches!(self, Source::Text { .. })
     }
 
     /// Returns true if this Input is an unknown binary source.
     pub fn is_binary(&self) -> bool {
-        matches!(self, Input::Binary { .. })
+        matches!(self, Source::Binary { .. })
     }
 
     /// Retourne Some(RawKind) si c'est Raw, None sinon
     pub fn raw_kind(&self) -> Option<RawKind> {
         match self {
-            Input::Raw { content, .. } => Some(content.kind()),
+            Source::Raw { content, .. } => Some(content.kind()),
             _ => None,
         }
     }
@@ -447,7 +444,7 @@ impl Input {
     /// Retourne Some(IRKind) si c'est IR, None sinon
     pub fn ir_kind(&self) -> Option<IRKind> {
         match self {
-            Input::IR { content, .. } => Some(content.kind()),
+            Source::IR { content, .. } => Some(content.kind()),
             _ => None,
         }
     }
@@ -465,16 +462,36 @@ impl Input {
     }
 }
 
-/// Détecte le type de source brute (Domain ou Problem)
-fn infer_raw_kind(input: &str) -> Option<RawKind> {
-    let mut lexer = Token::lexer(input);
+/// Infers the type of a raw source based on its textual content.
+///
+/// This function attempts to determine whether the raw source represents
+/// a PDDL/HDDL domain or problem by scanning the initial tokens for the
+/// typical `(define (domain ...)` or `(define (problem ...)` patterns.
+///
+/// # Arguments
+///
+/// * `source` - A string slice containing the raw source text.
+///
+/// # Returns
+///
+/// * `Some(RawKind::Domain)` if the source appears to define a domain.
+/// * `Some(RawKind::Problem)` if the source appears to define a problem.
+/// * `None` if the type cannot be inferred.
+///
+/// # Notes
+///
+/// * The function uses lexical analysis to detect the structure and ignores
+///   errors or unexpected tokens during scanning.
+/// * Only the first matching `(define ...)` construct is considered.
+fn infer_raw_kind(source: &str) -> Option<RawKind> {
+    let mut lexer = Token::lexer(source);
     while let Some(token_res) = lexer.next() {
         let token = match token_res {
             Ok(tok) => tok,
             Err(_) => continue,
         };
 
-        // On détecte la forme (define (domain ...) ou (define (problem ...)
+        // Detect the form (define (domain ...) or (define (problem ...))
         if token == Token::LParen {
             if let (Some(Ok(Token::Define)), Some(Ok(Token::LParen)), Some(Ok(next))) =
                 (lexer.next(), lexer.next(), lexer.next())
@@ -490,9 +507,29 @@ fn infer_raw_kind(input: &str) -> Option<RawKind> {
     None
 }
 
-/// Détecte la langue (PDDL ou HDDL) à partir du texte brut
-fn detect_raw_language(input: &str) -> Language {
-    let mut lexer = Token::lexer(input);
+
+/// Detects the language of a raw source text, distinguishing between PDDL and HDDL.
+///
+/// This function analyzes the source text and attempts to identify whether it is
+/// written in PDDL or HDDL. Detection is based on the presence of HDDL-specific
+/// tokens such as `Task`, `Method`, `Hierarchy`, etc. If none of these tokens
+/// are found, the function assumes the language is PDDL.
+///
+/// # Arguments
+///
+/// * `source` - A string slice representing the raw source text to analyze.
+///
+/// # Returns
+///
+/// * `Language::HDDL` if an HDDL-specific token is found.
+/// * `Language::PDDL` otherwise.
+///
+/// # Notes
+///
+/// * Detection is based solely on token presence.
+/// * Invalid or unrecognized tokens are ignored.
+fn detect_raw_language(source: &str) -> Language {
+    let mut lexer = Token::lexer(source);
 
     while let Some(token_res) = lexer.next() {
         let token = match token_res {
@@ -500,7 +537,7 @@ fn detect_raw_language(input: &str) -> Language {
             Err(_) => continue,
         };
 
-        // Tokens spécifiques HDDL
+        // HDDL-specific tokens
         match token {
             Token::Task
             | Token::Method

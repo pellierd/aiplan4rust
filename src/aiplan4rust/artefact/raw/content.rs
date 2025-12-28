@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::aiplan4rust::io::RawKind;
+use crate::aiplan4rust::artefact::RawKind;
 use crate::Language;
 
 #[derive(Debug, Clone, Eq, PartialEq)]

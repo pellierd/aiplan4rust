@@ -2,7 +2,7 @@ use std::path::PathBuf;
 use thiserror::Error;
 use crate::aiplan4rust::AiplanError;
 use crate::aiplan4rust::diagnostic::DiagnosticError;
-use crate::aiplan4rust::io::error::IOError;
+use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::serialization::SerializationError;
 
 
@@ -12,7 +12,7 @@ pub enum CliError {
     Clap(#[from] clap::Error),
 
     #[error(transparent)]
-    IO(#[from] IOError),
+    IO(#[from] ArtefactError),
 
     #[error(transparent)]
     Serialization(#[from] SerializationError),

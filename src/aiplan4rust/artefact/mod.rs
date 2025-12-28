@@ -1,6 +1,6 @@
 pub mod error;
 pub mod extension;
-pub mod input;
+pub mod source;
 pub mod output;
 mod raw;
 pub mod language;
@@ -11,6 +11,6 @@ pub use ir::kind::IRKind;
 pub use extension::Extension;
 pub use raw::kind::RawKind;
 pub use output::Output;
-pub use input::Input;
+pub use source::Source;
 pub use ir::content::IRContent;
 pub use raw::content::RawContent;
