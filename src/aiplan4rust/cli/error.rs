@@ -1,3 +1,4 @@
+use std::io;
 use std::path::PathBuf;
 use thiserror::Error;
 use crate::aiplan4rust::AiplanError;
@@ -12,7 +13,10 @@ pub enum CliError {
     Clap(#[from] clap::Error),
 
     #[error(transparent)]
-    IO(#[from] ArtefactError),
+    Io(#[from] io::Error),
+
+    #[error(transparent)]
+    Artefact(#[from] ArtefactError),
 
     #[error(transparent)]
     Serialization(#[from] SerializationError),
@@ -22,15 +26,6 @@ pub enum CliError {
 
     #[error(transparent)]
     Diagnostic(#[from] DiagnosticError),
-
-    /// Invalid command-line argument
-    #[error("Invalid argument: {0}")]
-    InvalidArgument(String),
-
-
-
-
-
 
     /// Failed to build an output path.
     #[error("Failed to build output path in directory '{dir}': {reason}")]
@@ -49,18 +44,18 @@ pub enum CliError {
     /// No input files were provided
     #[error("No input files provided.")]
     MissingInputFiles,
+
+    /// Failed to extract a valid file stem from the given path.
+    ///
+    /// Common causes:
+    /// - The path has no filename component.
+    /// - The filename is not valid UTF-8.
+    #[error("Invalid file name: '{0}'")]
+    InvalidFileName(String),
 }
 
 
 impl CliError {
-
-    /// Creates an error indicating that a CLI argument is invalid.
-    ///
-    /// # Arguments
-    /// * `msg` - A human-readable explanation of what is invalid.
-    pub fn invalid_argument(msg: impl Into<String>) -> Self {
-        CliError::InvalidArgument(msg.into())
-    }
 
 
     /// Creates an error indicating that an output path could not be constructed.
@@ -89,4 +84,5 @@ impl CliError {
     pub fn missing_input_files() -> Self {
         CliError::MissingInputFiles
     }
+
 }

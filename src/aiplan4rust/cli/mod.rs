@@ -2,6 +2,7 @@ pub mod cli;
 pub mod parse;
 
 pub mod link;
-mod error;
+pub mod error;
+pub(crate) mod path;
 
 pub use cli::build_cli;

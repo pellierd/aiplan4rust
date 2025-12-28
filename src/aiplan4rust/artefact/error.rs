@@ -57,14 +57,6 @@ pub enum ArtefactError {
     /// Attempted to access unknown text content from a source that is not text.
     #[error("Cannot get unknown text content: Source is not a text unknown source")]
     MissingTextContent,
-
-    /// Failed to extract a valid file stem from the given path.
-    ///
-    /// Common causes:
-    /// - The path has no filename component.
-    /// - The filename is not valid UTF-8.
-    #[error("Invalid file name: '{0}'")]
-    InvalidFileName(String),
 }
 
 impl ArtefactError {
@@ -112,20 +104,4 @@ impl ArtefactError {
         ArtefactError::MissingTextContent
     }
 
-    /// Creates an error indicating that a file name is invalid.
-    ///
-    /// This is typically used when a file path does not contain a valid
-    /// filename or when the filename is not valid UTF-8.
-    ///
-    /// # Arguments
-    /// * `path` - The path or filename that caused the error.
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// let path = "/invalid/path/😀";
-    /// return Err(ArtefactError::invalid_file_name(path));
-    /// ```
-    pub fn invalid_file_name(path: impl Into<String>) -> Self {
-        ArtefactError::InvalidFileName(path.into())
-    }
 }

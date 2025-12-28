@@ -9,8 +9,9 @@ use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_AR
 use crate::{AnalyzerResult, Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
-use crate::aiplan4rust::artefact::{Extension, IRContent, Output};
+use crate::aiplan4rust::artefact::{Extension, IRContent, Artefact};
 use crate::aiplan4rust::artefact::source::Source;
+use crate::aiplan4rust::cli::path::{default_output_path, default_parsed_output_path};
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::SerdeFormat;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -63,14 +64,24 @@ pub fn handle_parse_command(matches: &ArgMatches) -> Result<(), CliError> {
     // Collect input files
     let input_paths: Vec<PathBuf> = matches
         .get_many::<String>(FILES_ARG)
-        .ok_or_else(|| CliError::invalid_argument("No input files provided"))?
+        .ok_or_else(|| {
+            clap::Error::raw(
+                ErrorKind::MissingRequiredArgument,
+                "No input files provided"
+            )
+        })?
         .map(PathBuf::from)
         .collect();
 
     // Retrieve the output format
     let format = *matches
         .get_one::<SerdeFormat>(FORMAT_ARG)
-        .ok_or_else(|| CliError::invalid_argument("No output format provided"))?;
+        .ok_or_else(|| {
+            clap::Error::raw(
+                ErrorKind::MissingRequiredArgument,
+                "No output format provided"
+            )
+        })?;
 
     // Determine the output directory
     let out_dir = matches
@@ -113,7 +124,7 @@ pub fn parse_inputs(
     // First pass: read inputs and collect valid ones
     let mut inputs_to_parse: Vec<(Source, PathBuf)> = Vec::new();
     for input_path in input_paths {
-        let output_path = Output::default_output_path(input_path, None, Extension::Parsed, Some(out_dir))?;
+        let output_path = default_parsed_output_path(input_path, out_dir)?;
         match read_input_with_warning(input_path)? {
             Some(input) => inputs_to_parse.push((input, output_path)),
             None => files_ignored += 1,
@@ -483,7 +494,7 @@ pub fn save_parse_output<P: Into<PathBuf>>(
     };
 
     // Create an Output::IR object for writing
-    let output = Output::new_ir(output_path.clone(), ir_content);
+    let output = Artefact::new_ir(output_path.clone(), ir_content);
 
     // Write the content to disk
     output.write()?;

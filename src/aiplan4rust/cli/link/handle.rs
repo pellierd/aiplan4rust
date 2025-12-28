@@ -20,7 +20,7 @@ use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
 use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::artefact::source::Source;
-use crate::aiplan4rust::artefact::{Extension, IRContent, Output};
+use crate::aiplan4rust::artefact::{Extension, IRContent, Artefact};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
@@ -29,6 +29,8 @@ use clap::ArgMatches;
 use colored::Colorize;
 use std::fs;
 use std::path::PathBuf;
+use clap::error::ErrorKind;
+use crate::aiplan4rust::cli::path::default_output_path;
 
 /// Handles the `link` CLI subcommand.
 ///
@@ -78,7 +80,12 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
     // --- Determine output format (default to JSON) ---
     let format = *matches
         .get_one::<SerdeFormat>(FORMAT_ARG)
-        .ok_or_else(|| CliError::invalid_argument("No output format provided"))?;
+        .ok_or_else(|| {
+            clap::Error::raw(
+                ErrorKind::MissingRequiredArgument,
+                "No output format provided"
+            )
+        })?;
 
     // --- Optional output path ---
     let output_opt = matches.get_one::<String>(OUTPUT_ARG).map(PathBuf::from);
@@ -157,7 +164,7 @@ fn link_inputs(
         // Déterminer le chemin de sortie
         let output_path = if problems.len() == 1 {
             output_opt.clone().unwrap_or_else(|| {
-                Output::default_output_path(
+                default_output_path(
                     domain.path(),
                     Some(problem.path()),
                     Extension::Lifted,
@@ -166,7 +173,7 @@ fn link_inputs(
                 .expect("failed to determine default output path")
             })
         } else {
-            Output::default_output_path(
+            default_output_path(
                 domain.path(),
                 Some(problem.path()),
                 Extension::Lifted,
@@ -404,7 +411,7 @@ pub fn save_link_output<P: Into<PathBuf>>(
 
     // Wrap the lifted problem in IRContent for output
     let content = IRContent::LiftedProblem(lifted_problem, format);
-    let output = Output::new_ir(output_path.clone(), content);
+    let output = Artefact::new_ir(output_path.clone(), content);
 
     // Write the content to disk
     output.write()?;
