@@ -25,9 +25,9 @@
 //!     println!("Node is malformed");
 //! }
 //! ```
-pub mod validation;
+pub mod validator;
 pub mod checks;
 
-pub use validation::check_well_formed;
-pub use validation::check_well_formed_node;
-pub use validation::is_well_formed;
+pub use validator::check_well_formed;
+pub use validator::check_well_formed_node;
+pub use validator::is_well_formed;

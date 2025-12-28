@@ -8,7 +8,7 @@
 //!
 //! The diagnostic system is organized into several components:
 //!
-//! - [`diagnostic`] defines the core `Diagnostic` type and its conversion from parsing errors.
+//! - [`diagnostic`] defines the common `Diagnostic` type and its conversion from parsing errors.
 //! - [`kind`] contains a rich set of `Kind` variants to describe different types of issues.
 //! - [`severity`] categorizes diagnostics by severity (e.g., error, warning).
 //! - [`diagnostic_manager`] manages a collection of diagnostics and associated source files.

@@ -1,9 +1,9 @@
-//! The `atomic_skeleton` module contains abstract skeletons core to predicates, tasks,
+//! The `atomic_skeleton` module contains abstract skeletons common to predicates, tasks,
 //! functions, methods, and actions in PDDL representation.
 //!
 //! This module defines base structures like `NamedTypedList` that encapsulate
 //! shared parts such as the name and typed parameter list (signature).
-//! These skeletons factorize core behavior and fields,
+//! These skeletons factorize common behavior and fields,
 //! allowing uniform handling of atomic entities in the planner.
 //!
 //! # Main contents

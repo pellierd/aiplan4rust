@@ -10,7 +10,7 @@
 //!
 //! # Key Components
 //!
-//! - [`SyntaxNode`]: the core trait representing a syntax node, including
+//! - [`SyntaxNode`]: the common trait representing a syntax node, including
 //!   management of node kind and content types.
 //! - Support for formatted display with indentation and identifier resolution.
 //! - Methods for extracting and transforming syntactic content.

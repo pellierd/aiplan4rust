@@ -13,7 +13,7 @@ pub use aiplan4rust::io::Language;
 pub use aiplan4rust::syntax::Ast;
 pub use aiplan4rust::diagnostic::Renderer;
 pub use aiplan4rust::diagnostic::Severity;
-pub use aiplan4rust::validation::core::WellFormedError;
+pub use aiplan4rust::validation::common::WellFormedError;
 pub use aiplan4rust::validation::syntax::check_well_formed;
 pub use aiplan4rust::lir::LirBuilder;
 pub use aiplan4rust::lir::LirBuilderResult;

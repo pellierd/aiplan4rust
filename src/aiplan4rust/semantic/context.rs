@@ -1,6 +1,6 @@
 //! Semantic Analysis Module
 //!
-//! This module provides the core components for semantic analysis within the compiler pipeline.
+//! This module provides the common components for semantic analysis within the compiler pipeline.
 //! It centralizes semantic-related data structures, error handling, and processing logic.
 //!
 //! # Overview
@@ -17,7 +17,7 @@
 //!
 //! # Submodules
 //!
-//! - `analyzer`: Implements the core semantic analyzer logic.
+//! - `analyzer`: Implements the common semantic analyzer logic.
 //! - `symbol`: Contains symbol representations used in semantic processing.
 //! - `analyzer_result`: Defines result types used by analyzers.
 //! - `symbol_table`: Manages the symbol table data structures.

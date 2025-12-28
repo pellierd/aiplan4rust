@@ -1,6 +1,6 @@
 //! Trait defining the interface for syntax nodes stored in an arena-based tree structure.
 //!
-//! This module provides the core abstraction [`ArenaNode`] for representing syntax
+//! This module provides the common abstraction [`ArenaNode`] for representing syntax
 //! nodes managed by an arena (`TreeArena`). It specifies essential methods for
 //! navigating parent-child relationships, modifying node structure, and accessing
 //! semantic content within the arena.

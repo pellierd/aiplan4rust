@@ -12,6 +12,6 @@
 //!
 //! These modules and their functions can be used to enforce robust validation
 //! pipelines during AST construction and transformation.
-pub mod core;
+pub mod common;
 pub mod syntax;
 pub mod normalization;

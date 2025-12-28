@@ -2,7 +2,7 @@
 //!
 //! This module exposes two submodules:
 //! - [`checks`]: Contains functions to perform various validation checks on AST nodes.
-//! - [`validation`]: Contains functions focused on verifying that AST nodes are well normalized.
+//! - [`validator`]: Contains functions focused on verifying that AST nodes are well normalized.
 //!
 //! The main validation functions are re-exported for easier access:
 //! - [`check_well_normalized`]: Validates that an entire AST or subtree is well normalized.
@@ -12,7 +12,7 @@
 //! # Usage
 //!
 //! Use the functions in [`checks`] to perform generic validation checks,
-//! and use those in [`validation`] to assert normalization properties of AST nodes.
+//! and use those in [`validator`] to assert normalization properties of AST nodes.
 //!
 //! # Examples
 //!
@@ -28,8 +28,8 @@
 //! println!("Is AST well normalized? {}", normalized);
 //! ```
 pub mod checks;
-pub mod validation;
+pub mod validator;
 
-pub use validation::check_well_normalized;
-pub use validation::check_well_normalized_node;
-pub use validation::is_well_normalized;
+pub use validator::check_well_normalized;
+pub use validator::check_well_normalized_node;
+pub use validator::is_well_normalized;

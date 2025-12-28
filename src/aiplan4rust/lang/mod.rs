@@ -6,7 +6,7 @@
 //! - **Semantic representation (IR)**,
 //! - **Validation, transformation, and optimization**.
 //!
-//! These types serve as the core vocabulary for representing identifiers,
+//! These types serve as the common vocabulary for representing identifiers,
 //! typed entities, operators, and logical/optimization constructs in the language.
 //!
 //! # Re-exported Modules and Types

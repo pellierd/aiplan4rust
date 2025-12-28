@@ -1,6 +1,6 @@
 //! Arena module for managing syntax nodes in tree structures.
 //!
-//! This module provides core abstractions and utilities for working with
+//! This module provides common abstractions and utilities for working with
 //! arena-allocated syntax trees, where nodes are identified by `NodeId`
 //! and stored efficiently in a contiguous arena structure.
 //!

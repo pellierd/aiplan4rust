@@ -1,6 +1,6 @@
 //! Symbol management module for the AI syntax Rust framework.
 //!
-//! This module provides core components and abstractions for handling symbols in the
+//! This module provides common components and abstractions for handling symbols in the
 //! language's semantic analysis and AST representation.
 //!
 //! # Submodules

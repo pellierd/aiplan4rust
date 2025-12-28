@@ -1,4 +1,4 @@
-/// This module provides core abstractions and types for syntax tree management.
+/// This module provides common abstractions and types for syntax tree management.
 ///
 /// It includes definitions for syntax nodes, content, tree structures,
 /// and error handling, all built on top of a generic arena-based storage

@@ -1,4 +1,4 @@
-//! This module provides the core parsing context and its associated error type_checker
+//! This module provides the common parsing context and its associated error type_checker
 //! used during the construction of the abstract syntax tree (AST).
 //!
 //! It exposes:

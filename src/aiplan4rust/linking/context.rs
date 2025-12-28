@@ -10,7 +10,7 @@
 //! Additionally, it stores metadata such as the source locations of the domain and problem,
 //! as well as a timestamp indicating when the linking was performed.
 //!
-//! This module provides the core data structure for semantic linking and accessor methods
+//! This module provides the common data structure for semantic linking and accessor methods
 //! to retrieve or modify the linked semantic data.
 //!
 //! The module also implements serialization traits to support persistence or transmission,

@@ -43,7 +43,7 @@ use std::fmt;
 use std::fmt::Formatter;
 
 ///
-/// This enumeration defines the core comparison operators that can be used in
+/// This enumeration defines the common comparison operators that can be used in
 /// conditions and constraints, particularly in the context of PDDL or other formal models.
 ///
 /// # Variants

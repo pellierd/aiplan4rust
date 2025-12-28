@@ -5,7 +5,7 @@
 //!
 //! # Submodules
 //!
-//! - [`interner`]: Contains the core implementation of string interning via `StringInterner`.
+//! - [`interner`]: Contains the common implementation of string interning via `StringInterner`.
 //! - [`merge_result`]: Provides structures and functions to merge multiple interners using `InternerMergeResult`.
 //! - [`display`]: Offers tools to display or format interners (`InternerDisplay`).
 //! - [`error`]: Defines errors specific to interning (`InternerError`).

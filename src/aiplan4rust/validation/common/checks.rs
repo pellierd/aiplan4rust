@@ -19,7 +19,7 @@
 
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::validation::core::WellFormedError;
+use crate::aiplan4rust::validation::common::WellFormedError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstKind, AstNode};
 
 /// Set of AST node kinds considered as valid expressions.

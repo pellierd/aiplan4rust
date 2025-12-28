@@ -821,7 +821,7 @@ impl SymbolTableBuilder {
     /// symbol_table.init_from_action_def(node_ref, &ast, scope)?;
     /// ```
     ///
-    /// This function delegates the core work to `init_from_def`, indicating that the
+    /// This function delegates the common work to `init_from_def`, indicating that the
     /// definition includes a body.
     fn init_from_action_def(
         &mut self,

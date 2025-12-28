@@ -19,8 +19,8 @@
 
 use crate::aiplan4rust::core::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
-use crate::aiplan4rust::validation::core::{checks, WellFormedError};
-use crate::aiplan4rust::validation::{core, syntax};
+use crate::aiplan4rust::validation::common::{checks, WellFormedError};
+use crate::aiplan4rust::validation::{common, syntax};
 
 /// Checks that the AST is structurally well-formed starting from its root node.
 ///
@@ -162,7 +162,7 @@ pub fn check_well_formed_node(node: &AstNode, ast: &Ast) -> Result<(), WellForme
             syntax::checks::check_requirement(node)
         }
         AstKind::Error => {
-            core::checks::throw_invalid(node)
+            common::checks::throw_invalid(node)
         }
         AstKind::RequireDef => {
             syntax::checks::check_require_def(ast, node)

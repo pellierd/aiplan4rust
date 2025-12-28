@@ -29,7 +29,7 @@ use crate::aiplan4rust::syntax::Span;
 /// such as parsing errors, type mismatches, undeclared symbols, requirement
 /// violations, ambiguous or duplicated declarations, and more.
 ///
-/// This enum is the core abstraction used by the diagnostic system to classify
+/// This enum is the common abstraction used by the diagnostic system to classify
 /// and provide structured error or warning messages to the user.
 ///
 /// Most variants carry structured fields that allow downstream components

@@ -9,12 +9,12 @@
 //!
 //! # Purpose
 //!
-//! The `core` module centralizes the essential building blocks that underpin the
+//! The `common` module centralizes the essential building blocks that underpin the
 //! representation and manipulation of syntax trees and syntax graphs within aiplan4rust.
 //! It provides safe, efficient, and ergonomic abstractions that other modules build upon.
 //!
 //! # Future expansion
 //!
-//! Additional core utilities, traits, and data structures common to multiple parts of the library
+//! Additional common utilities, traits, and data structures common to multiple parts of the library
 //! will be added here as the project evolves.
 pub mod arena;

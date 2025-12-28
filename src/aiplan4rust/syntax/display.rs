@@ -304,7 +304,7 @@ impl<'a, T: SyntaxInternerDisplay + ?Sized> std::fmt::Display for DisplaySyntaxW
 pub trait SyntaxDisplay {
     /// Writes the value to the given formatter.
     ///
-    /// This method is the core formatting function and is used by the default
+    /// This method is the common formatting function and is used by the default
     /// implementations of `to_syntax_string` and `try_to_syntax_string`.
     ///
     /// # Arguments

@@ -1,6 +1,6 @@
 //! Semantic analysis module for AIPlan4Rust.
 //!
-//! This module provides the core functionality and types for performing semantic analysis,
+//! This module provides the common functionality and types for performing semantic analysis,
 //! including AST validation, symbol table construction, type checking, and context management.
 //!
 //! It is organized into several submodules:
@@ -46,7 +46,7 @@
 //! [`InvalidNodeArityError`]: error::InvalidNodeArityError
 //! [`SemanticContext`]: context::Context
 
-/// Semantic analysis submodule managing the core analysis logic.
+/// Semantic analysis submodule managing the common analysis logic.
 pub mod analyzer;
 
 /// Module defining symbol representations and helper utilities.

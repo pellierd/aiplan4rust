@@ -2,7 +2,7 @@
 //! that can occur specifically during the linking checks phase
 //! in the AIPlan4Rust compilation pipeline.
 //!
-//! This enum consolidates errors originating from core subsystems
+//! This enum consolidates errors originating from common subsystems
 //! such as symbol table operations, syntax tree processing,
 //! and string interning, all of which are essential during linking validation.
 //!

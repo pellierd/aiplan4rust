@@ -1,6 +1,6 @@
 //! Lifted Intermediate Representation (LIR) module for AI Planning.
 //!
-//! This module defines the core components and abstractions for representing
+//! This module defines the common components and abstractions for representing
 //! AI syntax problems in a lifted (parameterized) intermediate representation.
 //! It supports the construction, manipulation, and querying of lifted
 //! syntax structures such as actions, methods, task networks, and problems.
