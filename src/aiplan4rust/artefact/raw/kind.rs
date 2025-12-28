@@ -1,3 +1,22 @@
+//! Module defining the type of raw planning files.
+//!
+//! This module provides the `RawKind` enum, which represents the kind of a raw
+//! input file used in planning formalisms such as PDDL or HDDL. It distinguishes
+//! between domain files, which define types, predicates, and actions, and
+//! problem files, which define objects, initial state, and goals.
+//!
+//! # Examples
+//!
+//! ```rust
+//! use aiplan4rust::artefact::raw::kind::RawKind;
+//!
+//! let domain = RawKind::Domain;
+//! let problem = RawKind::Problem;
+//!
+//! assert_eq!(format!("{}", domain), "Domain");
+//! assert_eq!(format!("{}", problem), "Problem");
+//! ```
+
 use std::fmt;
 
 /// Represents the type of a raw planning file.
