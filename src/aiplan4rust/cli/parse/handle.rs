@@ -192,7 +192,7 @@ fn read_input_with_warning(input_path: &Path) -> Result<Option<Source>, CliError
     }
 
     // 2. Read the file into an Input object
-    let input = Source::read_from_file(input_path)?;
+    let input = Source::try_from_path(input_path)?;
 
     // 3. Check if the input is a raw PDDL/HDDL file
     if input.is_raw() {

@@ -108,11 +108,11 @@ impl Parser {
     /// - Lexical and syntactic errors from parsing are captured in the `ParserResult` diagnostics.
     pub fn parse(
         &mut self,
-        input: &Source,
+        source: &Source,
     ) -> Result<ParserResult, SyntaxError> {
 
         // Run the parser for the specified language variant (PDDL or HDDL)
-        let content = input.try_raw_content()?; // Get raw info, or return error if source is Serialized/Unknown
+        let content = source.try_raw_content()?; // Get raw info, or return error if source is Serialized/Unknown
         let inner = content.inner();
 
         let mut context = ParseContext::new(); // Initialize a new parsing context
@@ -126,7 +126,7 @@ impl Parser {
 
         // Extract the string interner from the parsing context (used to store unique strings)
         let mut interner = context.take_interner();
-        let source_id = interner.intern_literal(input.path().to_string_lossy());
+        let source_id = interner.intern_literal(source.path().to_string_lossy());
 
         // Register the source text with the diagnostic manager
         self.diagnostic_manager
@@ -180,7 +180,7 @@ impl Parser {
             }
             Err(e) => match e.as_parse_error() {
                 Some(parse_err) => {
-                    let source = interner.intern_literal(input.path().to_string_lossy());
+                    let source = interner.intern_literal(source.path().to_string_lossy());
                     let diagnostic =
                         Diagnostic::from((parse_err, source, &fast_line_table));
                     self.diagnostic_manager.add_diagnostic(diagnostic);

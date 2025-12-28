@@ -440,7 +440,7 @@ pub fn save_link_output<P: Into<PathBuf>>(
 /// * `Some(Input)` - If the domain is successfully read and is of a valid type.
 /// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
 pub fn validate_domain(path: &PathBuf) -> Option<Source> {
-    match Source::read_from_file(path) {
+    match Source::try_from_path(path) {
         // Domain successfully read and has a valid type
         Ok(d) if d.is_raw() || d.is_parsed_domain() => Some(d),
 
@@ -492,7 +492,7 @@ pub fn validate_problems(
     // Read and collect all problems that can be successfully read from files
     let problems: Vec<Source> = problem_paths
         .into_iter()
-        .filter_map(|p| match Source::read_from_file(&p) {
+        .filter_map(|p| match Source::try_from_path(&p) {
             Ok(p) => Some(p),
             Err(e) => {
                 // Warn if a problem file cannot be read
@@ -552,7 +552,7 @@ pub fn validate_problems(
 /// # }
 /// ```
 fn read_problem(path: PathBuf) -> Option<Source> {
-    match Source::read_from_file(&path) {
+    match Source::try_from_path(&path) {
         Ok(p) => Some(p),
         Err(_) => {
             println!(

@@ -48,7 +48,7 @@ use aiplan4rust::aiplan4rust::artefact::Source;
 /// }
 /// ```
 pub fn parse_and_check_ast(file_path: &Path) -> Option<ParserResult> {
-    let input = Source::read_from_file(file_path)
+    let input = Source::try_from_path(file_path)
         .unwrap_or_else(|e| {
             panic!(
                 "TEST FAILURE: failed to read input file '{}': {:?}",

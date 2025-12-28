@@ -66,7 +66,7 @@ fn test_domain(domain_dir: &Path) -> bool {
         );
 
         // Initialize the parser frontend
-        let domain = Source::read_from_file(&domain_path)
+        let domain = Source::try_from_path(&domain_path)
             .unwrap_or_else(|e| {
                 panic!(
                     "TEST FAILURE: failed to read input file '{}': {:?}",
@@ -75,7 +75,7 @@ fn test_domain(domain_dir: &Path) -> bool {
                 )
             });
 
-        let problem = Source::read_from_file(&problem_path)
+        let problem = Source::try_from_path(&problem_path)
             .unwrap_or_else(|e| {
                 panic!(
                     "TEST FAILURE: failed to read input file '{}': {:?}",

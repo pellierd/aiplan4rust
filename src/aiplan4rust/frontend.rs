@@ -20,8 +20,7 @@ use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::semantic::{Analyzer, SemanticContext};
-use crate::aiplan4rust::serialization::serde::SerdeSerializable;
+use crate::aiplan4rust::semantic::{Analyzer};
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::AiplanError;
 
@@ -72,7 +71,7 @@ impl Frontend {
     /// 3. Performs semantic analysis using the `Analyzer`, producing an `AnalyzerResult`.
     ///
     /// # Input
-    /// - `input`: A reference to an `Input` instance, **expected to be of kind `Input::Raw`**.
+    /// - `source`: A reference to an `Source` instance, **expected to be of kind `Source::Raw`**.
     ///   This means the content has not yet been parsed or lifted into an intermediate representation (IR).
     ///   Using other `Input` kinds may produce errors or unintended behavior.
     ///
@@ -96,10 +95,10 @@ impl Frontend {
     /// let input = Input::read_from_file("domain.pddl")?; // must be raw
     /// let analysis_result = frontend.parse_from_raw_input(&input)?;
     /// ```
-    pub fn parse_from_raw_input(&self, input: &Source) -> Result<AnalyzerResult, AiplanError> {
+    pub fn parse_from_raw_input(&self, source: &Source) -> Result<AnalyzerResult, AiplanError> {
         // Step 1: Parse
         let mut parser = Parser::new();
-        let parser_result = parser.parse(input)?;
+        let parser_result = parser.parse(source)?;
 
         // Step 2: Normalize
         let mut normalizer = Normalizer::new();
@@ -118,8 +117,8 @@ impl Frontend {
     /// 3. If linking succeeds, builds a **Lifted Intermediate Representation (LIR)** using `LirBuilder`.
     ///
     /// # Input
-    /// - `domain_input`: A reference to an `Input` representing the **raw domain file**.
-    /// - `problem_input`: A reference to an `Input` representing the **raw problem file**.
+    /// - `domain_source`: A reference to an `Source` representing the **raw domain file**.
+    /// - `problem_source`: A reference to an `Source` representing the **raw problem file**.
     /// Both inputs are expected to be of kind `Input::Raw`.
     ///
     /// # Returns
@@ -144,12 +143,12 @@ impl Frontend {
     /// ```
     pub fn link_from_raw_input(
         &self,
-        domain_input: &Source,
-        problem_input: &Source,
+        domain_source: &Source,
+        problem_source: &Source,
     ) -> Result<LirBuilderResult, AiplanError> {
         // Step 1: Parse, normalize, and analyze both domain and problem files
-        let domain = self.parse_from_raw_input(&domain_input)?;
-        let problem = self.parse_from_raw_input(&problem_input)?;
+        let domain = self.parse_from_raw_input(&domain_source)?;
+        let problem = self.parse_from_raw_input(&problem_source)?;
 
         // Step 2: Link domain and problem semantic contexts
         let mut linker = Linker::new();
@@ -180,8 +179,8 @@ impl Frontend {
     /// 4. If linking succeeds, builds a **Lifted Intermediate Representation (LIR)** using `LirBuilder`.
     ///
     /// # Input
-    /// - `domain`: A reference to an `Input` containing a **parsed/serialized domain** (e.g., `.sem`, `.json`).
-    /// - `problem`: A reference to an `Input` containing a **parsed/serialized problem** (e.g., `.sem`, `.json`).
+    /// - `domain`: A reference to an `Source` containing a **parsed/serialized domain** (e.g., `.sem`, `.json`).
+    /// - `problem`: A reference to an `Source` containing a **parsed/serialized problem** (e.g., `.sem`, `.json`).
     /// Both inputs are expected to be of kind `Input::IR` or other serialized formats supported by `SemanticContext::deserialize_from_file_with_auto_format`.
     ///
     /// # Returns

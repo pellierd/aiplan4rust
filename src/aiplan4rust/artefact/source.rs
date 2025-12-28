@@ -1,3 +1,67 @@
+//! Artefact module: managing sources for the planning pipeline
+//!
+//! This module provides abstractions and utilities for handling different types of sources
+//! (raw, intermediate representation, unknown text, unknown binary) used in the planning pipeline.
+//! It allows reading, identifying, and accessing content in a type-safe way while preserving
+//! file provenance information.
+//!
+//! # Concepts
+//!
+//! - **Source**: Represents a single input artifact. A `Source` can be:
+//!   - `Raw`: A raw textual source, e.g., PDDL or HDDL.
+//!   - `IR`: An intermediate representation of a domain or problem.
+//!   - `Text`: An unknown text source whose type could not be determined.
+//!   - `Binary`: An unknown binary source.
+//!
+//! - **ArtefactError**: Enumerates all possible errors that can occur while reading,
+//!   analyzing, or accessing a source. Includes I/O errors, JSON serialization errors,
+//!   missing content, or invalid file names.
+//!
+//! # Usage
+//!
+//! To read a file and obtain a `Source`:
+//!
+//! ```rust,ignore
+//! use aiplan4rust::artefact::{Source, ArtefactError};
+//! use std::path::Path;
+//!
+//! let source: Source = Source::read_from_file(Path::new("domain.pddl"))?;
+//! match source {
+//!     Source::Raw { .. } => println!("Raw source detected"),
+//!     Source::IR { .. } => println!("IR source detected"),
+//!     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source type"),
+//! }
+//! # Ok::<(), ArtefactError>(())
+//! ```
+//!
+//! # Accessing content
+//!
+//! Each `Source` variant provides safe accessors:
+//!
+//! - `raw_content` / `try_raw_content` for `Raw` sources.
+//! - `ir_content` / `try_ir_content` for `IR` sources.
+//! - `text_content` / `try_text_content` for unknown text sources.
+//! - `binary_content` / `try_binary_content` for unknown binary sources.
+//!
+//! # Detection helpers
+//!
+//! `Source` provides utility methods to check its type and contents:
+//! - `is_raw`, `is_ir`, `is_text`, `is_binary`
+//! - `is_raw_domain`, `is_raw_problem`, `is_raw_pddl`, `is_raw_hddl`
+//! - `is_parsed_domain`, `is_parsed_problem`, `is_lifted_problem`
+//!
+//! These helpers make it easy to branch logic depending on the type of the source.
+//!
+//! # Example: Reading and accessing content
+//!
+//! ```rust,ignore
+//! let source = Source::read_from_file("domain.pddl")?;
+//! if let Ok(raw) = source.try_raw_content() {
+//!     println!("Language: {:?}", raw.language());
+//!     println!("Kind: {:?}", raw.kind());
+//! }
+//! ```
+
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -14,80 +78,257 @@ use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeSerializable, SerializationError};
 use crate::aiplan4rust::syntax::lexer::Token;
 
-/// Représentation d'une source pour le pipeline
+/// Represents a source artifact used in the planning pipeline.
+///
+/// A `Source` can be one of several types, representing different stages or forms of input:
+/// - `Raw`: A textual source in PDDL or HDDL format, containing a `RawContent`.
+/// - `IR`: An intermediate representation (IR) of a domain or problem, containing an `IRContent`.
+/// - `Text`: An unknown text source whose structure or type could not be determined.
+/// - `Binary`: An unknown binary source whose content could not be classified.
+///
+/// Each variant stores the path from which the source was read, allowing for
+/// traceability and file-based operations.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use std::path::PathBuf;
+/// use aiplan4rust::artefact::{Source, RawContent, IRContent};
+///
+/// let raw_source = Source::Raw {
+///     path: PathBuf::from("domain.pddl"),
+///     content: RawContent::new("..."),
+/// };
+///
+/// let ir_source = Source::IR {
+///     path: PathBuf::from("domain.ir"),
+///     content: IRContent::ParsedDomain(Default::default(), "format".to_string()),
+/// };
+/// ```
 #[derive(Debug, Clone)]
 pub enum Source {
+    /// A raw textual source, typically PDDL or HDDL.
+    /// Contains the original file path and the raw content.
     Raw {
+        /// Path to the raw source file.
         path: PathBuf,
+        /// Raw content of the source.
         content: RawContent,
     },
+
+    /// An intermediate representation (IR) source of a domain or problem.
+    /// Contains the file path and IR content, which may include parsed domains or problems.
     IR {
+        /// Path to the IR source file.
         path: PathBuf,
+        /// Content of the IR source.
         content: IRContent,
     },
+
+    /// An unknown text source, where the type or structure could not be determined.
+    /// Stores the file path and raw string content.
     Text {
+        /// Path to the text source file.
         path: PathBuf,
+        /// Raw text content.
         content: String,
     },
+
+    /// An unknown binary source, where the type could not be determined.
+    /// Stores the file path and binary content.
     Binary {
+        /// Path to the binary source file.
         path: PathBuf,
+        /// Raw binary content.
         content: Vec<u8>,
     },
 }
 
 
 impl Source {
-
-    // Constructeur pour le variant Raw
-    pub fn new_raw(path: impl Into<PathBuf>, content: RawContent) -> Self {
+    /// Constructs a new `Source::Raw` variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path associated with the raw source.
+    /// * `content` - The raw content of the source (PDDL or HDDL).
+    ///
+    /// # Returns
+    ///
+    /// A `Source` instance representing a raw source.
+    fn new_raw(path: impl Into<PathBuf>, content: RawContent) -> Self {
         Source::Raw {
             path: path.into(),
             content,
         }
     }
 
-    // Constructeur pour le variant IR
-    pub fn new_ir(
-        path: impl Into<PathBuf>,
-        content: IRContent,
-    ) -> Self {
+    /// Constructs a new `Source::IR` (Intermediate Representation) variant.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path associated with the IR source.
+    /// * `content` - The IR content of the source.
+    ///
+    /// # Returns
+    ///
+    /// A `Source` instance representing an IR source.
+    fn new_ir(path: impl Into<PathBuf>, content: IRContent) -> Self {
         Source::IR {
             path: path.into(),
             content,
         }
     }
 
-    // Constructeur pour TextUnknown
-    pub fn new_text(path: impl Into<PathBuf>, content: impl Into<String>) -> Self {
+    /// Constructs a new `Source::Text` variant for unknown text content.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path associated with the text source.
+    /// * `content` - The unknown text content as a string.
+    ///
+    /// # Returns
+    ///
+    /// A `Source` instance representing an unknown text source.
+    fn new_text(path: impl Into<PathBuf>, content: impl Into<String>) -> Self {
         Source::Text {
             path: path.into(),
             content: content.into(),
         }
     }
 
-    // Constructeur pour BinaryUnknown
-    pub fn new_binary(path: impl Into<PathBuf>, content: Vec<u8>) -> Self {
+    /// Constructs a new `Source::Binary` variant for unknown binary content.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The file path associated with the binary source.
+    /// * `content` - The unknown binary content as a byte vector.
+    ///
+    /// # Returns
+    ///
+    /// A `Source` instance representing an unknown binary source.
+    fn new_binary(path: impl Into<PathBuf>, content: Vec<u8>) -> Self {
         Source::Binary {
             path: path.into(),
             content,
         }
     }
 
+    /// Attempts to create a `Source` from any type that implements `AsRef<Path>`.
+    ///
+    /// This is a convenience wrapper around `TryFrom<&Path>` which allows passing
+    /// `Path`, `PathBuf`, or `&str`.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use std::path::Path;
+    /// use aiplan4rust::artefact::{Source, ArtefactError};
+    ///
+    /// let source = Source::try_from_path("domain.pddl")?;
+    /// # Ok::<(), ArtefactError>(())
+    /// ```
+    pub fn try_from_path<P>(path: P) -> Result<Self, ArtefactError>
+    where
+        P: AsRef<Path>,
+    {
+        Source::try_from(path.as_ref())
+    }
+}
+
+impl TryFrom<&Path> for Source {
+    type Error = ArtefactError;
+
+    /// Attempts to create a `Source` by reading the file at the given path.
+    ///
+    /// This function reads the file content and automatically determines
+    /// the appropriate `Source` variant:
+    /// - `Raw` for PDDL or HDDL sources
+    /// - `IR` for intermediate representation
+    /// - `Text` or `Binary` if detection fails
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Reference to the file path to read.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Source)` containing the correctly detected variant.
+    /// * `Err(ArtefactError)` if reading the file fails or content analysis fails.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use std::convert::TryFrom;
+    /// use std::path::Path;
+    /// use aiplan4rust::artefact::{Source, ArtefactError};
+    ///
+    /// let source = Source::try_from(Path::new("domain.pddl"))?;
+    /// match source {
+    ///     Source::Raw { .. } => println!("Raw source detected"),
+    ///     Source::IR { .. } => println!("IR source detected"),
+    ///     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source type"),
+    /// }
+    /// # Ok::<(), ArtefactError>(())
+    /// ```
+    fn try_from(path: &Path) -> Result<Self, Self::Error> {
+        let path_buf = path.to_path_buf();
+
+        // Read the file bytes using the internal helper
+        let bytes = Self::read_file(&path_buf)?;
+
+        // Detect the correct Source variant based on the bytes
+        Self::read_from_bytes(path_buf, bytes)
+    }
+}
+
+impl Source {
     // -------------------------------------------------------------------------
     // Public reading API
     // -------------------------------------------------------------------------
 
-    /// Lit un fichier et retourne le bon `Input` (Raw / IR / Unknown)
+    /*/// Reads a file from the given path and returns the appropriate `Source` variant.
+    ///
+    /// This function detects the type of source based on its content:
+    /// - Raw sources (`Raw`) for PDDL or HDDL text.
+    /// - Intermediate representation (`IR`) sources.
+    /// - Unknown sources (text or binary) if detection fails.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A path to the file to read. Can be any type implementing `AsRef<Path>`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Source)` containing the correctly detected source variant.
+    /// * `Err(ArtefactError)` if the file cannot be read or an error occurs during detection.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use aiplan4rust::artefact::Source;
+    /// use std::path::Path;
+    ///
+    /// let source = Source::read_from_file(Path::new("domain.pddl"))?;
+    /// match source {
+    ///     Source::Raw { .. } => println!("Raw source detected"),
+    ///     Source::IR { .. } => println!("IR source detected"),
+    ///     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source type"),
+    /// }
+    /// # Ok::<(), aiplan4rust::artefact::ArtefactError>(())
+    /// ```
     pub fn read_from_file(path: impl AsRef<Path>) -> Result<Self, ArtefactError> {
         let path_buf = path.as_ref().to_path_buf();
         let bytes = Self::read_file(&path_buf)?;
         Self::read_from_bytes(path_buf, bytes)
-    }
+    }*/
 
     // -------------------------------------------------------------------------
     // Internal helpers
     // -------------------------------------------------------------------------
-    /// Reads an `Input` from a byte vector, attempting IR deserialization first, then falling back to raw or unknown content.
+
+    /// Reads an `Source` from a byte vector, attempting IR deserialization first, then falling back
+    /// to raw or unknown content.
     ///
     /// This function performs the following steps:
     /// 1. Attempts to parse a JSON header and payload using [`Self::try_to_read_ir`].
@@ -120,7 +361,7 @@ impl Source {
     /// let bytes: Vec<u8> = std::fs::read("example.ir").unwrap();
     /// let input = Input::read_from_bytes(PathBuf::from("example.ir"), bytes).unwrap();
     /// ```
-    pub fn read_from_bytes(path: PathBuf, bytes: Vec<u8>) -> Result<Self, ArtefactError> {
+    fn read_from_bytes(path: PathBuf, bytes: Vec<u8>) -> Result<Self, ArtefactError> {
         // Attempt to read IR header and payload
         match Self::try_to_read_ir(&bytes)? {
             Some((header, payload)) => {
@@ -281,11 +522,22 @@ impl Source {
 
         Ok(Some((header, payload)))
     }
+}
 
-    // -------------------------------------------------------------------------
-    // Accessors
-    // -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+// Accessors for Source paths and content
+// -------------------------------------------------------------------------
+impl Source {
 
+    /// Returns the file path associated with this `Source`.
+    ///
+    /// Works for all variants (`Raw`, `IR`, `Text`, `Binary`).
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// let path = source.path();
+    /// println!("Source path: {}", path.display());
+    /// ```
     pub fn path(&self) -> &Path {
         match self {
             Source::Raw { path, .. } => path,
@@ -295,7 +547,26 @@ impl Source {
         }
     }
 
-    // --- RawContent ---
+    // ---------------------------------------------------------------------
+    // RawContent accessors
+    // ---------------------------------------------------------------------
+
+    /// Returns a reference to the `RawContent` if this `Source` represents a raw artefact
+    /// (e.g., a PDDL or HDDL file).
+    ///
+    /// This accessor is non-failing and returns `None` if the `Source` is not of the `Raw` variant.
+    ///
+    /// # Returns
+    /// - `Some(&RawContent)` if the `Source` is raw.
+    /// - `None` otherwise.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// if let Some(raw) = source.raw_content() {
+    ///     println!("Raw source kind: {:?}", raw.kind());
+    /// }
+    /// ```
     pub fn raw_content(&self) -> Option<&RawContent> {
         match self {
             Source::Raw { content, .. } => Some(content),
@@ -303,6 +574,23 @@ impl Source {
         }
     }
 
+    /// Returns a reference to the `RawContent` if this `Source` represents a raw artefact,
+    /// or an `ArtefactError::MissingRawContent` if it does not.
+    ///
+    /// This method is useful when the caller expects the `Source` to be raw and wants
+    /// to fail explicitly otherwise.
+    ///
+    /// # Errors
+    /// Returns `ArtefactError::MissingRawContent` if the `Source` is not of the `Raw` variant.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// match source.try_raw_content() {
+    ///     Ok(raw) => println!("Raw source kind: {:?}", raw.kind()),
+    ///     Err(e) => eprintln!("Source is not raw: {}", e),
+    /// }
+    /// ```
     pub fn try_raw_content(&self) -> Result<&RawContent, ArtefactError> {
         match self {
             Source::Raw { content, .. } => Ok(content),
@@ -310,7 +598,26 @@ impl Source {
         }
     }
 
-    // --- IRContent ---
+    // ---------------------------------------------------------------------
+    // IRContent accessors
+    // ---------------------------------------------------------------------
+
+    /// Returns a reference to the `IRContent` if this `Source` represents an intermediate
+    /// representation (IR) artefact.
+    ///
+    /// This accessor is non-failing and returns `None` if the `Source` is not of the `IR` variant.
+    ///
+    /// # Returns
+    /// - `Some(&IRContent)` if the `Source` is IR.
+    /// - `None` otherwise.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// if let Some(ir) = source.ir_content() {
+    ///     println!("IR content type: {:?}", ir.kind());
+    /// }
+    /// ```
     pub fn ir_content(&self) -> Option<&IRContent> {
         match self {
             Source::IR { content, .. } => Some(content),
@@ -318,6 +625,23 @@ impl Source {
         }
     }
 
+    /// Returns a reference to the `IRContent` if this `Source` represents an IR artefact,
+    /// or an `ArtefactError::MissingIRContent` if it does not.
+    ///
+    /// This method is useful when the caller expects the `Source` to be IR and wants
+    /// to fail explicitly otherwise.
+    ///
+    /// # Errors
+    /// Returns `ArtefactError::MissingIRContent` if the `Source` is not of the `IR` variant.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// match source.try_ir_content() {
+    ///     Ok(ir) => println!("IR content type: {:?}", ir.kind()),
+    ///     Err(e) => eprintln!("Source is not IR: {}", e),
+    /// }
+    /// ```
     pub fn try_ir_content(&self) -> Result<&IRContent, ArtefactError> {
         match self {
             Source::IR { content, .. } => Ok(content),
@@ -325,21 +649,23 @@ impl Source {
         }
     }
 
-    // --- Unknown binary content ---
-    pub fn binary_content(&self) -> Option<&[u8]> {
-        match self {
-            Source::Binary { content, .. } => Some(content),
-            _ => None,
-        }
-    }
-
-    pub fn try_binary_content(&self) -> Result<&[u8], ArtefactError> {
-        match self {
-            Source::Binary { content, .. } => Ok(content),
-            _ => Err(ArtefactError::missing_binary_content()),
-        }
-    }
-
+    /// Returns a reference to the parsed semantic context if this `Source` is a parsed
+    /// IR domain or problem.
+    ///
+    /// This is useful for extracting the `SemanticContext` of parsed IR sources
+    /// without consuming the `Source`.
+    ///
+    /// # Errors
+    /// Returns `ArtefactError::MissingIRContent` if the `Source` is not IR
+    /// or does not contain a parsed domain or problem.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// if let Ok(parsed) = source.try_parsed_content() {
+    ///     println!("Parsed domain or problem context: {:?}", parsed);
+    /// }
+    /// ```
     pub fn try_parsed_content(&self) -> Result<&SemanticContext, ArtefactError> {
         match self {
             Source::IR { content, .. } => match content {
@@ -351,11 +677,24 @@ impl Source {
         }
     }
 
-    /// Retourne le contenu Parsed (Context) par valeur, sans consommer l'Input.
+    /// Returns a cloned parsed semantic context without consuming the `Source`.
+    ///
+    /// This method allows obtaining an owned `SemanticContext` from a parsed IR domain
+    /// or problem, which can be used independently of the original `Source`.
+    ///
+    /// # Errors
+    /// Returns `ArtefactError::MissingIRContent` if the `Source` is not IR
+    /// or does not contain a parsed domain or problem.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// let owned_context = source.parsed_content_owned()?;
+    /// ```
     pub fn parsed_content_owned(&self) -> Result<SemanticContext, ArtefactError> {
         match self {
             Source::IR { content, .. } => match content {
-                IRContent::ParsedDomain(domain, _) => Ok(domain.clone()),  // clone seulement le contenu
+                IRContent::ParsedDomain(domain, _) => Ok(domain.clone()),
                 IRContent::ParsedProblem(problem, _) => Ok(problem.clone()),
                 _ => Err(ArtefactError::MissingIRContent),
             },
@@ -363,7 +702,80 @@ impl Source {
         }
     }
 
-    // --- Unknown text content ---
+    // ---------------------------------------------------------------------
+    // Binary content accessors
+    // ---------------------------------------------------------------------
+
+    /// Returns a reference to the unknown binary content if this `Source` represents
+    /// a binary artefact.
+    ///
+    /// This accessor is non-failing and returns `None` if the `Source` is not of the
+    /// `Binary` variant.
+    ///
+    /// # Returns
+    /// - `Some(&[u8])` if the `Source` is binary.
+    /// - `None` otherwise.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// if let Some(bytes) = source.binary_content() {
+    ///     println!("Binary content length: {}", bytes.len());
+    /// }
+    /// ```
+    pub fn binary_content(&self) -> Option<&[u8]> {
+        match self {
+            Source::Binary { content, .. } => Some(content),
+            _ => None,
+        }
+    }
+
+    /// Returns a reference to the unknown binary content if this `Source` is binary,
+    /// otherwise returns a `MissingBinaryContent` error.
+    ///
+    /// This method is useful when the caller expects the `Source` to be binary
+    /// and wants to fail explicitly if it is not.
+    ///
+    /// # Errors
+    /// Returns `ArtefactError::MissingBinaryContent` if the `Source` is not of the
+    /// `Binary` variant.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// match source.try_binary_content() {
+    ///     Ok(bytes) => println!("Binary content length: {}", bytes.len()),
+    ///     Err(e) => eprintln!("Source is not binary: {}", e),
+    /// }
+    /// ```
+    pub fn try_binary_content(&self) -> Result<&[u8], ArtefactError> {
+        match self {
+            Source::Binary { content, .. } => Ok(content),
+            _ => Err(ArtefactError::missing_binary_content()),
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // Text content accessors
+    // ---------------------------------------------------------------------
+
+    /// Returns a reference to the unknown text content if this `Source` represents
+    /// a text artefact.
+    ///
+    /// This accessor is non-failing and returns `None` if the `Source` is not of the
+    /// `Text` variant.
+    ///
+    /// # Returns
+    /// - `Some(&String)` if the `Source` is text.
+    /// - `None` otherwise.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// if let Some(text) = source.text_content() {
+    ///     println!("Text content length: {}", text.len());
+    /// }
+    /// ```
     pub fn text_content(&self) -> Option<&String> {
         match self {
             Source::Text { content, .. } => Some(content),
@@ -371,6 +783,24 @@ impl Source {
         }
     }
 
+    /// Returns a reference to the unknown text content if this `Source` is text,
+    /// otherwise returns a `MissingTextContent` error.
+    ///
+    /// This method is useful when the caller expects the `Source` to be text
+    /// and wants to fail explicitly if it is not.
+    ///
+    /// # Errors
+    /// Returns `ArtefactError::MissingTextContent` if the `Source` is not of the
+    /// `Text` variant.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// match source.try_text_content() {
+    ///     Ok(text) => println!("Text content length: {}", text.len()),
+    ///     Err(e) => eprintln!("Source is not text: {}", e),
+    /// }
+    /// ```
     pub fn try_text_content(&self) -> Result<&String, ArtefactError> {
         match self {
             Source::Text { content, .. } => Ok(content),
@@ -378,62 +808,82 @@ impl Source {
         }
     }
 
-    /// Returns true if this Input is a raw source (PDDL or HDDL)
+    // ---------------------------------------------------------------------
+    // Type predicates
+    // ---------------------------------------------------------------------
+
+    /// Returns `true` if this `Source` is a raw source (PDDL or HDDL).
     pub fn is_raw(&self) -> bool {
         matches!(self, Source::Raw { .. })
     }
 
-    /// Returns true if this Input is a raw domain (PDDL or HDDL)
+    /// Returns `true` if this `Source` is a raw domain.
     pub fn is_raw_domain(&self) -> bool {
         matches!(self, Source::Raw { content, .. } if content.kind() == RawKind::Domain)
     }
 
-    /// Returns true if this Input is a raw problem (PDDL or HDDL)
+    /// Returns `true` if this `Source` is a raw problem.
     pub fn is_raw_problem(&self) -> bool {
         matches!(self, Source::Raw { content, .. } if content.kind() == RawKind::Problem)
     }
 
-    /// Returns true if this Input is a raw PDDL source
+    /// Returns `true` if this `Source` is a raw PDDL source.
     pub fn is_raw_pddl(&self) -> bool {
         matches!(self, Source::Raw { content, .. } if content.language() == Language::PDDL)
     }
 
-    /// Returns true if this Input is a raw HDDL source
+    /// Returns `true` if this `Source` is a raw HDDL source.
     pub fn is_raw_hddl(&self) -> bool {
         matches!(self, Source::Raw { content, .. } if content.language() == Language::HDDL)
     }
 
-    /// Returns true if this Input is an intermediate representation (IR).
+    /// Returns `true` if this `Source` is an intermediate representation (IR).
     pub fn is_ir(&self) -> bool {
         matches!(self, Source::IR { .. })
     }
 
-    /// Returns true if this Input is a parsed IR domain (ParsedDomain)
+    /// Returns `true` if this `Source` is a parsed IR domain.
     pub fn is_parsed_domain(&self) -> bool {
         matches!(self.ir_kind(), Some(IRKind::ParsedDomain))
     }
 
-    /// Returns true if this Input is a parsed IR problem (ParsedProblem)
+    /// Returns `true` if this `Source` is a parsed IR problem.
     pub fn is_parsed_problem(&self) -> bool {
         matches!(self.ir_kind(), Some(IRKind::ParsedProblem))
     }
 
-    /// Returns true if this Input is a lifted IR problem (LiftedProblem)
+    /// Returns `true` if this `Source` is a lifted IR problem.
     pub fn is_lifted_problem(&self) -> bool {
         matches!(self.ir_kind(), Some(IRKind::LiftedProblem))
     }
 
-    /// Returns true if this Input is an unknown text source.
+    /// Returns `true` if this `Source` is an unknown text source.
     pub fn is_text(&self) -> bool {
         matches!(self, Source::Text { .. })
     }
 
-    /// Returns true if this Input is an unknown binary source.
+    /// Returns `true` if this `Source` is an unknown binary source.
     pub fn is_binary(&self) -> bool {
         matches!(self, Source::Binary { .. })
     }
 
-    /// Retourne Some(RawKind) si c'est Raw, None sinon
+    // ---------------------------------------------------------------------
+    // Kind helpers
+    // ---------------------------------------------------------------------
+
+    /// Returns the specific kind of this raw source if it is raw.
+    ///
+    /// # Returns
+    /// - `Some(RawKind)` if the `Source` is raw (PDDL or HDDL).
+    /// - `None` if the `Source` is not raw.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// if let Some(kind) = source.raw_kind() {
+    ///     println!("Raw source kind: {:?}", kind);
+    /// }
+    /// ```
     pub fn raw_kind(&self) -> Option<RawKind> {
         match self {
             Source::Raw { content, .. } => Some(content.kind()),
@@ -441,7 +891,19 @@ impl Source {
         }
     }
 
-    /// Retourne Some(IRKind) si c'est IR, None sinon
+    /// Returns the specific kind of this IR source if it is an intermediate representation (IR).
+    ///
+    /// # Returns
+    /// - `Some(IRKind)` if the `Source` is IR.
+    /// - `None` if the `Source` is not IR.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let source: Source = ...;
+    /// if let Some(ir_kind) = source.ir_kind() {
+    ///     println!("IR source kind: {:?}", ir_kind);
+    /// }
+    /// ```
     pub fn ir_kind(&self) -> Option<IRKind> {
         match self {
             Source::IR { content, .. } => Some(content.kind()),
@@ -449,12 +911,41 @@ impl Source {
         }
     }
 
-    // --- Domain / Problem helpers ---
+    // ---------------------------------------------------------------------
+    // Domain / Problem helpers
+    // ---------------------------------------------------------------------
+
+    /// Returns `true` if this `Source` represents a planning domain.
+    ///
+    /// A source is considered a domain if:
+    /// - It is a raw source with `RawKind::Domain`, or
+    /// - It is an IR source with `IRKind::ParsedDomain`.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let domain_source: Source = ...;
+    /// if domain_source.is_domain() {
+    ///     println!("This source is a domain.");
+    /// }
+    /// ```
     pub fn is_domain(&self) -> bool {
         matches!(self.raw_kind(), Some(RawKind::Domain))
             || matches!(self.ir_kind(), Some(IRKind::ParsedDomain))
     }
 
+    /// Returns `true` if this `Source` represents a planning problem.
+    ///
+    /// A source is considered a problem if:
+    /// - It is a raw source with `RawKind::Problem`, or
+    /// - It is an IR source with `IRKind::ParsedProblem` or `IRKind::LiftedProblem`.
+    ///
+    /// # Examples
+    /// ```rust,ignore
+    /// let problem_source: Source = ...;
+    /// if problem_source.is_problem() {
+    ///     println!("This source is a problem.");
+    /// }
+    /// ```
     pub fn is_problem(&self) -> bool {
         matches!(self.raw_kind(), Some(RawKind::Problem))
             || matches!(self.ir_kind(), Some(IRKind::ParsedProblem))
