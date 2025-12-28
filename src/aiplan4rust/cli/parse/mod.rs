@@ -4,7 +4,7 @@
 //!
 //! It is split into two submodules:
 //! - [`cli`]: defines the CLI interface, arguments, and help messages for the `parse` subcommand.
-//! - [`handle`]: contains the logic for executing the `parse` command, including file parsing
+//! - [`handler`]: contains the logic for executing the `parse` command, including file parsing
 //!   and output generation.
 //!
 //! # Public API
@@ -23,8 +23,8 @@
 //! ```
 
 pub mod cli;
-pub mod handle;
+pub mod handler;
 
 /// Re-export the main handler function for the `parse` command.
-pub use handle::handle_parse_command;
+pub use handler::handle_parse_command;
 pub use cli::PARSE_SUBCOMMAND;

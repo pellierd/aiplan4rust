@@ -7,7 +7,7 @@
 //! The `link` subcommand is responsible for performing linking operations within
 //! the AI planning workflow. This module is split into two submodules:
 //!
-//! - [`handle`] — Contains the logic to execute the `link` command, including
+//! - [`handler`] — Contains the logic to execute the `link` command, including
 //!   any processing or file manipulation required.
 //! - [`cli`] — Defines the CLI interface, arguments, help messages, and constants
 //!   for the `link` subcommand.
@@ -26,11 +26,11 @@
 //! // handle_link_command(&matches);
 //! ```
 
-pub mod handle;
+pub mod handler;
 pub mod cli;
 
 /// Re-export the main handler function for the `link` command.
-pub use handle::handle_link_command;
+pub use handler::handle_link_command;
 
 /// Re-export the subcommand name constant for `link`.
 pub use cli::LINK_SUBCOMMAND;
