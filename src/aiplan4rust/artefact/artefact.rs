@@ -46,7 +46,6 @@ use std::path::{Path, PathBuf};
 use std::fmt;
 
 use crate::aiplan4rust::artefact::error::ArtefactError;
-use crate::aiplan4rust::artefact::Extension;
 use crate::aiplan4rust::artefact::ir::header::{Header, HEADER_PAYLOAD_SEPARATOR};
 use crate::aiplan4rust::artefact::ir::content::IRContent;
 use crate::aiplan4rust::artefact::raw::content::RawContent;

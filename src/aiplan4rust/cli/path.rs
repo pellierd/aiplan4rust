@@ -20,6 +20,26 @@ pub fn default_parsed_output_path(
     default_output_path(input_path, None, Extension::Parsed, Some(out_dir))
 }
 
+/// Generates a default "lifted" output path for a given domain and problem file.
+///
+/// This function simplifies calling `default_output_path` for the case
+/// of linking a domain with a single problem file and uses `Extension::Lifted` by default.
+///
+/// # Arguments
+/// * `domain_path` - The path to the domain file.
+/// * `problem_path` - The path to the problem file.
+/// * `out_dir` - The output directory where the file should be placed.
+///
+/// # Errors
+/// Returns `io::Error` if the file stem is missing or invalid UTF-8.
+pub fn default_lifted_output_path(
+    domain_path: &Path,
+    problem_path: &Path,
+    out_dir: &Path,
+) -> Result<PathBuf, io::Error> {
+    default_output_path(domain_path, Some(problem_path), Extension::Lifted, Some(out_dir))
+}
+
 /// Generates a default output path from a domain file and optionally a problem file,
 /// using the specified output `Extension`, and optionally placing the result in an
 /// output directory.

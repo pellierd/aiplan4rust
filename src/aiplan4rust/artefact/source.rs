@@ -190,6 +190,7 @@ impl Source {
     /// # Returns
     ///
     /// A `Source` instance representing an unknown text source.
+    #[allow(dead_code)]
     fn new_text(path: impl Into<PathBuf>, content: impl Into<String>) -> Self {
         Source::Text {
             path: path.into(),
@@ -207,6 +208,7 @@ impl Source {
     /// # Returns
     ///
     /// A `Source` instance representing an unknown binary source.
+    #[allow(dead_code)]
     fn new_binary(path: impl Into<PathBuf>, content: Vec<u8>) -> Self {
         Source::Binary {
             path: path.into(),
@@ -282,50 +284,11 @@ impl TryFrom<&Path> for Source {
     }
 }
 
+// -------------------------------------------------------------------------
+// Internal helpers
+// -------------------------------------------------------------------------
+
 impl Source {
-    // -------------------------------------------------------------------------
-    // Public reading API
-    // -------------------------------------------------------------------------
-
-    /*/// Reads a file from the given path and returns the appropriate `Source` variant.
-    ///
-    /// This function detects the type of source based on its content:
-    /// - Raw sources (`Raw`) for PDDL or HDDL text.
-    /// - Intermediate representation (`IR`) sources.
-    /// - Unknown sources (text or binary) if detection fails.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - A path to the file to read. Can be any type implementing `AsRef<Path>`.
-    ///
-    /// # Returns
-    ///
-    /// * `Ok(Source)` containing the correctly detected source variant.
-    /// * `Err(ArtefactError)` if the file cannot be read or an error occurs during detection.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,ignore
-    /// use aiplan4rust::artefact::Source;
-    /// use std::path::Path;
-    ///
-    /// let source = Source::read_from_file(Path::new("domain.pddl"))?;
-    /// match source {
-    ///     Source::Raw { .. } => println!("Raw source detected"),
-    ///     Source::IR { .. } => println!("IR source detected"),
-    ///     Source::Text { .. } | Source::Binary { .. } => println!("Unknown source type"),
-    /// }
-    /// # Ok::<(), aiplan4rust::artefact::ArtefactError>(())
-    /// ```
-    pub fn read_from_file(path: impl AsRef<Path>) -> Result<Self, ArtefactError> {
-        let path_buf = path.as_ref().to_path_buf();
-        let bytes = Self::read_file(&path_buf)?;
-        Self::read_from_bytes(path_buf, bytes)
-    }*/
-
-    // -------------------------------------------------------------------------
-    // Internal helpers
-    // -------------------------------------------------------------------------
 
     /// Reads an `Source` from a byte vector, attempting IR deserialization first, then falling back
     /// to raw or unknown content.
@@ -516,7 +479,7 @@ impl Source {
             Err(_) => return Ok(None), // invalid JSON → treat as not IR
         };
 
-        if !header.validate_magic() {
+        if !header.check_magic() {
             return Ok(None); // invalid magic → treat as not IR
         }
 

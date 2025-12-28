@@ -16,11 +16,11 @@
 //! - **Diagnostics:** Tracks and prints errors and warnings encountered during linking.
 //! - **CLI Integration:** Uses `clap::ArgMatches` to parse command-line arguments for the `link` subcommand.
 
-use crate::aiplan4rust::cli::cli::{FILES_ARG, FORMAT_ARG, OUTPUT_ARG};
+use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
 use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::artefact::source::Source;
-use crate::aiplan4rust::artefact::{Extension, IRContent, Artefact};
+use crate::aiplan4rust::artefact::{IRContent, Artefact};
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
@@ -30,7 +30,8 @@ use colored::Colorize;
 use std::fs;
 use std::path::PathBuf;
 use clap::error::ErrorKind;
-use crate::aiplan4rust::cli::path::default_output_path;
+use crate::aiplan4rust::cli::check::check_link_args;
+use crate::aiplan4rust::cli::path::default_lifted_output_path;
 
 /// Handles the `link` CLI subcommand.
 ///
@@ -70,6 +71,9 @@ use crate::aiplan4rust::cli::path::default_output_path;
 /// handle_link_command(&matches)?;
 /// ```
 pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
+    // --- Validate CLI arguments ---
+    check_link_args(matches)?;
+
     // --- Collect files from CLI arguments ---
     let files: Vec<String> = matches
         .get_many::<String>(FILES_ARG)
@@ -90,9 +94,16 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
     // --- Optional output path ---
     let output_opt = matches.get_one::<String>(OUTPUT_ARG).map(PathBuf::from);
 
+    // Determine the output directory
+    let out_dir = matches
+        .get_one::<String>(OUT_DIR_ARG)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(CURRENT_DIR));
+
+
     // --- Validate domain file ---
     let domain_file = PathBuf::from(&files[0]);
-    let domain = match validate_domain(&domain_file) {
+    let domain = match filter_domain(&domain_file) {
         Some(d) => d,
         None => {
             println!("Warning: no valid domain found, link command skipped");
@@ -102,7 +113,7 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
 
     // --- Validate problem files ---
     let problem_files: Vec<PathBuf> = files[1..].iter().map(PathBuf::from).collect();
-    let problems = validate_problems(&domain, problem_files)?;
+    let problems = filter_problems(&domain, problem_files)?;
 
     if problems.is_empty() {
         println!("Warning: no valid problem files found, nothing to do");
@@ -110,7 +121,7 @@ pub fn handle_link_command(matches: &ArgMatches) -> Result<(), CliError> {
     }
 
     // --- Execute linking workflow with validated inputs ---
-    link_inputs(&domain, &problems, format, output_opt)?;
+    link_inputs(&domain, &problems, format, &out_dir, &output_opt)?;
 
     Ok(())
 }
@@ -154,31 +165,17 @@ fn link_inputs(
     domain: &Source,
     problems: &Vec<Source>,
     format: SerdeFormat,
-    output_opt: Option<PathBuf>,
+    out_dir: &PathBuf,
+    output_opt: &Option<PathBuf>,
 ) -> Result<(), CliError> {
     use std::time::Instant;
 
     let start_time = Instant::now();
 
     for problem in problems {
-        // Déterminer le chemin de sortie
-        let output_path = if problems.len() == 1 {
-            output_opt.clone().unwrap_or_else(|| {
-                default_output_path(
-                    domain.path(),
-                    Some(problem.path()),
-                    Extension::Lifted,
-                    None,
-                )
-                .expect("failed to determine default output path")
-            })
-        } else {
-            default_output_path(
-                domain.path(),
-                Some(problem.path()),
-                Extension::Lifted,
-                None,
-            )?
+        let output_path: PathBuf = match output_opt {
+            Some(path) => path.to_path_buf(),
+            None => default_lifted_output_path(domain.path(), problem.path(), out_dir)?,
         };
 
         // Linking
@@ -446,7 +443,7 @@ pub fn save_link_output<P: Into<PathBuf>>(
 ///
 /// * `Some(Input)` - If the domain is successfully read and is of a valid type.
 /// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
-pub fn validate_domain(path: &PathBuf) -> Option<Source> {
+pub fn filter_domain(path: &PathBuf) -> Option<Source> {
     match Source::try_from_path(path) {
         // Domain successfully read and has a valid type
         Ok(d) if d.is_raw() || d.is_parsed_domain() => Some(d),
@@ -492,7 +489,7 @@ pub fn validate_domain(path: &PathBuf) -> Option<Source> {
 /// # Notes
 ///
 /// Problems that cannot be read are ignored and a warning is printed.
-pub fn validate_problems(
+pub fn filter_problems(
     domain: &Source,
     problem_paths: Vec<PathBuf>,
 ) -> Result<Vec<Source>, CliError> {
@@ -521,53 +518,6 @@ pub fn validate_problems(
     } else {
         // Domain type unrecognized, return an empty list
         Ok(vec![])
-    }
-}
-
-/// Attempts to read a problem input from the given file path.
-///
-/// This function tries to read an `Input` from the specified file. If the
-/// reading succeeds, the problem input is returned. If the reading fails,
-/// a warning message is printed to stdout and `None` is returned.
-///
-/// # Parameters
-///
-/// * `path` - The path to the problem file to be read.
-///
-/// # Returns
-///
-/// * `Some(Input)` - The successfully read problem input.
-/// * `None` - If the file could not be read, after printing a warning.
-///
-/// # Warnings
-///
-/// A warning is printed for any problem file that could not be read, specifying
-/// the path of the ignored file.
-///
-/// # Examples
-///
-/// ```rust
-/// # use std::path::PathBuf;
-/// # use aiplan4rust::io::Input;
-/// # fn example() {
-/// let problem_path = PathBuf::from("pb01.hddl");
-/// if let Some(problem) = read_problem(problem_path) {
-///     println!("Problem read successfully");
-/// } else {
-///     println!("Problem was ignored");
-/// }
-/// # }
-/// ```
-fn read_problem(path: PathBuf) -> Option<Source> {
-    match Source::try_from_path(&path) {
-        Ok(p) => Some(p),
-        Err(_) => {
-            println!(
-                "Warning: unable to read problem file '{}', it will be ignored",
-                path.display()
-            );
-            None
-        }
     }
 }
 
