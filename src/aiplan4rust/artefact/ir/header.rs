@@ -45,7 +45,7 @@ use crate::aiplan4rust::serialization::serde::SerdeFormat;
 pub const MAGIC: &str = "AIPL";
 
 /// Delimiter used to separate the header from the payload in a serialized file.
-pub const HEADER_PAYLOAD_SEPARATOR: &str = "\n---\n";
+pub const HEADER_PAYLOAD_SEPARATOR: &str = "\n---AIPL-HEADER---\n";
 
 /// Represents the metadata header for a serialized IR file.
 ///
