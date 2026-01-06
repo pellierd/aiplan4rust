@@ -63,8 +63,7 @@ pub fn build_parse_subcommand() -> Command {
                 .short(OUTPUT_SHORT)
                 .long(OUTPUT_LONG)
                 .help(OUTPUT_HELP)
-                .value_parser(clap::value_parser!(String))
-                .conflicts_with(OUT_DIR_ARG),
+                .value_parser(clap::value_parser!(String)),
         )
         .arg(
             Arg::new(OUT_DIR_ARG)

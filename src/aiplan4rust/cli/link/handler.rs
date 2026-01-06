@@ -31,7 +31,7 @@ use std::fs;
 use std::path::PathBuf;
 use clap::error::ErrorKind;
 use crate::aiplan4rust::cli::check::check_link_args;
-use crate::aiplan4rust::cli::path::default_lifted_output_path;
+use crate::aiplan4rust::cli::path::{default_lifted_output_path, output_path};
 
 /// Handles the `link` CLI subcommand.
 ///
@@ -174,7 +174,7 @@ fn link_inputs(
 
     for problem in problems {
         let output_path: PathBuf = match output_opt {
-            Some(path) => path.to_path_buf(),
+            Some(path) => output_path(&path.to_path_buf(), out_dir)?,
             None => default_lifted_output_path(domain.path(), problem.path(), out_dir)?,
         };
 
@@ -259,7 +259,6 @@ fn link_from_parsed_input(
     // If linking produced a semantic context, serialize it
     if let Some(lifted_problem) = builder_result.take_lifted_problem() {
         save_link_output(lifted_problem, format, output)?;
-        println!("Output saved to {}", output.to_string_lossy());
     }
 
     Ok(())
@@ -354,11 +353,6 @@ fn link_from_raw_input(
     } else if let Some(lifted_problem) = result.take_lifted_problem() {
         // Serialize the lifted problem
         save_link_output(lifted_problem, format, output)?;
-        println!(
-            "{} Output saved to {}",
-            "===>".blue().bold(),
-            output.to_string_lossy()
-        );
     }
 
     Ok(())

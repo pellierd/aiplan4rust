@@ -17,8 +17,28 @@ pub fn default_parsed_output_path(
     input_path: &Path,
     out_dir: &Path,
 ) -> Result<PathBuf, io::Error> {
-    default_output_path(input_path, None, Extension::Parsed, Some(out_dir))
+    default_output_path(input_path, None, Some(Extension::Parsed), Some(out_dir))
 }
+
+/// Generates an output path for a parsed file using the input file’s extension.
+///
+/// This function is similar to `default_parsed_output_path`, but it does not
+/// force the `Extension::Parsed` suffix. Instead, it lets `default_output_path`
+/// determine the extension based on the input path.
+///
+/// # Arguments
+/// * `input_path` - The path to the input file.
+/// * `out_dir` - The output directory where the file should be placed.
+///
+/// # Errors
+/// Returns `CliError::InvalidFileName` if the input file stem is missing or not valid UTF-8.
+pub fn output_path(
+    input_path: &Path,
+    out_dir: &Path,
+) -> Result<PathBuf, io::Error> {
+    default_output_path(input_path, None, None, Some(out_dir))
+}
+
 
 /// Generates a default "lifted" output path for a given domain and problem file.
 ///
@@ -37,7 +57,7 @@ pub fn default_lifted_output_path(
     problem_path: &Path,
     out_dir: &Path,
 ) -> Result<PathBuf, io::Error> {
-    default_output_path(domain_path, Some(problem_path), Extension::Lifted, Some(out_dir))
+    default_output_path(domain_path, Some(problem_path), Some(Extension::Lifted), Some(out_dir))
 }
 
 /// Generates a default output path from a domain file and optionally a problem file,
@@ -108,26 +128,41 @@ pub fn default_lifted_output_path(
 pub fn default_output_path(
     domain_path: &Path,
     problem_path: Option<&Path>,
-    extension: Extension,
+    extension: Option<Extension>,
     out_dir: Option<&Path>,
 ) -> Result<PathBuf, io::Error> {
-    // Extract domain stem using the helper
+    // Extract domain stem
     let domain_stem = file_stem_or_error(domain_path)?;
 
-    // Build filename depending on optional problem file
+    // Determine the extension to use
+    let ext_str = match extension {
+        Some(ext) => ext.to_string(), // assume Extension implements Display or ToString
+        None => domain_path
+            .extension()
+            .map(|e| e.to_string_lossy().into_owned())
+            .unwrap_or_default(), // no extension
+    };
+
+    // Build filename
     let filename = if let Some(problem) = problem_path {
         let problem_stem = file_stem_or_error(problem)?;
-        format!("{}-{}.{}", domain_stem, problem_stem, extension)
+        if ext_str.is_empty() {
+            format!("{}-{}", domain_stem, problem_stem)
+        } else {
+            format!("{}-{}.{}", domain_stem, problem_stem, ext_str)
+        }
     } else {
-        format!("{}.{}", domain_stem, extension)
+        if ext_str.is_empty() {
+            domain_stem.to_string()
+        } else {
+            format!("{}.{}", domain_stem, ext_str)
+        }
     };
 
     // Join with output directory if provided
-    Ok(match out_dir {
-        Some(dir) => dir.join(filename),
-        None => PathBuf::from(filename),
-    })
+    Ok(out_dir.unwrap_or_else(|| Path::new("")).join(filename))
 }
+
 
 
 /// Extracts the file stem (file name without extension) from a given `Path`.

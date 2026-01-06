@@ -12,7 +12,7 @@ use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::artefact::{IRContent, Artefact};
 use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::cli::check::check_parse_args;
-use crate::aiplan4rust::cli::path::default_parsed_output_path;
+use crate::aiplan4rust::cli::path::{default_parsed_output_path, output_path};
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::SerdeFormat;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -156,7 +156,7 @@ pub fn parse_inputs(
     for source in sources {
         // Determine output path
         let output_path = match output_opt {
-            Some(path) => path.to_path_buf(),
+            Some(path) => output_path(path, out_dir)?,
             None => default_parsed_output_path(source.path(), out_dir)?,
         };
 
