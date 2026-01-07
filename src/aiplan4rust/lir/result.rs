@@ -6,32 +6,14 @@ use std::fmt;
 /// Represents the outcome of the IR (Intermediate Representation) building phase.
 ///
 /// `LirBuilderResult` encapsulates either a successfully constructed `LiftedProblem`
-/// or a failure with diagnostics. It also preserves the `StringInterner` used during
-/// the build, allowing consistent access to identifiers and symbols even in case of failure.
+/// or a failure with diagnostics. The `StringInterner` used during the build is always
+/// preserved, even in case of failure, to ensure consistent access to identifiers
+/// for reporting or debugging.
 ///
 /// # Variants
 ///
-/// - `Success` — IR was successfully built and contains the `LiftedProblem`
-///   along with a `DiagnosticManager`.
-/// - `Failure` — IR build failed and contains a `DiagnosticManager` and optionally
-///   a `StringInterner` for reporting or debugging purposes.
-///
-/// # Example
-///
-/// ```rust
-/// use crate::lir::builder::LirBuilderResult;
-/// use crate::DiagnosticManager;
-/// use crate::aiplan4rust::lir::problem::LiftedProblem;
-///
-/// let diag_manager = DiagnosticManager::new();
-/// let lifted_problem = LiftedProblem::new_dummy(); // hypothetical constructor
-///
-/// let result = LirBuilderResult::success(lifted_problem, diag_manager.clone());
-/// assert!(result.is_success());
-///
-/// let failed = LirBuilderResult::failure(diag_manager, StringInterner::new());
-/// assert!(failed.is_failure());
-/// ```
+/// - `Success` — IR was successfully built, contains the `LiftedProblem` and diagnostics.
+/// - `Failure` — IR build failed, contains diagnostics and a `StringInterner`.
 #[derive(Debug, Clone)]
 pub enum Result {
     /// IR was successfully built.
@@ -45,8 +27,8 @@ pub enum Result {
     Failure {
         /// Diagnostics explaining why the build failed.
         diagnostic_manager: DiagnosticManager,
-        /// Optional interner preserved for consistent symbol reporting.
-        interner: Option<StringInterner>,
+        /// Interner preserved for consistent symbol reporting.
+        interner: StringInterner,
     },
 }
 
@@ -58,7 +40,7 @@ impl Result {
     /// - `diagnostic_manager` — Diagnostics collected during the build.
     ///
     /// # Returns
-    /// A `LirBuilderResult::Success` variant.
+    /// A `Result::Success` variant.
     pub fn success(
         lifted_problem: LiftedProblem,
         diagnostic_manager: DiagnosticManager,
@@ -69,21 +51,21 @@ impl Result {
         }
     }
 
-    /// Creates a failed builder result with diagnostics and optional interner.
+    /// Creates a failed builder result with diagnostics and interner.
     ///
     /// # Parameters
     /// - `diagnostic_manager` — Diagnostics explaining the failure.
-    /// - `interner` — Optional interner used during the build for reporting.
+    /// - `interner` — Interner used during the build for reporting or debugging.
     ///
     /// # Returns
-    /// A `LirBuilderResult::Failure` variant.
+    /// A `Result::Failure` variant.
     pub fn failure(
         diagnostic_manager: DiagnosticManager,
         interner: StringInterner,
     ) -> Self {
         Result::Failure {
             diagnostic_manager,
-            interner: Some(interner),
+            interner,
         }
     }
 
@@ -131,7 +113,7 @@ impl Result {
         }
     }
 
-    /// Takes ownership of the diagnostic manager, leaving an empty one.
+    /// Consumes and returns the diagnostic manager, leaving an empty one.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         match self {
             Result::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
@@ -141,37 +123,31 @@ impl Result {
 
     /// Returns a reference to the string interner used during the build.
     ///
-    /// Panics if neither a lifted problem nor interner is present.
+    /// Always available, even in failure.
     pub fn interner(&self) -> &StringInterner {
         match self {
             Result::Success { lifted_problem, .. } => lifted_problem.interner(),
-            Result::Failure { interner, .. } => interner
-                .as_ref()
-                .expect("Expected interner in failed LIR builder result"),
+            Result::Failure { interner, .. } => interner,
         }
     }
 
     /// Returns a mutable reference to the string interner used during the build.
     ///
-    /// Panics if neither a lifted problem nor interner is present.
+    /// Always available, even in failure.
     pub fn interner_mut(&mut self) -> &mut StringInterner {
         match self {
             Result::Success { lifted_problem, .. } => lifted_problem.interner_mut(),
-            Result::Failure { interner, .. } => interner
-                .as_mut()
-                .expect("Expected interner in failed LIR builder result"),
+            Result::Failure { interner, .. } => interner,
         }
     }
 
     /// Consumes and returns the string interner.
     ///
-    /// Panics if neither a lifted problem nor interner is present.
+    /// Always available, even in failure.
     pub fn take_interner(&mut self) -> StringInterner {
         match self {
             Result::Success { lifted_problem, .. } => std::mem::take(lifted_problem.interner_mut()),
-            Result::Failure { interner, .. } => interner
-                .take()
-                .expect("Expected interner in failed LIR builder result"),
+            Result::Failure { interner, .. } => std::mem::take(interner),
         }
     }
 
