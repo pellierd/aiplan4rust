@@ -34,7 +34,7 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::common::WellNormalizedError;
 use crate::aiplan4rust::validation::{common, normalization, syntax};

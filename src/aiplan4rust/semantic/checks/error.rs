@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::semantic::symbol::Scope;

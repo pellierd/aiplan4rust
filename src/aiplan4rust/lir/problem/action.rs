@@ -40,7 +40,7 @@
 //! Parsing from AST may fail with `LirError` if the structure is invalid or missing expected parts.
 
 use std::fmt;
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::lang::TypedList;

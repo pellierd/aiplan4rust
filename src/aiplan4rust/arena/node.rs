@@ -36,7 +36,7 @@
 //! See [`ArenaNode`] for usage examples on safe traversal and mutation of arena nodes.
 
 use std::fmt::Debug;
-use crate::aiplan4rust::core::arena::{ArenaError, NodeId};
+use crate::aiplan4rust::arena::{ArenaError, NodeId};
 
 /// A generic trait representing syntax stored within an arena (`TreeArena`).
 ///

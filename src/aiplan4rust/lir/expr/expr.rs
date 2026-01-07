@@ -34,7 +34,7 @@
 //! is unsupported, returning an [`ExprError`].
 //!
 
-use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
+use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, Optimization};
 use crate::aiplan4rust::lir::expr::content::Content;

@@ -28,7 +28,7 @@
 //! ```
 
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::core::arena::NodeId;
+use crate::aiplan4rust::arena::NodeId;
 
 /// A basic arena node used to represent hierarchical structures like abstract syntax trees (ASTs).
 ///

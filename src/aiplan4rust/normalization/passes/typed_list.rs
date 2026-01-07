@@ -64,7 +64,7 @@
 use crate::aiplan4rust::syntax::ast::{Ast, AstNode, AstContent};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;

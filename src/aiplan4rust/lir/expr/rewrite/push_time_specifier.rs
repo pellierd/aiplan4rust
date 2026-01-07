@@ -285,7 +285,7 @@ fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), ExprE
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::core::arena::ArenaNode;
+    use crate::aiplan4rust::arena::ArenaNode;
     use super::*;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::interner::StringInterner;

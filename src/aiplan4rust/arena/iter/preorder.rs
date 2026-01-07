@@ -20,7 +20,7 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::core::arena::{ArenaNode, ArenaTree, NodeId, NodeRef};
+use crate::aiplan4rust::arena::{ArenaNode, ArenaTree, NodeId, NodeRef};
 
 /// A generic preorder iterator over nodes in an `ArenaTree<T>`.
 ///

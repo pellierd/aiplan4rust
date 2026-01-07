@@ -29,7 +29,7 @@
 //! Mutable access through `NodeRefMut` allows safe modification patterns while preserving arena ownership semantics.
 
 use std::fmt;
-use crate::aiplan4rust::core::arena::{NodeId, ArenaNode};
+use crate::aiplan4rust::arena::{NodeId, ArenaNode};
 
 /// A lightweight, non-owning reference to a syntax node within an arena.
 ///

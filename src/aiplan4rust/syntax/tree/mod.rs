@@ -32,6 +32,6 @@ pub use content::SyntaxContent;
 pub use base_node::SyntaxBaseNode;
 pub use builder::SyntaxTreeBuilder;
 
-pub type NodeId = crate::aiplan4rust::core::arena::NodeId;
-pub type NodeRef<'a, T> = crate::aiplan4rust::core::arena::NodeRef<'a, T>;
-pub type NodeRefMut<'a, T> = crate::aiplan4rust::core::arena::node_ref::NodeRefMut<'a, T>;
+pub type NodeId = crate::aiplan4rust::arena::NodeId;
+pub type NodeRef<'a, T> = crate::aiplan4rust::arena::NodeRef<'a, T>;
+pub type NodeRefMut<'a, T> = crate::aiplan4rust::arena::node_ref::NodeRefMut<'a, T>;

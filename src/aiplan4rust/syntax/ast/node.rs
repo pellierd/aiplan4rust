@@ -26,7 +26,7 @@ use std::fmt::{self, Formatter};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{Ident, Requirement};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
@@ -190,7 +190,7 @@ impl ArenaNode for AstNode {
     ///
     /// A mutable slice (`&mut Vec<NodeId>`) containing all direct children of this node,
     /// allowing modification of the children.
-    fn children_mut(&mut self) -> &mut Vec<crate::aiplan4rust::core::arena::NodeId> {
+    fn children_mut(&mut self) -> &mut Vec<NodeId> {
         self.inner.children_mut()
     }
 

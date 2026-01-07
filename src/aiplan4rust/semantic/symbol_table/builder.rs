@@ -19,7 +19,7 @@
 //! This modular design isolates symbol table construction from other compiler phases,
 //! enabling better error handling and easier testing.
 
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};

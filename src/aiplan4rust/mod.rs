@@ -13,9 +13,9 @@ pub mod frontend;
 pub mod validation;
 pub mod error;
 
-pub mod core;
 pub mod artefact;
 mod grounding;
+pub mod arena;
 
 pub use frontend::Frontend;
 pub use normalization::Normalizer;

@@ -19,10 +19,10 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::aiplan4rust::core::arena::error::ArenaError;
-use crate::aiplan4rust::core::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::core::arena::node_ref::{NodeRef, NodeRefMut};
-use crate::aiplan4rust::core::arena::{ArenaNode, NodeId};
+use crate::aiplan4rust::arena::error::ArenaError;
+use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
+use crate::aiplan4rust::arena::node_ref::{NodeRef, NodeRefMut};
+use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 
 /// A flat arena-based tree structure for storing nodes of type_checker `T`.
 ///

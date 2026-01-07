@@ -1,4 +1,4 @@
-use crate::aiplan4rust::core::arena::NodeId;
+use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::syntax::tree::{SyntaxTree, SyntaxNode, SyntaxContent};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 

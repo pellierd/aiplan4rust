@@ -23,7 +23,7 @@
 //! ```
 
 use thiserror::Error;
-use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::arena::ArenaError;
 
 /// Errors that can occur during syntax tree processing.
 ///

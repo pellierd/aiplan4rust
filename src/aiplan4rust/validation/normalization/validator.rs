@@ -28,7 +28,7 @@
 //! [`check_well_normalized_node`]: fn.check_well_normalized_node.html
 //! [`WellNormalizedError`]: ../common/struct.WellNormalizedError.html
 
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::common::{checks, WellNormalizedError};
 use crate::aiplan4rust::validation::{common, normalization, syntax};

@@ -33,7 +33,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use crate::aiplan4rust::syntax::ast::node::AstNode;
 use crate::aiplan4rust::syntax::display::SyntaxInternerDisplay;
-use crate::aiplan4rust::core::arena::node::ArenaNode;
+use crate::aiplan4rust::arena::node::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use crate::aiplan4rust::lir::error::LirError;

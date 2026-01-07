@@ -28,7 +28,7 @@ use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::lexer::Token;

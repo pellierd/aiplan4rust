@@ -12,7 +12,7 @@
 //! a unified error interface for higher-level parsing logic.
 
 use thiserror::Error;
-use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents all possible errors that can occur while working with the AST

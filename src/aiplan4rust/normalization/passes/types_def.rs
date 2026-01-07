@@ -50,7 +50,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use crate::aiplan4rust::core::arena::ArenaNode;
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
