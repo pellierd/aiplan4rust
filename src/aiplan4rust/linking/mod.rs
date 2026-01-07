@@ -25,11 +25,11 @@
 //! with proper error and diagnostic handling.
 pub mod context;
 pub mod linker;
-pub mod linker_result;
+pub mod result;
 mod checks;
 pub mod error;
 
 pub use context::LinkedSemanticContext;
 pub use linker::Linker;
-pub use linker_result::LinkerResult;
+pub use result::Result as LinkerResult;
 pub use error::LinkingError;

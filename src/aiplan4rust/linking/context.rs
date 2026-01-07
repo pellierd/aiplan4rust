@@ -20,6 +20,7 @@
 use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::time::SystemTime;
 use chrono::{DateTime, Local};
 use crate::aiplan4rust::interner::{InternerError, Literal, StringInterner};
 use crate::aiplan4rust::lang::Requirement;
@@ -78,6 +79,38 @@ pub struct LinkedSemanticContext {
     generated_at: std::time::SystemTime,
 }
 
+impl Default for LinkedSemanticContext {
+    /// Returns a default `LinkedSemanticContext`.
+    ///
+    /// This default context is primarily intended for initialization or placeholder purposes.
+    /// All fields are set to their respective default values, except for `generated_at`,
+    /// which is initialized to the current system time (`SystemTime::now()`).
+    ///
+    /// # Fields Default Values
+    /// - `domain_syntax_tree` and `problem_syntax_tree` – `Default::default()`
+    /// - `domain_table` and `problem_table` – `Default::default()`
+    /// - `declared_requirements` and `required_requirements` – empty `HashSet`
+    /// - `interner` – empty `StringInterner`
+    /// - `domain_source_id` and `problem_source_id` – `Default::default()`
+    /// - `generated_at` – current system time
+    ///
+    /// # Returns
+    /// A `LinkedSemanticContext` with all fields initialized to default values.
+    fn default() -> Self {
+        LinkedSemanticContext {
+            domain_syntax_tree: Default::default(),
+            problem_syntax_tree: Default::default(),
+            domain_table: Default::default(),
+            problem_table: Default::default(),
+            declared_requirements: Default::default(),
+            required_requirements: Default::default(),
+            interner: Default::default(),
+            domain_source_id: Default::default(),
+            problem_source_id: Default::default(),
+            generated_at: SystemTime::now(), // ou UNIX_EPOCH
+        }
+    }
+}
 impl LinkedSemanticContext {
     /// Creates a new `LinkedSemanticContext` by taking ownership of the domain and problem
     /// semantic contexts and merging their information into a single linked context.
@@ -168,7 +201,7 @@ impl LinkedSemanticContext {
             interner,
             domain_source_id,
             problem_source_id,
-            generated_at: std::time::SystemTime::now(),
+            generated_at: SystemTime::now(),
         })
     }
 

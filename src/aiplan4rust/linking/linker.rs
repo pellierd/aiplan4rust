@@ -13,7 +13,7 @@
 //! # Key Types
 //!
 //! - [`Linker`]: Main struct performing linking.
-//! - [`LinkerResult`]: Encapsulates linking output and diagnostics.
+//! - [`Result`]: Encapsulates linking output and diagnostics.
 //!
 //! # Key Functions
 //!

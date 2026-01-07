@@ -355,7 +355,7 @@ pub fn analyze_file(
 ///
 /// This function takes the results of semantic analysis (`AnalyzerResult`) for both
 /// the domain and the problem, performs semantic linking using the [`Linker`], and
-/// returns a [`LinkerResult`] if the linking process completes successfully without
+/// returns a [`Result`] if the linking process completes successfully without
 /// structural errors.
 ///
 /// # Parameters
@@ -413,7 +413,7 @@ pub fn analyze_file(
 /// # See Also
 /// - [`Linker`]
 /// - [`AnalyzerResult`]
-/// - [`LinkerResult`]
+/// - [`Result`]
 pub fn link(
     domain: AnalyzerResult,
     problem: AnalyzerResult,
