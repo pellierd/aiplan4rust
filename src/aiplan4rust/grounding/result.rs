@@ -1,123 +1,170 @@
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::DiagnosticManager;
+use std::fmt;
 
-/// Represents the result of grounding a lifted planning problem.
+/// Represents the outcome of grounding a lifted planning problem.
 ///
-/// The `GroundingResult` encapsulates both the optionally grounded problem
-/// (`Problem`) and the associated diagnostics collected during the grounding process.
-/// It distinguishes between successful and failed grounding operations, allowing
-/// consumers to inspect both outcomes and diagnostics.
+/// `GroundingResult` encapsulates both successful and failed grounding attempts,
+/// providing access to the optionally grounded `Problem` and the associated
+/// diagnostics collected during the grounding process.
 ///
-/// # Fields
+/// # Variants
 ///
-/// * `problem` - `Option<Problem>` containing the grounded problem if grounding succeeded.
-/// * `diagnostic_manager` - A `DiagnosticManager` storing warnings, errors, or informational messages
-///   generated during grounding.
+/// - `Success` — Grounding succeeded and contains a fully constructed `Problem`
+///   along with a `DiagnosticManager`.
+/// - `Failure` — Grounding failed, containing only a `DiagnosticManager`
+///   explaining the errors or warnings encountered.
 ///
-/// # Usage
+/// # Examples
 ///
 /// ```rust
-/// let grounded_result = GroundingResult::success(grounded_problem, diag_manager);
-/// if grounded_result.is_success() {
-///     println!("Grounding succeeded.");
-/// } else {
-///     println!("Grounding failed with diagnostics:");
-///     for diag in grounded_result.diagnostic_manager().diagnostics() {
-///         println!("{}", diag);
-///     }
-/// }
+/// use crate::grounding::{GroundingResult, Problem};
+/// use crate::DiagnosticManager;
+///
+/// let diag_manager = DiagnosticManager::new();
+/// let problem = Problem::new_dummy(); // hypothetical constructor
+///
+/// // Success case
+/// let result = GroundingResult::success(problem, diag_manager.clone());
+/// assert!(result.is_success());
+///
+/// // Failure case
+/// let failed = GroundingResult::failure(diag_manager);
+/// assert!(failed.is_failure());
 /// ```
 #[derive(Debug, Clone)]
-pub struct Result {
-    problem: Option<Problem>,
-    diagnostic_manager: DiagnosticManager,
+pub enum Result {
+    /// Grounding succeeded, containing the grounded problem and diagnostics.
+    Success {
+        /// The grounded problem generated from the lifted problem.
+        problem: Problem,
+        /// Diagnostics collected during grounding (warnings, info, etc.).
+        diagnostic_manager: DiagnosticManager,
+    },
+    /// Grounding failed, containing diagnostics but no grounded problem.
+    Failure {
+        /// Diagnostics explaining why grounding failed.
+        diagnostic_manager: DiagnosticManager,
+    },
 }
 
 impl Result {
-    /// Creates a successful grounding result containing a grounded problem and diagnostics.
+    /// Creates a successful grounding result.
     ///
-    /// # Arguments
-    /// * `grounded_problem` - The successfully grounded problem.
-    /// * `diagnostic_manager` - Diagnostics collected during the grounding process.
+    /// # Parameters
+    /// - `problem` — The grounded `Problem`.
+    /// - `diagnostic_manager` — Diagnostics collected during grounding.
     ///
     /// # Returns
-    /// A `GroundingResult` representing success.
-    pub fn success(
-        grounded_problem: Problem,
-        diagnostic_manager: DiagnosticManager,
-    ) -> Self {
-        Self {
-            problem: Some(grounded_problem),
+    /// A `GroundingResult::Success` containing the problem and diagnostics.
+    pub fn success(problem: Problem, diagnostic_manager: DiagnosticManager) -> Self {
+        Result::Success {
+            problem,
             diagnostic_manager,
         }
     }
 
-    /// Creates a failed grounding result containing diagnostics but no grounded problem.
+    /// Creates a failed grounding result.
     ///
-    /// # Arguments
-    /// * `diagnostic_manager` - Diagnostics explaining why grounding failed.
+    /// # Parameters
+    /// - `diagnostic_manager` — Diagnostics explaining the failure.
     ///
     /// # Returns
-    /// A `GroundingResult` representing failure.
+    /// A `GroundingResult::Failure` containing the diagnostics.
     pub fn failure(diagnostic_manager: DiagnosticManager) -> Self {
-        Self {
-            problem: None,
-            diagnostic_manager,
+        Result::Failure { diagnostic_manager }
+    }
+
+    /// Returns a reference to the grounded problem if successful.
+    ///
+    /// # Returns
+    /// - `Some(&Problem)` if grounding succeeded.
+    /// - `None` if grounding failed.
+    pub fn problem(&self) -> Option<&Problem> {
+        match self {
+            Result::Success { problem, .. } => Some(problem),
+            Result::Failure { .. } => None,
         }
     }
 
-    /// Returns a reference to the grounded problem if available.
-    pub fn problem(&self) -> Option<&Problem> {
-        self.problem.as_ref()
-    }
-
-    /// Returns a mutable reference to the grounded problem if available.
+    /// Returns a mutable reference to the grounded problem if successful.
+    ///
+    /// # Returns
+    /// - `Some(&mut Problem)` if grounding succeeded.
+    /// - `None` if grounding failed.
     pub fn problem_mut(&mut self) -> Option<&mut Problem> {
-        self.problem.as_mut()
+        match self {
+            Result::Success { problem, .. } => Some(problem),
+            Result::Failure { .. } => None,
+        }
     }
 
     /// Returns a reference to the diagnostic manager.
+    ///
+    /// # Returns
+    /// A reference to the `DiagnosticManager` regardless of success or failure.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
-        &self.diagnostic_manager
+        match self {
+            Result::Success { diagnostic_manager, .. } => diagnostic_manager,
+            Result::Failure { diagnostic_manager } => diagnostic_manager,
+        }
     }
 
     /// Returns a mutable reference to the diagnostic manager.
+    ///
+    /// # Returns
+    /// A mutable reference to the `DiagnosticManager` regardless of success or failure.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
-        &mut self.diagnostic_manager
+        match self {
+            Result::Success { diagnostic_manager, .. } => diagnostic_manager,
+            Result::Failure { diagnostic_manager } => diagnostic_manager,
+        }
     }
 
-    /// Returns `true` if grounding succeeded (i.e., a grounded problem exists).
+    /// Returns `true` if grounding succeeded.
+    ///
+    /// # Returns
+    /// `true` if the variant is `Success`, `false` otherwise.
     pub fn is_success(&self) -> bool {
-        self.problem.is_some()
+        matches!(self, Result::Success { .. })
     }
 
-    /// Returns `true` if grounding failed (i.e., no grounded problem exists).
+    /// Returns `true` if grounding failed.
+    ///
+    /// # Returns
+    /// `true` if the variant is `Failure`, `false` otherwise.
     pub fn is_failure(&self) -> bool {
-        self.problem.is_none()
+        matches!(self, Result::Failure { .. })
     }
 }
 
-impl std::fmt::Display for Result {
+impl fmt::Display for Result {
     /// Formats the grounding result for human-readable output.
     ///
-    /// On success, it prints the grounded problem and any collected diagnostics.
-    /// On failure, it prints the failure message along with diagnostics.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.problem {
-            Some(problem) => {
+    /// On success, prints the grounded problem and any diagnostics.
+    /// On failure, prints a failure message along with diagnostics.
+    ///
+    /// # Parameters
+    /// - `f` — A formatter for writing the output.
+    ///
+    /// # Returns
+    /// - `fmt::Result` indicating success or failure of the write operations.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Result::Success { problem, diagnostic_manager } => {
                 writeln!(f, "Grounding succeeded:\n{}", problem)?;
-                if !self.diagnostic_manager().is_empty() {
+                if !diagnostic_manager.is_empty() {
                     writeln!(f, "\nDiagnostics:")?;
-                    for diag in self.diagnostic_manager().diagnostics() {
+                    for diag in diagnostic_manager.diagnostics() {
                         writeln!(f, "{}", diag)?;
                     }
                 } else {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            None => {
+            Result::Failure { diagnostic_manager } => {
                 writeln!(f, "Grounding failed.")?;
-                for diag in self.diagnostic_manager().diagnostics() {
+                for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;
                 }
             }
