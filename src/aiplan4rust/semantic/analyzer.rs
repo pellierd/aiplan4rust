@@ -20,7 +20,7 @@
 //! - [`Analyzer`]: The main struct that performs semantic analysis and collects diagnostics.
 //! - [`DiagnosticManager`]: Manages diagnostics such as errors and warnings.
 //! - [`SemanticContext`]: Represents the annotated semantic information for an AST.
-//! - [`AnalyzerResult`]: Contains the outcome of the analysis including semantic context and diagnostics.
+//! - [`Result`]: Contains the outcome of the analysis including semantic context and diagnostics.
 //!
 //! ## Usage Example
 //!

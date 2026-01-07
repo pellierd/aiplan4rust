@@ -106,6 +106,24 @@ pub struct Context {
     generated_at: SystemTime,
 }
 
+impl Default for Context {
+    /// Returns a default `Context`.
+    ///
+    /// All fields are initialized to their respective defaults, except for `generated_at`,
+    /// which is set to the current system time (`SystemTime::now()`).
+    fn default() -> Self {
+        Context {
+            syntax_tree: Default::default(),
+            declared_requirements: Default::default(),
+            required_requirements: Default::default(),
+            symbol_table: Default::default(),
+            interner: Default::default(),
+            source_id: Default::default(),
+            generated_at: SystemTime::now(),
+        }
+    }
+}
+
 impl Context {
 
     /// Creates a new semantic context from its components and validates the syntax tree.
@@ -364,6 +382,11 @@ impl Context {
     /// Returns a reference to the string interner.
     pub fn interner(&self) -> &StringInterner {
         &self.interner
+    }
+
+    /// Returns a mutable reference to the string interner.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
+        &mut self.interner
     }
 
     /// Consumes and returns the `StringInterner`, leaving `None` in its place.

@@ -35,13 +35,14 @@ use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
 use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::linking::error::LinkingError;
-use crate::AnalyzerResult;
 
 use std::mem::take;
+
 
 /// The `Linker` struct is responsible for performing the linking phase
 /// between domain and problem semantic contexts.

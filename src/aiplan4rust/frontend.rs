@@ -19,8 +19,7 @@ use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::linking::Linker;
 use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
 use crate::aiplan4rust::normalization::Normalizer;
-use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::semantic::{Analyzer};
+use crate::aiplan4rust::semantic::{Analyzer, AnalyzerResult};
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::AiplanError;
 

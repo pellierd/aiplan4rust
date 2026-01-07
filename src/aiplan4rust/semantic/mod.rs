@@ -31,13 +31,13 @@
 //!
 //! [`analyzer`]: analyzer
 //! [`symbol`]: symbol
-//! [`analyzer_result`]: analyzer_result
+//! [`analyzer_result`]: result
 //! [`symbol_table`]: symbol_table
 //! [`checks`]: checks
 //! [`context`]: context
 //! [`error`]: error
 //! [`type_checker`]: type_checker
-//! [`AnalyzerResult`]: analyzer_result::AnalyzerResult
+//! [`AnalyzerResult`]: result::Result
 //! [`Analyzer`]: analyzer::Analyzer
 //! [`SymbolTable`]: symbol_table::SymbolTable
 //! [`TypeChecker`]: type_checker::type_checker::TypeChecker
@@ -53,7 +53,7 @@ pub mod analyzer;
 pub mod symbol;
 
 /// Structures representing the results of semantic analysis.
-pub mod analyzer_result;
+pub mod result;
 
 /// Symbol table construction and query management.
 pub mod symbol_table;
@@ -71,7 +71,7 @@ pub mod error;
 mod type_checker;
 mod requirements;
 
-pub use analyzer_result::AnalyzerResult;
+pub use result::Result as AnalyzerResult;
 pub use analyzer::Analyzer;
 pub use symbol_table::SymbolTable;
 pub use type_checker::type_checker::TypeChecker;

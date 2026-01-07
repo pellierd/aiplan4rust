@@ -10,7 +10,7 @@ use aiplan4rust::aiplan4rust::normalization::NormalizerResult;
 use aiplan4rust::aiplan4rust::syntax::{ParserResult, SyntaxDisplay};
 use aiplan4rust::aiplan4rust::validation::normalization::check_well_normalized;
 use aiplan4rust::aiplan4rust::{Analyzer, Linker};
-use aiplan4rust::{check_well_formed, AnalyzerResult, Normalizer, Parser, Severity};
+use aiplan4rust::{check_well_formed, Normalizer, Parser, Severity, AnalyzerResult};
 use std::path::Path;
 use aiplan4rust::aiplan4rust::artefact::Source;
 
@@ -412,7 +412,7 @@ pub fn analyze_file(
 ///
 /// # See Also
 /// - [`Linker`]
-/// - [`AnalyzerResult`]
+/// - [`Result`]
 /// - [`Result`]
 pub fn link(
     domain: AnalyzerResult,

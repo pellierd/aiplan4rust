@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_ARG, OUT_DIR_ARG};
-use crate::{AnalyzerResult, Frontend, Renderer, Severity};
 use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::artefact::{IRContent, Artefact};
@@ -16,6 +15,9 @@ use crate::aiplan4rust::cli::path::{default_parsed_output_path, output_path};
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::SerdeFormat;
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::diagnostic::{Severity, Renderer};
+use crate::aiplan4rust::Frontend;
 
 /// Handles the `parse` CLI subcommand.
 ///
