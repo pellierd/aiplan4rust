@@ -57,12 +57,12 @@ pub fn render_problem(
     writeln!(
         f,
         "DOMAIN NAME  : {}",
-        interner.resolve_ident(problem.domain_name()).unwrap_or("<unknown>")
+        interner.resolve_ident(problem.domain_id()).unwrap_or("<unknown>")
     )?;
     writeln!(
         f,
         "PROBLEM NAME : {}\n",
-        interner.resolve_ident(problem.problem_name()).unwrap_or("<unknown>")
+        interner.resolve_ident(problem.problem_id()).unwrap_or("<unknown>")
     )?;
 
     // Requirements

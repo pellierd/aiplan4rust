@@ -81,7 +81,7 @@ impl<'a> ProblemDef<'a> {
     /// # Returns
     /// An [`Ident`] representing the problem name.
     pub fn problem_name(&self) -> Ident {
-        self.problem.problem_name()
+        self.problem.problem_id()
     }
 
     /// Returns the domain name associated with this problem.
@@ -89,7 +89,7 @@ impl<'a> ProblemDef<'a> {
     /// # Returns
     /// An [`Ident`] representing the domain name.
     pub fn domain_name(&self) -> Ident {
-        self.problem.domain_name()
+        self.problem.domain_id()
     }
 
     /// Returns the string interner associated with this problem.

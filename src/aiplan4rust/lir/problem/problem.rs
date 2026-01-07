@@ -40,7 +40,7 @@
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
-use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
@@ -91,11 +91,11 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 /// use aiplan4rust::aiplan4rust::interner::Ident;
 /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
 /// let mut problem = LiftedProblem::new();
-/// problem.set_domain_name(Ident::new("my_domain"));
-/// problem.set_problem_name(Ident::new("my_problem"));
+/// problem.set_domain_id(Ident::new("my_domain"));
+/// problem.set_problem_id(Ident::new("my_problem"));
 ///
-/// assert_eq!(problem.domain_name().as_str(), "my_domain");
-/// assert_eq!(problem.problem_name().as_str(), "my_problem");
+/// assert_eq!(problem.domain_id().as_str(), "my_domain");
+/// assert_eq!(problem.problem_id().as_str(), "my_problem");
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
@@ -103,10 +103,10 @@ pub struct Problem {
     interner: StringInterner,
 
     /// The identifier of the domain.
-    domain_name: Ident,
+    domain_id: Ident,
 
     /// The identifier of the problem.
-    problem_name: Ident,
+    problem_id: Ident,
 
     /// The set of requirements for this syntax problem.
     requirements: HashSet<Requirement>,
@@ -173,11 +173,11 @@ impl Problem {
     /// assert!(problem.actions().is_empty());
     /// assert!(problem.types().is_empty());
     /// ```
-    pub fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
+    fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
         Self {
             interner,
-            domain_name: Ident::default(),
-            problem_name: Ident::default(),
+            domain_id: Ident::default(),
+            problem_id: Ident::default(),
             requirements,
             types: HashSet::new(),
             constants: HashSet::new(),
@@ -226,39 +226,63 @@ impl Problem {
         self.interner = interner;
     }
 
+    /// Consumes and returns the internal `StringInterner`, leaving a new empty one in its place.
+    ///
+    /// # Returns
+    /// The previously held `StringInterner`.
+    pub fn take_interner(&mut self) -> StringInterner {
+        std::mem::take(&mut self.interner)
+    }
+
+
     /// Returns the identifier of the domain.
-    pub fn domain_name(&self) -> Ident {
-        self.domain_name
+    pub fn domain_id(&self) -> Ident {
+        self.domain_id
     }
 
     /// Sets the identifier of the domain.
     ///
-    /// # Example
+    /// Checks that the identifier exists in the interner.
     ///
-    /// ```
-    /// let mut problem = LiftedProblem::new();
-    /// problem.set_domain_name(Ident::new("transport"));
-    /// ```
-    pub fn set_domain_name(&mut self, name: Ident) {
-        self.domain_name = name;
+    /// # Errors
+    /// Returns `InternerError` if the identifier is not present in the interner.
+    pub fn set_domain_id(&mut self, id: Ident) -> Result<(), InternerError> {
+        self.interner.try_resolve_ident(id)?;
+        self.domain_id = id;
+        Ok(())
+    }
+
+    /// Returns the name of the domain as a string slice.
+    ///
+    /// # Returns
+    /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
+    pub fn domain_name(&self) -> Result<&str, InternerError> {
+        self.interner.try_resolve_ident(self.domain_id)
     }
 
     /// Returns the identifier of the problem.
-    pub fn problem_name(&self) -> Ident {
-        self.problem_name.clone()
+    pub fn problem_id(&self) -> Ident {
+        self.problem_id.clone()
     }
 
     /// Sets the identifier of the problem.
     ///
-    /// # Example
+    /// Checks that the identifier exists in the interner.
     ///
-    /// ```
-    /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
-    /// let mut problem = LiftedProblem::new();
-    /// problem.set_problem_name(Ident::new("logistics"));
-    /// ```
-    pub fn set_problem_name(&mut self, name: Ident) {
-        self.problem_name = name;
+    /// # Errors
+    /// Returns `InternerError` if the identifier is not present in the interner.
+    pub fn set_problem_id(&mut self, id: Ident) -> Result<(), InternerError> {
+        self.interner.try_resolve_ident(id)?;
+        self.problem_id = id;
+        Ok(())
+    }
+
+    /// Returns the name of the problem as a string slice.
+    ///
+    /// # Returns
+    /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
+    pub fn problem_name(&self) -> Result<&str, InternerError> {
+        self.interner.try_resolve_ident(self.problem_id)
     }
 
     // === Requirements ===
@@ -322,6 +346,14 @@ impl Problem {
     /// ```
     pub fn set_requirements(&mut self, new_requirements: HashSet<Requirement>) {
         self.requirements = new_requirements;
+    }
+
+    /// Consumes and returns all declared requirements, leaving an empty set in its place.
+    ///
+    /// # Returns
+    /// The previously held `HashSet<Requirement>`.
+    pub fn take_requirements(&mut self) -> HashSet<Requirement> {
+        std::mem::take(&mut self.requirements)
     }
 
     // === Types ===

@@ -103,7 +103,7 @@ impl<'a> DomainDef<'a> {
     ///
     /// The [`Ident`] representing the domain's name.
     pub fn domain_name(&self) -> Ident {
-        self.problem.domain_name()
+        self.problem.domain_id()
     }
 
     /// Returns the string interner associated with this domain.

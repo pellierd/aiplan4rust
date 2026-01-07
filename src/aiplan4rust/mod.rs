@@ -15,6 +15,7 @@ pub mod error;
 
 pub mod core;
 pub mod artefact;
+mod grounding;
 
 pub use frontend::Frontend;
 pub use normalization::Normalizer;

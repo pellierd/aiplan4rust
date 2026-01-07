@@ -1,5 +1,6 @@
 use thiserror::Error;
 use crate::aiplan4rust::core::arena::ArenaError;
+use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::LangError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
@@ -42,6 +43,10 @@ pub enum LirError {
     /// An error related to arena allocation.
     #[error(transparent)]
     Arena(#[from] ArenaError),
+
+    /// An error originating from the string interner.
+    #[error(transparent)]
+    Interner(#[from] InternerError),
 
     /// Indicates an unexpected `AstKind` was encountered during Action conversion.
     #[error("Unexpected AstKind in Action conversion: {0:?}")]

@@ -27,30 +27,41 @@ pub(crate) fn extract_domain(
         let subtree = SyntaxSubtree::new(node, domain_tree);
 
         match subtree.node().kind() {
-            AstKind::DomainName => ir.set_domain_name(subtree.node().try_ident()?),
+            AstKind::DomainName => {
+                let id = subtree.node().try_ident()?;
+                ir.set_domain_id(id)?;
+            }
             AstKind::TypesDef => {
-                ir.add_types(extract_types(&subtree)?);
+                let types = extract_types(&subtree)?;
+                ir.add_types(types);
             }
             AstKind::ConstantsDef => {
-                ir.add_constants(extract_constants(&subtree)?);
+                let constants = extract_constants(&subtree)?;
+                ir.add_constants(constants);
             }
             AstKind::PredicatesDef => {
-                ir.add_predicates(extract_atomic_formula_skeleton(&subtree)?);
+                let predicates = extract_atomic_formula_skeleton(&subtree)?;
+                ir.add_predicates(predicates);
             }
             AstKind::FunctionsDef => {
-                ir.add_functions(extract_atomic_function_skeleton(&subtree)?);
+                let functions = extract_atomic_function_skeleton(&subtree)?;
+                ir.add_functions(functions);
             }
             AstKind::Constraints => {
-                ir.set_domain_constraints(Expr::try_from(&subtree)?);
+                let constraints = Expr::try_from(&subtree)?;
+                ir.set_domain_constraints(constraints);
             }
             AstKind::TaskDef => {
-                ir.add_task(AtomicTaskSkeleton::try_from(&subtree)?);
+                let task = AtomicTaskSkeleton::try_from(&subtree)?;
+                ir.add_task(task);
             }
             AstKind::ActionDef => {
-                ir.add_action(LiftedAction::try_from(&subtree)?);
+                let action = LiftedAction::try_from(&subtree)?;
+                ir.add_action(action);
             }
             AstKind::MethodDef => {
-                ir.add_method(LiftedMethod::try_from(&subtree)?);
+                let method = LiftedMethod::try_from(&subtree)?;
+                ir.add_method(method);
             }
             _ => {}
         }
@@ -58,6 +69,7 @@ pub(crate) fn extract_domain(
 
     Ok(())
 }
+
 
 /// Extracts all problem-level elements (initial state, goal, metric, etc.)
 ///
@@ -78,27 +90,37 @@ pub(crate) fn extract_problem(
         let subtree = SyntaxSubtree::new(node, problem_tree);
 
         match subtree.node().kind() {
-            AstKind::ProblemName => ir.set_problem_name(subtree.node().try_ident()?),
+            AstKind::ProblemName => {
+                let id = subtree.node().try_ident()?;
+                ir.set_problem_id(id)?;
+            }
             AstKind::ObjectsDef => {
-                ir.add_objects(extract_constants(&subtree)?);
+                let types = extract_types(&subtree)?;
+                ir.add_types(types);
             }
             AstKind::Init => {
-                ir.set_init(extract_init(&subtree)?);
+                let init_expr = extract_init(&subtree)?;
+                ir.set_init(init_expr);
             }
             AstKind::Goal => {
-                ir.set_goal(extract_goal(&subtree)?);
+                let goal_expr = extract_goal(&subtree)?;
+                ir.set_goal(goal_expr);
             }
             AstKind::Constraints => {
-                ir.set_problem_constraints(Expr::try_from(&subtree)?);
+                let constraints = Expr::try_from(&subtree)?;
+                ir.set_problem_constraints(constraints);
             }
             AstKind::Metric => {
-                ir.set_metric_spec(Expr::try_from(&subtree)?);
+                let metric = Expr::try_from(&subtree)?;
+                ir.set_metric_spec(metric);
             }
             AstKind::Length => {
-                ir.set_length_spec(Expr::try_from(&subtree)?);
+                let length = Expr::try_from(&subtree)?;
+                ir.set_length_spec(length);
             }
             AstKind::InitialTaskNetwork => {
-                ir.set_initial_task_network(InitialTaskNetwork::try_from(&subtree)?);
+                let network = InitialTaskNetwork::try_from(&subtree)?;
+                ir.set_initial_task_network(network);
             }
             _ => {}
         }
@@ -106,6 +128,8 @@ pub(crate) fn extract_problem(
 
     Ok(())
 }
+
+
 
 // ---------- Extraction Helpers ---------- //
 

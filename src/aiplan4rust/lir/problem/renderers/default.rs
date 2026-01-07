@@ -50,8 +50,8 @@ use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> std::fmt::Result {
     // Titre principal
     writeln_centered(f, "PROBLEM", 80, '=')?;
-    writeln!(f, "DOMAIN NAME  : {}", problem.domain_name())?;
-    writeln!(f, "PROBLEM NAME : {}\n", problem.problem_name())?;
+    writeln!(f, "DOMAIN NAME  : {}", problem.domain_id())?;
+    writeln!(f, "PROBLEM NAME : {}\n", problem.problem_id())?;
 
     // Requirements
     writeln_centered(f, "REQUIREMENTS", 80, '=')?;
