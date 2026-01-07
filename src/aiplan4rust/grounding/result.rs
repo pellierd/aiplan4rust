@@ -58,7 +58,7 @@ impl Result {
     /// # Returns
     /// A `GroundingResult::Success` containing the problem and diagnostics.
     pub fn success(problem: Problem, diagnostic_manager: DiagnosticManager) -> Self {
-        Result::Success {
+        Self::Success {
             problem,
             diagnostic_manager,
         }
@@ -72,7 +72,7 @@ impl Result {
     /// # Returns
     /// A `GroundingResult::Failure` containing the diagnostics.
     pub fn failure(diagnostic_manager: DiagnosticManager) -> Self {
-        Result::Failure { diagnostic_manager }
+        Self::Failure { diagnostic_manager }
     }
 
     /// Returns a reference to the grounded problem if successful.
@@ -82,8 +82,8 @@ impl Result {
     /// - `None` if grounding failed.
     pub fn problem(&self) -> Option<&Problem> {
         match self {
-            Result::Success { problem, .. } => Some(problem),
-            Result::Failure { .. } => None,
+            Self::Success { problem, .. } => Some(problem),
+            Self::Failure { .. } => None,
         }
     }
 
@@ -94,8 +94,8 @@ impl Result {
     /// - `None` if grounding failed.
     pub fn problem_mut(&mut self) -> Option<&mut Problem> {
         match self {
-            Result::Success { problem, .. } => Some(problem),
-            Result::Failure { .. } => None,
+            Self::Success { problem, .. } => Some(problem),
+            Self::Failure { .. } => None,
         }
     }
 
@@ -105,8 +105,8 @@ impl Result {
     /// A reference to the `DiagnosticManager` regardless of success or failure.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
-            Result::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Result::Failure { diagnostic_manager } => diagnostic_manager,
+            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Failure { diagnostic_manager } => diagnostic_manager,
         }
     }
 
@@ -116,8 +116,8 @@ impl Result {
     /// A mutable reference to the `DiagnosticManager` regardless of success or failure.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         match self {
-            Result::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Result::Failure { diagnostic_manager } => diagnostic_manager,
+            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Failure { diagnostic_manager } => diagnostic_manager,
         }
     }
 
@@ -126,7 +126,7 @@ impl Result {
     /// # Returns
     /// `true` if the variant is `Success`, `false` otherwise.
     pub fn is_success(&self) -> bool {
-        matches!(self, Result::Success { .. })
+        matches!(self, Self::Success { .. })
     }
 
     /// Returns `true` if grounding failed.
@@ -134,7 +134,7 @@ impl Result {
     /// # Returns
     /// `true` if the variant is `Failure`, `false` otherwise.
     pub fn is_failure(&self) -> bool {
-        matches!(self, Result::Failure { .. })
+        matches!(self, Self::Failure { .. })
     }
 }
 
@@ -151,7 +151,7 @@ impl fmt::Display for Result {
     /// - `fmt::Result` indicating success or failure of the write operations.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Result::Success { problem, diagnostic_manager } => {
+            Self::Success { problem, diagnostic_manager } => {
                 writeln!(f, "Grounding succeeded:\n{}", problem)?;
                 if !diagnostic_manager.is_empty() {
                     writeln!(f, "\nDiagnostics:")?;
@@ -162,7 +162,7 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            Result::Failure { diagnostic_manager } => {
+            Self::Failure { diagnostic_manager } => {
                 writeln!(f, "Grounding failed.")?;
                 for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;

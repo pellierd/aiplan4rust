@@ -28,7 +28,7 @@
 //!
 //! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all normalization passes.
 //!
-//! - [`normalizer_result`] — Defines [`NormalizerResult`], the output of normalization containing:
+//! - [`result`] — Defines [`NormalizerResult`], the output of normalization containing:
 //!   - The possibly modified AST,
 //!   - A diagnostic log,
 //!   - And an indicator whether any structural change occurred.
@@ -90,11 +90,11 @@
 //! - [`DiagnosticManager`] — Responsible for logging all non-fatal issues during normalization.
 //! - [`Ast`] — The syntax tree structure being normalized.
 
-pub mod normalizer_result;
+pub mod result;
 pub mod normalizer;
 pub mod passes;
 pub mod error;
 
 pub use normalizer::Normalizer;
-pub use normalizer_result::NormalizerResult;
+pub use result::Result as NormalizerResult;
 pub use error::NormalizationError;

@@ -69,45 +69,45 @@ impl Result {
 
     /// Returns `true` if linking succeeded.
     pub fn is_success(&self) -> bool {
-        matches!(self, Result::Success { .. })
+        matches!(self, Self::Success { .. })
     }
 
     /// Returns `true` if linking failed.
     pub fn is_failure(&self) -> bool {
-        matches!(self, Result::Failure { .. })
+        matches!(self, Self::Failure { .. })
     }
 
     /// Returns a reference to the linked semantic context if available.
     pub fn linked_semantic_context(&self) -> Option<&LinkedSemanticContext> {
         match self {
-            Result::Success { context, .. } => Some(context),
-            Result::Failure { .. } => None,
+            Self::Success { context, .. } => Some(context),
+            Self::Failure { .. } => None,
         }
     }
 
     /// Returns a mutable reference to the linked semantic context if available.
     pub fn linked_semantic_context_mut(&mut self) -> Option<&mut LinkedSemanticContext> {
         match self {
-            Result::Success { context, .. } => Some(context),
-            Result::Failure { .. } => None,
+            Self::Success { context, .. } => Some(context),
+            Self::Failure { .. } => None,
         }
     }
 
     /// Takes ownership of the linked semantic context if available.
     pub fn take_linked_semantic_context(&mut self) -> Option<LinkedSemanticContext> {
         match self {
-            Result::Success { context, .. } => Some(std::mem::take(context)),
-            Result::Failure { .. } => None,
+            Self::Success { context, .. } => Some(std::mem::take(context)),
+            Self::Failure { .. } => None,
         }
     }
 
     /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
-            Result::Success {
+            Self::Success {
                 diagnostic_manager, ..
             } => diagnostic_manager,
-            Result::Failure {
+            Self::Failure {
                 diagnostic_manager, ..
             } => diagnostic_manager,
         }
@@ -116,10 +116,10 @@ impl Result {
     /// Returns a mutable reference to the diagnostic manager.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         match self {
-            Result::Success {
+            Self::Success {
                 diagnostic_manager, ..
             } => diagnostic_manager,
-            Result::Failure {
+            Self::Failure {
                 diagnostic_manager, ..
             } => diagnostic_manager,
         }
@@ -128,10 +128,10 @@ impl Result {
     /// Consumes and returns the diagnostic manager.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         match self {
-            Result::Success {
+            Self::Success {
                 diagnostic_manager, ..
             } => std::mem::take(diagnostic_manager),
-            Result::Failure {
+            Self::Failure {
                 diagnostic_manager, ..
             } => std::mem::take(diagnostic_manager),
         }
@@ -143,8 +143,8 @@ impl Result {
     /// For `Failure`, it is returned directly.
     pub fn interner(&self) -> &StringInterner {
         match self {
-            Result::Success { context, .. } => context.interner(),
-            Result::Failure { interner, .. } => interner,
+            Self::Success { context, .. } => context.interner(),
+            Self::Failure { interner, .. } => interner,
         }
     }
 
@@ -154,8 +154,8 @@ impl Result {
     /// For `Failure`, takes it from the variant.
     pub fn take_interner(&mut self) -> StringInterner {
         match self {
-            Result::Success { context, .. } => context.take_interner(),
-            Result::Failure { interner, .. } => std::mem::take(interner),
+            Self::Success { context, .. } => context.take_interner(),
+            Self::Failure { interner, .. } => std::mem::take(interner),
         }
     }
 }
@@ -163,7 +163,7 @@ impl Result {
 impl fmt::Display for Result {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Result::Success {
+            Self::Success {
                 context,
                 diagnostic_manager,
             } => {
@@ -177,7 +177,7 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            Result::Failure {
+            Self::Failure {
                 diagnostic_manager, ..
             } => {
                 writeln!(f, "Linking failed.")?;

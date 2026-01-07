@@ -45,7 +45,7 @@ impl Result {
         lifted_problem: LiftedProblem,
         diagnostic_manager: DiagnosticManager,
     ) -> Self {
-        Result::Success {
+        Self::Success {
             lifted_problem,
             diagnostic_manager,
         }
@@ -63,7 +63,7 @@ impl Result {
         diagnostic_manager: DiagnosticManager,
         interner: StringInterner,
     ) -> Self {
-        Result::Failure {
+        Self::Failure {
             diagnostic_manager,
             interner,
         }
@@ -76,32 +76,32 @@ impl Result {
     /// - `None` if the build failed.
     pub fn lifted_problem(&self) -> Option<&LiftedProblem> {
         match self {
-            Result::Success { lifted_problem, .. } => Some(lifted_problem),
-            Result::Failure { .. } => None,
+            Self::Success { lifted_problem, .. } => Some(lifted_problem),
+            Self::Failure { .. } => None,
         }
     }
 
     /// Returns a mutable reference to the constructed IR if available.
     pub fn lifted_problem_mut(&mut self) -> Option<&mut LiftedProblem> {
         match self {
-            Result::Success { lifted_problem, .. } => Some(lifted_problem),
-            Result::Failure { .. } => None,
+            Self::Success { lifted_problem, .. } => Some(lifted_problem),
+            Self::Failure { .. } => None,
         }
     }
 
     /// Consumes and returns the lifted problem if available.
     pub fn take_lifted_problem(&mut self) -> Option<LiftedProblem> {
         match self {
-            Result::Success { lifted_problem, .. } => Some(std::mem::take(lifted_problem)),
-            Result::Failure { .. } => None,
+            Self::Success { lifted_problem, .. } => Some(std::mem::take(lifted_problem)),
+            Self::Failure { .. } => None,
         }
     }
 
     /// Returns a reference to the diagnostic manager.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
-            Result::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Result::Failure { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Success { diagnostic_manager, .. } => diagnostic_manager,
+            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
         }
     }
 
@@ -116,8 +116,8 @@ impl Result {
     /// Consumes and returns the diagnostic manager, leaving an empty one.
     pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
         match self {
-            Result::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
-            Result::Failure { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+            Self::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+            Self::Failure { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
         }
     }
 
@@ -126,8 +126,8 @@ impl Result {
     /// Always available, even in failure.
     pub fn interner(&self) -> &StringInterner {
         match self {
-            Result::Success { lifted_problem, .. } => lifted_problem.interner(),
-            Result::Failure { interner, .. } => interner,
+            Self::Success { lifted_problem, .. } => lifted_problem.interner(),
+            Self::Failure { interner, .. } => interner,
         }
     }
 
@@ -136,8 +136,8 @@ impl Result {
     /// Always available, even in failure.
     pub fn interner_mut(&mut self) -> &mut StringInterner {
         match self {
-            Result::Success { lifted_problem, .. } => lifted_problem.interner_mut(),
-            Result::Failure { interner, .. } => interner,
+            Self::Success { lifted_problem, .. } => lifted_problem.interner_mut(),
+            Self::Failure { interner, .. } => interner,
         }
     }
 
@@ -146,19 +146,19 @@ impl Result {
     /// Always available, even in failure.
     pub fn take_interner(&mut self) -> StringInterner {
         match self {
-            Result::Success { lifted_problem, .. } => std::mem::take(lifted_problem.interner_mut()),
-            Result::Failure { interner, .. } => std::mem::take(interner),
+            Self::Success { lifted_problem, .. } => std::mem::take(lifted_problem.interner_mut()),
+            Self::Failure { interner, .. } => std::mem::take(interner),
         }
     }
 
     /// Returns `true` if the IR was successfully built.
     pub fn is_success(&self) -> bool {
-        matches!(self, Result::Success { .. })
+        matches!(self, Self::Success { .. })
     }
 
     /// Returns `true` if the IR build failed.
     pub fn is_failure(&self) -> bool {
-        matches!(self, Result::Failure { .. })
+        matches!(self, Self::Failure { .. })
     }
 }
 
@@ -169,7 +169,7 @@ impl fmt::Display for Result {
     /// diagnostics and notes the build failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Result::Success { lifted_problem, diagnostic_manager } => {
+            Self::Success { lifted_problem, diagnostic_manager } => {
                 writeln!(f, "IR built successfully:\n{}", lifted_problem)?;
                 if !diagnostic_manager.is_empty() {
                     writeln!(f, "\nDiagnostics:")?;
@@ -180,7 +180,7 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            Result::Failure { diagnostic_manager, .. } => {
+            Self::Failure { diagnostic_manager, .. } => {
                 writeln!(f, "IR build failed.")?;
                 for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;
