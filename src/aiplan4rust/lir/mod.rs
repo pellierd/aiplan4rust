@@ -16,7 +16,7 @@
 //! - [`task_network`]: Defines `LiftedTaskNetwork` representing collections of tasks.
 //! - [`initial_task_network`]: Represents the initial task network as input to planners.
 //! - [`atomic_skeleton`]: Contains atomic or fundamental building blocks of LIR.
-//! - [`builder_result`]: Defines `LirBuilderResult`, the result type_checker for builder operations.
+//! - [`result`]: Defines `LirBuilderResult`, the result type_checker for builder operations.
 //! - [`error`]: Contains error types related to LIR construction and validation.
 //!
 //! # Public Exports
@@ -46,10 +46,10 @@ pub mod builder;
 pub mod expr;
 
 pub mod atomic_skeleton;
-pub mod builder_result;
+pub mod result;
 pub mod error;
 pub mod problem;
 
 pub use builder::LirBuilder;
-pub use builder_result::BuilderResult as LirBuilderResult;
+pub use result::Result as LirBuilderResult;
 pub use error::LirError;
