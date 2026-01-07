@@ -54,7 +54,7 @@
 //! - [`language`] — Definitions of supported syntax languages (PDDL/HDDL)
 //! - [`lexer`] — Tokenizer for input streams
 //! - [`parser`] — Entrypoint to the parsing pipeline
-//! - [`parser_result`] — Output wrapper from the parsing process
+//! - [`result`] — Output wrapper from the parsing process
 //! - [`grammar`] — Grammar-specific parsing logic
 //! - [`ast`] — Abstract syntax tree arena definitions
 //! - [`display`] — Provides the [`SyntaxInternerDisplay`] trait and formatting utilities
@@ -77,7 +77,7 @@ pub mod span;
 pub mod ast;
 pub mod display;
 pub(crate) mod fast_line_table;
-pub mod parser_result;
+pub mod result;
 pub mod lalrpop;
 pub mod error;
 pub mod tree;
@@ -92,7 +92,7 @@ pub use display::SyntaxDisplay;
 pub use error::SyntaxError;
 pub use fast_line_table::FastLineTable;
 pub use parser::Parser;
-pub use parser_result::ParserResult;
+pub use result::Result as ParserResult;
 pub use span::Span;
 
 
