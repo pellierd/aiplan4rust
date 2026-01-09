@@ -33,6 +33,7 @@
 //! let task_network = problem_wrapper.initial_task_network();
 //! ```
 
+use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
@@ -100,11 +101,15 @@ impl<'a> ProblemDef<'a> {
         self.problem.interner()
     }
 
-    /// Returns the objects defined in this problem.
+    /// Returns all objects defined in this problem as a map from `Ident` to `TypedSymbol`.
     ///
     /// # Returns
-    /// Reference to a [`HashSet`] of [`TypedSymbol`] representing problem objects.
-    pub fn objects(&self) -> &std::collections::HashSet<TypedSymbol> {
+    ///
+    /// A reference to a [`HashMap`] where the keys are object identifiers (`Ident`)
+    /// and the values are the corresponding [`TypedSymbol`]s.
+    ///
+    /// This allows efficient lookup of an object by its identifier.
+    pub fn objects(&self) -> &HashMap<Ident, TypedSymbol> {
         self.problem.objects()
     }
 

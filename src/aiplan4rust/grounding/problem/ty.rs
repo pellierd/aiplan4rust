@@ -1,148 +1,113 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Represents a ground type in a PDDL domain.
-///
-/// A `Ty` defines a type of objects in the domain, optionally with parent types
-/// (`super_types`) and a list of objects (`objects`) of this type.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct Ty {
-    /// Symbolic identifier of the type (e.g., "truck", "location").
-    symbol: usize,
-
-    /// Indices of parent types (supertypes).
-    super_types: Vec<usize>,
-
-    /// Indices of objects belonging to this type.
-    objects: Vec<usize>,
+/// Represents a PDDL type, which can be either a primitive type (atomic)
+/// or a union of primitive types (called `either` in PDDL).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Type {
+    /// List of indices pointing to primitive types.
+    members: Vec<usize>,
 }
 
-impl Ty {
-    /// Creates a new `Ty` with the specified `symbol`, `super_types`, and `objects`.
+impl Type {
+    /// Creates a new union type (`either`) from a non-empty list of type indices.
     ///
-    /// # Parameters
-    /// - `symbol`: Symbolic identifier for the type.
-    /// - `super_types`: Vector of indices representing the parent types.
-    /// - `objects`: Vector of indices representing objects of this type.
+    /// # Arguments
+    ///
+    /// * `members` - List of indices pointing to primitive types.
     ///
     /// # Returns
-    /// A new instance of `Ty`.
     ///
-    /// # Example
+    /// A `Type` instance representing a union type.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `members` is empty.
+    ///
+    /// # Examples
+    ///
     /// ```
-    /// let t = Ty::new(1, vec![0], vec![10, 11]);
+    /// use aiplan4rust::grounding::problem::Type;
+    /// let t = Type::either(vec![1, 2, 3]);
+    /// assert!(t.is_either());
     /// ```
-    pub fn new(symbol: usize, super_types: Vec<usize>, objects: Vec<usize>) -> Self {
-        Self {
-            symbol,
-            super_types,
-            objects,
-        }
+    pub fn either(members: Vec<usize>) -> Self {
+        assert!(!members.is_empty(), "Either type must have at least one member");
+        Self { members }
     }
 
-    // ----- Getters -----
-
-    /// Returns the symbolic identifier of the type.
+    /// Creates a new primitive (atomic) type.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The index of the atomic type.
     ///
     /// # Returns
-    /// The `symbol` as `usize`.
-    pub fn symbol(&self) -> usize {
-        self.symbol
+    ///
+    /// A `Type` instance representing a primitive type.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use aiplan4rust::grounding::problem::Type;
+    /// let t = Type::primitive(1);
+    /// assert!(t.is_primitive());
+    /// ```
+    pub fn primitive(id: usize) -> Self {
+        Self { members: vec![id] }
     }
 
-    /// Returns a reference to the parent type indices.
-    ///
-    /// # Returns
-    /// Reference to a `Vec<usize>` containing the indices of super types.
-    pub fn super_types(&self) -> &Vec<usize> {
-        &self.super_types
+    /// Returns `true` if this type is primitive (contains exactly one member).
+    pub fn is_primitive(&self) -> bool {
+        self.members.len() == 1
     }
 
-    /// Returns a mutable reference to the parent type indices.
-    ///
-    /// # Returns
-    /// Mutable reference to a `Vec<usize>` containing the indices of super types.
-    pub fn super_types_mut(&mut self) -> &mut Vec<usize> {
-        &mut self.super_types
+    /// Returns `true` if this type is a union (`either`) of atomic types.
+    pub fn is_either(&self) -> bool {
+        self.members.len() > 1
     }
 
-    /// Returns a reference to the object indices of this type.
-    ///
-    /// # Returns
-    /// Reference to a `Vec<usize>` containing object indices.
-    pub fn objects(&self) -> &Vec<usize> {
-        &self.objects
+    /// Returns a reference to the contained type indices.
+    pub fn members(&self) -> &Vec<usize> {
+        &self.members
     }
 
-    /// Returns a mutable reference to the object indices of this type.
-    ///
-    /// # Returns
-    /// Mutable reference to a `Vec<usize>` containing object indices.
-    pub fn objects_mut(&mut self) -> &mut Vec<usize> {
-        &mut self.objects
+    /// Returns the number of type members.
+    pub fn len(&self) -> usize {
+        self.members.len()
     }
 
-    // ----- Setters -----
-
-    /// Sets the symbolic identifier of the type.
-    ///
-    /// # Parameters
-    /// - `symbol`: New symbolic identifier.
-    pub fn set_symbol(&mut self, symbol: usize) {
-        self.symbol = symbol;
+    /// Returns true if the type has no members.
+    pub fn is_empty(&self) -> bool {
+        self.members.is_empty()
     }
 
-    /// Sets the parent type indices.
-    ///
-    /// # Parameters
-    /// - `super_types`: New vector of indices for parent types.
-    pub fn set_super_types(&mut self, super_types: Vec<usize>) {
-        self.super_types = super_types;
+    /// Returns an iterator over the type indices.
+    pub fn iter(&self) -> std::slice::Iter<'_, usize> {
+        self.members.iter()
     }
 
-    /// Sets the object indices for this type.
-    ///
-    /// # Parameters
-    /// - `objects`: New vector of object indices.
-    pub fn set_objects(&mut self, objects: Vec<usize>) {
-        self.objects = objects;
+    /// Returns a mutable iterator over the type indices.
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, usize> {
+        self.members.iter_mut()
+    }
+
+    /// Consumes self and returns the inner vector of type indices.
+    pub fn into_vec(self) -> Vec<usize> {
+        self.members
     }
 }
 
-impl fmt::Display for Ty {
-    /// Formats the type in a compact PDDL-friendly style:
-    /// `symbol - super1 super2 ... : obj1 obj2 ...`
-    ///
-    /// # Parameters
-    /// - `f`: The formatter to write to.
-    ///
-    /// # Returns
-    /// `fmt::Result` indicating success or failure.
-    ///
-    /// # Example
-    /// ```
-    /// let t = Ty::new(1, vec![0,2], vec![10,11]);
-    /// println!("{}", t); // Prints: 1 - 0 2 : 10 11
-    /// ```
+impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let supers = if !self.super_types.is_empty() {
-            format!("- {}", self.super_types.iter()
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-                .join(" "))
+        if self.len() == 1 {
+            write!(f, "{}", self.members[0])
         } else {
-            String::new()
-        };
-
-        let objs = if !self.objects.is_empty() {
-            format!(": {}", self.objects.iter()
-                .map(|o| o.to_string())
-                .collect::<Vec<_>>()
-                .join(" "))
-        } else {
-            String::new()
-        };
-
-        write!(f, "{} {}{}", self.symbol, supers, objs)
+            write!(f, "(either")?;
+            for &t in &self.members {
+                write!(f, " {}", t)?;
+            }
+            write!(f, ")")
+        }
     }
 }

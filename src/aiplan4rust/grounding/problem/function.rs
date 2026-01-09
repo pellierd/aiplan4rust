@@ -1,134 +1,115 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::grounding::problem::Type;
 
-/// Represents a function object in a PDDL domain.
+/// Represents a function or object in a grounded PDDL problem.
 ///
-/// A `Function` is a symbolic relation that maps a set of arguments to a return type (`ty`).
-/// It is identified by a `symbol` and may have multiple arguments, represented as indices
-/// pointing to type definitions.
+/// - `parameters` are the argument types (indices into the type table).
+/// - `ty` is the return type (index into the type table).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Function {
-    /// Symbolic name of the function (e.g., "location-of").
+    /// Symbol index in the symbol table.
     symbol: usize,
 
-    /// Types of the function parameters (arguments), represented as indices.
-    arguments: Vec<usize>,
+    /// Argument type indices (indices into the type table).
+    parameters: Vec<usize>,
 
-    /// Return type of the function, represented as an index.
-    ty: usize,
+    /// Return type index (into the type table).
+    ty: Type,
 }
 
 impl Function {
-    /// Creates a new `Function` with the specified `symbol`, `arguments`, and return type `ty`.
+    /// Creates a new function.
     ///
     /// # Parameters
-    /// - `symbol`: Symbolic identifier for the function.
-    /// - `arguments`: Vector of indices representing the types of each argument.
-    /// - `ty`: Index representing the return type of the function.
+    /// - `symbol`: function symbol index
+    /// - `arguments`: argument type indices
+    /// - `ty`: return type
     ///
     /// # Returns
-    /// A new instance of `Function`.
-    ///
-    /// # Example
-    /// ```
-    /// let f = Function::new(1, vec![2, 3], 5);
-    /// ```
-    pub fn new(symbol: usize, arguments: Vec<usize>, ty: usize) -> Self {
-        Self { symbol, arguments, ty }
+    /// A new `Function` instance
+    pub fn new(symbol: usize, arguments: Vec<usize>, ty: Type) -> Self {
+        Self { symbol, parameters: arguments, ty }
     }
 
-    // ----- Getters -----
-
-    /// Returns the symbolic identifier of the function.
+    /// Creates a new object (function with no arguments).
+    ///
+    /// # Parameters
+    /// - `symbol`: object symbol index
+    /// - `ty`: object type
     ///
     /// # Returns
-    /// The `symbol` of type `usize`.
+    /// A `Function` representing an object
+    pub fn object(symbol: usize, ty: Type) -> Self {
+        Self::new(symbol, Vec::new(), ty)
+    }
+
+    /// Returns the symbol index.
+    ///
+    /// # Returns
+    /// Symbol index (`usize`)
     pub fn symbol(&self) -> usize {
         self.symbol
     }
 
-    /// Returns a reference to the arguments of the function.
+    /// Returns a reference to the argument types.
     ///
     /// # Returns
-    /// Reference to a `Vec<usize>` containing the argument type indices.
-    pub fn arguments(&self) -> &Vec<usize> {
-        &self.arguments
+    /// Reference to `Vec<usize>` containing argument type indices
+    pub fn parameters(&self) -> &Vec<usize> {
+        &self.parameters
     }
 
-    /// Returns a mutable reference to the arguments of the function.
+    /// Returns a mutable reference to the argument types.
     ///
     /// # Returns
-    /// Mutable reference to a `Vec<usize>` containing the argument type indices.
-    pub fn arguments_mut(&mut self) -> &mut Vec<usize> {
-        &mut self.arguments
+    /// Mutable reference to `Vec<usize>` containing argument type indices
+    pub fn parameters_mut(&mut self) -> &mut Vec<usize> {
+        &mut self.parameters
     }
 
-    /// Returns the return type index of the function.
+    /// Returns the return type index.
     ///
     /// # Returns
-    /// `ty` of type `usize`.
-    pub fn ty(&self) -> usize {
-        self.ty
+    /// Return type
+    pub fn ty(&self) -> &Type {
+        &self.ty
     }
 
-    // ----- Setters -----
-
-    /// Sets the symbolic identifier of the function.
+    /// Sets the symbol index.
     ///
     /// # Parameters
-    /// - `symbol`: New symbolic identifier.
+    /// - `symbol`: new symbol index
     pub fn set_symbol(&mut self, symbol: usize) {
         self.symbol = symbol;
     }
 
-    /// Sets the argument types of the function.
+    /// Sets the argument types.
     ///
     /// # Parameters
-    /// - `arguments`: Vector of indices representing the new argument types.
-    pub fn set_arguments(&mut self, arguments: Vec<usize>) {
-        self.arguments = arguments;
+    /// - `arguments`: new argument type indices
+    pub fn set_parameters(&mut self, arguments: Vec<usize>) {
+        self.parameters = arguments;
     }
 
-    /// Sets the return type of the function.
+    /// Sets the return type index.
     ///
     /// # Parameters
-    /// - `ty`: New return type index.
-    pub fn set_ty(&mut self, ty: usize) {
+    /// - `ty`: new return type
+    pub fn set_ty(&mut self, ty: Type) {
         self.ty = ty;
     }
 }
 
 impl fmt::Display for Function {
-    /// Formats the function in a PDDL-friendly style:
-    /// `symbol arg1 arg2 ... - ty` if there are arguments,
-    /// or `symbol - ty` if there are no arguments.
+    /// Formats the function in PDDL-like style.
     ///
-    /// # Parameters
-    /// - `f`: The formatter to write to.
-    ///
-    /// # Returns
-    /// `fmt::Result` indicating success or failure.
-    ///
-    /// # Example
-    /// ```
-    /// let f = Function::new(1, vec![2, 3], 5);
-    /// println!("{}", f); // Prints: 1 2 3 - 5
-    /// ```
+    /// `symbol arg1 arg2 ... - ty` if arguments exist, or `symbol - ty` if none.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let args = if !self.arguments.is_empty() {
-            self.arguments
-                .iter()
-                .map(|a| a.to_string())
-                .collect::<Vec<_>>()
-                .join(" ")
-        } else {
-            String::new()
-        };
-
-        if args.is_empty() {
-            write!(f, "{} - {}", self.symbol, self.ty)
-        } else {
-            write!(f, "{} {} - {}", self.symbol, args, self.ty)
+        write!(f, "{}", self.symbol)?;
+        for arg in &self.parameters {
+            write!(f, " {}", arg)?;
         }
+        write!(f, " - {}", self.ty)
     }
 }

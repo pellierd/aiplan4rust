@@ -52,7 +52,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
@@ -112,10 +112,10 @@ pub struct Problem {
     requirements: HashSet<Requirement>,
 
     /// The set of types defined in this syntax problem.
-    types: HashSet<TypedSymbol>,
+    types: HashMap<Ident, TypedSymbol>,
 
     /// The set of constants defined in this syntax problem.
-    constants: HashSet<TypedSymbol>,
+    constants: HashMap<Ident, TypedSymbol>,
 
     /// The list of predicates in the syntax problem.
     predicates: Vec<AtomicFormulaSkeleton>,
@@ -137,7 +137,7 @@ pub struct Problem {
     methods: Vec<LiftedMethod>,
 
     /// The set of objects defined in this syntax problem.
-    objects: HashSet<TypedSymbol>,
+    objects: HashMap<Ident, TypedSymbol>,
 
     /// The initial state of the problem.
     init: Expr,
@@ -173,21 +173,21 @@ impl Problem {
     /// assert!(problem.actions().is_empty());
     /// assert!(problem.types().is_empty());
     /// ```
-    fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
+    pub(crate) fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
         Self {
             interner,
             domain_id: Ident::default(),
             problem_id: Ident::default(),
             requirements,
-            types: HashSet::new(),
-            constants: HashSet::new(),
+            types: HashMap::new(),
+            constants: HashMap::new(),
             predicates: Vec::new(),
             functions: Vec::new(),
             domain_constraints: Expr::empty_or(),
             tasks: Vec::new(), // Add for HDDL
             actions: Vec::new(),
             methods: Vec::new(), // Add for HDDL
-            objects: HashSet::new(),
+            objects: HashMap::new(),
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
             problem_constraints: Expr::empty_or(),
@@ -367,13 +367,41 @@ impl Problem {
     /// let problem = LiftedProblem::new();
     /// assert!(problem.types().is_empty());
     /// ```
-    pub fn types(&self) -> &HashSet<TypedSymbol> {
-        &self.types
+    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol> {
+        self.types.values()
     }
 
-    /// Returns a mutable reference to the set of types.
-    pub fn types_mut(&mut self) -> &mut HashSet<TypedSymbol> {
+    /// Returns true if the problem contains any types.
+    pub fn has_types(&self) -> bool {
+        !self.types.is_empty()
+    }
+
+    /// Returns a mutable reference to the types map.
+    ///
+    /// This allows modifying existing `TypedSymbol`s directly,
+    /// while still keeping the internal storage as a HashMap.
+    pub fn types_mut(&mut self) -> &mut HashMap<Ident, TypedSymbol> {
         &mut self.types
+    }
+
+    /// Get a type by its Ident (immutable)
+    pub fn get_type(&self, id: Ident) -> Option<&TypedSymbol> {
+        self.types.get(&id)
+    }
+
+    /// Get a type by its Ident (mutable)
+    pub fn get_type_mut(&mut self, id: Ident) -> Option<&mut TypedSymbol> {
+        self.types.get_mut(&id)
+    }
+
+    /// Get a type by its `Ident` (immutable).
+    pub fn try_get_type(&self, id: Ident) -> Result<&TypedSymbol, LirError> {
+        self.types.get(&id).ok_or_else(|| LirError::type_not_found(id))
+    }
+
+    /// Get a type by its `Ident` (mutable).
+    pub fn try_get_type_mut(&mut self, id: Ident) -> Result<&mut TypedSymbol, LirError> {
+        self.types.get_mut(&id).ok_or_else(|| LirError::type_not_found(id))
     }
 
     /// Adds a single type_checker.
@@ -386,51 +414,58 @@ impl Problem {
     /// problem.add_type(TypedSymbol::new("vehicle", "object"));
     /// ```
     pub fn add_type(&mut self, ty: TypedSymbol) {
-        self.types.insert(ty);
+        self.types.insert(ty.symbol(), ty);
     }
 
-    /// Adds multiple types.
+    /// Adds multiple types at once.
+    ///
+    /// Existing types with the same `Ident` will be overwritten.
     ///
     /// # Example
     ///
     /// ```
+    /// let mut problem = LiftedProblem::new();
     /// problem.add_types(vec![
-    ///     TypedSymbol::new("truck", "vehicle"),
-    ///     TypedSymbol::new("package", "object"),
+    ///     TypedSymbol::new(a, type_a),
+    ///     TypedSymbol::new(b, type_b),
     /// ]);
     /// ```
     pub fn add_types<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = TypedSymbol>,
     {
-        self.types.extend(iter);
+        for ty in iter {
+            self.add_type(ty);
+        }
     }
-
     // === Constants ===
 
     /// Returns a reference to the set of constants.
-    pub fn constants(&self) -> &HashSet<TypedSymbol> {
+    pub fn constants(&self) -> &HashMap<Ident, TypedSymbol> {
         &self.constants
     }
 
     /// Returns a mutable reference to the set of constants.
-    pub fn constants_mut(&mut self) -> &mut HashSet<TypedSymbol> {
+    pub fn constants_mut(&mut self) -> &mut HashMap<Ident, TypedSymbol> {
         &mut self.constants
     }
 
     /// Adds a single constant.
     pub fn add_constant(&mut self, constant: TypedSymbol) {
-        self.constants.insert(constant);
+        self.constants.insert(constant.symbol(), constant);
     }
 
-    /// Adds multiple constants.
+    /// Adds multiple constants at once.
+    ///
+    /// Existing constants with the same `Ident` will be overwritten.
     pub fn add_constants<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = TypedSymbol>,
     {
-        self.constants.extend(iter);
+        for constant in iter {
+            self.add_constant(constant);
+        }
     }
-
     // === Predicates ===
 
     /// Returns a reference to the list of predicates.
@@ -576,26 +611,32 @@ impl Problem {
     // === Objects ===
 
     /// Returns a reference to the set of objects.
-    pub fn objects(&self) -> &HashSet<TypedSymbol> {
+    pub fn objects(&self) -> &HashMap<Ident, TypedSymbol> {
         &self.objects
     }
 
     /// Returns a mutable reference to the set of objects.
-    pub fn objects_mut(&mut self) -> &mut HashSet<TypedSymbol> {
+    pub fn objects_mut(&mut self) -> &mut HashMap<Ident, TypedSymbol> {
         &mut self.objects
     }
 
     /// Adds a single object.
+    ///
+    /// If the object already exists, it is overwritten.
     pub fn add_object(&mut self, object: TypedSymbol) {
-        self.objects.insert(object);
+        self.objects.insert(object.symbol(), object);
     }
 
-    /// Adds multiple objects.
+    /// Adds multiple objects at once.
+    ///
+    /// Existing objects with the same `Ident` will be overwritten.
     pub fn add_objects<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = TypedSymbol>,
     {
-        self.objects.extend(iter);
+        for object in iter {
+            self.add_object(object);
+        }
     }
 
     // === Init ===

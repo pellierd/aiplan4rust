@@ -116,7 +116,7 @@ impl Action {
 
     /// Returns the name (identifier) of the action.
     pub fn name(&self) -> Ident {
-        self.header.name()
+        self.header.symbol()
     }
 
     /// Sets the name (identifier) of the action.

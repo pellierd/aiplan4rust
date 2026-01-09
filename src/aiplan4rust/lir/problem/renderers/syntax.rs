@@ -72,7 +72,7 @@ pub fn render_domain_def(
     // Types
     if !domain.constants().is_empty() {
         writeln!(f, "  {}{}", Token::LParen, Token::Types)?;
-    for t in domain.types() {
+        for t in domain.types() {
             writeln!(f, "    {}", t.to_syntax_string_with_interner(interner))?;
         }
         writeln!(f, "  {}\n", Token::RParen)?;
@@ -81,7 +81,7 @@ pub fn render_domain_def(
     // Constants
     if !domain.constants().is_empty() {
         writeln!(f, "  {}{}", Token::LParen, Token::Constants)?;
-        for c in domain.constants() {
+        for c in domain.constants().values() {
             writeln!(f, "    {}", c.to_syntax_string_with_interner(interner))?;
         }
         writeln!(f, "  {}\n", Token::RParen)?;
@@ -202,7 +202,7 @@ pub fn render_problem_def(
     // Objects
     if !problem.objects().is_empty() {
         writeln!(f, "  {}{}", Token::LParen, Token::Objects)?;
-        for o in problem.objects() {
+        for o in problem.objects().values() {
             writeln!(f, "    {}", o.to_syntax_string_with_interner(interner))?;
         }
         writeln!(f, "  {}\n", Token::RParen)?;

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
@@ -95,8 +95,8 @@ pub(crate) fn extract_problem(
                 ir.set_problem_id(id)?;
             }
             AstKind::ObjectsDef => {
-                let types = extract_types(&subtree)?;
-                ir.add_types(types);
+                let objects = extract_constants(&subtree)?;
+                ir.add_objects(objects);
             }
             AstKind::Init => {
                 let init_expr = extract_init(&subtree)?;
@@ -129,8 +129,6 @@ pub(crate) fn extract_problem(
     Ok(())
 }
 
-
-
 // ---------- Extraction Helpers ---------- //
 
 /// Extracts a set of requirements from a `RequireDef` syntax subtree.
@@ -161,12 +159,14 @@ fn extract_atomic_function_skeleton(
     })
 }
 
-/// Extracts types from a `TypesDef` syntax subtree.
+/// Extracts types from a `TypesDef` syntax subtree into a map from Ident to TypedSymbol.
 fn extract_types(subtree: &SyntaxSubtree<AstNode>) -> Result<HashSet<TypedSymbol>, LirError> {
+    // Apply extraction function to the grandchildren of the first child
     extract_set_from_first_child(subtree, |child_subtree| {
         Ok(TypedSymbol::try_from(child_subtree)?)
     })
 }
+
 
 /// Extracts constants or objects from a `ConstantsDef` or `ObjectsDef` syntax subtree.
 fn extract_constants(subtree: &SyntaxSubtree<AstNode>) -> Result<HashSet<TypedSymbol>, LirError> {

@@ -209,7 +209,7 @@ fn match_argument(
 
     // Retrieve the type_checker of the i-th declared argument (the one we are matching)
     let ty1 = match declared_arguments.get(index) {
-        Some(arg) => arg.types(),
+        Some(arg) => arg.ty(),
         None => {
             return Err(SemanticCheckError::argument_index_out_of_bounds(index, declaration.scope().clone()));
         }

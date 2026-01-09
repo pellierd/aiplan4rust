@@ -59,7 +59,7 @@ impl TypedSymbol {
     }
 
     /// Returns a reference to the associated type_checker(s).
-    pub fn types(&self) -> &Type {
+    pub fn ty(&self) -> &Type {
         &self.ty
     }
 

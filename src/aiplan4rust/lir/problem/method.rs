@@ -87,7 +87,7 @@ impl Method {
 
     /// Returns the method's name as an identifier.
     pub fn name(&self) -> Ident {
-        self.header.name()
+        self.header.symbol()
     }
 
     /// Sets the method's name.

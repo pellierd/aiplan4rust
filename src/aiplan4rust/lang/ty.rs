@@ -1,17 +1,14 @@
-//! Module defining the `Type` abstraction for syntax problem intermediate representation (IR).
+//! Module defining the `Type` abstraction for the syntax problem intermediate representation (IR).
 //!
-//! This module provides a representation of types as non-empty lists of atomic identifiers,
-//! supporting both simple atomic types and union types (referred to as `either` in PDDL).
+//! This module provides a representation of PDDL types as non-empty lists of atomic identifiers,
+//! supporting both primitive (atomic) types and union types (referred to as `either` in PDDL).
 //!
-//! The design enables efficient and flexible modeling of type_checker expressions commonly found
-//! in syntax domain definitions, where a type_checker can be:
-//! - A single atomic type_checker (e.g., `vehicle`)
-//! - A union of multiple atomic types (e.g., `either car truck`)
+//! A `Type` can represent:
+//! - A single primitive type (e.g., `vehicle`)
+//! - A union of multiple primitives (e.g., `either car truck`)
 //!
-//! The internal representation uses a flat vector of `Ident` to store the constituent atomic types,
-//! simplifying processing while preserving expressiveness.
-//!
-//! Typical usage includes parsing, type_checker checking, and semantic analysis of syntax domain languages.
+//! Internally, the type stores a flat vector of `Ident`, simplifying processing
+//! while preserving expressiveness for parsing, type checking, and semantic analysis.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::error::LangError;
@@ -19,52 +16,38 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
-use std::collections::HashMap;
-
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 
-/// Represents a type_checker in a syntax problem IR.
+/// Represents a PDDL type in the syntax problem IR.
 ///
-/// A type_checker is always represented as a non-empty list of atomic type_checker identifiers.
-/// If the list contains a single identifier, it represents an atomic (primitive) type_checker.
-/// If it contains multiple identifiers, it represents a union (called `either` in PDDL) of types.
-///
-/// This structure allows easy representation of both simple and union types
-/// while keeping the internal model flat and efficient.
+/// A `Type` is always a non-empty collection of atomic type identifiers.
+/// - If it has exactly one member, it represents a primitive (atomic) type.
+/// - If it has multiple members, it represents a union type (`either` in PDDL).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Type {
-    /// Non-empty list of atomic type_checker identifiers.
+    /// Non-empty list of atomic type identifiers.
     members: Vec<Ident>,
 }
 
 impl Type {
-    /// Creates a new empty `Type` with no members.
+    /// Creates a new empty `Type`.
     ///
     /// # Returns
-    ///
-    /// A new `Type` instance with an empty list of members.
+    /// A `Type` instance with no members.
     pub fn new() -> Self {
-        Self {
-            members: Vec::new(),
-        }
+        Self { members: Vec::new() }
     }
 
-    /// Returns a static reference to the constant `OBJECT_TYPE`.
-    ///
-    /// This is a lazily initialized `Type` instance containing
-    /// the identifier `StringInterner::IDENT_OBJECT`.
-    ///
-    /// The `Lazy` ensures that the initialization happens only once,
-    /// on first access.
+    /// Returns a reference to the canonical `object` type.
     ///
     /// # Example
-    ///
     /// ```
     /// let obj_type = Type::object();
-    /// // use obj_type here
+    /// assert!(obj_type.is_object());
     /// ```
     pub fn object() -> &'static Self {
         static OBJECT_TYPE: Lazy<Type> = Lazy::new(|| {
@@ -75,19 +58,17 @@ impl Type {
         &OBJECT_TYPE
     }
 
-    /// Returns a static reference to the constant `NUMBER_TYPE`.
-    ///
-    /// This is a lazily initialized `Type` instance containing
-    /// the identifier `StringInterner::IDENT_NUMBER`.
-    ///
-    /// The `Lazy` ensures that the initialization happens only once,
-    /// on first access.
+    /// Returns `true` if this type is the `object` type.
+    pub fn is_object(&self) -> bool {
+        self == Type::object()
+    }
+
+    /// Returns a reference to the canonical `number` type.
     ///
     /// # Example
-    ///
     /// ```
     /// let num_type = Type::number();
-    /// // use num_type here
+    /// assert!(num_type.is_number());
     /// ```
     pub fn number() -> &'static Self {
         static NUMBER_TYPE: Lazy<Type> = Lazy::new(|| {
@@ -98,102 +79,56 @@ impl Type {
         &NUMBER_TYPE
     }
 
-    /// Returns an empty instance of the type_checker.
-    ///
-    /// This is a convenience method that creates a default (empty) value.
-    /// It relies on the `Default` trait implementation for this type_checker.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// let empty_list = TypedList::empty();
-    /// assert!(empty_list.is_empty()); // supposant que is_empty() est défini
-    /// ```
-    pub fn empty() -> Self {
-        Self::default()
+    /// Returns `true` if this type is the `number` type.
+    pub fn is_number(&self) -> bool {
+        self == Type::number()
     }
 
-    /// Adds a new atomic or primitive type_checker identifier to this type_checker.
+    /// Creates a new primitive (atomic) type from a single identifier.
+    pub fn primitive(id: Ident) -> Self {
+        Self { members: vec![id] }
+    }
+
+    /// Creates a new union type (`either`) from a non-empty list of identifiers.
     ///
-    /// # Arguments
-    ///
-    /// * `member` - The atomic or primitive type_checker identifier to add.
+    /// # Panics
+    /// Panics if `ids` is empty.
+    pub fn either(ids: Vec<Ident>) -> Self {
+        assert!(!ids.is_empty(), "Either type must have at least one member");
+        Self { members: ids }
+    }
+
+    /// Adds a new atomic type identifier to this `Type`.
     pub fn add_type(&mut self, member: Ident) {
         self.members.push(member);
     }
 
-    /// Creates a new atomic type_checker from a single atomic type_checker identifier.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The identifier of the atomic type_checker.
-    ///
-    /// # Returns
-    ///
-    /// A `Type` instance representing an atomic type_checker.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use aiplan4rust::ir::{Type, Ident};
-    /// let t = Type::atomic_type(Ident(1));
-    /// assert!(t.is_atomic_type());
-    /// ```
-    pub fn atomic_type(id: Ident) -> Self {
-        Type { members: vec![id] }
-    }
-
-    /// Creates a new union type_checker (either) from multiple atomic type_checker identifiers.
-    ///
-    /// # Arguments
-    ///
-    /// * `ids` - A non-empty vector of atomic type_checker identifiers to union.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `ids` is empty.
-    ///
-    /// # Returns
-    ///
-    /// A `Type` instance representing a union of atomic types.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use aiplan4rust::ir::{Type, Ident};
-    /// let t = Type::either_type(vec![Ident(1), Ident(2)]);
-    /// assert!(t.is_either_type());
-    /// ```
-    pub fn either_type(ids: Vec<Ident>) -> Self {
-        assert!(!ids.is_empty(), "Either type must have at least one member");
-        Type { members: ids }
-    }
-
-    /// Returns `true` if this type_checker is atomic (contains exactly one member).
-    pub fn is_atomic_type(&self) -> bool {
+    /// Returns `true` if the type is primitive (contains exactly one member).
+    pub fn is_primitive(&self) -> bool {
         self.members.len() == 1
     }
 
-    /// Returns `true` if this type_checker is a union (called `either` in PDDL) of atomic types.
-    pub fn is_either_type(&self) -> bool {
+    /// Returns `true` if the type is a union (`either`) of atomic types.
+    pub fn is_either(&self) -> bool {
         self.members.len() > 1
     }
 
-    /// Returns `true` if the type_checker has no members.
+    /// Returns `true` if the type has no members.
     pub fn is_empty(&self) -> bool {
         self.members.is_empty()
     }
 
-    /// Returns the number of atomic type_checker identifiers contained in this `Type`.
-    ///
-    /// # Returns
-    ///
-    /// The length of the `members` vector.
+    /// Returns the number of members in this type.
     pub fn len(&self) -> usize {
         self.members.len()
     }
 
-    /// Returns an iterator over the members by reference.
+    /// Returns a slice of all type members.
+    pub fn as_slice(&self) -> &[Ident] {
+        &self.members
+    }
+
+    /// Returns an iterator over the members.
     pub fn iter(&self) -> std::slice::Iter<'_, Ident> {
         self.members.iter()
     }
@@ -203,41 +138,21 @@ impl Type {
         self.members.iter_mut()
     }
 
-    /// Consumes self and returns an iterator over the members by value.
+    /// Consumes the type and returns an iterator over its members.
     pub fn into_iter(self) -> std::vec::IntoIter<Ident> {
         self.members.into_iter()
     }
 
-    /// Returns a slice containing all the atomic type_checker identifiers in this `Type`.
-    ///
-    /// This provides a read-only view of the underlying members,
-    /// allowing iteration and access without exposing the internal `Vec`.
-    ///
-    /// # Returns
-    ///
-    /// A slice of `Ident` representing the members of this `Type`.
-    pub fn as_slice(&self) -> &[Ident] {
-        &self.members
-    }
-
-    /// Remaps the identifiers of the `Type` based on the provided mapping.
-    ///
-    /// For each identifier in `members`, calls its own `remap_idents` method to
-    /// update the identifier according to the mapping.
-    ///
-    /// # Parameters
-    ///
-    /// - `map`: A reference to a `HashMap` mapping old `Ident` values to new `Ident` values.
+    /// Remaps identifiers according to a provided mapping.
     pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
         for ident in &mut self.members {
             ident.remap_idents(map);
         }
     }
 }
-
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self.is_atomic_type() {
+        if self.is_primitive() {
             write!(f, "{}", self.members[0])
         } else {
             write!(f, "either(")?;

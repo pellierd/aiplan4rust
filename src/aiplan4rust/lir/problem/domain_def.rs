@@ -37,6 +37,7 @@
 //! let constraints = domain.domain_constraints();
 //! ```
 
+use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 
 use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedMethod, LiftedProblem};
@@ -124,21 +125,38 @@ impl<'a> DomainDef<'a> {
         self.problem.requirements()
     }
 
-    /// Returns a slice of the domain's types.
+    /// Returns an iterator over all types in the domain.
     ///
     /// # Returns
     ///
-    /// A reference to a [`HashSet`] of [`TypedSymbol`] representing types.
-    pub fn types(&self) -> &std::collections::HashSet<TypedSymbol> {
+    /// An iterator over references to [`TypedSymbol`]s in the domain. Each
+    /// [`TypedSymbol`] is associated with a unique type identifier (`Ident`).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// for ty in domain.types() {
+    ///     println!("Type: {:?}", ty);
+    /// }
+    /// ```
+    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol> {
         self.problem.types()
     }
 
-    /// Returns the domain-level constants.
+    /// Returns true if the problem contains any types.
+    pub fn has_types(&self) -> bool {
+        self.problem.has_types()
+    }
+
+    /// Returns all domain-level constants as a map from `Ident` to `TypedSymbol`.
     ///
     /// # Returns
     ///
-    /// A reference to a [`HashSet`] of [`TypedSymbol`] representing constants.
-    pub fn constants(&self) -> &std::collections::HashSet<TypedSymbol> {
+    /// A reference to a [`HashMap`] where the keys are constant identifiers (`Ident`)
+    /// and the values are the corresponding [`TypedSymbol`]s.
+    ///
+    /// This allows efficient lookup of a constant by its identifier.
+    pub fn constants(&self) -> &HashMap<Ident, TypedSymbol> {
         self.problem.constants()
     }
 

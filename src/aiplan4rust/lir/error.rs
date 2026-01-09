@@ -1,6 +1,6 @@
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::interner::{Ident, InternerError};
 use crate::aiplan4rust::lang::LangError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
@@ -56,6 +56,17 @@ pub enum LirError {
     #[error("Unexpected AstKind in TaskNetwork conversion: {0:?}")]
     TaskNetworkAstKindError(AstKind),
 
+    /// Type not found for a given Ident.
+    #[error("Type with id {0:?} not found")]
+    TypeNotFound(Ident),
+
+    /// Constant not found for a given Ident.
+    #[error("Constant with id {0:?} not found")]
+    ConstantNotFound(Ident),
+
+    /// Object not found for a given Ident.
+    #[error("Object with id {0:?} not found")]
+    ObjectNotFound(Ident),
 }
 
 impl LirError {
@@ -84,4 +95,18 @@ impl LirError {
         LirError::TaskNetworkAstKindError(kind)
     }
 
+    /// Creates a `TypeNotFound` error for the given `Ident`.
+    pub fn type_not_found(id: Ident) -> Self {
+        LirError::TypeNotFound(id)
+    }
+
+    /// Creates a `ConstantNotFound` error for the given `Ident`.
+    pub fn constant_not_found(id: Ident) -> Self {
+        LirError::ConstantNotFound(id)
+    }
+
+    /// Creates an `ObjectNotFound` error for the given `Ident`.
+    pub fn object_not_found(id: Ident) -> Self {
+        LirError::ObjectNotFound(id)
+    }
 }

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use crate::aiplan4rust::interner::Ident;
 
 /// A table mapping `Ident` to indices (`usize`) and vice versa.
@@ -51,6 +52,29 @@ impl IndexTable {
         self.map.get(id).copied()
     }
 
+    /// Returns the index of the given `Ident` in the `IndexTable`.
+    ///
+    /// # Parameters
+    /// - `id`: The identifier to look up.
+    ///
+    /// # Returns
+    /// - `Ok(index)` if the identifier exists in the table.
+    /// - `Err(IndexTableError::IdentNotFound)` if the identifier is absent.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use aiplan4rust::interner::Ident;
+    /// # use aiplan4rust::grounding::problem::{IndexTable, IndexTableError};
+    /// let mut table = IndexTable::new();
+    /// let id = Ident(42);
+    /// table.insert(id);
+    /// assert_eq!(table.try_index(&id).unwrap(), 0);
+    /// assert!(table.try_index(&Ident(99)).is_err());
+    /// ```
+    pub fn try_index(&self, id: &Ident) -> Result<usize, IndexTableError> {
+        self.get_index(id).ok_or(IndexTableError::IdentNotFound(*id))
+    }
+
     /// Retrieves the `Ident` at a given index.
     ///
     /// # Parameters
@@ -62,19 +86,29 @@ impl IndexTable {
         self.elements.get(idx)
     }
 
-    /// Retrieves a mutable reference to an `Ident` by its value.
+    /// Returns a reference to the `Ident` at the given index in the `IndexTable`.
     ///
     /// # Parameters
-    /// - `id`: Reference to the `Ident` to access mutably.
+    /// - `idx`: The index to look up.
     ///
     /// # Returns
-    /// `Some(&mut Ident)` if the `Ident` exists, or `None` otherwise.
-    pub fn get_mut(&mut self, id: &Ident) -> Option<&mut Ident> {
-        if let Some(&idx) = self.map.get(id) {
-            Some(&mut self.elements[idx])
-        } else {
-            None
-        }
+    /// - `Ok(&Ident)` if the index is valid.
+    /// - `Err(IndexTableError::IndexOutOfBounds)` if the index is out of range.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use aiplan4rust::interner::Ident;
+    /// # use aiplan4rust::grounding::problem::{IndexTable, IndexTableError};
+    /// let mut table = IndexTable::new();
+    /// let id = Ident(42);
+    /// table.insert(id);
+    ///
+    /// assert_eq!(table.try_get_ident(0).unwrap(), &id);
+    /// assert!(matches!(table.try_get_ident(1), Err(IndexTableError::IndexOutOfBounds(1))));
+    /// ```
+    pub fn try_get_ident(&self, idx: usize) -> Result<&Ident, IndexTableError> {
+        self.get_ident(idx)
+            .ok_or(IndexTableError::IndexOutOfBounds(idx))
     }
 
     /// Checks whether a given `Ident` exists in the table.
@@ -111,4 +145,13 @@ impl IndexTable {
     pub fn iter(&self) -> impl Iterator<Item = &Ident> {
         self.elements.iter()
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum IndexTableError {
+    #[error("Ident {0:?} not found in IndexTable")]
+    IdentNotFound(Ident),
+
+    #[error("Index {0} out of bounds in IndexTable")]
+    IndexOutOfBounds(usize),
 }

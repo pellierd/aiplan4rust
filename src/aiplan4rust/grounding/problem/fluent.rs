@@ -12,7 +12,7 @@ pub struct Fluent {
     symbol: usize,
 
     /// Types of the parameters (arguments), represented as indices.
-    arguments: Vec<usize>,
+    parameters: Vec<usize>,
 }
 
 impl Fluent {
@@ -30,7 +30,7 @@ impl Fluent {
     /// let f = Fluent::new(1, vec![2, 3]);
     /// ```
     pub fn new(symbol: usize, arguments: Vec<usize>) -> Self {
-        Self { symbol, arguments }
+        Self { symbol, parameters: arguments }
     }
 
     /// Returns the symbolic identifier of the fluent.
@@ -53,24 +53,24 @@ impl Fluent {
     ///
     /// # Returns
     /// Reference to a `Vec<usize>` containing the argument type indices.
-    pub fn arguments(&self) -> &Vec<usize> {
-        &self.arguments
+    pub fn parameters(&self) -> &Vec<usize> {
+        &self.parameters
     }
 
     /// Returns a mutable reference to the arguments of the fluent.
     ///
     /// # Returns
     /// Mutable reference to a `Vec<usize>` containing the argument type indices.
-    pub fn arguments_mut(&mut self) -> &mut Vec<usize> {
-        &mut self.arguments
+    pub fn parameters_mut(&mut self) -> &mut Vec<usize> {
+        &mut self.parameters
     }
 
     /// Sets the arguments of the fluent.
     ///
     /// # Parameters
     /// - `arguments`: A vector of indices representing the new argument types.
-    pub fn set_arguments(&mut self, arguments: Vec<usize>) {
-        self.arguments = arguments;
+    pub fn set_parameters(&mut self, arguments: Vec<usize>) {
+        self.parameters = arguments;
     }
 }
 
@@ -89,7 +89,7 @@ impl fmt::Display for Fluent {
     /// println!("{}", f); // Prints: 1 2 3
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let args = self.arguments
+        let args = self.parameters
             .iter()
             .map(|a| a.to_string())
             .collect::<Vec<_>>()

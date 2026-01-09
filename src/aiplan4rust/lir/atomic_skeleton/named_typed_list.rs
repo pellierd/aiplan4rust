@@ -48,7 +48,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct NamedTypedList {
     /// Name of the predicate or function.
-    name: Ident,
+    symbol: Ident,
     /// Signature describing parameter types and optional return type_checker.
     parameters: TypedList,
 }
@@ -65,7 +65,7 @@ impl NamedTypedList {
     ///
     /// A new instance of `NamedTypedList`.
     pub fn new(name: Ident, parameters: TypedList) -> Self {
-        Self { name, parameters }
+        Self { symbol: name, parameters }
     }
 
     /// Returns the name of the predicate or function.
@@ -73,8 +73,8 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// The `Ident` representing the name.
-    pub fn name(&self) -> Ident {
-        self.name
+    pub fn symbol(&self) -> Ident {
+        self.symbol
     }
 
     /// Sets the name of the predicate or function.
@@ -83,7 +83,7 @@ impl NamedTypedList {
     ///
     /// - `name`: The new name to set.
     pub fn set_name(&mut self, name: Ident) {
-        self.name = name;
+        self.symbol = name;
     }
 
     /// Returns a reference to the parameters (signature).
@@ -174,7 +174,7 @@ impl Display for NamedTypedList {
     /// Output format: `[name: <name>, parameters: <parameters>]`
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "[name: ")?;
-        self.name.fmt(f)?;
+        self.symbol.fmt(f)?;
         write!(f, ", parameters: ")?;
         self.parameters.fmt(f)?;
         write!(f, "]")
@@ -185,7 +185,7 @@ impl InternerDisplay for NamedTypedList {
     /// Formats the `NamedTypedList` with a string interner, used for pretty printing.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         write!(f, "[name: ")?;
-        self.name.fmt_with_interner(f, interner)?;
+        self.symbol.fmt_with_interner(f, interner)?;
         write!(f, ", parameters: ")?;
         self.parameters.fmt_with_interner(f, interner)?;
         write!(f, "]")
@@ -197,7 +197,7 @@ impl SyntaxInternerDisplay for NamedTypedList {
     fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         syntax::display::write_indent(f,indent)?;
         write!(f, "{}", Token::LParen)?;
-        self.name.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
+        self.symbol.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
         write!(f, " ")?;
         self.parameters.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
         write!(f, "{}", Token::RParen)

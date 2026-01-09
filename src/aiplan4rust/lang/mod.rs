@@ -36,7 +36,7 @@
 //!
 //! This centralization improves consistency and makes the language model easier to evolve.
 
-pub mod types;
+pub mod ty;
 pub mod typed_symbol;
 pub mod typed_list;
 pub mod requirement;
@@ -46,7 +46,7 @@ pub mod binary_comp;
 pub mod optimization;
 pub mod error;
 
-pub use types::Type;
+pub use ty::Type;
 pub use typed_symbol::TypedSymbol;
 pub use typed_list::TypedList;
 pub use crate::aiplan4rust::interner::ident::Ident;
