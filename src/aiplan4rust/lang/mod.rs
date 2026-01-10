@@ -45,6 +45,8 @@ pub mod assign_op;
 pub mod binary_comp;
 pub mod optimization;
 pub mod error;
+pub mod flatten_types;
+pub mod remap_idents;
 
 pub use ty::Type;
 pub use typed_symbol::TypedSymbol;
@@ -56,3 +58,5 @@ pub use assign_op::AssignOp;
 pub use binary_comp::BinaryComp;
 pub use optimization::Optimization;
 pub use error::LangError;
+pub use flatten_types::FlattenTypes;
+pub use remap_idents::RemapIdents;

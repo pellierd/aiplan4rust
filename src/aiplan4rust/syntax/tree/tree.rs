@@ -24,7 +24,8 @@ use crate::aiplan4rust::arena::{ArenaTree, NodeId, NodeRef};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::arena::node_ref::NodeRefMut;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -348,18 +349,6 @@ where
         self.arena.postorder_from(root)
     }
 
-    /// Remaps identifiers across the whole syntax tree.
-    ///
-    /// # Arguments
-    /// * `map` - A mapping from old identifiers to new ones.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        if !self.is_empty() {
-            if let Ok(root_id) = self.arena.try_root_id() {
-                self.remap_idents_from(root_id, map);
-            }
-        }
-    }
-
     /// Remaps identifiers starting from a specific node.
     ///
     /// # Arguments
@@ -616,6 +605,40 @@ where
         } else {
             false
         }
+    }
+}
+
+impl<T> RemapIdents for SyntaxTree<T>
+    where
+    T: SyntaxNode,
+    T::Content: SyntaxContent,
+{
+    /// Recursively remaps all identifiers in this syntax tree using the provided mapping.
+    ///
+    /// This ensures that every node in the tree that contains an `Ident` is updated
+    /// according to the `map`. Useful when merging, flattening, or renaming symbols
+    /// across multiple contexts while keeping the tree internally consistent.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap` mapping old `Ident` values to their new `Ident` values.
+    ///
+    /// # Behavior
+    ///
+    /// - If the syntax tree is empty, no action is taken.
+    /// - The remapping starts from the root node and traverses all child nodes recursively.
+    /// - Any identifier not present in the mapping remains unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RemapIdentError` if remapping fails for any node (propagates errors from nested structures).
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        if !self.is_empty() {
+            if let Ok(root_id) = self.arena.try_root_id() {
+                self.remap_idents_from(root_id, map);
+            }
+        }
+        Ok(())
     }
 }
 

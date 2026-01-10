@@ -12,7 +12,7 @@
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::error::LangError;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a PDDL type in the syntax problem IR.
 ///
@@ -40,6 +41,30 @@ impl Type {
     /// A `Type` instance with no members.
     pub fn new() -> Self {
         Self { members: Vec::new() }
+    }
+
+    /// Returns the members of this type.
+    ///
+    /// The returned slice contains the identifiers of all atomic types
+    /// that compose this type.
+    pub fn members(&self) -> &[Ident] {
+        &self.members
+    }
+
+    /// Returns a mutable reference to the members of this type.
+    ///
+    /// This allows in-place modification of the atomic type identifiers
+    /// that compose this `Type`.
+    pub fn members_mut(&mut self) -> &mut Vec<Ident> {
+        &mut self.members
+    }
+
+    /// Replaces the members of this type.
+    ///
+    /// The provided vector must be non-empty and should contain
+    /// atomic type identifiers.
+    pub fn set_members(&mut self, members: Vec<Ident>) {
+        self.members = members;
     }
 
     /// Returns a reference to the canonical `object` type.
@@ -94,7 +119,6 @@ impl Type {
     /// # Panics
     /// Panics if `ids` is empty.
     pub fn either(ids: Vec<Ident>) -> Self {
-        assert!(!ids.is_empty(), "Either type must have at least one member");
         Self { members: ids }
     }
 
@@ -105,12 +129,12 @@ impl Type {
 
     /// Returns `true` if the type is primitive (contains exactly one member).
     pub fn is_primitive(&self) -> bool {
-        self.members.len() == 1
+        self.members.len() == 1 || self.is_number() || self.is_object()
     }
 
     /// Returns `true` if the type is a union (`either`) of atomic types.
     pub fn is_either(&self) -> bool {
-        self.members.len() > 1
+        !self.is_number() && !self.is_object() && self.members.len() > 1
     }
 
     /// Returns `true` if the type has no members.
@@ -143,13 +167,47 @@ impl Type {
         self.members.into_iter()
     }
 
-    /// Remaps identifiers according to a provided mapping.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+
+}
+
+impl RemapIdents for Type {
+    /// Remaps all atomic type identifiers (`Ident`) contained in this `Type`
+    /// according to the provided mapping table.
+    ///
+    /// Each member of the type is updated if a corresponding entry exists in `map`.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap` associating old `Ident` values with their new `Ident`s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
         for ident in &mut self.members {
-            ident.remap_idents(map);
+            ident.remap_idents(map)?;
+        }
+        Ok(())
+    }
+}
+
+impl FlattenTypes for Type {
+    /// Replaces union types (`Type::Either`) with their corresponding
+    /// primitive identifiers based on the provided mapping.
+    ///
+    /// # Parameters
+    /// - `map`: A mapping from `Type::Either` to its new primitive `Ident`.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+        if self.is_either() {
+            if let Some(new_ident) = map.get(&self) {
+                let members = self.members_mut();
+                members.clear();
+                members.push(*new_ident);
+            }
         }
     }
 }
+
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.is_primitive() {

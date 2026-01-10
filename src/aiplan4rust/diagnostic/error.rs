@@ -25,6 +25,7 @@
 //! operations without losing the original context or error details.
 
 use thiserror::Error;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Errors related to diagnostic processing and rendering.
 #[derive(Error, Debug)]
@@ -32,4 +33,9 @@ pub enum DiagnosticError {
     /// Wraps any I/O errors encountered during diagnostic handling.
     #[error(transparent)]
     Io(#[from] std::io::Error),
+
+    /// Wraps any RemapIdentError encountered
+    #[error(transparent)]
+    RemapIndent(#[from] RemapIdentError),
+
 }

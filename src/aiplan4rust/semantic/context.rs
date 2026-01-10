@@ -52,7 +52,7 @@
 //! semantic analysis.
 
 use crate::aiplan4rust::interner::{Ident, InternerError, Literal, StringInterner};
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::lang::{RemapIdents, Requirement};
 use crate::aiplan4rust::semantic::{requirements, SemanticError, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
@@ -422,7 +422,7 @@ impl Context {
         literal_map: &HashMap<Literal, Literal>,
     ) -> Result<(), SemanticError> {
         // Step 1: remap identifiers in AST directly
-        self.syntax_tree.remap_idents(ident_map);
+        self.syntax_tree.remap_idents(ident_map)?;
 
         // Step 2: remap identifiers in the symbol table directly
         self.symbol_table.remap_idents(ident_map)?;

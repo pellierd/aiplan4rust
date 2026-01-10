@@ -22,6 +22,7 @@
 //! }
 //! ```
 use thiserror::Error;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents errors specific to the `lang` module.
@@ -36,6 +37,10 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// - [`InternalError`]: Represents generic internal errors with a message.
 #[derive(Debug, Error)]
 pub enum LangError {
+    /// Wraps any RemapIdentError encountered
+    #[error(transparent)]
+    RemapIndent(#[from] RemapIdentError),
+
     /// An error originating from the syntax tree system.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),

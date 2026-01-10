@@ -438,19 +438,97 @@ impl Problem {
             self.add_type(ty);
         }
     }
+
     // === Constants ===
 
-    /// Returns a reference to the set of constants.
-    pub fn constants(&self) -> &HashMap<Ident, TypedSymbol> {
-        &self.constants
+    /// Returns an iterator over the constants of the problem.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let problem = LiftedProblem::new();
+    /// for c in problem.constants() {
+    ///     println!("{:?}", c);
+    /// }
+    /// ```
+    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol> {
+        self.constants.values()
     }
 
-    /// Returns a mutable reference to the set of constants.
-    pub fn constants_mut(&mut self) -> &mut HashMap<Ident, TypedSymbol> {
-        &mut self.constants
+    /// Returns a mutable iterator over the constants of the problem.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut problem = LiftedProblem::new();
+    /// for c in problem.constants_mut_iter() {
+    ///     c.set_name(Ident::new("new_name")); // Exemple de modification
+    /// }
+    /// ```
+    pub fn constants_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol> {
+        self.constants.values_mut()
     }
 
-    /// Adds a single constant.
+    /// Returns true if the problem contains any constants.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let problem = LiftedProblem::new();
+    /// assert!(!problem.has_constants());
+    /// ```
+    pub fn has_constants(&self) -> bool {
+        !self.constants.is_empty()
+    }
+
+
+    /// Get a constant by its `Ident` (immutable).
+    ///
+    /// # Returns
+    /// - `Some(&TypedSymbol)` if the constant exists.
+    /// - `None` otherwise.
+    pub fn get_constant(&self, id: Ident) -> Option<&TypedSymbol> {
+        self.constants.get(&id)
+    }
+
+    /// Get a constant by its `Ident` (mutable).
+    ///
+    /// # Returns
+    /// - `Some(&mut TypedSymbol)` if the constant exists.
+    /// - `None` otherwise.
+    pub fn get_constant_mut(&mut self, id: Ident) -> Option<&mut TypedSymbol> {
+        self.constants.get_mut(&id)
+    }
+
+    /// Get a constant by its `Ident` (immutable).
+    ///
+    /// # Errors
+    /// - [`LirError::constant_not_found`] if the constant does not exist.
+    pub fn try_get_constant(&self, id: Ident) -> Result<&TypedSymbol, LirError> {
+        self.constants
+            .get(&id)
+            .ok_or_else(|| LirError::constant_not_found(id))
+    }
+
+    /// Get a constant by its `Ident` (mutable).
+    ///
+    /// # Errors
+    /// - [`LirError::constant_not_found`] if the constant does not exist.
+    pub fn try_get_constant_mut(&mut self, id: Ident) -> Result<&mut TypedSymbol, LirError> {
+        self.constants
+            .get_mut(&id)
+            .ok_or_else(|| LirError::constant_not_found(id))
+    }
+
+    /// Adds a single constant to the problem.
+    ///
+    /// If a constant with the same `Ident` already exists, it is overwritten.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// problem.add_constant(TypedSymbol::new(id, ty));
+    /// ```
     pub fn add_constant(&mut self, constant: TypedSymbol) {
         self.constants.insert(constant.symbol(), constant);
     }
@@ -458,6 +536,12 @@ impl Problem {
     /// Adds multiple constants at once.
     ///
     /// Existing constants with the same `Ident` will be overwritten.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// problem.add_constants(vec![c1, c2, c3]);
+    /// ```
     pub fn add_constants<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = TypedSymbol>,
@@ -466,6 +550,7 @@ impl Problem {
             self.add_constant(constant);
         }
     }
+
     // === Predicates ===
 
     /// Returns a reference to the list of predicates.
@@ -610,19 +695,68 @@ impl Problem {
 
     // === Objects ===
 
-    /// Returns a reference to the set of objects.
-    pub fn objects(&self) -> &HashMap<Ident, TypedSymbol> {
-        &self.objects
+    /// Returns an iterator over the objects of the problem.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let problem = LiftedProblem::new();
+    /// for obj in problem.objects_iter() {
+    ///     println!("{:?}", obj);
+    /// }
+    /// ```
+    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol> {
+        self.objects.values()
     }
 
-    /// Returns a mutable reference to the set of objects.
-    pub fn objects_mut(&mut self) -> &mut HashMap<Ident, TypedSymbol> {
-        &mut self.objects
+    /// Returns a mutable iterator over the objects of the problem.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let mut problem = LiftedProblem::new();
+    /// for obj in problem.objects_iter_mut() {
+    ///     obj.set_name(Ident::new("new_object"));
+    /// }
+    /// ```
+    pub fn objects_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol> {
+        self.objects.values_mut()
+    }
+
+    /// Returns true if the problem contains any objects.
+    pub fn has_objects(&self) -> bool {
+        !self.objects.is_empty()
+    }
+
+    /// Get an object by its `Ident` (immutable).
+    pub fn get_object(&self, id: Ident) -> Option<&TypedSymbol> {
+        self.objects.get(&id)
+    }
+
+    /// Get an object by its `Ident` (mutable).
+    pub fn get_object_mut(&mut self, id: Ident) -> Option<&mut TypedSymbol> {
+        self.objects.get_mut(&id)
+    }
+
+    /// Get an object by its `Ident` (immutable), or return an error if not found.
+    pub fn try_get_object(&self, id: Ident) -> Result<&TypedSymbol, LirError> {
+        self.objects.get(&id).ok_or_else(|| LirError::object_not_found(id))
+    }
+
+    /// Get an object by its `Ident` (mutable), or return an error if not found.
+    pub fn try_get_object_mut(&mut self, id: Ident) -> Result<&mut TypedSymbol, LirError> {
+        self.objects.get_mut(&id).ok_or_else(|| LirError::object_not_found(id))
     }
 
     /// Adds a single object.
     ///
     /// If the object already exists, it is overwritten.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// problem.add_object(TypedSymbol::new("robot1", "vehicle"));
+    /// ```
     pub fn add_object(&mut self, object: TypedSymbol) {
         self.objects.insert(object.symbol(), object);
     }
@@ -630,6 +764,15 @@ impl Problem {
     /// Adds multiple objects at once.
     ///
     /// Existing objects with the same `Ident` will be overwritten.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// problem.add_objects(vec![
+    ///     TypedSymbol::new("robot1", "vehicle"),
+    ///     TypedSymbol::new("robot2", "vehicle"),
+    /// ]);
+    /// ```
     pub fn add_objects<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = TypedSymbol>,

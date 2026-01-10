@@ -319,7 +319,6 @@ impl TryFrom<LiftedProblem> for Problem {
         let mut problem = Problem::new(interner, requirements);
 
         // --- STEP 3: Build symbol tables ---
-
         // 3a: Types
         let types_symbols = builders::build_type_symbols_table(&lifted_problem);
         problem.set_types_symbols(types_symbols);

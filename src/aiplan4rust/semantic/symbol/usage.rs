@@ -19,13 +19,14 @@ use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::syntax::Span;
 
 use std::collections::HashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a concrete use of a symbol within the Abstract Syntax Tree (AST).
 ///
@@ -133,17 +134,26 @@ impl Usage {
         self.node_id
     }
 
-    /// Remaps the identifier of the usage according to the provided mapping.
+}
+
+impl RemapIdents for Usage {
+    /// Remaps the identifier of this usage according to the provided mapping.
     ///
-    /// If the symbol's identifier exists in the map, it is replaced with the mapped one.
+    /// If the usage's symbol identifier exists in `map`, it is replaced with the
+    /// corresponding new identifier. Other fields remain unchanged.
     ///
     /// # Parameters
     ///
-    /// - `map`: A mapping from old identifiers to new ones (`HashMap<Ident, Ident>`).
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+    /// - `map`: A `HashMap<Ident, Ident>` mapping old identifiers to new identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if remapping cannot be applied (propagated from nested remaps, if any).
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol.set_ident(new_ident.clone());
         }
+        Ok(())
     }
 }
 

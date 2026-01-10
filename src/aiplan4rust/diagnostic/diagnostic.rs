@@ -49,7 +49,8 @@ use crate::aiplan4rust::syntax::{FastLineTable, Span};
 use std::collections::HashMap;
 use std::fmt;
 use lalrpop_util::ParseError;
-use crate::aiplan4rust::lang::{Requirement, Type};
+use crate::aiplan4rust::lang::{RemapIdents, Requirement, Type};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 
@@ -163,7 +164,7 @@ impl Diagnostic {
         self.span = span;
     }
 
-    /// Remaps all [`Ident`] and [`Literal`] values inside this [`Diagnostic`] using provided mappings.
+    /// Remaps all [`Ident`] and [`Literal`] values inside this [`Diagnostic`] using the provided mappings.
     ///
     /// This method is typically used after **linking** or **merging** multiple source files
     /// (e.g., domain and problem files) where interner identifiers may differ but refer to the same
@@ -178,37 +179,32 @@ impl Diagnostic {
     ///
     /// # Arguments
     ///
-    /// * `idents` – A mapping from local to global [`Ident`] values.
-    /// * `literals` – A mapping from local to global [`Literal`] values (e.g., filenames).
+    /// * `idents` – A mapping from local to global [`Ident`] values. Missing mappings will return an error.
+    /// * `literals` – A mapping from local to global [`Literal`] values (e.g., filenames). Missing mappings are ignored.
     ///
-    /// # Example
+    /// # Errors
     ///
-    /// ```rust
-    /// let mut diag = Diagnostic::new(kind, provider, source_literal, span);
-    ///
-    /// let mut id_map = HashMap::new();
-    /// id_map.insert(local_id, global_id);
-    ///
-    /// let mut lit_map = HashMap::new();
-    /// lit_map.insert(local_file, global_file);
-    ///
-    /// diag.remap(&id_map, &lit_map);
-    /// ```
+    /// Returns [`RemapIdentError`] if a required identifier mapping is missing or if a remap would
+    /// cause a conflict.
     ///
     /// # Notes
     ///
-    /// - If an [`Ident`] or [`Literal`] is not present in the mapping, its original value is retained.
-    /// - This method is **panic-free** and does not require ownership of the mappings.
     /// - The `source` field is updated in place using [`Literal::remap_literal`].
+    /// - This method does not panic and works with borrowed mappings.
     ///
     /// [`Diagnostic`]: crate::diagnostics::Diagnostic
     /// [`Kind`]: crate::diagnostics::Kind
     /// [`Ident`]: crate::interner::Ident
     /// [`Literal`]: crate::interner::Literal
     /// [`Literal::remap_literal`]: crate::interner::Literal::remap_literal
-    pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) {
-        self.kind.remap_idents(idents);
+    pub fn remap(
+        &mut self,
+        idents: &HashMap<Ident, Ident>,
+        literals: &HashMap<Literal, Literal>
+    ) -> Result<(), RemapIdentError> {
+        self.kind.remap_idents(idents)?;
         self.source.remap_literal(literals);
+        Ok(())
     }
 
     /// Returns a unique diagnostic code string composed of:

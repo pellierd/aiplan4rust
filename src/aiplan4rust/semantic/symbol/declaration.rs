@@ -51,7 +51,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::Type;
 
@@ -59,6 +59,7 @@ use std::collections::HashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a declaration of a symbol in the abstract syntax arena (AST).
 ///
@@ -240,41 +241,6 @@ impl Declaration {
     /// Sets the imported scope.
     pub fn set_imported_scope(&mut self, scope: Option<Scope>) {
         self.imported_scope = scope;
-    }
-
-    /// Remaps all [`Ident`] values in this declaration using the provided mapping.
-    ///
-    /// This updates:
-    /// - The identifier of the referenced symbol.
-    /// - All associated types (if any).
-    /// - All argument identifiers in parameter lists (if any).
-    ///
-    /// Useful during transformations or normalizations where symbol names are changed.
-    ///
-    /// # Arguments
-    ///
-    /// * `map` - A mapping from old [`Ident`]s to new [`Ident`]s.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        // Remap the main symbol name
-        if let Some(new_ident) = map.get(&self.symbol_ident()) {
-            self.symbol.set_ident(new_ident.clone());
-        }
-
-        // Remap associated types
-        if let Some(ref mut types) = self.types {
-            for ident in types.iter_mut() {
-                if let Some(new_ident) = map.get(ident) {
-                    *ident = new_ident.clone();
-                }
-            }
-        }
-
-        // Remap argument identifiers
-        if let Some(ref mut args) = self.arguments {
-            for arg in args.iter_mut() {
-                arg.remap_idents(map);
-            }
-        }
     }
 
     /// Formats the types of the declaration for display.
@@ -496,6 +462,45 @@ impl fmt::Display for Declaration {
     }
 }
 
+impl RemapIdents for Declaration {
+    /// Remaps all identifiers in this `Declaration`, including its main symbol,
+    /// associated types, and argument identifiers, according to the provided mapping.
+    ///
+    /// Any `Ident` present in `map` is replaced with the corresponding new value.
+    /// This is useful when symbol names are updated during transformations or
+    /// domain/problem normalization.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap<Ident, Ident>` mapping old identifiers to new identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if any argument identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+        // Remap the main symbol name
+        if let Some(new_ident) = map.get(&self.symbol_ident()) {
+            self.symbol.set_ident(new_ident.clone());
+        }
+
+        // Remap associated types
+        if let Some(ref mut types) = self.types {
+            for ident in types.iter_mut() {
+                if let Some(new_ident) = map.get(ident) {
+                    *ident = new_ident.clone();
+                }
+            }
+        }
+
+        // Remap argument identifiers
+        if let Some(ref mut args) = self.arguments {
+            for arg in args.iter_mut() {
+                arg.remap_idents(map)?;
+            }
+        }
+        Ok(())
+    }
+}
 impl InternerDisplay for Declaration {
     fn fmt_with_interner(
         &self,

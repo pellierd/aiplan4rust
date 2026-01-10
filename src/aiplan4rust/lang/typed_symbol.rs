@@ -16,7 +16,7 @@
 //! domain-specific language processor.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents};
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
@@ -26,6 +26,7 @@ use crate::aiplan4rust::lang::error::LangError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a typed symbol identified by an [`Ident`],
 /// with one or more associated types.
@@ -58,31 +59,58 @@ impl TypedSymbol {
         self.symbol
     }
 
+    /// Sets the main symbol identifier.
+    pub fn set_symbol(&mut self, symbol: Ident) {
+        self.symbol = symbol;
+    }
+
     /// Returns a reference to the associated type_checker(s).
     pub fn ty(&self) -> &Type {
         &self.ty
     }
 
-    /// Remaps identifiers in the typed symbol according to the given mapping.
-    ///
-    /// This method updates the main symbol identifier as well as all associated
-    /// types if a mapping is found in `map`.
-    ///
-    /// # Arguments
-    ///
-    /// * `map` - A mapping from old identifiers to new identifiers used for remapping.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        // Remap the main symbol
-        if let Some(new_symbol) = map.get(&self.symbol) {
-            self.symbol = new_symbol.clone();
-        }
+    /// Returns a mutable reference to the associated type(s),
+    /// allowing in-place modification.
+    pub fn ty_mut(&mut self) -> &mut Type {
+        &mut self.ty
+    }
 
-        // Remap all associated types
-        for ty in self.ty.iter_mut() {
-            if let Some(new_ty) = map.get(ty) {
-                *ty = new_ty.clone();
-            }
-        }
+    /// Sets the associated type.
+    pub fn set_ty(&mut self, ty: Type) {
+        self.ty = ty;
+    }
+
+}
+
+impl RemapIdents for TypedSymbol {
+    /// Remaps the main symbol and all atomic type identifiers associated with this `TypedSymbol`
+    /// according to the provided mapping table.
+    ///
+    /// Both the symbol itself and each identifier in `self.ty` are replaced if a corresponding
+    /// entry exists in `map`.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap` mapping old `Ident`s to new `Ident`s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        self.symbol.remap_idents(map)?;
+        self.ty.remap_idents(map)?;
+        Ok(())
+    }
+}
+
+impl FlattenTypes for TypedSymbol {
+    /// Replaces union types (`Type::Either`) in the symbol’s type
+    /// with their corresponding primitive identifiers based on the provided mapping.
+    ///
+    /// # Parameters
+    /// - `map`: A mapping from `Type::Either` to its new primitive `Ident`.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+        self.ty.flatten_types(map);
     }
 }
 

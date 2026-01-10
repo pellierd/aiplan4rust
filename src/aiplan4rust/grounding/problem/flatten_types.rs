@@ -1,12 +1,11 @@
-/*use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::grounding::error::GroundingError;
+use crate::aiplan4rust::interner::{Ident, InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::lang::{FlattenTypes, Type, TypedSymbol};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::{HashMap, HashSet, VecDeque};
-use crate::aiplan4rust::interner::{Ident, InternerError};
-use crate::aiplan4rust::lang::{Type, TypedSymbol};
-
 
 const EITHER_PREFIX: &str = "either";
 const EITHER_SEP: &str = "_";
-
 
 /// Flatten all `either` types in a LiftedProblem.
 ///
@@ -14,139 +13,144 @@ const EITHER_SEP: &str = "_";
 /// - Replace `either` types with new primitive types (one per combination)
 /// - Update all type references in objects and functions accordingly
 /// - Ensure that after flattening, all types have exactly one member
-pub fn flatten_either_types(problem: &mut LiftedProblem) -> Result<(), InternerError> {
+pub fn flatten_either_types(problem: &mut LiftedProblem) -> Result<(), GroundingError> {
+    let ident_mapping = flatten_types_def(problem)?;
 
-    flatten_types_def(problem)?;
+    for constant in problem.constants_mut() {
+        constant.flatten_types(&ident_mapping);
+    }
+
+    /*for predicate in problem.predicates_mut() {
+        predicate.remap_idents(&ident_mapping);
+    }
+
+    for function in problem.functions_mut() {
+        function.remap_idents(&ident_mapping);
+    }
+
+    problem.domain_constraints_mut().remap_idents(&ident_mapping);
+
+    for task in problem.tasks_mut() {
+        task.remap_idents(&ident_mapping);
+    }*/
+
+    for object in problem.objects_mut() {
+        object.flatten_types(&ident_mapping);
+    }
+
 
     Ok(())
-
 }
 
-/// Fixed-point flattening for all nested `either` types.
+/// Flattens all union (either) types in a lifted problem into primitive types.
 ///
-/// Iterates over all `either` types in `problem.types()`, creates the corresponding
-/// flattened types, and updates any affected child types until all `either` types
-/// have been processed.
+/// For each `TypedSymbol` in the problem that has an "either" type:
+/// 1. Computes a unique flattened type name based on its parents.
+/// 2. Interns a new identifier for this flattened type.
+/// 3. Updates the original `TypedSymbol` to reference the new primitive type.
+/// 4. Records the mapping from the original union type to the new primitive identifier.
 ///
 /// # Parameters
-/// - `problem`: Contains all `TypedSymbol`s and the interner.
-/// - `child_to_parents`: Map from a type `Ident` to its parent `TypedSymbol`s.
+/// - `problem`: The mutable lifted problem containing types, constants, etc.
 ///
 /// # Returns
-/// `InternerError` if any interning operation fails.
-fn flatten_types_def(
+/// A `HashMap<Type, Ident>` mapping each original union (`either`) type to the
+/// corresponding new primitive type identifier. This can be used to update predicates,
+/// actions, constants, etc., to refer to the flattened types.
+///
+/// # Errors
+/// Returns a `GroundingError` if any type cannot be found or if parent resolution fails.
+///
+/// # Notes
+/// - The function also maintains an internal cache to avoid flattening the same type multiple times.
+/// - After flattening, all original union types in the problem are replaced by primitive types,
+///   while new `TypedSymbol`s representing the union types are added to the problem for reference.
+///
+/// # Example
+/// ```rust
+/// let mut problem = LiftedProblem::new();
+/// let mapping = flatten_types_def(&mut problem)?;
+/// for (union_type, prim_ident) in mapping {
+///     println!("Union {:?} -> Primitive {:?}", union_type, prim_ident);
+/// }
+/// ```
+pub fn flatten_types_def(
     problem: &mut LiftedProblem,
-) -> Result<(), InternerError> {
-    // Build a quick lookup from a type Ident to its TypedSymbol for fast access
-    let symbol_lookup = build_symbol_lookup(problem);
+) -> Result<HashMap<Type, Ident>, GroundingError> {
+    // Queue of either types to process, represented by their Ident
+    let mut to_process = either_types(problem);
 
-    // Queue of indices of either types to process
-    let mut to_process: VecDeque<usize> = either_type_indices(problem).into();
+    // Maps original type identifiers to their flattened primitive Type.
+    // We'll use this later to update the types in the problem.
+    let mut to_update: HashMap<Ident, Type> = HashMap::with_capacity(problem.types().count());
 
-    // Cache to avoid recalculating an either type that has already been flattened
-    let mut cache: HashMap<Type, Ident> = HashMap::new();
+    // Maps union (either) types to the new primitive Ident representing them.
+    // This is returned so we can replace union types in constants, predicates, etc.
+    let mut either_to_primitive = HashMap::with_capacity(problem.types().count());
 
-    while let Some(idx) = to_process.pop_front() {
-        let symbol = &mut problem.types()[idx];
+    // Cache to avoid recalculating a type that has already been flattened
+    let mut cache: HashMap<Ident, Ident> = HashMap::with_capacity(problem.types().count());
 
-        if let Some(&ident) = cache.get(symbol.ty()) {
-            // Type already flattened, just update the TypedSymbol
-            symbol.ty_mut().set_members(vec![ident]);
+    while let Some(ident) = to_process.pop_front() {
+        // Get a reference to the TypedSymbol
+        let ts = problem.try_get_type(ident)?;
+        let ty_ident = ts.symbol(); // unique identifier of this type
+
+        // If already flattened, just record the mapping
+        if let Some(&cached_ident) = cache.get(&ty_ident) {
+            to_update.insert(ident, Type::primitive(cached_ident));
             continue;
         }
 
-        // Flatten the either type and get the index of the new type
-        let new_index = flatten_type(symbol, problem, &symbol_lookup)?;
+        // Clone the type to break the borrow and compute parents
+        let ty = ts.ty().clone();
+        let parents = get_parents(&ty, problem)?;
+        let type_name = make_either_type_name(problem, &ty)?;
 
-        // Enqueue any newly created either type for processing
-        to_process.push_back(new_index);
+        // Intern a new type identifier
+        let type_ident = problem.interner_mut().intern_ident(type_name);
+
+        // Map the original union type to the new primitive identifier
+        either_to_primitive.insert(ty, type_ident);
+
+        // Update the original TypedSymbol to point to the new flattened type
+        to_update.insert(ident, Type::primitive(type_ident));
+
+        // Create a new TypedSymbol representing the union type itself
+        let new_symbol = TypedSymbol::new(type_ident, Type::either(parents));
+        if new_symbol.ty().is_either() {
+            to_process.push_back(type_ident);
+        }
+        problem.add_type(new_symbol);
+
+        // Update the cache
+        cache.insert(ty_ident, type_ident);
     }
 
-    Ok(())
-}
-
-/// Builds a fast lookup table from a type `Ident` to its `TypedSymbol`.
-///
-/// This allows efficient access to a `TypedSymbol` by its identifier
-/// without iterating over the full list of types in the problem.
-fn build_symbol_lookup(problem: &Lifpour etedProblem) -> HashMap<Ident, &TypedSymbol> {
-    let mut map: HashMap<Ident, &TypedSymbol> = HashMap::new();
-
-    for sym in problem.types() {
-        map.insert(sym.symbol(), sym);
+    // Replace all original types with their flattened primitive types
+    for (ident, new_type) in to_update {
+        let ts_mut = problem.try_get_type_mut(ident)?;
+        ts_mut.set_ty(new_type);
     }
 
-    map
+    Ok(either_to_primitive)
 }
 
-/// Returns the indices of all `either` types in the problem.
-///
-/// This function iterates through all `TypedSymbol`s in the given `LiftedProblem`
-/// and collects the indices of those whose type is an `either`.
+/// Returns the identifiers of all either types in the problem.
 ///
 /// # Parameters
-/// - `problem`: The `LiftedProblem` containing all type definitions.
+/// - problem: the LiftedProblem containing all types.
 ///
 /// # Returns
-/// A `Vec<usize>` containing the indices in `problem.types()` of all `either` types.
-fn either_type_indices(problem: &LiftedProblem) -> Vec<usize> {
-    let mut indices = Vec::new();
-
-    for (i, sym) in problem.types().iter().enumerate() {
-        if sym.ty().is_either() {
-            indices.push(i);
+/// A VecDeque of Idents representing types that are unions (either types).
+fn either_types(problem: &LiftedProblem) -> VecDeque<Ident> {
+    let mut queue = VecDeque::with_capacity(problem.types().count());
+    for ts in problem.types() {
+        if ts.ty().is_either() {
+            queue.push_back(ts.symbol());
         }
     }
-
-    indices
-}
-
-/// Creates a flattened `either` type for a given `TypedSymbol`.
-///
-/// This function generates a new `TypedSymbol` that represents the flattened
-/// union of the symbol's member types. It updates the original symbol to refer
-/// to the new flattened type. This version does **not use a cache**; each call
-/// will create a new flattened type if needed.
-///
-/// # Parameters
-/// - `symbol`: The `TypedSymbol` representing an `either` type to flatten.
-/// - `problem`: The `LiftedProblem` containing all type definitions and the interner.
-/// - `symbol_lookup`: A map from a type `Ident` to its parent `TypedSymbol`s.
-///
-/// # Returns
-/// Returns the **index** of the newly added `TypedSymbol` in `problem.types()`.
-///
-/// # Errors
-/// Returns `InternerError` if interning a type name fails or resolving a parent identifier fails.
-pub fn flatten_type(
-    symbol: &mut TypedSymbol,
-    problem: &mut LiftedProblem,
-    symbol_lookup: &HashMap<Ident, Vec<&TypedSymbol>>,
-) -> Result<usize, InternerError> {
-    let ty = symbol.ty();
-
-    // Ensure this is an either type
-    debug_assert!(ty.len() > 1, "flatten_type called on non-either type");
-
-    // Get flattened parents using helper
-    let parents = get_parents(ty, symbol_lookup);
-
-    // Generate a stable name for the either type
-    let type_name = make_either_type_name(problem, &parents)?;
-
-    // Intern the new type identifier
-    let type_ident = problem.interner_mut().intern_ident(type_name)?;
-
-    // Create the new flattened TypedSymbol
-    let new_parents = Type::either(parents);
-    let new_symbol = TypedSymbol::new(type_ident, new_parents);
-    problem.add_type(new_symbol);
-
-    // Update the original symbol to point to the new flattened type
-    symbol.ty_mut().set_members(vec![type_ident]);
-
-    // Return the index of the newly added type
-    Ok(problem.types().len() - 1)
+    queue
 }
 
 /// Returns all flattened parent identifiers for a given `Type`, sorted.
@@ -160,43 +164,53 @@ pub fn flatten_type(
 ///
 /// # Panics
 /// Panics if any member of `ty` is not found in `symbol_lookup`.
-fn get_parents(
-    ty: &Type,
-    symbol_lookup: &HashMap<Ident, Vec<&TypedSymbol>>,
-) -> Vec<Ident> {
+fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<Ident>, GroundingError> {
     let mut parent_set = HashSet::new();
 
-    for &m in &ty.iter() {
-        let parents = symbol_lookup.get(&m).unwrap(); // unwrap intentional
-        parent_set.extend(parents.member()); // collect members of parents
+    for &m in ty.iter() {
+        let parent_type = problem.try_get_type(m)?.ty();
+        parent_set.extend(parent_type.members()); // collect members of parents
     }
 
     let mut parent_idents: Vec<Ident> = parent_set.into_iter().collect();
     parent_idents.sort();
-    parent_idents
+    Ok(parent_idents)
 }
 
-/// Generates a stable name for an "either" type based on its parent type identifiers.
+/// Generates a canonical name for an "either" type based on its member type identifiers.
+///
+/// This function constructs a stable string name for a union type (`either`) by
+/// concatenating the string representations of all its member types, separated
+/// by `EITHER_SEP` and prefixed with `EITHER_PREFIX`.
 ///
 /// # Parameters
 /// - `problem`: Reference to the `LiftedProblem` containing the type interner.
-/// - `parents`: Slice of `Ident` representing the parent types of the either type.
+/// - `ty`: The `Type` whose member identifiers will be used to generate the name.
 ///
 /// # Returns
-/// Returns a `String` representing the canonical name of the either type, e.g., `"either_parent1_parent2"`.
-/// Returns an `InternerError` if any parent identifier cannot be resolved.
-fn make_either_type_name(
-    problem: &LiftedProblem,
-    parents: &[Ident],
-) -> Result<String, InternerError> {
-    let mut parent_names = Vec::with_capacity(parents.len());
+/// - A `String` representing the canonical name of the either type,
+///   e.g., `"either_parent1_parent2"`.
+/// - Returns an `InternerError` if any member identifier cannot be resolved.
+fn make_either_type_name(problem: &LiftedProblem, ty: &Type) -> Result<String, InternerError> {
+    let mut parent_names = Vec::with_capacity(ty.len());
 
-    for &id in parents {
-        let name = problem.interner().try_resolve_ident(id)?;
-        parent_names.push(name);
+    // Boucle explicite pour récupérer les noms des membres
+    for id in ty.iter() {
+        let name = problem.interner().try_resolve_ident(*id)?;
+        parent_names.push(name.to_string());
     }
 
-    Ok(format!("{}{}{}", EITHER_PREFIX, EITHER_SEP, parent_names.join(EITHER_SEP)))
+    // Trier pour obtenir un nom stable
+    parent_names.sort_unstable();
+
+    // Concaténer avec le préfixe
+    let result = format!(
+        "{}{}{}",
+        EITHER_PREFIX,
+        EITHER_SEP,
+        parent_names.join(EITHER_SEP)
+    );
+    Ok(result)
 }
 
 #[cfg(test)]
@@ -207,7 +221,7 @@ mod tests {
     use crate::aiplan4rust::lir::problem::LiftedProblem;
 
     #[test]
-    fn test_flatten_simple_either() {
+    fn test_flatten_types_def_simple() {
         let mut interner = StringInterner::new();
 
         // Crée des identifiants pour les types de base
@@ -215,43 +229,178 @@ mod tests {
         let b = interner.intern_ident("b");
         let c = interner.intern_ident("c");
 
-        // Types primitifs (pas de nesting)
+        // Primitive types
         let type_a = Type::primitive(a);
         let type_b = Type::primitive(b);
         let type_c = Type::primitive(c);
 
-        // TypedSymbols
-        let sym_a = TypedSymbol::new(a, type_a);
-        let sym_b = TypedSymbol::new(b, type_b);
-        let sym_c = TypedSymbol::new(c, type_c);
+        let sym_obj = TypedSymbol::new(StringInterner::IDENT_OBJECT, Type::new());
 
-        // Either type: either A B C
+        // TypedSymbols
+        let sym_a = TypedSymbol::new(a, Type::primitive(StringInterner::IDENT_OBJECT));
+        let sym_b = TypedSymbol::new(b, Type::primitive(StringInterner::IDENT_OBJECT));
+        let sym_c = TypedSymbol::new(c, Type::primitive(StringInterner::IDENT_OBJECT));
+
+        // Either type
         let either_abc_type = Type::either(vec![a, b, c]);
         let d = interner.intern_ident("d");
         let sym_d = TypedSymbol::new(d, either_abc_type);
 
         // Construire le LiftedProblem
         let mut problem = LiftedProblem::new(interner, HashSet::new());
+        problem.add_type(sym_obj);
         problem.add_type(sym_a);
         problem.add_type(sym_b);
         problem.add_type(sym_c);
         problem.add_type(sym_d);
 
-        // Appeler flatten_types_def
+        println!("\nTypes before flattening:");
+        for ts in problem.types() {
+            let members: Vec<String> = ts
+                .ty()
+                .members()
+                .iter()
+                .map(|id| {
+                    problem
+                        .interner()
+                        .try_resolve_ident(*id)
+                        .unwrap()
+                        .to_string()
+                })
+                .collect();
+            println!(
+                "{}: {:?}",
+                problem.interner().try_resolve_ident(ts.symbol()).unwrap(),
+                members
+            );
+        }
+
         flatten_types_def(&mut problem).unwrap();
 
-        // Vérifie que le either type a été aplati
-        let flattened_sym = &problem.types()[3];
+        println!("Types after flattening:");
+        for ts in problem.types() {
+            let members: Vec<String> = ts
+                .ty()
+                .members()
+                .iter()
+                .map(|id| {
+                    problem
+                        .interner()
+                        .try_resolve_ident(*id)
+                        .unwrap()
+                        .to_string()
+                })
+                .collect();
+            println!(
+                "{}: {:?}",
+                problem.interner().try_resolve_ident(ts.symbol()).unwrap(),
+                members
+            );
+        }
+
+        let flattened_sym = &problem.get_type(d).unwrap();
         assert_eq!(flattened_sym.ty().members().len(), 1);
 
-        // Vérifie que le nom contient "either"
-        let ident_name = problem.interner().try_resolve_ident(flattened_sym.ty().members()[0]).unwrap();
+        let ident_name = problem
+            .interner()
+            .try_resolve_ident(flattened_sym.ty().members()[0])
+            .unwrap();
         assert!(ident_name.starts_with("either_"));
 
-        // Vérifie que tous les membres de l'either sont inclus dans le nom
         assert!(ident_name.contains("a"));
         assert!(ident_name.contains("b"));
         assert!(ident_name.contains("c"));
     }
+
+    #[test]
+    fn test_flatten_types_def_complexe() {
+        use crate::aiplan4rust::interner::StringInterner;
+        use crate::aiplan4rust::lang::{Type, TypedSymbol};
+        use crate::aiplan4rust::lir::problem::LiftedProblem;
+        use std::collections::HashSet;
+
+        let mut interner = StringInterner::new();
+
+        // Create the basic ident
+        let a = interner.intern_ident("a");
+        let sym_a = TypedSymbol::new(a, Type::new());
+
+        let b = interner.intern_ident("b");
+        let sym_b = TypedSymbol::new(b, Type::new());
+
+        // Either types complexes
+        let c = interner.intern_ident("c");
+        let sym_c = TypedSymbol::new(c, Type::either(vec![a, b]));
+
+        let d = interner.intern_ident("d");
+        let sym_d = TypedSymbol::new(d, Type::either(vec![a, c]));
+
+        let e = interner.intern_ident("e");
+        let sym_e = TypedSymbol::new(e, Type::either(vec![c, d]));
+
+        let f = interner.intern_ident("f");
+        let sym_f = TypedSymbol::new(f, Type::either(vec![b, c]));
+
+        // Build theLiftedProblem
+        let mut problem = LiftedProblem::new(interner, HashSet::new());
+        for ts in [sym_a, sym_b, sym_c, sym_d, sym_e, sym_f] {
+            problem.add_type(ts);
+        }
+
+        println!("\nTypes before flattening:");
+        for ts in problem.types() {
+            let members: Vec<String> = ts
+                .ty()
+                .members()
+                .iter()
+                .map(|id| {
+                    problem
+                        .interner()
+                        .try_resolve_ident(*id)
+                        .unwrap()
+                        .to_string()
+                })
+                .collect();
+            println!(
+                "{}: {:?}",
+                problem.interner().try_resolve_ident(ts.symbol()).unwrap(),
+                members
+            );
+        }
+
+        super::flatten_types_def(&mut problem).unwrap();
+
+        println!("Types after flattening:");
+        for ts in problem.types() {
+            let members: Vec<String> = ts
+                .ty()
+                .members()
+                .iter()
+                .map(|id| {
+                    problem
+                        .interner()
+                        .try_resolve_ident(*id)
+                        .unwrap()
+                        .to_string()
+                })
+                .collect();
+            println!(
+                "{}: {:?}",
+                problem.interner().try_resolve_ident(ts.symbol()).unwrap(),
+                members
+            );
+        }
+
+        // Vérification simple : tous les either ont exactement un membre aplati
+        for &either_ident in &[a, d, f] {
+            let ts = problem.get_type(either_ident).unwrap();
+            let num_members = ts.ty().members().len();
+            assert!(
+                num_members == 0 || num_members == 1,
+                "Either type {:?} not flattened properly: expected 0 or 1 member, got {}",
+                either_ident,
+                num_members
+            );
+        }
+    }
 }
-*/

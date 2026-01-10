@@ -36,7 +36,7 @@
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Ident, Optimization};
+use crate::aiplan4rust::lang::{Ident, Optimization, RemapIdents};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -49,6 +49,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
 ///
@@ -295,14 +296,6 @@ impl Expr {
         self.tree.postorder_from(root)
     }
 
-    /// Remaps identifiers across the whole expression tree.
-    ///
-    /// # Arguments
-    /// * `map` - A mapping from old identifiers to new ones.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.tree.remap_idents(map);
-    }
-
     /// Remaps identifiers starting from a specific node in the tree.
     ///
     /// # Arguments
@@ -512,6 +505,31 @@ impl Expr {
     /// see the [`normalize`](crate::normalize) module.
     pub fn normalize(&mut self) -> Result<(), ExprError> {
         normalize(self)
+    }
+}
+
+impl RemapIdents for Expr {
+    /// Recursively remaps all identifiers in this expression.
+    ///
+    /// This updates every `Ident` contained within the expression's internal
+    /// syntax tree according to the provided mapping. Useful when merging,
+    /// flattening, or renaming symbols to ensure consistency across contexts.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap` mapping old `Ident` values to their new `Ident` values.
+    ///
+    /// # Behavior
+    ///
+    /// - The remapping is applied recursively to all nodes in the expression tree.
+    /// - Identifiers not present in the mapping remain unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RemapIdentError` if remapping fails for any node in the tree.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        self.tree.remap_idents(map)?;
+        Ok(())
     }
 }
 

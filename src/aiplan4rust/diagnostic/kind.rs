@@ -14,9 +14,10 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::aiplan4rust::diagnostic::{renderer, Severity};
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::diagnostic::{renderer, DiagnosticError, DiagnosticKind, Severity};
+use crate::aiplan4rust::lang::{RemapIdents, Requirement};
 use crate::aiplan4rust::lang::{Ident, Type};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -556,7 +557,9 @@ impl Kind {
             Kind::DomainProblemNameMismatch { .. } => Severity::Warning,
         }
     }
+}
 
+impl RemapIdents for DiagnosticKind {
     /// Remaps all `Ident` instances contained within this diagnostic using the provided mapping.
     ///
     /// This function traverses the diagnostic's internal data and replaces each `Ident`
@@ -582,16 +585,16 @@ impl Kind {
     /// map.insert(old_ident, new_ident);
     /// diagnostic.remap_idents(&map);
     /// ```
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
         match self {
             Kind::InvalidSymbolSignature { declaration, usage } => {
-                declaration.remap_idents(map);
-                usage.remap_idents(map);
+                declaration.remap_idents(map)?;
+                usage.remap_idents(map)?;
             }
             Kind::TypeMismatchInExpression { ty1, ty2 }
             | Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
-                ty1.remap_idents(map);
-                ty2.remap_idents(map);
+                ty1.remap_idents(map)?;
+                ty2.remap_idents(map)?;
             }
 
             Kind::DuplicatedSymbolDeclarationInScope {
@@ -599,30 +602,30 @@ impl Kind {
                 conflicting_declaration: declaration2,
                 ..
             } => {
-                declaration1.remap_idents(map);
-                declaration2.remap_idents(map);
+                declaration1.remap_idents(map)?;
+                declaration2.remap_idents(map)?;
             }
 
             Kind::UndeclaredSymbol { usage } => {
-                usage.remap_idents(map);
+                usage.remap_idents(map)?;
             }
 
             Kind::SymbolConflictsWithKeyword { declaration, .. }
             | Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. }
             | Kind::UnusedSymbol { declaration } => {
-                declaration.remap_idents(map);
+                declaration.remap_idents(map)?;
             }
 
             Kind::DomainProblemNameMismatch {
                 domain_name,
                 problem_name,
             } => {
-                domain_name.remap_idents(map);
-                problem_name.remap_idents(map);
+                domain_name.remap_idents(map)?;
+                problem_name.remap_idents(map)?;
             }
             Kind::AmbiguousTypePredicateSymbol { ty, predicate } => {
-                ty.remap_idents(map);
-                predicate.remap_idents(map);
+                ty.remap_idents(map)?;
+                predicate.remap_idents(map)?;
             }
             Kind::TaskArgumentIsSupertypeOfDeclaration {
                 argument,
@@ -635,21 +638,21 @@ impl Kind {
             }
             Kind::DuplicateEitherType { duplicate_types } => {
                 for ident in duplicate_types {
-                    ident.remap_idents(map);
+                    ident.remap_idents(map)?;
                 }
             }
             Kind::CyclicTypeDeclaration { cycle } => {
                 for decl in cycle {
-                    decl.remap_idents(map);
+                    decl.remap_idents(map)?;
                 }
             }
             Kind::CrossConflictSymbolDeclaration {
                 problem_declaration,
                 conflicting_domain_declarations,
             } => {
-                problem_declaration.remap_idents(map);
+                problem_declaration.remap_idents(map)?;
                 for decl in conflicting_domain_declarations {
-                    decl.remap_idents(map);
+                    decl.remap_idents(map)?;
                 }
             }
             Kind::ImplicitEitherTypeDeclaration {
@@ -659,7 +662,7 @@ impl Kind {
             } => {
                 ty.remap_idents(map);
                 for ident in duplicate_types {
-                    ident.remap_idents(map);
+                    ident.remap_idents(map)?;
                 }
             }
             Kind::UnexpectedToken { .. }
@@ -675,6 +678,7 @@ impl Kind {
                 // No remap needed
             }
         }
+        Ok(())
     }
 }
 

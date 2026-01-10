@@ -1,6 +1,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::grounding::problem::index_table::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::lir::LirError;
 
 #[derive(Debug, Error)]
 pub enum GroundingError {
@@ -11,6 +12,8 @@ pub enum GroundingError {
     #[error(transparent)]
     IndexTable(#[from] IndexTableError),
 
+    #[error(transparent)]
+    Lir(#[from] LirError),
 }
 
 impl GroundingError {}

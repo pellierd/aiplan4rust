@@ -22,15 +22,17 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use std::collections::HashMap;
+use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::error::LangError;
-use crate::aiplan4rust::lang::TypedSymbol;
+use crate::aiplan4rust::lang::{FlattenTypes, RemapIdents, Type, TypedSymbol};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// A list of `TypedSymbol` items.
 ///
@@ -77,6 +79,42 @@ impl TypedList {
     /// ```
     pub fn empty() -> Self {
         Self::default()
+    }
+
+}
+
+impl RemapIdents for TypedList {
+    /// Remaps all atomic identifiers of the `TypedSymbol`s contained in this `TypedList`
+    /// according to the provided mapping table.
+    ///
+    /// Each `TypedSymbol` in `self.symbols` is updated: if its symbol or associated types
+    /// exist as keys in `map`, they are replaced with the corresponding values.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap` mapping old `Ident`s to new `Ident`s.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        for ts in &mut self.symbols {
+            ts.remap_idents(map)?;
+        }
+        Ok(())
+    }
+}
+
+impl FlattenTypes for TypedList {
+    /// Replaces union types (`Type::Either`) in all `TypedSymbol`s of this `TypedList`
+    /// with their corresponding primitive identifiers according to the provided mapping.
+    ///
+    /// # Parameters
+    /// - `map`: A mapping from `Type::Either` to its new primitive `Ident`.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+        for ts in &mut self.symbols {
+            ts.flatten_types(map);
+        }
     }
 }
 

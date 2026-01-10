@@ -101,16 +101,30 @@ impl<'a> ProblemDef<'a> {
         self.problem.interner()
     }
 
-    /// Returns all objects defined in this problem as a map from `Ident` to `TypedSymbol`.
+    /// Returns an iterator over all objects in this problem.
     ///
-    /// # Returns
+    /// # Example
     ///
-    /// A reference to a [`HashMap`] where the keys are object identifiers (`Ident`)
-    /// and the values are the corresponding [`TypedSymbol`]s.
-    ///
-    /// This allows efficient lookup of an object by its identifier.
-    pub fn objects(&self) -> &HashMap<Ident, TypedSymbol> {
+    /// ```rust
+    /// for obj in problem.objects() {
+    ///     println!("Object: {:?}", obj);
+    /// }
+    /// ```
+    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol> {
         self.problem.objects()
+    }
+
+    /// Returns true if the problem contains any objects.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// if problem.has_objects() {
+    ///     println!("There are objects defined.");
+    /// }
+    /// ```
+    pub fn has_objects(&self) -> bool {
+        self.problem.has_objects()
     }
 
     /// Returns the initial state expression.

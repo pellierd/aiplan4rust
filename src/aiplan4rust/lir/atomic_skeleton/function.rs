@@ -18,14 +18,16 @@
 //! );
 //! ```
 
+use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Serialize, Deserialize};
 
-use crate::aiplan4rust::lang::{Ident, Type, TypedList};
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents, Type, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -95,6 +97,40 @@ impl Function {
     /// Returns a reference to the return type_checker.
     pub fn return_type(&self) -> &Type {
         &self.ty
+    }
+
+}
+
+impl RemapIdents for Function {
+    /// Remaps all identifiers in this `Function`, including its name (header),
+    /// parameters, and return type, according to the provided mapping table.
+    ///
+    /// Any `Ident` present in `map` is replaced with the corresponding new value.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap<Ident, Ident>` mapping old identifiers to new identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        self.header.remap_idents(map)?;
+        self.ty.remap_idents(map)?;
+        Ok(())
+    }
+}
+
+impl FlattenTypes for Function {
+    /// Replaces union types (`Type::Either`) in the function’s parameters
+    /// and return type with their corresponding primitive identifiers
+    /// based on the provided mapping.
+    ///
+    /// # Parameters
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their new primitive `Ident`s.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+        self.header.flatten_types(map);
+        self.ty.flatten_types(map);
     }
 }
 

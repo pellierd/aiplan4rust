@@ -2,6 +2,7 @@ use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::{Ident, InternerError};
 use crate::aiplan4rust::lang::LangError;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -67,6 +68,10 @@ pub enum LirError {
     /// Object not found for a given Ident.
     #[error("Object with id {0:?} not found")]
     ObjectNotFound(Ident),
+
+    /// Wraps any RemapIdentError encountered
+    #[error(transparent)]
+    RemapIndent(#[from] RemapIdentError),
 }
 
 impl LirError {

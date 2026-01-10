@@ -13,6 +13,7 @@
 
 use thiserror::Error;
 use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
@@ -145,6 +146,10 @@ pub enum SemanticError {
     /// Occurs when the syntax tree root is neither a domain nor a problem.
     #[error("Syntax tree root is invalid: expected a domain or a problem")]
     UnexpectedSyntaxTreeRootError,
+
+    /// Wraps any RemapIdentError encountered
+    #[error(transparent)]
+    RemapIndent(#[from] RemapIdentError),
 }
 
 impl SemanticError {

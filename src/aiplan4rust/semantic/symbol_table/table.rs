@@ -26,7 +26,7 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -41,6 +41,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::SymbolTable;
 
@@ -946,7 +947,9 @@ impl Table {
             None => Err(SymbolTableError::declaration_not_found_for_kind(kind)),
         }
     }
+}
 
+impl RemapIdents for SymbolTable {
     /// Remaps the identifiers (`Ident`) in the symbol table according to the given mapping.
     ///
     /// This function updates all internal `Symbol` instances by remapping their identifiers
@@ -958,11 +961,11 @@ impl Table {
     ///
     /// # Returns
     /// - `Ok(())` if the remapping succeeded without conflicts.
-    /// - `Err(SymbolTableError)` if a conflict occurred during remapping.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), SymbolTableError> {
+    /// - `Err(RemapIdentError)` if a conflict occurred during remapping.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
         // Step 1: Internally remap symbols
         for (_key, symbol) in self.symbols.iter_mut() {
-            symbol.remap_idents(map);
+            symbol.remap_idents(map)?;
         }
 
         // Step 2: Rebuild the map with remapped keys
@@ -971,10 +974,10 @@ impl Table {
         for (key, symbol) in std::mem::take(&mut self.symbols) {
             let new_key = map.get(&key)
                 .cloned()
-                .ok_or_else(|| InternerError::missing_remap_ident(key))?;
+                .ok_or_else(|| RemapIdentError::missing_mapping(key))?;
 
             if new_symbols.contains_key(&new_key) {
-                return Err(InternerError::remapped_identifier_conflict(new_key))?;
+                return Err(RemapIdentError::conflict(new_key))?;
             }
 
             new_symbols.insert(new_key, symbol);

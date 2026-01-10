@@ -14,10 +14,16 @@
 
 use thiserror::Error;
 use crate::aiplan4rust::interner::{Ident, Literal};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents errors that can occur when working with a [`StringInterner`].
 #[derive(Error, Debug)]
 pub enum InternerError {
+
+    /// Wraps any RemapIdentError encountered
+    #[error(transparent)]
+    RemapIndent(#[from] RemapIdentError),
+
     /// The requested identifier index is out of bounds of the interner's string pool.
     ///
     /// This usually happens when trying to resolve an invalid or stale identifier.
@@ -40,25 +46,12 @@ pub enum InternerError {
         interner_size: usize,
     },
 
-    /// A required identifier remapping entry is missing.
-    ///
-    /// This occurs when an identifier is expected to be remapped (e.g., during
-    /// linking or identifier normalization) but no corresponding entry is found
-    /// in the remapping table.
-    #[error("Missing remapping entry for identifier {0:?}")]
-    MissingRemapIdent(Ident),
-
     /// A required literal remapping entry is missing.
     ///
     /// This occurs when a literal is expected to be remapped (e.g., during
     /// problem merging or normalization) but no corresponding entry exists.
     #[error("Missing remapping entry for literal {0:?}")]
     MissingRemapLiteral(Literal),
-
-    /// Multiple identifiers or literals were remapped to the same new identifier,
-    /// causing a collision—usually a logic error in the linker's remapping tables.
-    #[error("Identifier remapping conflict: multiple entries mapped to '{0:?}'")]
-    RemappedIdentifierConflict(Ident),
 }
 
 impl InternerError {
@@ -90,19 +83,6 @@ impl InternerError {
         Self::InvalidLiteral { literal_index, interner_size }
     }
 
-    /// Creates a new [`MissingRemapIdent`] error.
-    ///
-    /// # Arguments
-    ///
-    /// * `ident` - The identifier for which no remapping entry exists.
-    ///
-    /// # Returns
-    ///
-    /// A new `InternerError::MissingRemapIdent` instance.
-    pub fn missing_remap_ident(ident: Ident) -> Self {
-        Self::MissingRemapIdent(ident)
-    }
-
     /// Creates a new [`MissingRemapLiteral`] error.
     ///
     /// # Arguments
@@ -116,16 +96,4 @@ impl InternerError {
         Self::MissingRemapLiteral(literal)
     }
 
-    /// Creates a new [`RemappedIdentifierConflict`] error.
-    ///
-    /// # Arguments
-    ///
-    /// * `ident` - The identifier to which multiple entries were remapped, causing a conflict.
-    ///
-    /// # Returns
-    ///
-    /// A new `InternerError::RemappedIdentifierConflict` instance.
-    pub fn remapped_identifier_conflict(ident: Ident) -> Self {
-        Self::RemappedIdentifierConflict(ident)
-    }
 }

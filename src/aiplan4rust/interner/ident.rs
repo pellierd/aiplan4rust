@@ -51,13 +51,14 @@ use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerId, StringInterner};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// An interned identifier represented by a `usize` index.
 ///
 /// `Ident` is typically used with a `StringInterner` to refer to interned strings
 /// in a compact, efficient way. It wraps a single `usize` value.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct Ident {
     value: usize,
@@ -126,37 +127,28 @@ impl Ident {
 
     /// Remaps this `Ident` using a provided mapping table.
     ///
-    /// If the identifier exists in the `map`, it is replaced by its corresponding mapped value.
+    /// If the identifier exists in `map`, it is replaced by its corresponding mapped value.
     /// This is typically used during interner merging or when resolving identifier renamings
     /// between multiple contexts (e.g., domain and problem linkage).
     ///
     /// # Arguments
     ///
-    /// * `map` - A mapping from old `Ident` values to new `Ident` values.
+    /// * `map` – A mapping from old `Ident` values to new `Ident` values.
     ///
-    /// # Example
+    /// # Errors
     ///
-    /// ```
-    /// use std::collections::HashMap;
-    /// let mut id = Ident::from(1);
-    /// let mut map = HashMap::new();
-    /// map.insert(Ident::from(1), Ident::from(42));
-    /// id.remap(&map);
-    /// assert_eq!(id, Ident::from(42));
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// This function does not panic.
+    /// Returns [`RemapIdentError`] if a remapping is required but cannot be applied
+    /// (e.g., missing mapping or conflict). In the current implementation, this always succeeds.
     ///
     /// # Performance
     ///
-    /// This method performs a single hash map lookup and a lightweight copy operation (if found),
-    /// as `Ident` is typically a `Copy` type backed by a `usize`.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+    /// Performs a single hash map lookup and a lightweight copy, as `Ident` is `Copy`
+    /// (typically a `usize`).
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
         if let Some(new) = map.get(self) {
             *self = *new;
         }
+        Ok(())
     }
 }
 

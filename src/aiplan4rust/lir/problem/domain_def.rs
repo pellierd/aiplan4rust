@@ -148,16 +148,32 @@ impl<'a> DomainDef<'a> {
         self.problem.has_types()
     }
 
-    /// Returns all domain-level constants as a map from `Ident` to `TypedSymbol`.
+    /// Returns an iterator over all constants in the domain.
     ///
     /// # Returns
     ///
-    /// A reference to a [`HashMap`] where the keys are constant identifiers (`Ident`)
-    /// and the values are the corresponding [`TypedSymbol`]s.
+    /// An iterator over references to [`TypedSymbol`]s representing domain-level constants.
     ///
-    /// This allows efficient lookup of a constant by its identifier.
-    pub fn constants(&self) -> &HashMap<Ident, TypedSymbol> {
+    /// # Examples
+    ///
+    /// ```rust
+    /// for c in domain.constants() {
+    ///     println!("Constant: {:?}", c);
+    /// }
+    /// ```
+    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol> {
         self.problem.constants()
+    }
+
+    /// Returns true if the domain contains any constants.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// assert!(domain.has_constants());
+    /// ```
+    pub fn has_constants(&self) -> bool {
+        self.problem.has_constants()
     }
 
     /// Returns the predicates declared in the domain.

@@ -19,16 +19,18 @@
 //! println!("Predicate name: {}", pred.name());
 //! ```
 
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Ident, TypedList};
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::lexer::Token;
@@ -113,6 +115,37 @@ impl NamedTypedList {
     /// - `parameters`: The new `TypedList` to set as the parameters.
     pub fn set_parameters(&mut self, parameters: TypedList) {
         self.parameters = parameters;
+    }
+}
+
+impl RemapIdents for NamedTypedList {
+    /// Remaps all identifiers in this `NamedTypedList`, including its main symbol
+    /// and its parameters, according to the provided mapping.
+    ///
+    /// Any `Ident` present in `map` is replaced with the corresponding new value.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap<Ident, Ident>` mapping old identifiers to new identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        self.symbol.remap_idents(map)?;
+        self.parameters.remap_idents(map)?;
+        Ok(())
+    }
+}
+
+impl FlattenTypes for NamedTypedList {
+    /// Replaces any union types (`Type::Either`) in the parameters
+    /// with their corresponding primitive identifiers from the given mapping.
+    ///
+    /// # Parameters
+    /// - `map`: A mapping from `Type::Either` to its new primitive `Ident`.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+        self.parameters.flatten_types(map);
     }
 }
 

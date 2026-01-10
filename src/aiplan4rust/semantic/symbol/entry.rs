@@ -8,7 +8,7 @@
 
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+use toml::map::Entry;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a symbol in a given context, with associated declarations and usages.
 ///
@@ -129,40 +131,6 @@ impl SymbolEntry {
         self.usages.insert(usage)
     }
 
-    /// Remaps identifiers in this symbol's ident, declarations, and usages according to the given mapping.
-    ///
-    /// This is useful for renaming or aliasing symbols consistently.
-    ///
-    /// # Arguments
-    ///
-    /// * `map` - A mapping from old `Ident`s to new `Ident`s.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        // Remap main symbol identifier
-        if let Some(new_ident) = map.get(&self.ident) {
-            self.ident = *new_ident;
-        }
-
-        // Remap identifiers in declarations
-        self.declarations = self
-            .declarations
-            .drain()
-            .map(|mut decl| {
-                decl.remap_idents(map);
-                decl
-            })
-            .collect();
-
-        // Remap identifiers in usages
-        self.usages = self
-            .usages
-            .drain()
-            .map(|mut usage| {
-                usage.remap_idents(map);
-                usage
-            })
-            .collect();
-    }
-
     /// Merges another `SymbolEntry` into this one by combining declarations and usages.
     ///
     /// Only merges if both symbols have the same identifier.
@@ -181,6 +149,48 @@ impl SymbolEntry {
         self.declarations.extend(other.declarations);
         self.usages.extend(other.usages);
         true
+    }
+}
+
+impl RemapIdents for SymbolEntry {
+    /// Remaps identifiers in this symbol entry, including the main symbol, its
+    /// declarations, and all usages, according to the provided mapping.
+    ///
+    /// Any `Ident` present in `map` is replaced with the corresponding new value.
+    /// This is useful for renaming or aliasing symbols consistently, e.g.,
+    /// after type flattening or interner merging.
+    ///
+    /// # Parameters
+    ///
+    /// - `map`: A `HashMap<Ident, Ident>` mapping old identifiers to new identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RemapIdentError`] if any declaration or usage cannot be remapped
+    /// according to the given map.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        // Remap main symbol identifier
+        if let Some(new_ident) = map.get(&self.ident) {
+            self.ident = *new_ident;
+        }
+
+        // Remap identifiers in declarations
+        let mut new_declarations = HashSet::with_capacity(self.declarations.len());
+        for mut decl in self.declarations.drain() {
+            decl.remap_idents(map)?;
+            new_declarations.insert(decl);
+        }
+        self.declarations = new_declarations;
+
+        // Remap identifiers in usages
+        let mut new_usages = HashSet::with_capacity(self.usages.len());
+        for mut usage in self.usages.drain() {
+            usage.remap_idents(map)?;
+            new_usages.insert(usage);
+        }
+        self.usages = new_usages;
+
+        Ok(())
     }
 }
 
