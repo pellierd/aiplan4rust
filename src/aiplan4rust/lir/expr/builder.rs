@@ -1,6 +1,6 @@
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -339,28 +339,68 @@ impl<'a> ExprBuilder<'a> {
         self.binary(ExprKind::Imply, antecedent, consequent)
     }
 
-    /// Create a Forall node: (forall (vars...) body)
+    /// Create a `Forall` node: (forall (vars...) body)
     ///
     /// # Arguments
-    /// * `vars` - A TypedList node containing all bound variables.
-    /// * `body` - The expression quantified by the forall.
+    /// * `vars` - A `TypedList` containing all bound variables for the quantifier.
+    /// * `body` - The `NodeId` of the expression that is quantified by the forall.
     ///
     /// # Returns
-    /// NodeId of the created Forall node.
-    pub fn forall(&mut self, vars: NodeId, body: NodeId) -> NodeId {
-        self.binary(ExprKind::Forall, vars, body)
+    /// The `NodeId` of the newly created `Forall` node.
+    pub fn forall(&mut self, vars: TypedList, body: NodeId) -> NodeId {
+        self.node(ExprNode::new(ExprKind::Forall, ExprContent::QuantifierVariables(vars), None), vec![body])
     }
 
-    /// Create an `Exists` node.
+    /// Create a Forall node from variable names and type names
     ///
     /// # Arguments
-    /// * `vars` - NodeId of a node representing the bound variables (e.g., a `TypedList` of `TypedSymbol`s)
+    /// * `vars` - Vector of (variable_name, type_name) pairs
     /// * `body` - NodeId of the expression over which the variables are quantified
     ///
     /// # Returns
-    /// NodeId of the newly created `Exists` node
-    pub fn exists(&mut self, vars: NodeId, body: NodeId) -> NodeId {
-        self.binary(ExprKind::Exists, vars, body)
+    /// NodeId of the created Forall node
+    pub fn forall_with_string_vars(&mut self, vars: Vec<(&str, &str)>, body: NodeId) -> NodeId {
+        let typed_list = self.typed_list_from_strings(vars);
+        self.forall(typed_list, body)
+    }
+
+    /// Helper to create a TypedList from variable name/type pairs
+    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList {
+        let typed_symbols: Vec<TypedSymbol> = vars
+            .into_iter()
+            .map(|(var_name, type_name)| {
+                let var = self.interner.intern_ident(var_name);
+                let typ = Type::primitive(self.interner.intern_ident(type_name));
+                TypedSymbol::new(var, typ)
+            })
+            .collect();
+        TypedList::from_symbols(typed_symbols)
+    }
+
+    /// Create an `Exists` node: (exists (vars...) body)
+    ///
+    /// # Arguments
+    /// * `vars` - A `TypedList` containing all bound variables for the quantifier.
+    /// * `body` - The `NodeId` of the expression that is quantified by the exists.
+    ///
+    /// # Returns
+    /// The `NodeId` of the newly created `Exists` node.
+    pub fn exists(&mut self, vars: TypedList, body: NodeId) -> NodeId {
+        //self.binary(ExprKind::Exists, vars, body)
+        self.node(ExprNode::new(ExprKind::Exists, ExprContent::QuantifierVariables(vars), None), vec![body])
+    }
+
+    /// Create an Exists node from variable names and type names
+    ///
+    /// # Arguments
+    /// * `vars` - Vector of (variable_name, type_name) pairs
+    /// * `body` - NodeId of the expression over which the variables are quantified
+    ///
+    /// # Returns
+    /// NodeId of the newly created Exists node
+    pub fn exists_with_string_vars(&mut self, vars: Vec<(&str, &str)>, body: NodeId) -> NodeId {
+        let typed_list = self.typed_list_from_strings(vars);
+        self.exists(typed_list, body)
     }
 
     /// Create a Preference node with a name and a body expression.

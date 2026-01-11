@@ -191,14 +191,10 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let a = builder.atomic_formula("A", vec![]);
-        let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
-        let forall_node = builder.forall(vars, a);
+        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], a);
 
         let b = builder.atomic_formula("B", vec![]);
-        let y = builder.variable("?Y");
-        let vars = builder.typed_list(vec![y]);
-        let exists_node = builder.exists(vars, b);
+        let exists_node = builder.exists_with_string_vars(vec![("?Y", "T")], b);
 
         let imply = builder.imply(forall_node, exists_node);
         builder.set_root(imply).unwrap();

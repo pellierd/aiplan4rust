@@ -36,12 +36,12 @@
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, Optimization, RemapIdents, Type};
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, Optimization, RemapIdents, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent, SyntaxNode, SyntaxSubtree, SyntaxTree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -50,6 +50,7 @@ use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
+use crate::aiplan4rust::lir::expr::ExprContent::QuantifierVariables;
 
 /// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
 ///
@@ -664,20 +665,40 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
         // Push root children
         push_children(&mut stack, subtree, root_ast, root_id)?;
 
-        // DFS traversal
         while let Some((current_ast_node, parent_id)) = stack.pop() {
-            let kind = ExprKind::try_from(current_ast_node.kind())?;
-            let content = ExprContent::try_from(current_ast_node.content())?;
+            match current_ast_node.kind() {
+                AstKind::Forall | AstKind::Exists => {
+                    let kind = ExprKind::try_from(current_ast_node.kind())?;
+                    let children = current_ast_node.children();
+                    assert_eq!(children.len(), 2, "Invalid Forall/Exists node: {:?}", current_ast_node.content());
 
-            let node = ExprNode::new(kind, content, Some(parent_id));
-            let node_id = expr.alloc(node);
+                    // 1. First child: TypedList of variables
+                    let typed_list_node = subtree.tree().try_node(children[0])?;
+                    let typed_list_tree = SyntaxSubtree::new(typed_list_node, subtree.tree());
+                    let vars = TypedList::try_from(&typed_list_tree)?;
+                    let content = ExprContent::QuantifierVariables(vars);
 
-            expr.try_node_mut(parent_id)?.add_child(node_id);
+                    // 2. Create the Forall/Exists node
+                    let node = ExprNode::new(kind, content, Some(parent_id));
+                    let node_id = expr.alloc(node);
+                    expr.try_node_mut(parent_id)?.add_child(node_id);
 
-            // Push children of the current node
-            push_children(&mut stack, subtree, current_ast_node, node_id)?;
+                    // 3. Second child: body of the quantification
+                    let body_node = subtree.tree().try_node(children[1])?;
+                    push_children(&mut stack, subtree, body_node, node_id)?;
+                }
+                _ => {
+                    let kind = ExprKind::try_from(current_ast_node.kind())?;
+                    let content = ExprContent::try_from(current_ast_node.content())?;
+                    let node = ExprNode::new(kind, content, Some(parent_id));
+                    let node_id = expr.alloc(node);
+                    expr.try_node_mut(parent_id)?.add_child(node_id);
+                    // Push children of the current node
+                    push_children(&mut stack, subtree, current_ast_node, node_id)?;
+
+                }
+            }
         }
-
         Ok(expr)
     }
 }

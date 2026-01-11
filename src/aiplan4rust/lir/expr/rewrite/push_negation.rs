@@ -306,9 +306,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let a = builder.atomic_formula("A", vec![]);
-        let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
-        let forall_node = builder.forall(vars, a);
+        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], a);
         let root = builder.not(forall_node);
 
         builder.set_root(root).unwrap();
@@ -339,9 +337,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let a = builder.atomic_formula("A", vec![]);
-        let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
-        let exists_node = builder.exists(vars, a);
+        let exists_node = builder.exists_with_string_vars(vec![("?X", "T")], a);
         let root = builder.not(exists_node);
 
         builder.set_root(root).unwrap();
@@ -401,9 +397,7 @@ mod tests {
         let b = builder.atomic_formula("B", vec![]);
         let c = builder.atomic_formula("C", vec![]);
         let not_b = builder.not(b);
-        let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
-        let exists_c = builder.exists(vars, c);
+        let exists_c = builder.exists_with_string_vars(vec![("?X", "T")], c);
         let and_node = builder.and(vec![a, not_b, exists_c]);
         let root = builder.not(and_node);
 
@@ -452,13 +446,8 @@ mod tests {
         let or = builder.or(vec![b, c]);
         let not_or_bc = builder.not(or);
 
-        let y = builder.variable("?Y");
-        let vars_y = builder.typed_list(vec![y]);
-        let exists_d = builder.exists(vars_y, d);
-
-        let x = builder.variable("?X");
-        let vars_x = builder.typed_list(vec![x]);
-        let forall_exists_d = builder.forall(vars_x, exists_d);
+        let exists_d = builder.exists_with_string_vars(vec![("?Y", "T")], d);
+        let forall_exists_d = builder.forall_with_string_vars(vec![("?X", "T")], exists_d);
 
         let and_node = builder.and(vec![a, not_or_bc, forall_exists_d]);
         let root = builder.not(and_node);

@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
+use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 
 /// Simplifies a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
@@ -58,72 +58,12 @@ pub(super) fn simplify(
     Ok(())
 }
 
-/// Simplifies a quantifier node by removing it if its variable list is empty.
+/// Canonicalizes the variables of a quantifier node.
 ///
-/// This function handles nodes of kind `forall` or `exists`. If the first child,
-/// which is the `TypedList` of quantified variables, is empty, the quantifier is
-/// removed and the node is replaced by its body. The function assumes that the
-/// children of the quantifier have already been simplified.
-///
-/// # Parameters
-/// - `node_id`: The `NodeId` of the quantifier node to simplify.
-/// - `expr`: A mutable reference to the expression tree containing the node.
-///
-/// # Returns
-/// - `Ok(true)` if the quantifier was removed and replaced by its body.
-/// - `Ok(false)` if the variable list is not empty.
-/// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
-///
-/// # Panics (in debug mode)
-/// The function contains `debug_assert!` checks that will panic if:
-/// - The node is not a quantifier (`forall` or `exists`).
-/// - The quantifier node does not have at least two children (TypedList + body).
-/// - The first child is not a `TypedList`.
-///
-/// # Example
-/// ```ignore
-/// let node_id = expr.root_id().unwrap();
-/// remove_empty_quantifier(node_id, &mut expr)?;
-/// ```
-fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
-    let node = expr.try_node(node_id)?;
-    debug_assert!(
-        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
-        "Node must be a quantifier (Forall or Exists)"
-    );
-
-    let children = node.children();
-    debug_assert!(
-        children.len() >= 2,
-        "Quantifier node must have at least two children: TypedList and body"
-    );
-
-    // The first child is the TypedList of quantified variables
-    let vars_node_id = children[0];
-    let vars_node = expr.try_node(vars_node_id)?;
-    debug_assert!(
-        vars_node.kind() == ExprKind::TypedList,
-        "First child of a quantifier must be a TypedList"
-    );
-
-    // Check if the TypedList is empty
-    if vars_node.children().is_empty() {
-        let body_id = children[1];
-        expr.move_to(body_id, node_id)?;
-        return Ok(true);
-    }
-
-    Ok(false)
-}
-
-/// Canonicalizes the variable list of a quantifier node and their types.
-///
-/// This function sorts the first child of a `Forall` or `Exists` node,
-/// which is expected to be a `TypedList` of quantified variables. For each
-/// variable, the function also sorts the children of its `Type` node, ensuring
-/// that the list of types for each variable is in canonical order. This
-/// guarantees a consistent representation of quantifiers for structural
-/// comparisons, deduplication, and simplifications.
+/// This function operates on the content of a `Forall` or `Exists` node,
+/// which is expected to contain a `QuantifierVariables(TypedList)` holding
+/// all quantified variables. Each `TypedSymbol` in the `TypedList` is sorted
+/// by name to produce a canonical ordering.
 ///
 /// # Parameters
 /// - `node_id`: The ID of the quantifier node (`Forall` or `Exists`) to process.
@@ -131,21 +71,15 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 ///
 /// # Returns
 /// - `Ok(())` if the operation succeeds.
-/// - `Err(ExprError)` if accessing or mutating the node fails.
+/// - `Err(ExprError)` if the node does not contain quantifier variables.
 ///
 /// # Panics (in debug mode)
 /// The function contains `debug_assert!` checks that will panic if:
 /// - The node is not a quantifier (`Forall` or `Exists`).
-/// - The quantifier node has no children.
-/// - The first child is not a `TypedList`.
-/// - A variable node does not have exactly two children (name and type).
-/// - The second child of a variable is not a `Type` node.
 ///
 /// # Notes
-/// - Only the first child (the `TypedList`) and the type lists of each variable
-///   are affected; the body of the quantifier is untouched.
-/// - This ensures that `(forall (?x - (A B)) (?y - (C D)) ...)` and
-///   `(forall (?y - (D C)) (?x - (B A)) ...)` have a canonical representation.
+/// - Only the `TypedList` in the node content is affected; the body of the quantifier is untouched.
+/// - Ensures that different representations of the same variables have a canonical order.
 ///
 /// # Example
 /// ```ignore
@@ -153,156 +87,137 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// canonicalize_quantifier_vars(node_id, &mut expr)?;
 /// ```
 pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    // Get the quantifier node (either Forall or Exists) using its NodeId
-    let node = expr.try_node(node_id)?;
+    let node = expr.try_node_mut(node_id)?;
+
     debug_assert!(
         node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
         "Node must be a quantifier (Forall or Exists)"
     );
 
-    // Get the children of the quantifier node
-    let children = node.children();
-    debug_assert!(
-        !children.is_empty(),
-        "Quantifier node must have at least one child (TypedList)"
-    );
+    // Borrow the QuantifierVariables or return an error
+    let mut vars = node.content_mut().try_quantifier_vars_mut()?;
 
-    // The first child of the quantifier node should be a TypedList node holding the variables
-    let vars_node_id = children[0];
+    // Sort the TypedSymbols by name for canonical order
+    vars.sort_by_key(|ts| ts.symbol());
 
-    // Borrow the TypedList node mutably to allow sorting the variable nodes themselves
-    let vars_node = expr.try_node_mut(vars_node_id)?;
-    debug_assert!(
-        vars_node.kind() == ExprKind::TypedList,
-        "First child of a quantifier must be a TypedList"
-    );
-
-    // Sort the variable nodes (children of TypedList) in canonical order
-    let vars_children = vars_node.children_mut();
-    vars_children.sort();
-
-    // Copy the NodeIds of the variables into a Vec to avoid overlapping mutable/immutable borrows
-    let vars_children_ids: Vec<NodeId> = expr.try_node(vars_node_id)?.children().to_vec();
-
-    // Iterate over each variable
-    for var_id in vars_children_ids {
-        // Borrow the variable node immutably to access its children (name and type)
-        let var_children = expr.try_node(var_id)?.children();
-        debug_assert!(
-            var_children.len() == 2,
-            "Typed symbol node must have exactly two children (name and type){}", var_children.len()
-        );
-
-        // Borrow the type node mutably to sort its children
-        let type_node_id = var_children[1];
-        let type_node = expr.try_node_mut(type_node_id)?;
-        debug_assert!(
-            type_node.kind() == ExprKind::Type,
-            "The second child of a variable must be a Type node"
-        );
-
-        // Sort the children of the Type node in canonical order
-        type_node.children_mut().sort();
-    }
-
-    // All variables and their type children are now in canonical order
     Ok(())
 }
 
-/// Fuses nested quantifiers of the same kind (`forall` or `exists`) into a single expression.
+/// Simplifies a quantifier node by removing it if its variable list is empty.
 ///
-/// This function merges a quantifier expression with its immediate child quantifier
-/// of the same type. The variables from both quantifiers are concatenated into
-/// the outer quantifier's variable list. The body of the inner quantifier replaces
-/// the body of the outer quantifier.
+/// This function operates on nodes of kind `Forall` or `Exists`. Quantified
+/// variables are stored directly in the node content as
+/// `ExprContent::QuantifierVariables(TypedList)`.
 ///
-/// Only immediate nested quantifiers of the same type are fused. If the outer expression
-/// is not a `forall` or `exists`, or if the inner quantifier is of a different kind,
-/// no changes are made.
+/// If the `TypedList` of quantified variables is empty, the quantifier is
+/// removed and replaced by its body. The body of the quantifier is assumed
+/// to have already been simplified.
 ///
 /// # Parameters
-/// - `node_id`: The `NodeId` of the outer quantifier expression.
+/// - `node_id`: The `NodeId` of the quantifier node (`Forall` or `Exists`) to simplify.
+/// - `expr`: A mutable reference to the expression tree containing the node.
+///
+/// # Returns
+/// - `Ok(true)` if the quantifier was removed and replaced by its body.
+/// - `Ok(false)` if the quantifier has at least one bound variable.
+/// - `Err(ExprError)` if accessing or mutating the expression tree fails.
+///
+/// # Panics (in debug mode)
+/// The function contains `debug_assert!` checks that will panic if:
+/// - The node is not a quantifier (`Forall` or `Exists`).
+/// - The node content is not `QuantifierVariables`.
+fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+    let node = expr.try_node_mut(node_id)?;
+
+    debug_assert!(
+        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+        "Node must be a quantifier (Forall or Exists)"
+    );
+
+    // Borrow the TypedList of quantifier variables or return an error
+    let vars = node.content_mut().try_quantifier_vars()?;
+
+    if vars.is_empty() {
+        // Replace the quantifier with its body (assumes exactly one child: the body)
+        let body_id = node.children()[0];
+        expr.move_to(body_id, node_id)?;
+        return Ok(true);
+    }
+
+    Ok(false)
+}
+
+/// Fuses immediate nested quantifiers of the same kind (`forall` or `exists`) into a single node.
+///
+/// This function merges a quantifier with its direct child quantifier of the same type.
+/// The variables from the inner quantifier are moved into the outer quantifier's
+/// `QuantifierVariables` content. The body of the inner quantifier replaces the
+/// body of the outer quantifier.
+///
+/// Only immediate nested quantifiers of the same type are fused. If the outer node
+/// is not a quantifier, or if the inner quantifier is of a different kind, no changes are made.
+///
+/// # Parameters
+/// - `node_id`: The `NodeId` of the outer quantifier node.
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
 /// - `Ok(())` if fusion completes successfully or no fusion is applicable.
-/// - `Err(ExprError)` if accessing nodes or mutating the expression fails.
+/// - `Err(ExprError)` if accessing nodes or mutating the tree fails.
 ///
 /// # Panics (in debug mode)
 /// The function contains `debug_assert!` checks that will panic if the AST structure is invalid:
-/// - The outer quantifier must have exactly two children: TypedList + body.
-/// - The first child of the outer quantifier must be a `TypedList`.
-/// - If the inner quantifier has the same kind as the outer, it must also have exactly two children:
-///   a `TypedList` and a body. Otherwise, no fusion occurs.
+/// - The outer quantifier must have exactly one child: the body.
+/// - If the inner quantifier has the same kind as the outer, it must also have exactly one child: the body.
 /// - These assertions ensure that the inner quantifier's structure is valid before merging.
 ///
 /// # Notes
-/// - Variables from the inner quantifier are appended to the outer quantifier's variable list.
+/// - Variables from the inner quantifier are moved (not cloned) into the outer quantifier.
 /// - The body of the inner quantifier replaces the body of the outer quantifier.
 /// - Inner quantifiers of a different kind are ignored.
 /// - Only immediate nested quantifiers are fused; deeper nesting is not handled recursively.
-///
-/// # Example
-/// ```ignore
-/// let node_id = expr.root_id().unwrap();
-/// fuse_nested_quantifiers(node_id, &mut expr)?;
-/// ```
-fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    let node = expr.try_node(node_id)?;
+
+pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+    // Step 1: read outer node kind and children immutably
+    let outer_node = expr.try_node(node_id)?;
+    let outer_kind = outer_node.kind();
     debug_assert!(
-        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
-        "Node must be a quantifier (Forall or Exists)"
+        outer_kind == ExprKind::Forall || outer_kind == ExprKind::Exists,
+        "Outer node must be a quantifier (Forall or Exists)"
     );
+    let outer_children = outer_node.children();
+    debug_assert!(outer_children.len() == 1, "Outer quantifier must have exactly one child");
+    let inner_id = outer_children[0];
 
-    let children = node.children();
-    debug_assert!(
-        children.len() == 2,
-        "Outer quantifier must have exactly two children: TypedList and body"
-    );
-
-    let vars_node_id = children[0];
-    let body_id = children[1];
-    let vars_node = expr.try_node(vars_node_id)?;
-    let body = expr.try_node(body_id)?;
-
-    debug_assert!(
-        vars_node.kind() == ExprKind::TypedList,
-        "First child of outer quantifier must be a TypedList"
-    );
-
-    // Only consider inner quantifier if same kind
-    if body.kind() != node.kind() {
-        return Ok(()); // different kind, skip
+    // Step 2: read inner node kind immutably
+    let inner_kind = expr.try_node(inner_id)?.kind();
+    if inner_kind != outer_kind {
+        return Ok(()); // Different kinds, skip fusion
     }
 
-    // Assert that the inner quantifier has exactly 2 children
-    debug_assert!(
-        body.children().len() == 2,
-        "Inner quantifier of the same kind must have exactly 2 children: TypedList + body"
-    );
-
-    let inner_vars_node_id = body.children()[0];
-    let inner_body_id = body.children()[1];
-
-    // Move children of inner TypedList into outer TypedList
-    let inner_children_ids = {
-        let inner_vars_node_mut = expr.try_node_mut(inner_vars_node_id)?;
-        std::mem::take(inner_vars_node_mut.children_mut())
+    // Step 3: take inner variables mutably
+    let mut inner_vars = {
+        let inner_node = expr.try_node_mut(inner_id)?;
+        std::mem::take(inner_node.content_mut().try_quantifier_vars_mut()?)
     };
-    if !inner_children_ids.is_empty() {
-        let vars_node_mut = expr.try_node_mut(vars_node_id)?;
-        for child_id in inner_children_ids {
-            vars_node_mut.add_child(child_id);
-        }
+
+    // Step 4: prepend inner vars to outer vars mutably
+    {
+        let outer_node = expr.try_node_mut(node_id)?;
+        let outer_vars = outer_node.content_mut().try_quantifier_vars_mut()?;
+        outer_vars.splice(0..0, inner_vars.into_iter());
+        outer_vars.sort_by_key(|v| v.symbol());
+        outer_vars.dedup_by_key(|v| v.symbol());
     }
 
-    // Replace the body of the outer quantifier with the body of the inner quantifier
+    // Step 5: replace outer body with inner body
+    let inner_body_id = expr.try_node(inner_id)?.children()[0];
     {
-        let inner_body_node_mut = expr.try_node_mut(inner_body_id)?;
-        let kind_new = inner_body_node_mut.kind();
-        let content_new = std::mem::take(inner_body_node_mut.content_mut());
-        let children_new = std::mem::take(inner_body_node_mut.children_mut());
-        expr.set(body_id, kind_new, content_new, children_new)?;
+        let inner_body_node = expr.try_node_mut(inner_body_id)?;
+        let kind_new = inner_body_node.kind();
+        let content_new = std::mem::take(inner_body_node.content_mut());
+        let children_new = std::mem::take(inner_body_node.children_mut());
+        expr.set(inner_id, kind_new, content_new, children_new)?;
     }
 
     Ok(())
@@ -312,10 +227,10 @@ fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
 ///
 /// This function handles quantifier nodes (`forall` or `exists`) whose body is an
 /// empty logical conjunction (`and`) or disjunction (`or`). The simplification rules are:
-/// - `(forall (...) (and))` → `(and)`        [true]
-/// - `(forall (...) (or))`  → `(or)`         [false]
-/// - `(exists (...) (and))` → `(and)`        [true]
-/// - `(exists (...) (or))`  → `(or)`         [false]
+/// - `(forall (...) (and))` → `(and)`
+/// - `(forall (...) (or))`  → `(or)`
+/// - `(exists (...) (and))` → `(and)`
+/// - `(exists (...) (or))`  → `(or)`
 ///
 /// The quantifier is replaced by its trivial body if these conditions are met.
 ///
@@ -331,10 +246,12 @@ fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprE
 /// # Panics (in debug mode)
 /// The function contains `debug_assert!` checks that will panic if:
 /// - The node is not a quantifier (`Forall` or `Exists`).
-/// - The quantifier does not have exactly two children (TypedList + body).
+/// - The quantifier does not have exactly one child (the body).
 ///
 /// # Notes
 /// - Only empty `and` or `or` bodies are considered trivial.
+/// - The variables of the quantifier are stored in the node's `Content` and are ignored
+///   during this simplification.
 /// - The body of the quantifier completely replaces the quantifier node.
 /// - Non-trivial bodies are left unchanged.
 ///
@@ -356,11 +273,11 @@ fn simplify_quantifier_trivial_body(
 
     let children = node.children();
     debug_assert!(
-        children.len() == 2,
-        "Quantifier must have exactly 2 children"
+        children.len() == 1,
+        "Quantifier must have exactly 1 child"
     );
 
-    let body_id = children[1];
+    let body_id = children[0];
     let body = expr.try_node(body_id)?;
 
     // Check if the body is trivial (empty AND or OR)
@@ -393,6 +310,7 @@ fn simplify_quantifier_trivial_body(
 #[cfg(test)]
 mod tests {
     use crate::aiplan4rust::interner::StringInterner;
+    use crate::aiplan4rust::lang::TypedList;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::simplify::quantifier;
@@ -407,8 +325,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let atomic_a = builder.atomic_formula("A", vec![]);
-        let empty_vars = builder.typed_list(vec![]);
-        let forall_node = builder.forall(empty_vars, atomic_a);
+        let forall_node = builder.forall(TypedList::new(), atomic_a);
 
         builder.set_root(forall_node).unwrap();
         let mut expr = builder.finish();
@@ -435,19 +352,8 @@ mod tests {
 
         let atomic_a = builder.atomic_formula("A", vec![]);
 
-        let y = builder.variable("?Y");
-        let t1 = builder.primitive_type("T1");
-        let either = builder.either_type(vec![t1]);
-        let typed_y = builder.typed_symbol(y, either);
-        let inner_vars = builder.typed_list(vec![typed_y]);
-        let inner_forall = builder.forall(inner_vars, atomic_a);
-
-        let x = builder.variable("?X");
-        let t2 = builder.primitive_type("T2");
-        let either = builder.either_type(vec![t2]);
-        let typed_x = builder.typed_symbol(x, either);
-        let outer_vars = builder.typed_list(vec![typed_x]);
-        let outer_forall = builder.forall(outer_vars, inner_forall);
+        let inner_forall = builder.forall_with_string_vars(vec![("?Y", "T1")], atomic_a);
+        let outer_forall = builder.forall_with_string_vars(vec![("?X", "T2")], inner_forall);
 
         builder.set_root(outer_forall).unwrap();
         let mut expr = builder.finish();
@@ -473,12 +379,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let empty_and = builder.and(vec![]);
-        let x = builder.variable("?X");
-        let t = builder.primitive_type("T");
-        let either = builder.either_type(vec![t]);
-        let typed_x = builder.typed_symbol(x, either);
-        let vars = builder.typed_list(vec![typed_x]);
-        let forall_node = builder.forall(vars, empty_and);
+        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], empty_and);
 
         builder.set_root(forall_node).unwrap();
         let mut expr = builder.finish();
@@ -504,12 +405,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let atomic_a = builder.atomic_formula("A", vec![]);
-        let x = builder.variable("?X");
-        let t = builder.primitive_type("T");
-        let either = builder.either_type(vec![t]);
-        let typed_x = builder.typed_symbol(x, either);
-        let vars = builder.typed_list(vec![typed_x]);
-        let forall_node = builder.forall(vars, atomic_a);
+        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], atomic_a);
 
         builder.set_root(forall_node).unwrap();
         let mut expr = builder.finish();
@@ -535,8 +431,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let atomic_a = builder.atomic_formula("A", vec![]);
-        let empty_vars = builder.typed_list(vec![]);
-        let exists_node = builder.exists(empty_vars, atomic_a);
+        let exists_node = builder.exists_with_string_vars(vec![], atomic_a);
 
         builder.set_root(exists_node).unwrap();
         let mut expr = builder.finish();
@@ -562,19 +457,8 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let atomic_a = builder.atomic_formula("A", vec![]);
-        let y = builder.variable("?Y");
-        let t1 = builder.primitive_type("T1");
-        let either = builder.either_type(vec![t1]);
-        let typed_y = builder.typed_symbol(y, either);
-        let inner_vars = builder.typed_list(vec![typed_y]);
-        let inner_exists = builder.exists(inner_vars, atomic_a);
-
-        let x = builder.variable("?X");
-        let t2 = builder.primitive_type("T2");
-        let either = builder.either_type(vec![t2]);
-        let typed_x = builder.typed_symbol(x, either);
-        let outer_vars = builder.typed_list(vec![typed_x]);
-        let outer_exists = builder.exists(outer_vars, inner_exists);
+        let inner_exists = builder.exists_with_string_vars(vec![("?Y", "T1")], atomic_a);
+        let outer_exists = builder.exists_with_string_vars(vec![("?X", "T2")], inner_exists);
 
         builder.set_root(outer_exists).unwrap();
         let mut expr = builder.finish();
@@ -601,12 +485,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let empty_and = builder.and(vec![]);
-        let x = builder.variable("?X");
-        let t = builder.primitive_type("T");
-        let either = builder.either_type(vec![t]);
-        let typed_x = builder.typed_symbol(x, either);
-        let vars = builder.typed_list(vec![typed_x]);
-        let exists_node = builder.exists(vars, empty_and);
+        let exists_node = builder.exists_with_string_vars(vec![("?X", "T")], empty_and);
 
         builder.set_root(exists_node).unwrap();
         let mut expr = builder.finish();
@@ -632,12 +511,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let atomic_a = builder.atomic_formula("A", vec![]);
-        let x = builder.variable("?X");
-        let t = builder.primitive_type("T");
-        let either = builder.either_type(vec![t]);
-        let typed_x = builder.typed_symbol(x, either);
-        let vars = builder.typed_list(vec![typed_x]);
-        let exists_node = builder.exists(vars, atomic_a);
+        let exists_node = builder.exists_with_string_vars(vec![("?X", "T")], atomic_a);
 
         builder.set_root(exists_node).unwrap();
         let mut expr = builder.finish();

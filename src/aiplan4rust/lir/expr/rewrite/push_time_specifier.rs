@@ -340,9 +340,7 @@ mod tests {
         let mut builder = ExprBuilder::new(&mut interner);
 
         let a = builder.atomic_formula("A", vec![]);
-        let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
-        let forall_node = builder.forall(vars, a);
+        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], a);
         let root = builder.at_end(forall_node);
 
         builder.set_root(root).unwrap();

@@ -1,6 +1,6 @@
 use ordered_float::OrderedFloat;
 use thiserror::Error;
-use crate::aiplan4rust::lang::ArithmeticOp;
+use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::expr::ExprKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -39,6 +39,10 @@ pub enum ExprError {
     /// An error originating from the syntax tree system.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
+
+    /// An error originating from the lang module
+    #[error(transparent)]
+    Lang(#[from] LangError),
 
     /// Indicates that an unsupported or unexpected `AstContent` variant was encountered.
     #[error("Unsupported content: {content:?}")]
@@ -81,6 +85,10 @@ pub enum ExprError {
         /// The node ID of the literal missing a temporal specifier.
         node_id: NodeId,
     },
+
+    /// Indicates that the expected content was a quantifier variables list, but it was not.
+    #[error("Expected quantifier variables, but content was not QuantifierVariables")]
+    NotQuantifierVariables,
 }
 
 impl ExprError {
@@ -182,5 +190,10 @@ impl ExprError {
     /// ```
     pub fn missing_time_specifier(node_id: NodeId) -> Self {
         ExprError::MissingTimeSpecifier { node_id }
+    }
+
+    /// Constructs a `NotQuantifierVariables` error.
+    pub fn not_quantifier_variables() -> Self {
+        ExprError::NotQuantifierVariables
     }
 }

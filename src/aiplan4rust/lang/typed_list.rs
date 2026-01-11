@@ -66,6 +66,18 @@ impl TypedList {
         }
     }
 
+    /// Create a TypedList from a vector of TypedSymbol
+    ///
+    /// # Arguments
+    /// * `symbols` - A vector containing the TypedSymbol instances to include in the list
+    ///
+    /// # Returns
+    /// A new `TypedList` containing the provided symbols
+    pub fn from_symbols(symbols: Vec<TypedSymbol>) -> Self {
+        Self { symbols }
+    }
+
+
     /// Returns an empty instance of the type_checker.
     ///
     /// This is a convenience method that creates a default (empty) value.

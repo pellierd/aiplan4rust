@@ -51,7 +51,7 @@
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents, TypedList};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::AstContent;
@@ -63,6 +63,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
+use crate::aiplan4rust::lir::expr::ExprContent;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -97,6 +98,57 @@ pub enum Content {
 
     /// Optimization directive (e.g. `maximize`, `minimize`).
     Optimization(Optimization),
+
+    /// The bound variables for a quantifier (Forall or Exists) stored as a `TypedList`.
+    QuantifierVariables(TypedList),
+}
+
+impl Content {
+    /// Returns a reference to the quantifier’s bound variables if the content is `TypedVariables`.
+    ///
+    /// # Returns
+    /// * `Some(&TypedList)` if the content holds bound variables
+    /// * `None` otherwise
+    pub fn as_quantifier_vars(&self) -> Option<&TypedList> {
+        match self {
+            ExprContent::QuantifierVariables(list) => Some(list),
+            _ => None,
+        }
+    }
+
+    /// Returns a reference to the quantifier’s bound variables.
+    ///
+    /// # Errors
+    /// Returns `ExprError::unsupported_content` if the content is not `TypedVariables`.
+    pub fn try_quantifier_vars(&self) -> Result<&TypedList, ExprError> {
+        match self {
+            ExprContent::QuantifierVariables(list) => Ok(list),
+            _ => Err(ExprError::not_quantifier_variables()),
+        }
+    }
+
+    /// Returns a mutable reference to the quantifier’s bound variables if the content is `TypedVariables`.
+    ///
+    /// # Returns
+    /// * `Some(&mut TypedList)` if the content holds bound variables
+    /// * `None` otherwise
+    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList> {
+        match self {
+            ExprContent::QuantifierVariables(list) => Some(list),
+            _ => None,
+        }
+    }
+
+    /// Returns a mutable reference to the quantifier’s bound variables.
+    ///
+    /// # Errors
+    /// Returns `ExprError::not_quantifier_variables()` if the content is not `TypedVariables`.
+    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList, ExprError> {
+        match self {
+            ExprContent::QuantifierVariables(list) => Ok(list),
+            _ => Err(ExprError::not_quantifier_variables()),
+        }
+    }
 }
 
 impl fmt::Display for Content {
@@ -109,6 +161,7 @@ impl fmt::Display for Content {
             Content::AssignOp(assign) => write!(f, "{}", assign),
             Content::ArithmeticOp(op) => write!(f, "{}", op),
             Content::Optimization(opt) => write!(f, "{}", opt),
+            Content::QuantifierVariables(vars) => write!(f, "{}", vars),
         }
     }
 }
@@ -133,7 +186,7 @@ impl InternerDisplay for Content {
 }
 
 impl SyntaxInternerDisplay for Content {
-    // Formats the `Content` value using the provided formatter and string interner,
+    /// Formats the `Content` value using the provided formatter and string interner,
     /// applying indentation according to `indent`.
     ///
     /// # Arguments

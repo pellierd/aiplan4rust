@@ -530,12 +530,13 @@ mod tests {
         let a = builder.atomic_formula("A", vec![]);
         let b = builder.atomic_formula("B", vec![]);
         let c = builder.atomic_formula("C", vec![]);
-        let x = builder.variable("?X");
-        let vars = builder.typed_list(vec![x]);
 
-        let forall_b = builder.forall(vars, b);
+        let forall_b = builder.forall_with_string_vars(vec![("?X", "T")], b);
+
         let or_node = builder.or(vec![a, forall_b]);
+
         let start_or = builder.at_start(or_node);
+
         let end_c = builder.at_end(c);
 
         let root = builder.and(vec![start_or, end_c]);
