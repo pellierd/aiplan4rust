@@ -11,13 +11,15 @@ use crate::aiplan4rust::interner::{Ident, Literal};
 use std::collections::HashMap;
 use std::fmt;
 use itertools::Itertools;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Manages a collection of diagnostics and their associated source files.
 ///
 /// The [`DiagnosticManager`] serves as a centralized collector and organizer for diagnostics
 /// produced during various stages of processing (e.g., parsing, semantic analysis).
 ///
-/// It also stores source file contents to contextualize error messages with
+/// It also stores source
+/// file contents to contextualize error messages with
 /// relevant code snippets.
 #[derive(Debug, Clone, Default)]
 pub struct DiagnosticManager {
@@ -162,57 +164,33 @@ impl DiagnosticManager {
         self.sources.clear();
     }
 
-    /// Remaps all [`Ident`] and [`Literal`] values contained in the diagnostics managed by this [`DiagnosticManager`].
+    /// Remaps all [`Ident`] and [`Literal`] values in the diagnostics managed by this [`DiagnosticManager`].
     ///
-    /// This method is typically used during the **linking phase**, when diagnostics generated from
-    /// separate sources (e.g., domain and problem files) are unified. Because each source may have used
-    /// its own [`Ident`]s and [`Literal`]s (via separate interners), this remapping aligns all identifiers
-    /// to a shared, global interner.
+    /// This is typically used during the **linking phase**, when diagnostics from multiple sources
+    /// (e.g., domain and problem files) are unified. Each source may use its own interned [`Ident`]s
+    /// and [`Literal`]s; this method aligns them to a shared, global interner.
     ///
-    /// The remapping ensures that:
-    /// - Diagnostic messages refer to the correct unified symbols.
-    /// - References in spans and identifiers are consistent after linking.
-    /// - Identifier resolution in renderers is accurate.
-    ///
-    /// # Arguments
-    ///
-    /// * `idents` - A map from old [`Ident`]s (from source-specific interners) to their global equivalents.
-    /// * `literals` - A map from old [`Literal`]s (source identifiers for file/module names) to global equivalents.
+    /// # Parameters
+    /// - `idents` – Map from old [`Ident`]s to global equivalents.
+    /// - `literals` – Map from old [`Literal`]s to global equivalents.
     ///
     /// # Behavior
+    /// - Updates all diagnostics in place, remapping identifiers and source literals.
+    /// - Keys of the internal `sources` map are also updated for consistency.
+    /// - Identifiers or literals not present in the maps are left unchanged.
     ///
-    /// This method modifies all internal diagnostics in place, applying the given identifier and literal
-    /// mappings to each one. If an identifier or literal does not appear in the corresponding map,
-    /// it is left unchanged.
-    ///
-    /// Additionally, it remaps the keys of the internal `sources` map to ensure consistency of source literals.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// let mut manager = DiagnosticManager::default();
-    ///
-    /// // Assume `old_ident` and `old_literal` came from a specific source file.
-    /// let mut id_map = HashMap::new();
-    /// id_map.insert(old_ident, global_ident);
-    ///
-    /// let mut lit_map = HashMap::new();
-    /// lit_map.insert(old_literal, global_literal);
-    ///
-    /// manager.remap(&id_map, &lit_map);
-    /// ```
+    /// # Errors
+    /// Returns a `RemapIdentError` if remapping fails for any diagnostic.
     ///
     /// # Notes
-    ///
-    /// - This method is intended for post-processing diagnostics before rendering or exporting.
-    /// - It is safe to call this method multiple times; repeated calls will apply the map again.
+    /// - Safe to call multiple times; repeated calls reapply the mapping.
     ///
     /// [`Ident`]: crate::interner::Ident
     /// [`Literal`]: crate::interner::Literal
     /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
-    pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) {
+     pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) -> Result<(), RemapIdentError> {
         for diagnostic in &mut self.diagnostics {
-            diagnostic.remap(idents, literals);
+            diagnostic.remap(idents, literals)?;
         }
 
         // Remap the keys of the `sources` map by applying `remap_literal` on each key.
@@ -222,6 +200,7 @@ impl DiagnosticManager {
             new_sources.insert(key, value);
         }
         self.sources = new_sources;
+        Ok(())
     }
 
     /// Adds diagnostics and sources from another [`DiagnosticManager`].

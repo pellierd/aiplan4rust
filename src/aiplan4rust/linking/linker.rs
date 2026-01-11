@@ -133,7 +133,7 @@ impl Linker {
                 // Collect diagnostics from domain and problem diagnostic managers
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                problem_diag_mgr.remap(&ident_map, &literal_map);
+                problem_diag_mgr.remap(&ident_map, &literal_map)?;
                 self.diagnostic_manager.add_diagnostic_from(problem_diag_mgr);
 
                 // Step 3: Resolve external references in the problem with respect to the domain
@@ -172,7 +172,7 @@ impl Linker {
                 let global_interner = result.take_interner();
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                problem_diag_mgr.remap(result.ident_map(), result.literal_map());
+                problem_diag_mgr.remap(result.ident_map(), result.literal_map())?;
                 Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner))
             }
         }

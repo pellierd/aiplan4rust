@@ -632,9 +632,9 @@ impl RemapIdents for DiagnosticKind {
                 type_declared,
                 type_used,
             } => {
-                argument.remap_idents(map);
-                type_declared.remap_idents(map);
-                type_used.remap_idents(map);
+                argument.remap_idents(map)?;
+                type_declared.remap_idents(map)?;
+                type_used.remap_idents(map)?;
             }
             Kind::DuplicateEitherType { duplicate_types } => {
                 for ident in duplicate_types {
@@ -660,7 +660,7 @@ impl RemapIdents for DiagnosticKind {
                 duplicate_types,
                 ..
             } => {
-                ty.remap_idents(map);
+                ty.remap_idents(map)?;
                 for ident in duplicate_types {
                     ident.remap_idents(map)?;
                 }

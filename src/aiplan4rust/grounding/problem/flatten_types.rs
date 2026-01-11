@@ -20,19 +20,19 @@ pub fn flatten_either_types(problem: &mut LiftedProblem) -> Result<(), Grounding
         constant.flatten_types(&ident_mapping);
     }
 
-    /*for predicate in problem.predicates_mut() {
-        predicate.remap_idents(&ident_mapping);
+    for predicate in problem.predicates_mut() {
+        predicate.flatten_types(&ident_mapping);
     }
 
     for function in problem.functions_mut() {
-        function.remap_idents(&ident_mapping);
+        function.flatten_types(&ident_mapping);
     }
 
-    problem.domain_constraints_mut().remap_idents(&ident_mapping);
+    //problem.domain_constraints_mut().remap_idents(&ident_mapping);
 
     for task in problem.tasks_mut() {
-        task.remap_idents(&ident_mapping);
-    }*/
+        task.flatten_types(&ident_mapping);
+    }
 
     for object in problem.objects_mut() {
         object.flatten_types(&ident_mapping);

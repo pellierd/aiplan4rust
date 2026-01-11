@@ -11,11 +11,12 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Represents a reference to a declared symbol, consisting of its identifier and kind.
@@ -82,28 +83,24 @@ impl Symbol {
         self.kind = kind;
     }
 
-    /// Remaps the symbol's identifier based on the provided mapping.
+}
+
+impl RemapIdents for Symbol {
+    /// Remaps the symbol's identifier according to the provided mapping.
     ///
-    /// If the current identifier exists as a key in the `map`, it will be replaced
-    /// by the corresponding mapped identifier. Otherwise, it remains unchanged.
+    /// If the symbol's current `Ident` is a key in `map`, it is replaced by
+    /// the corresponding value. Otherwise, the identifier remains unchanged.
     ///
     /// # Parameters
     ///
-    /// - `map`: A reference to a `HashMap` that maps old `Ident` values to new `Ident` values.
+    /// - `map` – A `HashMap` mapping old `Ident`s to new `Ident`s.
     ///
-    /// # Example
+    /// # Errors
     ///
-    /// ```rust
-    /// let mut symbol = Symbol { ident: old_ident, kind: some_kind };
-    /// let mut mapping = HashMap::new();
-    /// mapping.insert(old_ident, new_ident);
-    /// symbol.remap_idents(&mapping);
-    /// ```
-    ///
-    /// After calling this method, `symbol.ident` will be updated to `new_ident` if
-    /// `old_ident` was present in the mapping.
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.ident().remap_idents(map);
+    /// Returns `RemapIdentError` if the remapping fails (propagated from inner calls).
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+        self.ident().remap_idents(map)?;
+        Ok(())
     }
 }
 

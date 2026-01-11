@@ -36,12 +36,12 @@
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Ident, Optimization, RemapIdents};
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, Optimization, RemapIdents, Type};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxSubtree, SyntaxTree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -296,14 +296,70 @@ impl Expr {
         self.tree.postorder_from(root)
     }
 
-    /// Remaps identifiers starting from a specific node in the tree.
+    /// Recursively remaps all identifiers starting from a specific node in the tree.
     ///
-    /// # Arguments
-    /// * `id` - The root of the subtree to apply remapping.
-    /// * `map` - A mapping of identifiers to apply.
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) {
-        self.tree.remap_idents_from(id, map);
+    /// # Parameters
+    /// - `id` – The root node of the subtree to apply remapping.
+    /// - `map` – A `HashMap` mapping old `Ident`s to new `Ident`s.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `RemapIdentError` if any identifier in the subtree fails to remap.
+    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+        self.tree.remap_idents_from(id, map)?;
+        Ok(())
     }
+
+    /*/// Flattens types for the subtree starting at the given node.
+    ///
+    /// Traverses the subtree in a depth-first manner and replaces `Type` nodes
+    /// with their flattened `Ident` from the provided mapping.
+    /// Only nodes of kind `ExprKind::Type` are considered.
+    ///
+    /// # Parameters
+    /// - `id`: The root `NodeId` of the subtree to flatten.
+    /// - `map`: A mapping from `Type` to flattened `Ident`.
+    pub fn flatten_types_from(&mut self, id: NodeId, map: &HashMap<Type, Ident>) {
+        let mut stack = vec![id];
+
+        while let Some(current_id) = stack.pop() {
+            if let Some(node) = self.tree.get_node_mut(current_id) {
+                // Only flatten nodes that are of kind Type
+                if node.kind() == ExprKind::Type {
+                    // Collect children's types
+                    let mut members = Vec::new();
+                    for &child_id in node.children() {
+                        if let Some(child_node) = self.tree.get_node(child_id) {
+                            if let Some(child_ident) = child_node.as_ident() {
+                                members.push(child_ident);
+                            }
+                        }
+                    }
+
+                    // Build Type::Either from children
+                    let ty = Type::either(members);
+
+                    // Replace with flattened Ident if present in the map
+                    if let Some(flattened_ident) = map.get(&ty) {
+                        // Clear all existing children
+                        node.children_mut().clear();
+
+                        // Create a new primitive type node with the flattened Ident
+                        let prim_node = ExprNode::new(ExprKind::PrimitiveType, ExprContent::Ident(*flattened_ident), None);
+                        let prim_node_id = self.tree.alloc(prim_node);
+
+                        // Assign it as the only child
+                        node.add_child(prim_node_id);
+                    }
+                } else {
+                    // Recurse into children
+                    for &child_id in node.children() {
+                        stack.push(child_id);
+                    }
+                }
+            }
+        }
+    }*/
 
     /// Compare two subtrees of possibly different `Expr`s for deep equality.
     ///
@@ -532,6 +588,23 @@ impl RemapIdents for Expr {
         Ok(())
     }
 }
+
+/*impl FlattenTypes for Expr {
+    /// Recursively flattens all types in the expression tree.
+    ///
+    /// # Parameters
+    /// - `map`: A mapping from `Type` to flattened `Ident` values.
+    ///
+    /// # Behavior
+    /// - Traverses the expression tree starting from the root node.
+    /// - Replaces type references in nodes according to the mapping.
+    /// - Nodes whose type is not present in `map` remain unchanged.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+        if let Ok(root_id) = self.tree.try_root_id() {
+            self.flatten_types_from(root_id, map);
+        }
+    }
+}*/
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
 ///

@@ -20,10 +20,6 @@ use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 #[derive(Error, Debug)]
 pub enum InternerError {
 
-    /// Wraps any RemapIdentError encountered
-    #[error(transparent)]
-    RemapIndent(#[from] RemapIdentError),
-
     /// The requested identifier index is out of bounds of the interner's string pool.
     ///
     /// This usually happens when trying to resolve an invalid or stale identifier.

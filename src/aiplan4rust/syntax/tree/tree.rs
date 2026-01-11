@@ -24,7 +24,7 @@ use crate::aiplan4rust::arena::{ArenaTree, NodeId, NodeRef};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::arena::node_ref::NodeRefMut;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents, Type};
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
@@ -349,21 +349,32 @@ where
         self.arena.postorder_from(root)
     }
 
-    /// Remaps identifiers starting from a specific node.
+    /// Recursively remaps all identifiers in the subtree rooted at `id`.
     ///
-    /// # Arguments
-    /// * `id` - The root of the subtree to apply remapping.
-    /// * `map` - A mapping of identifiers to apply.
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) {
+    /// Traverses the syntax tree in a depth-first manner, updating every node's
+    /// identifier according to the provided mapping.
+    ///
+    /// # Parameters
+    /// - `id`: The `NodeId` of the subtree root to start remapping from.
+    /// - `map`: A mapping from old `Ident`s to new `Ident`s.
+    ///
+    /// # Behavior
+    /// - Updates all nodes in the subtree in place.
+    /// - Nodes whose identifiers are not present in `map` remain unchanged.
+    ///
+    /// # Errors
+    /// Returns a `RemapIdentError` if remapping fails for any node.
+    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
         let mut stack = vec![id];
         while let Some(current_id) = stack.pop() {
             if let Some(node) = self.arena.get_node_mut(current_id) {
-                node.remap_idents(map);
+                node.remap_idents(map)?;
                 for &child_id in node.children() {
                     stack.push(child_id);
                 }
             }
         }
+        Ok(())
     }
 
     /// Returns the total number of nodes in the subtree.
@@ -635,7 +646,7 @@ impl<T> RemapIdents for SyntaxTree<T>
     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
         if !self.is_empty() {
             if let Ok(root_id) = self.arena.try_root_id() {
-                self.remap_idents_from(root_id, map);
+                self.remap_idents_from(root_id, map)?;
             }
         }
         Ok(())

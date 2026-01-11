@@ -51,7 +51,7 @@
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::AstContent;
@@ -62,6 +62,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -201,35 +202,27 @@ impl SyntaxContent for Content {
             _ => None,
         }
     }
+}
 
-    /// Remaps interned identifiers in place according to a provided map.
+impl RemapIdents for Content {
+    /// Remaps the identifier inside this content, if it is an `Ident` and exists in the mapping.
     ///
-    /// If the content is an `Ident` and its current identifier is found in `map`,
-    /// it will be replaced by the mapped identifier.
+    /// # Parameters
+    /// - `map`: A mapping from old `Ident`s to new `Ident`s.
     ///
-    /// # Arguments
+    /// # Behavior
+    /// - If the content is an `Ident` and a corresponding mapping exists, it is replaced.
+    /// - If the content is not an `Ident` or no mapping exists, it remains unchanged.
     ///
-    /// * `map` - A map from old `Ident` values to their replacements.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::collections::HashMap;
-    /// use aiplan4rust::syntax::elements::Ident;
-    ///
-    /// let mut content = Content::Ident(Ident::from("old_name"));
-    /// let mut map = HashMap::new();
-    /// map.insert(Ident::from("old_name"), Ident::from("new_name"));
-    ///
-    /// content.remap_idents(&map);
-    /// assert_eq!(content, Content::Ident(Ident::from("new_name")));
-    /// ```
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
+    /// # Notes
+    /// - The operation is performed in place and is panic-free.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
         if let Content::Ident(id) = self {
             if let Some(new_id) = map.get(id) {
                 *id = *new_id;
             }
         }
+        Ok(())
     }
 }
 

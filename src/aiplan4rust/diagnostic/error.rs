@@ -34,8 +34,4 @@ pub enum DiagnosticError {
     #[error(transparent)]
     Io(#[from] std::io::Error),
 
-    /// Wraps any RemapIdentError encountered
-    #[error(transparent)]
-    RemapIndent(#[from] RemapIdentError),
-
 }

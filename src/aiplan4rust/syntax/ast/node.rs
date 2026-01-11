@@ -21,18 +21,17 @@
 //! Methods like [`AstNode::try_requirement`] and [`AstNode::as_symbol`] may return
 //! [`AstError`] or [`SyntaxTreeError`] when semantic constraints are violated.
 
-use std::collections::HashMap;
 use std::fmt::{self, Formatter};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{Ident, Requirement};
+use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
-use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
+use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId, SyntaxContent};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
@@ -299,21 +298,6 @@ impl SyntaxNode for AstNode {
 
         let ident = self.try_ident()?;
         Ok(Some(Symbol::new(ident, symbol_kind)))
-    }
-
-    /// Replaces the identifier of this node with a remapped value, if applicable.
-    ///
-    /// This only affects nodes whose content is an identifier (`AstContent::Ident`).
-    ///
-    /// # Arguments
-    /// - `map`: A map from old `Ident`s to new ones. If this node's ident is in the map,
-    ///   it will be replaced.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        if let AstContent::Ident(id) = self.content_mut() {
-            if let Some(&new_id) = map.get(id) {
-                *id = new_id;
-            }
-        }
     }
 
     /// Creates a shallow clone of the node.

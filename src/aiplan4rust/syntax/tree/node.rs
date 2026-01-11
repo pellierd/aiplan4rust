@@ -34,8 +34,10 @@ use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::grounding::problem::Type;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FlattenTypes, Ident, Optimization, RemapIdents};
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -74,7 +76,7 @@ use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 ///     // other methods ...
 /// }
 /// ```
-pub trait SyntaxNode: ArenaNode + Display {
+pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
     /// The type used to represent the syntax's kind.
     ///
     /// Must implement `Copy`, `Debug`, and `Display` traits.
@@ -290,19 +292,6 @@ pub trait SyntaxNode: ArenaNode + Display {
     /// or an error if extraction failed or no symbol is present.
     fn try_symbol(&self) -> Result<Symbol, SyntaxTreeError> {
         self.as_symbol()?.ok_or_else(|| SyntaxTreeError::not_a_symbol_ref())
-    }
-
-    /// Applies identifier remapping to the content of the syntax using the provided map.
-    ///
-    /// # Arguments
-    ///
-    /// * `map` - A reference to a `HashMap` mapping old identifiers to new identifiers.
-    ///
-    /// # Effects
-    ///
-    /// Updates the syntax content by remapping identifiers according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) {
-        self.content_mut().remap_idents(map);
     }
 
     /// Creates a shallow clone of the node.
@@ -690,5 +679,29 @@ pub trait SyntaxNode: ArenaNode + Display {
         <Self as SyntaxNode>::Content: SyntaxContent,
     {
         self.to_syntax_with_indent(syntax_tree, interner, 0)
+    }
+}
+
+impl<T> RemapIdents for T
+where
+    T: SyntaxNode,
+{
+    /// Remaps identifiers in this syntax node's content using the provided map.
+    ///
+    /// This default implementation works for any type implementing [`SyntaxNode`],
+    /// delegating the remapping to `content_mut()`.
+    ///
+    /// # Parameters
+    /// - `map`: A `HashMap` mapping old [`Ident`]s to new ones.
+    ///
+    /// # Errors
+    /// Returns a [`RemapIdentError`] if remapping fails.
+    ///
+    /// [`SyntaxNode`]: crate::syntax::tree::node::SyntaxNode
+    /// [`Ident`]: crate::interner::Ident
+    /// [`RemapIdentError`]: crate::semantic::remap::RemapIdentError
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+        self.content_mut().remap_idents(map)?;
+        Ok(())
     }
 }

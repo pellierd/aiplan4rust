@@ -34,7 +34,7 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::InternerDisplay;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
@@ -53,7 +53,7 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// - [`InternerDisplay`] to support pretty-printing with identifier interning.
 /// - [`Clone`] for safe copying.
 /// - [`Debug`] for debugging purposes.
-pub trait SyntaxContent:  Display + InternerDisplay + SyntaxInternerDisplay + Clone + Debug  + Default {
+pub trait SyntaxContent:  RemapIdents + Display + InternerDisplay + SyntaxInternerDisplay + Clone + Debug  + Default {
     /// Returns the content as an identifier if available.
     fn as_ident(&self) -> Option<Ident>;
 
@@ -76,14 +76,6 @@ pub trait SyntaxContent:  Display + InternerDisplay + SyntaxInternerDisplay + Cl
     ///
     /// Defaults to `false`. Can be overridden to signal absence of content.
     fn is_none(&self) -> bool { false }
-
-    /// Applies identifier remapping to the content of the syntax using the provided map.
-    ///
-    /// This is a generic wrapper that delegates to the content's own remap_idents method.
-    ///
-    /// # Arguments
-    /// * `map` - A mapping from old identifiers to new ones.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>);
 
     /// Attempts to extract an identifier from the content.
     ///
@@ -138,5 +130,4 @@ pub trait SyntaxContent:  Display + InternerDisplay + SyntaxInternerDisplay + Cl
         self.as_optimization()
             .ok_or_else(|| SyntaxTreeError::not_an_optimization())
     }
-
 }
