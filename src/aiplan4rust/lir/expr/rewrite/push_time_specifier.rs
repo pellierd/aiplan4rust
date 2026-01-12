@@ -222,9 +222,8 @@ fn push_time_specifier_into_quantifier(
 
     // Quantifier must have exactly two children: variable list and body
     let quant_children = quant_node.children();
-    debug_assert!(quant_children.len() == 2, "Quantifier must have exactly two children");
-    let var_list_id = quant_children[0];
-    let body_id = quant_children[1];
+    debug_assert!(quant_children.len() == 1, "Quantifier must have exactly one child (the body)");
+    let body_id = quant_children[0];
 
     // Create a new temporal node wrapping the body
     let new_time_node = ExprNode::new(kind, Content::None, Some(quant_id));
@@ -232,7 +231,7 @@ fn push_time_specifier_into_quantifier(
 
     // Update the quantifier to point to the new temporal node as its body
     let quant_mut = expr.try_node_mut(quant_id)?;
-    quant_mut.set_children(vec![var_list_id, new_time_id]);
+    quant_mut.set_children(vec![new_time_id]);
 
     // Move the updated quantifier under the original temporal node
     expr.move_to(quant_id, temporal_id)?;
@@ -354,11 +353,8 @@ mod tests {
 
         let root_node = expr.try_node(root).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Forall);
-        assert_eq!(root_node.children().len(), 2);
-        let var_id = root_node.children()[0];
-        let var_node = expr.try_node(var_id).unwrap();
-        assert_eq!(var_node.kind(), ExprKind::TypedList);
-        let body_id = root_node.children()[1];
+        assert_eq!(root_node.children().len(), 1);
+        let body_id = root_node.children()[0];
         let body_node = expr.try_node(body_id).unwrap();
         assert_eq!(body_node.kind(), ExprKind::AtEnd);
         assert_eq!(body_node.children().len(), 1);
@@ -366,7 +362,7 @@ mod tests {
         let a_node = expr.try_node(a_id).unwrap();
         assert_eq!(a_node.kind(), ExprKind::AtomicFormula);
 
-        assert_eq!(output, "(forall (?X) (at end (A)))");
+        assert_eq!(output, "(forall (?X - T) (at end (A)))");
     }
 
     /// Test pushing Overall temporal specifier to an atomic formula.

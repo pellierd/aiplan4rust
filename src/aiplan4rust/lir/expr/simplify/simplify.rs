@@ -137,9 +137,9 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
         | Kind::HoldDuring | Kind::HoldAfter => {}
 
         // Leaf nodes or nodes that don’t require simplification
-        Kind::Type | Kind::TypedList | Kind::TypedSymbol | Kind::FunctionTerm | Kind::AtomicFormula
+        Kind::FunctionTerm | Kind::AtomicFormula
         | Kind::Number | Kind::Preference | Kind::Constant | Kind::Variable | Kind::FunctionSymbol
-        | Kind::PrimitiveType | Kind::Predicate | Kind::TaskSymbol | Kind::PrefName
+        | Kind::Predicate | Kind::TaskSymbol | Kind::PrefName
         | Kind::TimedInitialLiteral | Kind::Metric | Kind::TotalTime | Kind::IsViolated
         | Kind::Length | Kind::Serial | Kind::Parallel | Kind::Task | Kind::TaskID
         | Kind::TaggedTask | Kind::TaskOrderingConstraint => { },

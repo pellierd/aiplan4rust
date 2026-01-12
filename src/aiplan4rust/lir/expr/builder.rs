@@ -150,18 +150,6 @@ impl<'a> ExprBuilder<'a> {
         self.leaf(ExprNode::new(ExprKind::FunctionSymbol, ExprContent::Ident(id), None))
     }
 
-    /// Create a primitive type node with the given name.
-    ///
-    /// # Arguments
-    /// * `name` - Name of the primitive type.
-    ///
-    /// # Returns
-    /// NodeId of the newly created PrimitiveType node.
-    pub fn primitive_type(&mut self, name: &str) -> NodeId {
-        let id = self.interner.intern_ident(name);
-        self.leaf(ExprNode::new(ExprKind::PrimitiveType, ExprContent::Ident(id), None))
-    }
-
     /// Create a predicate node with the given name.
     ///
     /// # Arguments
@@ -196,40 +184,6 @@ impl<'a> ExprBuilder<'a> {
     pub fn pref_name(&mut self, name: &str) -> NodeId {
         let id = self.interner.intern_ident(name);
         self.leaf(ExprNode::new(ExprKind::PrefName, ExprContent::Ident(id), None))
-    }
-
-    /// Create a type node containing multiple child nodes representing types.
-    ///
-    /// # Arguments
-    /// * `children` - Vector of NodeIds, each representing a type.
-    ///
-    /// # Returns
-    /// NodeId of the newly created Type node.
-    pub fn either_type(&mut self, children: Vec<NodeId>) -> NodeId {
-        self.nary(ExprKind::Type, children)
-    }
-
-    /// Create a TypedList node containing multiple typed elements.
-    ///
-    /// # Arguments
-    /// * `elements` - Vector of NodeIds, each pointing to a `typed_symbol`.
-    ///
-    /// # Returns
-    /// NodeId of the newly created TypedList node
-    pub fn typed_list(&mut self, elements: Vec<NodeId>) -> NodeId {
-        self.nary(ExprKind::TypedList, elements)
-    }
-
-    /// Create a typed symbol node from an existing element node and its type node.
-    ///
-    /// # Arguments
-    /// * `element` - NodeId of the element
-    /// * `ty` - NodeId of the type
-    ///
-    /// # Returns
-    /// NodeId of the newly created typed symbol node
-    pub fn typed_symbol(&mut self, element: NodeId, ty: NodeId) -> NodeId {
-        self.binary(ExprKind::TypedSymbol, element, ty)
     }
 
     /// Create a `FunctionTerm` node in the expression tree.

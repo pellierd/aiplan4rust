@@ -202,13 +202,16 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
         child.kind() == ExprKind::Forall || child.kind() == ExprKind::Exists,
         "Child of Not must be a quantifier"
     );
-    debug_assert!(child.children().len() == 2, "Quantifier node must have exactly two children");
+    debug_assert!(child.children().len() == 1, "Quantifier node must have exactly one child (the body)");
+
 
     // Copy values to avoid borrow conflicts
     let child_kind = child.kind();
-    let children_of_child = child.children().to_vec();
-    let var_id = children_of_child[0];
-    let body_id = children_of_child[1];
+    let body_id = child.children()[0];
+
+    //  Prendre les variables du quantificateur avant de muter node
+    let mut child_mut = expr.try_node_mut(child_id)?;
+    let quant_vars = std::mem::take(child_mut.content_mut());
 
     // Create a new Not node over the quantifier body
     let new_not = ExprNode::new(ExprKind::Not, Content::None, Some(node_id));
@@ -221,7 +224,9 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
         ExprKind::Exists => ExprKind::Forall,
         _ => unreachable!("Child must be a quantifier"),
     });
-    node_mut.set_children(vec![var_id, new_not_id]);
+
+    node_mut.set_content(quant_vars);
+    node_mut.set_children(vec![new_not_id]);
 
     Ok(new_not_id)
 }
@@ -321,12 +326,10 @@ mod tests {
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Exists);
         let children = root_node.children();
-        assert_eq!(children.len(), 2);
-        let var_list = expr.try_node(children[0]).unwrap();
-        assert_eq!(var_list.kind(), ExprKind::TypedList);
-        let body_node = expr.try_node(children[1]).unwrap();
+        assert_eq!(children.len(), 1);
+        let body_node = expr.try_node(children[0]).unwrap();
         assert_eq!(body_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(exists (?X) (not (A)))");
+        assert_eq!(output, "(exists (?X - T) (not (A)))");
     }
 
     /// Test pushing negation through an Exists quantifier.
@@ -352,12 +355,10 @@ mod tests {
         let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Forall);
         let children = root_node.children();
-        assert_eq!(children.len(), 2);
-        let var_list = expr.try_node(children[0]).unwrap();
-        assert_eq!(var_list.kind(), ExprKind::TypedList);
-        let body_node = expr.try_node(children[1]).unwrap();
+        assert_eq!(children.len(), 1);
+        let body_node = expr.try_node(children[0]).unwrap();
         assert_eq!(body_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(forall (?X) (not (A)))");
+        assert_eq!(output, "(forall (?X - T) (not (A)))");
     }
 
     /// Test that no transformation occurs for a NOT whose child is neither AND/OR nor quantifier.
@@ -422,12 +423,10 @@ mod tests {
         assert_eq!(second_child.kind(), ExprKind::Not);
         let third = expr.try_node(root_node.children()[2]).unwrap();
         assert_eq!(third.kind(), ExprKind::Forall);
-        assert_eq!(third.children().len(), 2);
-        let vars_node = expr.try_node(third.children()[0]).unwrap();
-        assert_eq!(vars_node.kind(), ExprKind::TypedList);
-        let body_node = expr.try_node(third.children()[1]).unwrap();
+        assert_eq!(third.children().len(), 1);
+        let body_node = expr.try_node(third.children()[0]).unwrap();
         assert_eq!(body_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(or (not (A)) (not (not (B))) (forall (?X) (not (C))))");
+        assert_eq!(output, "(or (not (A)) (not (not (B))) (forall (?X - T) (not (C))))");
     }
 
     /// Test pushing negation through a deeply nested expression with AND, OR, NOT, and quantifiers.
@@ -470,19 +469,15 @@ mod tests {
         assert_eq!(second.kind(), ExprKind::Not);
         let third = expr.try_node(root_node.children()[2]).unwrap();
         assert_eq!(third.kind(), ExprKind::Exists);
-        assert_eq!(third.children().len(), 2);
-        let vars_node = expr.try_node(third.children()[0]).unwrap();
-        assert_eq!(vars_node.kind(), ExprKind::TypedList);
-        let body_node = expr.try_node(third.children()[1]).unwrap();
+        assert_eq!(third.children().len(), 1);
+        let body_node = expr.try_node(third.children()[0]).unwrap();
         assert_eq!(body_node.kind(), ExprKind::Forall);
-        assert_eq!(body_node.children().len(), 2);
-        let inner_vars = expr.try_node(body_node.children()[0]).unwrap();
-        assert_eq!(inner_vars.kind(), ExprKind::TypedList);
-        let inner_body = expr.try_node(body_node.children()[1]).unwrap();
+        assert_eq!(body_node.children().len(), 1);
+        let inner_body = expr.try_node(body_node.children()[0]).unwrap();
         assert_eq!(inner_body.kind(), ExprKind::Not);
         assert_eq!(
             output,
-            "(or (not (A)) (not (not (or (B) (C)))) (exists (?X) (forall (?Y) (not (D)))))"
+            "(or (not (A)) (not (not (or (B) (C)))) (exists (?X - T) (forall (?Y - T) (not (D)))))"
         );
     }
 }

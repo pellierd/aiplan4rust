@@ -210,7 +210,7 @@ mod tests {
         assert_eq!(root_node.kind(), ExprKind::Or);
         assert_eq!(
             output,
-            "(or (not (forall (?X) (A))) (exists (?Y) (B)))"
+            "(or (not (forall (?X - T) (A))) (exists (?Y - T) (B)))"
         );
     }
 }

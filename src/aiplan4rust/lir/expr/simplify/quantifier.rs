@@ -367,7 +367,7 @@ mod tests {
 
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Forall);
-        assert_eq!(output, "(forall (?X - T2 ?Y - T1) (A))");
+        assert_eq!(output, "(forall (?Y - T1 ?X - T2) (A))");
     }
 
     /// Test that a quantifier with trivial body is replaced by its body.
@@ -472,7 +472,7 @@ mod tests {
 
         let root_node = expr.try_node(root_id).unwrap();
         assert_eq!(root_node.kind(), ExprKind::Exists);
-        assert_eq!(output, "(exists (?X - T2 ?Y - T1) (A))");
+        assert_eq!(output, "(exists (?Y - T1 ?X - T2) (A))");
     }
 
 

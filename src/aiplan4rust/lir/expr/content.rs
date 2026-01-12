@@ -54,8 +54,8 @@ use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents, TypedList};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
-use crate::aiplan4rust::syntax::ast::AstContent;
-use crate::aiplan4rust::syntax::tree::SyntaxContent;
+use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
+use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxSubtree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
@@ -63,7 +63,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
-use crate::aiplan4rust::lir::expr::ExprContent;
+use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -180,6 +180,7 @@ impl InternerDisplay for Content {
                 let resolved = interner.resolve_ident(*idx).unwrap_or("(unknown)");
                 write!(f, "Ident(\"{}\")", resolved)
             }
+            //Content::QuantifierVariables(vars) => vars.fmt_with_interner(f, interner),
             _ => fmt::Display::fmt(self, f),
         }
     }
@@ -208,6 +209,7 @@ impl SyntaxInternerDisplay for Content {
         write_indent(f, indent)?;
         match self {
             Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
+            Content::QuantifierVariables(vars) => vars.fmt_syntax_with_interner_and_indent(f, interner, indent),
             _ => fmt::Display::fmt(self, f),
         }
     }
@@ -297,6 +299,29 @@ impl TryFrom<&AstContent> for Content {
                 AstContent::Requirement(*req),
             )),
             AstContent::None => Ok(Content::None),
+        }
+    }
+}
+
+impl TryFrom<(&AstNode, &SyntaxSubtree<'_, AstNode>)> for ExprContent {
+    type Error = ExprError;
+
+    fn try_from((ast_node, subtree): (&AstNode, &SyntaxSubtree<'_, AstNode>)) -> Result<Self, Self::Error> {
+        let kind = ExprKind::try_from(ast_node.kind())?;
+
+        match kind {
+            ExprKind::Forall | ExprKind::Exists => {
+                let children = ast_node.children();
+                if children.is_empty() {
+                    return Err(ExprError::invalid_ast_node(ast_node.kind()));
+                }
+                // Récupère le TypedList
+                let typed_list_node = subtree.tree().try_node(children[0])?;
+                let typed_list_tree = SyntaxSubtree::new(typed_list_node, subtree.tree());
+                let vars = TypedList::try_from(&typed_list_tree)?;
+                Ok(ExprContent::QuantifierVariables(vars))
+            }
+            _ => ExprContent::try_from(ast_node.content()),
         }
     }
 }

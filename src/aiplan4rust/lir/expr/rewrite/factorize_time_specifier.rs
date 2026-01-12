@@ -569,10 +569,8 @@ mod tests {
         assert_eq!(child1.kind(), ExprKind::AtomicFormula);
         let child2 = expr.try_node(and_child.children()[1]).unwrap();
         assert_eq!(child2.kind(), ExprKind::Forall);
-        assert_eq!(child2.children().len(), 2);
-        let var_list = expr.try_node(child2.children()[0]).unwrap();
-        assert_eq!(var_list.kind(), ExprKind::TypedList);
-        let body = expr.try_node(child2.children()[1]).unwrap();
+        assert_eq!(child2.children().len(), 1);
+        let body = expr.try_node(child2.children()[0]).unwrap();
         assert_eq!(body.kind(), ExprKind::AtomicFormula);
 
         // at_end

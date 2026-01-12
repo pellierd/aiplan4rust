@@ -639,70 +639,65 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Expr {
         let mut expr = Expr::new();
         let root_ast = subtree.node();
 
-        // Create root node
-        let root_kind = ExprKind::try_from(root_ast.kind())?;
-        let root_content = ExprContent::try_from(root_ast.content())?;
-        let root_node = ExprNode::new(root_kind, root_content, None);
-        let root_id = expr.alloc(root_node);
+        // Create root node using add_node
+        let root_id = Self::new_node(&mut expr, root_ast, subtree, None)?;
         expr.set_root_id(root_id)?;
 
         let mut stack: Vec<(&AstNode, NodeId)> = Vec::new();
-
-        // Helper function with explicit lifetime
-        fn push_children<'a>(
-            stack: &mut Vec<(&'a AstNode, NodeId)>,
-            subtree: &'a SyntaxSubtree<'a, AstNode>,
-            ast_node: &'a AstNode,
-            parent_id: NodeId,
-        ) -> Result<(), SyntaxTreeError> {
-            for &child_id in ast_node.children().iter().rev() {
-                let child_node = subtree.tree().try_node(child_id)?;
-                stack.push((child_node, parent_id));
-            }
-            Ok(())
-        }
-
-        // Push root children
-        push_children(&mut stack, subtree, root_ast, root_id)?;
+        Self::push_non_typed_list_children(&mut stack, subtree, root_ast, root_id)?;
 
         while let Some((current_ast_node, parent_id)) = stack.pop() {
-            match current_ast_node.kind() {
-                AstKind::Forall | AstKind::Exists => {
-                    let kind = ExprKind::try_from(current_ast_node.kind())?;
-                    let children = current_ast_node.children();
-                    assert_eq!(children.len(), 2, "Invalid Forall/Exists node: {:?}", current_ast_node.content());
-
-                    // 1. First child: TypedList of variables
-                    let typed_list_node = subtree.tree().try_node(children[0])?;
-                    let typed_list_tree = SyntaxSubtree::new(typed_list_node, subtree.tree());
-                    let vars = TypedList::try_from(&typed_list_tree)?;
-                    let content = ExprContent::QuantifierVariables(vars);
-
-                    // 2. Create the Forall/Exists node
-                    let node = ExprNode::new(kind, content, Some(parent_id));
-                    let node_id = expr.alloc(node);
-                    expr.try_node_mut(parent_id)?.add_child(node_id);
-
-                    // 3. Second child: body of the quantification
-                    let body_node = subtree.tree().try_node(children[1])?;
-                    push_children(&mut stack, subtree, body_node, node_id)?;
-                }
-                _ => {
-                    let kind = ExprKind::try_from(current_ast_node.kind())?;
-                    let content = ExprContent::try_from(current_ast_node.content())?;
-                    let node = ExprNode::new(kind, content, Some(parent_id));
-                    let node_id = expr.alloc(node);
-                    expr.try_node_mut(parent_id)?.add_child(node_id);
-                    // Push children of the current node
-                    push_children(&mut stack, subtree, current_ast_node, node_id)?;
-
-                }
-            }
+            let node_id = Self::new_node(&mut expr, current_ast_node, subtree, Some(parent_id))?;
+            Self::push_non_typed_list_children(&mut stack, subtree, current_ast_node, node_id)?;
         }
+
         Ok(expr)
     }
 }
 
+impl Expr {
+
+    /// Creates an ExprNode from an AST node, allocates it in `expr`,
+    /// and adds it as a child of `parent_id` if given.
+    /// Returns the NodeId of the newly created node.
+    fn new_node(
+        expr: &mut Expr,
+        ast_node: &AstNode,
+        subtree: &SyntaxSubtree<'_, AstNode>,
+        parent_id: Option<NodeId>,
+    ) -> Result<NodeId, ExprError> {
+        let kind = ExprKind::try_from(ast_node.kind())?;
+        let content = ExprContent::try_from((ast_node, subtree))?;
+        let node = ExprNode::new(kind, content, parent_id);
+        let node_id = expr.alloc(node);
+        if let Some(pid) = parent_id {
+            expr.try_node_mut(pid)?.add_child(node_id);
+        }
+        Ok(node_id)
+    }
+
+    /// Pushes the children of `ast_node` onto `stack`, skipping `TypedList` nodes.
+    /// Children are pushed in reverse order to preserve traversal order.
+    ///
+    /// # Errors
+    /// Returns `SyntaxTreeError` if any child node cannot be retrieved.
+    fn push_non_typed_list_children<'a>(
+        stack: &mut Vec<(&'a AstNode, NodeId)>,
+        subtree: &'a SyntaxSubtree<'a, AstNode>,
+        ast_node: &'a AstNode,
+        parent_id: NodeId,
+    ) -> Result<(), SyntaxTreeError> {
+        for &child_id in ast_node.children().iter().rev() {
+            let child_node = subtree.tree().try_node(child_id)?;
+            if child_node.kind() == AstKind::TypedList {
+                continue;
+            }
+            stack.push((child_node, parent_id));
+        }
+        Ok(())
+    }
+
+}
 impl Deref for Expr {
     type Target = SyntaxTree<ExprNode>;
 

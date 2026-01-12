@@ -51,7 +51,8 @@ fn handle_cli_result(result: Result<(), CliError>, cli: &mut Command, subcommand
         }
 
         Err(other) => {
-            eprintln!("Internal error: {other}");
+            eprintln!("Internal error: {other:?}"); // ou .debug()
+            //eprintln!("Backtrace:\n{:?}", std::backtrace::Backtrace::capture());
             eprintln!("This is a bug. Please report it.");
             std::process::exit(2);
         }

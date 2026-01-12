@@ -196,4 +196,5 @@ impl ExprError {
     pub fn not_quantifier_variables() -> Self {
         ExprError::NotQuantifierVariables
     }
+
 }

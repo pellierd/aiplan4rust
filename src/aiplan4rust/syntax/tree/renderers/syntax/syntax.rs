@@ -3,11 +3,11 @@ use std::fmt::Formatter;
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{renderers, SyntaxContent, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
-use crate::aiplan4rust::syntax::tree::renderers::syntax::{task, typed_list};
+use crate::aiplan4rust::syntax::tree::renderers::syntax::{quantifiers, task, typed_list};
 
 pub fn render<T: SyntaxNode>(
     node: &T,
@@ -551,45 +551,7 @@ pub fn render_with_indent<T: SyntaxNode>(
         }
 
         RenderKind::Forall | RenderKind::Exists => {
-            let children = node.children();
-
-            // 1. (forall / (exists + début ligne
-            write!(f, "{}(", indent_str)?;
-            node.render_kind().fmt_syntax_with_interner(f, interner)?;
-            write!(f, " ")?;
-
-            // 2. Variables quantifiées (sur la même ligne)
-            if let Some(&vars_id) = children.get(0) {
-                if let Some(vars_node) = arena.get_node(vars_id) {
-                    write!(f, "(")?;
-                    vars_node.fmt_syntax(f, arena, interner)?;
-                    write!(f, ")")?;
-                } else {
-                    write!(f, "<invalid-variables>")?;
-                }
-            } else {
-                write!(f, "<missing-variables>")?;
-            }
-
-            // 3. Expression (indentée d’un cran)
-            if let Some(&expr_id) = children.get(1) {
-                if let Some(expr_node) = arena.get_node(expr_id) {
-                    write!(f, " ")?;
-                    expr_node.fmt_syntax_with_indent(
-                        f,
-                        arena,
-                        interner,
-                        indent + 1,
-                    )?;
-                } else {
-                    writeln!(f, "{}<invalid-expression>", indent_str)?;
-                }
-            } else {
-                writeln!(f, "{}<missing-expression>", indent_str)?;
-            }
-            write!(f, "{})", indent_str)?; // fermeture
-
-            Ok(())
+            quantifiers::render(node, f, arena, interner, indent)
         }
 
         RenderKind::When => {

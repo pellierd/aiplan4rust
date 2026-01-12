@@ -300,7 +300,6 @@ impl SyntaxNode for ExprNode {
     fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError> {
         let kind = self.kind();
         let symbol_kind = match kind {
-            ExprKind::PrimitiveType => SymbolKind::PrimitiveType,
             ExprKind::Constant => SymbolKind::Constant,
             ExprKind::Variable => SymbolKind::Variable,
             ExprKind::FunctionSymbol => SymbolKind::Function,
