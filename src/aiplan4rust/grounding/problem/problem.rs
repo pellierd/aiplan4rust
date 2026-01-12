@@ -50,7 +50,6 @@ pub struct Problem {
     /// Symbol table for all objects.
     objects_symbols: IndexTable,
 
-
     /// List of all predicates (fluents) in the problem.
     predicates: Vec<Fluent>,
 
@@ -334,8 +333,8 @@ impl TryFrom<LiftedProblem> for Problem {
         problem.set_functions_symbols(functions_symbols);
 
         // 3d: Objects (constants, objects and object fluents)
-        let lifted_constants = lifted_problem.constants();
-        let lifted_objects = lifted_problem.objects();
+        //let lifted_constants = lifted_problem.constants();
+        //let lifted_objects = lifted_problem.objects();
   /*      let object_symbol_table = builders::build_objects_symbols_table(
             lifted_constants,
             lifted_objects,

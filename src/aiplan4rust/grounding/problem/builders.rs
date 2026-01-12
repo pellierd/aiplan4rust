@@ -1,9 +1,7 @@
-use std::collections::{HashMap, HashSet};
-use toml::value::Index;
+use std::collections::HashSet;
 use crate::aiplan4rust::grounding::problem::{Function, IndexTable, Type, ValueDomain};
 use crate::aiplan4rust::grounding::problem::index_table::IndexTableError;
-use crate::aiplan4rust::interner::Ident;
-use crate::aiplan4rust::lang::{TypedList, TypedSymbol};
+use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 

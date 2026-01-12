@@ -1,4 +1,4 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind};
+use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
 
 /// Simplifies a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
@@ -95,7 +95,7 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
     );
 
     // Borrow the QuantifierVariables or return an error
-    let mut vars = node.content_mut().try_quantifier_vars_mut()?;
+    let vars = node.content_mut().try_quantifier_vars_mut()?;
 
     // Sort the TypedSymbols by name for canonical order
     vars.sort_by_key(|ts| ts.symbol());
@@ -196,7 +196,7 @@ pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), E
     }
 
     // Step 3: take inner variables mutably
-    let mut inner_vars = {
+    let inner_vars = {
         let inner_node = expr.try_node_mut(inner_id)?;
         std::mem::take(inner_node.content_mut().try_quantifier_vars_mut()?)
     };

@@ -27,6 +27,7 @@ use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents, Type, TypedList
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -122,15 +123,18 @@ impl RemapIdents for Function {
 }
 
 impl FlattenTypes for Function {
-    /// Replaces union types (`Type::Either`) in the function’s parameters
-    /// and return type with their corresponding primitive identifiers
-    /// based on the provided mapping.
+    /// Flattens union types (`Type::Either`) in the function's parameters and return type
+    /// according to the provided mapping.
     ///
     /// # Parameters
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their new primitive `Ident`s.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
-        self.header.flatten_types(map);
-        self.ty.flatten_types(map);
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Result<(), TypeFlattenError>` if the flattening cannot be performed on some type.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError> {
+        self.header.flatten_types(map)?;
+        self.ty.flatten_types(map)?;
+        Ok(())
     }
 }
 

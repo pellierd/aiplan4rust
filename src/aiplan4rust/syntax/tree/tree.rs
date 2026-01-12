@@ -24,7 +24,7 @@ use crate::aiplan4rust::arena::{ArenaTree, NodeId, NodeRef};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::arena::node_ref::NodeRefMut;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents, Type};
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};

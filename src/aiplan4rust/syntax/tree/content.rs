@@ -30,7 +30,6 @@
 //! The `remap_idents` method allows updating identifiers according to a
 //! provided mapping, facilitating tasks like renaming or symbol resolution.
 
-use std::collections::HashMap;
 use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::InternerDisplay;

@@ -36,12 +36,12 @@
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, Optimization, RemapIdents, Type, TypedList, TypedSymbol};
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, Optimization, RemapIdents, Type};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent, SyntaxNode, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxSubtree, SyntaxTree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -49,8 +49,8 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
-use crate::aiplan4rust::lir::expr::ExprContent::QuantifierVariables;
 
 /// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
 ///
@@ -311,57 +311,6 @@ impl Expr {
         Ok(())
     }
 
-    /*/// Flattens types for the subtree starting at the given node.
-    ///
-    /// Traverses the subtree in a depth-first manner and replaces `Type` nodes
-    /// with their flattened `Ident` from the provided mapping.
-    /// Only nodes of kind `ExprKind::Type` are considered.
-    ///
-    /// # Parameters
-    /// - `id`: The root `NodeId` of the subtree to flatten.
-    /// - `map`: A mapping from `Type` to flattened `Ident`.
-    pub fn flatten_types_from(&mut self, id: NodeId, map: &HashMap<Type, Ident>) {
-        let mut stack = vec![id];
-
-        while let Some(current_id) = stack.pop() {
-            if let Some(node) = self.tree.get_node_mut(current_id) {
-                // Only flatten nodes that are of kind Type
-                if node.kind() == ExprKind::Type {
-                    // Collect children's types
-                    let mut members = Vec::new();
-                    for &child_id in node.children() {
-                        if let Some(child_node) = self.tree.get_node(child_id) {
-                            if let Some(child_ident) = child_node.as_ident() {
-                                members.push(child_ident);
-                            }
-                        }
-                    }
-
-                    // Build Type::Either from children
-                    let ty = Type::either(members);
-
-                    // Replace with flattened Ident if present in the map
-                    if let Some(flattened_ident) = map.get(&ty) {
-                        // Clear all existing children
-                        node.children_mut().clear();
-
-                        // Create a new primitive type node with the flattened Ident
-                        let prim_node = ExprNode::new(ExprKind::PrimitiveType, ExprContent::Ident(*flattened_ident), None);
-                        let prim_node_id = self.tree.alloc(prim_node);
-
-                        // Assign it as the only child
-                        node.add_child(prim_node_id);
-                    }
-                } else {
-                    // Recurse into children
-                    for &child_id in node.children() {
-                        stack.push(child_id);
-                    }
-                }
-            }
-        }
-    }*/
-
     /// Compare two subtrees of possibly different `Expr`s for deep equality.
     ///
     /// # Parameters
@@ -590,22 +539,49 @@ impl RemapIdents for Expr {
     }
 }
 
-/*impl FlattenTypes for Expr {
-    /// Recursively flattens all types in the expression tree.
+impl FlattenTypes for Expr {
+    /// Recursively flattens all types in the expression tree according to the provided mapping.
     ///
     /// # Parameters
-    /// - `map`: A mapping from `Type` to flattened `Ident` values.
+    /// - `map`: A `HashMap` that associates each `Type` (including `Type::Either`) with a
+    ///   flattened `Ident` representing the corresponding primitive type.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all types were successfully flattened.
+    /// - `Err(TypeFlattenError)` if an error occurs during flattening, e.g.:
     ///
     /// # Behavior
-    /// - Traverses the expression tree starting from the root node.
-    /// - Replaces type references in nodes according to the mapping.
+    /// - Traverses the expression tree starting from the root node using a depth-first search.
+    /// - For each node, replaces type references according to `map`.
     /// - Nodes whose type is not present in `map` remain unchanged.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError>{
         if let Ok(root_id) = self.tree.try_root_id() {
-            self.flatten_types_from(root_id, map);
+            self.flatten_types_from(root_id, map)?;
         }
+        Ok(())
     }
-}*/
+}
+
+impl Expr {
+    /// Recursively flattens all types in this expression tree according to the map.
+    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError>{
+        let mut stack = vec![node_id];
+        while let Some(node_id) = stack.pop() {
+            let node = self.tree.try_node_mut(node_id)?;
+            match node.kind() {
+                ExprKind::Forall | ExprKind::Exists => {
+                    node.content_mut().try_quantifier_vars_mut()?.flatten_types(map)?;
+                }
+                _ => {}
+            }
+            for &child_id in node.children() {
+                stack.push(child_id);
+            }
+        }
+        Ok(())
+    }
+}
+
 
 /// Attempts to build an [`Expr`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
 ///

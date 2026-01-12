@@ -31,7 +31,7 @@ use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
-use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId, SyntaxContent};
+use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;

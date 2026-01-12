@@ -72,7 +72,7 @@ impl IndexTable {
     /// assert!(table.try_index(&Ident(99)).is_err());
     /// ```
     pub fn try_index(&self, id: &Ident) -> Result<usize, IndexTableError> {
-        self.get_index(id).ok_or(IndexTableError::IdentNotFound(*id))
+        self.get_index(id).ok_or(IndexTableError::ident_not_found(*id))
     }
 
     /// Retrieves the `Ident` at a given index.
@@ -108,7 +108,7 @@ impl IndexTable {
     /// ```
     pub fn try_get_ident(&self, idx: usize) -> Result<&Ident, IndexTableError> {
         self.get_ident(idx)
-            .ok_or(IndexTableError::IndexOutOfBounds(idx))
+            .ok_or(IndexTableError::index_out_of_bounds(idx))
     }
 
     /// Checks whether a given `Ident` exists in the table.
@@ -147,11 +147,27 @@ impl IndexTable {
     }
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum IndexTableError {
     #[error("Ident {0:?} not found in IndexTable")]
     IdentNotFound(Ident),
 
     #[error("Index {0} out of bounds in IndexTable")]
     IndexOutOfBounds(usize),
+}
+
+impl IndexTableError {
+    /// Creates an `IdentNotFound` error for the given `Ident`.
+    /// Logs a debug message with the identifier.
+    pub fn ident_not_found(id: Ident) -> Self {
+        log::debug!("Creating IndexTableError::IdentNotFound for {:?}", id);
+        IndexTableError::IdentNotFound(id)
+    }
+
+    /// Creates an `IndexOutOfBounds` error for the given index.
+    /// Logs a debug message with the index.
+    pub fn index_out_of_bounds(idx: usize) -> Self {
+        log::debug!("Creating IndexTableError::IndexOutOfBounds for {}", idx);
+        IndexTableError::IndexOutOfBounds(idx)
+    }
 }

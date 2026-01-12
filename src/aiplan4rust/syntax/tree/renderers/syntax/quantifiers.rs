@@ -19,7 +19,7 @@ pub fn render<T: SyntaxNode>(
     node.render_kind().fmt_syntax_with_interner(f, interner)?;
     write!(f, " ")?;
 
-    let mut body_index = 0;
+    let body_index;
     if children.len() == 1 {
         let content = node.content();
         write!(f, "({})", content.to_syntax_string_with_interner(interner))?;

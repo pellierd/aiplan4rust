@@ -35,7 +35,7 @@ use ordered_float::OrderedFloat;
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FlattenTypes, Ident, Optimization, RemapIdents};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents};
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};

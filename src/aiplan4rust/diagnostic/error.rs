@@ -25,7 +25,6 @@
 //! operations without losing the original context or error details.
 
 use thiserror::Error;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Errors related to diagnostic processing and rendering.
 #[derive(Error, Debug)]

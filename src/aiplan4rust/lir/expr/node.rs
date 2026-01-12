@@ -36,8 +36,7 @@
 //! The symbol resolution method returns `Result` to handle cases where
 //! identification extraction fails or when the node kind does not correspond to a symbol.
 
-use std::collections::HashMap;
-use crate::aiplan4rust::interner::{Ident, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::semantic::symbol::{SymbolKind, Symbol};
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -46,7 +45,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::lang::{FlattenTypes, Type};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};

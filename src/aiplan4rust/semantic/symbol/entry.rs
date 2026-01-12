@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use toml::map::Entry;
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a symbol in a given context, with associated declarations and usages.

@@ -16,17 +16,17 @@
 //! domain-specific language processor.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents};
+use crate::aiplan4rust::lang::error::LangError;
+use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
-
-use crate::aiplan4rust::lang::error::LangError;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
+use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
 
 /// Represents a typed symbol identified by an [`Ident`],
 /// with one or more associated types.
@@ -104,13 +104,18 @@ impl RemapIdents for TypedSymbol {
 }
 
 impl FlattenTypes for TypedSymbol {
-    /// Replaces union types (`Type::Either`) in the symbol’s type
-    /// with their corresponding primitive identifiers based on the provided mapping.
+    /// Flattens union types (`Type::Either`) in the symbol’s type
+    /// according to the provided mapping. Does nothing if the type is already flattened
+    /// or not present in the map.
     ///
     /// # Parameters
-    /// - `map`: A mapping from `Type::Either` to its new primitive `Ident`.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
-        self.ty.flatten_types(map);
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Result<(), TypeFlattenError>` for consistency with the flattening pipeline.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError> {
+        self.ty.flatten_types(map)?;
+        Ok(())
     }
 }
 

@@ -13,8 +13,7 @@
 //! semantic analysis, symbol resolution, and linking.
 
 use thiserror::Error;
-use crate::aiplan4rust::interner::{Ident, Literal};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
+use crate::aiplan4rust::interner::Literal;
 
 /// Represents errors that can occur when working with a [`StringInterner`].
 #[derive(Error, Debug)]

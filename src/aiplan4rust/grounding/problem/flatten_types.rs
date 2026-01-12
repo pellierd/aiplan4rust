@@ -1,5 +1,7 @@
+#![allow(dead_code)]
+
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::interner::{Ident, InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{Ident, InternerError};
 use crate::aiplan4rust::lang::{FlattenTypes, Type, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -17,25 +19,25 @@ pub fn flatten_either_types(problem: &mut LiftedProblem) -> Result<(), Grounding
     let ident_mapping = flatten_types_def(problem)?;
 
     for constant in problem.constants_mut() {
-        constant.flatten_types(&ident_mapping);
+        constant.flatten_types(&ident_mapping)?;
     }
 
     for predicate in problem.predicates_mut() {
-        predicate.flatten_types(&ident_mapping);
+        predicate.flatten_types(&ident_mapping)?;
     }
 
     for function in problem.functions_mut() {
-        function.flatten_types(&ident_mapping);
+        function.flatten_types(&ident_mapping)?;
     }
 
-    //problem.domain_constraints_mut().remap_idents(&ident_mapping);
+    problem.domain_constraints_mut().flatten_types(&ident_mapping)?;
 
     for task in problem.tasks_mut() {
-        task.flatten_types(&ident_mapping);
+        task.flatten_types(&ident_mapping)?;
     }
 
     for object in problem.objects_mut() {
-        object.flatten_types(&ident_mapping);
+        object.flatten_types(&ident_mapping)?;
     }
 
 
@@ -228,11 +230,7 @@ mod tests {
         let a = interner.intern_ident("a");
         let b = interner.intern_ident("b");
         let c = interner.intern_ident("c");
-
-        // Primitive types
-        let type_a = Type::primitive(a);
-        let type_b = Type::primitive(b);
-        let type_c = Type::primitive(c);
+        
 
         let sym_obj = TypedSymbol::new(StringInterner::IDENT_OBJECT, Type::new());
 

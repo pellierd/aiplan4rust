@@ -210,7 +210,7 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
     let body_id = child.children()[0];
 
     //  Prendre les variables du quantificateur avant de muter node
-    let mut child_mut = expr.try_node_mut(child_id)?;
+    let child_mut = expr.try_node_mut(child_id)?;
     let quant_vars = std::mem::take(child_mut.content_mut());
 
     // Create a new Not node over the quantifier body

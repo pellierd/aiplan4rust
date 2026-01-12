@@ -25,7 +25,7 @@
 //! assert!(table.iter().count() == 0);
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;

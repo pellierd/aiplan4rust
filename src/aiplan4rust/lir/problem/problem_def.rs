@@ -33,7 +33,6 @@
 //! let task_network = problem_wrapper.initial_task_network();
 //! ```
 
-use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};

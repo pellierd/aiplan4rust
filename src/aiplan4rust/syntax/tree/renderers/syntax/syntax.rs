@@ -3,7 +3,7 @@ use std::fmt::Formatter;
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
-use crate::aiplan4rust::syntax::tree::{renderers, SyntaxContent, SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use crate::aiplan4rust::syntax::tree::renderers::RenderKind;

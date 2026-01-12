@@ -14,7 +14,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::aiplan4rust::diagnostic::{renderer, DiagnosticError, DiagnosticKind, Severity};
+use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind, Severity};
 use crate::aiplan4rust::lang::{RemapIdents, Requirement};
 use crate::aiplan4rust::lang::{Ident, Type};
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;

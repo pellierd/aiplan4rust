@@ -32,6 +32,7 @@ use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
 use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// A list of `TypedSymbol` items.
@@ -118,15 +119,20 @@ impl RemapIdents for TypedList {
 }
 
 impl FlattenTypes for TypedList {
-    /// Replaces union types (`Type::Either`) in all `TypedSymbol`s of this `TypedList`
-    /// with their corresponding primitive identifiers according to the provided mapping.
+    /// Flattens union types (`Type::Either`) in all `TypedSymbol`s of this `TypedList`
+    /// according to the provided mapping. Does nothing if a type is already flattened
+    /// or not present in the map.
     ///
     /// # Parameters
-    /// - `map`: A mapping from `Type::Either` to its new primitive `Ident`.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) {
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Result<(), TypeFlattenError>` for consistency with the flattening pipeline.
+    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError> {
         for ts in &mut self.symbols {
-            ts.flatten_types(map);
+            ts.flatten_types(map)?;
         }
+        Ok(())
     }
 }
 

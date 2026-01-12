@@ -37,9 +37,7 @@
 //! let constraints = domain.domain_constraints();
 //! ```
 
-use std::collections::HashMap;
 use std::fmt::{self, Display, Formatter};
-
 use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
