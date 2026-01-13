@@ -9,40 +9,56 @@ use crate::aiplan4rust::lir::LirError;
 const EITHER_PREFIX: &str = "either";
 const EITHER_SEP: &str = "_";
 
-/// Flatten all `either` types in a LiftedProblem.
+/// Flattens all union types (`Type::Either`) in a `LiftedProblem`.
 ///
-/// This function will:
-/// - Replace `either` types with new primitive types (one per combination)
-/// - Update all type references in objects and functions accordingly
-/// - Ensure that after flattening, all types have exactly one member
+/// # Parameters
+/// - `problem`: The `LiftedProblem` to be flattened in place.
+///
+/// # Returns
+/// - `Ok(())` if all types were successfully flattened.
+/// - `Err(LirError)` if any type cannot be flattened due to a missing mapping.
 pub fn flatten_types(problem: &mut LiftedProblem) -> Result<(), LirError> {
-    let ident_mapping = flatten_types_def(problem)?;
+    let flatten_types_map = flatten_types_def(problem)?;
 
     for constant in problem.constants_mut() {
-        constant.remap_types(&ident_mapping)?;
+        constant.remap_types(&flatten_types_map)?;
     }
 
     for predicate in problem.predicates_mut() {
-        predicate.remap_types(&ident_mapping)?;
+        predicate.remap_types(&flatten_types_map)?;
     }
 
     for function in problem.functions_mut() {
-        function.remap_types(&ident_mapping)?;
+        function.remap_types(&flatten_types_map)?;
     }
 
-    problem.domain_constraints_mut().remap_types(&ident_mapping)?;
+    problem.domain_constraints_mut().remap_types(&flatten_types_map)?;
 
     for task in problem.tasks_mut() {
-        task.remap_types(&ident_mapping)?;
+        task.remap_types(&flatten_types_map)?;
+    }
+
+    for action in problem.actions_mut() {
+        action.remap_types(&flatten_types_map)?;
+    }
+
+    for methods in problem.methods_mut() {
+        methods.remap_types(&flatten_types_map)?;
     }
 
     for object in problem.objects_mut() {
-        object.remap_types(&ident_mapping)?;
+        object.remap_types(&flatten_types_map)?;
     }
 
+    problem.goal_mut().remap_types(&flatten_types_map)?;
+
+    problem.problem_constraints_mut().remap_types(&flatten_types_map)?;
+
+    problem.initial_task_network_mut().remap_types(&flatten_types_map)?;
 
     Ok(())
 }
+
 
 /// Flattens all union (either) types in a lifted problem into primitive types.
 ///

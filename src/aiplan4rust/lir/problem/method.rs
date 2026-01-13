@@ -25,6 +25,7 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
+use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::interner::ident::Ident;
 use crate::aiplan4rust::lang::typed_list::TypedList;
@@ -36,8 +37,10 @@ use crate::aiplan4rust::syntax::display::SyntaxInternerDisplay;
 use crate::aiplan4rust::arena::node::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use crate::aiplan4rust::lang::{RemapTypes, Type};
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::subtree::SyntaxSubtree;
 
@@ -173,6 +176,22 @@ impl Method {
         Ok(normalize::normalize_method(self)?)
     }
 
+}
+
+impl RemapTypes for Method {
+    /// Remaps union types (`Type::Either`) in the method's header and precondition.
+    ///
+    /// # Parameters
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all types were successfully remapped.
+    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
+    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+        self.header.remap_types(map)?;
+        self.precondition.remap_types(map)?;
+        Ok(())
+    }
 }
 
 /// Attempts to construct a [`Method`] from a given [`SyntaxSubtree`]

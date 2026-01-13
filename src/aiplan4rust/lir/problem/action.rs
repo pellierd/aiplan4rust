@@ -39,10 +39,11 @@
 //!
 //! Parsing from AST may fail with `LirError` if the structure is invalid or missing expected parts.
 
+use std::collections::HashMap;
 use std::fmt;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::{Ident, RemapTypes, Type};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
@@ -228,6 +229,23 @@ impl Action {
     /// ```
     pub fn normalize(&mut self) -> Result<(), LirError> {
         Ok(normalize::normalize_action(self)?)
+    }
+}
+
+impl RemapTypes for Action {
+    /// Remaps union types (`Type::Either`) in the action's parameters, precondition, and effect.
+    ///
+    /// # Parameters
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all types were successfully remapped.
+    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
+    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+        self.header.remap_types(map)?;
+        self.precondition.remap_types(map)?;
+        self.effect.remap_types(map)?;
+        Ok(())
     }
 }
 

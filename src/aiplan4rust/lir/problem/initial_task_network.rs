@@ -4,8 +4,9 @@
 //! The `InitialTaskNetwork` consists of a list of typed parameters and
 //! a lifted task network describing the tasks and their relationships.
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::TypedList;
+use std::collections::HashMap;
+use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{RemapTypes, Type, TypedList};
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -84,6 +85,21 @@ impl InitialTaskNetwork {
     /// Returns an `ExprError` if normalization of the `logical_constraints` fails.
     pub fn normalize(&mut self) -> Result<(), LirError> {
         Ok(normalize::normalize_initial_task_network(self)?)
+    }
+}
+
+impl RemapTypes for InitialTaskNetwork {
+    /// Remaps union types (`Type::Either`) in the network's parameters.
+    ///
+    /// # Parameters
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all types were successfully remapped.
+    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
+    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+        self.parameters.remap_types(map)?;
+        Ok(())
     }
 }
 
