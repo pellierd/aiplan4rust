@@ -18,21 +18,18 @@
 //! );
 //! ```
 
+use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::lang::{Ident, RemapIdents, RemapTypes, Type, TypedList};
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::error::LirError;
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use serde::{Serialize, Deserialize};
-
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents, Type, TypedList};
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
-use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
 ///
@@ -114,30 +111,29 @@ impl RemapIdents for Function {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         self.header.remap_idents(map)?;
         self.ty.remap_idents(map)?;
         Ok(())
     }
 }
 
-impl FlattenTypes for Function {
-    /// Flattens union types (`Type::Either`) in the function's parameters and return type
-    /// according to the provided mapping.
+impl RemapTypes for Function {
+    /// Remaps union types (`Type::Either`) in the function's parameters and return type.
     ///
     /// # Parameters
     /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
     ///
     /// # Returns
-    /// - `Result<(), TypeFlattenError>` if the flattening cannot be performed on some type.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError> {
-        self.header.flatten_types(map)?;
-        self.ty.flatten_types(map)?;
+    /// - `Ok(())` if all types were successfully remapped.
+    /// - `Err(LirError)` if an error occurs during remapping.
+    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+        self.header.remap_types(map)?;
+        self.ty.remap_types(map)?;
         Ok(())
     }
 }
-
 // Allow transparent access to the underlying NamedTypedList (e.g., name, parameters).
 impl Deref for Function {
     type Target = NamedTypedList;

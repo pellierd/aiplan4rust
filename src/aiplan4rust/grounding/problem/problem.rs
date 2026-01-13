@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
+use crate::aiplan4rust::lir::problem::flatten::flatten;
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -308,6 +309,11 @@ impl TryFrom<LiftedProblem> for Problem {
     /// 4. Build the types table using the type symbols.
     /// 5. Build objects (constants and object fluents) based on symbols and types.
     fn try_from(mut lifted_problem: LiftedProblem) -> Result<Self, Self::Error> {
+
+        // --- STEP 1: Flatten types as preprocess ---
+        // Do in grounding and not in lir to keep lir as near as possible as the syntax
+        flatten::flatten_types(&mut lifted_problem)?;
+
         // --- STEP 1: Take ownership of shared resources ---
         // Extract interner and requirements from the lifted problem
         let interner = lifted_problem.take_interner();

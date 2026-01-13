@@ -33,6 +33,7 @@ pub mod error;
 pub mod ident;
 pub mod literal;
 pub mod id;
+pub mod remap_idents;
 
 pub use interner::StringInterner;
 pub use merge_result::InternerMergeResult;

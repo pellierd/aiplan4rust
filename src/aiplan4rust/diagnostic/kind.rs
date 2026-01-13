@@ -15,9 +15,9 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind, Severity};
+use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{RemapIdents, Requirement};
 use crate::aiplan4rust::lang::{Ident, Type};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -560,11 +560,11 @@ impl Kind {
 }
 
 impl RemapIdents for DiagnosticKind {
-    /// Remaps all `Ident` instances contained within this diagnostic using the provided mapping.
+    /// Remaps all `Ident` instances contained within this diagnostic according to the provided map.
     ///
     /// This function traverses the diagnostic's internal data and replaces each `Ident`
-    /// according to the given `map`. It is used to update identifiers consistently,
-    /// for example after renaming or symbol resolution.
+    /// using the mapping in `map`. It ensures that all identifiers are updated consistently,
+    /// for example after renaming, symbol resolution, or merging operations.
     ///
     /// # Parameters
     ///
@@ -573,19 +573,29 @@ impl RemapIdents for DiagnosticKind {
     ///
     /// # Behavior
     ///
-    /// - Only the variants of `Kind` that contain `Ident`s or collections of `Ident`s
+    /// - Only the variants of `DiagnosticKind` that contain `Ident`s or collections of `Ident`s
     ///   are affected.
-    /// - Variants without `Ident`s or where remapping is not applicable are left unchanged.
+    /// - Variants without `Ident`s or where remapping is not applicable remain unchanged.
+    ///
+    /// # Errors
+    ///
+    /// Returns an [`InternerError`] if:
+    /// - A required mapping is missing (`InternerError::MissingIdent`), or
+    /// - A remap would cause a conflict (`InternerError::Conflict`).
     ///
     /// # Example
     ///
     /// ```rust
-    /// let mut diagnostic = ...; // some Kind instance
-    /// let mut map = HashMap::new();
+    /// use std::collections::HashMap;
+    /// use crate::aiplan4rust::interner::{Ident, InternerError, RemapIdents};
+    ///
+    /// let mut diagnostic = ...; // some DiagnosticKind instance
+    /// let mut map: HashMap<Ident, Ident> = HashMap::new();
     /// map.insert(old_ident, new_ident);
-    /// diagnostic.remap_idents(&map);
+    ///
+    /// diagnostic.remap_idents(&map)?;
     /// ```
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         match self {
             Kind::InvalidSymbolSignature { declaration, usage } => {
                 declaration.remap_idents(map)?;

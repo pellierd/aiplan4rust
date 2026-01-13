@@ -9,14 +9,11 @@
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::lang::{Ident, RemapIdents};
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use serde::{Deserialize, Serialize};
-
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a symbol in a given context, with associated declarations and usages.
 ///
@@ -165,9 +162,9 @@ impl RemapIdents for SymbolEntry {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if any declaration or usage cannot be remapped
+    /// Returns [`InternerError`] if any declaration or usage cannot be remapped
     /// according to the given map.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         // Remap main symbol identifier
         if let Some(new_ident) = map.get(&self.ident) {
             self.ident = *new_ident;

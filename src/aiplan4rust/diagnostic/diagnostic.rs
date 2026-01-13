@@ -42,7 +42,7 @@
 
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::{DiagnosticKind, Provider};
-use crate::aiplan4rust::interner::{Ident, Literal};
+use crate::aiplan4rust::interner::{Ident, InternerError, Literal};
 use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
 use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
@@ -50,7 +50,6 @@ use std::collections::HashMap;
 use std::fmt;
 use lalrpop_util::ParseError;
 use crate::aiplan4rust::lang::{RemapIdents, Requirement, Type};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 
@@ -201,7 +200,7 @@ impl Diagnostic {
         &mut self,
         idents: &HashMap<Ident, Ident>,
         literals: &HashMap<Literal, Literal>
-    ) -> Result<(), RemapIdentError> {
+    ) -> Result<(), InternerError> {
         self.kind.remap_idents(idents)?;
         self.source.remap_literal(literals);
         Ok(())

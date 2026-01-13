@@ -9,6 +9,7 @@ pub mod renderers;
 pub mod domain_def;
 pub mod problem_def;
 pub(crate) mod extract;
+pub mod flatten;
 
 pub use problem::Problem as LiftedProblem;
 pub use problem_def::ProblemDef;

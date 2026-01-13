@@ -5,7 +5,7 @@
 //! inconsistent remapping operations performed during linking.
 //!
 //! These errors capture situations such as:
-//! - invalid or stale interner indices,
+//! - invalid or stale identifier or literal indices,
 //! - missing remapping entries during identifier/literal remapping,
 //! - conflicts when multiple items are mapped to the same identifier or literal.
 //!
@@ -13,15 +13,13 @@
 //! semantic analysis, symbol resolution, and linking.
 
 use thiserror::Error;
-use crate::aiplan4rust::interner::Literal;
+use crate::aiplan4rust::interner::{Ident, Literal};
 
 /// Represents errors that can occur when working with a [`StringInterner`].
 #[derive(Error, Debug)]
 pub enum InternerError {
 
     /// The requested identifier index is out of bounds of the interner's string pool.
-    ///
-    /// This usually happens when trying to resolve an invalid or stale identifier.
     #[error("Invalid identifier index {ident_index}: out of bounds for interner size {interner_size}")]
     InvalidIdent {
         /// The invalid identifier index requested.
@@ -31,8 +29,6 @@ pub enum InternerError {
     },
 
     /// The requested literal index is out of bounds of the literal string pool.
-    ///
-    /// This usually happens when trying to resolve an invalid or stale literal identifier.
     #[error("Invalid literal index {literal_index}: out of bounds for literal pool size {interner_size}")]
     InvalidLiteral {
         /// The invalid literal index requested.
@@ -41,54 +37,42 @@ pub enum InternerError {
         interner_size: usize,
     },
 
+    /// A required identifier remapping entry is missing.
+    #[error("Missing remap for identifier {0:?}")]
+    MissingIdent(Ident),
+
     /// A required literal remapping entry is missing.
-    ///
-    /// This occurs when a literal is expected to be remapped (e.g., during
-    /// problem merging or normalization) but no corresponding entry exists.
     #[error("Missing remapping entry for literal {0:?}")]
-    MissingRemapLiteral(Literal),
+    MissingLiteral(Literal),
+
+    /// Two identifiers would be remapped to the same target, causing a conflict.
+    #[error("Remapped identifier conflict for {0:?}")]
+    Conflict(Ident),
 }
 
 impl InternerError {
     /// Creates a new [`InvalidIdent`] error.
-    ///
-    /// # Arguments
-    ///
-    /// * `ident_index` - The invalid identifier index that was requested.
-    /// * `interner_size` - The current size of the interner's string pool.
-    ///
-    /// # Returns
-    ///
-    /// A new `InternerError::InvalidIdent` instance.
     pub fn invalid_ident(ident_index: usize, interner_size: usize) -> Self {
         Self::InvalidIdent { ident_index, interner_size }
     }
 
     /// Creates a new [`InvalidLiteral`] error.
-    ///
-    /// # Arguments
-    ///
-    /// * `literal_index` - The invalid literal index that was requested.
-    /// * `interner_size` - The current size of the literal string pool.
-    ///
-    /// # Returns
-    ///
-    /// A new `InternerError::InvalidLiteral` instance.
     pub fn invalid_literal(literal_index: usize, interner_size: usize) -> Self {
         Self::InvalidLiteral { literal_index, interner_size }
     }
 
-    /// Creates a new [`MissingRemapLiteral`] error.
-    ///
-    /// # Arguments
-    ///
-    /// * `literal` - The literal for which no remapping entry exists.
-    ///
-    /// # Returns
-    ///
-    /// A new `InternerError::MissingRemapLiteral` instance.
-    pub fn missing_remap_literal(literal: Literal) -> Self {
-        Self::MissingRemapLiteral(literal)
+    /// Creates a new [`MissingLiteral`] error.
+    pub fn missing_literal(literal: Literal) -> Self {
+        Self::MissingLiteral(literal)
     }
 
+    /// Creates a new [`MissingIdent`] error.
+    pub fn missing_ident(id: Ident) -> Self {
+        Self::MissingIdent(id)
+    }
+
+    /// Creates a new [`Conflict`] error for an identifier.
+    pub fn conflict(id: Ident) -> Self {
+        Self::Conflict(id)
+    }
 }

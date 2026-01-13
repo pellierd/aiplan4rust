@@ -23,15 +23,12 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
-
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents, Type, TypedList};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::lang::{RemapTypes, Ident, RemapIdents, Type, TypedList};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::lexer::Token;
@@ -131,25 +128,25 @@ impl RemapIdents for NamedTypedList {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         self.symbol.remap_idents(map)?;
         self.parameters.remap_idents(map)?;
         Ok(())
     }
 }
 
-impl FlattenTypes for NamedTypedList {
-    /// Flattens any union types (`Type::Either`) in the parameters
-    /// according to the provided mapping.
+impl RemapTypes for NamedTypedList {
+    /// Remaps union types (`Type::Either`) in the parameters according to the provided mapping.
     ///
     /// # Parameters
     /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
     ///
     /// # Returns
-    /// - `Result<(), TypeFlattenError>` if the flattening cannot be performed on some type.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError> {
-        self.parameters.flatten_types(map)?;
+    /// - `Ok(())` if all parameter types were successfully remapped.
+    /// - `Err(LirError)` if an error occurs during remapping.
+    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+        self.parameters.remap_types(map)?;
         Ok(())
     }
 }

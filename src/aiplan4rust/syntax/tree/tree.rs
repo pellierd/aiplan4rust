@@ -23,9 +23,8 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::arena::{ArenaTree, NodeId, NodeRef};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::arena::node_ref::NodeRefMut;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::{Ident, RemapIdents};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -363,8 +362,8 @@ where
     /// - Nodes whose identifiers are not present in `map` remain unchanged.
     ///
     /// # Errors
-    /// Returns a `RemapIdentError` if remapping fails for any node.
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    /// Returns a `InternerError` if remapping fails for any node.
+    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         let mut stack = vec![id];
         while let Some(current_id) = stack.pop() {
             if let Some(node) = self.arena.get_node_mut(current_id) {
@@ -642,8 +641,8 @@ impl<T> RemapIdents for SyntaxTree<T>
     ///
     /// # Errors
     ///
-    /// Returns a `RemapIdentError` if remapping fails for any node (propagates errors from nested structures).
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// Returns a `InternerError` if remapping fails for any node (propagates errors from nested structures).
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         if !self.is_empty() {
             if let Ok(root_id) = self.arena.try_root_id() {
                 self.remap_idents_from(root_id, map)?;

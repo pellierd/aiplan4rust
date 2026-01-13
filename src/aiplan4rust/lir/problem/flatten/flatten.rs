@@ -1,10 +1,10 @@
 #![allow(dead_code)]
 
-use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::interner::{Ident, InternerError};
-use crate::aiplan4rust::lang::{FlattenTypes, Type, TypedSymbol};
+use crate::aiplan4rust::lang::{RemapTypes, Type, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::{HashMap, HashSet, VecDeque};
+use crate::aiplan4rust::lir::LirError;
 
 const EITHER_PREFIX: &str = "either";
 const EITHER_SEP: &str = "_";
@@ -15,29 +15,29 @@ const EITHER_SEP: &str = "_";
 /// - Replace `either` types with new primitive types (one per combination)
 /// - Update all type references in objects and functions accordingly
 /// - Ensure that after flattening, all types have exactly one member
-pub fn flatten_either_types(problem: &mut LiftedProblem) -> Result<(), GroundingError> {
+pub fn flatten_types(problem: &mut LiftedProblem) -> Result<(), LirError> {
     let ident_mapping = flatten_types_def(problem)?;
 
     for constant in problem.constants_mut() {
-        constant.flatten_types(&ident_mapping)?;
+        constant.remap_types(&ident_mapping)?;
     }
 
     for predicate in problem.predicates_mut() {
-        predicate.flatten_types(&ident_mapping)?;
+        predicate.remap_types(&ident_mapping)?;
     }
 
     for function in problem.functions_mut() {
-        function.flatten_types(&ident_mapping)?;
+        function.remap_types(&ident_mapping)?;
     }
 
-    problem.domain_constraints_mut().flatten_types(&ident_mapping)?;
+    problem.domain_constraints_mut().remap_types(&ident_mapping)?;
 
     for task in problem.tasks_mut() {
-        task.flatten_types(&ident_mapping)?;
+        task.remap_types(&ident_mapping)?;
     }
 
     for object in problem.objects_mut() {
-        object.flatten_types(&ident_mapping)?;
+        object.remap_types(&ident_mapping)?;
     }
 
 
@@ -76,9 +76,9 @@ pub fn flatten_either_types(problem: &mut LiftedProblem) -> Result<(), Grounding
 ///     println!("Union {:?} -> Primitive {:?}", union_type, prim_ident);
 /// }
 /// ```
-pub fn flatten_types_def(
+fn flatten_types_def(
     problem: &mut LiftedProblem,
-) -> Result<HashMap<Type, Ident>, GroundingError> {
+) -> Result<HashMap<Type, Ident>, LirError> {
     // Queue of either types to process, represented by their Ident
     let mut to_process = either_types(problem);
 
@@ -166,7 +166,7 @@ fn either_types(problem: &LiftedProblem) -> VecDeque<Ident> {
 ///
 /// # Panics
 /// Panics if any member of `ty` is not found in `symbol_lookup`.
-fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<Ident>, GroundingError> {
+fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<Ident>, LirError> {
     let mut parent_set = HashSet::new();
 
     for &m in ty.iter() {
@@ -230,7 +230,7 @@ mod tests {
         let a = interner.intern_ident("a");
         let b = interner.intern_ident("b");
         let c = interner.intern_ident("c");
-        
+
 
         let sym_obj = TypedSymbol::new(StringInterner::IDENT_OBJECT, Type::new());
 

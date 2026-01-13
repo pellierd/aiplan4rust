@@ -25,7 +25,7 @@
 //! assert!(table.iter().count() == 0);
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
@@ -34,16 +34,14 @@ use crate::aiplan4rust::semantic::symbol::SymbolEntry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableError, SymbolTableOrigin};
+use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::tree::NodeId;
-
+use crate::SymbolTable;
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
-use crate::aiplan4rust::syntax::ast::Ast;
-use crate::SymbolTable;
 
 //// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///
@@ -950,19 +948,15 @@ impl Table {
 }
 
 impl RemapIdents for SymbolTable {
-    /// Remaps the identifiers (`Ident`) in the symbol table according to the given mapping.
-    ///
-    /// This function updates all internal `Symbol` instances by remapping their identifiers
-    /// using the provided `map`. After remapping the symbols internally, it rebuilds the
-    /// symbol table's key map with the new identifiers.
+    /// Remaps the identifiers (`Ident`) in the symbol table according to the provided mapping.
     ///
     /// # Parameters
-    /// - `map`: A reference to a `HashMap` that maps old identifiers (`Ident`) to new identifiers (`Ident`).
+    /// - `map`: A `HashMap` mapping old identifiers (`Ident`) to their corresponding new identifiers (`Ident`).
     ///
     /// # Returns
-    /// - `Ok(())` if the remapping succeeded without conflicts.
-    /// - `Err(RemapIdentError)` if a conflict occurred during remapping.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// - `Ok(())` if all identifiers were successfully remapped.
+    /// - `Err(InternerError)` if a conflict or missing mapping occurs during remapping.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         // Step 1: Internally remap symbols
         for (_key, symbol) in self.symbols.iter_mut() {
             symbol.remap_idents(map)?;
@@ -974,10 +968,10 @@ impl RemapIdents for SymbolTable {
         for (key, symbol) in std::mem::take(&mut self.symbols) {
             let new_key = map.get(&key)
                 .cloned()
-                .ok_or_else(|| RemapIdentError::missing_mapping(key))?;
+                .ok_or_else(|| InternerError::missing_ident(key))?;
 
             if new_symbols.contains_key(&new_key) {
-                return Err(RemapIdentError::conflict(new_key))?;
+                return Err(InternerError::conflict(new_key))?;
             }
 
             new_symbols.insert(new_key, symbol);

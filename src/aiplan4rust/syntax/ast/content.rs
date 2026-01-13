@@ -31,7 +31,7 @@
 //! assert_eq!(content.display_with_context(&interner), "move");
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents, Requirement};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
@@ -40,7 +40,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::tree::SyntaxContent;
 
@@ -327,18 +326,21 @@ impl SyntaxContent for Content {
 }
 
 impl RemapIdents for Content {
-    /// Remaps the identifier inside this content, if it is an `Ident` and exists in the mapping.
+    /// Remaps the identifier inside this content if it is an `Ident` using the provided mapping.
     ///
     /// # Parameters
-    /// - `map`: A mapping from old `Ident`s to new `Ident`s.
+    /// - `map`: A `HashMap` mapping old `Ident`s to their corresponding new `Ident`s.
     ///
     /// # Behavior
-    /// - If the content is an `Ident` and a corresponding mapping exists, it is replaced.
-    /// - If the content is not an `Ident` or no mapping exists, it remains unchanged.
+    /// - If the content is an `Ident` and a mapping exists in `map`, the identifier is replaced.
+    /// - If the content is not an `Ident`, or if no mapping exists for the identifier,
+    ///   the content remains unchanged.
     ///
     /// # Notes
-    /// - The operation is performed in place and is panic-free.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// - The operation is performed **in place** and is panic-free.
+    /// - No error is returned in this implementation; stricter remapping behavior
+    ///   can return [`InternerError::MissingIdent`] if desired.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         if let Content::Ident(id) = self {
             if let Some(new_id) = map.get(id) {
                 *id = *new_id;

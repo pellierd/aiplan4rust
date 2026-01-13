@@ -23,17 +23,15 @@
 //! ```
 
 use std::collections::HashMap;
-use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{Ident, InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::error::LangError;
-use crate::aiplan4rust::lang::{FlattenTypes, RemapIdents, Type, TypedSymbol};
+use crate::aiplan4rust::lang::{RemapIdents, TypedSymbol};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// A list of `TypedSymbol` items.
 ///
@@ -109,28 +107,10 @@ impl RemapIdents for TypedList {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         for ts in &mut self.symbols {
             ts.remap_idents(map)?;
-        }
-        Ok(())
-    }
-}
-
-impl FlattenTypes for TypedList {
-    /// Flattens union types (`Type::Either`) in all `TypedSymbol`s of this `TypedList`
-    /// according to the provided mapping. Does nothing if a type is already flattened
-    /// or not present in the map.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Result<(), TypeFlattenError>` for consistency with the flattening pipeline.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError> {
-        for ts in &mut self.symbols {
-            ts.flatten_types(map)?;
         }
         Ok(())
     }

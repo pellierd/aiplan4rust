@@ -15,8 +15,7 @@ use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Represents a reference to a declared symbol, consisting of its identifier and kind.
@@ -97,8 +96,8 @@ impl RemapIdents for Symbol {
     ///
     /// # Errors
     ///
-    /// Returns `RemapIdentError` if the remapping fails (propagated from inner calls).
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    /// Returns `InternerError` if the remapping fails (propagated from inner calls).
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         self.ident().remap_idents(map)?;
         Ok(())
     }

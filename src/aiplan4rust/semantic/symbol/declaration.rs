@@ -46,7 +46,7 @@
 //! This module depends on serde for serialization and deserialization of declarations.
 
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
@@ -54,12 +54,10 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::Type;
-
 use std::collections::HashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a declaration of a symbol in the abstract syntax arena (AST).
 ///
@@ -476,8 +474,8 @@ impl RemapIdents for Declaration {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if any argument identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    /// Returns [`InternerError`] if any argument identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         // Remap the main symbol name
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol.set_ident(new_ident.clone());

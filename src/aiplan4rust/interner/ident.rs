@@ -50,8 +50,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerId, StringInterner};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, InternerId, StringInterner};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// An interned identifier represented by a `usize` index.
@@ -137,14 +136,14 @@ impl Ident {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if a remapping is required but cannot be applied
+    /// Returns [`InternerError`] if a remapping is required but cannot be applied
     /// (e.g., missing mapping or conflict). In the current implementation, this always succeeds.
     ///
     /// # Performance
     ///
     /// Performs a single hash map lookup and a lightweight copy, as `Ident` is `Copy`
     /// (typically a `usize`).
-    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    pub fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         if let Some(new) = map.get(self) {
             *self = *new;
         }

@@ -6,12 +6,11 @@
 //! locations for better error reporting and user feedback.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
-use crate::aiplan4rust::interner::{Ident, Literal};
+use crate::aiplan4rust::interner::{Ident, InternerError, Literal};
 
 use std::collections::HashMap;
 use std::fmt;
 use itertools::Itertools;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Manages a collection of diagnostics and their associated source files.
 ///
@@ -188,7 +187,7 @@ impl DiagnosticManager {
     /// [`Ident`]: crate::interner::Ident
     /// [`Literal`]: crate::interner::Literal
     /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
-     pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) -> Result<(), RemapIdentError> {
+     pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) -> Result<(), InternerError> {
         for diagnostic in &mut self.diagnostics {
             diagnostic.remap(idents, literals)?;
         }

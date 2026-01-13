@@ -14,19 +14,17 @@
 //! (see [`InternerDisplay`]) and supports identifier remapping, which is useful
 //! for name rewriting or alpha-renaming in transformations.
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::syntax::Span;
-
 use std::collections::HashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::fmt;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a concrete use of a symbol within the Abstract Syntax Tree (AST).
 ///
@@ -148,8 +146,8 @@ impl RemapIdents for Usage {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if remapping cannot be applied (propagated from nested remaps, if any).
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    /// Returns [`InternerError`] if remapping cannot be applied (propagated from nested remaps, if any).
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol.set_ident(new_ident.clone());
         }

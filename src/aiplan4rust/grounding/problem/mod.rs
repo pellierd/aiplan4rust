@@ -6,8 +6,6 @@ pub mod function;
 pub(super) mod builders;
 pub mod value_domain;
 
-pub(super) mod flatten_types;
-
 pub use function::Function;
 pub use index_table::IndexTable;
 pub use ty::Type;

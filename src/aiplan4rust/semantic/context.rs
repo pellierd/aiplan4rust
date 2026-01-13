@@ -430,7 +430,7 @@ impl Context {
         // Step 3: remap the source literal
         let new_source_id = literal_map
             .get(&self.source_id)
-            .ok_or_else(|| InternerError::missing_remap_literal(self.source_id))?;
+            .ok_or_else(|| InternerError::missing_literal(self.source_id))?;
         self.source_id = *new_source_id;
 
         Ok(())

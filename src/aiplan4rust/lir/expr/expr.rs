@@ -35,10 +35,11 @@
 //!
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, Optimization, RemapIdents, Type};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::lang::{Ident, Optimization, RemapIdents, RemapTypes, Type};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxSubtree, SyntaxTree};
@@ -49,8 +50,6 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
 ///
@@ -305,8 +304,8 @@ impl Expr {
     ///
     /// # Errors
     ///
-    /// Returns a `RemapIdentError` if any identifier in the subtree fails to remap.
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    /// Returns a `InternerError` if any identifier in the subtree fails to remap.
+    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         self.tree.remap_idents_from(id, map)?;
         Ok(())
     }
@@ -532,29 +531,27 @@ impl RemapIdents for Expr {
     ///
     /// # Errors
     ///
-    /// Returns a `RemapIdentError` if remapping fails for any node in the tree.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// Returns a `InternerError` if remapping fails for any node in the tree.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         self.tree.remap_idents(map)?;
         Ok(())
     }
 }
 
-impl FlattenTypes for Expr {
-    /// Recursively flattens all types in the expression tree according to the provided mapping.
+impl RemapTypes for Expr {
+    /// Recursively remaps all union types (`Type::Either`) in the expression tree.
     ///
     /// # Parameters
-    /// - `map`: A `HashMap` that associates each `Type` (including `Type::Either`) with a
-    ///   flattened `Ident` representing the corresponding primitive type.
+    /// - `map`: A `HashMap` mapping each union type (`Type::Either`) to its corresponding primitive `Ident`.
     ///
     /// # Returns
-    /// - `Ok(())` if all types were successfully flattened.
-    /// - `Err(TypeFlattenError)` if an error occurs during flattening, e.g.:
+    /// - `Ok(())` if all types were successfully remapped.
+    /// - `Err(LirError)` if an error occurs during traversal or remapping.
     ///
     /// # Behavior
-    /// - Traverses the expression tree starting from the root node using a depth-first search.
-    /// - For each node, replaces type references according to `map`.
-    /// - Nodes whose type is not present in `map` remain unchanged.
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError>{
+    /// - Traverses the expression tree from the root node.
+    /// - Replaces type references according to `map`; non-union or unmapped types remain unchanged.
+    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
         if let Ok(root_id) = self.tree.try_root_id() {
             self.flatten_types_from(root_id, map)?;
         }
@@ -563,14 +560,27 @@ impl FlattenTypes for Expr {
 }
 
 impl Expr {
-    /// Recursively flattens all types in this expression tree according to the map.
-    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError>{
+    /// Recursively remaps all union types (`Type::Either`) in this expression tree according to the provided mapping.
+    ///
+    /// This function traverses the expression tree starting from the given `node_id`.
+    /// For each node:
+    /// - If it contains quantified variables (`Forall` or `Exists`), their types are remapped.
+    /// - All other node types are left unchanged.
+    ///
+    /// # Parameters
+    /// - `node_id`: The `NodeId` of the root node to start traversal from.
+    /// - `map`: A `HashMap<Type, Ident>` mapping union types (`Type::Either`) to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all types were successfully remapped or are already primitive.
+    /// - `Err(LirError)` if an error occurs during traversal or remapping (e.g., missing mapping or invalid node access).
+    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
         let mut stack = vec![node_id];
         while let Some(node_id) = stack.pop() {
             let node = self.tree.try_node_mut(node_id)?;
             match node.kind() {
                 ExprKind::Forall | ExprKind::Exists => {
-                    node.content_mut().try_quantifier_vars_mut()?.flatten_types(map)?;
+                    node.content_mut().try_quantifier_vars_mut()?.remap_types(map)?;
                 }
                 _ => {}
             }

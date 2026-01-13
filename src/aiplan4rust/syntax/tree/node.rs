@@ -32,11 +32,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
-
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents};
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -694,12 +692,8 @@ where
     /// - `map`: A `HashMap` mapping old [`Ident`]s to new ones.
     ///
     /// # Errors
-    /// Returns a [`RemapIdentError`] if remapping fails.
-    ///
-    /// [`SyntaxNode`]: crate::syntax::tree::node::SyntaxNode
-    /// [`Ident`]: crate::interner::Ident
-    /// [`RemapIdentError`]: crate::semantic::remap::RemapIdentError
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError> {
+    /// Returns a [`InternerError`] if remapping fails.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         self.content_mut().remap_idents(map)?;
         Ok(())
     }

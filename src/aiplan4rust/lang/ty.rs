@@ -10,9 +10,9 @@
 //! Internally, the type stores a flat vector of `Ident`, simplifying processing
 //! while preserving expressiveness for parsing, type checking, and semantic analysis.
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::error::LangError;
-use crate::aiplan4rust::lang::{FlattenTypes, Ident, RemapIdents};
+use crate::aiplan4rust::lang::{Ident, RemapIdents};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
@@ -21,8 +21,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::flatten_types::TypeFlattenError;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 
 /// Represents a PDDL type in the syntax problem IR.
 ///
@@ -183,8 +181,8 @@ impl RemapIdents for Type {
     ///
     /// # Errors
     ///
-    /// Returns [`RemapIdentError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), RemapIdentError>{
+    /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
+    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
         for ident in &mut self.members {
             ident.remap_idents(map)?;
         }
@@ -192,37 +190,7 @@ impl RemapIdents for Type {
     }
 }
 
-/// Implements the `FlattenTypes` trait for `Type`.
-///
-/// This implementation performs a **strict/complete flattening**:
-/// - If the type is a union type (`Type::Either`), it is replaced by its corresponding
-///   primitive identifier according to the provided map.
-/// - If the union type is not present in the map, a `MissingFlattenMapping` error is returned.
-/// - Non-union types are left unchanged.
-///
-/// # Parameters
-/// - `map`: A `HashMap<Type, Ident>` mapping union types (`Type::Either`) to their
-///   corresponding primitive identifiers.
-///
-/// # Returns
-/// - `Ok(())` if the type is successfully flattened or is already primitive.
-/// - `Err(TypeFlattenError::MissingFlattenMapping)` if a union type cannot be flattened.
-impl FlattenTypes for Type {
-    fn flatten_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), TypeFlattenError> {
-        if self.is_either() {
-            if let Some(new_ident) = map.get(&self) {
-                // Clear the current members and replace with the mapped primitive.
-                let members = self.members_mut();
-                members.clear();
-                members.push(*new_ident);
-            } else {
-                // Strict flattening: fail if the mapping is missing.
-                return Err(TypeFlattenError::missing_flatten_mapping(self.clone()));
-            }
-        }
-        Ok(())
-    }
-}
+
 
 impl fmt::Display for Type {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

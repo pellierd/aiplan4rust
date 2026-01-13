@@ -1,11 +1,10 @@
-use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::{Ident, InternerError};
-use crate::aiplan4rust::lang::LangError;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
+use crate::aiplan4rust::lang::{LangError, Type};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 /// Represents errors that can occur within the `lir` (Lifted Intermediate Representation) module.
 ///
@@ -69,9 +68,9 @@ pub enum LirError {
     #[error("Object with id {0:?} not found")]
     ObjectNotFound(Ident),
 
-    /// Wraps any RemapIdentError encountered
-    #[error(transparent)]
-    RemapIndent(#[from] RemapIdentError),
+    /// Missing type when remap types
+    #[error("Missing type in flattened hierarchy: {ty:?}")]
+    MissingType { ty: Type },
 }
 
 impl LirError {
@@ -113,5 +112,10 @@ impl LirError {
     /// Creates an `ObjectNotFound` error for the given `Ident`.
     pub fn object_not_found(id: Ident) -> Self {
         LirError::ObjectNotFound(id)
+    }
+
+    /// Creates a new `MissingType` error for the given type.
+    pub fn missing_type(ty: Type) -> Self {
+        LirError::MissingType { ty }
     }
 }

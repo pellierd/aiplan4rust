@@ -7,7 +7,6 @@
 
 use thiserror::Error;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::remap_idents::RemapIdentError;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::SemanticError;
@@ -55,10 +54,6 @@ pub enum LinkingError {
     /// Occurs when the syntax tree is empty or missing required nodes.
     #[error("Syntax tree is empty or missing required nodes")]
     EmptySyntaxTree,
-
-    /// Wraps any RemapIdentError encountered
-    #[error(transparent)]
-    RemapIndent(#[from] RemapIdentError),
 }
 
 impl LinkingError {
