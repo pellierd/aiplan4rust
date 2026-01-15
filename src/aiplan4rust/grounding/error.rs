@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::aiplan4rust::grounding::problem::index_table::IndexTableError;
+use crate::aiplan4rust::grounding::problem::symbol_table::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lir::LirError;
 

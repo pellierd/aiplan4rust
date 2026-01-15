@@ -29,6 +29,7 @@ thiserror = "1.0"
 chrono = "0.4.41"
 ahash = "0.8.12"
 clap_builder = "4.5.53"
+bit-set = "0.5"
 
 [build-dependencies]
 lalrpop = { version = "0.22.2", default-features = false }

@@ -1,85 +1,86 @@
-use std::fmt;
 use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::grounding::problem::ids::{ObjectFluentID, ObjectID, ParameterID};
+use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
+use crate::aiplan4rust::lir::atomic_skeleton::function::Function;
 
-/// Represents a set of values associated with a domain.
-///
-/// A `ValueDomain` is essentially a collection of indices (`usize`) representing
-/// the possible values of a type, variable, object, etc.
-/// It can be reused in different contexts (types, fluents, CSP variables, etc.).
-#[derive(Debug, Clone, Default, Eq, PartialEq, Serialize, Deserialize)]
+/// Domaine de valeurs pour un type donné
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ValueDomain {
-    values: Vec<usize>,
+    objects: Vec<ObjectID>,             // objets constants
+    object_fluents: Vec<ObjectFluentID>, // object-fluents générés a priori
 }
 
 impl ValueDomain {
-    /// Creates a new empty `ValueDomain`.
-    pub fn new() -> Self {
-        Self { values: Vec::new() }
+    pub fn new(objects: Vec<ObjectID>, object_fluents: Vec<ObjectFluentID>) -> Self {
+        Self {
+            objects,
+            object_fluents
+        }
     }
 
-    // Creates a new empty `ValueDomain`.
     pub fn empty() -> Self {
-        Self { values: Vec::new() }
+        Self::new(Vec::new(), Vec::new())
+    }
+    /// Retourne une référence au vecteur d'objets constants
+    pub fn objects(&self) ->  &[ObjectID] {
+        &self.objects
     }
 
-    /// Creates a `ValueDomain` from an existing vector of values.
-    pub fn from_values(values: Vec<usize>) -> Self {
-        Self { values }
+    /// Retourne une référence au vecteur d'object-fluents
+    pub fn object_fluents(&self) -> &[ObjectFluentID] {
+        &self.object_fluents
     }
 
-    /// Returns a reference to the internal vector of values.
-    pub fn values(&self) -> &[usize] {
-        &self.values
+    /// Adds a constant object to the value domain.
+    pub fn add_object(&mut self, object: ObjectID) {
+        self.objects.push(object);
     }
 
-    /// Returns an iterator over the values.
-    pub fn iter(&self) -> std::slice::Iter<'_, usize> {
-        self.values.iter()
+    /// Adds an object-fluent to the value domain.
+    pub fn add_object_fluent(&mut self, object_fluent: ObjectFluentID) {
+        self.object_fluents.push(object_fluent);
     }
 
-    /// Adds a new value to the domain.
-    pub fn add(&mut self, value: usize) {
-        self.values.push(value);
-    }
-
-    /// Adds all values from another domain (union operation).
-    pub fn union(&mut self, other: &ValueDomain) {
-        for &v in other.values.iter() {
-            self.add(v);
-        }
-    }
-
-    /// Returns a new `ValueDomain` containing the intersection of self and other.
-    pub fn intersect(&self, other: &ValueDomain) -> ValueDomain {
-        let mut result = ValueDomain::new();
-        for &v in self.values.iter() {
-            if other.contains(v) {
-                result.add(v);
-            }
-        }
-        result
-    }
-
-    /// Returns true if the domain contains the given value.
-    pub fn contains(&self, value: usize) -> bool {
-        self.values.contains(&value)
-    }
-
-    /// Returns the number of values in the domain (cardinality).
-    pub fn cardinality(&self) -> usize {
-        self.values.len()
-    }
-
-    /// Returns true if the domain is empty.
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
+    /// Iterateur simple sur tous les ParameterID
+    pub fn iter_parameters(&self) -> impl Iterator<Item = ParameterID> + '_ {
+        let objects_iter = self.objects.iter().copied().map(ParameterID::Object);
+        let object_fluents_iter = self.object_fluents.iter().copied().map(ParameterID::ObjectFluent);
+        objects_iter.chain(object_fluents_iter)
     }
 }
 
-/// Implements pretty printing for ValueDomain
-impl fmt::Display for ValueDomain {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let values_str: Vec<String> = self.values.iter().map(|v| v.to_string()).collect();
-        write!(f, "{{{}}}", values_str.join(", "))
+
+/*/// Génération a priori des object-fluents avec filtrage simple
+pub fn generate_object_fluents_map(
+    lifted_functions: &Vec<Function>,
+    domains: &HashMap<Ident, Vec<ObjectID>>,
+    type_symbole_table: SymbolTable<TypeID>
+) -> HashMap<ObjectFluentID, ObjectFluent> {
+    let mut object_fluents_map = HashMap::new();
+
+    for f in lifted_functions {
+        // Pour chaque paramètre, récupère le domaine correspondant
+        let param_domains: Vec<Vec<ObjectID>> = f.parameters().iter()
+            .map(|ts| {
+                let ty = ts.ty().members()[0]; // type flatten
+                domains.get(&ty)
+                    .expect("ValueDomain manquant")
+                    .clone() // copie des objets du type
+            })
+            .collect();
+
+        // Produit cartésien de toutes les combinaisons de paramètres
+        for combination in param_domains.into_iter().multi_cartesian_product() {
+            // Ici tu peux filtrer si besoin, ex:
+            // if !is_valid_combination(&combination) { continue; }
+
+            // Crée ObjectFluent avec id unique
+            let of_id = ObjectFluentID(object_fluents_map.len());
+            let ty_ident = f.return_type().members()[0];
+            object_fluents_map.insert(of_id, ObjectFluent::new(f.symbol(), combination, type_symbole_table.get_index(&ty_ident);
+        }
     }
+
+    object_fluents_map
 }
+*/

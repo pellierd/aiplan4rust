@@ -1,5 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
+use crate::aiplan4rust::grounding::problem::ids::{ParameterID, PredicateID};
 
 /// Represents a fluent in a PDDL domain.
 ///
@@ -9,10 +10,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Fluent {
     /// Symbolic identifier of the fluent.
-    symbol: usize,
+    symbol: PredicateID,
 
     /// Types of the parameters (arguments), represented as indices.
-    parameters: Vec<usize>,
+    parameters: Vec<ParameterID>,
 }
 
 impl Fluent {
@@ -29,7 +30,7 @@ impl Fluent {
     /// ```
     /// let f = Fluent::new(1, vec![2, 3]);
     /// ```
-    pub fn new(symbol: usize, arguments: Vec<usize>) -> Self {
+    pub fn new(symbol: PredicateID, arguments: Vec<ParameterID>) -> Self {
         Self { symbol, parameters: arguments }
     }
 
@@ -37,7 +38,7 @@ impl Fluent {
     ///
     /// # Returns
     /// The `symbol` of type `usize`.
-    pub fn symbol(&self) -> usize {
+    pub fn symbol(&self) -> PredicateID {
         self.symbol
     }
 
@@ -45,7 +46,7 @@ impl Fluent {
     ///
     /// # Parameters
     /// - `symbol`: The new symbolic identifier to assign.
-    pub fn set_symbol(&mut self, symbol: usize) {
+    pub fn set_symbol(&mut self, symbol: PredicateID) {
         self.symbol = symbol;
     }
 
@@ -53,7 +54,7 @@ impl Fluent {
     ///
     /// # Returns
     /// Reference to a `Vec<usize>` containing the argument type indices.
-    pub fn parameters(&self) -> &Vec<usize> {
+    pub fn parameters(&self) -> &Vec<ParameterID> {
         &self.parameters
     }
 
@@ -61,7 +62,7 @@ impl Fluent {
     ///
     /// # Returns
     /// Mutable reference to a `Vec<usize>` containing the argument type indices.
-    pub fn parameters_mut(&mut self) -> &mut Vec<usize> {
+    pub fn parameters_mut(&mut self) -> &mut Vec<ParameterID> {
         &mut self.parameters
     }
 
@@ -69,7 +70,7 @@ impl Fluent {
     ///
     /// # Parameters
     /// - `arguments`: A vector of indices representing the new argument types.
-    pub fn set_parameters(&mut self, arguments: Vec<usize>) {
+    pub fn set_parameters(&mut self, arguments: Vec<ParameterID>) {
         self.parameters = arguments;
     }
 }
@@ -77,24 +78,29 @@ impl Fluent {
 impl fmt::Display for Fluent {
     /// Formats the fluent in a PDDL-friendly style: `symbol arg1 arg2 ...`.
     ///
-    /// # Parameters
-    /// - `f`: The formatter to write to.
-    ///
-    /// # Returns
-    /// A `fmt::Result` indicating success or failure.
-    ///
     /// # Example
     /// ```
-    /// let f = Fluent::new(1, vec![2, 3]);
-    /// println!("{}", f); // Prints: 1 2 3
+    /// let f = Fluent {
+    ///     symbol: PredicateID(1),
+    ///     parameters: vec![
+    ///         ParameterID::Object(ObjectID(3)),
+    ///         ParameterID::ObjectFluent(ObjectFluentID(5))
+    ///     ],
+    /// };
+    /// println!("{}", f); // Prints: Predicate#1 Object#3 ObjectFluent#5
     /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Convertit tous les paramètres en chaînes via leur Display
         let args = self.parameters
             .iter()
-            .map(|a| a.to_string())
+            .map(|p| p.to_string())
             .collect::<Vec<_>>()
             .join(" ");
 
-        write!(f, "{} {}", self.symbol, args)
+        if args.is_empty() {
+            write!(f, "{}", self.symbol)
+        } else {
+            write!(f, "{} {}", self.symbol, args)
+        }
     }
 }
