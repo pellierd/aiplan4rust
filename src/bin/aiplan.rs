@@ -1,9 +1,9 @@
 use clap_builder::Command;
 use aiplan4rust::aiplan4rust::cli::build_cli;
 use aiplan4rust::aiplan4rust::cli::error::CliError;
+use aiplan4rust::aiplan4rust::cli::ground::{handle_ground_command, GROUND_SUBCOMMAND};
 use aiplan4rust::aiplan4rust::cli::link::{handle_link_command, LINK_SUBCOMMAND};
-use aiplan4rust::aiplan4rust::cli::parse::cli::PARSE_SUBCOMMAND;
-use aiplan4rust::aiplan4rust::cli::parse::handle_parse_command;
+use aiplan4rust::aiplan4rust::cli::parse::{handle_parse_command, PARSE_SUBCOMMAND};
 
 /// Main entry point for the application.
 ///
@@ -15,13 +15,18 @@ fn main() {
     let args = cli.get_matches_mut();
 
     match args.subcommand() {
+        Some((subcommand @ GROUND_SUBCOMMAND, sub_matches)) => {
+            // Nouvelle sous-commande ground
+            let result = handle_ground_command(sub_matches);
+            handle_cli_result(result, &mut cli, subcommand);
+        }
         Some((subcommand @ LINK_SUBCOMMAND, sub_matches)) => {
             let result = handle_link_command(sub_matches);
             handle_cli_result(result, &mut cli, subcommand);
         }
-        Some((name @ PARSE_SUBCOMMAND, sub_matches)) => {
+        Some((subcommand @ PARSE_SUBCOMMAND, sub_matches)) => {
             let result = handle_parse_command(sub_matches);
-            handle_cli_result(result, &mut cli, name);
+            handle_cli_result(result, &mut cli, subcommand);
         }
         _ => {
             eprintln!("Internal error: no subcommand provided");

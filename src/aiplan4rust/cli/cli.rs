@@ -7,6 +7,7 @@
 //!    including all subcommands (`link` and `parse`).
 
 use clap::Command;
+use crate::aiplan4rust::cli::ground::cli::build_ground_subcommand;
 use crate::aiplan4rust::cli::link::cli::build_link_subcommand;
 use crate::aiplan4rust::cli::parse::cli::build_parse_subcommand;
 
@@ -80,6 +81,7 @@ pub fn build_cli() -> Command {
         .author(AUTHOR)
         .about(ABOUT)
         .arg_required_else_help(true)
+        .subcommand(build_ground_subcommand())
         .subcommand(build_link_subcommand())
         .subcommand(build_parse_subcommand())
 }
