@@ -98,6 +98,10 @@ pub enum ValidationError {
         found: AstNode,
     },
 
+    /// The AST contains a cycle, i.e., it is not a valid tree.
+    #[error("Cycle detected in AST: the structure is not a tree")]
+    CycleDetected,
+
     /// A custom validation error with a free-form message.
     #[error("{0}")]
     Custom(String),
@@ -185,6 +189,11 @@ impl ValidationError {
     /// - `found`: The AST node with a kind that is considered invalid in the current context.
     pub fn invalid_node_kind(found: AstNode) -> Self {
         ValidationError::InvalidNodeKind { found }
+    }
+
+    /// Creates a `CycleDetected` error.
+    pub fn cycle_detected() -> Self {
+        ValidationError::CycleDetected
     }
 
     /// Creates a generic `Custom` validation error.

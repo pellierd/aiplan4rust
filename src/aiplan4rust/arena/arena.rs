@@ -16,6 +16,7 @@
 //! - `NodeId`: Unique identifier for nodes.
 //! - `ArenaError`: Error type_checker for arena operations.
 
+use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -705,6 +706,45 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
 
         max_depth
+    }
+
+    /// Checks if the arena forms a valid tree (no cycles).
+    ///
+    /// A valid tree must satisfy the following:
+    /// - Each node has at most one parent (guaranteed by construction).
+    /// - There are no cycles in the parent-child relationships.
+    ///
+    /// This method uses the `preorder_from` iterator to traverse the tree
+    /// starting from the root. A `visited` vector is used to detect cycles
+    /// safely and prevent infinite loops.
+    ///
+    /// # Returns
+    ///
+    /// - `true` if the arena represents a valid tree (no cycles detected).
+    /// - `false` if a cycle is detected.
+    ///
+    /// # Notes
+    ///
+    /// - An empty arena (no nodes) is considered a valid tree.
+    /// - Orphan nodes (nodes not reachable from the root) do not cause this
+    ///   method to return `false`, but you may want to check separately if
+    ///   full connectivity is required.
+    pub fn is_tree(&self) -> bool {
+        if self.nodes.is_empty() {
+            return true; // empty arena is a valid tree
+        }
+
+        let mut visited: HashSet<NodeId> = HashSet::new();
+
+        if let Some(root_id) = self.root_id {
+            for (node_id, _) in self.preorder_from(root_id).ids() {
+                if !visited.insert(node_id) {
+                    return false; // cycle detected
+                }
+            }
+        }
+
+        true // no cycles detected
     }
 
 }

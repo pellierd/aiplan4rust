@@ -33,27 +33,47 @@ use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::common::{checks, WellNormalizedError};
 use crate::aiplan4rust::validation::{common, normalization, syntax};
 
-/// Checks if the entire AST is well normalized by validating from the root node.
-/// Returns an error if any node or subtree violates normalization constraints.
+/// Checks if the entire AST is well normalized starting from the root node.
+///
+/// This function verifies that:
+/// 1. The AST forms a valid tree (no cycles) using `ArenaTree::is_tree()`.
+/// 2. The subtree satisfies normalization rules defined in `check_well_normalized_from`.
 ///
 /// # Arguments
-///
 /// * `ast` - The AST to validate.
 ///
 /// # Returns
-///
 /// * `Ok(())` if the AST is well normalized.
-/// * `Err(WellNormalizedError)` if any normalization rule is violated.
-pub fn is_well_normalized(ast: &Ast) -> Result<(), WellNormalizedError> {
-    match ast.syntax_tree().root_node() {
-        Some(root) => check_well_normalized_from(root, ast),
-        None => Ok(()), // An empty AST is considered well normalized.
-    }
+/// * `Err(WellNormalizedError)` if the AST contains cycles or violates normalization rules.
+pub fn is_well_normalized(ast: &Ast) -> bool {
+    check_well_normalized(ast).is_ok()
 }
-
-/// Alias of [`is_well_normalized`].
+/// Checks that the AST is well normalized starting from its root node.
+///
+/// This function verifies that the AST forms a valid tree (no cycles, at most one parent per node)
+/// and that all nodes satisfy normalization rules.
+///
+/// # Arguments
+/// * `ast` - The AST to validate.
+///
+/// # Returns
+/// * `Ok(())` if the AST is well normalized.
+/// * `Err(WellNormalizedError)` if the AST contains cycles or violates normalization rules.
+///
+/// # Note
+/// An empty AST is considered well normalized.
 pub fn check_well_normalized(ast: &Ast) -> Result<(), WellNormalizedError> {
-    is_well_normalized(ast)
+    let arena = ast.syntax_tree();
+
+    // Must be a valid tree
+    if !arena.is_tree() {
+        return Err(WellNormalizedError::cycle_detected());
+    }
+
+    match arena.root_node() {
+        Some(root) => check_well_normalized_from(root, ast),
+        None => Ok(()), // Empty AST is well normalized
+    }
 }
 
 /// Recursively checks that the subtree rooted at `node` is well normalized.

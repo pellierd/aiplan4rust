@@ -22,45 +22,51 @@ use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
 use crate::aiplan4rust::validation::common::{checks, WellFormedError};
 use crate::aiplan4rust::validation::{common, syntax};
 
-/// Checks that the AST is structurally well-formed starting from its root node.
+/// Checks whether the AST is structurally well-formed.
 ///
-/// This function verifies the presence of a root node and then recursively checks
-/// the structure of each node and its children.
+/// This function verifies that:
+/// - the underlying arena forms a valid tree (no cycles),
+/// - the AST structure is valid starting from the root node.
 ///
 /// # Arguments
-/// * `ast` - The AST to validate.
+/// * `ast` - The AST to check.
 ///
 /// # Returns
-/// * `Ok(())` if the AST is structurally well-formed.
-/// * `Err(WellFormedError)` if structural issues are found.
+/// * `true` if the AST is structurally well-formed.
+/// * `false` otherwise.
 ///
 /// # Note
 /// This function only checks structural correctness, not semantic validity.
-pub fn is_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
-    match ast.syntax_tree().root_node() {
-        Some(root) => check_well_formed_from(root, ast),
-        None => Ok(()), // No root node means empty tree which can be considered well-formed
-    }
+pub fn is_well_formed(ast: &Ast) -> bool {
+    check_well_formed(ast).is_ok()
 }
+
 
 /// Checks that the AST is structurally well-formed starting from its root node.
 ///
-/// This function verifies the presence of a root node and then recursively checks
-/// the structure of each node and its children.
+/// This function verifies that the AST forms a valid tree (no cycles, at most one parent per node)
+/// and that all nodes satisfy structural well-formedness rules.
 ///
 /// # Arguments
 /// * `ast` - The AST to validate.
 ///
 /// # Returns
 /// * `Ok(())` if the AST is structurally well-formed.
-/// * `Err(WellFormedError)` if structural issues are found.
+/// * `Err(WellFormedError)` if structural issues are found (including cycles).
 ///
 /// # Note
 /// This function only checks structural correctness, not semantic validity.
 pub fn check_well_formed(ast: &Ast) -> Result<(), WellFormedError> {
-    match ast.syntax_tree().root_node() {
+    let arena = ast.syntax_tree();
+
+    // Must be a valid tree
+    if !arena.is_tree() {
+        return Err(WellFormedError::cycle_detected());
+    }
+
+    match arena.root_node() {
         Some(root) => check_well_formed_from(root, ast),
-        None => Ok(()),
+        None => Ok(()), // An empty AST is considered well-formed
     }
 }
 

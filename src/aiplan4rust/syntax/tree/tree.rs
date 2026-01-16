@@ -398,6 +398,17 @@ where
         self.arena.depth(root)
     }
 
+
+    /// Returns `true` if the syntax tree’s underlying arena forms a valid tree.
+    ///
+    /// This method checks that:
+    /// - There is at most one root (or none if empty).
+    /// - Every node has at most one parent.
+    /// - There are no cycles in the node graph.
+    pub fn is_tree(&self) -> bool {
+        self.arena.is_tree()
+    }
+
     /// Replaces the kind, content, and children of a node in the tree.
     ///
     /// # Arguments
