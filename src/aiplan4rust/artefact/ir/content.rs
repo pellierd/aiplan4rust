@@ -69,9 +69,11 @@
 use std::fmt;
 use crate::aiplan4rust::artefact::ir::kind::IRKind;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::semantic::SemanticContext;
 use crate::aiplan4rust::serialization::{SerdeFormat, SerdeSerializable, SerializationError};
 use serde::{Deserialize, Serialize};
+
 
 /// Enum representing the actual content of an IR artifact.
 /// Each variant corresponds directly to an `IRKind` and stores the format.
@@ -80,6 +82,7 @@ pub enum IRContent {
     ParsedDomain(SemanticContext, SerdeFormat),
     ParsedProblem(SemanticContext, SerdeFormat),
     LiftedProblem(LiftedProblem, SerdeFormat),
+    GroundedProblem(Problem, SerdeFormat),
 }
 
 impl IRContent {
@@ -95,6 +98,7 @@ impl IRContent {
             IRContent::ParsedDomain(_, _) => IRKind::ParsedDomain,
             IRContent::ParsedProblem(_, _) => IRKind::ParsedProblem,
             IRContent::LiftedProblem(_, _) => IRKind::LiftedProblem,
+            IRContent::GroundedProblem(_, _) => IRKind::GroundedProblem,
         }
     }
 
@@ -110,6 +114,7 @@ impl IRContent {
             IRContent::ParsedDomain(_, fmt) => *fmt,
             IRContent::ParsedProblem(_, fmt) => *fmt,
             IRContent::LiftedProblem(_, fmt) => *fmt,
+            IRContent::GroundedProblem(_, fmt) => *fmt,
         }
     }
 
@@ -126,6 +131,7 @@ impl IRContent {
                 inner.serialize_to_bytes(*fmt)
             }
             IRContent::LiftedProblem(inner, fmt) => inner.serialize_to_bytes(*fmt),
+            IRContent::GroundedProblem(inner, fmt) => inner.serialize_to_bytes(*fmt),
         }
     }
 
@@ -156,6 +162,10 @@ impl IRContent {
                 LiftedProblem::deserialize_from_bytes(bytes, format)?,
                 format,
             ),
+            IRKind::GroundedProblem => IRContent::GroundedProblem(
+                Problem::deserialize_from_bytes(bytes, format)?,
+                format,
+            ),
         };
         Ok(content)
     }
@@ -175,6 +185,7 @@ impl IRContent {
                 IRContentInner::SemanticContext(inner)
             }
             IRContent::LiftedProblem(inner, _) => IRContentInner::LiftedProblem(inner),
+            IRContent::GroundedProblem(inner, _) => IRContentInner::GroundedProblem(inner),
         }
     }
 }
@@ -190,6 +201,9 @@ pub enum IRContentInner<'a> {
 
     /// Reference to a `LiftedProblem` (used in `LiftedProblem`).
     LiftedProblem(&'a LiftedProblem),
+
+    /// Reference to a `LiftedProblem` (used in `LiftedProblem`).
+    GroundedProblem(&'a Problem),
 }
 
 impl<'a> fmt::Display for IRContentInner<'a> {
@@ -200,6 +214,7 @@ impl<'a> fmt::Display for IRContentInner<'a> {
         match self {
             IRContentInner::SemanticContext(ctx) => write!(f, "{}", ctx),
             IRContentInner::LiftedProblem(pb) => write!(f, "{}", pb),
+            IRContentInner::GroundedProblem(pb) => write!(f, "{}", pb),
         }
     }
 }

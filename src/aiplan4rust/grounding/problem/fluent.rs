@@ -98,9 +98,9 @@ impl fmt::Display for Fluent {
             .join(" ");
 
         if args.is_empty() {
-            write!(f, "{}", self.symbol)
+            write!(f, "({})", self.symbol)
         } else {
-            write!(f, "{} {}", self.symbol, args)
+            write!(f, "({} {})", self.symbol, args)
         }
     }
 }

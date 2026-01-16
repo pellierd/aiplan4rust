@@ -2,6 +2,7 @@ use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::normalization::NormalizationError;
@@ -43,6 +44,9 @@ pub enum AiplanError {
 
     #[error(transparent)]
     Linking(#[from] LinkingError),
+
+    #[error(transparent)]
+    Grounding(#[from] GroundingError),
 
     #[error(transparent)]
     Serialization(#[from] SerializationError),

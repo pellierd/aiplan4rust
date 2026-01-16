@@ -22,6 +22,7 @@ use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::{Analyzer, AnalyzerResult};
 use crate::aiplan4rust::syntax::Parser;
 use crate::aiplan4rust::AiplanError;
+use crate::aiplan4rust::grounding::{Grounder, GroundingResult};
 
 /// Frontend struct for the AI planning pipeline.
 ///
@@ -232,5 +233,64 @@ impl Frontend {
                 linker_result.take_interner(),
             ))
         }
+    }
+
+
+    pub fn ground_from_raw_input(
+        &self,
+        domain_source: &Source,
+        problem_source: &Source,
+    ) -> Result<GroundingResult, AiplanError> {
+        // --- Step 1: Parse raw inputs ---
+        let domain_semantic = self.parse_from_raw_input(domain_source)?;
+        let problem_semantic = self.parse_from_raw_input(problem_source)?;
+
+        // --- Step 2: Link domain and problem ---
+        let mut linker = Linker::new();
+        let mut linker_result = linker.link(domain_semantic, problem_semantic)?;
+
+        let linked_semantic_context = match linker_result.take_linked_semantic_context() {
+            Some(ctx) => ctx,
+            None => {
+                // Linking failed → return failure immédiatement
+                return Ok(GroundingResult::failure(
+                    linker_result.take_diagnostic_manager(),
+                    linker_result.take_interner(),
+                ));
+            }
+        };
+
+        // --- Step 3: Build LIR ---
+        let mut lir_builder = LirBuilder::new();
+        let mut lir_result = lir_builder.build_with_diagnostic_manager(
+            linked_semantic_context,
+            linker_result.take_diagnostic_manager(),
+        )?;
+
+        let lifted_problem = match lir_result.take_lifted_problem() {
+            Some(lifted_problem) => lifted_problem,
+            None => {
+                // LIR build failed → return failure
+                return Ok(GroundingResult::failure(
+                    lir_result.take_diagnostic_manager(),
+                    lir_result.take_interner(),
+                ));
+            }
+        };
+
+        // --- Step 4: Ground the LIR ---
+        let mut grounder = Grounder::new();
+        let ground_result = grounder.ground(lifted_problem)?;
+
+        // Si le grounding a échoué, renvoyer un failure
+        if ground_result.is_failure() {
+            return Ok(GroundingResult::failure(
+                ground_result.diagnostic_manager().clone(),
+                ground_result.interner().clone(),
+            ));
+        }
+
+        // Grounding réussi → retourner le résultat
+        Ok(ground_result)
     }
 }

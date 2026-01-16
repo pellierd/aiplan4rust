@@ -104,13 +104,42 @@ impl<ID: Id> SymbolTable<ID> {
 
 impl<ID: Id> fmt::Display for SymbolTable<ID> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Cas où la table est vide
+        if self.elements.is_empty() {
+            writeln!(f, "<None>")?;
+            return Ok(());
+        }
+
+        // Calculer la largeur maximale de l'indice et du nom
+        let idx_width = self.elements.len().to_string().len();
+        let name_width = self
+            .elements
+            .iter()
+            .map(|ident| {
+                self.interner
+                    .resolve_ident(*ident)
+                    .unwrap_or("<unresolved>")
+                    .len()
+            })
+            .max()
+            .unwrap_or(0);
+
         for (idx, ident) in self.elements.iter().enumerate() {
             let name = self.interner.resolve_ident(*ident).unwrap_or("<unresolved>");
-            writeln!(f, "{}: {} ({})", idx, name, ident.as_usize())?;
+            writeln!(
+                f,
+                "{:>idx_width$}: {:<name_width$} - {}",
+                idx,
+                name,
+                ident,
+                idx_width = idx_width,
+                name_width = name_width
+            )?;
         }
         Ok(())
     }
 }
+
 
 #[derive(Debug, Error)]
 pub enum IndexTableError {

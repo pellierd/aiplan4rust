@@ -13,7 +13,10 @@ use clap::ArgMatches;
 use std::fs;
 use std::path::PathBuf;
 use colored::Colorize;
-use crate::aiplan4rust::grounding::problem::Problem;
+use crate::aiplan4rust::artefact::{Artefact, IRContent};
+use crate::aiplan4rust::artefact::error::ArtefactError;
+use crate::aiplan4rust::cli::path::default_grounded_output_path;
+use crate::aiplan4rust::grounding::Problem;
 
 /// Handles the `ground` CLI subcommand.
 ///
@@ -48,17 +51,31 @@ pub fn handle_ground_command(matches: &ArgMatches) -> Result<(), CliError> {
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CURRENT_DIR));
 
-    // --- Validate inputs ---
-    //let domain = validate_domain(&domain_file)?;
-    //let problem = validate_problem(&problem_file)?;
+    let domain_file = PathBuf::from(&files[0]);
+    let domain = match filter_domain(&domain_file) {
+        Some(d) => d,
+        None => {
+            println!("Warning: no valid domain found, ground command skipped");
+            return Ok(());
+        }
+    };
+
+    let problem_file = PathBuf::from(&files[1]);
+    let problem = match filter_problem(&problem_file) {
+        Some(problem) => problem,
+        None => {
+            println!("Warning: no valid problem found, ground command skipped");
+            return Ok(());
+        }
+    };
 
     // --- Execute grounding workflow ---
-    //ground_inputs(&domain, &problem, format, &out_dir, &output_opt)?;
+    ground_inputs(&domain, &problem, format, &out_dir, &output_opt)?;
 
     Ok(())
 }
 
-/*/// Ground a domain + problem pair and serialize output.
+/// Ground a domain + problem pair and serialize output.
 fn ground_inputs(
     domain: &Source,
     problem: &Source,
@@ -75,11 +92,7 @@ fn ground_inputs(
     };
 
     // Perform grounding
-    if domain.is_parsed_domain() {
-        ground_parsed(domain, problem, format, &output_path)?;
-    } else {
-        ground_raw(domain, problem, format, &output_path)?;
-    }
+    ground_raw(domain, problem, format, &output_path)?;
 
     let elapsed = start_time.elapsed().as_secs_f32();
     println!(
@@ -87,28 +100,6 @@ fn ground_inputs(
         "Finished".green().bold(),
         elapsed
     );
-
-    Ok(())
-}
-
-/// Ground parsed (IR) domain/problem input.
-fn ground_parsed(
-    domain: &Source,
-    problem: &Source,
-    format: SerdeFormat,
-    output: &PathBuf,
-) -> Result<(), CliError> {
-    let frontend = Frontend::new();
-    let mut result = frontend.ground_parsed_input(domain, problem)?;
-
-    // Display diagnostics
-    let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
-    renderer.display()?;
-
-    // Serialize output if successful
-    if let Some(grounded) = result.take_grounded_problem() {
-        save_ground_output(grounded, format, output)?;
-    }
 
     Ok(())
 }
@@ -121,66 +112,117 @@ fn ground_raw(
     output: &PathBuf,
 ) -> Result<(), CliError> {
     let frontend = Frontend::new();
-    let mut result = frontend.ground_raw_input(domain, problem)?;
+    let mut result = frontend.ground_from_raw_input(domain, problem)?;
 
     let mut renderer = Renderer::new(result.diagnostic_manager(), result.interner());
     renderer.display()?;
 
-    if let Some(grounded) = result.take_grounded_problem() {
-        save_ground_output(grounded, format, output)?;
+    if let Some(problem) = result.take_problem() {
+        save_ground_output(problem, format, output)?;
     }
 
     Ok(())
 }
 
 /// Save grounded problem to disk.
-fn save_ground_output<P: Into<PathBuf>>(
-    grounded_problem: Problem,
+pub fn save_ground_output<P: Into<PathBuf>>(
+    problem: Problem,
     format: SerdeFormat,
     output_path: P,
-) -> Result<(), CliError> {
+) -> Result<(), ArtefactError> {
     let output_path = output_path.into();
 
+    // Create parent directories if they don't exist
     if let Some(parent) = output_path.parent() {
         fs::create_dir_all(parent)?;
     }
 
-    // Serialize and write to disk
-    let content = Problem(grounded_problem, format);
-    let output = crate::aiplan4rust::artefact::Artefact::new_ir(output_path.clone(), content);
+    // Wrap the grounded problem in IRContent (or a new variant GroundedProblem if defined)
+    let content = IRContent::GroundedProblem(problem, format); // <-- adapter le enum IRContent
+    let output = Artefact::new_ir(output_path.clone(), content);
+
+    // Write to disk
     output.write()?;
 
+    // Display absolute path
+    let absolute_output = output_path
+        .canonicalize()
+        .map(|p| p.display().to_string())
+        .unwrap_or_else(|_| output_path.display().to_string());
+
     println!(
-        "{} Grounded output saved to {}",
+        "{} Output file produced ({})",
         "===>".blue().bold(),
-        output_path.display()
+        absolute_output
     );
 
     Ok(())
 }
 
-/// Validate domain file for grounding.
-fn validate_domain(path: &PathBuf) -> Result<Source, CliError> {
+/// Lit et valide le domain : doit être RawDomain ou ParsedDomain
+/// Validates a domain file.
+///
+/// This function attempts to read the domain file from the given path and checks
+/// if it is either a RawDomain or ParsedDomain. If the domain cannot be read or
+/// is of an incompatible type, a warning is printed and `None` is returned.
+///
+/// # Parameters
+///
+/// * `path` - The path to the domain file to validate.
+///
+/// # Returns
+///
+/// * `Some(Input)` - If the domain is successfully read and is of a valid type.
+/// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
+pub fn filter_domain(path: &PathBuf) -> Option<Source> {
     match Source::try_from_path(path) {
-        Ok(s) if s.is_parsed_domain() || s.is_raw() => Ok(s),
-        Ok(_) => Err(CliError::custom("Domain file must be raw or parsed domain")),
-        Err(e) => Err(CliError::custom(format!("Cannot read domain file: {}", e))),
+        // Domain successfully read and has a valid type
+        Ok(d) if d.is_domain() && d.is_raw() => Some(d),
+
+        // Domain read but type is invalid
+        Ok(d) => {
+            println!(
+                "Warning: domain '{}' ignored: must be a RawDomain",
+                d.path().display()
+            );
+            None
+        }
+
+        // Domain file could not be read
+        Err(e) => {
+            println!(
+                "Warning: unable to read domain file '{}': {}",
+                path.display(),
+                e
+            );
+            None
+        }
     }
 }
 
-/// Validate problem file for grounding.
-fn validate_problem(path: &PathBuf) -> Result<Source, CliError> {
+/// * `None` - If the domain could not be read or is not a valid Raw/Parsed domain.
+pub fn filter_problem(path: &PathBuf) -> Option<Source> {
     match Source::try_from_path(path) {
-        Ok(s) if s.is_parsed_problem() || s.is_raw() => Ok(s),
-        Ok(_) => Err(CliError::custom("Problem file must be raw or parsed problem")),
-        Err(e) => Err(CliError::custom(format!("Cannot read problem file: {}", e))),
+        // Domain successfully read and has a valid type
+        Ok(d) if d.is_problem() && d.is_raw() => Some(d),
+
+        // Domain read but type is invalid
+        Ok(d) => {
+            println!(
+                "Warning: problem '{}' ignored: must be a raw problem",
+                d.path().display()
+            );
+            None
+        }
+
+        // Domain file could not be read
+        Err(e) => {
+            println!(
+                "Warning: unable to read problem file '{}': {}",
+                path.display(),
+                e
+            );
+            None
+        }
     }
 }
-
-/// Compute default grounded output path (placeholder implementation)
-fn default_grounded_output_path(domain: &PathBuf, problem: &PathBuf, out_dir: &PathBuf) -> Result<PathBuf, CliError> {
-    let filename = problem
-        .file_stem()
-        .ok_or_else(|| CliError::custom("Problem file has no stem"))?;
-    Ok(out_dir.join(format!("{}.grounded.json", filename.to_string_lossy())))
-}*/

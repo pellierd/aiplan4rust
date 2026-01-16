@@ -30,18 +30,17 @@ pub struct ObjectID(pub usize);
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ObjectFluentID(pub usize);
 
-// Implémentation du trait Id pour chaque wrapper
 macro_rules! impl_id_trait {
     ($id:ty) => {
         impl Id for $id {
-            fn from_usize(idx: usize) -> Self { <$id>::from_usize(idx) }
+            fn from_usize(idx: usize) -> Self { <$id>::new(idx) }
             fn as_usize(self) -> usize { self.0 }
         }
 
         impl $id {
             /// Constructeur direct
             pub fn new(idx: usize) -> Self {
-                <$id>::from_usize(idx)
+                Self(idx)
             }
         }
     };
@@ -80,21 +79,21 @@ impl_index!(ObjectID);
 impl_index!(ObjectFluentID);
 
 macro_rules! impl_display_id {
-    ($id:ty, $name:expr) => {
+    ($id:ty, $prefix:expr) => {
         impl std::fmt::Display for $id {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                write!(f, "{}#{}", $name, self.0)
+                write!(f, "{}#{}{}", $prefix, self.0, "")
             }
         }
     };
 }
 
-impl_display_id!(TypeID, "Type");
-impl_display_id!(PredicateID, "Predicate");
-impl_display_id!(FunctionID, "Function");
-impl_display_id!(NumericFluentID, "NumericFluent");
-impl_display_id!(ObjectID, "Object");
-impl_display_id!(ObjectFluentID, "ObjectFluent");
+impl_display_id!(TypeID, "T");
+impl_display_id!(PredicateID, "P");
+impl_display_id!(FunctionID, "F");
+impl_display_id!(NumericFluentID, "NF");
+impl_display_id!(ObjectID, "O");
+impl_display_id!(ObjectFluentID, "OF");
 
 /// Paramètre groundé dans un fluent ou action
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

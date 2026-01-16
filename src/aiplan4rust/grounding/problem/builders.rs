@@ -1,10 +1,13 @@
 use itertools::Itertools;
+use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::{Fluent, SymbolTable, ValueDomain};
 use crate::aiplan4rust::grounding::problem::ids::{FunctionID, Id, ObjectFluentID, ObjectID, ParameterID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::symbol_table::IndexTableError;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Builds an `IndexTable` containing all type identifiers from the given typed symbols.
 ///
@@ -25,7 +28,6 @@ pub fn build_type_symbols_table(
     for ts in lifted_problem.types() {
         // Add the symbol's own identifier
         types_table.insert(ts.symbol());
-
         // Add all member identifiers of the type
         for ty_id in ts.ty().iter() {
             types_table.insert(*ty_id);
@@ -140,19 +142,25 @@ pub fn build_objects_symbols_table(
 pub fn build_type_parent_table(
     problem: &LiftedProblem,
     typed_symbols_table: &SymbolTable<TypeID>,
-) -> Result<Vec<TypeID>, IndexTableError> {
-    let mut types: Vec<TypeID> = vec![TypeID::default(); typed_symbols_table.len()];
+) -> Result<Vec<Option<TypeID>>, GroundingError> {
+    let mut types = vec![None; typed_symbols_table.len()];
 
     for ts in problem.types() {
         let type_id = typed_symbols_table.try_get_id(&ts.symbol())?;
-        let super_type_id = typed_symbols_table.try_get_id(&ts.ty().members()[0])?;
-        types[type_id] = super_type_id;
+        let members = ts.ty().members();
+
+        if members.len() > 1 {
+            return Err(GroundingError::non_flattened_type_error(&ts.ty()));
+        }
+
+        if let Some(super_type_symbol) = members.first() {
+            let super_type_id = typed_symbols_table.try_get_id(super_type_symbol)?;
+            types[type_id] = Some(super_type_id);
+        }
     }
 
     Ok(types)
 }
-
-
 
 /// Builds the list of objects (constants and declared objects) for the grounded problem.
 ///

@@ -190,7 +190,7 @@ impl fmt::Display for Ident {
     ///
     /// A `fmt::Result` indicating success or error.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "#{}", self.value)
+        write!(f, "S#{}", self.value)
     }
 }
 

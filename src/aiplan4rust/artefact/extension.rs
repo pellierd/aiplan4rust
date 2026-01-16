@@ -42,7 +42,7 @@ pub enum Extension {
     /// Lifted intermediate file
     Lifted,
     /// Grounded intermediate file
-    Ground,
+    Grounded,
 }
 
 impl Extension {
@@ -62,7 +62,7 @@ impl Extension {
             Extension::Hddl => "hddl",
             Extension::Parsed => "prs",
             Extension::Lifted => "lft",
-            Extension::Ground => "grd",
+            Extension::Grounded => "grd",
         }
     }
 }

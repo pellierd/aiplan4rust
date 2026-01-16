@@ -9,12 +9,14 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
-use crate::aiplan4rust::grounding::problem::ids::{FunctionID, ObjectID, PredicateID, TypeID};
+use itertools::Itertools;
+use crate::aiplan4rust::grounding::problem::ids::{FunctionID, Id, ObjectID, ParameterID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::lir::problem::flatten::flatten;
+use crate::aiplan4rust::serialization::SerdeSerializable;
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -49,7 +51,7 @@ pub struct Problem {
     objects_symbols: SymbolTable<ObjectID>,
 
     /// List of types of the problem
-    type_parents_table: Vec<TypeID>,
+    type_parents_table: Vec<Option<TypeID>>,
 
     /// List of value domains for types
     types_domains: Vec<ValueDomain>,
@@ -169,18 +171,18 @@ impl Problem {
 
     // ---------- Type parents ----------
 
-    /// Returns a reference to the list of parent types.
-    pub fn type_parent_table(&self) -> &Vec<TypeID> {
+    /// Returns a reference to the list of parent types (as `Option<TypeID>`).
+    pub fn type_parent_table(&self) -> &Vec<Option<TypeID>> {
         &self.type_parents_table
     }
 
-    /// Returns a mutable reference to the list of parent types.
-    pub fn type_parent_table_mut(&mut self) -> &mut Vec<TypeID> {
+    /// Returns a mutable reference to the list of parent types (as `Option<TypeID>`).
+    pub fn type_parent_table_mut(&mut self) -> &mut Vec<Option<TypeID>> {
         &mut self.type_parents_table
     }
 
     /// Replaces the current type parents list with the provided one.
-    pub fn set_type_parent_table(&mut self, types: Vec<TypeID>) {
+    pub fn set_type_parent_table(&mut self, types: Vec<Option<TypeID>>) {
         self.type_parents_table = types;
     }
 
@@ -327,6 +329,14 @@ impl Problem {
     pub fn interner(&self) -> &StringInterner {
         &self.interner
     }
+
+    /// Returns a mutable reference to the interner.
+    ///
+    /// # Returns
+    /// Mutable reference to `StringInterner`.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
+        &mut self.interner
+    }
 }
 
 impl TryFrom<LiftedProblem> for Problem {
@@ -341,19 +351,21 @@ impl TryFrom<LiftedProblem> for Problem {
     /// 4. Build the types table using the type symbols.
     /// 5. Build objects (constants and object fluents) based on symbols and types.
     fn try_from(mut lifted_problem: LiftedProblem) -> Result<Self, Self::Error> {
-
         flatten::flatten_types(&mut lifted_problem)?;
-
         let interner = lifted_problem.take_interner();
+
+
         let requirements = lifted_problem.take_requirements();
         let mut problem = Problem::new(interner, requirements);
+        problem.set_domain_id(lifted_problem.domain_id())?;
+        problem.set_problem_id(lifted_problem.problem_id())?;
 
         builders::build_type_symbols_table(&lifted_problem, problem.types_symbols_mut());
         builders::build_predicates_symbols_table(&lifted_problem, problem.predicates_symbols_mut());
         builders::build_functions_symbols_table(&lifted_problem, problem.functions_symbols_mut());
         builders::build_objects_symbols_table(&lifted_problem, problem.objects_symbols_mut());
 
-        let types = builders::build_type_parent_table(&lifted_problem, &problem.types_symbols_mut())?;
+        let types = builders::build_type_parent_table(&lifted_problem, problem.types_symbols_mut())?;
         problem.set_type_parent_table(types);
 
         let objects = builders::build_objects_table(
@@ -370,7 +382,6 @@ impl TryFrom<LiftedProblem> for Problem {
             problem.types_symbols(),
         )?;
 
-        // Optionnel : mettre à jour les ValueDomain avec les ObjectFluentID
         let object_fluents_table = builders::build_object_fluents_table(
             &lifted_problem,
             problem.functions_symbols(),
@@ -388,7 +399,7 @@ impl TryFrom<LiftedProblem> for Problem {
             problem.types_domains()
         )?;
         problem.set_fluents(fluents);
-
+        
         Ok(problem)
     }
 }
@@ -399,37 +410,168 @@ impl fmt::Display for Problem {
         let domain_name = self.domain_name().unwrap_or("<unknown>");
         let problem_name = self.problem_name().unwrap_or("<unknown>");
 
-        writeln!(f, "Problem: {} (Domain: {})", problem_name, domain_name)?;
-        writeln!(f, "Requirements: {:?}", self.requirements)?;
+        writeln!(f, "Domain: {}\nProblem: {}\n", domain_name, problem_name)?;
+
+        if self.requirements.is_empty() {
+            writeln!(f, "Requirements: none")?;
+        } else {
+            writeln!(f, "Requirements:")?;
+            for req in &self.requirements {
+                writeln!(f, "{}", req)?;
+            }
+        }
 
         // ---------- Types ----------
-        writeln!(f, "\nTypes ({}):", self.types_symbols().len())?;
-        writeln!(f, "{}", self.types_symbols())?;
+        writeln!(f, "\nTypes Symbols Table:")?;
+        write!(f, "{}", self.types_symbols())?;
 
         // ---------- Predicates ----------
-        writeln!(f, "\nPredicates ({}):", self.predicates_symbols().len())?;
-        writeln!(f, "{}", self.predicates_symbols())?;
+        writeln!(f, "\nPredicates Symbols Table:")?;
+        write!(f, "{}", self.predicates_symbols())?;
 
         // ---------- Functions ----------
-        writeln!(f, "\nFunctions ({}):", self.functions_symbols().len())?;
-        writeln!(f, "{}", self.functions_symbols())?;
+        writeln!(f, "\nFunctions Symbols Table:")?;
+        write!(f, "{}", self.functions_symbols())?;
 
         // ---------- Objects ----------
-        writeln!(f, "\nObjects ({}):", self.objects_symbols().len())?;
-        writeln!(f, "{}", self.objects_symbols())?;
+        writeln!(f, "\nObjects Symbols Table:")?;
+        write!(f, "{}", self.objects_symbols())?;
 
-        /*// ---------- Object-Fluents ----------
-        writeln!(f, "\nObject-Fluents ({}):", self.objects_fluents.len())?;
-        for of in &self.objects_fluents {
-            let name = self.functions_symbols.get_string(of.symbol).unwrap_or("<unknown>");
-            let args: Vec<String> = of.parameters
-                .iter()
-                .map(|p| self.objects_symbols.get_string(*p).unwrap_or("<unknown>").to_string())
-                .collect();
-            let ret_type = self.types_symbols.get_string(of.ty).unwrap_or("<unknown>");
-            writeln!(f, "  {}({}) : {}", name, args.join(", "), ret_type)?;
-        }*/
+        // ---------- Type Parents ----------
+        writeln!(f, "\nType Parents Table:")?;
+        for (idx, parent) in self.type_parent_table().iter().enumerate() {
+            match parent {
+                Some(parent_id) => writeln!(f, "{} : {}", idx, parent_id)?,
+                None => writeln!(f, "{} : <None>", idx, )?,
+            }
+
+        }
+
+        // ---------- Object Type Domains ----------
+        writeln!(f, "\nType Domains Table:")?;
+        if self.types_domains().is_empty() {
+            writeln!(f, "<None>")?;
+        } else {
+            for (idx, values) in self.types_domains().iter().enumerate() {
+                writeln!(f, "{}: {}", idx, values)?;
+            }
+        }
+
+
+        // ---------- Object Fluents ----------
+        writeln!(f, "\nObject Fluents Table:")?;
+        if self.objects_fluents().is_empty() {
+            writeln!(f, "<None>")?;
+        } else {
+            for (idx, object_fluent) in self.objects_fluents().iter().enumerate() {
+                write!(f, "{}: ", idx)?;
+                // Utilise fmt_object_fluent_with_interner pour afficher proprement
+                self.fmt_object_fluent_with_interner(f, object_fluent)?;
+                writeln!(f)?;
+            }
+        }
+
+        // ---------- Fluents ----------
+        writeln!(f, "\nFluents Table:")?;
+        if self.fluents().is_empty() {
+            writeln!(f, "<None>")?;
+        } else {
+            for (idx, fluent) in self.fluents().iter().enumerate() {
+                write!(f, "{}: ", idx)?;
+                self.fmt_fluent_with_interner(f, fluent)?;
+                writeln!(f)?;
+            }
+        }
 
         Ok(())
     }
 }
+
+impl Problem {
+    /// Format a single ObjectFluent using the problem's symbol tables.
+    pub fn fmt_object_fluent_with_interner<W: fmt::Write>(
+        &self,
+        f: &mut W,
+        object_fluent: &ObjectFluent,
+    ) -> fmt::Result {
+        // Récupérer le nom du fluent
+        let fluent_name = self
+            .functions_symbols()
+            .get_string(object_fluent.symbol())
+            .unwrap_or("<unknown-fluent>");
+
+        write!(f, "({}", fluent_name)?;
+
+        // Parcourir les paramètres (toujours ObjectID)
+        for obj_id in object_fluent.parameters() {
+            let obj_name = self
+                .objects_symbols()
+                .get_string(*obj_id)
+                .unwrap_or("<unknown-object>");
+            write!(f, " {}", obj_name)?;
+        }
+
+        write!(f, ")")?;
+        Ok(())
+    }
+
+    /// Format a single Fluent using the problem's symbol tables.
+    pub fn fmt_fluent_with_interner<W: fmt::Write>(
+        &self,
+        f: &mut W,
+        fluent: &Fluent,
+    ) -> fmt::Result {
+        let predicate_name = self
+            .predicates_symbols()
+            .get_string(fluent.symbol())
+            .unwrap_or("<unknown-predicate>");
+        write!(f, "({}", predicate_name)?;
+
+        for param in fluent.parameters() {
+            match param {
+                ParameterID::Object(obj_id) => {
+                    let param_str = self
+                        .objects_symbols()
+                        .get_string(*obj_id)
+                        .unwrap_or("<unknown-parameter>");
+                    write!(f, " {}", param_str)?;
+                }
+                ParameterID::ObjectFluent(obj_fluent_id) => {
+                    // Utiliser la fonction dédiée pour ObjectFluent
+                    let obj_fluent = self
+                        .objects_fluents()
+                        .get(obj_fluent_id.as_usize());
+
+                    if let Some(of) = obj_fluent {
+                        self.fmt_object_fluent_with_interner(f, of)?;
+                    } else {
+                        write!(f, " <unknown-object-fluent>")?;
+                    }
+                }
+            }
+        }
+
+        write!(f, ")")?;
+        Ok(())
+    }
+
+    /// Convert an ObjectFluent into a String.
+    pub fn to_string_object_fluent(&self, object_fluent: &ObjectFluent) -> String {
+        let mut s = String::new();
+        use std::fmt::Write;
+        self.fmt_object_fluent_with_interner(&mut s, object_fluent)
+            .unwrap_or_else(|_| s.push_str("<object-fluent-format-error>"));
+        s
+    }
+
+    /// Convert a Fluent into a String.
+    pub fn to_string_fluent(&self, fluent: &Fluent) -> String {
+        let mut s = String::new();
+        use std::fmt::Write;
+        self.fmt_fluent_with_interner(&mut s, fluent)
+            .unwrap_or_else(|_| s.push_str("<fluent-format-error>"));
+        s
+    }
+}
+
+impl SerdeSerializable for Problem { }

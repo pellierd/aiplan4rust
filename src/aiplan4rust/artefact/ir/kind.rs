@@ -66,6 +66,8 @@ pub enum IRKind {
 
     /// Lifted problem artifact.
     LiftedProblem,
+
+    GroundedProblem,
 }
 
 impl Display for IRKind {
@@ -84,6 +86,7 @@ impl Display for IRKind {
             IRKind::ParsedDomain => "Domain",
             IRKind::ParsedProblem => "Problem",
             IRKind::LiftedProblem => "Lifted Problem",
+            IRKind::GroundedProblem => "Grounded Problem",
         };
         write!(f, "{}", s)
     }

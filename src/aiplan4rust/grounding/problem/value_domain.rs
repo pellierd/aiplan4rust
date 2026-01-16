@@ -49,6 +49,25 @@ impl ValueDomain {
     }
 }
 
+use std::fmt;
+
+impl fmt::Display for ValueDomain {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Concatène objets et object-fluents en une seule liste
+        let all_ids = self
+            .objects
+            .iter()
+            .map(|id| id.to_string())
+            .chain(self.object_fluents.iter().map(|id| id.to_string()))
+            .collect::<Vec<_>>()
+            .join(", ");
+
+        write!(f, "{}", if all_ids.is_empty() { "<None>" } else { &all_ids })?;
+
+        Ok(())
+    }
+}
+
 
 /*/// Génération a priori des object-fluents avec filtrage simple
 pub fn generate_object_fluents_map(

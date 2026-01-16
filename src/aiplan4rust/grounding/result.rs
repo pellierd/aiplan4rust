@@ -1,5 +1,6 @@
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::DiagnosticManager;
+use crate::aiplan4rust::diagnostic::DiagnosticManager;
+use crate::aiplan4rust::interner::StringInterner;
 use std::fmt;
 
 /// Represents the outcome of grounding a lifted planning problem.
@@ -12,26 +13,8 @@ use std::fmt;
 ///
 /// - `Success` — Grounding succeeded and contains a fully constructed `Problem`
 ///   along with a `DiagnosticManager`.
-/// - `Failure` — Grounding failed, containing only a `DiagnosticManager`
-///   explaining the errors or warnings encountered.
-///
-/// # Examples
-///
-/// ```rust
-/// use crate::grounding::{GroundingResult, Problem};
-/// use crate::DiagnosticManager;
-///
-/// let diag_manager = DiagnosticManager::new();
-/// let problem = Problem::new_dummy(); // hypothetical constructor
-///
-/// // Success case
-/// let result = GroundingResult::success(problem, diag_manager.clone());
-/// assert!(result.is_success());
-///
-/// // Failure case
-/// let failed = GroundingResult::failure(diag_manager);
-/// assert!(failed.is_failure());
-/// ```
+/// - `Failure` — Grounding failed, containing a `DiagnosticManager` and a
+///   `StringInterner` preserving identifiers.
 #[derive(Debug, Clone)]
 pub enum Result {
     /// Grounding succeeded, containing the grounded problem and diagnostics.
@@ -41,22 +24,17 @@ pub enum Result {
         /// Diagnostics collected during grounding (warnings, info, etc.).
         diagnostic_manager: DiagnosticManager,
     },
-    /// Grounding failed, containing diagnostics but no grounded problem.
+    /// Grounding failed, containing diagnostics and the interner.
     Failure {
         /// Diagnostics explaining why grounding failed.
         diagnostic_manager: DiagnosticManager,
+        /// Interner preserved for consistent symbol reporting.
+        interner: StringInterner,
     },
 }
 
 impl Result {
     /// Creates a successful grounding result.
-    ///
-    /// # Parameters
-    /// - `problem` — The grounded `Problem`.
-    /// - `diagnostic_manager` — Diagnostics collected during grounding.
-    ///
-    /// # Returns
-    /// A `GroundingResult::Success` containing the problem and diagnostics.
     pub fn success(problem: Problem, diagnostic_manager: DiagnosticManager) -> Self {
         Self::Success {
             problem,
@@ -64,22 +42,15 @@ impl Result {
         }
     }
 
-    /// Creates a failed grounding result.
-    ///
-    /// # Parameters
-    /// - `diagnostic_manager` — Diagnostics explaining the failure.
-    ///
-    /// # Returns
-    /// A `GroundingResult::Failure` containing the diagnostics.
-    pub fn failure(diagnostic_manager: DiagnosticManager) -> Self {
-        Self::Failure { diagnostic_manager }
+    /// Creates a failed grounding result with diagnostics and interner.
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+        Self::Failure {
+            diagnostic_manager,
+            interner,
+        }
     }
 
     /// Returns a reference to the grounded problem if successful.
-    ///
-    /// # Returns
-    /// - `Some(&Problem)` if grounding succeeded.
-    /// - `None` if grounding failed.
     pub fn problem(&self) -> Option<&Problem> {
         match self {
             Self::Success { problem, .. } => Some(problem),
@@ -88,10 +59,6 @@ impl Result {
     }
 
     /// Returns a mutable reference to the grounded problem if successful.
-    ///
-    /// # Returns
-    /// - `Some(&mut Problem)` if grounding succeeded.
-    /// - `None` if grounding failed.
     pub fn problem_mut(&mut self) -> Option<&mut Problem> {
         match self {
             Self::Success { problem, .. } => Some(problem),
@@ -99,56 +66,77 @@ impl Result {
         }
     }
 
+    /// Consumes and returns the grounded problem if successful.
+    pub fn take_problem(&mut self) -> Option<Problem> {
+        match self {
+            Self::Success { problem, .. } => Some(std::mem::take(problem)),
+            Self::Failure { .. } => None,
+        }
+    }
+
     /// Returns a reference to the diagnostic manager.
-    ///
-    /// # Returns
-    /// A reference to the `DiagnosticManager` regardless of success or failure.
     pub fn diagnostic_manager(&self) -> &DiagnosticManager {
         match self {
             Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager } => diagnostic_manager,
+            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
         }
     }
 
     /// Returns a mutable reference to the diagnostic manager.
-    ///
-    /// # Returns
-    /// A mutable reference to the `DiagnosticManager` regardless of success or failure.
     pub fn diagnostic_manager_mut(&mut self) -> &mut DiagnosticManager {
         match self {
             Self::Success { diagnostic_manager, .. } => diagnostic_manager,
-            Self::Failure { diagnostic_manager } => diagnostic_manager,
+            Self::Failure { diagnostic_manager, .. } => diagnostic_manager,
         }
     }
 
-    /// Returns `true` if grounding succeeded.
+    /// Consumes and returns the diagnostic manager, leaving an empty one.
+    pub fn take_diagnostic_manager(&mut self) -> DiagnosticManager {
+        match self {
+            Self::Success { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+            Self::Failure { diagnostic_manager, .. } => std::mem::take(diagnostic_manager),
+        }
+    }
+
+    /// Returns a reference to the interner.
     ///
-    /// # Returns
-    /// `true` if the variant is `Success`, `false` otherwise.
+    /// - If grounding succeeded, retrieves the interner from the problem.
+    /// - If grounding failed, retrieves the preserved interner.
+    pub fn interner(&self) -> &StringInterner {
+        match self {
+            Self::Success { problem, .. } => problem.interner(),
+            Self::Failure { interner, .. } => interner,
+        }
+    }
+
+    /// Returns a mutable reference to the interner.
+    pub fn interner_mut(&mut self) -> &mut StringInterner {
+        match self {
+            Self::Success { problem, .. } => problem.interner_mut(),
+            Self::Failure { interner, .. } => interner,
+        }
+    }
+
+    /// Consumes and returns the interner.
+    pub fn take_interner(&mut self) -> StringInterner {
+        match self {
+            Self::Success { problem, .. } => std::mem::take(problem.interner_mut()),
+            Self::Failure { interner, .. } => std::mem::take(interner),
+        }
+    }
+
+    /// Returns true if grounding succeeded.
     pub fn is_success(&self) -> bool {
         matches!(self, Self::Success { .. })
     }
 
-    /// Returns `true` if grounding failed.
-    ///
-    /// # Returns
-    /// `true` if the variant is `Failure`, `false` otherwise.
+    /// Returns true if grounding failed.
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Failure { .. })
     }
 }
 
 impl fmt::Display for Result {
-    /// Formats the grounding result for human-readable output.
-    ///
-    /// On success, prints the grounded problem and any diagnostics.
-    /// On failure, prints a failure message along with diagnostics.
-    ///
-    /// # Parameters
-    /// - `f` — A formatter for writing the output.
-    ///
-    /// # Returns
-    /// - `fmt::Result` indicating success or failure of the write operations.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Success { problem, diagnostic_manager } => {
@@ -162,7 +150,7 @@ impl fmt::Display for Result {
                     writeln!(f, "\nNo diagnostics reported.")?;
                 }
             }
-            Self::Failure { diagnostic_manager } => {
+            Self::Failure { diagnostic_manager, .. } => {
                 writeln!(f, "Grounding failed.")?;
                 for diag in diagnostic_manager.diagnostics() {
                     writeln!(f, "{}", diag)?;
