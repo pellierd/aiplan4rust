@@ -68,7 +68,7 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
 
     // Types
     writeln_centered(f, "TYPES", 80, '=')?;
-    if problem.has_types() {
+    if !problem.has_types() {
         writeln!(f, "  - no types")?;
     } else {
         for t in problem.types() {
@@ -79,7 +79,7 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
 
     // Constants
     writeln_centered(f, "CONSTANTS", 80, '=')?;
-    if problem.has_constants() {
+    if !problem.has_constants() {
         writeln!(f, "  - no constants")?;
     } else {
         for c in problem.constants() {
@@ -90,7 +90,7 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
 
     // Objects
     writeln_centered(f, "OBJECTS", 80, '=')?;
-    if problem.has_objects() {
+    if !problem.has_objects() {
         writeln!(f, "  - no objects")?;
     } else {
         for o in problem.objects() {
@@ -267,7 +267,7 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
 
     // Types
     writeln_centered(f, "TYPES", 80, '=')?;
-    if domain.has_types() {
+    if !domain.has_types() {
         writeln!(f, "  - no types")?;
     } else {
         for t in domain.types() {
@@ -278,7 +278,7 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
 
     // Constants
     writeln_centered(f, "CONSTANTS", 80, '=')?;
-    if domain.has_constants() {
+    if !domain.has_constants() {
         writeln!(f, "  - no constants")?;
     } else {
         for c in domain.constants() {
@@ -407,7 +407,7 @@ pub fn render_problem_def(f: &mut fmt::Formatter<'_>, problem: &ProblemDef) -> s
 
     // Objects
     writeln_centered(f, "OBJECTS", 80, '=')?;
-    if problem.has_objects() {
+    if !problem.has_objects() {
         writeln!(f, "  - no objects")?;
     } else {
         for o in problem.objects() {

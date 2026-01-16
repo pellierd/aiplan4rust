@@ -34,7 +34,7 @@ use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
 use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
 use crate::aiplan4rust::semantic::AnalyzerResult;
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
@@ -42,7 +42,7 @@ use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::linking::error::LinkingError;
 
 use std::mem::take;
-
+use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// The `Linker` struct is responsible for performing the linking phase
 /// between domain and problem semantic contexts.
@@ -118,7 +118,6 @@ impl Linker {
     ) -> Result<LinkerResult, LinkingError> {
         match (domain.take_semantic_context(), problem.take_semantic_context()) {
             (Some(domain_ctx), Some(mut problem_ctx)) => {
-
                 // Step 1: Merge the string interners from domain and problem to form a global interner
                 let mut result = InternerMergeResult::from_domain_and_problem(
                     domain_ctx.interner(),
@@ -130,6 +129,7 @@ impl Linker {
                 let ident_map = result.take_ident_map();
                 let literal_map = result.take_literal_map();
                 problem_ctx.remap(&ident_map, &literal_map)?;
+
                 // Collect diagnostics from domain and problem diagnostic managers
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();

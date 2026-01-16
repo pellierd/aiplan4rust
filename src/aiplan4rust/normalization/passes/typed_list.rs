@@ -269,12 +269,14 @@ fn normalize_typed_list_node_children(
             extract_typed_item_data(syntax_tree, typed_item_id)?;
 
         for element_id in element_ids {
+
             let new_node = create_typed_item_node(
                 element_id,
                 type_id_opt,
                 span.clone(),
                 node_id,
-            );
+                syntax_tree,
+            )?;
             let new_id = syntax_tree.alloc(new_node);
             new_typed_items.push(new_id);
         }
@@ -379,42 +381,54 @@ fn extract_typed_item_data(
     Ok((element_ids, type_id_opt, span))
 }
 
-/// Creates a new `TypedItem` syntax containing exactly one element and optionally a type_checker.
+/// Creates a new `TypedItem` syntax containing exactly one element and optionally a cloned type.
 ///
 /// This function is used during normalization of `TypedList` nodes to reconstruct
 /// each `TypedItem` in a uniform structure.
+/// The element is included as-is, but if a type node is provided, it is **cloned**
+/// to ensure each `TypedItem` has its own independent type subtree.
 ///
 /// # Arguments
 ///
-/// * `element_id` - The syntax ID of the single element to include.
-/// * `type_id_opt` - An optional syntax ID representing the type_checker annotation.
+/// * `element_id` - The syntax ID of the single element to include. This is **not cloned**.
+/// * `type_id_opt` - An optional syntax ID representing the type. If present, it is **cloned**.
 /// * `span` - The source span associated with the new syntax.
 /// * `parent_id` - The parent syntax ID, typically referring to the `TypedList`.
+/// * `syntax_tree` - A mutable reference to the `SyntaxTree`, required for cloning the type.
 ///
 /// # Returns
 ///
-/// A new `AstNode` instance representing the normalized `TypedItem`.
+/// * `Ok(AstNode)` - A new `AstNode` instance representing the normalized `TypedItem`.
+/// * `Err(NormalizationPassError)` - If cloning the type subtree fails.
+///
+/// # Notes
+///
+/// This function guarantees that each normalized `TypedItem` has an independent
+/// type node, preventing accidental sharing of AST subtrees that could
+/// lead to incorrect analysis or mutations.
 fn create_typed_item_node(
     element_id: NodeId,
     type_id_opt: Option<NodeId>,
     span: Span,
     parent_id: NodeId,
-) -> AstNode {
+    syntax_tree: &mut SyntaxTree<AstNode>,
+) -> Result<AstNode, NormalizationPassError> {
     // Initialize children with the mandatory element syntax
     let mut children = vec![element_id];
 
-    // If a type_checker is provided, append it as the second child
+    // Clone the type subtree if present
     if let Some(type_id) = type_id_opt {
-        children.push(type_id);
+        let clone_type = syntax_tree.clone_subtree(type_id)?;
+        children.push(clone_type);
     }
 
     // Create the new TypedItem syntax with no content,
     // storing the span and parent information
-    AstNode::new(
+    Ok(AstNode::new(
         AstKind::TypedItem,
         AstContent::None,
         children,
         span,
         Some(parent_id),
-    )
+    ))
 }

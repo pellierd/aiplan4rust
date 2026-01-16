@@ -342,9 +342,7 @@ impl RemapIdents for Content {
     ///   can return [`InternerError::MissingIdent`] if desired.
     fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
         if let Content::Ident(id) = self {
-            if let Some(new_id) = map.get(id) {
-                *id = *new_id;
-            }
+            id.remap_idents(map)?;
         }
         Ok(())
     }
