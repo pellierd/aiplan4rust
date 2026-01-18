@@ -58,7 +58,7 @@ use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 /// - Implements [`Deref`] and [`DerefMut`] to access the underlying [`NamedTypedList`] transparently.
 /// - Supports pretty-printing with or without an interner (see [`InternerDisplay`] and [`SyntaxInternerDisplay`]).
 /// - Can be constructed directly or parsed from an AST syntax via [`FromAst`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Formula {
     /// Underlying skeleton holding the identifier and parameters.
     header: NamedTypedList,

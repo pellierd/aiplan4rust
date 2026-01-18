@@ -38,7 +38,7 @@
 //! ```
 
 use std::fmt::{self, Display, Formatter};
-use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
@@ -192,6 +192,16 @@ impl<'a> DomainDef<'a> {
         self.problem.functions()
     }
 
+
+    /// Returns a reference to the list of derived predicates.
+    ///
+    /// # Returns
+    ///
+    /// A reference to a [`Vec`] of [`LiftedDerivedPredicate`] representing derived predicates.
+    pub fn derived_predicates(&self) -> &Vec<LiftedDerivedPredicate> {
+        &self.problem.derived_predicates()
+    }
+
     /// Returns the actions declared in the domain.
     ///
     /// # Returns
@@ -199,6 +209,15 @@ impl<'a> DomainDef<'a> {
     /// A reference to a [`Vec`] of [`LiftedAction`] representing actions.
     pub fn actions(&self) -> &Vec<LiftedAction> {
         self.problem.actions()
+    }
+
+    /// Returns the durative actions declared in the domain.
+    ///
+    /// # Returns
+    ///
+    /// A reference to a [`Vec`] of [`LiftedDurativeAction`] representing actions.
+    pub fn durative_actions(&self) -> &Vec<LiftedDurativeAction> {
+        self.problem.durative_actions()
     }
 
     /// Returns the methods declared in the domain.

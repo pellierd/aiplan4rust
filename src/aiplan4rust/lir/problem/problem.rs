@@ -46,7 +46,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{extract, normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{extract, normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -75,7 +75,9 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 /// - `functions`: Function skeletons (signatures) available in the problem.
 /// - `domain_constraints`: Global domain-level constraints (can be empty).
 /// - `tasks`: Decomposable task declarations used in HTN planning.
+/// - `derived_predicates`: Derived predicates available in the problem.
 /// - `actions`: Primitive actions available in the problem.
+/// - `durative_actions`: Durative actions available in the problem.
 /// - `methods`: HTN decomposition methods.
 /// - `objects`: Concrete objects defined in the problem instance.
 /// - `init`: The initial state, expressed as a logical expression.
@@ -129,6 +131,9 @@ pub struct Problem {
 
     /// The list of tasks defined in this syntax problem.
     tasks: Vec<AtomicTaskSkeleton>,
+
+    /// The list of derived predicates defined in this syntax problem.
+    derived_predicates: Vec<LiftedDerivedPredicate>,
 
     /// The list of actions defined in this syntax problem.
     actions: Vec<LiftedAction>,
@@ -188,6 +193,7 @@ impl Problem {
             functions: Vec::new(),
             domain_constraints: Expr::empty_or(),
             tasks: Vec::new(), // Add for HDDL
+            derived_predicates: Vec::new(),
             actions: Vec::new(),
             durative_actions: Vec::new(),
             methods: Vec::new(), // Add for HDDL
@@ -645,6 +651,23 @@ impl Problem {
         I: IntoIterator<Item = AtomicTaskSkeleton>,
     {
         self.tasks.extend(iter);
+    }
+
+    // === Derived Predicates ===
+
+    /// Returns a reference to the list of derived predicates.
+    pub fn derived_predicates(&self) -> &Vec<LiftedDerivedPredicate> {
+        &self.derived_predicates
+    }
+
+    /// Returns a mutable reference to the list of derived predicates.
+    pub fn derived_predicates_mut(&mut self) -> &mut Vec<LiftedDerivedPredicate> {
+        &mut self.derived_predicates
+    }
+
+    /// Adds a single derived predicate to the problem.
+    pub fn add_derived_predicate(&mut self, predicate: LiftedDerivedPredicate) {
+        self.derived_predicates.push(predicate);
     }
 
     // === Actions ===

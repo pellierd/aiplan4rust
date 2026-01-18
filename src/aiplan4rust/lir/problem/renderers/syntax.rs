@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::{display, SyntaxInternerDisplay};
 use std::fmt;
@@ -112,11 +112,25 @@ pub fn render_domain_def(
         writeln!(f, "{}", dc.to_syntax_string_with_interner(interner))?;
         writeln!(f, "  {}\n", Token::RParen)?;
     }
+
+    // Derived Predicates
+    for derived_predicate in domain.derived_predicates() {
+        renderers::syntax::render_derived_predicate(f, derived_predicate, interner, 1)?;
+        writeln!(f)?;
+    }
+
     // Actions
     for action in domain.actions() {
         renderers::syntax::render_action(f, action, interner, 1)?;
         writeln!(f)?;
     }
+
+    // Durative Actions
+    for action in domain.durative_actions() {
+        renderers::syntax::render_durative_action(f, action, interner, 1)?;
+        writeln!(f)?;
+    }
+
     // Methods
     for method in domain.methods() {
         renderers::syntax::render_method(f, method, interner, 1)?;
@@ -644,6 +658,74 @@ pub fn render_initial_task_network(
         display::write_indent(f, indent)?;
         writeln!(f, "{} {}", Token::Constraints, network.logical_constraints().to_syntax_string_with_interner(interner))?;
     }
+
+    Ok(())
+}
+
+/// Renders an initial task network (`InitialTaskNetwork`) into a PDDL-like syntax representation.
+///
+/// This function formats the parameters and task network of the initial task network
+/// into the provided formatter. The `StringInterner` is used to resolve interned identifiers,
+/// producing human-readable names. Indentation is applied according to the `indent` parameter
+/// for readability.
+///
+/// # Arguments
+///
+/// * `f` - The [`fmt::Formatter`] to write the rendered output into.
+/// * `init_network` - The [`InitialTaskNetwork`] to render.
+/// * `interner` - The [`StringInterner`] used to resolve identifiers for parameters and tasks.
+/// * `indent` - The indentation level (number of indent units) to apply to the rendered output.
+///
+/// # Returns
+///
+/// Returns a [`fmt::Result`] indicating whether the formatting was successful.
+///
+/// Sections are omitted if the corresponding component is empty.
+///
+/// # Example
+///
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::InitialTaskNetwork;
+/// use crate::aiplan4rust::interner::StringInterner;
+/// use crate::aiplan4rust::lir::problem::renderers::syntax::render_initial_task_network;
+///
+/// # let init_network: InitialTaskNetwork = todo!();
+/// # let interner: StringInterner = todo!();
+/// let mut s = String::new();
+/// render_initial_task_network(&mut s, &init_network, &interner, 2).unwrap();
+/// println!("{}", s);
+/// ```
+///
+/// # Notes
+///
+/// - If the task network contains no tasks, the `(tasks ...)` section is omitted.
+/// - Ordering and logical constraints are only rendered if they exist.
+/// - This function is mainly used internally by `render_problem_def` when rendering the initial tasks of a problem.
+pub fn render_derived_predicate(
+    f: &mut fmt::Formatter<'_>,
+    derived_predicate: &LiftedDerivedPredicate,
+    interner: &StringInterner,
+    indent: usize,
+) -> fmt::Result {
+    // indentation initiale
+    display::write_indent(f, indent)?;
+
+    write!(f, "({} ", Token::DerivedPredicates)?;
+    writeln!(
+        f,
+        "{}",
+        derived_predicate.head().to_syntax_string_with_interner(interner)
+    )?;
+
+    for line in derived_predicate.body().to_syntax_string_with_interner(interner).lines() {
+        display::write_indent(f, indent + 2)?; // bondy indentation
+        writeln!(f, "{}", line)?;
+    }
+
+    // fermeture
+    display::write_indent(f, indent)?;
+    writeln!(f, ")")?;
 
     Ok(())
 }

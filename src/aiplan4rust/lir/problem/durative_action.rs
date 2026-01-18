@@ -231,13 +231,32 @@ impl DurativeAction {
     }
 }
 
-impl RemapTypes for DurativeAction {
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
-        self.action.remap_types(map)?;
-        Ok(())
-    }
-}
-
+/// Converts a validated [`SyntaxSubtree`] into a [`DurativeAction`].
+///
+/// Assumes the subtree represents a durative action definition with the following structure:
+/// - Child 0: the action header (name and parameters)
+/// - Child 1: reserved / ignored
+/// - Child 2: the body containing duration, condition, and effect expressions
+///
+/// # Arguments
+///
+/// * `subtree` - A reference to a [`SyntaxSubtree`] representing the durative action.
+///
+/// # Returns
+///
+/// Returns `Ok(DurativeAction)` if parsing succeeds, or a [`LirError`] if
+/// any conversion fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// # use crate::aiplan4rust::lir::{DurativeAction, LirError};
+/// # use crate::aiplan4rust::syntax::{AstNode, SyntaxSubtree};
+/// # fn example(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<DurativeAction, LirError> {
+/// let durative_action = DurativeAction::try_from(subtree)?;
+/// # Ok(durative_action)
+/// # }
+/// ```
 impl TryFrom<&SyntaxSubtree<'_, AstNode>> for DurativeAction {
     type Error = LirError;
 
@@ -251,22 +270,43 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for DurativeAction {
         // Get the body node of the action
         let def_body_node = ast.try_node(node.try_child(2)?)?;
 
-        debug_assert_eq!(def_body_node.children().len(), 3);
-
-        // Iterate over the children of the body node
+        // Parse duration
         let duration_id = def_body_node.try_child(0)?;
-        let duration = ast.try_node(duration_id)?;
-        let duration = Expr::try_from(&SyntaxSubtree::new(duration, ast))?;
+        let duration_node = ast.try_node(duration_id)?;
+        let duration = Expr::try_from(&SyntaxSubtree::new(duration_node, ast))?;
 
+        // Parse condition
         let condition_id = def_body_node.try_child(1)?;
-        let condition = ast.try_node(condition_id)?;
-        let condition = Expr::try_from(&SyntaxSubtree::new(condition, ast))?;
+        let condition_node = ast.try_node(condition_id)?;
+        let condition = Expr::try_from(&SyntaxSubtree::new(condition_node, ast))?;
 
+        // Parse effect
         let eff_node_id = def_body_node.try_child(2)?;
         let eff_node = ast.try_node(eff_node_id)?;
         let effect = Expr::try_from(&SyntaxSubtree::new(eff_node, ast))?;
 
         Ok(DurativeAction::from_header(header, duration, condition, effect))
+    }
+}
+
+impl RemapTypes for DurativeAction {
+    /// Remaps union types (`Type::Either`) in the action's parameters, conditions, effects, and duration.
+    ///
+    /// This method updates all `Type::Either` occurrences in the `DurativeAction`:
+    /// - The action's parameters
+    /// - The precondition (via `condition()`)
+    /// - The effect
+    /// - The duration expression
+    ///
+    /// # Parameters
+    /// - `map`: A [`HashMap<Type, Ident>`] mapping union types to their corresponding primitive `Ident`s.
+    ///
+    /// # Returns
+    /// - `Ok(())` if all types were successfully remapped.
+    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
+    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+        self.action.remap_types(map)?;
+        Ok(())
     }
 }
 

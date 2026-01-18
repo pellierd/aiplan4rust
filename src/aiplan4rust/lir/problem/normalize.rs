@@ -2,6 +2,7 @@ use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::expr;
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
+use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::problem::durative_action::DurativeAction;
 use crate::aiplan4rust::lir::problem::method::Method;
 use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
@@ -28,6 +29,11 @@ pub(crate) fn normalize_problem(problem: &mut LiftedProblem) -> Result<(), ExprE
     expr::normalize(&mut problem.domain_constraints_mut())?;
     expr::normalize(&mut problem.problem_constraints_mut())?;
     expr::normalize(&mut problem.metric_spec_mut())?;
+
+    // Normalize all derived predicates
+    for derived_predicate in problem.derived_predicates_mut() {
+        normalize_derived_predicate(derived_predicate)?;
+    }
 
     // Normalize all actions
     for action in problem.actions_mut() {
@@ -187,4 +193,36 @@ pub(crate) fn normalize_initial_task_network(
     init: &mut InitialTaskNetwork,
 ) -> Result<(), ExprError> {
     normalize_task_network(&mut init.task_network_mut())
+}
+
+/// Normalizes the logical expression of a `DerivedPredicate`.
+///
+/// This function applies expression normalization only to the `body` of the
+/// derived predicate. The `head` (predicate name and parameters) is not modified.
+///
+/// This function is intended for internal use within the `problem` module
+/// and is not part of the public API.
+///
+/// # Arguments
+///
+/// * `derived_predicate` - A mutable reference to the `DerivedPredicate` to normalize.
+///
+/// # Errors
+///
+/// Returns an [`ExprError`] if normalization of the `body` expression fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// # use aiplan4rust::lir::DerivedPredicate;
+/// # use aiplan4rust::lir::expr::ExprError;
+/// # fn example(derived: &mut DerivedPredicate) -> Result<(), ExprError> {
+/// normalize_derived_predicate(derived)?;
+/// # Ok(())
+/// # }
+/// ```
+pub(crate) fn normalize_derived_predicate(
+    derived_predicate: &mut DerivedPredicate
+) -> Result<(), ExprError> {
+    expr::normalize(derived_predicate.body_mut())
 }

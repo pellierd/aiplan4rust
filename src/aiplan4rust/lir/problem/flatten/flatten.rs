@@ -38,8 +38,16 @@ pub fn flatten_types(problem: &mut LiftedProblem) -> Result<(), LirError> {
         task.remap_types(&flatten_types_map)?;
     }
 
+    for derived_predicate in problem.derived_predicates_mut() {
+        derived_predicate.remap_types(&flatten_types_map)?;
+    }
+
     for action in problem.actions_mut() {
         action.remap_types(&flatten_types_map)?;
+    }
+
+    for durative_action in problem.durative_actions_mut() {
+        durative_action.remap_types(&flatten_types_map)?;
     }
 
     for methods in problem.methods_mut() {

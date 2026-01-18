@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 
@@ -128,12 +128,32 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
         writeln!(f, "{}\n", dc)?;
     }
 
+    // Derived predicates
+    if problem.derived_predicates().is_empty() {
+        writeln!(f, "  - no derived predicates\n")?;
+    } else {
+        for derived_predicate in problem.derived_predicates() {
+            render_derived_predicate(f, derived_predicate)?;
+            writeln!(f)?;
+        }
+    }
+
     // Actions
     if problem.actions().is_empty() {
         writeln!(f, "  - no actions\n")?;
     } else {
         for action in problem.actions() {
             render_action(f, action)?;
+            writeln!(f)?;
+        }
+    }
+
+    // Durative Actions
+    if problem.durative_actions().is_empty() {
+        writeln!(f, "  - no durative actions\n")?;
+    } else {
+        for action in problem.durative_actions() {
+            render_durative_action(f, action)?;
             writeln!(f)?;
         }
     }
@@ -316,12 +336,32 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
         writeln!(f, "{}\n", dc)?;
     }
 
+    // Derived predicates
+    if domain.derived_predicates().is_empty() {
+        writeln!(f, "  - no derived predicates\n")?;
+    } else {
+        for derived_predicate in domain.derived_predicates() {
+            render_derived_predicate(f, derived_predicate)?;
+            writeln!(f)?;
+        }
+    }
+
     // Actions
     if domain.actions().is_empty() {
         writeln!(f, "  - no actions\n")?;
     } else {
         for action in domain.actions() {
             render_action(f, action)?;
+            writeln!(f)?;
+        }
+    }
+
+    // Durative Actions
+    if domain.durative_actions().is_empty() {
+        writeln!(f, "  - no durative actions\n")?;
+    } else {
+        for action in domain.durative_actions() {
+            render_durative_action(f, action)?;
             writeln!(f)?;
         }
     }
@@ -698,5 +738,45 @@ pub fn render_initial_task_network(f: &mut fmt::Formatter<'_>, network: &Initial
     writeln!(f, "TASKS:\n  {}", tn.tasks())?;
     writeln!(f, "ORDERING:\n  {}", tn.ordering_constraints())?;
     writeln!(f, "CONSTRAINTS:\n  {}", tn.logical_constraints())?;
+    Ok(())
+}
+
+/// Renders a `LiftedDerivedPredicate` in a human-readable, structured format to a `Formatter`.
+///
+/// This function prints the derived predicate in two sections:
+/// - **HEAD**: The atomic formula skeleton representing the predicate's name and parameters.
+/// - **BODY**: The logical expression defining when the derived predicate is true, printed line by line.
+///
+/// Each section is printed with indentation for readability. A centered section title is added
+/// at the top for clarity.
+///
+/// # Parameters
+/// - `f`: A mutable reference to a `std::fmt::Formatter` where the output will be written.
+/// - `derived_predicate`: The `LiftedDerivedPredicate` instance to render.
+///
+/// # Returns
+/// Returns a `std::fmt::Result` indicating whether writing to the formatter succeeded.
+///
+/// # Example
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::LiftedDerivedPredicate;
+///
+/// let derived: LiftedDerivedPredicate = /* create or obtain a derived predicate */;
+/// let mut output = String::new();
+/// // If rendering via Formatter, use a wrapper:
+/// let _ = render_derived_predicate(&mut std::fmt::Formatter::new(&mut output), &derived);
+/// println!("{}", output);
+/// ```
+pub fn render_derived_predicate(
+    f: &mut fmt::Formatter<'_>,
+    derived_predicate: &LiftedDerivedPredicate,
+) -> std::fmt::Result {
+    writeln_centered(f, "DERIVED PREDICATE", 80, '-')?;
+    writeln!(f, "HEAD: {}", derived_predicate.head())?;
+    writeln!(f, "BODY:")?;
+    for line in format!("{}", derived_predicate.body()).lines() {
+        writeln!(f, "  {}", line)?;
+    }
     Ok(())
 }

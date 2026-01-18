@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
@@ -136,12 +136,32 @@ pub fn render_problem(
     let dc = problem.domain_constraints();
     writeln!(f, "{}\n", dc.to_string_with_interner(interner))?;
 
+    // Derived predicates
+    if problem.derived_predicates().is_empty() {
+        writeln!(f, "  - no derived predicates\n")?;
+    } else {
+        for derived_predicate in problem.derived_predicates() {
+            render_derived_predicate(f, derived_predicate, interner)?;
+            writeln!(f)?;
+        }
+    }
+
     // Actions
     if problem.actions().is_empty() {
         writeln!(f, "  - no actions\n")?;
     } else {
         for action in problem.actions() {
             render_action(f, action, interner)?;
+            writeln!(f)?;
+        }
+    }
+
+    // Durative Actions
+    if problem.durative_actions().is_empty() {
+        writeln!(f, "  - no durative actions\n")?;
+    } else {
+        for action in problem.durative_actions() {
+            render_durative_action(f, action, interner)?;
             writeln!(f)?;
         }
     }
@@ -308,12 +328,32 @@ pub fn render_domain_def(
     let dc = domain.domain_constraints();
     writeln!(f, "{}\n", dc.to_string_with_interner(interner))?;
 
+    // Derived predicates
+    if domain.derived_predicates().is_empty() {
+        writeln!(f, "  - no derived predicates\n")?;
+    } else {
+        for derived_predicate in domain.derived_predicates() {
+            render_derived_predicate(f, derived_predicate, interner)?;
+            writeln!(f)?;
+        }
+    }
+
     // Actions
     if domain.actions().is_empty() {
         writeln!(f, "  - no actions\n")?;
     } else {
         for action in domain.actions() {
             render_action(f, action, interner)?;
+            writeln!(f)?;
+        }
+    }
+
+    // Durative Actions
+    if domain.durative_actions().is_empty() {
+        writeln!(f, "  - no actions\n")?;
+    } else {
+        for action in domain.durative_actions() {
+            render_durative_action(f, action, interner)?;
             writeln!(f)?;
         }
     }
@@ -731,5 +771,56 @@ pub fn render_initial_task_network(
     writeln!(f, "TASKS:\n  {}", tw.tasks().to_string_with_interner(interner))?;
     writeln!(f, "ORDERING:\n  {}", tw.ordering_constraints().to_string_with_interner(interner))?;
     writeln!(f, "CONSTRAINTS:\n  {}", tw.logical_constraints().to_string_with_interner(interner))?;
+    Ok(())
+}
+
+/// Renders a `LiftedDerivedPredicate` in a human-readable format to a `Formatter`,
+/// resolving interned identifiers using a `StringInterner`.
+///
+/// This function prints the derived predicate in two main sections:
+/// - **HEAD**: The atomic formula skeleton representing the predicate's name and parameters,
+///   resolved via the provided `StringInterner`.
+/// - **BODY**: The logical expression defining the derived predicate, printed line by line,
+///   with identifiers resolved via the interner.
+///
+/// Each section is indented for readability, and a centered section title is printed at the top.
+///
+/// # Parameters
+/// - `f`: A mutable reference to a `Formatter` where the formatted output will be written.
+/// - `derived_predicate`: The `LiftedDerivedPredicate` to render.
+/// - `interner`: A `StringInterner` used to resolve interned identifiers for the predicate's head and body.
+///
+/// # Returns
+/// Returns a `std::fmt::Result` indicating whether writing to the formatter was successful.
+///
+/// # Example
+///
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::{LiftedDerivedPredicate, StringInterner};
+///
+/// let derived: LiftedDerivedPredicate = /* create or obtain a derived predicate */;
+/// let interner: StringInterner = /* create or obtain an interner */;
+/// let mut output = String::new();
+/// render_derived_predicate(&mut std::fmt::Formatter::new(&mut output), &derived, &interner)?;
+/// println!("{}", output);
+/// ```
+pub fn render_derived_predicate(
+    f: &mut fmt::Formatter<'_>,
+    derived_predicate: &LiftedDerivedPredicate,
+    interner: &StringInterner,
+) -> std::fmt::Result {
+    writeln_centered(f, "DERIVED PREDICATE", 80, '-')?;
+    writeln!(
+        f,
+        "HEAD:\n  {}",
+        derived_predicate.head().to_string_with_interner(interner)
+    )?;
+
+    writeln!(f, "BODY:")?;
+    for line in derived_predicate.body().to_string_with_interner(interner).lines() {
+        writeln!(f, "  {}", line)?;
+    }
+
     Ok(())
 }
