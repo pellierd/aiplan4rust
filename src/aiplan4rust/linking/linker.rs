@@ -30,19 +30,17 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::diagnostic::{DiagnosticManager, Severity, Provider};
-use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
-use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
-use crate::aiplan4rust::{linking, semantic};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
-use crate::aiplan4rust::semantic::AnalyzerResult;
-use crate::aiplan4rust::semantic::checks::CheckContext;
-use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
+use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
+use crate::aiplan4rust::interner::InternerMergeResult;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::linking::error::LinkingError;
-
+use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
+use crate::aiplan4rust::semantic::checks::CheckContext;
+use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolOrigin, Usage};
+use crate::aiplan4rust::semantic::AnalyzerResult;
+use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable, TypeChecker};
+use crate::aiplan4rust::{linking, semantic};
 use std::mem::take;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// The `Linker` struct is responsible for performing the linking phase
 /// between domain and problem semantic contexts.

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::{display, SyntaxInternerDisplay};
 use std::fmt;
@@ -322,6 +322,97 @@ pub fn render_action(
         "  {} {}",
         Token::Precondition,
         action.precondition().to_syntax_string_with_interner(interner)
+    )?;
+    display::write_indent(f, indent)?;
+    writeln!(
+        f,
+        "  {} {}",
+        Token::Effect,
+        action.effect().to_syntax_string_with_interner(interner)
+    )?;
+    display::write_indent(f, indent)?;
+    writeln!(f, "{}", Token::RParen)?;
+
+    Ok(())
+}
+
+/// Renders a lifted durative action (`LiftedDurativeAction`) into a PDDL-like syntax representation.
+///
+/// This function formats a durative action with its name, parameters, duration,
+/// conditions, and effect into the provided formatter. The [`StringInterner`] is
+/// used to resolve interned identifiers, ensuring that the output uses readable
+/// names instead of numeric or internal IDs. The `indent` parameter allows
+/// controlling the indentation level for pretty-printing.
+///
+/// The rendered structure follows the standard PDDL syntax for durative actions,
+/// using tokens such as `:durative-action`, `:parameters`, `:duration`,
+/// `:condition`, and `:effect`.
+///
+/// # Arguments
+///
+/// * `f` - The [`fmt::Formatter`] to write the rendered durative action into.
+/// * `action` - The [`LiftedDurativeAction`] to render.
+/// * `interner` - The [`StringInterner`] used to resolve identifiers for the action's
+///   name, parameters, and expressions.
+/// * `indent` - The indentation level (number of indent units) to apply to the
+///   rendered durative action.
+///
+/// # Returns
+///
+/// Returns a [`fmt::Result`] indicating whether the formatting was successful.
+///
+/// # Example
+///
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::LiftedDurativeAction;
+/// use crate::aiplan4rust::interner::StringInterner;
+/// use crate::aiplan4rust::lir::problem::renderers::syntax::render_durative_action;
+///
+/// # let action: LiftedDurativeAction = todo!();
+/// # let interner: StringInterner = todo!();
+/// let mut s = String::new();
+/// render_durative_action(&mut s, &action, &interner, 2).unwrap();
+/// println!("{}", s);
+/// ```
+///
+/// # Errors
+///
+/// Returns any [`fmt::Error`] encountered while writing to the formatter.
+pub fn render_durative_action(
+    f: &mut fmt::Formatter<'_>,
+    action: &LiftedDurativeAction,
+    interner: &StringInterner,
+    indent: usize,
+) -> fmt::Result {
+    display::write_indent(f, indent)?;
+    write!(f, "{} {} ", Token::LParen, Token::DurativeAction)?;
+    writeln!(f, "{}", interner.resolve_ident(action.name()).unwrap_or("<unknown>"))?;
+
+    let params = action
+        .parameters()
+        .iter()
+        .map(|p| p.to_syntax_string_with_interner(interner))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    display::write_indent(f, indent)?;
+    writeln!(f, "  {} {}{}{}", Token::Parameters, Token::LParen, params, Token::RParen)?;
+
+    display::write_indent(f, indent)?;
+    writeln!(
+        f,
+        "  {} {}",
+        Token::Duration,
+        action.duration().to_syntax_string_with_interner(interner)
+    )?;
+
+    display::write_indent(f, indent)?;
+    writeln!(
+        f,
+        "  {} {}",
+        Token::Condition,
+        action.condition().to_syntax_string_with_interner(interner)
     )?;
     display::write_indent(f, indent)?;
     writeln!(

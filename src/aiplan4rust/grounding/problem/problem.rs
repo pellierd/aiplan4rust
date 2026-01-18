@@ -1,22 +1,21 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::builders;
-use crate::aiplan4rust::grounding::problem::Fluent;
-use crate::aiplan4rust::grounding::problem::SymbolTable;
-use crate::aiplan4rust::interner::{Ident, InternerError, StringInterner};
-use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::fmt;
-use std::rc::Rc;
-use itertools::Itertools;
 use crate::aiplan4rust::grounding::problem::ids::{FunctionID, Id, ObjectID, ParameterID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
+use crate::aiplan4rust::grounding::problem::Fluent;
+use crate::aiplan4rust::grounding::problem::SymbolTable;
+use crate::aiplan4rust::interner::{Ident, InternerError, StringInterner};
+use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::lir::problem::flatten::flatten;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::SerdeSerializable;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::fmt;
+use std::rc::Rc;
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -378,7 +377,6 @@ impl TryFrom<LiftedProblem> for Problem {
         let mut types_domains = builders::build_object_type_value_domains_table(
             &lifted_problem,
             problem.objects_symbols(),
-            problem.functions_symbols(),
             problem.types_symbols(),
         )?;
 
@@ -399,7 +397,7 @@ impl TryFrom<LiftedProblem> for Problem {
             problem.types_domains()
         )?;
         problem.set_fluents(fluents);
-        
+
         Ok(problem)
     }
 }
@@ -558,7 +556,6 @@ impl Problem {
     /// Convert an ObjectFluent into a String.
     pub fn to_string_object_fluent(&self, object_fluent: &ObjectFluent) -> String {
         let mut s = String::new();
-        use std::fmt::Write;
         self.fmt_object_fluent_with_interner(&mut s, object_fluent)
             .unwrap_or_else(|_| s.push_str("<object-fluent-format-error>"));
         s
@@ -567,7 +564,6 @@ impl Problem {
     /// Convert a Fluent into a String.
     pub fn to_string_fluent(&self, fluent: &Fluent) -> String {
         let mut s = String::new();
-        use std::fmt::Write;
         self.fmt_fluent_with_interner(&mut s, fluent)
             .unwrap_or_else(|_| s.push_str("<fluent-format-error>"));
         s

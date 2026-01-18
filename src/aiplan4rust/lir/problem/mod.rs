@@ -10,11 +10,13 @@ pub mod domain_def;
 pub mod problem_def;
 pub(crate) mod extract;
 pub mod flatten;
+mod durative_action;
 
 pub use problem::Problem as LiftedProblem;
 pub use problem_def::ProblemDef;
 pub use domain_def::DomainDef;
 pub use action::Action as LiftedAction;
+pub use durative_action::DurativeAction as LiftedDurativeAction;
 pub use method::Method as LiftedMethod;
 pub use task_network::TaskNetwork as LiftedTaskNetwork;
 pub use initial_task_network::InitialTaskNetwork;

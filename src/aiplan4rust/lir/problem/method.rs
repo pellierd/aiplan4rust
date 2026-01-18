@@ -25,24 +25,23 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
-use std::collections::HashMap;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::arena::node::ArenaNode;
 use crate::aiplan4rust::interner::ident::Ident;
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::typed_symbol::TypedSymbol;
-use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
-use crate::aiplan4rust::lir::expr::expr::Expr;
-use crate::aiplan4rust::syntax::ast::node::AstNode;
-use crate::aiplan4rust::syntax::display::SyntaxInternerDisplay;
-use crate::aiplan4rust::arena::node::ArenaNode;
-use serde::{Deserialize, Serialize};
-use std::fmt;
 use crate::aiplan4rust::lang::{RemapTypes, Type};
+use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
+use crate::aiplan4rust::lir::expr::expr::Expr;
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
-use crate::aiplan4rust::lir::problem::action::Action;
+use crate::aiplan4rust::syntax::ast::node::AstNode;
 use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::display::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::subtree::SyntaxSubtree;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Method {

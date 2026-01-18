@@ -5,7 +5,7 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
@@ -59,10 +59,15 @@ pub(crate) fn extract_domain(
                 let action = LiftedAction::try_from(&subtree)?;
                 ir.add_action(action);
             }
+            AstKind::DurativeActionDef => {
+                let action = LiftedDurativeAction::try_from(&subtree)?;
+                ir.add_durative_action(action);
+            }
             AstKind::MethodDef => {
                 let method = LiftedMethod::try_from(&subtree)?;
                 ir.add_method(method);
             }
+
             _ => {}
         }
     }

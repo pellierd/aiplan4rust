@@ -100,9 +100,44 @@ impl Action {
     ///     Expr::empty_or(),
     /// );
     /// ```
-    pub fn new(name: Ident, parameters: TypedList, precondition: Expr, effect: Expr) -> Self {
+    pub fn new(
+        name: Ident,
+        parameters: TypedList,
+        precondition: Expr,
+        effect: Expr,
+    ) -> Self {
+        let header = NamedTypedList::new(name, parameters);
+        Self::from_header(header, precondition, effect)
+    }
+
+    /// Creates a new `Action` from an already constructed action header.
+    ///
+    /// This constructor is intended for **internal use only** within the crate.
+    /// It allows creating an `Action` without rebuilding or cloning the
+    /// [`NamedTypedList`] header, which is useful during transformations such as
+    /// grounding, normalization, or compilation to other representations.
+    ///
+    /// # Arguments
+    ///
+    /// * `header` - A fully constructed action header (name and parameters).
+    /// * `precondition` - Expression representing the precondition.
+    /// * `effect` - Expression representing the effect.
+    ///
+    /// # Returns
+    ///
+    /// A new `Action` instance taking ownership of the provided header.
+    ///
+    /// # Notes
+    ///
+    /// This function takes ownership of `header` to avoid unnecessary cloning
+    /// and should not be exposed as part of the public API.
+    pub(crate) fn from_header(
+        header: NamedTypedList,
+        precondition: Expr,
+        effect: Expr,
+    ) -> Self {
         Self {
-            header: NamedTypedList::new(name, parameters),
+            header,
             precondition,
             effect,
         }
@@ -308,11 +343,7 @@ impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
             }
         }
 
-        Ok(Action {
-            header,
-            precondition,
-            effect,
-        })
+        Ok(Action::from_header(header, precondition, effect))
     }
 }
 

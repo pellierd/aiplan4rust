@@ -5,9 +5,7 @@ use crate::aiplan4rust::grounding::problem::ids::{FunctionID, Id, ObjectFluentID
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::symbol_table::IndexTableError;
-use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Builds an `IndexTable` containing all type identifiers from the given typed symbols.
 ///
@@ -211,10 +209,8 @@ pub fn build_objects_table(
 pub fn build_object_type_value_domains_table(
     problem: &LiftedProblem,
     objects: &SymbolTable<ObjectID>,
-    functions: &SymbolTable<FunctionID>,
     types: &SymbolTable<TypeID>,
 ) -> Result<Vec<ValueDomain>, IndexTableError> {
-    // 1 Crée les ValueDomain avec les objets constants
     let mut type_value_domains_table = vec![ValueDomain::empty(); types.len()];
 
     for obj in problem.constants().chain(problem.objects()) {
@@ -222,14 +218,6 @@ pub fn build_object_type_value_domains_table(
         let obj_id = objects.try_get_id(&obj.symbol())?;
         type_value_domains_table[ty_id].add_object(obj_id);
     }
-
-    // 2 Crée les object-fluents et met à jour les ValueDomain en conséquence
-    let object_fluents_table = build_object_fluents_table(
-        problem,
-        functions,
-        types,
-        &mut type_value_domains_table,
-    )?;
 
     Ok(type_value_domains_table)
 }

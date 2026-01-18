@@ -1,7 +1,5 @@
 use std::fmt;
-use crate::aiplan4rust::lir::problem::{
-    InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork,
-};
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
@@ -502,6 +500,75 @@ pub fn render_action(
     writeln!(f, "PARAMETERS: {}", params)?;
     writeln!(f, "PRECONDITION:")?;
     for line in action.precondition().to_string_with_interner(interner).lines() {
+        writeln!(f, "  {}", line)?;
+    }
+    writeln!(f, "EFFECT:")?;
+    for line in action.effect().to_string_with_interner(interner).lines() {
+        writeln!(f, "  {}", line)?;
+    }
+
+    Ok(())
+}
+
+/// Renders a `LiftedDurativeAction` in a human-readable format to any type implementing `Write`.
+///
+/// This function formats the durative action with a centered section title, then prints:
+/// - **Name**: The action's name, resolved through the given `StringInterner`.
+/// - **Parameters**: All parameters of the action, formatted using the interner.
+/// - **Duration**: The duration expression of the action, printed line by line.
+/// - **Conditions**: The timed conditions of the action, printed line by line.
+/// - **Effect**: The action's effect, printed line by line.
+///
+/// The section title is centered using `writeln_centered` with a fixed width (e.g., 80)
+/// and a custom fill character (`'-'` in this case).
+///
+/// # Parameters
+///
+/// - `f`: A mutable reference to a `Formatter` where the formatted output is written.
+/// - `action`: The `LiftedDurativeAction` to render.
+/// - `interner`: A `StringInterner` used to resolve identifiers and format parameters.
+///
+/// # Returns
+///
+/// Returns `std::fmt::Result` indicating whether writing to the formatter succeeded.
+///
+/// # Example
+///
+/// ```rust
+/// use std::fmt::Write;
+/// use crate::aiplan4rust::lir::problem::{LiftedDurativeAction, StringInterner};
+///
+/// let action: LiftedDurativeAction = /* obtain or create durative action */;
+/// let interner: StringInterner = /* obtain interner */;
+/// let mut output = String::new();
+/// render_durative_action(&mut output, &action, &interner)?;
+/// println!("{}", output);
+/// ```
+pub fn render_durative_action(
+    f: &mut fmt::Formatter<'_>,
+    action: &LiftedDurativeAction,
+    interner: &StringInterner,
+) -> std::fmt::Result {
+    let params = action
+        .parameters()
+        .iter()
+        .map(|p| p.to_string_with_interner(interner))
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    writeln_centered(f, "DURATIVE ACTION", 80, '-')?;
+    writeln!(
+        f,
+        "NAME: {}",
+        interner.resolve_ident(action.name()).unwrap_or("<unknown>")
+    )?;
+    writeln!(f, "PARAMETERS: {}", params)?;
+    writeln!(f, "DURATION:")?;
+    for line in action.duration().to_string_with_interner(interner).lines() {
+        writeln!(f, "  {}", line)?;
+    }
+    writeln!(f, "CONDITIONS:")?;
+    for line in action.condition().to_string_with_interner(interner).lines() {
         writeln!(f, "  {}", line)?;
     }
     writeln!(f, "EFFECT:")?;

@@ -8,7 +8,7 @@ use crate::aiplan4rust::cli::cli::{CURRENT_DIR, FILES_ARG, FORMAT_ARG, OUTPUT_AR
 use crate::aiplan4rust::cli::error::CliError;
 use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::serialization::serde::SerdeFormat;
-use crate::{Frontend, Renderer, Severity};
+use crate::{Frontend, Renderer};
 use clap::ArgMatches;
 use std::fs;
 use std::path::PathBuf;

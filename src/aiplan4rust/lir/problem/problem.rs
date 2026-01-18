@@ -46,7 +46,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{extract, normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{extract, normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -133,6 +133,9 @@ pub struct Problem {
     /// The list of actions defined in this syntax problem.
     actions: Vec<LiftedAction>,
 
+    /// The list of durative actions defined in this syntax problem.
+    durative_actions: Vec<LiftedDurativeAction>,
+
     /// The list of methods defined in this syntax problem.
     methods: Vec<LiftedMethod>,
 
@@ -186,6 +189,7 @@ impl Problem {
             domain_constraints: Expr::empty_or(),
             tasks: Vec::new(), // Add for HDDL
             actions: Vec::new(),
+            durative_actions: Vec::new(),
             methods: Vec::new(), // Add for HDDL
             objects: HashMap::new(),
             init: Expr::empty_and(),
@@ -660,12 +664,29 @@ impl Problem {
         self.actions.push(action);
     }
 
-    /// Adds multiple actions.
+    // === Durative Actions ===
+
+    /// Returns a reference to the list of durative actions.
+    pub fn durative_actions(&self) -> &Vec<LiftedDurativeAction> {
+        &self.durative_actions
+    }
+
+    /// Returns a mutable reference to the list of durative actions.
+    pub fn durative_actions_mut(&mut self) -> &mut Vec<LiftedDurativeAction> {
+        &mut self.durative_actions
+    }
+
+    /// Adds a single durative action.
+    pub fn add_durative_action(&mut self, action: LiftedDurativeAction) {
+        self.durative_actions.push(action);
+    }
+
+    /// Adds multiple duratives actions.
     pub fn add_actions<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = LiftedAction>,
+        I: IntoIterator<Item = LiftedDurativeAction>,
     {
-        self.actions.extend(iter);
+        self.durative_actions.extend(iter);
     }
 
     // === Methods ===

@@ -1,7 +1,5 @@
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::grounding::problem::ids::{ObjectFluentID, ObjectID, ParameterID};
-use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
-use crate::aiplan4rust::lir::atomic_skeleton::function::Function;
 
 /// Domaine de valeurs pour un type donné
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

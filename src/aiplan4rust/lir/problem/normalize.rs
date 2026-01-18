@@ -2,6 +2,7 @@ use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::expr;
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
+use crate::aiplan4rust::lir::problem::durative_action::DurativeAction;
 use crate::aiplan4rust::lir::problem::method::Method;
 use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
 
@@ -31,6 +32,11 @@ pub(crate) fn normalize_problem(problem: &mut LiftedProblem) -> Result<(), ExprE
     // Normalize all actions
     for action in problem.actions_mut() {
         normalize_action(action)?;
+    }
+
+    // Normalize all durative actions
+    for action in problem.durative_actions_mut() {
+        normalize_durative_action(action)?;
     }
 
     // Normalize all methods
@@ -71,6 +77,42 @@ pub(crate) fn normalize_problem(problem: &mut LiftedProblem) -> Result<(), ExprE
 /// ```
 pub(crate) fn normalize_action(action: &mut Action) -> Result<(), ExprError> {
     expr::normalize(action.precondition_mut())?;
+    expr::normalize(action.effect_mut())?;
+    Ok(())
+}
+
+/// Normalizes the expressions of a `DurativeAction`.
+///
+/// This function applies expression normalization to the duration, condition,
+/// and effect of the given `DurativeAction`. It is intended for internal use
+/// within the module and is not part of the public API.
+///
+/// Normalization typically rewrites expressions into a canonical form, which
+/// simplifies later processing stages such as grounding, validation, or
+/// compilation to other representations.
+///
+/// # Arguments
+///
+/// * `action` - A mutable reference to the `DurativeAction` to normalize.
+///
+/// # Errors
+///
+/// Returns an `ExprError` if normalization of the duration, condition,
+/// or effect fails.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// # use aiplan4rust::lir::DurativeAction;
+/// # use aiplan4rust::lir::expr::ExprError;
+/// # fn example(action: &mut DurativeAction) -> Result<(), ExprError> {
+/// normalize_durative_action(action)?;
+/// # Ok(())
+/// # }
+/// ```
+pub(crate) fn normalize_durative_action(action: &mut DurativeAction) -> Result<(), ExprError> {
+    expr::normalize(action.duration_mut())?;
+    expr::normalize(action.condition_mut())?;
     expr::normalize(action.effect_mut())?;
     Ok(())
 }

@@ -1,12 +1,10 @@
+use crate::aiplan4rust::grounding::problem::ids::Id;
+use crate::aiplan4rust::interner::{Ident, InternerError, StringInterner};
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use crate::aiplan4rust::interner::{Ident, InternerError, StringInterner};
-use std::hash::Hash;
 use std::rc::Rc;
-use crate::aiplan4rust::grounding::problem::ids::Id;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use thiserror::Error;
 
 
 /// A generic table mapping `Ident` <-> `ID`.
