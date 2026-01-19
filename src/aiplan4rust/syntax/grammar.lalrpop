@@ -1413,7 +1413,124 @@ pub HDDLStructureDef: Result<NodeId, ParseContextError> = {
     <method:MethodDef> => method,
 }
 
+DomainElement : Result<(AstKind, NodeId), ParseContextError> = {
+    <t:TaskDef> => Ok((AstKind::TaskDef, t?)),
+    <p:PredicatesDef> => Ok((AstKind::PredicatesDef, p?)),
+    <f:FunctionsDef> => Ok((AstKind::FunctionsDef, f?)),
+    <a:ActionDef> => Ok((AstKind::ActionDef, a?)),
+    <m:MethodDef> => Ok((AstKind::MethodDef, m?)),
+    <d:DerivedDef> => Ok((AstKind::DerivedDef, d?)),
+    <dur:DurativeActionDef> => Ok((AstKind::DurativeActionDef, dur?)),
+};
+
+DomainBody : Result<Vec<(AstKind, NodeId)>, ParseContextError> = {
+    <elems:DomainElement*> => {
+        let elems = elems.into_iter().collect::<Result<Vec<_>, _>>()?;
+        Ok(elems)
+   },
+};
+
 pub HDDLDomain: Result<NodeId, ParseContextError> = {
+    <start:@L>
+        "(" "define" "(" "domain" <name:DomainName> ")"
+            <require_def:HDDLRequireDef?>
+            <types_def:TypesDef?>
+            <constants_def:ConstantsDef?>
+            <elements:DomainElement*>
+        ")"
+    <end:@R> => {
+        let mut children = Vec::new();
+        children.push(name?);
+        if let Some(req) = require_def { children.push(req?); }
+        if let Some(types) = types_def { children.push(types?); }
+        if let Some(constants) = constants_def { children.push(constants?); }
+
+        // Séparer les éléments par type
+        let mut predicates = None;
+        let mut functions = None;
+        let mut tasks = Vec::new();
+        let mut actions = Vec::new();
+        let mut durative = Vec::new();
+        let mut methods = Vec::new();
+        let mut derived = Vec::new();
+
+        let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
+        for (kind, node) in elements {
+            match kind {
+                AstKind::PredicatesDef => {
+                    if predicates.is_some() {
+                        return Err(ParseContextError::duplicate_section(kind));
+                    }
+                    // Predicates must be defined before functions, derived, actions, durative, and methods
+                    if !derived.is_empty()
+                        || !actions.is_empty()
+                        || !durative.is_empty()
+                        || !methods.is_empty()
+                    {
+                        return Err(ParseContextError::invalid_order(
+                            "Predicates must be defined before derived predicates, actions, durative actions, and methods"
+                        ));
+                    }
+                    predicates = Some(node);
+                }
+                AstKind::FunctionsDef => {
+                    if functions.is_some() {
+                        return Err(ParseContextError::duplicate_section(kind));
+                    }
+                    // Functions must be defined before derived/actions/durative/methods
+                    if !derived.is_empty()
+                        || !actions.is_empty()
+                        || !durative.is_empty()
+                        || !methods.is_empty()
+                    {
+                        return Err(ParseContextError::invalid_order(
+                            "Functions must be defined before derived predicates, actions, durative actions, and methods"
+                        ));
+                    }
+                    functions = Some(node);
+                }
+                AstKind::DerivedDef => {
+                    // Derived must be defined before actions/durative/methods
+                    if !actions.is_empty()
+                        || !durative.is_empty()
+                        || !methods.is_empty()
+                    {
+                        return Err(ParseContextError::invalid_order(
+                            "Derived predicates must be defined before actions, durative actions, and methods"
+                        ));
+                    }
+                    derived.push(node);
+                }
+                AstKind::TaskDef => {
+                    // TaskDef doit toujours être avant MethodDef
+                    if !methods.is_empty() {
+                        return Err(ParseContextError::invalid_order(
+                            "Task must be defined before methods"
+                        ));
+                    }
+                    tasks.push(node);
+                }
+                AstKind::ActionDef => actions.push(node),
+                AstKind::DurativeActionDef => durative.push(node),
+                AstKind::MethodDef => methods.push(node),
+                _ => {}
+            }
+        }
+
+        // Add section in the good order
+        if let Some(p) = predicates { children.push(p); }
+        if let Some(f) = functions { children.push(f); }
+        children.extend(tasks);
+        children.extend(actions);
+        children.extend(methods);
+        children.extend(durative);
+        children.extend(derived);
+
+        context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
+    },
+};
+
+/*pub HDDLDomain: Result<NodeId, ParseContextError> = {
     <start:@L>
         "(" "define" "(" "domain" <name:DomainName> ")"
             <require_def:HDDLRequireDef?>
@@ -1445,7 +1562,32 @@ pub HDDLDomain: Result<NodeId, ParseContextError> = {
         children.extend(structure_def);
         context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
     },
-}
+}*/
+
+ProblemStructureDef : Result<(NodeId, NodeId, Option<NodeId>), ParseContextError> =
+{
+    // Without goal (2 permutations)
+    <tn:InitialTaskNetwork> <init:Init>
+        => Ok((tn?, init?, None)),
+    <init:Init> <tn:InitialTaskNetwork>
+        => Ok((tn?, init?, None)),
+
+    // With goal (6 permutations)
+    <tn:InitialTaskNetwork> <init:Init> <goal:Goal>
+        => Ok((tn?, init?, Some(goal?))),
+    <tn:InitialTaskNetwork> <goal:Goal> <init:Init>
+        => Ok((tn?, init?, Some(goal?))),
+
+    <init:Init> <tn:InitialTaskNetwork> <goal:Goal>
+        => Ok((tn?, init?, Some(goal?))),
+    <init:Init> <goal:Goal> <tn:InitialTaskNetwork>
+        => Ok((tn?, init?, Some(goal?))),
+
+    <goal:Goal> <tn:InitialTaskNetwork> <init:Init>
+        => Ok((tn?, init?, Some(goal?))),
+    <goal:Goal> <init:Init> <tn:InitialTaskNetwork>
+        => Ok((tn?, init?, Some(goal?))),
+};
 
 pub HDDLProblem : Result<NodeId, ParseContextError> = {
     <start:@L>
@@ -1453,9 +1595,7 @@ pub HDDLProblem : Result<NodeId, ParseContextError> = {
         "(" ":domain" <domain_name:DomainName> ")"
         <require_def:HDDLRequireDef?>
         <objects_def:ObjectsDef?>
-        <task_network:InitialTaskNetwork>
-        <init:Init>
-        <goal:Goal?>
+        <structure_def:ProblemStructureDef>
         ")"
     <end:@R> => {
         let mut children = Vec::new();
@@ -1467,10 +1607,11 @@ pub HDDLProblem : Result<NodeId, ParseContextError> = {
         if let Some(objects_def) = objects_def {
            children.push(objects_def?);
         }
-        children.push(task_network?);
-        children.push(init?);
+        let (task_network, init, goal) = structure_def?;
+        children.push(task_network);
+        children.push(init);
         if let Some(goal) = goal {
-            children.push(goal?);
+            children.push(goal);
         }
         context.alloc_node(AstKind::Problem, AstContent::None, children, start, end)
     },

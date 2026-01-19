@@ -141,14 +141,12 @@ fn test_domain(domain_dir: &Path) -> bool {
 /// # Arguments
 /// * `domain_path` - The path to the domain directory to test.
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
-#[test_case("tests/integration/hddl/ipc20/partial-order/colouring"; "ipc20_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-partially-observable"; "ipc20_partial_order_monroe_partially_observable")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/pcp"; "ipc20_partial_order_pcp")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/rover"; "ipc20_partial_order_rover")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/satellite"; "ipc20_partial_order_satellite")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/transport"; "ipc20_partial_order_transport")]
-#[test_case("tests/integration/hddl/ipc20/partial-order/ultralight-cockpit"; "ipc20_partial_order_ultralight_cockpit")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/um-translog"; "ipc20_partial_order_um_translog")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/woodworking"; "ipc20_partial_order_woodworking")]
 #[test_case("tests/integration/hddl/ipc20/total-order/assembly-hierarchical"; "ipc20_total_order_assembly_hierarchical")]
@@ -175,6 +173,9 @@ fn test_domain(domain_dir: &Path) -> bool {
 #[test_case("tests/integration/hddl/ipc20/total-order/towers"; "ipc20_total_order_towers")]
 #[test_case("tests/integration/hddl/ipc20/total-order/transport"; "ipc20_total_order_transport")]
 #[test_case("tests/integration/hddl/ipc20/total-order/woodworking"; "ipc20_total_order_woodworking")]
+#[test_case("tests/integration/hddl/ipc23/partial-order/ultralight-cockpit"; "ipc23_partial_order_ultralight_cockpit")]
+#[test_case("tests/integration/hddl/ipc23/partial-order/colouring"; "ipc23_partial_order_colouring")]
+#[test_case("tests/integration/hddl/ipc23/total-order/lamps"; "ipc23_total_order_lamps")]
 fn test_frontend_link_from_raw(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(

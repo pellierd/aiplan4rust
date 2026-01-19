@@ -13,6 +13,7 @@
 
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
+use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents all possible errors that can occur while working with the AST
@@ -33,4 +34,24 @@ pub enum ParseContextError {
     /// An error related to the syntax tree structure or its operations.
     #[error("Syntax tree error: {0}")]
     SyntaxTree(#[from] SyntaxTreeError),
+
+    /// Une section a été définie plus d'une fois (ex: Predicates ou Functions)
+    #[error("Duplicate section: {0:?}")]
+    DuplicateSection(AstKind),
+
+    /// L'ordre des éléments dans le domaine n'est pas respecté
+    #[error("Invalid order: {0}")]
+    InvalidOrder(&'static str),
+}
+
+impl ParseContextError {
+    // Crée une erreur pour une section dupliquée
+    pub fn duplicate_section(kind: AstKind) -> Self {
+        ParseContextError::DuplicateSection(kind)
+    }
+
+    /// Crée une erreur pour un ordre invalide
+    pub fn invalid_order(msg: &'static str) -> Self {
+        ParseContextError::InvalidOrder(msg)
+    }
 }
