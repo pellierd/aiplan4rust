@@ -38,13 +38,14 @@
 //! This module is intended for internal use by the parser.
 
 use std::cell::RefCell;
-use lalrpop_util::ErrorRecovery;
+use lalrpop_util::{ErrorRecovery, ParseError};
 
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::context::error::ParseContextError;
-use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
+use crate::aiplan4rust::syntax::lexer::Token;
+use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
 use crate::aiplan4rust::syntax::Span;
 
@@ -53,7 +54,7 @@ use crate::aiplan4rust::syntax::Span;
 /// The `ParseContext` owns and manages:
 /// - A [`SyntaxTree`] of AST nodes, used to construct the program structure.
 /// - A [`StringInterner`] to deduplicate and reference strings used in identifiers.
-/// - A list of recoverable [`LexicalError`]s and parse errors.
+/// - A list of recoverable [`CustomParseError`]s and parse errors.
 ///
 /// It is passed into the parser and incrementally filled during parsing.
 /// Afterward, it provides access to the root node, interned strings,
@@ -61,7 +62,7 @@ use crate::aiplan4rust::syntax::Span;
 pub struct ParseContext {
     interner: RefCell<StringInterner>,
     syntax_tree: RefCell<SyntaxTree<AstNode>>,
-    errors: RefCell<Vec<ErrorRecovery<usize, Token, LexicalError>>>,
+    errors: RefCell<Vec<ErrorRecovery<usize, Token, CustomParseError>>>,
 }
 
 impl ParseContext {
@@ -307,7 +308,7 @@ impl ParseContext {
     ///
     /// This function does not return errors directly but may panic if the internal
     /// borrow rules of `RefCell` are violated (which should not happen under normal use).
-    pub fn borrow_errors(&self) -> std::cell::Ref<'_, Vec<ErrorRecovery<usize, Token, LexicalError>>> {
+    pub fn borrow_errors(&self) -> std::cell::Ref<'_, Vec<ErrorRecovery<usize, Token, CustomParseError>>> {
         self.errors.borrow()
     }
 
@@ -321,7 +322,7 @@ impl ParseContext {
     /// # Errors
     ///
     /// This function may panic if a mutable borrow conflict occurs on the internal `RefCell`.
-    pub fn borrow_errors_mut(&self) -> std::cell::RefMut<'_, Vec<ErrorRecovery<usize, Token, LexicalError>>> {
+    pub fn borrow_errors_mut(&self) -> std::cell::RefMut<'_, Vec<ErrorRecovery<usize, Token, CustomParseError>>> {
         self.errors.borrow_mut()
     }
 
@@ -343,7 +344,7 @@ impl ParseContext {
     /// # Notes
     ///
     /// After calling this method, the internal error list will be empty.
-    pub fn take_errors(&self) -> Vec<ErrorRecovery<usize, Token, LexicalError>> {
+    pub fn take_errors(&self) -> Vec<ErrorRecovery<usize, Token, CustomParseError>> {
         std::mem::take(&mut *self.errors.borrow_mut())
     }
 
@@ -356,8 +357,25 @@ impl ParseContext {
     /// # Behavior
     ///
     /// The provided error is appended to the internal error list.
-    pub fn push_error(&self, error: ErrorRecovery<usize, Token, LexicalError>) {
+    pub fn push_error(&self, error: ErrorRecovery<usize, Token, CustomParseError>) {
         self.errors.borrow_mut().push(error);
     }
 
+    /// Adds a new custom recoverable parse error to the accumulated list.
+    ///
+    /// # Arguments
+    ///
+    /// * `error` - A `CustomParseError` instance representing a recoverable parser-specific error.
+    ///
+    /// # Behavior
+    ///
+    /// This function wraps the provided `CustomParseError` in a `ParseError::User` variant,
+    /// then pushes it into the internal recoverable error list. Parsing can continue
+    /// despite this error being recorded.
+    pub fn push_custom_error(&self, error: CustomParseError) {
+        self.push_error(ErrorRecovery {
+            dropped_tokens: vec![],
+            error: ParseError::User { error },
+        });
+    }
 }

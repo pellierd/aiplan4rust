@@ -20,7 +20,7 @@ use logos::Logos;
 use logos::SpannedIter;
 use log::debug;
 
-use crate::aiplan4rust::syntax::lexer::LexicalError;
+use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::lexer::Token;
 
 /// Type alias for a `Result` that includes token location information (start and end positions).
@@ -55,7 +55,7 @@ impl<'input> Lexer<'input> {
 
 /// Implements the `Iterator` trait for `Lexer`.
 impl<'input> Iterator for Lexer<'input> {
-    type Item = Spanned<Token, usize, LexicalError>;
+    type Item = Spanned<Token, usize, CustomParseError>;
 
     /// Advances the lexer and returns the next token with its span.
     ///

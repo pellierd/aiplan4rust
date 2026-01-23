@@ -16,7 +16,7 @@
 //! For ease of use, the following types are re-exported:
 //! - [`Lexer`]
 //! - [`Token`]
-//! - [`LexicalError`]
+//! - [`CustomParseError`]
 //!
 //! # Example
 //!
@@ -34,9 +34,7 @@
 //! ```
 
 pub mod lexer;
-pub mod error;
 pub mod token;
 
 pub use lexer::Lexer;
 pub use token::Token;
-pub use error::LexicalError;

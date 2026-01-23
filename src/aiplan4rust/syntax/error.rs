@@ -19,7 +19,8 @@
 use thiserror::Error;
 use lalrpop_util::ParseError;
 
-use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
+use crate::aiplan4rust::syntax::lexer::Token;
+use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::syntax::ast::AstError;
@@ -35,7 +36,7 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 pub enum SyntaxError {
     /// Error returned by the parser during parsing.
     #[error(transparent)]
-    ParseError(#[from] ParseError<usize, Token, LexicalError>),
+    ParseError(#[from] ParseError<usize, Token, CustomParseError>),
 
     /// Error related to Abstract Syntax Tree (AST) processing.
     #[error(transparent)]
@@ -74,7 +75,7 @@ impl SyntaxError {
     /// # Returns
     /// - `Some(&ParseError)` if this is a `ParseError`.
     /// - `None` otherwise.
-    pub fn as_parse_error(&self) -> Option<&ParseError<usize, Token, LexicalError>> {
+    pub fn as_parse_error(&self) -> Option<&ParseError<usize, Token, CustomParseError>> {
         match self {
             SyntaxError::ParseError(ref err) => Some(err),
             _ => None,

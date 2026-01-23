@@ -43,7 +43,8 @@
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::{DiagnosticKind, Provider};
 use crate::aiplan4rust::interner::{Ident, InternerError, Literal};
-use crate::aiplan4rust::syntax::lexer::{LexicalError, Token};
+use crate::aiplan4rust::syntax::lexer::Token;
+use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::{FastLineTable, Span};
 
 use std::collections::HashMap;
@@ -313,17 +314,73 @@ impl Diagnostic {
         }
     }
 
-    /// Creates a diagnostic for a user-defined parse error with a custom message.
+    /// Creates a diagnostic for an invalid numeric literal.
     ///
     /// # Arguments
     ///
-    /// * `message` - A descriptive error message from the parser.
-    /// * `provider` - The source of this diagnostic.
+    /// * `number` - The numeric string that could not be parsed.
+    /// * `provider` - The source of this diagnostic (e.g., parser).
     /// * `source` - The interned identifier of the source file.
-    /// * `span` - The span related to this error (can be empty if unknown).
-    pub fn error_user(message: impl Into<String>, provider: Provider, source: Literal, span: Span) -> Self {
+    /// * `span` - The span where the invalid number was found.
+    pub fn error_invalid_number(
+        number: impl Into<String>,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
         Self {
-            kind: Kind::User { message: message.into() },
+            kind: Kind::InvalidNumber {
+                number: number.into(),
+            },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Creates a diagnostic for a duplicated definition block.
+    ///
+    /// # Arguments
+    ///
+    /// * `block` - The `AstKind` of the duplicated block.
+    /// * `provider` - The source of this diagnostic (e.g., parser).
+    /// * `source` - The interned identifier of the source file.
+    /// * `span` - The span covering the duplicated block.
+    pub fn error_duplicate_definition_block(
+        block: AstKind,
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::DuplicateDefinitionBlock { block },
+            provider,
+            source,
+            span,
+        }
+    }
+
+    /// Creates a diagnostic for a definition block that is out of order.
+    ///
+    /// # Arguments
+    ///
+    /// * `block` - The `AstKind` of the block that is misordered.
+    /// * `order` - A slice of `AstKind` specifying the expected order relative to other blocks.
+    /// * `provider` - The source of this diagnostic (e.g., parser).
+    /// * `source` - The interned identifier of the source file.
+    /// * `span` - The span covering the misordered block.
+    pub fn error_invalid_definition_block_order(
+        block: AstKind,
+        order: &[AstKind],
+        provider: Provider,
+        source: Literal,
+        span: Span,
+    ) -> Self {
+        Self {
+            kind: Kind::InvalidDefinitionBlockOrder {
+                block,
+                order: order.to_vec(),
+            },
             provider,
             source,
             span,
@@ -865,7 +922,7 @@ impl fmt::Display for Diagnostic {
     }
 }
 
-impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLineTable)> for Diagnostic {
+impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, Literal, &'a FastLineTable)> for Diagnostic {
     /// Converts a LALRPOP `ParseError` into a structured `Diagnostic`, enriched with
     /// source span and interner-based file context.
     ///
@@ -899,7 +956,7 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLine
     /// - For `User`-defined errors, a fallback empty span is used (position 0).
     /// - Expected token names are cleaned before being included in the message.
     fn from(
-        value: (&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLineTable),
+        value: (&'a ParseError<usize, Token, CustomParseError>, Literal, &'a FastLineTable),
     ) -> Self {
         let (error, source, fast_line_table) = value;
 
@@ -931,18 +988,11 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLine
                 )
             }
             // Handles user-defined errors with arbitrary messages
-            ParseError::User { error } => {
-                let content = error.to_string();
-                Diagnostic::new(
-                    DiagnosticKind::User {
-                        message: content,
-                    },
-                    Provider::Parser,
-                    source,
-                    // No span information available, use empty span (0,0)
-                    fast_line_table.get_span(0, 0),
-                )
-            }
+            ParseError::User { error } => custom_parse_error_to_diagnostic(
+                error,
+                source,
+                fast_line_table
+            ),
             // Handles unexpected EOF errors and lists expected tokens
             ParseError::UnrecognizedEof { location, expected } => {
                 Diagnostic::new(
@@ -965,6 +1015,68 @@ impl<'a> From<(&'a ParseError<usize, Token, LexicalError>, Literal, &'a FastLine
                     fast_line_table.get_span(*start, *end),
                 )
             }
+        }
+    }
+}
+
+/// Converts a `CustomParseError` into a `Diagnostic`.
+///
+/// # Arguments
+///
+/// * `error` - The `CustomParseError` instance to convert.
+/// * `source` - The interned source identifier where the error occurred.
+/// * `fast_line_table` - The line/column table used to compute spans from byte positions.
+///
+/// # Returns
+///
+/// A `Diagnostic` representing the given custom parse error.
+fn custom_parse_error_to_diagnostic(
+    error: &CustomParseError,
+    source: Literal,
+    fast_line_table: &FastLineTable,
+) -> Diagnostic {
+    match error {
+        CustomParseError::DuplicateDefinitionBlock(block, start, end) => {
+            Diagnostic::new(
+                DiagnosticKind::DuplicateDefinitionBlock {
+                    block: *block,
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*start, *end),
+            )
+        }
+        CustomParseError::InvalidDefinitionBlockOrder(block, start, end, ordered) => {
+            Diagnostic::new(
+                DiagnosticKind::InvalidDefinitionBlockOrder {
+                    block: *block,
+                    order: ordered.iter().map(|b| *b).collect::<Vec<_>>(),
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*start, *end),
+            )
+        }
+        CustomParseError::InvalidNumber(number, start, end) => {
+            Diagnostic::new(
+                DiagnosticKind::InvalidNumber {
+                    number: number.to_string()
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*start, *end),
+            )
+        }
+        CustomParseError::Generic(msg, start, end) => {
+            Diagnostic::new(
+                DiagnosticKind::CustomError {
+                    message: msg.to_string(),
+                    suggestion: None,
+                },
+                Provider::Parser,
+                source,
+                fast_line_table.get_span(*start, *end),
+            )
         }
     }
 }

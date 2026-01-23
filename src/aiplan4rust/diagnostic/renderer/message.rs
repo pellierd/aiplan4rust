@@ -98,7 +98,9 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&StringIntern
         Kind::UnexpectedEof { .. } => format_unexpected_eof(),
         Kind::InvalidToken => format_invalid_token(),
         Kind::ExtraToken { token } => format_extra_token(token),
-        Kind::User { message } => format_user_message(message),
+        Kind::InvalidNumber { number, .. } => format_invalid_number(number),
+        Kind::DuplicateDefinitionBlock { block } => format_duplicated_definition_block(*block),
+        Kind::InvalidDefinitionBlockOrder { block, .. } => format_invalid_definition_block_order(*block),
         Kind::InvalidSymbolSignature { declaration, .. } => {
             format_invalid_symbol_signature(declaration, interner)
         }
@@ -144,6 +146,48 @@ fn format_message_internal(kind: &DiagnosticKind, interner: Option<&StringIntern
     }
 }
 
+/// Returns a suggestion message for a definition block that is invalidly placed.
+///
+/// # Arguments
+///
+/// * `block` - The `AstKind` of the block that is defined out of order.
+///
+/// # Returns
+///
+/// A `String` indicating that the block is out of order.
+pub fn format_invalid_definition_block_order(block: AstKind) -> String {
+    format!("Definition block '{}' is defined out of order.", block.to_syntax_string())
+}
+
+/// Returns a suggestion message for a duplicated definition block.
+///
+/// # Arguments
+///
+/// * `block` - The `AstKind` variant that was duplicated.
+///
+/// # Returns
+///
+/// A `String` suggesting that the user remove or relocate the earlier occurrence of the duplicated block.
+pub fn format_duplicated_definition_block(block: AstKind) -> String {
+    format!(
+        "Duplicate definition block found '{}'.",
+        block.to_syntax_string()
+    )
+}
+
+/// Formats a message for an invalid number
+///
+/// # Arguments
+///
+/// * `number` - The invalid number string token.
+///
+/// # Returns
+///
+/// A formatted string indicating an invalid number.
+fn format_invalid_number(number: &str) -> String {
+    format!("Invalid number format '{}'.", number)
+}
+
 /// Formats a message for an unexpected token.
 ///
 /// # Arguments
@@ -186,19 +230,6 @@ fn format_invalid_token() -> String {
 /// A formatted string indicating an unexpected extra token.
 fn format_extra_token(token: &str) -> String {
     format!("Unexpected extra token '{}'.", token)
-}
-
-/// Formats a user-provided message.
-///
-/// # Arguments
-///
-/// * `message` - The user message string.
-///
-/// # Returns
-///
-/// The same message string as provided.
-fn format_user_message(message: &str) -> String {
-    message.to_string()
 }
 
 /// Formats a message indicating an invalid symbol signature.

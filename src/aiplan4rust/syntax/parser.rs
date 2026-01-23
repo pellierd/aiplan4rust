@@ -14,7 +14,8 @@ use crate::aiplan4rust::artefact::language::Language;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
-use crate::aiplan4rust::syntax::lexer::{Lexer, LexicalError};
+use crate::aiplan4rust::syntax::lexer::Lexer;
+use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::{
     FastLineTable, ParseContext, ParserResult, SyntaxError,
 };
@@ -224,7 +225,7 @@ impl Parser {
     /// ```
     fn handle_syntax_diagnostics(
         &mut self,
-        lalrpop_errors: &[ErrorRecovery<usize, Token, LexicalError>],
+        lalrpop_errors: &[ErrorRecovery<usize, Token, CustomParseError>],
         source_id: Literal,
         fast_line_table: &FastLineTable,
     ) {

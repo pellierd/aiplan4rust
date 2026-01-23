@@ -106,7 +106,10 @@ fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&StringInt
             renderer::formatting::format_expected_message(expected)
         }
         Kind::ExtraToken { .. } => Some(format_extra_token_suggestion()),
-        Kind::User { .. } => None,
+        Kind::InvalidNumber { .. } => Some(format_invalid_number_suggestion()),
+        Kind::DuplicateDefinitionBlock { block } => Some(format_duplicated_definition_block_suggestion(*block)),
+        Kind::InvalidDefinitionBlockOrder { block, order } => Some(format_invalid_definition_block_order(*block, order)),
+
         Kind::InvalidToken => Some(format_invalid_token_suggestion()),
         Kind::InvalidSymbolSignature { declaration, .. } => {
             Some(format_invalid_symbol_signature_suggestion(declaration, interner))
@@ -161,6 +164,51 @@ fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&StringInt
         Kind::CustomError {suggestion, .. } => suggestion.clone(),
         Kind::CustomWarning {suggestion, .. } => suggestion.clone(),
     }
+}
+
+/// Returns a suggestion message for a definition block that is declared in an invalid order.
+///
+/// # Arguments
+///
+/// * `block` - The `AstKind` of the block that is out of order.
+/// * `expected_order` - A slice of `AstKind` listing the blocks that should appear before this one.
+///
+/// # Returns
+///
+/// A `String` suggesting the correct order for the block.
+pub fn format_invalid_definition_block_order(block: AstKind, expected_order: &[AstKind]) -> String {
+    let expected_names: Vec<String> = expected_order
+        .iter()
+        .map(|k| format!("'{}'", k.to_syntax_string())) // entoure chaque block de quotes
+        .collect();
+    format!(
+        "Definition block '{}' is defined out of order. Expected to appear before: {}.",
+        block.to_syntax_string(),
+        expected_names.join(", ")
+    )
+}
+
+/// Returns a user suggestion message for a duplicated definition block.
+///
+/// # Arguments
+///
+/// * `block` - The `AstKind` variant that was duplicated.
+///
+/// # Returns
+///
+/// A `String` suggesting that the user remove or relocate the earlier occurrence of the duplicated block.
+pub fn format_duplicated_definition_block_suggestion(block: AstKind) -> String {
+    format!(
+        "Remove or relocate the earlier occurrence of the definition block '{}.'",
+        block.to_syntax_string()
+    )
+}
+
+/// Returns a formatted suggestion message for an invalid number.
+///
+/// Advises the user to use only digits and an optional decimal point.
+fn format_invalid_number_suggestion() -> String {
+    "Ensure you only use digits and an optional decimal point.".to_string()
 }
 
 /// Returns the formatted suggestion message for the `ExtraToken` diagnostic kind.

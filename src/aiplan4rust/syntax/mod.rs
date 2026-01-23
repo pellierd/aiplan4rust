@@ -82,6 +82,7 @@ pub mod lalrpop;
 pub mod error;
 pub mod tree;
 pub mod context;
+pub mod parser_error;
 
 pub use ast::Ast;
 pub use context::ParseContext;
@@ -94,7 +95,7 @@ pub use fast_line_table::FastLineTable;
 pub use parser::Parser;
 pub use result::Result as ParserResult;
 pub use span::Span;
-
+pub use parser_error::CustomParseError;
 
 pub use lalrpop::parse_hddl;
 pub use lalrpop::parse_pddl;

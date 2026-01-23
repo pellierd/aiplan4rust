@@ -7,21 +7,20 @@ use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
 use crate::aiplan4rust::lang::Optimization;
 use crate::aiplan4rust::lang::Requirement;
-use crate::aiplan4rust::syntax::lexer::LexicalError;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstContent;
 use crate::aiplan4rust::syntax::context::ParseContext;
 use crate::aiplan4rust::syntax::context::ParseContextError;
+use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::tree::NodeId;
-
 
 grammar<'ctx>(context: &'ctx mut ParseContext);
 
 extern {
 
   type Location = usize;
-  type Error = LexicalError;
+  type Error = CustomParseError;
 
     enum Token {
 
@@ -1405,29 +1404,14 @@ pub HDDLRequireDef: Result<NodeId, ParseContextError> = {
     },
 }
 
-pub HDDLStructureDef: Result<NodeId, ParseContextError> = {
-    <action:ActionDef> => action,
-    <derived:DerivedDef> => derived,
-    <durative_action:DurativeActionDef> => durative_action,
-    <task:TaskDef> => task,
-    <method:MethodDef> => method,
-}
-
-DomainElement : Result<(AstKind, NodeId), ParseContextError> = {
-    <t:TaskDef> => Ok((AstKind::TaskDef, t?)),
-    <p:PredicatesDef> => Ok((AstKind::PredicatesDef, p?)),
-    <f:FunctionsDef> => Ok((AstKind::FunctionsDef, f?)),
-    <a:ActionDef> => Ok((AstKind::ActionDef, a?)),
-    <m:MethodDef> => Ok((AstKind::MethodDef, m?)),
-    <d:DerivedDef> => Ok((AstKind::DerivedDef, d?)),
-    <dur:DurativeActionDef> => Ok((AstKind::DurativeActionDef, dur?)),
-};
-
-DomainBody : Result<Vec<(AstKind, NodeId)>, ParseContextError> = {
-    <elems:DomainElement*> => {
-        let elems = elems.into_iter().collect::<Result<Vec<_>, _>>()?;
-        Ok(elems)
-   },
+DomainElement : Result<NodeId, ParseContextError> = {
+    <task_def:TaskDef> => task_def,
+    <predicate_def:PredicatesDef> => predicate_def,
+    <function_def:FunctionsDef> => function_def,
+    <action_def:ActionDef> => action_def,
+    <method_def:MethodDef> => method_def,
+    <derived_def:DerivedDef> => derived_def,
+    <durative_action_def:DurativeActionDef> => durative_action_def,
 };
 
 pub HDDLDomain: Result<NodeId, ParseContextError> = {
@@ -1455,64 +1439,106 @@ pub HDDLDomain: Result<NodeId, ParseContextError> = {
         let mut derived = Vec::new();
 
         let elements = elements.into_iter().collect::<Result<Vec<_>, _>>()?;
-        for (kind, node) in elements {
-            match kind {
+        for node_id in elements {
+            let node = context.borrow_syntax_tree().try_node(node_id)?.clone();
+            match node.kind() {
                 AstKind::PredicatesDef => {
                     if predicates.is_some() {
-                        return Err(ParseContextError::duplicate_section(kind));
+                       context.push_custom_error(CustomParseError::duplicate_definition_block(
+                            AstKind::PredicatesDef,
+                            node.span().start(),
+                            node.span().end()
+                       ));
+                       continue;
                     }
-                    // Predicates must be defined before functions, derived, actions, durative, and methods
-                    if !derived.is_empty()
-                        || !actions.is_empty()
-                        || !durative.is_empty()
-                        || !methods.is_empty()
-                    {
-                        return Err(ParseContextError::invalid_order(
-                            "Predicates must be defined before derived predicates, actions, durative actions, and methods"
+                    // Check def order
+                    let mut invalid_def = Vec::new();
+                    if !derived.is_empty() { invalid_def.push(AstKind::DerivedDef); }
+                    if !actions.is_empty() { invalid_def.push(AstKind::ActionDef); }
+                    if !durative.is_empty() { invalid_def.push(AstKind::DurativeActionDef); }
+                    if !methods.is_empty() { invalid_def.push(AstKind::MethodDef); }
+
+                    if !invalid_def.is_empty() {
+                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
+                            AstKind::PredicatesDef,
+                            node.span().start(),
+                            node.span().end(),
+                            invalid_def,
                         ));
+                        continue;
                     }
-                    predicates = Some(node);
+                    predicates = Some(node_id);
                 }
                 AstKind::FunctionsDef => {
+                    // Check for duplicate function section
                     if functions.is_some() {
-                        return Err(ParseContextError::duplicate_section(kind));
-                    }
-                    // Functions must be defined before derived/actions/durative/methods
-                    if !derived.is_empty()
-                        || !actions.is_empty()
-                        || !durative.is_empty()
-                        || !methods.is_empty()
-                    {
-                        return Err(ParseContextError::invalid_order(
-                            "Functions must be defined before derived predicates, actions, durative actions, and methods"
+                        context.push_custom_error(CustomParseError::duplicate_definition_block(
+                            AstKind::FunctionsDef,
+                            node.span().start(),
+                            node.span().end(),
                         ));
+                        continue; // Skip this node but keep parsing the rest
                     }
-                    functions = Some(node);
+
+                    // Verify the order of sections: functions must come before derived/actions/durative/methods
+                    let mut invalid_def = Vec::new();
+                    if !derived.is_empty() { invalid_def.push(AstKind::DerivedDef); }
+                    if !actions.is_empty() { invalid_def.push(AstKind::ActionDef); }
+                    if !durative.is_empty() { invalid_def.push(AstKind::DurativeActionDef); }
+                    if !methods.is_empty() { invalid_def.push(AstKind::MethodDef); }
+
+                    if !invalid_def.is_empty() {
+                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
+                            AstKind::FunctionsDef,
+                            node.span().start(),
+                            node.span().end(),
+                            invalid_def,
+                        ));
+                        continue; // Continue parsing despite the ordering error
+                    }
+
+                    // Everything is correct, store the functions node
+                    functions = Some(node_id);
                 }
                 AstKind::DerivedDef => {
-                    // Derived must be defined before actions/durative/methods
-                    if !actions.is_empty()
-                        || !durative.is_empty()
-                        || !methods.is_empty()
-                    {
-                        return Err(ParseContextError::invalid_order(
-                            "Derived predicates must be defined before actions, durative actions, and methods"
+                    // Check if Derived section comes before actions/durative/methods
+                    let mut invalid_def = Vec::new();
+                    if !actions.is_empty() { invalid_def.push(AstKind::ActionDef); }
+                    if !durative.is_empty() { invalid_def.push(AstKind::DurativeActionDef); }
+                    if !methods.is_empty() { invalid_def.push(AstKind::MethodDef); }
+
+                    if !invalid_def.is_empty() {
+                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
+                            AstKind::DerivedDef,
+                            node.span().start(),
+                            node.span().end(),
+                            invalid_def,
                         ));
+                        continue; // Continue parsing despite the ordering error
                     }
-                    derived.push(node);
+
+                    // Everything is correct, store the derived node
+                    derived.push(node_id);
                 }
+
                 AstKind::TaskDef => {
-                    // TaskDef doit toujours être avant MethodDef
+                    // Check that Task section comes before Method definitions
                     if !methods.is_empty() {
-                        return Err(ParseContextError::invalid_order(
-                            "Task must be defined before methods"
+                        context.push_custom_error(CustomParseError::invalid_definition_block_order(
+                            AstKind::TaskDef,
+                            node.span().start(),
+                            node.span().end(),
+                            vec![AstKind::MethodDef],
                         ));
+                        continue; // Continue parsing even if the order is invalid
                     }
-                    tasks.push(node);
+
+                    // Everything is correct, store the task node
+                    tasks.push(node_id);
                 }
-                AstKind::ActionDef => actions.push(node),
-                AstKind::DurativeActionDef => durative.push(node),
-                AstKind::MethodDef => methods.push(node),
+                AstKind::ActionDef => actions.push(node_id),
+                AstKind::DurativeActionDef => durative.push(node_id),
+                AstKind::MethodDef => methods.push(node_id),
                 _ => {}
             }
         }
@@ -1529,6 +1555,14 @@ pub HDDLDomain: Result<NodeId, ParseContextError> = {
         context.alloc_node(AstKind::Domain, AstContent::None, children, start, end)
     },
 };
+
+/*pub HDDLStructureDef: Result<NodeId, ParseContextError> = {
+    <action:ActionDef> => action,
+    <derived:DerivedDef> => derived,
+    <durative_action:DurativeActionDef> => durative_action,
+    <task:TaskDef> => task,
+    <method:MethodDef> => method,
+}*/
 
 /*pub HDDLDomain: Result<NodeId, ParseContextError> = {
     <start:@L>

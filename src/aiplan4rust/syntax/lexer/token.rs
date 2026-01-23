@@ -25,7 +25,7 @@
 //! domains and problems specified in PDDL/HDDL formats.
 //!
 
-use crate::aiplan4rust::syntax::lexer::LexicalError;
+use crate::aiplan4rust::syntax::CustomParseError;
 
 use logos::Logos;
 use std::fmt;
@@ -384,7 +384,7 @@ pub const HTN: &str = ":htn";
 // Skip whitespace characters like spaces, tabs, newlines, and form feeds.
 #[logos(skip r"[ \r\t\n\f]+")]
 // Lexical errors are handled by the `LexicalError` type_checker.
-#[logos(error = LexicalError)]
+#[logos(error = CustomParseError)]
 // Subpatterns for matching specific token types.
 #[logos(subpattern letter = r"[a-zA-Z]")]
 #[logos(subpattern digit = r"[0-9]")]
@@ -402,7 +402,13 @@ pub enum Token {
     //VarID(String),
 
     // Numbers: Token for numerical values, including optional decimals.
-    #[regex("(?&digit)+(?&decimal)?", |lex| lex.slice().parse::<f64>())]
+    #[regex(r"(?&digit)+(\.(?&digit)+)?", |lex| {
+        let span = lex.span();
+        let slice = lex.slice().to_string();
+        lex.slice()
+            .parse::<f64>()
+            .map_err(|_| CustomParseError::invalid_number(slice, span.start, span.end))
+    })]
     Number(f64),
 
     // Keywords: Reserved words that are part of the domain specification syntax.
