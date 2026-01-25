@@ -5,7 +5,6 @@
 //! It provides methods to access and modify the action's components,
 //! normalize expressions, and render the action in human-readable or PDDL-like syntax.
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
@@ -14,8 +13,6 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedAction};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -228,64 +225,6 @@ impl DurativeAction {
     /// Returns a [`LirError`] if normalization of any of the expressions fails.
     pub fn normalize(&mut self) -> Result<(), LirError> {
         Ok(normalize::normalize_durative_action(self)?)
-    }
-}
-
-/// Converts a validated [`SyntaxSubtree`] into a [`DurativeAction`].
-///
-/// Assumes the subtree represents a durative action definition with the following structure:
-/// - Child 0: the action header (name and parameters)
-/// - Child 1: reserved / ignored
-/// - Child 2: the body containing duration, condition, and effect expressions
-///
-/// # Arguments
-///
-/// * `subtree` - A reference to a [`SyntaxSubtree`] representing the durative action.
-///
-/// # Returns
-///
-/// Returns `Ok(DurativeAction)` if parsing succeeds, or a [`LirError`] if
-/// any conversion fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// # use crate::aiplan4rust::lir::{DurativeAction, LirError};
-/// # use crate::aiplan4rust::syntax::{AstNode, SyntaxSubtree};
-/// # fn example(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<DurativeAction, LirError> {
-/// let durative_action = DurativeAction::try_from(subtree)?;
-/// # Ok(durative_action)
-/// # }
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for DurativeAction {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let node = subtree.node();
-        let ast = subtree.tree();
-
-        // Parse the action signature (name + parameters)
-        let header = NamedTypedList::try_from(&SyntaxSubtree::new(node, ast))?;
-
-        // Get the body node of the action
-        let def_body_node = ast.try_node(node.try_child(2)?)?;
-
-        // Parse duration
-        let duration_id = def_body_node.try_child(0)?;
-        let duration_node = ast.try_node(duration_id)?;
-        let duration = Expr::try_from(&SyntaxSubtree::new(duration_node, ast))?;
-
-        // Parse condition
-        let condition_id = def_body_node.try_child(1)?;
-        let condition_node = ast.try_node(condition_id)?;
-        let condition = Expr::try_from(&SyntaxSubtree::new(condition_node, ast))?;
-
-        // Parse effect
-        let eff_node_id = def_body_node.try_child(2)?;
-        let eff_node = ast.try_node(eff_node_id)?;
-        let effect = Expr::try_from(&SyntaxSubtree::new(eff_node, ast))?;
-
-        Ok(DurativeAction::from_header(header, duration, condition, effect))
     }
 }
 

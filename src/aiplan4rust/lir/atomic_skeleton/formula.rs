@@ -21,9 +21,6 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
@@ -79,6 +76,23 @@ impl Formula {
         let header = NamedTypedList::new(name, parameters);
         Self { header }
     }
+
+    /// Creates a new `Formula` from an already constructed header.
+    ///
+    /// This constructor is intended for **internal use only** within the crate,
+    /// specifically for the LIR encoding process where a [`NamedTypedList`]
+    /// has already been parsed from the AST.
+    ///
+    /// # Arguments
+    ///
+    /// * `header` - A fully constructed named typed list representing the predicate and its terms.
+    ///
+    /// # Returns
+    ///
+    /// A new `Formula` instance taking ownership of the provided header.
+    pub(crate) fn from_header(header: NamedTypedList) -> Self {
+        Self { header }
+    }
 }
 
 // Allow direct access to NamedTypedList methods.
@@ -95,36 +109,6 @@ impl DerefMut for Formula {
         &mut self.header
     }
 }
-
-/// Attempts to construct a [`Formula`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
-/// and its associated [`SyntaxTree`].
-///
-/// # Expectations
-///
-/// The AST node must have the following structure:
-/// - **Child 0**: Identifier
-/// - **Child 1**: Typed parameter list
-///
-/// # Returns
-///
-/// - `Ok(Formula)` if parsing succeeds.
-/// - `Err(AiplanError)` if the AST structure is malformed or incomplete.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subtree: &SyntaxSubtree<AstNode> = ...;
-/// let formula = Formula::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Formula {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let header = NamedTypedList::try_from(subtree)?;
-        Ok(Formula { header })
-    }
-}
-
 
 impl fmt::Display for Formula {
     /// Formats the formula in a human-readable form.

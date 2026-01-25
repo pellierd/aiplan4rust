@@ -21,9 +21,6 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents a syntax task declaration in HDDL.
@@ -69,6 +66,30 @@ impl Task {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature }
     }
+
+    /// Creates a new `Task` from an already constructed task header.
+    ///
+    /// This constructor is intended for **internal use only** within the crate.
+    /// It allows creating a `Task` by taking ownership of an existing
+    /// [`NamedTypedList`], avoiding the need to deconstruct and rebuild the
+    /// signature during the encoding process.
+    ///
+    /// # Arguments
+    ///
+    /// * `header` - A fully constructed task header (name and parameters).
+    ///
+    /// # Returns
+    ///
+    /// A new `Task` instance.
+    ///
+    /// # Notes
+    ///
+    /// This function is marked `pub(crate)` as it is a specialized constructor
+    /// for the LIR translation layer and should not be used by external consumers.
+    pub(crate) fn from_header(header: NamedTypedList) -> Self {
+        Self { header }
+    }
+
 }
 
 impl Deref for Task {
@@ -84,36 +105,6 @@ impl DerefMut for Task {
         &mut self.header
     }
 }
-
-/// Attempts to build a [`Task`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
-/// and its corresponding [`SyntaxTree`].
-///
-/// # Expectations
-///
-/// - The node should represent a task signature with:
-///   - Child 0: An identifier (the task name).
-///   - Child 1: A typed parameter list.
-///
-/// # Returns
-///
-/// - `Ok(Task)` on successful parsing.
-/// - `Err(AiplanError)` if the node structure is invalid or a required element is missing.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subtree: &SyntaxSubtree<AstNode> = ...;
-/// let task = Task::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Task {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let signature = NamedTypedList::try_from(subtree)?;
-        Ok(Task { header: signature })
-    }
-}
-
 
 impl fmt::Display for Task {
     /// Formats the task into a human-readable string.

@@ -107,6 +107,14 @@ impl Scope {
     pub fn iter(&self) -> impl Iterator<Item = &NodeId> {
         self.stack.iter()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.stack.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.stack.len()
+    }
 }
 
 /// Implements the iterator trait for `Scope`.

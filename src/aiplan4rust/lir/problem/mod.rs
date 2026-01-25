@@ -8,10 +8,11 @@ pub(crate) mod normalize;
 pub mod renderers;
 pub mod domain_def;
 pub mod problem_def;
-pub(crate) mod extract;
 pub mod flatten;
 mod durative_action;
 mod derived_predicate;
+pub mod expand;
+pub mod encode;
 
 pub use problem::Problem as LiftedProblem;
 pub use problem_def::ProblemDef;

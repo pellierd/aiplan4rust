@@ -25,7 +25,6 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
-use crate::aiplan4rust::arena::node::ArenaNode;
 use crate::aiplan4rust::interner::ident::Ident;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::typed_list::TypedList;
@@ -35,10 +34,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
-use crate::aiplan4rust::syntax::ast::node::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::display::SyntaxInternerDisplay;
-use crate::aiplan4rust::syntax::tree::subtree::SyntaxSubtree;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -81,6 +77,42 @@ impl Method {
     ) -> Self {
         Self {
             header: NamedTypedList::new(name, parameters),
+            task,
+            precondition,
+            task_network,
+        }
+    }
+
+    /// Creates a new `Method` from an already constructed method header.
+    ///
+    /// This constructor is intended for **internal use only** within the crate.
+    /// It allows creating a `Method` without rebuilding or cloning the
+    /// [`NamedTypedList`] header, which is useful during transformations such as
+    /// grounding, normalization, or compilation to other representations.
+    ///
+    /// # Arguments
+    ///
+    /// * `header` - A fully constructed method header (name and parameters).
+    /// * `task` - The task expression refined or decomposed by this method.
+    /// * `precondition` - Expression representing the precondition.
+    /// * `task_network` - The lifted task network describing the subtasks.
+    ///
+    /// # Returns
+    ///
+    /// A new `Method` instance taking ownership of the provided header.
+    ///
+    /// # Notes
+    ///
+    /// This function takes ownership of `header` to avoid unnecessary cloning
+    /// and should not be exposed as part of the public API.
+    pub(crate) fn from_header(
+        header: NamedTypedList,
+        task: Expr,
+        precondition: Expr,
+        task_network: LiftedTaskNetwork,
+    ) -> Self {
+        Self {
+            header,
             task,
             precondition,
             task_network,
@@ -190,78 +222,6 @@ impl RemapTypes for Method {
         self.header.remap_types(map)?;
         self.precondition.remap_types(map)?;
         Ok(())
-    }
-}
-
-/// Attempts to construct a [`Method`] from a given [`SyntaxSubtree`]
-/// referencing an AST node and its syntax tree.
-///
-/// # Expected AST Structure
-/// - The root node represents a method definition.
-/// - Child 0: method name (`Ident`)
-/// - Child 1: typed parameter list
-/// - Child 2: method body node, containing:
-///     - Task expression
-///     - Optionally, a precondition (`MethodPreconditionDef`)
-///     - The lifted task network
-///
-/// # Returns
-/// - `Ok(Method)` on success.
-/// - `Err(AiplanError)` if the structure is invalid or parsing fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subtree: &SyntaxSubtree<AstNode> = ...;
-/// let method = Method::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Method {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let node = subtree.node();
-        let ast = subtree.tree();
-
-        // Parse header (name + parameters)
-        let header = NamedTypedList::try_from(subtree)?;
-
-        // Parse method body
-        let def_body_node = ast.try_node(node.try_child(2)?)?;
-        let children = def_body_node.children();
-
-        let mut child_index = 0;
-
-        // Parse the task expression
-        let task_node = ast.try_node(children[child_index])?;
-        let task = Expr::try_from(&SyntaxSubtree::new(task_node, ast))?;
-        child_index += 1;
-
-        // Parse optional precondition
-        let precondition = if children.len() > child_index {
-            let pre_node_def = ast.try_node(children[child_index])?;
-            match pre_node_def.kind() {
-                AstKind::MethodPreconditionDef => {
-                    let pre_node_id = pre_node_def.try_child(0)?;
-                    let pre_node = ast.try_node(pre_node_id)?;
-                    child_index += 1;
-                    Expr::try_from(&SyntaxSubtree::new(pre_node, ast))?
-                }
-                _ => Expr::empty_or(),
-            }
-        } else {
-            Expr::empty_or()
-        };
-
-        // Parse task network
-        let tw_node_def = ast.try_node(children[child_index])?;
-        let task_network = LiftedTaskNetwork::try_from(&SyntaxSubtree::new(tw_node_def, ast))?;
-
-        Ok(Method {
-            header,
-            task,
-            precondition,
-            task_network,
-        })
     }
 }
 

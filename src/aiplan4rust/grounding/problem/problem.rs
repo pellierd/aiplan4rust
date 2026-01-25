@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
+use crate::aiplan4rust::lir::problem::expand::expander;
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -351,6 +352,11 @@ impl TryFrom<LiftedProblem> for Problem {
     /// 5. Build objects (constants and object fluents) based on symbols and types.
     fn try_from(mut lifted_problem: LiftedProblem) -> Result<Self, Self::Error> {
         flatten::flatten_types(&mut lifted_problem)?;
+
+        expander::expand_quantifiers(&mut lifted_problem)?;
+
+        println!("lifted problem: {}", lifted_problem);
+
         let interner = lifted_problem.take_interner();
 
 
@@ -397,6 +403,8 @@ impl TryFrom<LiftedProblem> for Problem {
             problem.types_domains()
         )?;
         problem.set_fluents(fluents);
+
+
 
         Ok(problem)
     }

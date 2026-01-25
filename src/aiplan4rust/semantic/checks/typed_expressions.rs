@@ -8,6 +8,7 @@ use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
+use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, NodeId};
@@ -405,7 +406,7 @@ fn get_variable_type(
     if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
         return get_number_type();
     }
-    get_declaration_type(index, context)
+    get_declaration_type(index, context, SymbolKind::Variable)
 }
 
 /// Retrieves the type_checker of a constant symbol from the symbol table.
@@ -435,7 +436,7 @@ fn get_constant_type(
     _symbol: Ident,
     context: &CheckContext,
 ) -> Result<Option<Type>, SemanticCheckError> {
-    get_declaration_type(index, context)
+    get_declaration_type(index, context, SymbolKind::Constant)
 }
 
 /// Helper function to retrieve the types associated with a symbol usage from the symbol table.
@@ -468,8 +469,9 @@ fn get_constant_type(
 fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
+    kind: SymbolKind
 ) -> Result<Option<Type>, SemanticCheckError> {
-    match context.symbol_table().resolve_declaration_by_usage(node_id)? {
+    match context.symbol_table().resolve_declaration_by_usage(node_id, kind)? {
         Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
         None => Ok(None),
     }
@@ -515,7 +517,7 @@ fn get_function_term_type(
         {
             return get_number_type();
         }
-        return get_declaration_type(index, context);
+        return get_declaration_type(index, context, SymbolKind::Function);
     }
 
     Err(SemanticCheckError::unexpected_ast_kind(

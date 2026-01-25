@@ -63,6 +63,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
+use crate::aiplan4rust::lir::problem::encode::typed_list;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -78,6 +79,8 @@ pub enum Content {
 
     /// Interned identifier referencing a name stored in a [`StringInterner`].
     Ident(Ident),
+
+    ResolvedIdent(Ident, usize),
 
     /// Floating-point literal wrapped in [`OrderedFloat`] to ensure total ordering.
     #[serde(
@@ -161,6 +164,7 @@ impl fmt::Display for Content {
             Content::ArithmeticOp(op) => write!(f, "{}", op),
             Content::Optimization(opt) => write!(f, "{}", opt),
             Content::QuantifierVariables(vars) => write!(f, "{}", vars),
+            Content::ResolvedIdent(ident, index) => write!(f, "({} {})", ident, index),
         }
     }
 }
@@ -316,8 +320,12 @@ impl TryFrom<(&AstNode, &SyntaxSubtree<'_, AstNode>)> for ExprContent {
                 }
                 // Récupère le TypedList
                 let typed_list_node = subtree.tree().try_node(children[0])?;
-                let typed_list_tree = SyntaxSubtree::new(typed_list_node, subtree.tree());
-                let vars = TypedList::try_from(&typed_list_tree)?;
+                let typed_list_tree = SyntaxSubtree::new(typed_list_node, children[0], subtree.tree());
+
+                //let vars = typed_list::encode(&typed_list_tree)?;
+                let vars = typed_list::encode(&typed_list_tree)
+                    .map_err(|e| ExprError::invalid_ast_node(ast_node.kind()))?; // Ou une variante "message"
+
                 Ok(ExprContent::QuantifierVariables(vars))
             }
             _ => ExprContent::try_from(ast_node.content()),

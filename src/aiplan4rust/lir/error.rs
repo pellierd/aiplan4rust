@@ -5,6 +5,7 @@ use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use thiserror::Error;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 
 /// Represents errors that can occur within the `lir` (Lifted Intermediate Representation) module.
 ///
@@ -24,6 +25,10 @@ use thiserror::Error;
 /// - [`InternalError`]: Generic internal errors indicating unexpected or unrecoverable conditions.
 #[derive(Debug, Error)]
 pub enum LirError {
+
+    #[error(transparent)]
+    SymbolTable(#[from] SymbolTableError),
+
     /// An error originating from the expression system.
     #[error(transparent)]
     Expr(#[from] ExprError),
@@ -71,6 +76,12 @@ pub enum LirError {
     /// Missing type when remap types
     #[error("Missing type in flattened hierarchy: {ty:?}")]
     MissingType { ty: Type },
+
+    #[error("Inertia information missing for predicate: {id:?}")]
+    InertiaInformationMissingPredicate { id: usize },
+
+    #[error("Inertia information missing for function: {id:?}")]
+    InertiaInformationMissingFunction { id: usize },
 }
 
 impl LirError {
@@ -117,5 +128,39 @@ impl LirError {
     /// Creates a new `MissingType` error for the given type.
     pub fn missing_type(ty: Type) -> Self {
         LirError::MissingType { ty }
+    }
+
+    /// Creates a new [`LirError::InertiaInformationMissingPredicate`] error.
+    ///
+    /// This error should be raised when a predicate is encountered during
+    /// expansion or grounding but has no entry in the [`InertiaTable`].
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The unique identifier (index) of the predicate that was
+    ///   not processed during the inertia analysis pass.
+    ///
+    /// # Returns
+    ///
+    /// Returns a variant of [`LirError`] containing the missing predicate index.
+    pub fn inertia_information_missing_predicate(id: usize) -> Self {
+        LirError::InertiaInformationMissingPredicate { id }
+    }
+
+    /// Creates a new [`LirError::InertiaInformationMissingFunction`] error.
+    ///
+    /// This error should be raised when a function (numeric fluent) is encountered
+    /// during expansion or grounding but has no entry in the [`InertiaTable`].
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The unique identifier (index) of the function that was
+    ///   not processed during the inertia analysis pass.
+    ///
+    /// # Returns
+    ///
+    /// Returns a variant of [`LirError`] containing the missing function index.
+    pub fn inertia_information_missing_function(id: usize) -> Self {
+        LirError::InertiaInformationMissingFunction { id }
     }
 }

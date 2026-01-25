@@ -18,13 +18,10 @@
 //! );
 //! ```
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::{Ident, RemapIdents, RemapTypes, Type, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -92,6 +89,25 @@ impl Function {
         Self { header: signature, ty }
     }
 
+    // Creates a new `Function` from an already constructed header and a return type.
+    ///
+    /// This constructor is intended for **internal use only** within the crate.
+    /// It allows creating a `Function` skeleton by taking ownership of an
+    /// existing [`NamedTypedList`], which is particularly useful when
+    /// encoding domain functions where the signature and type are parsed separately.
+    ///
+    /// # Arguments
+    ///
+    /// * `header` - A fully constructed header containing the function name and parameters.
+    /// * `ty` - The return type of the function (usually a numeric type).
+    ///
+    /// # Returns
+    ///
+    /// A new `Function` instance.
+    pub(crate) fn from_header(header: NamedTypedList, ty: Type) -> Self {
+        Self { header, ty }
+    }
+
     /// Returns a reference to the return type_checker.
     pub fn return_type(&self) -> &Type {
         &self.ty
@@ -146,41 +162,6 @@ impl Deref for Function {
 impl DerefMut for Function {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.header
-    }
-}
-
-/// Attempts to construct a [`Function`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
-/// and its associated [`SyntaxTree`].
-///
-/// # Expectations
-///
-/// The AST node must follow this structure:
-/// - **Child 0**: Function identifier (`Ident`)
-/// - **Child 1**: Typed parameter list
-/// - **Child 2**: Return type_checker
-///
-/// # Returns
-///
-/// - `Ok(Function)` on success.
-/// - `Err(AiplanError)` if any required child is missing or if type_checker resolution fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subtree: &SyntaxSubtree<AstNode> = ...;
-/// let function = Function::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Function {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let signature = NamedTypedList::try_from(subtree)?;
-
-        let ty_id = subtree.node().try_child(2)?;
-        let ty_node = subtree.tree().try_node(ty_id)?;
-        let ty = Type::try_from(&SyntaxSubtree::new(ty_node, subtree.tree()))?;
-
-        Ok(Function { header: signature, ty })
     }
 }
 

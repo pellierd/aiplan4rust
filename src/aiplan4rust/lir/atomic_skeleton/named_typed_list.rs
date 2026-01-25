@@ -25,14 +25,10 @@ use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::{RemapTypes, Ident, RemapIdents, Type, TypedList};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::lexer::Token;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
 ///
@@ -148,58 +144,6 @@ impl RemapTypes for NamedTypedList {
     fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
         self.parameters.remap_types(map)?;
         Ok(())
-    }
-}
-
-/// Attempts to construct a [`NamedTypedList`] from a [`SyntaxSubtree`] referencing an [`AstNode`]
-/// and its corresponding [`SyntaxTree`].
-///
-/// # Parameters
-/// - `subtree`: A reference to the `SyntaxSubtree` representing the named typed list structure.
-///
-/// # Behavior
-/// - The first child of the referenced node is expected to be an identifier representing the name.
-/// - The second child may either be:
-///   - A direct [`TypedList`] node, or
-///   - A wrapper node of kind `ParametersDef` whose first child is the actual [`TypedList`].
-///
-/// # Returns
-/// Returns `Ok(NamedTypedList)` on success, or an `AiplanError` if any step of the conversion fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subtree: &SyntaxSubtree<AstNode> = ...;
-/// let named = NamedTypedList::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for NamedTypedList {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let node = subtree.node();
-        let ast = subtree.tree();
-
-        let name_id = node.try_child(0)?;
-        let name_node = ast.try_node(name_id)?;
-        let name = name_node.try_ident()?;
-
-        let second_child_id = node.try_child(1)?;
-        let second_child_node = ast.try_node(second_child_id)?;
-
-        let parameters = match second_child_node.kind() {
-            AstKind::ParametersDef => {
-                let parameters_id = second_child_node.try_child(0)?;
-                let parameters_node = ast.try_node(parameters_id)?;
-                let parameters_subtree = SyntaxSubtree::new(parameters_node, ast);
-                TypedList::try_from(&parameters_subtree)?
-            }
-            _ => {
-                let parameters_subtree = SyntaxSubtree::new(second_child_node, ast);
-                TypedList::try_from(&parameters_subtree)?
-            }
-        };
-
-        Ok(NamedTypedList::new(name, parameters))
     }
 }
 

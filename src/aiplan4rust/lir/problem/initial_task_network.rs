@@ -8,15 +8,11 @@ use std::collections::HashMap;
 use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{RemapTypes, Type, TypedList};
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents the initial task network, containing parameters and a lifted task network.
 ///
@@ -102,60 +98,6 @@ impl RemapTypes for InitialTaskNetwork {
         Ok(())
     }
 }
-
-/// Attempts to construct an [`InitialTaskNetwork`] from a given [`SyntaxSubtree`]
-/// referencing an AST node and its syntax tree.
-///
-/// # Expected Structure
-///
-/// The AST node can contain:
-/// - Optionally, a `ParametersDef` node as the first child. If found, it is parsed as a `TypedList`.
-/// - A `LiftedTaskNetwork` node as the next child.
-///
-/// # Returns
-///
-/// - `Ok(InitialTaskNetwork)` if parsing succeeds.
-/// - `Err(AiplanError)` if the AST structure is invalid or parsing fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subtree: &SyntaxSubtree<AstNode> = ...;
-/// let initial_tn = InitialTaskNetwork::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for InitialTaskNetwork {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let node = subtree.node();
-        let ast = subtree.tree();
-
-        let mut child_index = 0;
-
-        // Try to parse parameters if present, otherwise use empty parameters
-        let parameters = if let Ok(parameters_def_id) = node.try_child(child_index) {
-            let parameters_def_node = ast.try_node(parameters_def_id)?;
-            if parameters_def_node.kind() == AstKind::ParametersDef {
-                let param_node_id = parameters_def_node.try_child(0)?;
-                let param_node = ast.try_node(param_node_id)?;
-                child_index += 1;
-                TypedList::try_from(&SyntaxSubtree::new(param_node, ast))?
-            } else {
-                TypedList::empty()
-            }
-        } else {
-            TypedList::empty()
-        };
-
-        // Parse the lifted task network
-        let tw_node_id = node.try_child(child_index)?;
-        let tw_node = ast.try_node(tw_node_id)?;
-        let tw = LiftedTaskNetwork::try_from(&SyntaxSubtree::new(tw_node, ast))?;
-
-        Ok(InitialTaskNetwork::new(parameters, tw))
-    }
-}
-
 
 impl Display for InitialTaskNetwork {
     /// Formats the initial task network for display purposes.

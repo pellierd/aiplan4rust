@@ -46,7 +46,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{extract, normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -55,7 +55,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
+use crate::aiplan4rust::lir::problem::encode::encoder;
 
 /// Represents a lifted planning problem defined in PDDL syntax.
 ///
@@ -125,6 +127,12 @@ pub struct Problem {
     /// The list of functions in the syntax problem.
     functions: Vec<AtomicFunctionSkeleton>,
 
+    /// Side-table mapping an Expression Node ID to a Predicate index
+    predicate_bindings: HashMap<NodeId, usize>,
+
+    /// Side-table mapping an Expression Node ID to a Function index
+    function_bindings: HashMap<NodeId, usize>,
+
     /// The constraints defined in the domain, i.e., the global constraints
     /// No constraints are represented by an empty and `Expr'.
     domain_constraints: Expr,
@@ -191,6 +199,8 @@ impl Problem {
             constants: HashMap::new(),
             predicates: Vec::new(),
             functions: Vec::new(),
+            predicate_bindings: HashMap::new(),
+            function_bindings: HashMap::new(),
             domain_constraints: Expr::empty_or(),
             tasks: Vec::new(), // Add for HDDL
             derived_predicates: Vec::new(),
@@ -609,6 +619,43 @@ impl Problem {
         I: IntoIterator<Item = AtomicFunctionSkeleton>,
     {
         self.functions.extend(iter);
+    }
+
+
+    // --- Getters Immuables (Lecture seule) ---
+
+    /// Returns the complete predicate binding table.
+    pub fn predicate_bindings(&self) -> &HashMap<NodeId, usize> {
+        &self.predicate_bindings
+    }
+
+    /// Returns the complete function binding table.
+    pub fn function_bindings(&self) -> &HashMap<NodeId, usize> {
+        &self.function_bindings
+    }
+
+    /// Gets the predicate index for a specific expression node, if it exists.
+    pub fn get_predicate_binding(&self, node_id: &NodeId) -> Option<usize> {
+        self.predicate_bindings.get(node_id).copied()
+    }
+
+    /// Gets the function index for a specific expression node, if it exists.
+    pub fn get_function_binding(&self, node_id: &NodeId) -> Option<usize> {
+        self.function_bindings.get(node_id).copied()
+    }
+
+    // --- Getters Mutables (Écriture) ---
+
+    /// Returns a mutable reference to the predicate binding table.
+    /// Useful for the encoder during the binding phase.
+    pub fn predicate_bindings_mut(&mut self) -> &mut HashMap<NodeId, usize> {
+        &mut self.predicate_bindings
+    }
+
+    /// Returns a mutable reference to the function binding table.
+    /// Useful for the encoder during the binding phase.
+    pub fn function_bindings_mut(&mut self) -> &mut HashMap<NodeId, usize> {
+        &mut self.function_bindings
     }
 
     // === Domain Constraints ===
@@ -1064,11 +1111,14 @@ impl TryFrom<LinkedSemanticContext> for Problem {
         // 2. Create a new lifted problem with interner and requirements
         let mut problem = LiftedProblem::new(interner, requirements);
 
+        let mut ast_pred_to_idx = HashMap::new();
+        let mut ast_func_to_idx = HashMap::new();
+
         // 3. Extract domain-level elements
-        extract::extract_domain(&context, &mut problem)?;
+        encoder::encode_domain(&context, &mut problem, &mut ast_pred_to_idx, &mut ast_func_to_idx)?;
 
         // 4. Extract problem-level elements
-        extract::extract_problem(&context, &mut problem)?;
+        encoder::encode_problem(&context, &mut problem, &mut ast_pred_to_idx, &mut ast_func_to_idx)?;
 
         // 5. Normalize all expressions in the problem
         normalize::normalize_problem(&mut problem)?;

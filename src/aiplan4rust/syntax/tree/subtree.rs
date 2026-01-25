@@ -29,6 +29,7 @@
 //! - [`SyntaxNode`]: Trait implemented by all nodes within the tree.
 
 use std::fmt;
+use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 
 /// A lightweight wrapper representing a subtree within a [`SyntaxTree`],
@@ -40,9 +41,11 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 #[derive(Debug, Clone, Copy)]
 pub struct SyntaxSubtree<'a, T: SyntaxNode> {
     /// The node representing the root of the subtree.
-    pub node: &'a T,
+    node: &'a T,
+
+    node_id: NodeId,
     /// The full syntax tree containing the node.
-    pub tree: &'a SyntaxTree<T>,
+    tree: &'a SyntaxTree<T>,
 }
 
 impl<'a, T: SyntaxNode> SyntaxSubtree<'a, T> {
@@ -56,8 +59,8 @@ impl<'a, T: SyntaxNode> SyntaxSubtree<'a, T> {
     /// # Returns
     ///
     /// A new `SyntaxSubtree` structure encapsulating the node and its tree.
-    pub fn new(node: &'a T, tree: &'a SyntaxTree<T>) -> Self {
-        Self { node, tree }
+    pub fn new(node: &'a T, node_id: NodeId, tree: &'a SyntaxTree<T>) -> Self {
+        Self { node, node_id, tree }
     }
 
     /// Returns a reference to the node this subtree wraps.
@@ -76,6 +79,10 @@ impl<'a, T: SyntaxNode> SyntaxSubtree<'a, T> {
     /// A reference to the full `SyntaxTree` in which the node resides.
     pub fn tree(&self) -> &'a SyntaxTree<T> {
         self.tree
+    }
+
+    pub fn node_id(&self) -> NodeId {
+        self.node_id
     }
 }
 
@@ -99,17 +106,10 @@ impl<'a, T: SyntaxNode + fmt::Display> fmt::Display for SyntaxSubtree<'a, T> {
     }
 }
 
-impl<'a, T: SyntaxNode> From<(&'a T, &'a SyntaxTree<T>)> for SyntaxSubtree<'a, T> {
-    /// Converts a tuple `(node, tree)` into a `SyntaxSubtree`.
-    ///
-    /// # Arguments
-    ///
-    /// * `(node, tree)` - A tuple containing a reference to a node and its corresponding syntax tree.
-    ///
-    /// # Returns
-    ///
-    /// A `SyntaxSubtree` containing both the node and tree reference.
-    fn from((node, tree): (&'a T, &'a SyntaxTree<T>)) -> Self {
-        SyntaxSubtree::new(node, tree)
+impl<'a, T: SyntaxNode> From<(&'a T, NodeId, &'a SyntaxTree<T>)> for SyntaxSubtree<'a, T> {
+    /// Convertit un tuple `(node, node_id, tree)` en un `SyntaxSubtree`.
+    fn from(tuple: (&'a T, NodeId, &'a SyntaxTree<T>)) -> Self {
+        let (node, node_id, tree) = tuple;
+        SyntaxSubtree::new(node, node_id, tree)
     }
 }

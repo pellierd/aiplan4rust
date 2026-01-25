@@ -41,7 +41,6 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, RemapTypes, Type};
 use crate::aiplan4rust::lang::TypedList;
@@ -49,9 +48,6 @@ use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 use serde::{Deserialize, Serialize};
@@ -281,69 +277,6 @@ impl RemapTypes for Action {
         self.precondition.remap_types(map)?;
         self.effect.remap_types(map)?;
         Ok(())
-    }
-}
-
-/// Attempts to construct an [`Action`] from a given [`SyntaxSubtree`] referencing an AST node and its syntax tree.
-///
-/// # Expected AST Structure
-///
-/// - Child 0: Action name identifier (`Ident`).
-/// - Child 1: Typed parameter list.
-/// - Child 2: Body node, which may contain:
-///   - A precondition definition node (`PreconditionDef`).
-///   - An effect definition node (`EffectDef`).
-///
-/// If precondition or effect nodes are missing, they default to empty expressions.
-///
-/// # Errors
-///
-/// Returns an [`LirError`] if the syntax structure is invalid or if parsing fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let subtree: &SyntaxSubtree<AstNode> = ...;
-/// let action = Action::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for Action {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let node = subtree.node();
-        let ast = subtree.tree();
-
-        // Parse the action signature (name + parameters)
-        let header = NamedTypedList::try_from(&SyntaxSubtree::new(node, ast))?;
-
-        // Get the body node of the action
-        let def_body_node = ast.try_node(node.try_child(2)?)?;
-
-        // Initialize precondition and effect with empty expressions by default
-        let mut precondition = Expr::empty_or();
-        let mut effect = Expr::empty_or();
-
-        // Iterate over the children of the body node to find precondition and effect
-        for &child_id in def_body_node.children() {
-            let child_node = ast.try_node(child_id)?;
-            match child_node.kind() {
-                AstKind::PreconditionDef => {
-                    let pre_node_id = child_node.try_child(0)?;
-                    let pre_node = ast.try_node(pre_node_id)?;
-                    precondition = Expr::try_from(&SyntaxSubtree::new(pre_node, ast))?;
-                }
-                AstKind::EffectDef => {
-                    let eff_node_id = child_node.try_child(0)?;
-                    let eff_node = ast.try_node(eff_node_id)?;
-                    effect = Expr::try_from(&SyntaxSubtree::new(eff_node, ast))?;
-                }
-                _ => {
-                    return Err(LirError::action_ast_kind_error(child_node.kind()));
-                }
-            }
-        }
-
-        Ok(Action::from_header(header, precondition, effect))
     }
 }
 

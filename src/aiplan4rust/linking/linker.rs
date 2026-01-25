@@ -31,7 +31,7 @@
 //! ```
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
 use crate::aiplan4rust::lang::Ident;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
@@ -159,6 +159,7 @@ impl Linker {
                     problem_ctx,
                     global_interner,
                 )?;
+
 
                 // Step 8: Return the result with the semantic context and diagnostics
                 Ok(LinkerResult::success(semantic_context, take(&mut self.diagnostic_manager)))

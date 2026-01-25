@@ -120,6 +120,22 @@ pub fn render_problem(
     }
     writeln!(f)?;
 
+    writeln_centered(f, "PREDICATE BINDINGS (NodeId -> Index)", 80, '-')?;
+    if problem.predicate_bindings().is_empty() {
+        writeln!(f, "  - no predicate bindings")?;
+    } else {
+        // On trie par NodeId pour la lisibilité
+        let mut bindings: Vec<_> = problem.predicate_bindings().iter().collect();
+        bindings.sort_by_key(|(&id, _)| id);
+        for (node_id, &pred_idx) in bindings {
+            let name = problem.predicates().get(pred_idx)
+                .map(|p| p.to_string_with_interner(interner))
+                .unwrap_or_else(|| "UNKNOWN".to_string());
+            writeln!(f, "  Node #{} => [{}] {}", node_id, pred_idx, name)?;
+        }
+    }
+    writeln!(f)?;
+
     // Functions
     writeln_centered(f, "FUNCTIONS", 80, '=')?;
     if problem.functions().is_empty() {
@@ -127,6 +143,21 @@ pub fn render_problem(
     } else {
         for func in problem.functions() {
             writeln!(f, "  - {}", func.to_string_with_interner(interner))?;
+        }
+    }
+    writeln!(f)?;
+
+    writeln_centered(f, "FUNCTION BINDINGS (NodeId -> Index)", 80, '-')?;
+    if problem.function_bindings().is_empty() {
+        writeln!(f, "  - no function bindings")?;
+    } else {
+        let mut bindings: Vec<_> = problem.function_bindings().iter().collect();
+        bindings.sort_by_key(|(&id, _)| id);
+        for (node_id, &func_idx) in bindings {
+            let name = problem.functions().get(func_idx)
+                .map(|f| f.to_string_with_interner(interner))
+                .unwrap_or_else(|| "UNKNOWN".to_string());
+            writeln!(f, "  Node #{} => [{}] {}", node_id, func_idx, name)?;
         }
     }
     writeln!(f)?;

@@ -4,15 +4,12 @@
 //! A `DerivedPredicate` is a logical fact derived from other facts,
 //! consisting of a head (name and parameters) and a body (logical expression).
 
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{RemapTypes, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::{normalize, renderers};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -136,51 +133,6 @@ impl DerivedPredicate {
     /// ```
     pub fn normalize(&mut self) -> Result<(), LirError> {
         Ok(normalize::normalize_derived_predicate(self)?)
-    }
-}
-
-/// Converts a [`SyntaxSubtree`] representing a derived predicate into a [`DerivedPredicate`].
-///
-/// This implementation assumes that the AST subtree has already been validated
-/// and contains exactly two children: the first for the predicate's head
-/// (`AtomicFormulaSkeleton`), and the second for its body (`Expr`).
-///
-/// # Arguments
-///
-/// * `subtree` - A reference to a [`SyntaxSubtree`] containing a derived predicate node.
-///
-/// # Returns
-///
-/// Returns `Ok(DerivedPredicate)` if parsing succeeds, or a [`LirError`] if
-/// any conversion of the head or body fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// # use crate::aiplan4rust::lir::{DerivedPredicate, AtomicFormulaSkeleton, Expr};
-/// # use crate::aiplan4rust::syntax::{AstNode, SyntaxSubtree};
-/// # use crate::aiplan4rust::lir::error::LirError;
-/// # fn example(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<DerivedPredicate, LirError> {
-/// let derived = DerivedPredicate::try_from(subtree)?;
-/// # Ok(derived)
-/// # }
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for DerivedPredicate {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let node = subtree.node();
-        let ast = subtree.tree();
-
-        // Parse the head of the derived predicate
-        let head_node = ast.try_node(node.try_child(0)?)?;
-        let head = AtomicFormulaSkeleton::try_from(&SyntaxSubtree::new(head_node, ast))?;
-
-        // Parse the body of the derived predicate
-        let body_node = ast.try_node(node.try_child(1)?)?;
-        let body = Expr::try_from(&SyntaxSubtree::new(body_node, ast))?;
-
-        Ok(DerivedPredicate::new(head, body))
     }
 }
 

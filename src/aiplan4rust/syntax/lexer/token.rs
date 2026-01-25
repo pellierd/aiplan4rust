@@ -327,6 +327,9 @@ pub const TOTAL_TIME: &str = "total-time";
 /// Represents the "is-violated" special constant in PDDL, which checks if a constraint is violated.
 pub const IS_VIOLATED: &str = "is-violated";
 
+/// Represents the "at" special constant in PDDL, which is used to specify timed literal
+pub const AT: &str = "at";
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // HDDL
 
@@ -526,6 +529,8 @@ pub enum Token {
     ActionCosts,
 
     // Time-related Tokens: Tokens for time-related actions.
+    #[token("at")]
+    At,
     #[token("at start")]
     AtStart,
     #[token("at end")]
@@ -764,6 +769,7 @@ impl Token {
             Token::Decrease => DECREASE.to_string(),
 
             // Time
+            Token::At => AT.to_string(),
             Token::AtStart => AT_START.to_string(),
             Token::AtEnd => AT_END.to_string(),
             Token::OverAll => OVERALL.to_string(),

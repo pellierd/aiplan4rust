@@ -92,6 +92,7 @@ extern {
         ":action-costs" => Token::ActionCosts,
 
         // Time
+        "at" => Token::At,
         "at start" => Token::AtStart,
         "at end" => Token::AtEnd,
         "over all" => Token::OverAll,
@@ -185,6 +186,7 @@ pub Name : Result<AstContent, ()> = {
     <start:@L> <name:"object_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
     <start:@L> <name:"number_type"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
     <start:@L> <name:"total-time"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
+    <start:@L> <name:"at"> <end:@R> => Ok(AstContent::Ident(context.intern(name.to_string()))),
 }
 
 pub VarName : Result<AstContent, ()> = {
@@ -1011,7 +1013,7 @@ pub BasicFunctionTerm : Result<NodeId, ParseContextError> = {
 
 pub InitEl: Result<NodeId, ParseContextError> = {
     <literal:Literal<Constant>> => literal,
-    <start:@L> "(" <number:Number> <literal:Literal<Constant>> ")" <end:@R> => {
+    <start:@L> "(" "at" <number:Number> <literal:Literal<Constant>> ")" <end:@R> => {
         context.alloc_node(AstKind::TimedInitialLiteral, AstContent::None, vec![number?, literal?], start, end)
     },
     <start:@L> "(" "=" <function:BasicFunctionTerm> <number:Number> ")" <end:@R> => {

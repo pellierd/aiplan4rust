@@ -447,12 +447,15 @@ impl SymbolTableBuilder {
     ) -> Result<(), SymbolTableError> {
         // Determine the symbol reference based on the AST node kind.
         // For complex kinds (AtomicFormula, FunctionTerm, Task), extract the first child node.
+        let mut target_id = node_ref.id();
+
         let symbol_ref = if matches!(
             node_ref.node().kind(),
             AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
         ) {
             // Retrieve the first child node ID
             let first_child_id = node_ref.node().children()[0];
+            target_id = first_child_id;
             // Get a reference to the first child node
             let first_node_ref = ast.syntax_tree().try_node_ref(first_child_id)?;
             // Extract the symbol reference from the first child node
@@ -467,6 +470,7 @@ impl SymbolTableBuilder {
 
         // Retrieve the origin of the symbol (context/source of declaration)
         let origin = SymbolOrigin::from(self.table().origin());
+        let span = ast.syntax_tree().try_node_ref(target_id)?.node().span().clone();
 
         // If the symbol already exists in the symbol table, add a new usage record
         if let Some(symbol) = self.table_mut().get_symbol_mut(ident) {
@@ -474,8 +478,8 @@ impl SymbolTableBuilder {
                 symbol_ref,
                 scope,
                 origin,
-                node_ref.node().span().clone(), // Source span for error reporting/tracking
-                node_ref.id(),                  // AST node ID
+                span, // Source span for error reporting/tracking
+                target_id,                  // AST node ID
             );
             symbol.add_usage(usage);
         } else {
@@ -485,8 +489,8 @@ impl SymbolTableBuilder {
                 symbol_ref,
                 scope,
                 origin,
-                node_ref.node().span().clone(),
-                node_ref.id(),
+                span,
+                target_id,
             );
             symbol.add_usage(usage);
             // Insert the new symbol entry into the symbol table

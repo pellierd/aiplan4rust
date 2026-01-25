@@ -40,13 +40,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::problem::{normalize, renderers};
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
 ///
@@ -227,74 +223,6 @@ impl TaskNetwork {
     /// ```
     pub fn normalize(&mut self) -> Result<(), LirError> {
         Ok(normalize::normalize_task_network(self)?)
-    }
-}
-
-/// Attempts to construct a [`TaskNetwork`] from a given [`SyntaxSubtree`]
-/// referencing an AST node and its associated syntax tree.
-///
-/// # Expected Structure
-///
-/// The node should contain children matching one or more of the following:
-/// - `PartiallyOrderedSubtaskDef` or `OrderedSubtaskDef`: holds the task definitions.
-/// - `TaskOrderingConstraintDef`: holds ordering constraints.
-/// - `TaskLogicalConstraintDef`: holds logical constraints.
-///
-/// # Returns
-///
-/// - `Ok(TaskNetwork)` if all components are successfully parsed.
-/// - `Err(AiplanError)` if the syntax structure is unexpected or a subcomponent fails.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let task_network = TaskNetwork::try_from(subtree)?;
-/// ```
-impl TryFrom<&SyntaxSubtree<'_, AstNode>> for TaskNetwork {
-    type Error = LirError;
-
-    fn try_from(subtree: &SyntaxSubtree<'_, AstNode>) -> Result<Self, Self::Error> {
-        let node = subtree.node();
-        let ast = subtree.tree();
-
-        let children = node.children();
-
-        let mut tasks = Expr::empty_and();
-        let mut ordering = Expr::empty_and();
-        let mut constraints = Expr::empty_and();
-        let mut is_declared_total_ordered = false;
-
-        for &child_id in children {
-            let child_node = ast.try_node(child_id)?;
-            match child_node.kind() {
-                AstKind::PartiallyOrderedSubtaskDef  => {
-                    let tasks_node_id = child_node.try_child(0)?;
-                    let tasks_node = ast.try_node(tasks_node_id)?;
-                    tasks = Expr::try_from(&SyntaxSubtree::new(tasks_node, ast))?;
-                }
-                AstKind::OrderedSubtaskDef => {
-                    let tasks_node_id = child_node.try_child(0)?;
-                    let tasks_node = ast.try_node(tasks_node_id)?;
-                    tasks = Expr::try_from(&SyntaxSubtree::new(tasks_node, ast))?;
-                    is_declared_total_ordered = true;
-                }
-                AstKind::TaskOrderingConstraintDef => {
-                    let ordering_node_id = child_node.try_child(0)?;
-                    let ordering_node = ast.try_node(ordering_node_id)?;
-                    ordering = Expr::try_from(&SyntaxSubtree::new(ordering_node, ast))?;
-                }
-                AstKind::TaskLogicalConstraintDef => {
-                    let logical_node_id = child_node.try_child(0)?;
-                    let logical_node = ast.try_node(logical_node_id)?;
-                    constraints = Expr::try_from(&SyntaxSubtree::new(logical_node, ast))?;
-                }
-                _ => {
-                    return Err(LirError::task_network_ast_kind_error(child_node.kind()));
-                }
-            }
-        }
-
-        Ok(TaskNetwork::new(tasks, ordering, constraints, is_declared_total_ordered))
     }
 }
 

@@ -42,6 +42,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
+use logos::Source;
 
 //// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///
@@ -523,7 +524,7 @@ impl Table {
     ///     None => println!("No declaration found."),
     /// }
     /// ```
-    pub fn resolve_declaration_by_usage(
+    /*pub fn resolve_declaration_by_usage(
         &self,
         node_id: NodeId,
     ) -> Result<Option<&Declaration>, SymbolTableError> {
@@ -545,14 +546,71 @@ impl Table {
                         1 => Ok(Some(matching[0])),
                         _ => {
                             // Convert Vec<&T> to Vec<T> for owned error variant
-                            let candidates = matching.into_iter().cloned().collect();
-                            Err(SymbolTableError::ambiguous_usage(node_id, candidates))
+                            //let candidates = matching.into_iter().cloned().collect();
+                            //Err(SymbolTableError::ambiguous_usage(node_id, candidates))
+                            let most_specific = matching
+                                .into_iter()
+                                .max_by_key(|decl| decl.scope().len());
+
+                            return Ok(most_specific);
                         }
                     };
                 }
             }
         }
 
+        Ok(None)
+    }*/
+
+    pub fn resolve_declaration_by_usage(
+        &self,
+        node_id: NodeId,
+        expected_kind: SymbolKind,
+    ) -> Result<Option<&Declaration>, SymbolTableError> {
+        for symbol in self.symbols.values() {
+            let declarations = symbol.declarations();
+
+            for usage in symbol.usages() {
+                if usage.node_id() == node_id {
+                    let matching: Vec<&Declaration> = declarations
+                        .iter()
+                        .filter(|decl| {
+                            // On vérifie le scope ET le genre du symbole
+                            usage.scope().starts_with(decl.scope()) && decl.kind() == expected_kind
+                        })
+                        .collect();
+
+                    return match matching.len() {
+                        0 => Ok(None),
+                        1 => Ok(Some(matching[0])),
+                        _ => {
+                            // --- DEBUG LOG START ---
+                            println!("\n[!] AMBIGUITY DETECTED for NodeId: {:?}", node_id);
+                            println!("    Usage Scope: {:?}", usage.scope());
+                            println!("    Candidates found:");
+                            for (i, decl) in matching.iter().enumerate() {
+                                println!("      {}. [Kind: {:?}] Name: {:?} | Scope: {:?}",
+                                         i + 1,
+                                         decl.kind(), // Supposant que tu as une méthode kind() ou type
+                                         decl.symbol(),
+                                         decl.scope()
+                                );
+                            }
+                            // --- DEBUG LOG END ---
+
+                            let candidates = matching.into_iter().cloned().collect();
+                            Err(SymbolTableError::ambiguous_usage(node_id, candidates))
+
+                            /*let most_specific = matching
+                                .into_iter()
+                                .max_by_key(|decl| decl.scope().len());
+
+                            Ok(most_specific)*/
+                        }
+                    };
+                }
+            }
+        }
         Ok(None)
     }
 
@@ -578,8 +636,9 @@ impl Table {
     pub fn try_resolve_declaration_by_usage(
         &self,
         node_id: NodeId,
+        expected_kind: SymbolKind,
     ) -> Result<&Declaration, SymbolTableError> {
-        match self.resolve_declaration_by_usage(node_id)? {
+        match self.resolve_declaration_by_usage(node_id, expected_kind)? {
             Some(decl) => Ok(decl),
             None => Err(SymbolTableError::declaration_not_found_for_usage(node_id)),
         }
