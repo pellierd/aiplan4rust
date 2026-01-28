@@ -80,8 +80,6 @@ pub enum Content {
     /// Interned identifier referencing a name stored in a [`StringInterner`].
     Ident(Ident),
 
-    ResolvedIdent(Ident, usize),
-
     /// Floating-point literal wrapped in [`OrderedFloat`] to ensure total ordering.
     #[serde(
         serialize_with = "serialize_ordered_float",
@@ -164,7 +162,6 @@ impl fmt::Display for Content {
             Content::ArithmeticOp(op) => write!(f, "{}", op),
             Content::Optimization(opt) => write!(f, "{}", opt),
             Content::QuantifierVariables(vars) => write!(f, "{}", vars),
-            Content::ResolvedIdent(ident, index) => write!(f, "({} {})", ident, index),
         }
     }
 }

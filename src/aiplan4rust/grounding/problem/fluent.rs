@@ -1,6 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::grounding::problem::ids::{ParameterID, PredicateID};
+use crate::aiplan4rust::lang::ids::{ArgumentID, PredicateID};
 
 /// Represents a fluent in a PDDL domain.
 ///
@@ -13,7 +13,7 @@ pub struct Fluent {
     symbol: PredicateID,
 
     /// Types of the parameters (arguments), represented as indices.
-    parameters: Vec<ParameterID>,
+    parameters: Vec<ArgumentID>,
 }
 
 impl Fluent {
@@ -30,7 +30,7 @@ impl Fluent {
     /// ```
     /// let f = Fluent::new(1, vec![2, 3]);
     /// ```
-    pub fn new(symbol: PredicateID, arguments: Vec<ParameterID>) -> Self {
+    pub fn new(symbol: PredicateID, arguments: Vec<ArgumentID>) -> Self {
         Self { symbol, parameters: arguments }
     }
 
@@ -54,7 +54,7 @@ impl Fluent {
     ///
     /// # Returns
     /// Reference to a `Vec<usize>` containing the argument type indices.
-    pub fn parameters(&self) -> &Vec<ParameterID> {
+    pub fn parameters(&self) -> &Vec<ArgumentID> {
         &self.parameters
     }
 
@@ -62,7 +62,7 @@ impl Fluent {
     ///
     /// # Returns
     /// Mutable reference to a `Vec<usize>` containing the argument type indices.
-    pub fn parameters_mut(&mut self) -> &mut Vec<ParameterID> {
+    pub fn parameters_mut(&mut self) -> &mut Vec<ArgumentID> {
         &mut self.parameters
     }
 
@@ -70,7 +70,7 @@ impl Fluent {
     ///
     /// # Parameters
     /// - `arguments`: A vector of indices representing the new argument types.
-    pub fn set_parameters(&mut self, arguments: Vec<ParameterID>) {
+    pub fn set_parameters(&mut self, arguments: Vec<ArgumentID>) {
         self.parameters = arguments;
     }
 }

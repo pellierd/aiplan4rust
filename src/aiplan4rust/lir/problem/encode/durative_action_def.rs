@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list};
-use crate::aiplan4rust::lir::problem::encode::context::EncodingContext;
+use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::durative_action::DurativeAction;
 
@@ -39,7 +39,6 @@ use crate::aiplan4rust::lir::problem::durative_action::DurativeAction;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     ctx: &EncodingContext,
-    ir: &mut LiftedProblem,
 ) -> Result<DurativeAction, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
@@ -53,17 +52,17 @@ pub fn encode(
     // 3. Parse Duration constraints
     let duration_id = def_body_node.try_child(0)?;
     let duration_node = ast.try_node(duration_id)?;
-    let duration = expr::encode(&SyntaxSubtree::new(duration_node, duration_id, ast), ctx, ir)?;
+    let duration = expr::encode(&SyntaxSubtree::new(duration_node, duration_id, ast), ctx)?;
 
     // 4. Parse Temporal Conditions
     let condition_id = def_body_node.try_child(1)?;
     let condition_node = ast.try_node(condition_id)?;
-    let condition = expr::encode(&SyntaxSubtree::new(condition_node, condition_id, ast), ctx, ir)?;
+    let condition = expr::encode(&SyntaxSubtree::new(condition_node, condition_id, ast), ctx)?;
 
     // 5. Parse Temporal Effects
     let eff_node_id = def_body_node.try_child(2)?;
     let eff_node = ast.try_node(eff_node_id)?;
-    let effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), ctx, ir)?;
+    let effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), ctx)?;
 
     Ok(DurativeAction::from_header(header, duration, condition, effect))
 }

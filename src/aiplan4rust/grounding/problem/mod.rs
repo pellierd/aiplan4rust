@@ -3,7 +3,6 @@ pub mod symbol_table;
 pub mod fluent;
 pub(super) mod builders;
 pub mod value_domain;
-mod ids;
 mod object_fluent;
 mod object;
 mod numeric_fluent;

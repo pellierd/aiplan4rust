@@ -27,6 +27,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
 ///
@@ -111,6 +112,10 @@ impl Function {
     /// Returns a reference to the return type_checker.
     pub fn return_type(&self) -> &Type {
         &self.ty
+    }
+
+    pub fn functor(&self) -> Symbol {
+        Symbol::new( self.header.symbol(), SymbolKind::Function)
     }
 
 }

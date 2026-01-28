@@ -822,11 +822,8 @@ where
                 write!(f, "  ")?;
             }
 
-            if is_last {
-                write!(f, "End Node #{}", node_index)
-            } else {
-                writeln!(f, "End Node #{}", node_index)
-            }
+            writeln!(f, "End Node #{}", node_index)?;
+            Ok(())
         }
 
         // If the tree has no root, it's considered empty

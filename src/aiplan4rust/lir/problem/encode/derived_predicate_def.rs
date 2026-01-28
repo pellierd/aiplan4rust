@@ -11,7 +11,7 @@ use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, expr};
-use crate::aiplan4rust::lir::problem::encode::context::EncodingContext;
+use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Encodes a derived predicate from the syntax tree into the LIR.
@@ -38,7 +38,6 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     ctx: &EncodingContext,
-    ir: &mut LiftedProblem,
 ) -> Result<DerivedPredicate, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
@@ -53,7 +52,7 @@ pub fn encode(
     // We use the free expr::encode function to resolve symbols
     let body_node_id = node.try_child(1)?;
     let body_node = ast.try_node(body_node_id)?;
-    let body = expr::encode(&SyntaxSubtree::new(body_node, body_node_id, ast), ctx, ir)?;
+    let body = expr::encode(&SyntaxSubtree::new(body_node, body_node_id, ast), ctx)?;
 
     Ok(DerivedPredicate::new(head, body))
 }

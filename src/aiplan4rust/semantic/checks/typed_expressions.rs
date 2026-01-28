@@ -1,6 +1,6 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
 use crate::aiplan4rust::lang::Ident;
@@ -273,8 +273,8 @@ fn get_binary_operation_types(
     let ast = context.syntax_tree();
 
     // Try to get the first child node index and node
-    let arg1_id = node.try_child(0)?;
-    let arg1 = ast.try_node(arg1_id)?;
+    let mut arg1_id = node.try_child(0)?;
+    let mut arg1 = ast.try_node(arg1_id)?;
 
     // Try to get the second child node index and node
     let arg2_id = node.try_child(1)?;
@@ -337,7 +337,7 @@ pub fn get_type(
         AstKind::Constant => get_constant_type(index, node.content().try_ident()?, context),
 
         // Case 4: Function Term
-        AstKind::FunctionTerm => get_function_term_type(index, node, context),
+        AstKind::FunctionTerm => get_function_term_type(node, context),
 
         // Default case: Unexpected AST syntax kind
         found_kind => Err(SemanticCheckError::unexpected_ast_kind(
@@ -472,7 +472,7 @@ fn get_declaration_type(
     kind: SymbolKind
 ) -> Result<Option<Type>, SemanticCheckError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id, kind)? {
-        Some(decl) => Ok(decl.types().cloned()), // Clone not necessary
+        Some(decl) => Ok(decl.types().cloned()),
         None => Ok(None),
     }
 }
@@ -487,7 +487,6 @@ fn get_declaration_type(
 /// If the functor is missing, invalid, or not of kind `FunctionSymbol`, an error is returned.
 ///
 /// # Parameters
-/// - `index`: The AST node ID of the `FunctionTerm`.
 /// - `node`: Reference to the `FunctionTerm` AST node.
 /// - `context`: Semantic checking context, providing access to the AST, symbol table, and requirements.
 ///
@@ -504,7 +503,6 @@ fn get_declaration_type(
 /// let ty = get_function_term_type(node_id, &function_term_node, &context)?;
 /// ```
 fn get_function_term_type(
-    index: NodeId,
     node: &AstNode,
     context: &CheckContext,
 ) -> Result<Option<Type>, SemanticCheckError> {
@@ -517,11 +515,11 @@ fn get_function_term_type(
         {
             return get_number_type();
         }
-        return get_declaration_type(index, context, SymbolKind::Function);
+        return get_declaration_type(functor_index, context, SymbolKind::Function);
     }
 
     Err(SemanticCheckError::unexpected_ast_kind(
-        index,
+        functor_index,
         vec![AstKind::FunctionSymbol],
         functor_entry.kind(),
     ))

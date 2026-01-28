@@ -1,6 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::grounding::problem::ids::{ObjectID, TypeID};
+use crate::aiplan4rust::lang::ids::{ObjectID, TypeID};
 
 /// Représente un objet (constant ou objet déclaré dans le problème)
 ///

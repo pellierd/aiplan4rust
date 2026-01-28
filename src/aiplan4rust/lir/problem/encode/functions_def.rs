@@ -6,11 +6,12 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::lang::{FunctionID, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, named_typed_list, ty};
+use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, named_typed_list, ty, EncodingContext};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
@@ -37,8 +38,8 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// constructed from the provided AST node (e.g., missing return type or name).
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
+    context: &mut EncodingContext,
     ir: &mut LiftedProblem,
-    ast_func_to_lir_index: &mut HashMap<NodeId, usize>,
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
 
@@ -46,16 +47,20 @@ pub fn encode(
         let child_node = tree.try_node(child_id)?;
         let child_subtree = SyntaxSubtree::new(child_node, child_id, tree);
 
-        // 1. Encode the function skeleton using the specialized free function
-        // This handles the name, parameters, and the mandatory return type.
+        // 1. Encode the function skeleton (handles name, params, and return type)
         let function_skeleton = atomic_function_skeleton::encode(&child_subtree)?;
 
-        // 2. Register the skeleton in the IR
+        // 2. Prepare the key (the Symbol)
+        let functor = function_skeleton.functor();
+
+        // 3. Register the skeleton in the IR
         ir.add_function(function_skeleton);
 
-        // 3. Map the AST NodeId to the LIR index (O(1) lookup)
-        let lir_index = ir.functions().len() - 1;
-        ast_func_to_lir_index.insert(child_id, lir_index);
+        // 4. Map the Symbol to the LIR index
+        // Since we just added it, the ID is current length - 1
+        let function_id = FunctionID::new(ir.functions().len() - 1);
+
+        context.register_function(functor, function_id);
     }
 
     Ok(())

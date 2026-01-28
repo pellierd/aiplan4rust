@@ -22,6 +22,9 @@
 //! Validation functions typically return a [`ValidationError`] on failure,
 //! providing detailed information about the cause and context of the error.
 
+use std::backtrace::Backtrace;
+use std::panic::Location;
+use log::debug;
 use thiserror::Error;
 
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -151,12 +154,25 @@ impl ValidationError {
     /// - `expected`: A list of allowed `AstKind` values for that position.
     /// - `found`: The actual `AstKind` of the child node.
     /// - `parent`: The parent AST node containing the invalid child.
+    #[track_caller]
     pub fn unexpected_child_kind(
         index: usize,
         expected: Vec<AstKind>,
         found: AstKind,
         parent: AstNode,
     ) -> Self {
+        let caller = Location::caller();
+        let bt = Backtrace::capture();
+        debug!(
+            "[{}:{}] Unexpected child kind at index {}. Expected {:?}, found {:?}\nStack backtrace:\n{}",
+            caller.file(),
+            caller.line(),
+            index,
+            expected,
+            found,
+            bt
+        );
+
         ValidationError::UnexpectedChildKind {
             index,
             expected,
@@ -180,6 +196,7 @@ impl ValidationError {
     /// - `found`: The actual content of the node that did not match expectations.
     /// - `node`: The AST node containing the unexpected content.
     pub fn unexpected_node_content(found: AstContent, node: AstNode) -> Self {
+        debug!("Validation error: unexpected content '{:?}' found in node '{:?}'", found, node);
         ValidationError::UnexpectedNodeContent { found, node }
     }
 

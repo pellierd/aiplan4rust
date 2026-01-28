@@ -1,6 +1,6 @@
 pub mod encoder;
 mod expr;
-mod context;
+mod registry;
 mod action_def;
 mod domain_def;
 mod predicates_def;
@@ -23,6 +23,6 @@ mod task_def;
 mod atomic_function_skeleton;
 mod atomic_formula_skeleton;
 
-pub(crate) use context::EncodingContext;
+pub(crate) use registry::EncodingContext;
 pub(super) use encoder::encode_domain;
 pub use typed_list::encode;

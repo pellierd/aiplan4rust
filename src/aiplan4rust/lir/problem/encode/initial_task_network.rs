@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{task_network, typed_list};
-use crate::aiplan4rust::lir::problem::encode::context::EncodingContext;
+use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
 
 /// Encodes an `InitialTaskNetwork` from the syntax tree.
@@ -28,7 +28,6 @@ use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     ctx: &EncodingContext,
-    ir: &mut LiftedProblem,
 ) -> Result<InitialTaskNetwork, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
@@ -56,7 +55,7 @@ pub fn encode(
     let tw_node = ast.try_node(tw_node_id)?;
 
     // Delegate to the specialized task network encoder
-    let tw = task_network::encode(&SyntaxSubtree::new(tw_node, tw_node_id, ast), ctx, ir)?;
+    let tw = task_network::encode(&SyntaxSubtree::new(tw_node, tw_node_id, ast), ctx)?;
 
     Ok(InitialTaskNetwork::new(parameters, tw))
 }

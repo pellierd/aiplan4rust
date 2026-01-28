@@ -1,11 +1,13 @@
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::{Ident, InternerError};
-use crate::aiplan4rust::lang::{LangError, Type};
+use crate::aiplan4rust::lang::{FunctionID, LangError, PredicateID, Type};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use thiserror::Error;
+use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
+use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Represents errors that can occur within the `lir` (Lifted Intermediate Representation) module.
 ///
@@ -77,11 +79,22 @@ pub enum LirError {
     #[error("Missing type in flattened hierarchy: {ty:?}")]
     MissingType { ty: Type },
 
-    #[error("Inertia information missing for predicate: {id:?}")]
-    InertiaInformationMissingPredicate { id: usize },
+    #[error("Inertia missing for predicate: {id:?}")]
+    MissingPredicateInertia { id: PredicateID },
 
-    #[error("Inertia information missing for function: {id:?}")]
-    InertiaInformationMissingFunction { id: usize },
+    /// L'inertie de la fonction est introuvable dans la table.
+    #[error("Inertia missing for function: {id:?}")]
+    MissingFunctionInertia { id: FunctionID },
+
+    #[error("Failed to bind {symbol}")]
+    SymbolBindingFailed { symbol: Symbol },
+
+    #[error("Failed to bind type: {ty:?})")]
+    TypeBindingFailed { ty: Type },
+
+    #[error("Failed to find variable with node id: {node_id:?})")]
+    VariableNotFound { node_id: NodeId },
+
 }
 
 impl LirError {
@@ -130,37 +143,46 @@ impl LirError {
         LirError::MissingType { ty }
     }
 
-    /// Creates a new [`LirError::InertiaInformationMissingPredicate`] error.
+    /// Creates a new error indicating that inertia information is missing for a predicate.
     ///
-    /// This error should be raised when a predicate is encountered during
-    /// expansion or grounding but has no entry in the [`InertiaTable`].
+    /// This error occurs when a predicate is encountered during the encoding or
+    /// analysis phase but has no corresponding entry in the inertia table,
+    /// suggesting it was skipped during the initial state or effect scanning pass.
     ///
     /// # Arguments
     ///
-    /// * `id` - The unique identifier (index) of the predicate that was
-    ///   not processed during the inertia analysis pass.
-    ///
-    /// # Returns
-    ///
-    /// Returns a variant of [`LirError`] containing the missing predicate index.
-    pub fn inertia_information_missing_predicate(id: usize) -> Self {
-        LirError::InertiaInformationMissingPredicate { id }
+    /// * `id` - The unique identifier of the missing predicate.
+    pub fn missing_predicate_inertia(id: PredicateID) -> Self {
+        Self::MissingPredicateInertia { id }
     }
 
-    /// Creates a new [`LirError::InertiaInformationMissingFunction`] error.
+    /// Creates a new error indicating that inertia information is missing for a function.
     ///
-    /// This error should be raised when a function (numeric fluent) is encountered
-    /// during expansion or grounding but has no entry in the [`InertiaTable`].
+    /// This error occurs when a numeric function is encountered but lacks
+    /// an entry in the inertia table, preventing the system from determining
+    /// if it is a constant or a fluent.
     ///
     /// # Arguments
     ///
-    /// * `id` - The unique identifier (index) of the function that was
-    ///   not processed during the inertia analysis pass.
+    /// * `id` - The unique identifier of the missing function.
+    pub fn missing_function_inertia(id: FunctionID) -> Self {
+        Self::MissingFunctionInertia { id }
+    }
+
+    /// Creates a new binding error.
     ///
-    /// # Returns
-    ///
-    /// Returns a variant of [`LirError`] containing the missing function index.
-    pub fn inertia_information_missing_function(id: usize) -> Self {
-        LirError::InertiaInformationMissingFunction { id }
+    /// # Parameters
+    /// - `kind`: The kind of symbol (from your semantic analysis).
+    /// - `node_id`: The ID of the AST node.
+    pub fn symbol_binding_failed(symbol: Symbol) -> Self {
+        Self::SymbolBindingFailed { symbol }
+    }
+
+    pub fn type_binding_failed(ty: Type) -> Self {
+        Self::TypeBindingFailed { ty }
+    }
+
+    pub fn variable_not_found(node_id: NodeId) -> Self {
+        Self::VariableNotFound { node_id }
     }
 }

@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::{Fluent, SymbolTable, ValueDomain};
-use crate::aiplan4rust::grounding::problem::ids::{FunctionID, Id, ObjectFluentID, ObjectID, ParameterID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionID, Id, ObjectFluentID, ObjectID, ArgumentID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::symbol_table::IndexTableError;
@@ -226,7 +226,7 @@ pub fn build_object_fluent_type_value_domain(
     object_fluents_table: &[ObjectFluent],
 ) {
     for (idx, of) in object_fluents_table.iter().enumerate() {
-        let of_id = ObjectFluentID(idx);
+        let of_id = ObjectFluentID::new(idx);
         type_value_domains_table[of.ty().as_usize()].add_object_fluent(of_id);
     }
 }
@@ -283,7 +283,7 @@ pub fn build_fluents_table(
             let ty_id = type_symbols_table.try_get_id(&ts.ty().members()[0])?;
             let vd = &type_value_domains_table[ty_id];
             // Collecte les ParameterID pour ce type (objets + object-fluents)
-            let domain: Vec<ParameterID> = vd.iter_parameters().collect();
+            let domain: Vec<ArgumentID> = vd.iter_parameters().collect();
             parameter_domains.push(domain);
         }
 
@@ -293,7 +293,7 @@ pub fn build_fluents_table(
             .map(|v| v.iter()) // itérateur sur les ParameterID
             .multi_cartesian_product()
         {
-            let combination: Vec<ParameterID> = combination_refs.into_iter().cloned().collect();
+            let combination: Vec<ArgumentID> = combination_refs.into_iter().cloned().collect();
             let fluent = Fluent::new(predicate, combination);
             fluents_table.push(fluent);
         }

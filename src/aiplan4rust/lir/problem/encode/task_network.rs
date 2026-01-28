@@ -36,7 +36,6 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     ctx: &EncodingContext,
-    ir: &mut LiftedProblem,
 ) -> Result<TaskNetwork, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
@@ -53,23 +52,23 @@ pub fn encode(
             AstKind::PartiallyOrderedSubtaskDef => {
                 let tasks_node_id = child_node.try_child(0)?;
                 let tasks_node = ast.try_node(tasks_node_id)?;
-                tasks = expr::encode(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), ctx, ir)?;
+                tasks = expr::encode(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), ctx)?;
             }
             AstKind::OrderedSubtaskDef => {
                 let tasks_node_id = child_node.try_child(0)?;
                 let tasks_node = ast.try_node(tasks_node_id)?;
-                tasks = expr::encode(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), ctx, ir)?;
+                tasks = expr::encode(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), ctx)?;
                 is_declared_total_ordered = true;
             }
             AstKind::TaskOrderingConstraintDef => {
                 let ordering_node_id = child_node.try_child(0)?;
                 let ordering_node = ast.try_node(ordering_node_id)?;
-                ordering = expr::encode(&SyntaxSubtree::new(ordering_node, ordering_node_id, ast), ctx, ir)?;
+                ordering = expr::encode(&SyntaxSubtree::new(ordering_node, ordering_node_id, ast), ctx)?;
             }
             AstKind::TaskLogicalConstraintDef => {
                 let logical_node_id = child_node.try_child(0)?;
                 let logical_node = ast.try_node(logical_node_id)?;
-                constraints = expr::encode(&SyntaxSubtree::new(logical_node, logical_node_id, ast), ctx, ir)?;
+                constraints = expr::encode(&SyntaxSubtree::new(logical_node, logical_node_id, ast), ctx)?;
             }
             _ => {
                 return Err(LirError::task_network_ast_kind_error(child_node.kind()));

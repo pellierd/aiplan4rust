@@ -18,7 +18,7 @@
 
 use logos::Logos;
 use logos::SpannedIter;
-use log::debug;
+use log::{debug, trace};
 
 use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::lexer::Token;
@@ -79,14 +79,14 @@ impl<'input> Iterator for Lexer<'input> {
     fn next(&mut self) -> Option<Self::Item> {
         match self.token_stream.next() {
             None => {
-                debug!("Lexer reached EOF.");
+                trace!("Lexer reached EOF.");
                 None
             }
             Some((token, span)) => match token {
                 Err(_) => {
                     let c = self.token_stream.slice().to_string();
                     let t = Token::Error(c);
-                    debug!(
+                    trace!(
                         "ERROR Token: '{}' at [{}..{}]",
                         t.symbol(),
                         span.start,
@@ -95,7 +95,7 @@ impl<'input> Iterator for Lexer<'input> {
                     Some(Ok((span.start, t, span.end)))
                 }
                 Ok(t) => {
-                    debug!(
+                    trace!(
                         "OK Token: '{}' at [{}..{}]",
                         t.symbol(),
                         span.start,

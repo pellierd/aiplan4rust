@@ -17,24 +17,35 @@ pub trait Id: Copy + Eq + Default + std::hash::Hash + Serialize {
 }
 
 /// Wrappers pour les différents types d’ID
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct TypeID(pub usize);
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct PredicateID(pub usize);
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct FunctionID(pub usize);
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct NumericFluentID(pub usize);
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ObjectID(pub usize);
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct ObjectFluentID(pub usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct TypeID(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct PredicateID(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct ParameterID(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct VariableID(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct FunctionID(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct NumericFluentID(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct ObjectID(usize);
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Ord, PartialOrd, Serialize, Deserialize)]
+pub struct ObjectFluentID(usize);
 
 macro_rules! impl_id_trait {
     ($id:ty) => {
         impl Id for $id {
+            fn new(idx: usize) -> Self { Self(idx) }
             fn from_usize(idx: usize) -> Self { <$id>::new(idx) }
             fn as_usize(self) -> usize { self.0 }
+        }
+
+        impl Default for $id {
+            fn default() -> Self {
+                Self(usize::MAX)
+            }
         }
 
         impl $id {
@@ -42,12 +53,17 @@ macro_rules! impl_id_trait {
             pub fn new(idx: usize) -> Self {
                 Self(idx)
             }
+            pub fn is_valid(self) -> bool {
+                self.0 != usize::MAX
+            }
         }
     };
 }
 
 // On peut juste lister tous les IDs
 impl_id_trait!(TypeID);
+impl_id_trait!(ParameterID);
+impl_id_trait!(VariableID);
 impl_id_trait!(PredicateID);
 impl_id_trait!(FunctionID);
 impl_id_trait!(NumericFluentID);
@@ -73,6 +89,8 @@ macro_rules! impl_index {
 
 impl_index!(TypeID);
 impl_index!(PredicateID);
+impl_index!(ParameterID);
+impl_index!(VariableID);
 impl_index!(FunctionID);
 impl_index!(NumericFluentID);
 impl_index!(ObjectID);
@@ -90,6 +108,8 @@ macro_rules! impl_display_id {
 
 impl_display_id!(TypeID, "T");
 impl_display_id!(PredicateID, "P");
+impl_display_id!(ParameterID, "param");
+impl_display_id!(VariableID, "var");
 impl_display_id!(FunctionID, "F");
 impl_display_id!(NumericFluentID, "NF");
 impl_display_id!(ObjectID, "O");
@@ -97,16 +117,16 @@ impl_display_id!(ObjectFluentID, "OF");
 
 /// Paramètre groundé dans un fluent ou action
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ParameterID {
+pub enum ArgumentID {
     Object(ObjectID),
     ObjectFluent(ObjectFluentID),
 }
 
-impl fmt::Display for ParameterID {
+impl fmt::Display for ArgumentID {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ParameterID::Object(obj_id) => write!(f, "{}", obj_id),
-            ParameterID::ObjectFluent(objf_id) => write!(f, "{}", objf_id),
+            ArgumentID::Object(obj_id) => write!(f, "{}", obj_id),
+            ArgumentID::ObjectFluent(obj_fluent_id) => write!(f, "{}", obj_fluent_id),
         }
     }
 }

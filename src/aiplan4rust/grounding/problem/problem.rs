@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::builders;
-use crate::aiplan4rust::grounding::problem::ids::{FunctionID, Id, ObjectID, ParameterID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionID, Id, ObjectID, ArgumentID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
@@ -509,7 +509,7 @@ impl Problem {
         write!(f, "({}", fluent_name)?;
 
         // Parcourir les paramètres (toujours ObjectID)
-        for obj_id in object_fluent.parameters() {
+        for obj_id in object_fluent.arguments() {
             let obj_name = self
                 .objects_symbols()
                 .get_string(*obj_id)
@@ -535,14 +535,14 @@ impl Problem {
 
         for param in fluent.parameters() {
             match param {
-                ParameterID::Object(obj_id) => {
+                ArgumentID::Object(obj_id) => {
                     let param_str = self
                         .objects_symbols()
                         .get_string(*obj_id)
                         .unwrap_or("<unknown-parameter>");
                     write!(f, " {}", param_str)?;
                 }
-                ParameterID::ObjectFluent(obj_fluent_id) => {
+                ArgumentID::ObjectFluent(obj_fluent_id) => {
                     // Utiliser la fonction dédiée pour ObjectFluent
                     let obj_fluent = self
                         .objects_fluents()

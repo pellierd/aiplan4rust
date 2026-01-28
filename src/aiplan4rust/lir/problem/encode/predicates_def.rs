@@ -6,10 +6,13 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::lang::PredicateID;
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::expr::Resolution::Predicate;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, named_typed_list};
+use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, named_typed_list, EncodingContext};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
@@ -23,7 +26,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 ///
 /// * `subtree` - The syntax subtree containing the `PredicatesDef` node.
 /// * `ir` - The mutable lifted problem where predicates are registered.
-/// * `ast_decl_to_lir_index` - A map to be populated with the mapping from AST `NodeId` to LIR predicate index.
+/// * `ast_node_to_predicate_declaration` - A map to be populated with the mapping from AST `NodeId` to LIR predicate index.
 ///
 /// # Returns
 ///
@@ -36,30 +39,30 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// the provided AST node.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
+    context: &mut EncodingContext,
     ir: &mut LiftedProblem,
-    ast_decl_to_lir_index: &mut HashMap<NodeId, usize>,
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
 
+    // On itère sur chaque définition de prédicat dans la liste
     for &child_id in subtree.node().children() {
         let child_node = tree.try_node(child_id)?;
         let child_subtree = SyntaxSubtree::new(child_node, child_id, tree);
 
-        let predicate_id = child_node.children()[0];
+        // 1. Encode le squelette du prédicat (nom + paramètres)
+        let atomic_formula_skeleton = atomic_formula_skeleton::encode(&child_subtree)?;
 
-        // 1. Encode the predicate signature using the free function
-        let formula_skeleton = atomic_formula_skeleton::encode(&child_subtree)?;
+        // 2. Récupère le symbole (propriété directe, pas de clone nécessaire)
+        let predicate = atomic_formula_skeleton.predicate();
 
-        println!("LIR Predicate: {} -> Index {}", formula_skeleton.symbol(), ir.predicates().len());
+        // 3. Calcule l'ID avant l'ajout (index 0-based)
+        let predicate_id = PredicateID::new(ir.predicates().len());
 
-        // 2. Register the skeleton in the IR
-        ir.add_predicate(formula_skeleton);
+        // 4. Mappe le symbole à l'ID
+        context.register_predicate(predicate, predicate_id);
 
-        // 3. Map the AST NodeId to the LIR index (O(1) lookup)
-        let lir_index = ir.predicates().len() - 1;
-        ast_decl_to_lir_index.insert(predicate_id, lir_index);
-
-
+        // 5. Enregistre dans le LiftedProblem
+        ir.add_predicate(atomic_formula_skeleton);
     }
 
     Ok(())

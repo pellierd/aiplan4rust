@@ -41,7 +41,7 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Ident, Requirement, TypedSymbol};
+use crate::aiplan4rust::lang::{Id, Ident, ObjectID, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -57,7 +57,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::problem::encode::encoder;
+use crate::aiplan4rust::lir::problem::encode::{encoder, EncodingContext};
 
 /// Represents a lifted planning problem defined in PDDL syntax.
 ///
@@ -121,17 +121,12 @@ pub struct Problem {
     /// The set of constants defined in this syntax problem.
     constants: HashMap<Ident, TypedSymbol>,
 
+
     /// The list of predicates in the syntax problem.
     predicates: Vec<AtomicFormulaSkeleton>,
 
     /// The list of functions in the syntax problem.
     functions: Vec<AtomicFunctionSkeleton>,
-
-    /// Side-table mapping an Expression Node ID to a Predicate index
-    predicate_bindings: HashMap<NodeId, usize>,
-
-    /// Side-table mapping an Expression Node ID to a Function index
-    function_bindings: HashMap<NodeId, usize>,
 
     /// The constraints defined in the domain, i.e., the global constraints
     /// No constraints are represented by an empty and `Expr'.
@@ -154,6 +149,11 @@ pub struct Problem {
 
     /// The set of objects defined in this syntax problem.
     objects: HashMap<Ident, TypedSymbol>,
+
+    /// Indice à partir duquel commencent les objets du problème.
+    /// [0 .. constant_offset[  -> Constantes du domaine
+    /// [constant_offset .. [   -> Objets du problème
+    constant_offset: usize,
 
     /// The initial state of the problem.
     init: Expr,
@@ -199,8 +199,6 @@ impl Problem {
             constants: HashMap::new(),
             predicates: Vec::new(),
             functions: Vec::new(),
-            predicate_bindings: HashMap::new(),
-            function_bindings: HashMap::new(),
             domain_constraints: Expr::empty_or(),
             tasks: Vec::new(), // Add for HDDL
             derived_predicates: Vec::new(),
@@ -208,6 +206,7 @@ impl Problem {
             durative_actions: Vec::new(),
             methods: Vec::new(), // Add for HDDL
             objects: HashMap::new(),
+            constant_offset: 0,
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
             problem_constraints: Expr::empty_or(),
@@ -215,6 +214,24 @@ impl Problem {
             length_spec: Expr::empty_length_spec(),
             initial_task_network: InitialTaskNetwork::default(), // Add for HDDL
         }
+    }
+
+    /// Définit la frontière entre les constantes et les objets.
+    /// On appelle généralement cela après avoir encodé toutes les constantes du domaine.
+    pub fn set_constant_offset(&mut self) {
+        // L'offset est égal au nombre d'objets actuellement présents (les constantes)
+        self.constant_offset = self.constants.len();
+    }
+
+    /// Indique si un ObjectID fait référence à une constante définie dans le domaine.
+    pub fn is_constant(&self, id: ObjectID) -> bool {
+        // En Rust, l'ID est une constante si son index est strictement inférieur à l'offset
+        id.as_usize() < self.constant_offset
+    }
+
+    /// Indique si un ObjectID fait référence à un objet défini dans le problème.
+    pub fn is_object(&self, id: ObjectID) -> bool {
+        !self.is_constant(id)
     }
 
     /// Returns an immutable reference to the unified string interner.
@@ -619,43 +636,6 @@ impl Problem {
         I: IntoIterator<Item = AtomicFunctionSkeleton>,
     {
         self.functions.extend(iter);
-    }
-
-
-    // --- Getters Immuables (Lecture seule) ---
-
-    /// Returns the complete predicate binding table.
-    pub fn predicate_bindings(&self) -> &HashMap<NodeId, usize> {
-        &self.predicate_bindings
-    }
-
-    /// Returns the complete function binding table.
-    pub fn function_bindings(&self) -> &HashMap<NodeId, usize> {
-        &self.function_bindings
-    }
-
-    /// Gets the predicate index for a specific expression node, if it exists.
-    pub fn get_predicate_binding(&self, node_id: &NodeId) -> Option<usize> {
-        self.predicate_bindings.get(node_id).copied()
-    }
-
-    /// Gets the function index for a specific expression node, if it exists.
-    pub fn get_function_binding(&self, node_id: &NodeId) -> Option<usize> {
-        self.function_bindings.get(node_id).copied()
-    }
-
-    // --- Getters Mutables (Écriture) ---
-
-    /// Returns a mutable reference to the predicate binding table.
-    /// Useful for the encoder during the binding phase.
-    pub fn predicate_bindings_mut(&mut self) -> &mut HashMap<NodeId, usize> {
-        &mut self.predicate_bindings
-    }
-
-    /// Returns a mutable reference to the function binding table.
-    /// Useful for the encoder during the binding phase.
-    pub fn function_bindings_mut(&mut self) -> &mut HashMap<NodeId, usize> {
-        &mut self.function_bindings
     }
 
     // === Domain Constraints ===
@@ -1111,14 +1091,14 @@ impl TryFrom<LinkedSemanticContext> for Problem {
         // 2. Create a new lifted problem with interner and requirements
         let mut problem = LiftedProblem::new(interner, requirements);
 
-        let mut ast_pred_to_idx = HashMap::new();
-        let mut ast_func_to_idx = HashMap::new();
-
         // 3. Extract domain-level elements
-        encoder::encode_domain(&context, &mut problem, &mut ast_pred_to_idx, &mut ast_func_to_idx)?;
+        let domain_symbol_table = context.take_domain_table();
+        let domain_syntax_tree = context.take_domain_syntax_tree();
+        let mut registry = EncodingContext::new(domain_symbol_table);
+        encoder::encode_domain(&domain_syntax_tree, &mut registry, &mut problem)?;
 
         // 4. Extract problem-level elements
-        encoder::encode_problem(&context, &mut problem, &mut ast_pred_to_idx, &mut ast_func_to_idx)?;
+        //encoder::encode_problem(&context, &mut problem, &mut type_to_id, &mut predicate_to_id, &mut functor_to_id)?;
 
         // 5. Normalize all expressions in the problem
         normalize::normalize_problem(&mut problem)?;

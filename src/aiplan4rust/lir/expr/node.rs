@@ -46,6 +46,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::expr::resolution::Resolution;
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -58,6 +59,7 @@ use crate::aiplan4rust::syntax::tree::renderers::{RenderKind};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {
     inner: SyntaxBaseNode<ExprKind, ExprContent>,
+    resolution: Resolution,
 }
 
 impl ExprNode {
@@ -75,6 +77,7 @@ impl ExprNode {
     pub fn new(kind: ExprKind, content: Content, parent: Option<NodeId>) -> Self {
         ExprNode {
             inner: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
+            resolution: Resolution::None,
         }
     }
 
@@ -92,6 +95,46 @@ impl ExprNode {
     /// otherwise returns `false`.
     pub fn is_empty_or(&self) -> bool {
         self.kind() == ExprKind::Or && self.children().is_empty()
+    }
+
+    /// Returns a reference to the resolution of this expression node.
+    ///
+    /// The resolution indicates how a symbol (identifier) has been linked
+    /// to a specific domain entity such as a parameter, variable, or constant.
+    ///
+    /// # Returns
+    ///
+    /// A reference to the [`Resolution`] associated with this node.
+    /// If the node has not been processed by the encoder yet, it returns [`Resolution::None`].
+    pub fn resolution(&self) -> &Resolution {
+        &self.resolution
+    }
+
+    /// Sets the semantic resolution for this expression node.
+    ///
+    /// This method is typically called during the encoding or linking phase
+    /// once the identifier's meaning is determined from the symbol table.
+    ///
+    /// # Parameters
+    ///
+    /// - `resolution`: The [`Resolution`] to assign to this node,
+    ///   encapsulating the resolved ID and its associated type.
+    pub fn set_resolution(&mut self, resolution: Resolution) {
+        self.resolution = resolution;
+    }
+
+    /// Checks whether the expression node has been semantically resolved.
+    ///
+    /// A resolved node means its identifier or symbol has been successfully
+    /// linked to a specific entity (like a Constant, Parameter, or Function)
+    /// within the domain or problem context.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the node's resolution is anything other than [`Resolution::None`],
+    /// `false` otherwise.
+    pub fn is_resolved(&self) -> bool {
+        !matches!(self.resolution, Resolution::None)
     }
 
 }
@@ -340,6 +383,7 @@ impl SyntaxNode for ExprNode {
                 Vec::new(),         // no children
                 None,               // no parent
             ),
+            resolution: self.resolution.clone(),
         }
     }
 

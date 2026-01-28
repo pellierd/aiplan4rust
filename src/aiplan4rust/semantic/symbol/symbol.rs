@@ -33,7 +33,7 @@ use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 /// let sym = Symbol::new(Ident::new("at"), SymbolKind::Predicate);
 /// println!("{}", sym); // prints: Predicate at
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Symbol {
     ident: Ident,
     kind: SymbolKind,

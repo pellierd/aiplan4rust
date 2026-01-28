@@ -591,6 +591,7 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
                 ],
             )?;
             common::checks::check_child_kind(ast, node, 1, &[
+                    AstKind::Number,
                     AstKind::FComp,
                     AstKind::FunctionTerm,
                     AstKind::Variable,
@@ -615,7 +616,7 @@ pub fn check_assign_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForm
     common::checks::check_children_count(node.arity(), 2, node)?;
     common::checks::check_child_kind(ast, node, 0, &[AstKind::FunctionTerm])?;
     common::checks::check_child_kind(ast, node, 1, &[
-            AstKind::FComp,
+            AstKind::Number,
             AstKind::Variable,
             AstKind::Constant,
             AstKind::FunctionTerm,

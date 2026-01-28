@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list, task_network};
-use crate::aiplan4rust::lir::problem::encode::context::EncodingContext;
+use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::method::Method;
 
@@ -33,7 +33,6 @@ use crate::aiplan4rust::lir::problem::method::Method;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     ctx: &EncodingContext,
-    ir: &mut LiftedProblem,
 ) -> Result<Method, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
@@ -49,7 +48,7 @@ pub fn encode(
     // 3. Parse the abstract task expression this method achieves
     let task_node_id = children[child_index];
     let task_node = ast.try_node(task_node_id)?;
-    let task = expr::encode(&SyntaxSubtree::new(task_node, task_node_id, ast), ctx, ir)?;
+    let task = expr::encode(&SyntaxSubtree::new(task_node, task_node_id, ast), ctx)?;
     child_index += 1;
 
     // 4. Parse optional precondition
@@ -59,7 +58,7 @@ pub fn encode(
             let pre_node_id = pre_node_def.try_child(0)?;
             let pre_node = ast.try_node(pre_node_id)?;
             child_index += 1;
-            expr::encode(&SyntaxSubtree::new(pre_node, pre_node_id, ast), ctx, ir)?
+            expr::encode(&SyntaxSubtree::new(pre_node, pre_node_id, ast), ctx)?
         } else {
             Expr::empty_or()
         }
@@ -71,7 +70,7 @@ pub fn encode(
     // Note: We expect the task network to be the next child
     let tw_node_def_id  = children[child_index];
     let tw_node_def = ast.try_node(tw_node_def_id)?;
-    let task_network = task_network::encode(&SyntaxSubtree::new(tw_node_def, tw_node_def_id, ast), ctx, ir)?;
+    let task_network = task_network::encode(&SyntaxSubtree::new(tw_node_def, tw_node_def_id, ast), ctx)?;
 
     Ok(Method::from_header(header, task, precondition, task_network))
 }

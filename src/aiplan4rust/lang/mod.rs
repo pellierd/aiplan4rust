@@ -45,6 +45,7 @@ pub mod assign_op;
 pub mod binary_comp;
 pub mod optimization;
 pub mod error;
+pub mod ids;
 
 pub use ty::Type;
 pub use typed_symbol::TypedSymbol;
@@ -58,3 +59,4 @@ pub use optimization::Optimization;
 pub use error::LangError;
 pub use crate::aiplan4rust::lir::problem::flatten::remap_types::RemapTypes;
 pub use crate::aiplan4rust::interner::remap_idents::RemapIdents;
+pub use ids::*;

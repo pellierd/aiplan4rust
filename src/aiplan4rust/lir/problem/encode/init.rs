@@ -37,7 +37,6 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     ctx: &EncodingContext,
-    ir: &mut LiftedProblem,
 ) -> Result<Expr, LirError> {
     // 1. Access the first child of the Init node (containing the list of initial facts)
     let child_id = subtree.node().try_child(0)?;
@@ -46,5 +45,5 @@ pub fn encode(
 
     // 2. Use the free expression encoder to transform the AST into a LIR Expr.
     // This populates the problem's binding tables (predicate_bindings).
-    expr::encode(&child_subtree, ctx, ir)
+    expr::encode(&child_subtree, ctx)
 }

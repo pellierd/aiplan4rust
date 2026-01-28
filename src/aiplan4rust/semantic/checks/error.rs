@@ -1,3 +1,6 @@
+use std::backtrace::Backtrace;
+use std::panic::Location;
+use log::debug;
 use thiserror::Error;
 
 use crate::aiplan4rust::arena::ArenaError;
@@ -95,8 +98,28 @@ impl SemanticCheckError {
         UnexpectedNodeKindError::new(node_id, expected, found).into()
     }
 
+    #[track_caller]
     pub fn missing_operand_type(node_id: NodeId, operand_index: usize) -> Self {
-        SemanticCheckError::MissingOperandType { node_id, operand_index }
+        let caller = Location::caller();
+
+        let msg = format!(
+            "[{}:{}] Missing operand type for node {:?} at index {}",
+            caller.file(),
+            caller.line(),
+            node_id,
+            operand_index
+        );
+
+        #[cfg(debug_assertions)]
+        {
+            let bt = Backtrace::capture();
+            debug!("{}\nStack backtrace:\n{}", msg, bt);
+        }
+
+        SemanticCheckError::MissingOperandType {
+            node_id,
+            operand_index
+        }
     }
 
     pub fn missing_declaration(symbol: Ident, scope: Scope) -> Self {

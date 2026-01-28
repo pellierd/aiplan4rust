@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{Ident, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
@@ -93,6 +94,11 @@ impl Formula {
     pub(crate) fn from_header(header: NamedTypedList) -> Self {
         Self { header }
     }
+
+    pub fn predicate(&self) -> Symbol {
+        Symbol::new( self.header.symbol(), SymbolKind::Predicate)
+    }
+
 }
 
 // Allow direct access to NamedTypedList methods.

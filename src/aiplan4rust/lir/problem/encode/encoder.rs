@@ -14,10 +14,14 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::arena::NodeId;
+use crate::aiplan4rust::lang::{FunctionID, PredicateID, Type, TypeID};
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::problem::encode::{domain_def, problem_def};
+use crate::aiplan4rust::lir::problem::encode::{domain_def, problem_def, EncodingContext};
+use crate::aiplan4rust::semantic::symbol::Symbol;
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
 /// Extracts and encodes all domain-level elements into the LIR.
 ///
@@ -37,12 +41,11 @@ use crate::aiplan4rust::lir::problem::encode::{domain_def, problem_def};
 /// * `Ok(())` - Successfully encoded the domain.
 /// * `Err(LirError)` - If a structural error or semantic inconsistency is encountered.
 pub fn encode_domain(
-    context: &LinkedSemanticContext,
+    syntax_tree: &SyntaxTree<AstNode>,
+    context: &mut EncodingContext,
     ir: &mut LiftedProblem,
-    ast_pred_to_idx: &mut HashMap<NodeId, usize>,
-    ast_func_to_idx: &mut HashMap<NodeId, usize>,
 ) -> Result<(), LirError> {
-    domain_def::encode(context, ir, ast_pred_to_idx, ast_func_to_idx)
+    domain_def::encode(syntax_tree, context, ir)
 }
 
 /// Extracts and encodes all problem-level elements into the LIR.
@@ -68,10 +71,9 @@ pub fn encode_domain(
 /// This function will return an error if it encounters objects or types that were
 /// not defined in the domain, or if initial state expressions are malformed.
 pub fn encode_problem(
-    context: &LinkedSemanticContext,
+    syntax_tree: &SyntaxTree<AstNode>,
+    context: &mut EncodingContext,
     ir: &mut LiftedProblem,
-    ast_pred_to_idx: &mut HashMap<NodeId, usize>,
-    ast_func_to_idx: &mut HashMap<NodeId, usize>,
 ) -> Result<(), LirError> {
-    problem_def::encode(context, ir, ast_pred_to_idx, ast_func_to_idx)
+    problem_def::encode(syntax_tree, context, ir)
 }

@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::grounding::problem::ids::{ObjectFluentID, ObjectID, ParameterID};
+use crate::aiplan4rust::lang::ids::{ObjectFluentID, ObjectID, ArgumentID};
 
 /// Domaine de valeurs pour un type donné
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -40,9 +40,9 @@ impl ValueDomain {
     }
 
     /// Iterateur simple sur tous les ParameterID
-    pub fn iter_parameters(&self) -> impl Iterator<Item = ParameterID> + '_ {
-        let objects_iter = self.objects.iter().copied().map(ParameterID::Object);
-        let object_fluents_iter = self.object_fluents.iter().copied().map(ParameterID::ObjectFluent);
+    pub fn iter_parameters(&self) -> impl Iterator<Item =ArgumentID> + '_ {
+        let objects_iter = self.objects.iter().copied().map(ArgumentID::Object);
+        let object_fluents_iter = self.object_fluents.iter().copied().map(ArgumentID::ObjectFluent);
         objects_iter.chain(object_fluents_iter)
     }
 }

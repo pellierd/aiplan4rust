@@ -1,4 +1,4 @@
-use crate::aiplan4rust::grounding::problem::ids::Id;
+use crate::aiplan4rust::lang::ids::Id;
 use crate::aiplan4rust::interner::{Ident, InternerError, StringInterner};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -37,7 +37,6 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     ctx: &EncodingContext,
-    ir: &mut LiftedProblem,
 ) -> Result<Expr, LirError> {
     // 1. Access the first child of the Goal node (the root of the logical expression)
     let child_id = subtree.node().try_child(0)?;
@@ -46,5 +45,5 @@ pub fn encode(
 
     // 2. Encode using the context to resolve symbols (objects, predicates, etc.)
     // We pass ir mutably to register bindings if necessary.
-    expr::encode(&child_subtree, ctx, ir)
+    expr::encode(&child_subtree, ctx)
 }
