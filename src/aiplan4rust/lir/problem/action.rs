@@ -98,7 +98,7 @@ impl Action {
     /// ```
     pub fn new(
         name: StringID,
-        parameters: TypedList,
+        parameters: TypedList<StringID>,
         precondition: Expr,
         effect: Expr,
     ) -> Self {
@@ -172,7 +172,7 @@ impl Action {
     /// # Arguments
     ///
     /// * `parameters` - The new list of typed parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList) {
+    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
         self.header.set_parameters(parameters);
     }
 

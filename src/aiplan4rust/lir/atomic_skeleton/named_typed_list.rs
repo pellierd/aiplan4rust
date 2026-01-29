@@ -46,7 +46,7 @@ pub struct NamedTypedList {
     /// Name of the predicate or function.
     symbol: StringID,
     /// Signature describing parameter types and optional return type_checker.
-    parameters: TypedList,
+    parameters: TypedList<StringID>,
 }
 
 impl NamedTypedList {
@@ -60,7 +60,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A new instance of `NamedTypedList`.
-    pub fn new(name: StringID, parameters: TypedList) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<StringID>) -> Self {
         Self { symbol: name, parameters }
     }
 
@@ -87,7 +87,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A reference to the `TypedList` representing the parameters.
-    pub fn parameters(&self) -> &TypedList {
+    pub fn parameters(&self) -> &TypedList<StringID> {
         &self.parameters
     }
 
@@ -98,7 +98,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A mutable reference to the `TypedList`.
-    pub fn parameters_mut(&mut self) -> &mut TypedList {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<StringID> {
         &mut self.parameters
     }
 
@@ -107,7 +107,7 @@ impl NamedTypedList {
     /// # Parameters
     ///
     /// - `parameters`: The new `TypedList` to set as the parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList) {
+    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
         self.parameters = parameters;
     }
 }

@@ -73,7 +73,7 @@ impl Formula {
     /// # Returns
     ///
     /// A `Formula` instance whose return type_checker is always `None`.
-    pub fn new(name: StringID, parameters: TypedList) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<StringID>) -> Self {
         let header = NamedTypedList::new(name, parameters);
         Self { header }
     }

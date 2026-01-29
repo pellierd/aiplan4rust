@@ -21,7 +21,7 @@ use crate::aiplan4rust::lir::error::LirError;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct InitialTaskNetwork {
     /// The typed parameters of the initial task network.
-    parameters: TypedList,
+    parameters: TypedList<StringID>,
 
     /// The lifted task network describing the initial tasks.
     task_network: LiftedTaskNetwork,
@@ -37,22 +37,22 @@ impl InitialTaskNetwork {
     ///
     /// # Returns
     /// A new instance of `InitialTaskNetwork`.
-    pub fn new(parameters: TypedList, task_network: LiftedTaskNetwork) -> Self {
+    pub fn new(parameters: TypedList<StringID>, task_network: LiftedTaskNetwork) -> Self {
         Self { parameters, task_network }
     }
 
     /// Returns an immutable reference to the parameters.
-    pub fn parameters(&self) -> &TypedList {
+    pub fn parameters(&self) -> &TypedList<StringID> {
         &self.parameters
     }
 
     /// Returns a mutable reference to the parameters.
-    pub fn parameters_mut(&mut self) -> &mut TypedList {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<StringID> {
         &mut self.parameters
     }
 
     /// Sets the parameters to a new `TypedList`.
-    pub fn set_parameters(&mut self, parameters: TypedList) {
+    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
         self.parameters = parameters;
     }
 

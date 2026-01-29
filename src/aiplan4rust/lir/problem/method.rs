@@ -69,7 +69,7 @@ impl Method {
     /// A new `Method` instance.
     pub fn new(
         name: StringID,
-        parameters: TypedList,
+        parameters: TypedList<StringID>,
         task: Expr,
         precondition: Expr,
         task_network: LiftedTaskNetwork,
@@ -134,7 +134,7 @@ impl Method {
     }
 
     /// Sets the method's parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList) {
+    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
         self.header.set_parameters(parameters);
     }
 

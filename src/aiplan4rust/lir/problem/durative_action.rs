@@ -90,7 +90,7 @@ impl DurativeAction {
     /// ```
     pub fn new(
         name: StringID,
-        parameters: TypedList,
+        parameters: TypedList<StringID>,
         duration: Expr,
         condition: Expr,
         effect: Expr,
@@ -156,7 +156,7 @@ impl DurativeAction {
     ///
     /// # Parameters
     /// - `parameters`: A typed list of symbols to replace the action's current parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList) {
+    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
         self.action.set_parameters(parameters);
     }
 

@@ -3,7 +3,7 @@
 //! This module provides functions to parse and encode lists of typed symbols,
 //! commonly found in parameters, constants, and object definitions.
 
-use crate::aiplan4rust::lang::TypedList;
+use crate::aiplan4rust::lang::{StringID, TypedList};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
@@ -20,7 +20,7 @@ use crate::aiplan4rust::lir::problem::encode::typed_symbol;
 /// # Returns
 /// * `Ok(TypedList)` - A list of successfully encoded typed symbols.
 /// * `Err(LirError)` - If any individual symbol fails to encode.
-pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<TypedList, LirError> {
+pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<TypedList<StringID>, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 

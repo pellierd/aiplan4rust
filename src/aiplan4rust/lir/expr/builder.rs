@@ -301,7 +301,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     /// The `NodeId` of the newly created `Forall` node.
-    pub fn forall(&mut self, vars: TypedList, body: NodeId) -> NodeId {
+    pub fn forall(&mut self, vars: TypedList<StringID>, body: NodeId) -> NodeId {
         self.node(ExprNode::new(ExprKind::Forall, ExprContent::QuantifierVariables(vars), None), vec![body])
     }
 
@@ -319,7 +319,7 @@ impl<'a> ExprBuilder<'a> {
     }
 
     /// Helper to create a TypedList from variable name/type pairs
-    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList {
+    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList<StringID> {
         let typed_symbols: Vec<TypedSymbol<StringID>> = vars
             .into_iter()
             .map(|(var_name, type_name)| {
@@ -339,7 +339,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     /// The `NodeId` of the newly created `Exists` node.
-    pub fn exists(&mut self, vars: TypedList, body: NodeId) -> NodeId {
+    pub fn exists(&mut self, vars: TypedList<StringID>, body: NodeId) -> NodeId {
         //self.binary(ExprKind::Exists, vars, body)
         self.node(ExprNode::new(ExprKind::Exists, ExprContent::QuantifierVariables(vars), None), vec![body])
     }

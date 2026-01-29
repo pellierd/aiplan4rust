@@ -62,7 +62,7 @@ impl Task {
     ///
     /// - `name`: The identifier for this task.
     /// - `parameters`: A typed list describing the task's parameters.
-    pub fn new(name: StringID, parameters: TypedList) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<StringID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature }
     }

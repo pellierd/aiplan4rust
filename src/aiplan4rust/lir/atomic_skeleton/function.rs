@@ -85,7 +85,7 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `ty`: The return type_checker of the function.
-    pub fn new(name: StringID, parameters: TypedList, ty: Type<StringID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<StringID>, ty: Type<StringID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature, ty }
     }
