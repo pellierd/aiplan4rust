@@ -12,14 +12,9 @@
 //! mappings to ensure that references in the logic (expressions/effects) point to the
 //! correct LIR indices.
 
-use std::collections::HashMap;
-use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::lang::{FunctionID, PredicateID, Type, TypeID};
-use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::encode::{domain_def, problem_def, EncodingContext};
-use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 

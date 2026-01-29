@@ -27,7 +27,7 @@
 use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind};
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{Ident, Requirement, Type};
+use crate::aiplan4rust::lang::{StringID, Requirement, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
@@ -647,7 +647,7 @@ fn format_task_argument_supertype_suggestion(
 ///
 /// An optional suggestion string describing the duplicate types found.
 fn format_duplicate_either_type_suggestion(
-    duplicate_types: &[Ident],
+    duplicate_types: &[StringID],
     interner: Option<&StringInterner>,
 ) -> Option<String> {
     let listed_types = if duplicate_types.len() == 1 {
@@ -743,7 +743,7 @@ fn format_cross_conflict_symbol_declaration_suggestion(
 ///
 /// An optional suggestion string describing the implicit merge and guidance.
 fn format_implicit_either_type_declaration_suggestion(
-    ty: Ident,
+    ty: StringID,
     duplicate_spans: &[Span],
     interner: Option<&StringInterner>,
 ) -> Option<String> {

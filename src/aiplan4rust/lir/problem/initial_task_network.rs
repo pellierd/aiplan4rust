@@ -5,8 +5,8 @@
 //! a lifted task network describing the tasks and their relationships.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{RemapTypes, Type, TypedList};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypedList};
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use serde::{Deserialize, Serialize};
@@ -93,7 +93,7 @@ impl RemapTypes for InitialTaskNetwork {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         self.parameters.remap_types(map)?;
         Ok(())
     }

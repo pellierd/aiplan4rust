@@ -16,24 +16,21 @@
 //! domain-specific language processor.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::error::LangError;
 use crate::aiplan4rust::lang::Type;
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
+use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-/// Represents a typed symbol identified by an [`Ident`],
+/// Represents a typed symbol identified by an [`StringID`],
 /// with one or more associated types.
 ///
 /// This struct models a semantic symbol (such as a variable or function)
 /// along with its associated type_checker(s).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol {
-    symbol: Ident,
+    symbol: StringID,
     ty: Type,
 }
 
@@ -48,17 +45,17 @@ impl TypedSymbol {
     /// # Returns
     ///
     /// A new instance of `TypedSymbol`.
-    pub fn new(symbol: Ident, types: Type) -> Self {
+    pub fn new(symbol: StringID, types: Type) -> Self {
         TypedSymbol { symbol, ty: types }
     }
 
     /// Returns the main symbol identifier.
-    pub fn symbol(&self) -> Ident {
+    pub fn symbol(&self) -> StringID {
         self.symbol
     }
 
     /// Sets the main symbol identifier.
-    pub fn set_symbol(&mut self, symbol: Ident) {
+    pub fn set_symbol(&mut self, symbol: StringID) {
         self.symbol = symbol;
     }
 
@@ -94,7 +91,7 @@ impl RemapIdents for TypedSymbol {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         self.symbol.remap_idents(map)?;
         self.ty.remap_idents(map)?;
         Ok(())

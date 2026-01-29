@@ -50,7 +50,6 @@ pub mod ids;
 pub use ty::Type;
 pub use typed_symbol::TypedSymbol;
 pub use typed_list::TypedList;
-pub use crate::aiplan4rust::interner::ident::Ident;
 pub use requirement::Requirement;
 pub use arithmetic_op::ArithmeticOp;
 pub use assign_op::AssignOp;

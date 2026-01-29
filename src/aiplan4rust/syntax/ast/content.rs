@@ -32,7 +32,7 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents, Requirement};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, Requirement};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use ordered_float::OrderedFloat;
@@ -51,7 +51,7 @@ pub enum Content {
     None,
 
     /// Interned identifier (references a string in the [`StringInterner`]).
-    Ident(Ident),
+    Ident(StringID),
 
     /// Floating-point literal (wrapped in [`OrderedFloat`] for total ordering).
     #[serde(
@@ -241,7 +241,7 @@ impl SyntaxContent for Content {
     ///
     /// - `Some(Ident)` if the content is an identifier.
     /// - `None` otherwise.
-    fn as_ident(&self) -> Option<Ident> {
+    fn as_ident(&self) -> Option<StringID> {
         match self {
             Content::Ident(id) => Some(*id),
             _ => None,
@@ -340,7 +340,7 @@ impl RemapIdents for Content {
     /// - The operation is performed **in place** and is panic-free.
     /// - No error is returned in this implementation; stricter remapping behavior
     ///   can return [`InternerError::MissingIdent`] if desired.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         if let Content::Ident(id) = self {
             id.remap_idents(map)?;
         }

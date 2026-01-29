@@ -36,13 +36,12 @@
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{Ident, Optimization, RemapIdents, RemapTypes, Type};
+use crate::aiplan4rust::lang::{StringID, Optimization, RemapIdents, RemapTypes, Type};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxTree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -305,7 +304,7 @@ impl Expr {
     /// # Errors
     ///
     /// Returns a `InternerError` if any identifier in the subtree fails to remap.
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
+    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         self.tree.remap_idents_from(id, map)?;
         Ok(())
     }
@@ -532,7 +531,7 @@ impl RemapIdents for Expr {
     /// # Errors
     ///
     /// Returns a `InternerError` if remapping fails for any node in the tree.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         self.tree.remap_idents(map)?;
         Ok(())
     }
@@ -551,7 +550,7 @@ impl RemapTypes for Expr {
     /// # Behavior
     /// - Traverses the expression tree from the root node.
     /// - Replaces type references according to `map`; non-union or unmapped types remain unchanged.
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         if let Ok(root_id) = self.tree.try_root_id() {
             self.flatten_types_from(root_id, map)?;
         }
@@ -574,7 +573,7 @@ impl Expr {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped or are already primitive.
     /// - `Err(LirError)` if an error occurs during traversal or remapping (e.g., missing mapping or invalid node access).
-    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         let mut stack = vec![node_id];
         while let Some(node_id) = stack.pop() {
             let node = self.tree.try_node_mut(node_id)?;

@@ -1,13 +1,11 @@
-use std::collections::{HashMap, HashSet};
-use logos::Source;
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{Type, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::TypeID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingContext};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree};
+use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
 /// Encodes type definitions from the AST into the Lifted Intermediate Representation (LIR).
 ///

@@ -1,11 +1,11 @@
 use crate::aiplan4rust::lang::ids::Id;
-use crate::aiplan4rust::interner::{Ident, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::rc::Rc;
 use thiserror::Error;
-
+use crate::aiplan4rust::lang::StringID;
 
 /// A generic table mapping `Ident` <-> `ID`.
 ///
@@ -13,8 +13,8 @@ use thiserror::Error;
 /// Provides fast lookups in both directions.
 #[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct SymbolTable<ID: Id> {
-    elements: Vec<Ident>,   // idx -> Ident
-    map: HashMap<Ident, ID>, // Ident -> ID
+    elements: Vec<StringID>,   // idx -> Ident
+    map: HashMap<StringID, ID>, // Ident -> ID
     /// Reference-counted interner
     #[serde(skip)]
     interner: Rc<StringInterner>,
@@ -32,28 +32,28 @@ impl<ID: Id> SymbolTable<ID> {
     /// Inserts an `Ident` into the table if it does not already exist.
     ///
     /// Returns the corresponding typed ID.
-    pub fn insert(&mut self, ident: Ident) -> ID {
+    pub fn insert(&mut self, ident: StringID) -> ID {
         if let Some(&id) = self.map.get(&ident) {
             return id;
         }
-        let id = ID::from_usize(self.elements.len());
+        let id = ID::from(self.elements.len());
         self.elements.push(ident);
         self.map.insert(ident, id);
         id
     }
 
     /// Returns the ID associated with the given `Ident`, if it exists.
-    pub fn get_id(&self, ident: &Ident) -> Option<ID> {
+    pub fn get_id(&self, ident: &StringID) -> Option<ID> {
         self.map.get(ident).copied()
     }
 
     /// Returns the `Ident` associated with a given ID, if valid.
-    pub fn get_ident(&self, id: ID) -> Option<&Ident> {
+    pub fn get_ident(&self, id: ID) -> Option<&StringID> {
         self.elements.get(id.as_usize())
     }
 
     /// Checks if the table contains a given `Ident`.
-    pub fn contains(&self, ident: &Ident) -> bool {
+    pub fn contains(&self, ident: &StringID) -> bool {
         self.map.contains_key(ident)
     }
 
@@ -68,17 +68,17 @@ impl<ID: Id> SymbolTable<ID> {
     }
 
     /// Returns an iterator over all `Ident`s in the table.
-    pub fn iter(&self) -> impl Iterator<Item = &Ident> {
+    pub fn iter(&self) -> impl Iterator<Item = &StringID> {
         self.elements.iter()
     }
 
     /// Attempts to get the ID for an `Ident`, returning an error if not found.
-    pub fn try_get_id(&self, ident: &Ident) -> Result<ID, IndexTableError> {
+    pub fn try_get_id(&self, ident: &StringID) -> Result<ID, IndexTableError> {
         self.get_id(ident).ok_or(IndexTableError::ident_not_found(*ident))
     }
 
     /// Attempts to get the `Ident` for an ID, returning an error if out of bounds.
-    pub fn try_get_ident(&self, id: ID) -> Result<&Ident, IndexTableError> {
+    pub fn try_get_ident(&self, id: ID) -> Result<&StringID, IndexTableError> {
         self.get_ident(id).ok_or(IndexTableError::index_out_of_bounds(id.as_usize()))
     }
 
@@ -142,7 +142,7 @@ impl<ID: Id> fmt::Display for SymbolTable<ID> {
 #[derive(Debug, Error)]
 pub enum IndexTableError {
     #[error("Ident {0:?} not found in IndexTable")]
-    IdentNotFound(Ident),
+    IdentNotFound(StringID),
 
     #[error("Index {0} out of bounds in IndexTable")]
     IndexOutOfBounds(usize),
@@ -152,7 +152,7 @@ pub enum IndexTableError {
 }
 
 impl IndexTableError {
-    pub fn ident_not_found(id: Ident) -> Self {
+    pub fn ident_not_found(id: StringID) -> Self {
         log::debug!("Creating IndexTableError::IdentNotFound for {:?}", id);
         IndexTableError::IdentNotFound(id)
     }

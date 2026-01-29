@@ -24,5 +24,4 @@ mod atomic_function_skeleton;
 mod atomic_formula_skeleton;
 
 pub(crate) use registry::EncodingContext;
-pub(super) use encoder::encode_domain;
 pub use typed_list::encode;

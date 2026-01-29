@@ -3,8 +3,8 @@ use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::Ident;
-use crate::aiplan4rust::interner::{Literal, StringInterner};
+use crate::aiplan4rust::lang::{LiteralID, StringID};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 
 use std::collections::HashMap;
@@ -144,15 +144,15 @@ pub fn check_type_hierarchy(
 /// ```
 fn report_cyclic_type_declaration_error(
     cycles: &[Vec<usize>],
-    type_bimap: &BiMap<Ident, usize>,
+    type_bimap: &BiMap<StringID, usize>,
     types: &Vec<&Declaration>,
-    source: Literal,
+    source: LiteralID,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), SemanticCheckError> {
 
     // Build a fast lookup map from symbol names to declarations
-    let type_map: HashMap<Ident, &Declaration> = types
+    let type_map: HashMap<StringID, &Declaration> = types
         .iter()
         .map(|&decl| (decl.symbol_ident(), decl))
         .collect();
@@ -509,7 +509,7 @@ fn compute_transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 /// let adj_matrix = build_type_adjacency_matrix(&index_map, &declarations)?;
 /// ```
 fn build_type_adjacency_matrix(
-    type_bimap: &BiMap<Ident, usize>,
+    type_bimap: &BiMap<StringID, usize>,
     declarations: &Vec<&Declaration>,
 ) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
     let n = type_bimap.len();
@@ -594,9 +594,9 @@ fn build_type_adjacency_matrix(
 /// ```
 fn build_type_bimap(
     declarations: &Vec<&Declaration>,
-) -> BiMap<Ident, usize> {
+) -> BiMap<StringID, usize> {
     // Create an empty BiMap to store type_checker names (String) and their unique indices (usize)
-    let mut temp_map: BiMap<Ident, usize> = BiMap::new();
+    let mut temp_map: BiMap<StringID, usize> = BiMap::new();
 
     // Iterate over each type_checker declaration in the input map
     for declaration in declarations {

@@ -30,9 +30,6 @@ pub mod interner;
 pub mod merge_result;
 pub mod display;
 pub mod error;
-pub mod ident;
-pub mod literal;
-pub mod id;
 pub mod remap_idents;
 
 pub use interner::StringInterner;
@@ -40,6 +37,3 @@ pub use merge_result::InternerMergeResult;
 pub use display::InternerDisplay;
 pub use display::SelfInternerDisplay;
 pub use error::InternerError;
-pub use id::Id as InternerId;
-pub use literal::Literal;
-pub use ident::Ident;

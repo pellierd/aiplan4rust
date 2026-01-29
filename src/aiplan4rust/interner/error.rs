@@ -13,7 +13,7 @@
 //! semantic analysis, symbol resolution, and linking.
 
 use thiserror::Error;
-use crate::aiplan4rust::interner::{Ident, Literal};
+use crate::aiplan4rust::lang::{LiteralID, StringID};
 
 /// Represents errors that can occur when working with a [`StringInterner`].
 #[derive(Error, Debug)]
@@ -39,15 +39,15 @@ pub enum InternerError {
 
     /// A required identifier remapping entry is missing.
     #[error("Missing remap for identifier {0:?}")]
-    MissingIdent(Ident),
+    MissingIdent(StringID),
 
     /// A required literal remapping entry is missing.
     #[error("Missing remapping entry for literal {0:?}")]
-    MissingLiteral(Literal),
+    MissingLiteral(LiteralID),
 
     /// Two identifiers would be remapped to the same target, causing a conflict.
     #[error("Remapped identifier conflict for {0:?}")]
-    Conflict(Ident),
+    Conflict(StringID),
 }
 
 impl InternerError {
@@ -62,17 +62,17 @@ impl InternerError {
     }
 
     /// Creates a new [`MissingLiteral`] error.
-    pub fn missing_literal(literal: Literal) -> Self {
+    pub fn missing_literal(literal: LiteralID) -> Self {
         Self::MissingLiteral(literal)
     }
 
     /// Creates a new [`MissingIdent`] error.
-    pub fn missing_ident(id: Ident) -> Self {
+    pub fn missing_ident(id: StringID) -> Self {
         Self::MissingIdent(id)
     }
 
     /// Creates a new [`Conflict`] error for an identifier.
-    pub fn conflict(id: Ident) -> Self {
+    pub fn conflict(id: StringID) -> Self {
         Self::Conflict(id)
     }
 }

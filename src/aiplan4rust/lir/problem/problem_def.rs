@@ -35,8 +35,8 @@
 
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProblem};
-use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
+use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{Requirement, StringID, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
@@ -79,16 +79,16 @@ impl<'a> ProblemDef<'a> {
     /// Returns the problem name.
     ///
     /// # Returns
-    /// An [`Ident`] representing the problem name.
-    pub fn problem_name(&self) -> Ident {
+    /// An [`StringID`] representing the problem name.
+    pub fn problem_name(&self) -> StringID {
         self.problem.problem_id()
     }
 
     /// Returns the domain name associated with this problem.
     ///
     /// # Returns
-    /// An [`Ident`] representing the domain name.
-    pub fn domain_name(&self) -> Ident {
+    /// An [`StringID`] representing the domain name.
+    pub fn domain_name(&self) -> StringID {
         self.problem.domain_id()
     }
 

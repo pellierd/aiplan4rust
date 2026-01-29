@@ -39,8 +39,8 @@
 
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
-use crate::aiplan4rust::interner::{Ident, SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, TypedSymbol};
+use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{Requirement, StringID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::serialization::SerializationError;
@@ -100,8 +100,8 @@ impl<'a> DomainDef<'a> {
     ///
     /// # Returns
     ///
-    /// The [`Ident`] representing the domain's name.
-    pub fn domain_name(&self) -> Ident {
+    /// The [`StringID`] representing the domain's name.
+    pub fn domain_name(&self) -> StringID {
         self.problem.domain_id()
     }
 

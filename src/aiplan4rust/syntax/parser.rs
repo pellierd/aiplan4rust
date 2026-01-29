@@ -8,9 +8,9 @@ use lalrpop_util::ErrorRecovery;
 use std::mem;
 use std::time::SystemTime;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Severity};
-use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::artefact::language::Language;
+use crate::aiplan4rust::lang::LiteralID;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::lalrpop;
 use crate::aiplan4rust::syntax::lexer::token::Token;
@@ -226,7 +226,7 @@ impl Parser {
     fn handle_syntax_diagnostics(
         &mut self,
         lalrpop_errors: &[ErrorRecovery<usize, Token, CustomParseError>],
-        source_id: Literal,
+        source_id: LiteralID,
         fast_line_table: &FastLineTable,
     ) {
         for error_recovery in lalrpop_errors {

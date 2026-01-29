@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::{Fluent, SymbolTable, ValueDomain};
-use crate::aiplan4rust::lang::ids::{FunctionID, Id, ObjectFluentID, ObjectID, ArgumentID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionID, ObjectFluentID, ObjectID, ArgumentID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::symbol_table::IndexTableError;

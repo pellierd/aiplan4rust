@@ -1,6 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FunctionID, Id, ObjectID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionID, ObjectID, TypeID};
 
 /// Représente un object-fluent (fonction non-numérique)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

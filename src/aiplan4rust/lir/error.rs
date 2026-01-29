@@ -1,11 +1,11 @@
 use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::interner::{Ident, InternerError};
-use crate::aiplan4rust::lang::{FunctionID, LangError, PredicateID, Type};
+use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::lang::{FunctionID, LangError, PredicateID, StringID, Type};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use thiserror::Error;
-use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
+use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
@@ -65,15 +65,15 @@ pub enum LirError {
 
     /// Type not found for a given Ident.
     #[error("Type with id {0:?} not found")]
-    TypeNotFound(Ident),
+    TypeNotFound(StringID),
 
     /// Constant not found for a given Ident.
     #[error("Constant with id {0:?} not found")]
-    ConstantNotFound(Ident),
+    ConstantNotFound(StringID),
 
     /// Object not found for a given Ident.
     #[error("Object with id {0:?} not found")]
-    ObjectNotFound(Ident),
+    ObjectNotFound(StringID),
 
     /// Missing type when remap types
     #[error("Missing type in flattened hierarchy: {ty:?}")]
@@ -124,17 +124,17 @@ impl LirError {
     }
 
     /// Creates a `TypeNotFound` error for the given `Ident`.
-    pub fn type_not_found(id: Ident) -> Self {
+    pub fn type_not_found(id: StringID) -> Self {
         LirError::TypeNotFound(id)
     }
 
     /// Creates a `ConstantNotFound` error for the given `Ident`.
-    pub fn constant_not_found(id: Ident) -> Self {
+    pub fn constant_not_found(id: StringID) -> Self {
         LirError::ConstantNotFound(id)
     }
 
     /// Creates an `ObjectNotFound` error for the given `Ident`.
-    pub fn object_not_found(id: Ident) -> Self {
+    pub fn object_not_found(id: StringID) -> Self {
         LirError::ObjectNotFound(id)
     }
 

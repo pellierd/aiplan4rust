@@ -8,7 +8,6 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{expr, EncodingContext};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
@@ -46,7 +45,7 @@ pub fn encode(
     let mut is_declared_total_ordered = false;
 
     for &child_id in node.children() {
-        let child_node = ast.try_node(child_id)?;;
+        let child_node = ast.try_node(child_id)?;
 
         match child_node.kind() {
             AstKind::PartiallyOrderedSubtaskDef => {

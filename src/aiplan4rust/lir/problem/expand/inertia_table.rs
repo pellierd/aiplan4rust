@@ -3,13 +3,10 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Display;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{Ident, StringInterner};
 use crate::aiplan4rust::lang::{FunctionID, PredicateID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::expand::inertia::Inertia;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// A lookup table for inertia, covering both Predicates and Numeric Functions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

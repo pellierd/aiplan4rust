@@ -8,7 +8,7 @@
 
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
+use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -40,7 +40,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SymbolEntry {
     /// The unique identifier of the symbol.
-    ident: Ident,
+    ident: StringID,
 
     /// The set of declarations where this symbol is introduced.
     declarations: HashSet<Declaration>,
@@ -69,7 +69,7 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// A new `SymbolEntry` instance with empty declarations and usages.
-    pub fn new(ident: Ident) -> Self {
+    pub fn new(ident: StringID) -> Self {
         SymbolEntry {
             ident,
             declarations: HashSet::new(),
@@ -82,7 +82,7 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// The unique identifier of the symbol.
-    pub fn ident(&self) -> Ident {
+    pub fn ident(&self) -> StringID {
         self.ident
     }
 
@@ -164,7 +164,7 @@ impl RemapIdents for SymbolEntry {
     ///
     /// Returns [`InternerError`] if any declaration or usage cannot be remapped
     /// according to the given map.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         // Remap main symbol identifier
         if let Some(new_ident) = map.get(&self.ident) {
             self.ident = *new_ident;

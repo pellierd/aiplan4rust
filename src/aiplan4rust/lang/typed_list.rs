@@ -23,11 +23,8 @@
 //! ```
 
 use std::collections::HashMap;
-use crate::aiplan4rust::interner::{Ident, InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::error::LangError;
-use crate::aiplan4rust::lang::{RemapIdents, TypedSymbol};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::lang::{RemapIdents, StringID, TypedSymbol};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -108,7 +105,7 @@ impl RemapIdents for TypedList {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         for ts in &mut self.symbols {
             ts.remap_idents(map)?;
         }

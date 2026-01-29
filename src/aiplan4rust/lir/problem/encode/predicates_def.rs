@@ -4,15 +4,10 @@
 //! AST and registers them within the LIR. It also maintains the mapping
 //! between AST nodes and their corresponding LIR indices.
 
-use std::collections::HashMap;
-use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::lang::PredicateID;
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
-use crate::aiplan4rust::lir::expr::Resolution::Predicate;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, named_typed_list, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, EncodingContext};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 

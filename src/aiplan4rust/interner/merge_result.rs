@@ -12,8 +12,8 @@
 //!
 //! # Main type_checker
 //!
-//! - [`InternerMergeResult`]: Holds the merged interner and a mapping from problem [`Ident`]
-//!   to global [`Ident`], enabling translation between the two contexts.
+//! - [`InternerMergeResult`]: Holds the merged interner and a mapping from problem [`StringID`]
+//!   to global [`StringID`], enabling translation between the two contexts.
 //!
 //! # Example
 //!
@@ -25,8 +25,8 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::interner::{Literal, StringInterner};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::lang::{LiteralID, StringID};
 
 use std::collections::HashMap;
 use std::fmt;
@@ -44,8 +44,8 @@ use std::mem::take;
 /// # Fields
 ///
 /// - `interner`: The merged [`StringInterner`] containing all strings from both inputs.
-/// - `ident_map`: A [`HashMap`] mapping original problem [`Ident`] values
-///   to their corresponding global [`Ident`] in the merged interner.
+/// - `ident_map`: A [`HashMap`] mapping original problem [`StringID`] values
+///   to their corresponding global [`StringID`] in the merged interner.
 ///
 /// # Example
 ///
@@ -59,8 +59,8 @@ use std::mem::take;
 #[derive(Debug, Clone)]
 pub struct InternerMergeResult {
     interner: StringInterner,
-    ident_map: HashMap<Ident, Ident>,
-    literal_map: HashMap<Literal, Literal>,
+    ident_map: HashMap<StringID, StringID>,
+    literal_map: HashMap<LiteralID, LiteralID>,
 }
 
 impl InternerMergeResult {
@@ -76,8 +76,8 @@ impl InternerMergeResult {
     /// A new instance of `InternerMergeResult`.
     pub fn new(
         interner: StringInterner,
-        ident_map: HashMap<Ident, Ident>,
-        literal_map: HashMap<Literal, Literal>,
+        ident_map: HashMap<StringID, StringID>,
+        literal_map: HashMap<LiteralID, LiteralID>,
     ) -> Self {
         Self {
             interner,
@@ -101,21 +101,21 @@ impl InternerMergeResult {
         take(&mut self.interner)
     }
 
-    /// Returns a reference to the mapping from problem [`Ident`] to global [`Ident`].
+    /// Returns a reference to the mapping from problem [`StringID`] to global [`StringID`].
     ///
     /// This map is used to translate identifiers from the problem interner
     /// into their equivalent in the merged global interner.
-    pub fn ident_map(&self) -> &HashMap<Ident, Ident> {
+    pub fn ident_map(&self) -> &HashMap<StringID, StringID> {
         &self.ident_map
     }
 
-    /// Takes (extracts) the mapping from problem [`Ident`] to global [`Ident`],
+    /// Takes (extracts) the mapping from problem [`StringID`] to global [`StringID`],
     /// leaving an empty map in its place.
     ///
     /// This allows consuming the map without cloning it.
     ///
     /// Requires a mutable reference to `self`.
-    pub fn take_ident_map(&mut self) -> HashMap<Ident, Ident> {
+    pub fn take_ident_map(&mut self) -> HashMap<StringID, StringID> {
         take(&mut self.ident_map)
     }
 
@@ -135,7 +135,7 @@ impl InternerMergeResult {
     /// A reference to a [`HashMap`] that maps problem-local [`Literal`]s to their global equivalents.
     ///
     /// [`Literal`]: crate::interner::Literal
-    pub fn literal_map(&self) -> &HashMap<Literal, Literal> {
+    pub fn literal_map(&self) -> &HashMap<LiteralID, LiteralID> {
         &self.literal_map
     }
 
@@ -162,7 +162,7 @@ impl InternerMergeResult {
     /// ```
     ///
     /// [`Literal`]: crate::interner::Literal
-    pub fn take_literal_map(&mut self) -> HashMap<Literal, Literal> {
+    pub fn take_literal_map(&mut self) -> HashMap<LiteralID, LiteralID> {
         take(&mut self.literal_map)
     }
 

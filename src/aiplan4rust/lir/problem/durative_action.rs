@@ -8,7 +8,7 @@
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
-use crate::aiplan4rust::lang::{Ident, RemapTypes, Type};
+use crate::aiplan4rust::lang::{StringID, RemapTypes, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
@@ -89,7 +89,7 @@ impl DurativeAction {
     /// );
     /// ```
     pub fn new(
-        name: Ident,
+        name: StringID,
         parameters: TypedList,
         duration: Expr,
         condition: Expr,
@@ -135,7 +135,7 @@ impl DurativeAction {
     }
 
     /// Returns the name of the action.
-    pub fn name(&self) -> Ident {
+    pub fn name(&self) -> StringID {
         self.action.name()
     }
 
@@ -143,7 +143,7 @@ impl DurativeAction {
     ///
     /// # Parameters
     /// - `name`: The new identifier for the action.
-    pub fn set_name(&mut self, name: Ident) {
+    pub fn set_name(&mut self, name: StringID) {
         self.action.set_name(name);
     }
 
@@ -238,12 +238,12 @@ impl RemapTypes for DurativeAction {
     /// - The duration expression
     ///
     /// # Parameters
-    /// - `map`: A [`HashMap<Type, Ident>`] mapping union types to their corresponding primitive `Ident`s.
+    /// - `map`: A [`HashMap<Type, StringID>`] mapping union types to their corresponding primitive `Ident`s.
     ///
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         self.action.remap_types(map)?;
         Ok(())
     }

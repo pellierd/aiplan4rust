@@ -46,7 +46,7 @@
 //!
 //! - [`SymbolTable`](crate::aiplan4rust::semantic::symbol_table::SymbolTable)
 //! - [`SymbolKind`](crate::aiplan4rust::semantic::symbol::SymbolKind)
-//! - [`Ident`](crate::aiplan4rust::lang::Ident)
+//! - [`Ident`](crate::aiplan4rust::lang::StringID)
 //! - [`Type`](crate::aiplan4rust::lang::Type)
 //!
 //! # Notes
@@ -57,7 +57,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 
 use std::collections::{HashMap, HashSet};
@@ -65,7 +65,7 @@ use std::cell::{Ref, RefCell};
 
 
 /// PDDL Built-in symbols.
-const PDDL_BUILTIN_TYPES: [Ident; 2] = [StringInterner::IDENT_OBJECT, StringInterner::IDENT_NUMBER];
+const PDDL_BUILTIN_TYPES: [StringID; 2] = [StringInterner::IDENT_OBJECT, StringInterner::IDENT_NUMBER];
 
 /// A struct for performing type checking within a given domain.
 ///
@@ -100,7 +100,7 @@ const PDDL_BUILTIN_TYPES: [Ident; 2] = [StringInterner::IDENT_OBJECT, StringInte
 #[derive(Debug, Clone)]
 pub struct TypeChecker<'a> {
     domain_symbol_table: &'a SymbolTable,
-    type_closure_cache: RefCell<HashMap<Ident, HashSet<Ident>>>,
+    type_closure_cache: RefCell<HashMap<StringID, HashSet<StringID>>>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -243,8 +243,8 @@ impl<'a> TypeChecker<'a> {
     /// If the closure for the type has already been computed, the cached result is reused.
     pub fn ascending_type_closure(
         &self,
-        primitive_type: Ident,
-    ) -> Result<Ref<HashSet<Ident>>, TypeCheckError> {
+        primitive_type: StringID,
+    ) -> Result<Ref<HashSet<StringID>>, TypeCheckError> {
         {
             let cache_ref = self.type_closure_cache.borrow();
             if cache_ref.contains_key(&primitive_type) {
@@ -298,7 +298,7 @@ impl<'a> TypeChecker<'a> {
     ///
     /// * `true` if the type is built-in.
     /// * `false` otherwise.
-    pub fn is_pddl_builtin_types(ty: Ident) -> bool {
+    pub fn is_pddl_builtin_types(ty: StringID) -> bool {
         PDDL_BUILTIN_TYPES.contains(&ty)
     }
 }

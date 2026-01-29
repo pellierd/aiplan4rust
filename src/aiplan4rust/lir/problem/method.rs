@@ -25,11 +25,10 @@
 //! println!("Method name: {}", method.name());
 //! ```
 
-use crate::aiplan4rust::interner::ident::Ident;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::typed_symbol::TypedSymbol;
-use crate::aiplan4rust::lang::{RemapTypes, Type};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::expr::Expr;
@@ -69,7 +68,7 @@ impl Method {
     /// # Returns
     /// A new `Method` instance.
     pub fn new(
-        name: Ident,
+        name: StringID,
         parameters: TypedList,
         task: Expr,
         precondition: Expr,
@@ -120,12 +119,12 @@ impl Method {
     }
 
     /// Returns the method's name as an identifier.
-    pub fn name(&self) -> Ident {
+    pub fn name(&self) -> StringID {
         self.header.symbol()
     }
 
     /// Sets the method's name.
-    pub fn set_name(&mut self, name: Ident) {
+    pub fn set_name(&mut self, name: StringID) {
         self.header.set_name(name);
     }
 
@@ -218,7 +217,7 @@ impl RemapTypes for Method {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         self.header.remap_types(map)?;
         self.precondition.remap_types(map)?;
         Ok(())

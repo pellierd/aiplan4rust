@@ -6,11 +6,12 @@
 //! locations for better error reporting and user feedback.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticKind, Severity};
-use crate::aiplan4rust::interner::{Ident, InternerError, Literal};
+use crate::aiplan4rust::interner::InternerError;
 
 use std::collections::HashMap;
 use std::fmt;
 use itertools::Itertools;
+use crate::aiplan4rust::lang::{LiteralID, StringID};
 
 /// Manages a collection of diagnostics and their associated source files.
 ///
@@ -23,7 +24,7 @@ use itertools::Itertools;
 #[derive(Debug, Clone, Default)]
 pub struct DiagnosticManager {
     diagnostics: Vec<Diagnostic>,
-    sources: HashMap<Literal, String>,
+    sources: HashMap<LiteralID, String>,
 }
 
 impl DiagnosticManager {
@@ -58,7 +59,7 @@ impl DiagnosticManager {
     /// - The registered content is later used to resolve spans (`Span`) into line/column information and
     ///   to display annotated diagnostics (e.g., underlined errors).
     /// - If a source with the same `Literal` is already registered, this call will overwrite it.
-    pub fn add_source(&mut self, source_id: Literal, source_content: String) {
+    pub fn add_source(&mut self, source_id: LiteralID, source_content: String) {
         self.sources.insert(source_id, source_content);
     }
 
@@ -89,7 +90,7 @@ impl DiagnosticManager {
     ///
     /// - This method is essential for rendering source-level diagnostics with context (e.g., code snippets).
     /// - `source_id` must have been registered beforehand using [`add_source`].
-    pub fn get_source_content(&self, source_id: Literal) -> Option<&String> {
+    pub fn get_source_content(&self, source_id: LiteralID) -> Option<&String> {
         self.sources.get(&source_id)
     }
 
@@ -187,7 +188,7 @@ impl DiagnosticManager {
     /// [`Ident`]: crate::interner::Ident
     /// [`Literal`]: crate::interner::Literal
     /// [`DiagnosticManager`]: crate::diagnostics::DiagnosticManager
-     pub fn remap(&mut self, idents: &HashMap<Ident, Ident>, literals: &HashMap<Literal, Literal>) -> Result<(), InternerError> {
+     pub fn remap(&mut self, idents: &HashMap<StringID, StringID>, literals: &HashMap<LiteralID, LiteralID>) -> Result<(), InternerError> {
         for diagnostic in &mut self.diagnostics {
             diagnostic.remap(idents, literals)?;
         }

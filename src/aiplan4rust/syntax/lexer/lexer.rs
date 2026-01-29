@@ -18,7 +18,7 @@
 
 use logos::Logos;
 use logos::SpannedIter;
-use log::{debug, trace};
+use log::trace;
 
 use crate::aiplan4rust::syntax::CustomParseError;
 use crate::aiplan4rust::syntax::lexer::Token;

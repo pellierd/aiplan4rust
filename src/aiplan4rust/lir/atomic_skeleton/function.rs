@@ -19,7 +19,7 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{Ident, RemapIdents, RemapTypes, Type, TypedList};
+use crate::aiplan4rust::lang::{StringID, RemapIdents, RemapTypes, Type, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -85,7 +85,7 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `ty`: The return type_checker of the function.
-    pub fn new(name: Ident, parameters: TypedList, ty: Type) -> Self {
+    pub fn new(name: StringID, parameters: TypedList, ty: Type) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature, ty }
     }
@@ -133,7 +133,7 @@ impl RemapIdents for Function {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         self.header.remap_idents(map)?;
         self.ty.remap_idents(map)?;
         Ok(())
@@ -149,7 +149,7 @@ impl RemapTypes for Function {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping.
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         self.header.remap_types(map)?;
         self.ty.remap_types(map)?;
         Ok(())

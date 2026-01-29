@@ -1,13 +1,11 @@
 // lir/encode/expression.rs
 
-use crate::aiplan4rust::lang::{PredicateID, TypeID};
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind, ExprNode, Resolution};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::EncodingContext;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent, SyntaxSubtree};
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree};
 
 /// Encodes an AST subtree into a LIR Expression.
 /// This is the "free function" version of the previous TryFrom.

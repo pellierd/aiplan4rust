@@ -13,8 +13,8 @@
 //! - Friendly formatting for expected parser tokens (`format_expected_message`)
 
 use colored::Colorize;
-use crate::aiplan4rust::interner::{Ident, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, Type};
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::lang::{Requirement, StringID, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
 use crate::aiplan4rust::syntax::{Span, SyntaxInternerDisplay};
 use crate::Severity;
@@ -46,7 +46,7 @@ const VERTICAL_BAR: &str = "|";
 /// - If the `interner` is provided and the identifier is found, returns the resolved string.
 /// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
 /// - If the `interner` is not provided, returns the raw identifier as a string.
-pub(crate) fn ident_to_string(ident: Ident, interner: Option<&StringInterner>) -> String {
+pub(crate) fn ident_to_string(ident: StringID, interner: Option<&StringInterner>) -> String {
     if let Some(interner) = interner {
         interner
             .resolve_ident(ident)
@@ -99,7 +99,7 @@ pub(crate) fn type_to_string(ty: &Type, interner: Option<&StringInterner>) -> St
 ///
 /// # Returns
 /// A string of comma-separated identifiers, each converted to string via `ident_to_string`.
-pub(crate) fn format_ident_list(idents: &[Ident], interner: Option<&StringInterner>) -> String {
+pub(crate) fn format_ident_list(idents: &[StringID], interner: Option<&StringInterner>) -> String {
     idents
         .iter()
         .map(|&ident| ident_to_string(ident, interner))
@@ -151,7 +151,7 @@ pub(crate) fn format_declaration_list(
     declarations: &[Declaration],
     interner: Option<&StringInterner>
 ) -> String {
-    let idents: Vec<Ident> = declarations.iter().map(|decl| decl.symbol_ident()).collect();
+    let idents: Vec<StringID> = declarations.iter().map(|decl| decl.symbol_ident()).collect();
     format_ident_list(&idents, interner)
 }
 

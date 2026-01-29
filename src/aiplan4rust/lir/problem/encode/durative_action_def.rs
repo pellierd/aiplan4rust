@@ -10,7 +10,6 @@ use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::durative_action::DurativeAction;
 
 /// Encodes a PDDL durative action from the syntax tree into the LIR.

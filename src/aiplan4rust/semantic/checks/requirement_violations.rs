@@ -4,11 +4,10 @@ use crate::aiplan4rust::lang::Requirement::{
     ExistentialPreconditions, Fluents, NegativePreconditions, NumericFluents, ObjectFluents,
     Preferences, Typing, UniversalPreconditions,
 };
-use crate::aiplan4rust::lang::BinaryComp;
+use crate::aiplan4rust::lang::{BinaryComp, LiteralID};
 use crate::aiplan4rust::lang::Requirement;
 
 use std::collections::HashSet;
-use crate::aiplan4rust::interner::Literal;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::syntax::tree::SyntaxNode;
@@ -200,7 +199,7 @@ pub fn check_requirement_violations(
 /// # Parameters
 /// - `node`: The [`AstNode`] associated with the feature requiring specific requirements.
 /// - `requirements`: The set of currently active or declared requirements in the context.
-/// - `source`: The [`Literal`] representing the name or label of the source file or input.
+/// - `source`: The [`LiteralID`] representing the name or label of the source file or input.
 /// - `provider`: The [`Provider`] indicating which analysis phase is reporting the violation.
 /// - `diagnostic_manager`: The mutable reference to the [`DiagnosticManager`] collecting diagnostics.
 /// - `required`: The list of [`Requirement`]s that must be satisfied for the feature to be valid.
@@ -231,7 +230,7 @@ pub fn check_requirement_violations(
 fn report_warning_requirement_violation(
     node: &AstNode,
     requirements: &HashSet<Requirement>,
-    source_id: Literal,
+    source_id: LiteralID,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
     required: Vec<Requirement>,

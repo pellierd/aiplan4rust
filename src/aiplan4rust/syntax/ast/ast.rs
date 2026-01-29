@@ -54,7 +54,7 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, Literal, SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay, SyntaxInternerDisplay};
@@ -65,6 +65,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::time::SystemTime;
+use crate::aiplan4rust::lang::LiteralID;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 
@@ -90,7 +91,7 @@ pub struct Ast {
     interner: StringInterner,
 
     /// Interned identifier representing the source of this AST.
-    source_id: Literal,
+    source_id: LiteralID,
 
     /// Timestamp when the AST was generated.
     generated_at: SystemTime,
@@ -108,7 +109,7 @@ impl Default for Ast {
         Ast {
             syntax_tree: SyntaxTree::<AstNode>::new(),
             interner: StringInterner::new(),
-            source_id: Literal::default(),
+            source_id: LiteralID::default(),
             generated_at: SystemTime::now(),
         }
     }
@@ -144,7 +145,7 @@ impl Ast {
     pub fn new(
         syntax_tree: SyntaxTree<AstNode>,
         interner: StringInterner,
-        source_id: Literal,
+        source_id: LiteralID,
         generated_at: SystemTime,
     ) -> Self {
         Self {
@@ -225,7 +226,7 @@ impl Ast {
     /// This `Literal` refers to a string stored in the interner, typically representing
     /// the filename or origin label of the AST (e.g., `"domain.pddl"` or `"stdin"`).
     ///
-    /// If this method returns [`Literal::default()`], it typically means the source
+    /// If this method returns [`LiteralID::default()`], it typically means the source
     /// name is undefined or not set (e.g., in an empty or default AST).
     ///
     /// To retrieve the actual string, use [`StringInterner::resolve_literal`] or
@@ -245,7 +246,7 @@ impl Ast {
     ///     println!("Unknown source");
     /// }
     /// ```
-    pub fn source_id(&self) -> Literal {
+    pub fn source_id(&self) -> LiteralID {
         self.source_id
     }
 

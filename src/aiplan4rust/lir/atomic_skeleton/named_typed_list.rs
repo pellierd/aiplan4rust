@@ -24,7 +24,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{RemapTypes, Ident, RemapIdents, Type, TypedList};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, RemapIdents, Type, TypedList};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
@@ -44,7 +44,7 @@ use crate::aiplan4rust::syntax::lexer::Token;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct NamedTypedList {
     /// Name of the predicate or function.
-    symbol: Ident,
+    symbol: StringID,
     /// Signature describing parameter types and optional return type_checker.
     parameters: TypedList,
 }
@@ -60,7 +60,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A new instance of `NamedTypedList`.
-    pub fn new(name: Ident, parameters: TypedList) -> Self {
+    pub fn new(name: StringID, parameters: TypedList) -> Self {
         Self { symbol: name, parameters }
     }
 
@@ -69,7 +69,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// The `Ident` representing the name.
-    pub fn symbol(&self) -> Ident {
+    pub fn symbol(&self) -> StringID {
         self.symbol
     }
 
@@ -78,7 +78,7 @@ impl NamedTypedList {
     /// # Parameters
     ///
     /// - `name`: The new name to set.
-    pub fn set_name(&mut self, name: Ident) {
+    pub fn set_name(&mut self, name: StringID) {
         self.symbol = name;
     }
 
@@ -125,7 +125,7 @@ impl RemapIdents for NamedTypedList {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         self.symbol.remap_idents(map)?;
         self.parameters.remap_idents(map)?;
         Ok(())
@@ -141,7 +141,7 @@ impl RemapTypes for NamedTypedList {
     /// # Returns
     /// - `Ok(())` if all parameter types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping.
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         self.parameters.remap_types(map)?;
         Ok(())
     }

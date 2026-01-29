@@ -17,7 +17,7 @@ use std::fmt;
 use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind, Severity};
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{RemapIdents, Requirement};
-use crate::aiplan4rust::lang::{Ident, Type};
+use crate::aiplan4rust::lang::{StringID, Type};
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -323,7 +323,7 @@ pub enum Kind {
     /// For richer diagnostics (including precise declaration locations),
     /// this information should be enhanced later once the symbol table
     /// is available in subsequent analysis phases.
-    DuplicateEitherType { duplicate_types: Vec<Ident> },
+    DuplicateEitherType { duplicate_types: Vec<StringID> },
 
     /// Represents an error indicating a cycle in the type hierarchy defined in the domain.
     ///
@@ -396,8 +396,8 @@ pub enum Kind {
     /// To avoid ambiguity, it is recommended to declare the type explicitly using the `(either ...)`
     /// syntax, listing all parent types.
     ImplicitEitherTypeDeclaration {
-        ty: Ident,
-        duplicate_types: Vec<Ident>,
+        ty: StringID,
+        duplicate_types: Vec<StringID>,
         duplicate_spans: Vec<Span>,
     },
     /// A warning emitted when a requirement is declared multiple times.
@@ -607,7 +607,7 @@ impl RemapIdents for DiagnosticKind {
     ///
     /// diagnostic.remap_idents(&map)?;
     /// ```
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         match self {
             Kind::InvalidSymbolSignature { declaration, usage } => {
                 declaration.remap_idents(map)?;

@@ -26,7 +26,7 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
+use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Filterable;
 use crate::aiplan4rust::semantic::symbol::Scope;
@@ -36,15 +36,14 @@ use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::SymbolTable;
+use crate::aiplan4rust::semantic::SymbolTable;
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use logos::Source;
 
-//// A symbol table used in `aiplan4rust` to store and manage symbols.
+/// A symbol table used in `aiplan4rust` to store and manage symbols.
 ///
 /// This structure manages a mapping between identifiers (`Ident`) and their corresponding
 /// [`SymbolEntry`] metadata, which includes both declarations and usages of symbols.
@@ -66,7 +65,7 @@ use logos::Source;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Table {
     /// Map from symbol identifier to symbol metadata, preserving insertion order.
-    symbols: LinkedHashMap<Ident, SymbolEntry>,
+    symbols: LinkedHashMap<StringID, SymbolEntry>,
 
     /// Indicates the origin context of the symbol table (e.g., Domain, Problem, Merged).
     origin: SymbolTableOrigin,
@@ -150,7 +149,7 @@ impl Table {
     ///
     /// # Returns
     /// An iterator yielding (`&Ident`, `&SymbolEntry`) pairs for all entries.
-    pub fn iter(&self) -> impl Iterator<Item=(&Ident, &SymbolEntry)> {
+    pub fn iter(&self) -> impl Iterator<Item=(&StringID, &SymbolEntry)> {
         self.symbols.iter()
     }
 
@@ -159,7 +158,7 @@ impl Table {
     /// # Returns
     /// An iterator yielding (`&Ident`, `&mut SymbolEntry`) pairs,
     /// allowing in-place modification of symbols.
-    pub fn iter_mut(&mut self) -> impl Iterator<Item=(&Ident, &mut SymbolEntry)> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item=(&StringID, &mut SymbolEntry)> {
         self.symbols.iter_mut()
     }
 
@@ -167,7 +166,7 @@ impl Table {
     ///
     /// # Returns
     /// An iterator yielding `(Ident, SymbolEntry)` pairs, consuming the table.
-    pub fn into_iter(self) -> impl Iterator<Item=(Ident, SymbolEntry)> {
+    pub fn into_iter(self) -> impl Iterator<Item=(StringID, SymbolEntry)> {
         self.symbols.into_iter()
     }
 
@@ -176,7 +175,7 @@ impl Table {
     /// # Parameters
     /// - `key`: The identifier (`Ident`) for the symbol.
     /// - `symbol`: The `SymbolEntry` to insert.
-    pub fn insert_symbol(&mut self, key: Ident, symbol: SymbolEntry) {
+    pub fn insert_symbol(&mut self, key: StringID, symbol: SymbolEntry) {
         self.symbols.insert(key, symbol);
     }
 
@@ -187,7 +186,7 @@ impl Table {
     ///
     /// # Returns
     /// An `Option` containing a reference to the symbol, or `None` if not found.
-    pub fn get_symbol(&self, name: Ident) -> Option<&SymbolEntry> {
+    pub fn get_symbol(&self, name: StringID) -> Option<&SymbolEntry> {
         self.symbols.get(&name)
     }
 
@@ -198,7 +197,7 @@ impl Table {
     ///
     /// # Returns
     /// An `Option` containing a mutable reference to the symbol, or `None` if not found.
-    pub fn get_symbol_mut(&mut self, name: Ident) -> Option<&mut SymbolEntry> {
+    pub fn get_symbol_mut(&mut self, name: StringID) -> Option<&mut SymbolEntry> {
         self.symbols.get_mut(&name)
     }
 
@@ -255,7 +254,7 @@ impl Table {
     /// ```
     pub fn collect_symbol_with_declaration(
         &self,
-        symbol_name: Option<&Ident>,
+        symbol_name: Option<&StringID>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&SymbolEntry> {
@@ -325,7 +324,7 @@ impl Table {
     /// ```
     pub fn collect_symbol_with_usages(
         &self,
-        symbol_name: Option<&Ident>,
+        symbol_name: Option<&StringID>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&SymbolEntry> {
@@ -384,7 +383,7 @@ impl Table {
     /// ```
     pub fn collect_declarations(
         &self,
-        symbol_name: Option<&Ident>,
+        symbol_name: Option<&StringID>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Declaration> {
@@ -434,7 +433,7 @@ impl Table {
     /// ```
     pub fn collect_usages(
         &self,
-        symbol_name: Option<&Ident>,
+        symbol_name: Option<&StringID>,
         kind: Option<&SymbolKind>,
         scope: Option<&Scope>,
     ) -> Vec<&Usage> {
@@ -697,7 +696,7 @@ impl Table {
     /// [`select_valid_declaration`]: Table::select_valid_declaration
     pub fn resolve_declaration(
         &self,
-        symbol_name: &Ident,
+        symbol_name: &StringID,
         usage_kind: &SymbolKind,
         scope: &Scope,
     ) -> Result<Option<&Declaration>, SymbolTableError> {
@@ -751,7 +750,7 @@ impl Table {
     /// [`resolve_declaration`]: Self::resolve_declaration
     pub fn try_resolve_declaration(
         &self,
-        symbol_name: &Ident,
+        symbol_name: &StringID,
         usage_kind: &SymbolKind,
         scope: &Scope,
     ) -> Result<&Declaration, SymbolTableError> {
@@ -780,7 +779,7 @@ impl Table {
     /// - `Ok(None)`: If no declaration is acceptable.
     /// - `Err`: If multiple valid declarations cause ambiguity.
     fn select_valid_declaration<'a>(
-        symbol_name: &Ident,
+        symbol_name: &StringID,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, SymbolTableError> {
@@ -844,7 +843,7 @@ impl Table {
     /// - `Ok(None)`: If no matching declaration exists.
     /// - `Err`: If validation fails due to ambiguity or incompatible kinds.
     fn validate_type_or_predicate_declarations<'a>(
-        symbol_name: &Ident,
+        symbol_name: &StringID,
         usage_kind: &SymbolKind,
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, SymbolTableError> {
@@ -889,7 +888,7 @@ impl Table {
     /// # Errors
     /// Returns an error if more than one declaration exists, indicating ambiguous task declarations.
     fn validate_task_declarations<'a>(
-        symbol_name: &Ident,
+        symbol_name: &StringID,
         declarations: &[&'a Declaration],
     ) -> Result<Option<&'a Declaration>, SymbolTableError> {
         // If there is more than one declaration, return an error indicating ambiguity
@@ -1015,7 +1014,7 @@ impl RemapIdents for SymbolTable {
     /// # Returns
     /// - `Ok(())` if all identifiers were successfully remapped.
     /// - `Err(InternerError)` if a conflict or missing mapping occurs during remapping.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         // Step 1: Internally remap symbols
         for (_key, symbol) in self.symbols.iter_mut() {
             symbol.remap_idents(map)?;

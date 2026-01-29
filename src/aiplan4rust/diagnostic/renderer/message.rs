@@ -18,8 +18,8 @@
 use crate::aiplan4rust::diagnostic::DiagnosticKind;
 use crate::aiplan4rust::diagnostic::kind::Kind;
 use crate::aiplan4rust::diagnostic::renderer::formatting;
-use crate::aiplan4rust::interner::{Ident, StringInterner};
-use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::lang::{StringID, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 
@@ -445,7 +445,7 @@ fn format_task_argument_is_supertype(argument: &Declaration, interner: Option<&S
 /// # Returns
 ///
 /// A formatted string listing the duplicate types.
-fn format_duplicate_either_type(duplicate_types: &[Ident], interner: Option<&StringInterner>) -> String {
+fn format_duplicate_either_type(duplicate_types: &[StringID], interner: Option<&StringInterner>) -> String {
     let names = formatting::format_ident_list(duplicate_types, interner);
     format!("Duplicate primitive types in 'either' type: {}.", names)
 }
@@ -488,7 +488,7 @@ fn format_cross_conflict_symbol_declaration(problem_declaration: &Declaration, i
 /// # Returns
 ///
 /// A formatted string explaining the implicit interpretation as an either-type.
-fn format_implicit_either_type_declaration(ty: Ident, interner: Option<&StringInterner>) -> String {
+fn format_implicit_either_type_declaration(ty: StringID, interner: Option<&StringInterner>) -> String {
     format!(
         "Type `{}` was declared multiple times and was implicitly interpreted as an `(either ...)` type.",
         formatting::ident_to_string(ty, interner),

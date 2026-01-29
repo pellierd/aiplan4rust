@@ -51,8 +51,8 @@
 //! This design enables streamlined error propagation and reporting during
 //! semantic analysis.
 
-use crate::aiplan4rust::interner::{Ident, InternerError, Literal, StringInterner};
-use crate::aiplan4rust::lang::{RemapIdents, Requirement};
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
+use crate::aiplan4rust::lang::{LiteralID, RemapIdents, Requirement, StringID};
 use crate::aiplan4rust::semantic::{requirements, SemanticError, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
@@ -100,7 +100,7 @@ pub struct Context {
 
     /// The interned identifier of the source file or input from which the AST was parsed.
     /// Use the interner to resolve this `Literal` into the actual source name string.
-    source_id: Literal,
+    source_id: LiteralID,
 
     /// Timestamp marking when semantic analysis was completed.
     generated_at: SystemTime,
@@ -140,7 +140,7 @@ impl Context {
     /// or a `SemanticError` if any invariant is violated.
     fn new(
         syntax_tree: SyntaxTree<AstNode>,
-        source_id: Literal,
+        source_id: LiteralID,
         symbol_table: SymbolTable,
         interner: StringInterner,
         generated_at: SystemTime,
@@ -298,7 +298,7 @@ impl Context {
     /// underlying symbol table.
     pub fn add_declaration(
         &mut self,
-        symbol_name: Ident,
+        symbol_name: StringID,
         declaration: Declaration,
     ) -> bool {
         let Some(symbol) = self.symbol_table.get_symbol_mut(symbol_name) else {
@@ -326,7 +326,7 @@ impl Context {
     /// # Returns
     ///
     /// The `Literal` representing the interned source name.
-    pub fn source_id(&self) -> Literal {
+    pub fn source_id(&self) -> LiteralID {
         self.source_id
     }
 
@@ -418,8 +418,8 @@ impl Context {
     /// a `SymbolTableError` or `InternerError`.
     pub fn remap(
         &mut self,
-        ident_map: &HashMap<Ident, Ident>,
-        literal_map: &HashMap<Literal, Literal>,
+        ident_map: &HashMap<StringID, StringID>,
+        literal_map: &HashMap<LiteralID, LiteralID>,
     ) -> Result<(), SemanticError> {
         // Step 1: remap identifiers in AST directly
         self.syntax_tree.remap_idents(ident_map)?;

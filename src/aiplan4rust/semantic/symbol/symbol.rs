@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
+use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
@@ -35,7 +35,7 @@ use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Symbol {
-    ident: Ident,
+    ident: StringID,
     kind: SymbolKind,
 }
 
@@ -50,12 +50,12 @@ impl Symbol {
     /// # Returns
     ///
     /// A new [`Symbol`] instance.
-    pub fn new(ident: Ident, kind: SymbolKind) -> Self {
+    pub fn new(ident: StringID, kind: SymbolKind) -> Self {
         Self { ident, kind }
     }
 
     /// Returns the identifier (`Ident`) of the symbol.
-    pub fn ident(&self) -> Ident {
+    pub fn ident(&self) -> StringID {
         self.ident
     }
 
@@ -64,7 +64,7 @@ impl Symbol {
     /// # Arguments
     ///
     /// * `ident` — The new identifier to assign.
-    pub fn set_ident(&mut self, ident: Ident) {
+    pub fn set_ident(&mut self, ident: StringID) {
         self.ident = ident;
     }
 
@@ -97,7 +97,7 @@ impl RemapIdents for Symbol {
     /// # Errors
     ///
     /// Returns `InternerError` if the remapping fails (propagated from inner calls).
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         self.ident().remap_idents(map)?;
         Ok(())
     }

@@ -51,7 +51,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
+use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::Type;
 use std::collections::HashMap;
@@ -180,8 +180,8 @@ impl Declaration {
         &self.symbol
     }
 
-    /// Returns the [`Ident`] of the referenced symbol.
-    pub fn symbol_ident(&self) -> Ident {
+    /// Returns the [`StringID`] of the referenced symbol.
+    pub fn symbol_ident(&self) -> StringID {
         self.symbol.ident()
     }
 
@@ -475,7 +475,7 @@ impl RemapIdents for Declaration {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any argument identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         // Remap the main symbol name
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol.set_ident(new_ident.clone());

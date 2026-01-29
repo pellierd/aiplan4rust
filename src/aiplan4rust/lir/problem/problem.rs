@@ -41,7 +41,7 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Id, Ident, ObjectID, Requirement, TypedSymbol};
+use crate::aiplan4rust::lang::{StringID, ObjectID, Requirement, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -55,7 +55,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use crate::aiplan4rust::arena::NodeId;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::encode::{encoder, EncodingContext};
 
@@ -92,11 +91,11 @@ use crate::aiplan4rust::lir::problem::encode::{encoder, EncodingContext};
 /// # Example
 ///
 /// ```
-/// use aiplan4rust::aiplan4rust::interner::Ident;
+/// use aiplan4rust::aiplan4rust::interner::StringID;
 /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
 /// let mut problem = LiftedProblem::new();
-/// problem.set_domain_id(Ident::new("my_domain"));
-/// problem.set_problem_id(Ident::new("my_problem"));
+/// problem.set_domain_id(StringID::new("my_domain"));
+/// problem.set_problem_id(StringID::new("my_problem"));
 ///
 /// assert_eq!(problem.domain_id().as_str(), "my_domain");
 /// assert_eq!(problem.problem_id().as_str(), "my_problem");
@@ -107,19 +106,19 @@ pub struct Problem {
     interner: StringInterner,
 
     /// The identifier of the domain.
-    domain_id: Ident,
+    domain_id: StringID,
 
     /// The identifier of the problem.
-    problem_id: Ident,
+    problem_id: StringID,
 
     /// The set of requirements for this syntax problem.
     requirements: HashSet<Requirement>,
 
     /// The set of types defined in this syntax problem.
-    types: HashMap<Ident, TypedSymbol>,
+    types: HashMap<StringID, TypedSymbol>,
 
     /// The set of constants defined in this syntax problem.
-    constants: HashMap<Ident, TypedSymbol>,
+    constants: HashMap<StringID, TypedSymbol>,
 
 
     /// The list of predicates in the syntax problem.
@@ -148,7 +147,7 @@ pub struct Problem {
     methods: Vec<LiftedMethod>,
 
     /// The set of objects defined in this syntax problem.
-    objects: HashMap<Ident, TypedSymbol>,
+    objects: HashMap<StringID, TypedSymbol>,
 
     /// Indice à partir duquel commencent les objets du problème.
     /// [0 .. constant_offset[  -> Constantes du domaine
@@ -192,8 +191,8 @@ impl Problem {
     pub(crate) fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
         Self {
             interner,
-            domain_id: Ident::default(),
-            problem_id: Ident::default(),
+            domain_id: StringID::default(),
+            problem_id: StringID::default(),
             requirements,
             types: HashMap::new(),
             constants: HashMap::new(),
@@ -273,7 +272,7 @@ impl Problem {
 
 
     /// Returns the identifier of the domain.
-    pub fn domain_id(&self) -> Ident {
+    pub fn domain_id(&self) -> StringID {
         self.domain_id
     }
 
@@ -283,7 +282,7 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `InternerError` if the identifier is not present in the interner.
-    pub fn set_domain_id(&mut self, id: Ident) -> Result<(), InternerError> {
+    pub fn set_domain_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
         self.domain_id = id;
         Ok(())
@@ -298,7 +297,7 @@ impl Problem {
     }
 
     /// Returns the identifier of the problem.
-    pub fn problem_id(&self) -> Ident {
+    pub fn problem_id(&self) -> StringID {
         self.problem_id.clone()
     }
 
@@ -308,7 +307,7 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `InternerError` if the identifier is not present in the interner.
-    pub fn set_problem_id(&mut self, id: Ident) -> Result<(), InternerError> {
+    pub fn set_problem_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
         self.problem_id = id;
         Ok(())
@@ -417,27 +416,27 @@ impl Problem {
     ///
     /// This allows modifying existing `TypedSymbol`s directly,
     /// while still keeping the internal storage as a HashMap.
-    pub fn types_mut(&mut self) -> &mut HashMap<Ident, TypedSymbol> {
+    pub fn types_mut(&mut self) -> &mut HashMap<StringID, TypedSymbol> {
         &mut self.types
     }
 
     /// Get a type by its Ident (immutable)
-    pub fn get_type(&self, id: Ident) -> Option<&TypedSymbol> {
+    pub fn get_type(&self, id: StringID) -> Option<&TypedSymbol> {
         self.types.get(&id)
     }
 
     /// Get a type by its Ident (mutable)
-    pub fn get_type_mut(&mut self, id: Ident) -> Option<&mut TypedSymbol> {
+    pub fn get_type_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol> {
         self.types.get_mut(&id)
     }
 
     /// Get a type by its `Ident` (immutable).
-    pub fn try_get_type(&self, id: Ident) -> Result<&TypedSymbol, LirError> {
+    pub fn try_get_type(&self, id: StringID) -> Result<&TypedSymbol, LirError> {
         self.types.get(&id).ok_or_else(|| LirError::type_not_found(id))
     }
 
     /// Get a type by its `Ident` (mutable).
-    pub fn try_get_type_mut(&mut self, id: Ident) -> Result<&mut TypedSymbol, LirError> {
+    pub fn try_get_type_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol, LirError> {
         self.types.get_mut(&id).ok_or_else(|| LirError::type_not_found(id))
     }
 
@@ -524,7 +523,7 @@ impl Problem {
     /// # Returns
     /// - `Some(&TypedSymbol)` if the constant exists.
     /// - `None` otherwise.
-    pub fn get_constant(&self, id: Ident) -> Option<&TypedSymbol> {
+    pub fn get_constant(&self, id: StringID) -> Option<&TypedSymbol> {
         self.constants.get(&id)
     }
 
@@ -533,7 +532,7 @@ impl Problem {
     /// # Returns
     /// - `Some(&mut TypedSymbol)` if the constant exists.
     /// - `None` otherwise.
-    pub fn get_constant_mut(&mut self, id: Ident) -> Option<&mut TypedSymbol> {
+    pub fn get_constant_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol> {
         self.constants.get_mut(&id)
     }
 
@@ -541,7 +540,7 @@ impl Problem {
     ///
     /// # Errors
     /// - [`LirError::constant_not_found`] if the constant does not exist.
-    pub fn try_get_constant(&self, id: Ident) -> Result<&TypedSymbol, LirError> {
+    pub fn try_get_constant(&self, id: StringID) -> Result<&TypedSymbol, LirError> {
         self.constants
             .get(&id)
             .ok_or_else(|| LirError::constant_not_found(id))
@@ -551,7 +550,7 @@ impl Problem {
     ///
     /// # Errors
     /// - [`LirError::constant_not_found`] if the constant does not exist.
-    pub fn try_get_constant_mut(&mut self, id: Ident) -> Result<&mut TypedSymbol, LirError> {
+    pub fn try_get_constant_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol, LirError> {
         self.constants
             .get_mut(&id)
             .ok_or_else(|| LirError::constant_not_found(id))
@@ -800,22 +799,22 @@ impl Problem {
     }
 
     /// Get an object by its `Ident` (immutable).
-    pub fn get_object(&self, id: Ident) -> Option<&TypedSymbol> {
+    pub fn get_object(&self, id: StringID) -> Option<&TypedSymbol> {
         self.objects.get(&id)
     }
 
     /// Get an object by its `Ident` (mutable).
-    pub fn get_object_mut(&mut self, id: Ident) -> Option<&mut TypedSymbol> {
+    pub fn get_object_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol> {
         self.objects.get_mut(&id)
     }
 
     /// Get an object by its `Ident` (immutable), or return an error if not found.
-    pub fn try_get_object(&self, id: Ident) -> Result<&TypedSymbol, LirError> {
+    pub fn try_get_object(&self, id: StringID) -> Result<&TypedSymbol, LirError> {
         self.objects.get(&id).ok_or_else(|| LirError::object_not_found(id))
     }
 
     /// Get an object by its `Ident` (mutable), or return an error if not found.
-    pub fn try_get_object_mut(&mut self, id: Ident) -> Result<&mut TypedSymbol, LirError> {
+    pub fn try_get_object_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol, LirError> {
         self.objects.get_mut(&id).ok_or_else(|| LirError::object_not_found(id))
     }
 

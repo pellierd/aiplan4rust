@@ -33,7 +33,7 @@
 use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::InternerDisplay;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
@@ -54,7 +54,7 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// - [`Debug`] for debugging purposes.
 pub trait SyntaxContent:  RemapIdents + Display + InternerDisplay + SyntaxInternerDisplay + Clone + Debug  + Default {
     /// Returns the content as an identifier if available.
-    fn as_ident(&self) -> Option<Ident>;
+    fn as_ident(&self) -> Option<StringID>;
 
     /// Returns the content as a floating-point number if available.
     fn as_float(&self) -> Option<OrderedFloat<f64>>;
@@ -80,7 +80,7 @@ pub trait SyntaxContent:  RemapIdents + Display + InternerDisplay + SyntaxIntern
     ///
     /// Returns `Ok(Ident)` if successful or
     /// `Err(SyntaxTreeError::NotAnIdent)` if the content is not an identifier.
-    fn try_ident(&self) -> Result<Ident, SyntaxTreeError> {
+    fn try_ident(&self) -> Result<StringID, SyntaxTreeError> {
         self.as_ident()
             .ok_or_else(|| SyntaxTreeError::not_an_ident())
     }

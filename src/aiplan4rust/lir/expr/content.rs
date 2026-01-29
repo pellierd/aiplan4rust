@@ -51,7 +51,7 @@
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents, TypedList};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, TypedList};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
@@ -78,7 +78,7 @@ pub enum Content {
     None,
 
     /// Interned identifier referencing a name stored in a [`StringInterner`].
-    Ident(Ident),
+    Ident(StringID),
 
     /// Floating-point literal wrapped in [`OrderedFloat`] to ensure total ordering.
     #[serde(
@@ -216,7 +216,7 @@ impl SyntaxInternerDisplay for Content {
 }
 
 impl SyntaxContent for Content {
-    fn as_ident(&self) -> Option<Ident> {
+    fn as_ident(&self) -> Option<StringID> {
         match self {
             Content::Ident(id) => Some(*id),
             _ => None,
@@ -271,7 +271,7 @@ impl RemapIdents for Content {
     ///
     /// # Notes
     /// - The operation is performed in place and is panic-free.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         if let Content::Ident(id) = self {
             if let Some(new_id) = map.get(id) {
                 *id = *new_id;
@@ -321,7 +321,7 @@ impl TryFrom<(&AstNode, &SyntaxSubtree<'_, AstNode>)> for ExprContent {
 
                 //let vars = typed_list::encode(&typed_list_tree)?;
                 let vars = typed_list::encode(&typed_list_tree)
-                    .map_err(|e| ExprError::invalid_ast_node(ast_node.kind()))?; // Ou une variante "message"
+                    .map_err(|_| ExprError::invalid_ast_node(ast_node.kind()))?; // Ou une variante "message"
 
                 Ok(ExprContent::QuantifierVariables(vars))
             }

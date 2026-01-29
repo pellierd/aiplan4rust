@@ -4,8 +4,8 @@
 //! A `DerivedPredicate` is a logical fact derived from other facts,
 //! consisting of a head (name and parameters) and a body (logical expression).
 
-use crate::aiplan4rust::interner::{Ident, InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{RemapTypes, Type};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::{normalize, renderers};
@@ -144,12 +144,12 @@ impl RemapTypes for DerivedPredicate {
     /// Remaps union types in the derived predicate's head and body.
     ///
     /// # Parameters
-    /// - `map`: A [`HashMap<Type, Ident>`] mapping union types to primitive identifiers.
+    /// - `map`: A [`HashMap<Type, StringID>`] mapping union types to primitive identifiers.
     ///
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if any type cannot be remapped.
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         self.body.remap_types(map)?;
         Ok(())
     }

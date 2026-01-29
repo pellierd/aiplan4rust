@@ -1,14 +1,14 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::builders;
-use crate::aiplan4rust::lang::ids::{FunctionID, Id, ObjectID, ArgumentID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionID, ObjectID, ArgumentID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
-use crate::aiplan4rust::interner::{Ident, InternerError, StringInterner};
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
+use crate::aiplan4rust::lang::{Requirement, StringID};
 use crate::aiplan4rust::lir::problem::flatten::flatten;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::SerdeSerializable;
@@ -30,10 +30,10 @@ pub struct Problem {
     interner: StringInterner,
 
     /// The identifier of the domain.
-    domain_id: Ident,
+    domain_id: StringID,
 
     /// The identifier of the problem.
-    problem_id: Ident,
+    problem_id: StringID,
 
     /// Set of requirements declared for this problem.
     requirements: HashSet<Requirement>,
@@ -88,8 +88,8 @@ impl Problem {
         Self {
             interner: Rc::try_unwrap(rc_interner.clone())
                 .unwrap_or_else(|rc| (*rc).clone()),
-            domain_id: Ident::default(),
-            problem_id: Ident::default(),
+            domain_id: StringID::default(),
+            problem_id: StringID::default(),
             requirements,
             types_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
             predicates_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
@@ -121,24 +121,24 @@ impl Problem {
     }
 
     /// Returns the domain identifier.
-    pub fn domain_id(&self) -> Ident {
+    pub fn domain_id(&self) -> StringID {
         self.domain_id
     }
 
     /// Returns the problem identifier.
-    pub fn problem_id(&self) -> Ident {
+    pub fn problem_id(&self) -> StringID {
         self.problem_id
     }
 
     // Sets the domain identifier, validating it exists in the interner.
-    pub fn set_domain_id(&mut self, id: Ident) -> Result<(), InternerError> {
+    pub fn set_domain_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
         self.domain_id = id;
         Ok(())
     }
 
     /// Sets the problem identifier, validating it exists in the interner.
-    pub fn set_problem_id(&mut self, id: Ident) -> Result<(), InternerError> {
+    pub fn set_problem_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
         self.problem_id = id;
         Ok(())

@@ -19,7 +19,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Ident, TypedList};
+use crate::aiplan4rust::lang::{StringID, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -73,7 +73,7 @@ impl Formula {
     /// # Returns
     ///
     /// A `Formula` instance whose return type_checker is always `None`.
-    pub fn new(name: Ident, parameters: TypedList) -> Self {
+    pub fn new(name: StringID, parameters: TypedList) -> Self {
         let header = NamedTypedList::new(name, parameters);
         Self { header }
     }

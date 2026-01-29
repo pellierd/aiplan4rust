@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use crate::aiplan4rust::interner::{Ident, InternerError};
-use crate::aiplan4rust::lang::{RemapTypes, Type, TypedSymbol};
+use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::{HashMap, HashSet, VecDeque};
 use crate::aiplan4rust::lir::LirError;
@@ -102,20 +102,20 @@ pub fn flatten_types(problem: &mut LiftedProblem) -> Result<(), LirError> {
 /// ```
 fn flatten_types_def(
     problem: &mut LiftedProblem,
-) -> Result<HashMap<Type, Ident>, LirError> {
+) -> Result<HashMap<Type, StringID>, LirError> {
     // Queue of either types to process, represented by their Ident
     let mut to_process = either_types(problem);
 
     // Maps original type identifiers to their flattened primitive Type.
     // We'll use this later to update the types in the problem.
-    let mut to_update: HashMap<Ident, Type> = HashMap::with_capacity(problem.types().count());
+    let mut to_update: HashMap<StringID, Type> = HashMap::with_capacity(problem.types().count());
 
     // Maps union (either) types to the new primitive Ident representing them.
     // This is returned so we can replace union types in constants, predicates, etc.
     let mut either_to_primitive = HashMap::with_capacity(problem.types().count());
 
     // Cache to avoid recalculating a type that has already been flattened
-    let mut cache: HashMap<Ident, Ident> = HashMap::with_capacity(problem.types().count());
+    let mut cache: HashMap<StringID, StringID> = HashMap::with_capacity(problem.types().count());
 
     while let Some(ident) = to_process.pop_front() {
         // Get a reference to the TypedSymbol
@@ -169,7 +169,7 @@ fn flatten_types_def(
 ///
 /// # Returns
 /// A VecDeque of Idents representing types that are unions (either types).
-fn either_types(problem: &LiftedProblem) -> VecDeque<Ident> {
+fn either_types(problem: &LiftedProblem) -> VecDeque<StringID> {
     let mut queue = VecDeque::with_capacity(problem.types().count());
     for ts in problem.types() {
         if ts.ty().is_either() {
@@ -190,7 +190,7 @@ fn either_types(problem: &LiftedProblem) -> VecDeque<Ident> {
 ///
 /// # Panics
 /// Panics if any member of `ty` is not found in `symbol_lookup`.
-fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<Ident>, LirError> {
+fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<StringID>, LirError> {
     let mut parent_set = HashSet::new();
 
     for &m in ty.iter() {
@@ -198,7 +198,7 @@ fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<Ident>, LirErro
         parent_set.extend(parent_type.members()); // collect members of parents
     }
 
-    let mut parent_idents: Vec<Ident> = parent_set.into_iter().collect();
+    let mut parent_idents: Vec<StringID> = parent_set.into_iter().collect();
     parent_idents.sort();
     Ok(parent_idents)
 }

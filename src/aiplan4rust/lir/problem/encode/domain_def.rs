@@ -8,15 +8,10 @@
 //! 2. **Logic Binding**: Encoding expressions and actions by resolving symbols
 //!    against the maps created in the first pass.
 //!
-use std::collections::HashMap;
-use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::lang::{FunctionID, PredicateID, Type, TypeID};
-use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::encode::{action_def, predicates_def, functions_def, types_def, constants_def, expr, durative_action_def, method_def, derived_predicate_def, task_def};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
-use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
 

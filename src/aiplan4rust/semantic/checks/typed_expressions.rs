@@ -1,9 +1,9 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
@@ -273,8 +273,8 @@ fn get_binary_operation_types(
     let ast = context.syntax_tree();
 
     // Try to get the first child node index and node
-    let mut arg1_id = node.try_child(0)?;
-    let mut arg1 = ast.try_node(arg1_id)?;
+    let arg1_id = node.try_child(0)?;
+    let arg1 = ast.try_node(arg1_id)?;
 
     // Try to get the second child node index and node
     let arg2_id = node.try_child(1)?;
@@ -400,7 +400,7 @@ fn get_number_type() -> Result<Option<Type>, SemanticCheckError> {
 /// ```
 fn get_variable_type(
     index: NodeId,
-    symbol: Ident,
+    symbol: StringID,
     context: &CheckContext,
 ) -> Result<Option<Type>, SemanticCheckError> {
     if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
@@ -433,7 +433,7 @@ fn get_variable_type(
 /// ```
 fn get_constant_type(
     index: NodeId,
-    _symbol: Ident,
+    _symbol: StringID,
     context: &CheckContext,
 ) -> Result<Option<Type>, SemanticCheckError> {
     get_declaration_type(index, context, SymbolKind::Constant)

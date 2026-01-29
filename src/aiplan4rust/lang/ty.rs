@@ -11,10 +11,7 @@
 //! while preserving expressiveness for parsing, type checking, and semantic analysis.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::error::LangError;
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
-use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
+use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -30,7 +27,7 @@ use std::fmt::Formatter;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Type {
     /// Non-empty list of atomic type identifiers.
-    members: Vec<Ident>,
+    members: Vec<StringID>,
 }
 
 impl Type {
@@ -46,7 +43,7 @@ impl Type {
     ///
     /// The returned slice contains the identifiers of all atomic types
     /// that compose this type.
-    pub fn members(&self) -> &[Ident] {
+    pub fn members(&self) -> &[StringID] {
         &self.members
     }
 
@@ -54,7 +51,7 @@ impl Type {
     ///
     /// This allows in-place modification of the atomic type identifiers
     /// that compose this `Type`.
-    pub fn members_mut(&mut self) -> &mut Vec<Ident> {
+    pub fn members_mut(&mut self) -> &mut Vec<StringID> {
         &mut self.members
     }
 
@@ -62,7 +59,7 @@ impl Type {
     ///
     /// The provided vector must be non-empty and should contain
     /// atomic type identifiers.
-    pub fn set_members(&mut self, members: Vec<Ident>) {
+    pub fn set_members(&mut self, members: Vec<StringID>) {
         self.members = members;
     }
 
@@ -109,7 +106,7 @@ impl Type {
     }
 
     /// Creates a new primitive (atomic) type from a single identifier.
-    pub fn primitive(id: Ident) -> Self {
+    pub fn primitive(id: StringID) -> Self {
         Self { members: vec![id] }
     }
 
@@ -117,12 +114,12 @@ impl Type {
     ///
     /// # Panics
     /// Panics if `ids` is empty.
-    pub fn either(ids: Vec<Ident>) -> Self {
+    pub fn either(ids: Vec<StringID>) -> Self {
         Self { members: ids }
     }
 
     /// Adds a new atomic type identifier to this `Type`.
-    pub fn add_type(&mut self, member: Ident) {
+    pub fn add_type(&mut self, member: StringID) {
         self.members.push(member);
     }
 
@@ -147,22 +144,22 @@ impl Type {
     }
 
     /// Returns a slice of all type members.
-    pub fn as_slice(&self) -> &[Ident] {
+    pub fn as_slice(&self) -> &[StringID] {
         &self.members
     }
 
     /// Returns an iterator over the members.
-    pub fn iter(&self) -> std::slice::Iter<'_, Ident> {
+    pub fn iter(&self) -> std::slice::Iter<'_, StringID> {
         self.members.iter()
     }
 
     /// Returns a mutable iterator over the members.
-    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, Ident> {
+    pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, StringID> {
         self.members.iter_mut()
     }
 
     /// Consumes the type and returns an iterator over its members.
-    pub fn into_iter(self) -> std::vec::IntoIter<Ident> {
+    pub fn into_iter(self) -> std::vec::IntoIter<StringID> {
         self.members.into_iter()
     }
 
@@ -182,7 +179,7 @@ impl RemapIdents for Type {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         for ident in &mut self.members {
             ident.remap_idents(map)?;
         }

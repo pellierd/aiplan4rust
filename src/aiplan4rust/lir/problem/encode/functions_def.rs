@@ -4,14 +4,11 @@
 //! from the domain AST. It registers these functions in the LIR and maintains
 //! the mapping between AST nodes and their internal LIR indices.
 
-use std::collections::HashMap;
-use crate::aiplan4rust::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::lang::{FunctionID, Type};
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
+use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lang::FunctionID;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, named_typed_list, ty, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, EncodingContext};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 

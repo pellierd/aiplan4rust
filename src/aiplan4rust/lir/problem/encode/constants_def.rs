@@ -4,9 +4,8 @@
 //! (from problem). It ensures that all symbols are parsed with their
 //! respective types and stored in a collection for global resolution.
 
-use std::collections::HashSet;
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{ObjectID, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::ObjectID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingContext};
 use crate::aiplan4rust::lir::problem::LiftedProblem;

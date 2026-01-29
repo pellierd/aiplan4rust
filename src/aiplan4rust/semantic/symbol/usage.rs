@@ -19,7 +19,7 @@ use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::lang::{Ident, RemapIdents};
+use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use crate::aiplan4rust::syntax::Span;
 use std::collections::HashMap;
 use serde::Deserialize;
@@ -103,7 +103,7 @@ impl Usage {
     }
 
     /// Returns the identifier of the referenced symbol.
-    pub fn symbol_ident(&self) -> Ident {
+    pub fn symbol_ident(&self) -> StringID {
         self.symbol.ident()
     }
 
@@ -147,7 +147,7 @@ impl RemapIdents for Usage {
     /// # Errors
     ///
     /// Returns [`InternerError`] if remapping cannot be applied (propagated from nested remaps, if any).
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError>{
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol.set_ident(new_ident.clone());
         }

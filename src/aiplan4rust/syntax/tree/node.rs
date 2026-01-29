@@ -34,7 +34,7 @@ use std::fmt::{Debug, Display, Formatter};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Ident, Optimization, RemapIdents};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents};
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxTree};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -164,7 +164,7 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
     /// # Returns
     ///
     /// An `Option<Ident>` containing the identifier if it exists, or `None` otherwise.
-    fn as_ident(&self) -> Option<Ident> {
+    fn as_ident(&self) -> Option<StringID> {
         self.content().as_ident()
     }
 
@@ -227,7 +227,7 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
     ///
     /// A `Result<Ident, SyntaxTreeError>` containing the identifier if successful,
     /// or an error if extraction failed.
-    fn try_ident(&self) -> Result<Ident, SyntaxTreeError> {
+    fn try_ident(&self) -> Result<StringID, SyntaxTreeError> {
         self.content().try_ident()
     }
 
@@ -689,11 +689,11 @@ where
     /// delegating the remapping to `content_mut()`.
     ///
     /// # Parameters
-    /// - `map`: A `HashMap` mapping old [`Ident`]s to new ones.
+    /// - `map`: A `HashMap` mapping old [`StringID`]s to new ones.
     ///
     /// # Errors
     /// Returns a [`InternerError`] if remapping fails.
-    fn remap_idents(&mut self, map: &HashMap<Ident, Ident>) -> Result<(), InternerError> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         self.content_mut().remap_idents(map)?;
         Ok(())
     }

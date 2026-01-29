@@ -10,7 +10,7 @@ use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{task_network, typed_list};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
+use crate::aiplan4rust::lir::problem::InitialTaskNetwork;
 
 /// Encodes an `InitialTaskNetwork` from the syntax tree.
 ///

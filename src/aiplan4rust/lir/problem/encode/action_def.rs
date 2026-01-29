@@ -5,12 +5,10 @@
 //! body, including preconditions and effects, using the provided context.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::VariableID;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list, EncodingContext};
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 

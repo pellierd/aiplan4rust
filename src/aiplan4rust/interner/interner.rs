@@ -45,7 +45,8 @@
 
 use std::collections::HashMap;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
-use crate::aiplan4rust::interner::{Ident, InternerError, Literal};
+use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::lang::{LiteralID, StringID};
 use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
@@ -121,7 +122,7 @@ impl StringInterner {
     /// let interner = StringInterner::new();
     /// assert_eq!(interner.expect_str(StringInterner::IDENT_OBJECT).unwrap(), "object");
     /// ```
-    pub const IDENT_OBJECT: Ident = Ident::new(0);
+    pub const IDENT_OBJECT: StringID = StringID::new(0);
 
     /// The interned identifier for the reserved string `"number"`.
     ///
@@ -134,7 +135,7 @@ impl StringInterner {
     /// let interner = StringInterner::new();
     /// assert_eq!(interner.expect_str(StringInterner::IDENT_NUMBER).unwrap(), "number");
     /// ```
-    pub const IDENT_NUMBER: Ident = Ident::new(1);
+    pub const IDENT_NUMBER: StringID = StringID::new(1);
 
     /// The interned identifier for the reserved string `"duration_variable"`.
     ///
@@ -151,7 +152,7 @@ impl StringInterner {
     ///     "duration_variable"
     /// );
     /// ```
-    pub const IDENT_DURATION_VARIABLE: Ident = Ident::new(2);
+    pub const IDENT_DURATION_VARIABLE: StringID = StringID::new(2);
 
     /// The interned identifier for the reserved string `"total_time"`.
     ///
@@ -170,14 +171,14 @@ impl StringInterner {
     ///     "total_time"
     /// );
     /// ```
-    pub const IDENT_TOTAL_TIME: Ident = Ident::new(3);
+    pub const IDENT_TOTAL_TIME: StringID = StringID::new(3);
 
     /// Creates a new `StringInterner` with reserved strings pre-interned.
     ///
     /// This constructor initializes an empty string pool and inserts a predefined set
     /// of reserved strings (`"object"`, `"number"`, `"total_time"`) at fixed indices.
     /// These strings are interned using [`intern_reserved`] in a specific order that must
-    /// match the declaration of their corresponding [`Ident`] constants:
+    /// match the declaration of their corresponding [`StringID`] constants:
     ///
     /// - `IDENT_OBJECT` → `"object"` → index 0
     /// - `IDENT_NUMBER` → `"number"` → index 1
@@ -248,28 +249,28 @@ impl StringInterner {
     /// let ident = interner.intern_reserved(TYPE_OBJECT);
     /// assert_eq!(ident.as_usize(), 0);
     /// ```
-    fn intern_reserved_ident(&mut self, s: &'static str) -> Ident {
+    fn intern_reserved_ident(&mut self, s: &'static str) -> StringID {
         let idx = self.ident_string_pool.len();
         self.ident_string_pool.push(Box::from(s));
         self.ident_index_map.insert(s, idx);
-        Ident::new(idx)
+        StringID::new(idx)
     }
 
     /// Interns the given string and returns an `Ident` representing it.
     ///
     /// If the string is already interned, returns its existing `Ident`.
     /// Otherwise, adds the string to the pool and returns a new `Ident`.
-    pub fn intern_ident<S: AsRef<str>>(&mut self, s: S) -> Ident {
+    pub fn intern_ident<S: AsRef<str>>(&mut self, s: S) -> StringID {
         let s = s.as_ref();
         if let Some(&idx) = self.ident_index_map.get(s) {
-            return Ident::new(idx);
+            return StringID::new(idx);
         }
         let boxed: Box<str> = s.to_string().into_boxed_str();
         let static_str: &'static str = Box::leak(boxed);
         let idx = self.ident_string_pool.len();
         self.ident_string_pool.push(static_str.into());
         self.ident_index_map.insert(static_str, idx);
-        Ident::new(idx)
+        StringID::new(idx)
     }
 
     /// Retrieves the interned string by its `Ident`.
@@ -288,7 +289,7 @@ impl StringInterner {
     /// assert_eq!(interner.get_str(ident), Some("hello"));
     /// assert_eq!(interner.get_str(Ident::new(9999)), None);
     /// ```
-    pub fn resolve_ident(&self, ident: Ident) -> Option<&str> {
+    pub fn resolve_ident(&self, ident: StringID) -> Option<&str> {
         self.ident_string_pool.get(ident.as_usize()).map(|s| s.as_ref())
     }
 
@@ -320,21 +321,21 @@ impl StringInterner {
     /// assert!(interner.try_resolve(invalid_id).is_err());
     /// ```
     ///
-    pub fn try_resolve_ident(&self, ident: Ident) -> Result<&str, InternerError> {
+    pub fn try_resolve_ident(&self, ident: StringID) -> Result<&str, InternerError> {
         self.resolve_ident(ident).ok_or_else(|| {
             InternerError::invalid_ident(ident.as_usize(), self.ident_string_pool.len())
         })
     }
 
     /// Lookup an interned string and get its Ident if it exists (no insertion).
-    pub fn lookup_ident(&self, s: &str) -> Option<Ident> {
-        self.ident_index_map.get(s).copied().map(Ident::new)
+    pub fn lookup_ident(&self, s: &str) -> Option<StringID> {
+        self.ident_index_map.get(s).copied().map(StringID::new)
     }
 
     /// Returns an iterator over the interned `Ident`s (the indices).
     /// Returns an iterator over all interned identifiers (`Ident`).
-    pub fn ident_keys(&self) -> impl Iterator<Item = Ident> + '_ {
-        (0..self.ident_string_pool.len()).map(Ident::new)
+    pub fn ident_keys(&self) -> impl Iterator<Item =StringID> + '_ {
+        (0..self.ident_string_pool.len()).map(StringID::new)
     }
 
     /// Returns an iterator over interned strings (`&str`).
@@ -343,11 +344,11 @@ impl StringInterner {
     }
 
     /// Returns an iterator over `(Ident, &str)` pairs.
-    pub fn iter_ident_entries(&self) -> impl Iterator<Item = (Ident, &str)> + '_ {
+    pub fn iter_ident_entries(&self) -> impl Iterator<Item = (StringID, &str)> + '_ {
         self.ident_string_pool
             .iter()
             .enumerate()
-            .map(|(i, s)| (Ident::new(i), s.as_ref()))
+            .map(|(i, s)| (StringID::new(i), s.as_ref()))
     }
 
     /// Interns a literal string (e.g., numbers, constants) and returns a `Literal`.
@@ -361,11 +362,11 @@ impl StringInterner {
     /// let lit = interner.intern_literal("42");
     /// assert_eq!(interner.get_literal(lit), Some("42"));
     /// ```
-    pub fn intern_literal<S: AsRef<str>>(&mut self, s: S) -> Literal {
+    pub fn intern_literal<S: AsRef<str>>(&mut self, s: S) -> LiteralID {
         let s_ref = s.as_ref();
 
         if let Some(&idx) = self.literal_index_map.get(s_ref) {
-            return Literal::new(idx);
+            return LiteralID::new(idx);
         }
 
         let boxed: Box<str> = s_ref.to_string().into_boxed_str();
@@ -375,7 +376,7 @@ impl StringInterner {
         self.literal_string_pool.push(static_str.into());
         self.literal_index_map.insert(static_str, idx);
 
-        Literal::new(idx)
+        LiteralID::new(idx)
     }
 
     /// Resolves a literal `Literal` into its string value.
@@ -383,7 +384,7 @@ impl StringInterner {
     /// # Returns
     /// - `Some(&str)` if the index is valid
     /// - `None` otherwise
-    pub fn resolve_literal(&self, lit: Literal) -> Option<&str> {
+    pub fn resolve_literal(&self, lit: LiteralID) -> Option<&str> {
         self.literal_string_pool.get(lit.as_usize()).map(|s| s.as_ref())
     }
 
@@ -391,20 +392,20 @@ impl StringInterner {
     ///
     /// # Errors
     /// Returns `Err(InternerError)` if the literal is invalid or out of bounds.
-    pub fn try_resolve_literal(&self, literal: Literal) -> Result<&str, InternerError> {
+    pub fn try_resolve_literal(&self, literal: LiteralID) -> Result<&str, InternerError> {
         self.resolve_literal(literal).ok_or_else(|| {
             InternerError::invalid_literal(literal.as_usize(), self.literal_string_pool.len())
         })
     }
 
     /// Looks up a literal and returns its identifier if already interned.
-    pub fn lookup_literal(&self, s: &str) -> Option<Literal> {
-        self.literal_index_map.get(s).copied().map(Literal::new)
+    pub fn lookup_literal(&self, s: &str) -> Option<LiteralID> {
+        self.literal_index_map.get(s).copied().map(LiteralID::new)
     }
 
     /// Returns an iterator over all literal `Literal`s.
-    pub fn literal_keys(&self) -> impl Iterator<Item = Literal> + '_ {
-        (0..self.literal_string_pool.len()).map(Literal::new)
+    pub fn literal_keys(&self) -> impl Iterator<Item =LiteralID> + '_ {
+        (0..self.literal_string_pool.len()).map(LiteralID::new)
     }
 
     /// Returns an iterator over all interned literals (`&str`).
@@ -413,11 +414,11 @@ impl StringInterner {
     }
 
     /// Returns an iterator over `(Literal, &str)` pairs for literals.
-    pub fn iter_literal_entries(&self) -> impl Iterator<Item = (Literal, &str)> + '_ {
+    pub fn iter_literal_entries(&self) -> impl Iterator<Item = (LiteralID, &str)> + '_ {
         self.literal_string_pool
             .iter()
             .enumerate()
-            .map(|(i, s)| (Literal::new(i), s.as_ref()))
+            .map(|(i, s)| (LiteralID::new(i), s.as_ref()))
     }
 
 }

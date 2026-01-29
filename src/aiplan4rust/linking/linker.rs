@@ -31,8 +31,8 @@
 //! ```
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerMergeResult};
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::interner::InternerMergeResult;
+use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
@@ -382,8 +382,8 @@ fn resolve_external_references(
 fn collect_declared_and_undeclared_symbols<'a>(
     problem: &'a SemanticContext,
     domain_symbol_table: &'a SymbolTable,
-    declared: &mut Vec<(Ident, Declaration)>,
-    undeclared: &mut Vec<(Ident, &'a Usage)>,
+    declared: &mut Vec<(StringID, Declaration)>,
+    undeclared: &mut Vec<(StringID, &'a Usage)>,
 ) -> Result<bool, LinkingError> {
     let problem_symbol_table = problem.symbol_table();
     let mut all_resolved = true;

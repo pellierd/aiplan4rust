@@ -44,8 +44,7 @@ use std::collections::HashSet;
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::Literal;
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::lang::{LiteralID, Requirement};
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -162,7 +161,7 @@ pub fn normalize_require_def(
 fn report_duplicate_requirements_warnings(
     syntax_tree: &SyntaxTree<AstNode>,
     require_def_id: NodeId,
-    source_id: Literal,
+    source_id: LiteralID,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationPassError> {
     // Try to get the RequireDef syntax node by its ID. Return error if not found.
@@ -237,7 +236,7 @@ fn report_duplicate_requirements_warnings(
 pub fn new_duplicate_requirement_warning(
     duplicate_requirements: Vec<Requirement>,
     span: &Span,
-    source: Literal,
+    source: LiteralID,
 ) -> Diagnostic {
     Diagnostic::warning_duplicate_requirement(
         duplicate_requirements,

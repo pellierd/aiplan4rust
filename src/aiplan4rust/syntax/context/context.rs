@@ -41,7 +41,7 @@ use std::cell::RefCell;
 use lalrpop_util::{ErrorRecovery, ParseError};
 
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::Ident;
+use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::context::error::ParseContextError;
 use crate::aiplan4rust::syntax::lexer::Token;
@@ -250,7 +250,7 @@ impl ParseContext {
     /// let id2 = ctx.intern("var".to_string());
     /// assert_eq!(id1, id2);
     /// ```
-    pub fn intern(&self, s: String) -> Ident {
+    pub fn intern(&self, s: String) -> StringID {
         self.interner.borrow_mut().intern_ident(s)
     }
 

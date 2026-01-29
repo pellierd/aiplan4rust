@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::SystemTime;
 use chrono::{DateTime, Local};
-use crate::aiplan4rust::interner::{InternerError, Literal, StringInterner};
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
+use crate::aiplan4rust::lang::{LiteralID, Requirement};
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -74,8 +74,8 @@ pub struct LinkedSemanticContext {
     declared_requirements: HashSet<Requirement>,
     required_requirements: HashSet<Requirement>,
     interner: StringInterner,
-    domain_source_id: Literal,
-    problem_source_id: Literal,
+    domain_source_id: LiteralID,
+    problem_source_id: LiteralID,
     generated_at: std::time::SystemTime,
 }
 
@@ -425,7 +425,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// The `Literal` corresponding to the domain source.
-    pub fn domain_source_id(&self) -> Literal {
+    pub fn domain_source_id(&self) -> LiteralID {
         self.domain_source_id
     }
 
@@ -437,7 +437,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// The `Literal` corresponding to the problem source.
-    pub fn problem_source_id(&self) -> Literal {
+    pub fn problem_source_id(&self) -> LiteralID {
         self.problem_source_id
     }
 
@@ -461,7 +461,7 @@ impl LinkedSemanticContext {
     ///     println!("Resolved name: {}", name);
     /// }
     /// ```
-    fn source_name(&self, lit: Literal) -> Option<&str> {
+    fn source_name(&self, lit: LiteralID) -> Option<&str> {
         self.interner.resolve_literal(lit)
     }
 
@@ -483,7 +483,7 @@ impl LinkedSemanticContext {
     /// let name = ctx.source_name_string(literal);
     /// println!("Source name: {}", name);
     /// ```
-    fn source_name_string(&self, lit: Literal) -> String {
+    fn source_name_string(&self, lit: LiteralID) -> String {
         self.source_name(lit)
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("unknown<{}>", lit))

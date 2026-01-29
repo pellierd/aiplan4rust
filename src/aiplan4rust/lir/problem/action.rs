@@ -42,7 +42,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Ident, RemapTypes, Type};
+use crate::aiplan4rust::lang::{StringID, RemapTypes, Type};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
@@ -97,7 +97,7 @@ impl Action {
     /// );
     /// ```
     pub fn new(
-        name: Ident,
+        name: StringID,
         parameters: TypedList,
         precondition: Expr,
         effect: Expr,
@@ -147,7 +147,7 @@ impl Action {
     }
 
     /// Returns the name (identifier) of the action.
-    pub fn name(&self) -> Ident {
+    pub fn name(&self) -> StringID {
         self.header.symbol()
     }
 
@@ -156,7 +156,7 @@ impl Action {
     /// # Arguments
     ///
     /// * `name` - The new identifier to assign to the action.
-    pub fn set_name(&mut self, name: Ident) {
+    pub fn set_name(&mut self, name: StringID) {
         self.header.set_name(name);
     }
 
@@ -272,7 +272,7 @@ impl RemapTypes for Action {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type, Ident>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
         self.header.remap_types(map)?;
         self.precondition.remap_types(map)?;
         self.effect.remap_types(map)?;

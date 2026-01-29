@@ -6,13 +6,11 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, expr};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Encodes a derived predicate from the syntax tree into the LIR.
 ///
