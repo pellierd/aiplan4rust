@@ -420,8 +420,8 @@ impl Diagnostic {
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source of the mismatch.
     pub fn error_type_mismatch_in_expression(
-        ty1: Type,
-        ty2: Type,
+        ty1: Type<StringID>,
+        ty2: Type<StringID>,
         provider: Provider,
         source: LiteralID,
         span: Span,
@@ -443,8 +443,8 @@ impl Diagnostic {
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source of the invalid types.
     pub fn error_invalid_types_in_numeric_expression(
-        ty1: Type,
-        ty2: Type,
+        ty1: Type<StringID>,
+        ty2: Type<StringID>,
         provider: Provider,
         source: LiteralID,
         span: Span,
@@ -714,8 +714,8 @@ impl Diagnostic {
     /// - `span`: Location in source related to the argument usage.
     pub fn warning_task_argument_is_supertype_of_declaration(
         argument: Declaration,
-        type_declared: Type,
-        type_used: Type,
+        type_declared: Type<StringID>,
+        type_used: Type<StringID>,
         provider: Provider,
         source: LiteralID,
         span: Span,

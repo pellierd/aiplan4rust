@@ -20,7 +20,7 @@
 //! enabling better error handling and easier testing.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{Type, TypedList, TypedSymbol};
+use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::SymbolTable;
@@ -350,7 +350,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-        types: Option<Type>,
+        types: Option<Type<StringID>>,
         arguments: Option<TypedList>,
     ) -> Result<(), SymbolTableError> {
         // Extract the symbol reference from the AST node ID.
@@ -662,7 +662,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-        types: Type,
+        types: Type<StringID>,
     ) -> Result<(), SymbolTableError> {
         // Match on the AST node kind to determine processing logic
         match node_ref.node().kind() {
@@ -757,7 +757,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-        types: Type,
+        types: Type<StringID>,
     ) -> Result<(), SymbolTableError> {
         let node = node_ref.node();
 
@@ -1388,7 +1388,7 @@ impl SymbolTableBuilder {
         &mut self,
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<Type, SymbolTableError> {
+    ) -> Result<Type<StringID>, SymbolTableError> {
         let arena = ast.syntax_tree();
         let mut super_types = Type::new();
 
@@ -1440,7 +1440,7 @@ impl SymbolTableBuilder {
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<Type, SymbolTableError> {
+    ) -> Result<Type<StringID>, SymbolTableError> {
         // --- Extract the type identifiers using existing logic ---
         let super_types = self.extract_type(type_ref, ast)?; // Handles structure & kind checking internally
 

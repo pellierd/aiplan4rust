@@ -5,7 +5,7 @@
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{FunctionID, ObjectID, PredicateID, Type, TypeID, VariableID};
+use crate::aiplan4rust::lang::{FunctionID, ObjectID, PredicateID, StringID, Type, TypeID, VariableID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
@@ -71,7 +71,7 @@ impl EncodingContext {
 
 
 
-    pub fn get_type_id(&self, ty: &Type) -> Option<Vec<TypeID>> {
+    pub fn get_type_id(&self, ty: &Type<StringID>) -> Option<Vec<TypeID>> {
         let mut ids = Vec::new();
         for t in ty.members() {
             let type_symbol = Symbol::new(*t, SymbolKind::PrimitiveType);
@@ -87,7 +87,7 @@ impl EncodingContext {
     }
 
     /// La version "Strict" que tu utiliseras lors de l'encodage.
-    pub fn try_get_type_id(&self, ty: &Type) -> Result<Vec<TypeID>, LirError> {
+    pub fn try_get_type_id(&self, ty: &Type<StringID>) -> Result<Vec<TypeID>, LirError> {
         self.get_type_id(ty)
             .ok_or_else(|| LirError::type_binding_failed(ty.clone()))
     }

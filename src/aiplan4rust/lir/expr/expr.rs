@@ -550,7 +550,7 @@ impl RemapTypes for Expr {
     /// # Behavior
     /// - Traverses the expression tree from the root node.
     /// - Replaces type references according to `map`; non-union or unmapped types remain unchanged.
-    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
         if let Ok(root_id) = self.tree.try_root_id() {
             self.flatten_types_from(root_id, map)?;
         }
@@ -573,7 +573,7 @@ impl Expr {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped or are already primitive.
     /// - `Err(LirError)` if an error occurs during traversal or remapping (e.g., missing mapping or invalid node access).
-    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
+    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
         let mut stack = vec![node_id];
         while let Some(node_id) = stack.pop() {
             let node = self.tree.try_node_mut(node_id)?;

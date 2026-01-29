@@ -75,7 +75,7 @@ pub struct Function {
     header: NamedTypedList,
 
     /// The return type_checker of the function.
-    ty: Type,
+    ty: Type<StringID>,
 }
 
 impl Function {
@@ -85,7 +85,7 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `ty`: The return type_checker of the function.
-    pub fn new(name: StringID, parameters: TypedList, ty: Type) -> Self {
+    pub fn new(name: StringID, parameters: TypedList, ty: Type<StringID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature, ty }
     }
@@ -105,12 +105,12 @@ impl Function {
     /// # Returns
     ///
     /// A new `Function` instance.
-    pub(crate) fn from_header(header: NamedTypedList, ty: Type) -> Self {
+    pub(crate) fn from_header(header: NamedTypedList, ty: Type<StringID>) -> Self {
         Self { header, ty }
     }
 
     /// Returns a reference to the return type_checker.
-    pub fn return_type(&self) -> &Type {
+    pub fn return_type(&self) -> &Type<StringID> {
         &self.ty
     }
 
@@ -149,7 +149,7 @@ impl RemapTypes for Function {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping.
-    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
         self.header.remap_types(map)?;
         self.ty.remap_types(map)?;
         Ok(())

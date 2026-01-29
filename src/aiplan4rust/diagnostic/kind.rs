@@ -104,13 +104,13 @@ pub enum Kind {
     ///
     /// This error is raised when the expression involves incompatible types that
     /// cannot be reconciled, indicating a type mismatch.
-    TypeMismatchInExpression { ty1: Type, ty2: Type },
+    TypeMismatchInExpression { ty1: Type<StringID>, ty2: Type<StringID> },
 
     /// Represents an error where two types used in a numeric expression are incompatible.
     ///
     /// This error occurs when an operation expecting numeric types receives types
     /// that are not valid for numeric computations (e.g., mixing incompatible or non-numeric types).
-    InvalidTypesInNumericExpression { ty1: Type, ty2: Type },
+    InvalidTypesInNumericExpression { ty1: Type<StringID>, ty2: Type<StringID> },
 
     /// Indicates that an expression node uses a feature or construct that violates
     /// the PDDL requirements currently active in the context.
@@ -302,8 +302,8 @@ pub enum Kind {
     /// - `type_used`: The actual type used in the task invocation, which is a supertype of the declared type.
     TaskArgumentIsSupertypeOfDeclaration {
         argument: Declaration,
-        type_declared: Type,
-        type_used: Type,
+        type_declared: Type<StringID>,
+        type_used: Type<StringID>,
     },
 
     /// Warning indicating the presence of duplicated types within an `Either` construct.

@@ -152,8 +152,8 @@ fn check_equal_and_assignment_expression(
     context: &CheckContext,
     type_checker: &TypeChecker,
     node: &AstNode,
-    ty1: &Type,
-    ty2: &Type,
+    ty1: &Type<StringID>,
+    ty2: &Type<StringID>,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
@@ -215,8 +215,8 @@ fn check_equal_and_assignment_expression(
 fn check_numeric_expression(
     context: &CheckContext,
     node: &AstNode,
-    ty1: &Type,
-    ty2: &Type,
+    ty1: &Type<StringID>,
+    ty2: &Type<StringID>,
     provider: Provider,
     diagnostic_manager:&mut DiagnosticManager
 ) -> bool {
@@ -268,7 +268,7 @@ fn check_numeric_expression(
 fn get_binary_operation_types(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<(Type, Type), SemanticCheckError> {
+) -> Result<(Type<StringID>, Type<StringID>), SemanticCheckError> {
 
     let ast = context.syntax_tree();
 
@@ -325,7 +325,7 @@ pub fn get_type(
     index: NodeId,
     node: &AstNode,
     context: &CheckContext,
-) -> Result<Option<Type>, SemanticCheckError> {
+) -> Result<Option<Type<StringID>>, SemanticCheckError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         AstKind::Number => get_number_type(),
@@ -366,7 +366,7 @@ pub fn get_type(
 /// ```rust
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
-fn get_number_type() -> Result<Option<Type>, SemanticCheckError> {
+fn get_number_type() -> Result<Option<Type<StringID>>, SemanticCheckError> {
     Ok(Some(Type::number().clone()))
 }
 
@@ -402,7 +402,7 @@ fn get_variable_type(
     index: NodeId,
     symbol: StringID,
     context: &CheckContext,
-) -> Result<Option<Type>, SemanticCheckError> {
+) -> Result<Option<Type<StringID>>, SemanticCheckError> {
     if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
         return get_number_type();
     }
@@ -435,7 +435,7 @@ fn get_constant_type(
     index: NodeId,
     _symbol: StringID,
     context: &CheckContext,
-) -> Result<Option<Type>, SemanticCheckError> {
+) -> Result<Option<Type<StringID>>, SemanticCheckError> {
     get_declaration_type(index, context, SymbolKind::Constant)
 }
 
@@ -470,7 +470,7 @@ fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
     kind: SymbolKind
-) -> Result<Option<Type>, SemanticCheckError> {
+) -> Result<Option<Type<StringID>>, SemanticCheckError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id, kind)? {
         Some(decl) => Ok(decl.types().cloned()),
         None => Ok(None),
@@ -505,7 +505,7 @@ fn get_declaration_type(
 fn get_function_term_type(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<Option<Type>, SemanticCheckError> {
+) -> Result<Option<Type<StringID>>, SemanticCheckError> {
     let functor_index = node.try_child(0)?;
     let functor_entry = context.syntax_tree().try_node(functor_index)?;
 

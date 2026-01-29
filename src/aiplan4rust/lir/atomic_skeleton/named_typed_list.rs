@@ -141,7 +141,7 @@ impl RemapTypes for NamedTypedList {
     /// # Returns
     /// - `Ok(())` if all parameter types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping.
-    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
         self.parameters.remap_types(map)?;
         Ok(())
     }

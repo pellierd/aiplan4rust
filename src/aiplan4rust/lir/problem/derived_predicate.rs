@@ -149,7 +149,7 @@ impl RemapTypes for DerivedPredicate {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if any type cannot be remapped.
-    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
         self.body.remap_types(map)?;
         Ok(())
     }

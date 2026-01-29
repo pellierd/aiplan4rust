@@ -140,8 +140,8 @@ impl<'a> TypeChecker<'a> {
     /// * `Err(TypeCheckError)` if an internal resolution error occurs.
     pub fn is_any_subtype_of(
         &self,
-        ty1: &Type,
-        ty2: &Type,
+        ty1: &Type<StringID>,
+        ty2: &Type<StringID>,
     ) -> Result<bool, TypeCheckError> {
         let ty1_set: HashSet<_> = ty1.iter().collect();
 
@@ -169,8 +169,8 @@ impl<'a> TypeChecker<'a> {
     /// Same as [`is_any_subtype_of`] but with arguments reversed.
     pub fn is_any_supertype_of(
         &self,
-        ty1: &Type,
-        ty2: &Type,
+        ty1: &Type<StringID>,
+        ty2: &Type<StringID>,
     ) -> Result<bool, TypeCheckError> {
         self.is_any_subtype_of(ty2, ty1)
     }
@@ -186,8 +186,8 @@ impl<'a> TypeChecker<'a> {
     /// * `Err(TypeCheckError)` if an error occurs in type resolution.
     pub fn is_any_sub_or_supertype_of(
         &self,
-        ty1: &Type,
-        ty2: &Type,
+        ty1: &Type<StringID>,
+        ty2: &Type<StringID>,
     ) -> Result<bool, TypeCheckError> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
@@ -204,8 +204,8 @@ impl<'a> TypeChecker<'a> {
     /// * `Err(TypeCheckError)` on resolution failure.
     pub fn have_common_supertype(
         &self,
-        ty1: &Type,
-        ty2: &Type,
+        ty1: &Type<StringID>,
+        ty2: &Type<StringID>,
     ) -> Result<bool, TypeCheckError> {
         let mut supertypes1 = HashSet::new();
         for t1 in ty1.iter() {

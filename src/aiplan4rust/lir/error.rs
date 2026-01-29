@@ -77,7 +77,7 @@ pub enum LirError {
 
     /// Missing type when remap types
     #[error("Missing type in flattened hierarchy: {ty:?}")]
-    MissingType { ty: Type },
+    MissingType { ty: Type<StringID> },
 
     #[error("Inertia missing for predicate: {id:?}")]
     MissingPredicateInertia { id: PredicateID },
@@ -90,7 +90,7 @@ pub enum LirError {
     SymbolBindingFailed { symbol: Symbol },
 
     #[error("Failed to bind type: {ty:?})")]
-    TypeBindingFailed { ty: Type },
+    TypeBindingFailed { ty: Type<StringID> },
 
     #[error("Failed to find variable with node id: {node_id:?})")]
     VariableNotFound { node_id: NodeId },
@@ -139,7 +139,7 @@ impl LirError {
     }
 
     /// Creates a new `MissingType` error for the given type.
-    pub fn missing_type(ty: Type) -> Self {
+    pub fn missing_type(ty: Type<StringID>) -> Self {
         LirError::MissingType { ty }
     }
 
@@ -178,7 +178,7 @@ impl LirError {
         Self::SymbolBindingFailed { symbol }
     }
 
-    pub fn type_binding_failed(ty: Type) -> Self {
+    pub fn type_binding_failed(ty: Type<StringID>) -> Self {
         Self::TypeBindingFailed { ty }
     }
 

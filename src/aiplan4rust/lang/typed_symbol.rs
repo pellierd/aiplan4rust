@@ -31,7 +31,7 @@ use std::fmt;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol {
     symbol: StringID,
-    ty: Type,
+    ty: Type<StringID>,
 }
 
 impl TypedSymbol {
@@ -45,7 +45,7 @@ impl TypedSymbol {
     /// # Returns
     ///
     /// A new instance of `TypedSymbol`.
-    pub fn new(symbol: StringID, types: Type) -> Self {
+    pub fn new(symbol: StringID, types: Type<StringID>) -> Self {
         TypedSymbol { symbol, ty: types }
     }
 
@@ -60,18 +60,18 @@ impl TypedSymbol {
     }
 
     /// Returns a reference to the associated type_checker(s).
-    pub fn ty(&self) -> &Type {
+    pub fn ty(&self) -> &Type<StringID> {
         &self.ty
     }
 
     /// Returns a mutable reference to the associated type(s),
     /// allowing in-place modification.
-    pub fn ty_mut(&mut self) -> &mut Type {
+    pub fn ty_mut(&mut self) -> &mut Type<StringID> {
         &mut self.ty
     }
 
     /// Sets the associated type.
-    pub fn set_ty(&mut self, ty: Type) {
+    pub fn set_ty(&mut self, ty: Type<StringID>) {
         self.ty = ty;
     }
 
@@ -108,7 +108,7 @@ impl fmt::Display for TypedSymbol {
 
         if !self.ty.is_empty() {
             write!(f, " - ")?;
-            for (i, ty) in self.ty.iter().enumerate() {
+            for (i, ty) in self.ty().iter().enumerate() {
                 if i > 0 {
                     write!(f, " ")?;
                 }

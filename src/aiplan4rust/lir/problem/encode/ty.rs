@@ -3,7 +3,7 @@
 //! This module provides functions to extract and represent PDDL types from the AST.
 //! It supports both single types and compound types (e.g., `either` definitions).
 
-use crate::aiplan4rust::lang::Type;
+use crate::aiplan4rust::lang::{StringID, Type};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree};
@@ -30,7 +30,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxSubtree}
 /// * The AST structure does not allow identifier extraction via `try_ident()`.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-) -> Result<Type, LirError> {
+) -> Result<Type<StringID>, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 

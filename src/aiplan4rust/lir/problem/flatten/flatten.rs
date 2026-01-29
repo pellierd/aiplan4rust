@@ -102,13 +102,13 @@ pub fn flatten_types(problem: &mut LiftedProblem) -> Result<(), LirError> {
 /// ```
 fn flatten_types_def(
     problem: &mut LiftedProblem,
-) -> Result<HashMap<Type, StringID>, LirError> {
+) -> Result<HashMap<Type<StringID>, StringID>, LirError> {
     // Queue of either types to process, represented by their Ident
     let mut to_process = either_types(problem);
 
     // Maps original type identifiers to their flattened primitive Type.
     // We'll use this later to update the types in the problem.
-    let mut to_update: HashMap<StringID, Type> = HashMap::with_capacity(problem.types().count());
+    let mut to_update: HashMap<StringID, Type<StringID>> = HashMap::with_capacity(problem.types().count());
 
     // Maps union (either) types to the new primitive Ident representing them.
     // This is returned so we can replace union types in constants, predicates, etc.
@@ -190,7 +190,7 @@ fn either_types(problem: &LiftedProblem) -> VecDeque<StringID> {
 ///
 /// # Panics
 /// Panics if any member of `ty` is not found in `symbol_lookup`.
-fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<StringID>, LirError> {
+fn get_parents(ty: &Type<StringID>, problem: &LiftedProblem) -> Result<Vec<StringID>, LirError> {
     let mut parent_set = HashSet::new();
 
     for &m in ty.iter() {
@@ -217,7 +217,7 @@ fn get_parents(ty: &Type, problem: &LiftedProblem) -> Result<Vec<StringID>, LirE
 /// - A `String` representing the canonical name of the either type,
 ///   e.g., `"either_parent1_parent2"`.
 /// - Returns an `InternerError` if any member identifier cannot be resolved.
-fn make_either_type_name(problem: &LiftedProblem, ty: &Type) -> Result<String, InternerError> {
+fn make_either_type_name(problem: &LiftedProblem, ty: &Type<StringID>) -> Result<String, InternerError> {
     let mut parent_names = Vec::with_capacity(ty.len());
 
     // Boucle explicite pour récupérer les noms des membres

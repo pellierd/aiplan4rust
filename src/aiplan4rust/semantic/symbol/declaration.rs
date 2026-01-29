@@ -102,7 +102,7 @@ pub struct Declaration {
     origin: SymbolOrigin,
 
     /// Optional list of types associated with the symbol.
-    types: Option<Type>,
+    types: Option<Type<StringID>>,
 
     /// Optional list of argument types, grouped in parameter lists.
     arguments: Option<TypedList>,
@@ -156,7 +156,7 @@ impl Declaration {
         symbol: Symbol,
         scope: Scope,
         origin: SymbolOrigin,
-        types: Option<Type>,
+        types: Option<Type<StringID>>,
         arguments: Option<TypedList>,
         span: Span,
         node_id: NodeId,
@@ -205,7 +205,7 @@ impl Declaration {
     }
 
     /// Returns an optional reference to the list of types associated with the symbol.
-    pub fn types(&self) -> Option<&Type> {
+    pub fn types(&self) -> Option<&Type<StringID>> {
         self.types.as_ref()
     }
 
@@ -350,7 +350,7 @@ impl Declaration {
         if let Some(types) = &self.types {
             write!(w, ", types: (")?;
 
-            match types.as_slice() {
+            match types.members() {
                 [] => { /* no types */ }
                 [single] => {
                     match interner.resolve_ident(*single) {

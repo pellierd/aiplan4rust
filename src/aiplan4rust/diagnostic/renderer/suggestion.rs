@@ -278,8 +278,8 @@ fn format_invalid_symbol_signature_suggestion(
 ///
 /// A formatted suggestion message as a `String`.
 fn format_type_mismatch_in_expression_suggestion(
-    ty1: &Type,
-    ty2: &Type,
+    ty1: &Type<StringID>,
+    ty2: &Type<StringID>,
     interner: Option<&StringInterner>
 ) -> String {
     let ty1_str = renderer::formatting::type_to_string(ty1, interner);
@@ -307,8 +307,8 @@ fn format_type_mismatch_in_expression_suggestion(
 ///
 /// A formatted suggestion message as a `String`.
 fn format_invalid_types_in_numeric_expression_suggestion(
-    ty1: &Type,
-    ty2: &Type,
+    ty1: &Type<StringID>,
+    ty2: &Type<StringID>,
     interner: Option<&StringInterner>,
 ) -> String {
     let ty1_str = renderer::formatting::type_to_string(ty1, interner);
@@ -619,8 +619,8 @@ fn format_ambiguous_type_predicate_symbol_suggestion(
 /// An optional suggestion string explaining the supertype mismatch.
 fn format_task_argument_supertype_suggestion(
     argument: &Declaration,
-    type_declared: &Type,
-    type_used: &Type,
+    type_declared: &Type<StringID>,
+    type_used: &Type<StringID>,
     interner: Option<&StringInterner>,
 ) -> Option<String> {
     Some(format!(

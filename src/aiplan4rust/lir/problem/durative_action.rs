@@ -243,7 +243,7 @@ impl RemapTypes for DurativeAction {
     /// # Returns
     /// - `Ok(())` if all types were successfully remapped.
     /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type, StringID>) -> Result<(), LirError> {
+    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
         self.action.remap_types(map)?;
         Ok(())
     }

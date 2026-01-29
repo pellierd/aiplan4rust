@@ -266,7 +266,7 @@ fn format_invalid_symbol_signature(declaration: &Declaration, interner: Option<&
 /// # Returns
 ///
 /// A formatted string describing the type mismatch.
-fn format_type_mismatch(ty1: &Type, ty2: &Type, interner: Option<&StringInterner>) -> String {
+fn format_type_mismatch(ty1: &Type<StringID>, ty2: &Type<StringID>, interner: Option<&StringInterner>) -> String {
     let ty1_str = formatting::type_to_string(ty1, interner);
     let ty2_str = formatting::type_to_string(ty2, interner);
     format!("Type mismatch between '{}' and '{}'.", ty1_str, ty2_str)
@@ -283,7 +283,7 @@ fn format_type_mismatch(ty1: &Type, ty2: &Type, interner: Option<&StringInterner
 /// # Returns
 ///
 /// A formatted string describing the invalid operand types for a numeric expression.
-fn format_invalid_types_in_numeric_expression(ty1: &Type, ty2: &Type, interner: Option<&StringInterner>) -> String {
+fn format_invalid_types_in_numeric_expression(ty1: &Type<StringID>, ty2: &Type<StringID>, interner: Option<&StringInterner>) -> String {
     let ty1_str = formatting::type_to_string(ty1, interner);
     let ty2_str = formatting::type_to_string(ty2, interner);
     format!("Invalid operand types for numeric expression: '{}' and '{}'. Operands must be numeric types.", ty1_str, ty2_str)
