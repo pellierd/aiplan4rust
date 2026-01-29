@@ -129,7 +129,7 @@ impl Method {
     }
 
     /// Returns a slice of the method's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol] {
+    pub fn parameters(&self) -> &[TypedSymbol<StringID>] {
         &self.header.parameters()
     }
 

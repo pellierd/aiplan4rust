@@ -115,10 +115,10 @@ pub struct Problem {
     requirements: HashSet<Requirement>,
 
     /// The set of types defined in this syntax problem.
-    types: HashMap<StringID, TypedSymbol>,
+    types: HashMap<StringID, TypedSymbol<StringID>>,
 
     /// The set of constants defined in this syntax problem.
-    constants: HashMap<StringID, TypedSymbol>,
+    constants: HashMap<StringID, TypedSymbol<StringID>>,
 
 
     /// The list of predicates in the syntax problem.
@@ -147,7 +147,7 @@ pub struct Problem {
     methods: Vec<LiftedMethod>,
 
     /// The set of objects defined in this syntax problem.
-    objects: HashMap<StringID, TypedSymbol>,
+    objects: HashMap<StringID, TypedSymbol<StringID>>,
 
     /// Indice à partir duquel commencent les objets du problème.
     /// [0 .. constant_offset[  -> Constantes du domaine
@@ -403,7 +403,7 @@ impl Problem {
     /// let problem = LiftedProblem::new();
     /// assert!(problem.types().is_empty());
     /// ```
-    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol> {
+    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
         self.types.values()
     }
 
@@ -416,27 +416,27 @@ impl Problem {
     ///
     /// This allows modifying existing `TypedSymbol`s directly,
     /// while still keeping the internal storage as a HashMap.
-    pub fn types_mut(&mut self) -> &mut HashMap<StringID, TypedSymbol> {
+    pub fn types_mut(&mut self) -> &mut HashMap<StringID, TypedSymbol<StringID>> {
         &mut self.types
     }
 
     /// Get a type by its Ident (immutable)
-    pub fn get_type(&self, id: StringID) -> Option<&TypedSymbol> {
+    pub fn get_type(&self, id: StringID) -> Option<&TypedSymbol<StringID>> {
         self.types.get(&id)
     }
 
     /// Get a type by its Ident (mutable)
-    pub fn get_type_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol> {
+    pub fn get_type_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol<StringID>> {
         self.types.get_mut(&id)
     }
 
     /// Get a type by its `Ident` (immutable).
-    pub fn try_get_type(&self, id: StringID) -> Result<&TypedSymbol, LirError> {
+    pub fn try_get_type(&self, id: StringID) -> Result<&TypedSymbol<StringID>, LirError> {
         self.types.get(&id).ok_or_else(|| LirError::type_not_found(id))
     }
 
     /// Get a type by its `Ident` (mutable).
-    pub fn try_get_type_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol, LirError> {
+    pub fn try_get_type_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol<StringID>, LirError> {
         self.types.get_mut(&id).ok_or_else(|| LirError::type_not_found(id))
     }
 
@@ -449,7 +449,7 @@ impl Problem {
     /// ```
     /// problem.add_type(TypedSymbol::new("vehicle", "object"));
     /// ```
-    pub fn add_type(&mut self, ty: TypedSymbol) {
+    pub fn add_type(&mut self, ty: TypedSymbol<StringID>) {
         self.types.insert(ty.symbol(), ty);
     }
 
@@ -468,7 +468,7 @@ impl Problem {
     /// ```
     pub fn add_types<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = TypedSymbol>,
+        I: IntoIterator<Item = TypedSymbol<StringID>>,
     {
         for ty in iter {
             self.add_type(ty);
@@ -487,7 +487,7 @@ impl Problem {
     ///     println!("{:?}", c);
     /// }
     /// ```
-    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol> {
+    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
         self.constants.values()
     }
 
@@ -501,7 +501,7 @@ impl Problem {
     ///     c.set_name(Ident::new("new_name")); // Exemple de modification
     /// }
     /// ```
-    pub fn constants_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol> {
+    pub fn constants_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol<StringID>> {
         self.constants.values_mut()
     }
 
@@ -523,7 +523,7 @@ impl Problem {
     /// # Returns
     /// - `Some(&TypedSymbol)` if the constant exists.
     /// - `None` otherwise.
-    pub fn get_constant(&self, id: StringID) -> Option<&TypedSymbol> {
+    pub fn get_constant(&self, id: StringID) -> Option<&TypedSymbol<StringID>> {
         self.constants.get(&id)
     }
 
@@ -532,7 +532,7 @@ impl Problem {
     /// # Returns
     /// - `Some(&mut TypedSymbol)` if the constant exists.
     /// - `None` otherwise.
-    pub fn get_constant_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol> {
+    pub fn get_constant_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol<StringID>> {
         self.constants.get_mut(&id)
     }
 
@@ -540,7 +540,7 @@ impl Problem {
     ///
     /// # Errors
     /// - [`LirError::constant_not_found`] if the constant does not exist.
-    pub fn try_get_constant(&self, id: StringID) -> Result<&TypedSymbol, LirError> {
+    pub fn try_get_constant(&self, id: StringID) -> Result<&TypedSymbol<StringID>, LirError> {
         self.constants
             .get(&id)
             .ok_or_else(|| LirError::constant_not_found(id))
@@ -550,7 +550,7 @@ impl Problem {
     ///
     /// # Errors
     /// - [`LirError::constant_not_found`] if the constant does not exist.
-    pub fn try_get_constant_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol, LirError> {
+    pub fn try_get_constant_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol<StringID>, LirError> {
         self.constants
             .get_mut(&id)
             .ok_or_else(|| LirError::constant_not_found(id))
@@ -565,7 +565,7 @@ impl Problem {
     /// ```
     /// problem.add_constant(TypedSymbol::new(id, ty));
     /// ```
-    pub fn add_constant(&mut self, constant: TypedSymbol) {
+    pub fn add_constant(&mut self, constant: TypedSymbol<StringID>) {
         self.constants.insert(constant.symbol(), constant);
     }
 
@@ -580,7 +580,7 @@ impl Problem {
     /// ```
     pub fn add_constants<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = TypedSymbol>,
+        I: IntoIterator<Item = TypedSymbol<StringID>>,
     {
         for constant in iter {
             self.add_constant(constant);
@@ -775,7 +775,7 @@ impl Problem {
     ///     println!("{:?}", obj);
     /// }
     /// ```
-    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol> {
+    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
         self.objects.values()
     }
 
@@ -789,7 +789,7 @@ impl Problem {
     ///     obj.set_name(Ident::new("new_object"));
     /// }
     /// ```
-    pub fn objects_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol> {
+    pub fn objects_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol<StringID>> {
         self.objects.values_mut()
     }
 
@@ -799,22 +799,22 @@ impl Problem {
     }
 
     /// Get an object by its `Ident` (immutable).
-    pub fn get_object(&self, id: StringID) -> Option<&TypedSymbol> {
+    pub fn get_object(&self, id: StringID) -> Option<&TypedSymbol<StringID>> {
         self.objects.get(&id)
     }
 
     /// Get an object by its `Ident` (mutable).
-    pub fn get_object_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol> {
+    pub fn get_object_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol<StringID>> {
         self.objects.get_mut(&id)
     }
 
     /// Get an object by its `Ident` (immutable), or return an error if not found.
-    pub fn try_get_object(&self, id: StringID) -> Result<&TypedSymbol, LirError> {
+    pub fn try_get_object(&self, id: StringID) -> Result<&TypedSymbol<StringID>, LirError> {
         self.objects.get(&id).ok_or_else(|| LirError::object_not_found(id))
     }
 
     /// Get an object by its `Ident` (mutable), or return an error if not found.
-    pub fn try_get_object_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol, LirError> {
+    pub fn try_get_object_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol<StringID>, LirError> {
         self.objects.get_mut(&id).ok_or_else(|| LirError::object_not_found(id))
     }
 
@@ -827,7 +827,7 @@ impl Problem {
     /// ```
     /// problem.add_object(TypedSymbol::new("robot1", "vehicle"));
     /// ```
-    pub fn add_object(&mut self, object: TypedSymbol) {
+    pub fn add_object(&mut self, object: TypedSymbol<StringID>) {
         self.objects.insert(object.symbol(), object);
     }
 
@@ -845,7 +845,7 @@ impl Problem {
     /// ```
     pub fn add_objects<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = TypedSymbol>,
+        I: IntoIterator<Item = TypedSymbol<StringID>>,
     {
         for object in iter {
             self.add_object(object);

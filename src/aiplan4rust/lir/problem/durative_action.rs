@@ -148,7 +148,7 @@ impl DurativeAction {
     }
 
     /// Returns a slice of the action's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol] {
+    pub fn parameters(&self) -> &[TypedSymbol<StringID>] {
         &self.action.parameters()
     }
 

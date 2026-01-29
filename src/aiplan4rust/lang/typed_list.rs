@@ -47,7 +47,7 @@ use std::ops::{Deref, DerefMut};
 /// ```
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedList {
-    symbols: Vec<TypedSymbol>,
+    symbols: Vec<TypedSymbol<StringID>>,
 }
 
 impl TypedList {
@@ -69,7 +69,7 @@ impl TypedList {
     ///
     /// # Returns
     /// A new `TypedList` containing the provided symbols
-    pub fn from_symbols(symbols: Vec<TypedSymbol>) -> Self {
+    pub fn from_symbols(symbols: Vec<TypedSymbol<StringID>>) -> Self {
         Self { symbols }
     }
 
@@ -114,7 +114,7 @@ impl RemapIdents for TypedList {
 }
 
 impl Deref for TypedList {
-    type Target = Vec<TypedSymbol>;
+    type Target = Vec<TypedSymbol<StringID>>;
 
     /// Dereferences the `TypedList` to a `Vec<TypedSymbol>`.
     ///
@@ -139,8 +139,8 @@ impl Deref for TypedList {
 /// }
 /// ```
 impl IntoIterator for TypedList {
-    type Item = TypedSymbol;
-    type IntoIter = std::vec::IntoIter<TypedSymbol>;
+    type Item = TypedSymbol<StringID>;
+    type IntoIter = std::vec::IntoIter<TypedSymbol<StringID>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.symbols.into_iter()
@@ -160,8 +160,8 @@ impl IntoIterator for TypedList {
 /// }
 /// ```
 impl<'a> IntoIterator for &'a TypedList {
-    type Item = &'a TypedSymbol;
-    type IntoIter = std::slice::Iter<'a, TypedSymbol>;
+    type Item = &'a TypedSymbol<StringID>;
+    type IntoIter = std::slice::Iter<'a, TypedSymbol<StringID>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.symbols.iter()

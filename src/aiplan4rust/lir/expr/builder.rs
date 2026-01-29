@@ -1,6 +1,6 @@
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, Type, TypedList, TypedSymbol};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, StringID, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::syntax::tree::NodeId;
@@ -320,7 +320,7 @@ impl<'a> ExprBuilder<'a> {
 
     /// Helper to create a TypedList from variable name/type pairs
     fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList {
-        let typed_symbols: Vec<TypedSymbol> = vars
+        let typed_symbols: Vec<TypedSymbol<StringID>> = vars
             .into_iter()
             .map(|(var_name, type_name)| {
                 let var = self.interner.intern_ident(var_name);

@@ -163,7 +163,7 @@ impl Action {
     /// Returns a slice of the action's typed parameters.
     ///
     /// These represent the variables and their types used by the action.
-    pub fn parameters(&self) -> &[TypedSymbol] {
+    pub fn parameters(&self) -> &[TypedSymbol<StringID>] {
         &self.header.parameters()
     }
 

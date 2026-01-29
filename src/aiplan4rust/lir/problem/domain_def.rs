@@ -137,7 +137,7 @@ impl<'a> DomainDef<'a> {
     ///     println!("Type: {:?}", ty);
     /// }
     /// ```
-    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol> {
+    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
         self.problem.types()
     }
 
@@ -159,7 +159,7 @@ impl<'a> DomainDef<'a> {
     ///     println!("Constant: {:?}", c);
     /// }
     /// ```
-    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol> {
+    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
         self.problem.constants()
     }
 

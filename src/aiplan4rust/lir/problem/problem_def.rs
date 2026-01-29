@@ -109,7 +109,7 @@ impl<'a> ProblemDef<'a> {
     ///     println!("Object: {:?}", obj);
     /// }
     /// ```
-    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol> {
+    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
         self.problem.objects()
     }
 

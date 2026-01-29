@@ -3,7 +3,7 @@
 //! This module provides utilities to encode PDDL symbols (constants, objects, or parameters)
 //! and bind them to their respective types during the LIR translation.
 
-use crate::aiplan4rust::lang::{TypedSymbol, Type};
+use crate::aiplan4rust::lang::{TypedSymbol, Type, StringID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
@@ -28,7 +28,7 @@ use crate::aiplan4rust::lir::problem::encode::ty;
 /// This function returns an error if:
 /// * The first child (the symbol name) cannot be converted to an identifier.
 /// * The second child (the type), if present, fails to encode.
-pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<TypedSymbol, LirError> {
+pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<TypedSymbol<StringID>, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
     let children = node.children();
