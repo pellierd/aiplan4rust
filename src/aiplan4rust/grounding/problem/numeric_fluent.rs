@@ -1,12 +1,12 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FunctionID, ObjectID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, TypeID};
 
 /// Représente un numeric-fluent (fonction numérique)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NumericFluent {
     /// Symbol index dans la table des symboles des numeric-fluents
-    symbol: FunctionID,
+    symbol: FunctorID,
     /// Paramètres de la fonction (toujours ObjectID)
     arguments: Vec<ObjectID>,
     /// Type de retour de la fonction
@@ -15,12 +15,12 @@ pub struct NumericFluent {
 
 impl NumericFluent {
     /// Constructeur
-    pub fn new(symbol: FunctionID, parameters: Vec<ObjectID>, ty: TypeID) -> Self {
+    pub fn new(symbol: FunctorID, parameters: Vec<ObjectID>, ty: TypeID) -> Self {
         Self { symbol, arguments: parameters, ty }
     }
 
     /// Accès au symbole (FunctionID)
-    pub fn symbol(&self) -> FunctionID {
+    pub fn symbol(&self) -> FunctorID {
         self.symbol
     }
 

@@ -1,12 +1,12 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FunctionID, ObjectID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, TypeID};
 
 /// Représente un object-fluent (fonction non-numérique)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ObjectFluent {
     /// Symbol index dans la table des symboles des object-fluents
-    symbol: FunctionID,
+    symbol: FunctorID,
     /// Paramètres du fluent, tous des ObjectID (pas d'object-fluent pour éviter récursion)
     arguments: Vec<ObjectID>,
     /// Type de retour du fluent
@@ -15,12 +15,12 @@ pub struct ObjectFluent {
 
 impl ObjectFluent {
     /// Constructeur pour créer un ObjectFluent
-    pub fn new(symbol: FunctionID, parameters: Vec<ObjectID>, ty: TypeID) -> Self {
+    pub fn new(symbol: FunctorID, parameters: Vec<ObjectID>, ty: TypeID) -> Self {
         Self { symbol, arguments: parameters, ty }
     }
 
     /// Returns the symbol (FunctionID) of the object-fluent.
-    pub fn symbol(&self) -> FunctionID {
+    pub fn symbol(&self) -> FunctorID {
         self.symbol
     }
 

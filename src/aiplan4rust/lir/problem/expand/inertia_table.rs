@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::{FunctionID, PredicateID};
+use crate::aiplan4rust::lang::{FunctorID, PredicateID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::expand::inertia::Inertia;
 
@@ -14,7 +14,7 @@ pub struct InertiaTable {
     /// Inertia of predicates, indexed by their LIR position (usize).
     predicates: HashMap<PredicateID, Inertia>,
     /// Inertia of functions, indexed by their LIR position (usize).
-    functions: HashMap<FunctionID, Inertia>,
+    functions: HashMap<FunctorID, Inertia>,
 }
 
 impl InertiaTable {
@@ -34,11 +34,11 @@ impl InertiaTable {
 
     // --- Function Management ---
 
-    pub fn get_function(&self, index: FunctionID) -> Option<Inertia> {
+    pub fn get_function(&self, index: FunctorID) -> Option<Inertia> {
         self.functions.get(&index).copied()
     }
 
-    pub fn insert_function(&mut self, index: FunctionID, inertia: Inertia) {
+    pub fn insert_function(&mut self, index: FunctorID, inertia: Inertia) {
         self.functions.insert(index, inertia);
     }
 
@@ -53,7 +53,7 @@ impl InertiaTable {
     }
 
     /// Récupère l'inertie d'une fonction ou renvoie une erreur si l'index est inconnu.
-    pub fn try_get_function(&self, index: FunctionID) -> Result<Inertia, LirError> {
+    pub fn try_get_function(&self, index: FunctorID) -> Result<Inertia, LirError> {
         self.functions
             .get(&index)
             .copied()
@@ -78,17 +78,17 @@ impl InertiaTable {
 
     /// Pour une fonction, "Positive" signifie souvent qu'elle est constante avec une valeur
     /// (utile si tu veux plus tard stocker la valeur constante dans l'Inertia).
-    pub fn is_function_positive(&self, index: FunctionID) -> Result<bool, LirError> {
+    pub fn is_function_positive(&self, index: FunctorID) -> Result<bool, LirError> {
         Ok(self.try_get_function(index)? == Inertia::Positive)
     }
 
     /// Pour une fonction, "Negative" pourrait signifier qu'elle n'est jamais initialisée
     /// ou explicitement marquée comme nulle/statique négative.
-    pub fn is_function_negative(&self, index: FunctionID) -> Result<bool, LirError> {
+    pub fn is_function_negative(&self, index: FunctorID) -> Result<bool, LirError> {
         Ok(self.try_get_function(index)? == Inertia::Negative)
     }
 
-    pub fn is_function_static(&self, index: FunctionID) -> Result<bool, LirError> {
+    pub fn is_function_static(&self, index: FunctorID) -> Result<bool, LirError> {
         Ok(!matches!(self.try_get_function(index)?, Inertia::Fluent))
     }
 }

@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::builders;
-use crate::aiplan4rust::lang::ids::{FunctionID, ObjectID, ArgumentID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, ArgumentID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
@@ -45,7 +45,7 @@ pub struct Problem {
     predicates_symbols: SymbolTable<PredicateID>,
 
     /// Symbol table for all numeric functions.
-    functions_symbols: SymbolTable<FunctionID>,
+    functions_symbols: SymbolTable<FunctorID>,
 
     /// Symbol table for all objects.
     objects_symbols: SymbolTable<ObjectID>,
@@ -238,17 +238,17 @@ impl Problem {
     // ------------------- FUNCTIONS -------------------
 
     /// Returns the symbol table mapping numeric function identifiers to indices.
-    pub fn functions_symbols(&self) -> &SymbolTable<FunctionID> {
+    pub fn functions_symbols(&self) -> &SymbolTable<FunctorID> {
         &self.functions_symbols
     }
 
     /// Returns a mutable reference to the functions symbol table.
-    fn functions_symbols_mut(&mut self) -> &mut SymbolTable<FunctionID> {
+    fn functions_symbols_mut(&mut self) -> &mut SymbolTable<FunctorID> {
         &mut self.functions_symbols
     }
 
     /// Replaces the functions symbol table with the provided one.
-    fn set_functions_symbols(&mut self, table: SymbolTable<FunctionID>) {
+    fn set_functions_symbols(&mut self, table: SymbolTable<FunctorID>) {
         self.functions_symbols = table;
     }
 

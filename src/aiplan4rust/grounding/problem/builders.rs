@@ -1,7 +1,7 @@
 use itertools::Itertools;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::{Fluent, SymbolTable, ValueDomain};
-use crate::aiplan4rust::lang::ids::{FunctionID, ObjectFluentID, ObjectID, ArgumentID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctorID, ObjectFluentID, ObjectID, ArgumentID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::symbol_table::IndexTableError;
@@ -52,7 +52,7 @@ pub fn build_type_symbols_table(
 /// ```
 pub fn build_functions_symbols_table(
     problem: &LiftedProblem,
-    table: &mut SymbolTable<FunctionID>
+    table: &mut SymbolTable<FunctorID>
 ) {
     for func in problem.functions() {
         table.insert(func.symbol());
@@ -233,7 +233,7 @@ pub fn build_object_fluent_type_value_domain(
 
 pub fn build_object_fluents_table(
     problem: &LiftedProblem,
-    function_symbols_table: &SymbolTable<FunctionID>,
+    function_symbols_table: &SymbolTable<FunctorID>,
     type_symbols_table: &SymbolTable<TypeID>,
     type_value_domains_table: &mut Vec<ValueDomain>,
 ) -> Result<Vec<ObjectFluent>, IndexTableError> {

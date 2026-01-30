@@ -5,7 +5,7 @@
 //! the mapping between AST nodes and their internal LIR indices.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::FunctionID;
+use crate::aiplan4rust::lang::FunctorID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, EncodingContext};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -55,7 +55,7 @@ pub fn encode(
 
         // 4. Map the Symbol to the LIR index
         // Since we just added it, the ID is current length - 1
-        let function_id = FunctionID::new(ir.functions().len() - 1);
+        let function_id = FunctorID::new(ir.functions().len() - 1);
 
         context.register_function(functor, function_id);
     }

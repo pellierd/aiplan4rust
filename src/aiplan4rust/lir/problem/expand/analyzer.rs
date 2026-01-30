@@ -1,5 +1,5 @@
 use std::collections::HashSet;
-use crate::aiplan4rust::lang::{FunctionID, PredicateID};
+use crate::aiplan4rust::lang::{FunctorID, PredicateID};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, Resolution};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::expand::inertia::Inertia;
@@ -64,7 +64,7 @@ pub fn analyze_inertia(problem: &LiftedProblem) -> Result<InertiaTable, LirError
 
     // 4. Catégorisation des Fonctions
     for (idx, _) in problem.functions().iter().enumerate() {
-        let func_id = FunctionID::new(idx);
+        let func_id = FunctorID::new(idx);
 
         let inertia = if fluent_functions.contains(&func_id) {
             Inertia::Fluent
@@ -84,7 +84,7 @@ pub fn collect_fluents_from_expr(
     expr: &Expr,
     _problem: &LiftedProblem,
     fluent_predicates: &mut HashSet<PredicateID>, // Utilise tes types ID pour plus de clarté
-    fluent_functions: &mut HashSet<FunctionID>,
+    fluent_functions: &mut HashSet<FunctorID>,
 ) -> Result<(), LirError> {
     let root_id = expr.try_root_id()?;
     let mut stack = vec![root_id];
@@ -125,9 +125,9 @@ pub fn collect_initial_facts(
     init_expr: &Expr,
     _problem: &LiftedProblem,
     initial_predicates: &mut HashSet<PredicateID>,
-    initial_functions: &mut HashSet<FunctionID>,
+    initial_functions: &mut HashSet<FunctorID>,
     fluent_predicates: &mut HashSet<PredicateID>,
-    fluent_functions: &mut HashSet<FunctionID>,
+    fluent_functions: &mut HashSet<FunctorID>,
 ) -> Result<(), LirError> {
     let Some(root_id) = init_expr.root_id() else { return Ok(()); };
     let mut stack = vec![(root_id, false)];

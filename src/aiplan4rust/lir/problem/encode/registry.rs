@@ -5,7 +5,7 @@
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{FunctionID, ObjectID, PredicateID, StringID, Type, TypeID, VariableID};
+use crate::aiplan4rust::lang::{FunctorID, ObjectID, PredicateID, StringID, Type, TypeID, VariableID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
@@ -31,7 +31,7 @@ pub struct EncodingContext {
 
     /// **Function Mapping**: Links a function's logical `Symbol`
     /// to its unique index in the LIR.
-    function_to_id: HashMap<Symbol, FunctionID>,
+    function_to_id: HashMap<Symbol, FunctorID>,
 
     /// **Object Mapping**: Links a logical `Symbol` (either a global Constant
     /// from the domain or an Object from the problem) to its unique index.
@@ -142,7 +142,7 @@ impl EncodingContext {
     /// # Returns
     ///
     /// An `Option<FunctionID>` containing the mapped LIR ID, or `None` if not found.
-    pub fn get_function_id(&self, symbol: &Symbol) -> Option<FunctionID> {
+    pub fn get_function_id(&self, symbol: &Symbol) -> Option<FunctorID> {
         self.function_to_id.get(symbol).copied()
     }
 
@@ -155,7 +155,7 @@ impl EncodingContext {
     /// # Returns
     ///
     /// A `Result<FunctionID, LirError>` containing the ID or a binding error.
-    pub fn try_get_function_id(&self, symbol: &Symbol) -> Result<FunctionID, LirError> {
+    pub fn try_get_function_id(&self, symbol: &Symbol) -> Result<FunctorID, LirError> {
         self.get_function_id(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
@@ -235,7 +235,7 @@ impl EncodingContext {
     }
 
     /// Registers a new Function symbol with a pre-assigned FunctionID.
-    pub fn register_function(&mut self, symbol: Symbol, id: FunctionID) {
+    pub fn register_function(&mut self, symbol: Symbol, id: FunctorID) {
         self.function_to_id.insert(symbol, id);
     }
 }

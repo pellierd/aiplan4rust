@@ -1,6 +1,6 @@
 use std::fmt;
 use crate::aiplan4rust::lang::ids::{
-    FunctionID, ObjectID, ParameterID, PredicateID, TypeID, VariableID,
+    FunctorID, ObjectID, ParameterID, PredicateID, TypeID, VariableID,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ pub enum Resolution {
     /// Un prédicat déclaré dans le domaine
     Predicate(PredicateID),
     /// Une fonction (numérique ou d'objet) avec son type de retour
-    Function(FunctionID, Vec<TypeID>),
+    Function(FunctorID, Vec<TypeID>),
 }
 
 impl fmt::Display for Resolution {

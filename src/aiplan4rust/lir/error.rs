@@ -1,6 +1,6 @@
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{FunctionID, LangError, PredicateID, StringID, Type};
+use crate::aiplan4rust::lang::{FunctorID, LangError, PredicateID, StringID, Type};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
@@ -84,7 +84,7 @@ pub enum LirError {
 
     /// L'inertie de la fonction est introuvable dans la table.
     #[error("Inertia missing for function: {id:?}")]
-    MissingFunctionInertia { id: FunctionID },
+    MissingFunctionInertia { id: FunctorID },
 
     #[error("Failed to bind {symbol}")]
     SymbolBindingFailed { symbol: Symbol },
@@ -165,7 +165,7 @@ impl LirError {
     /// # Arguments
     ///
     /// * `id` - The unique identifier of the missing function.
-    pub fn missing_function_inertia(id: FunctionID) -> Self {
+    pub fn missing_function_inertia(id: FunctorID) -> Self {
         Self::MissingFunctionInertia { id }
     }
 
