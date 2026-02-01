@@ -21,13 +21,14 @@
 //! Methods like [`AstNode::try_requirement`] and [`AstNode::as_symbol`] may return
 //! [`AstError`] or [`SyntaxTreeError`] when semantic constraints are violated.
 
+use std::collections::HashMap;
 use std::fmt::{self, Formatter};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{Requirement, StringID};
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
+use crate::aiplan4rust::lang::{RemapIdents, Requirement, StringID};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
@@ -319,8 +320,6 @@ impl SyntaxNode for AstNode {
         self.inner.set_content(content);
     }
 
-
-
     /// Creates a shallow clone of the node.
     ///
     /// This clone copies the node's kind, content, and span, but **does not include**
@@ -446,5 +445,22 @@ impl SyntaxNode for AstNode {
         _indent: usize,
     ) -> fmt::Result {
         syntax::tree::renderers::syntax_rendering(self, f, syntax_tree, interner)
+    }
+}
+
+impl RemapIdents for AstNode {
+    /// Remaps identifiers in this syntax node's content using the provided map.
+    ///
+    /// This default implementation works for any type implementing [`SyntaxNode`],
+    /// delegating the remapping to `content_mut()`.
+    ///
+    /// # Parameters
+    /// - `map`: A `HashMap` mapping old [`StringID`]s to new ones.
+    ///
+    /// # Errors
+    /// Returns a [`InternerError`] if remapping fails.
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+        self.content_mut().remap_idents(map)?;
+        Ok(())
     }
 }

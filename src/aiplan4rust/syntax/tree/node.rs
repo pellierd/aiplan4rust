@@ -73,7 +73,7 @@ use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 ///     // other methods ...
 /// }
 /// ```
-pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
+pub trait SyntaxNode: ArenaNode + Display {
     /// The type used to represent the syntax's kind.
     ///
     /// Must implement `Copy`, `Debug`, and `Display` traits.
@@ -649,25 +649,5 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
         <Self as SyntaxNode>::Content: SyntaxContent,
     {
         self.to_syntax_with_indent(syntax_tree, interner, 0)
-    }
-}
-
-impl<T> RemapIdents for T
-where
-    T: SyntaxNode,
-{
-    /// Remaps identifiers in this syntax node's content using the provided map.
-    ///
-    /// This default implementation works for any type implementing [`SyntaxNode`],
-    /// delegating the remapping to `content_mut()`.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap` mapping old [`StringID`]s to new ones.
-    ///
-    /// # Errors
-    /// Returns a [`InternerError`] if remapping fails.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
-        self.content_mut().remap_idents(map)?;
-        Ok(())
     }
 }

@@ -295,7 +295,7 @@ impl Expr {
         self.tree.postorder_from(root)
     }
 
-    /// Recursively remaps all identifiers starting from a specific node in the tree.
+    /*/// Recursively remaps all identifiers starting from a specific node in the tree.
     ///
     /// # Parameters
     /// - `id` – The root node of the subtree to apply remapping.
@@ -307,7 +307,7 @@ impl Expr {
     pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
         self.tree.remap_idents_from(id, map)?;
         Ok(())
-    }
+    }*/
 
     /// Compare two subtrees of possibly different `Expr`s for deep equality.
     ///
@@ -512,7 +512,7 @@ impl Expr {
     }
 }
 
-impl RemapIdents for Expr {
+/*impl RemapIdents for Expr {
     /// Recursively remaps all identifiers in this expression.
     ///
     /// This updates every `Ident` contained within the expression's internal
@@ -535,7 +535,7 @@ impl RemapIdents for Expr {
         self.tree.remap_idents(map)?;
         Ok(())
     }
-}
+}*/
 
 impl RemapTypes for Expr {
     /// Recursively remaps all union types (`Type::Either`) in the expression tree.

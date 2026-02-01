@@ -54,6 +54,7 @@
 //! - [`StringInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
+use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -65,7 +66,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::time::SystemTime;
-use crate::aiplan4rust::lang::LiteralID;
+use crate::aiplan4rust::lang::{LiteralID, RemapIdents, StringID};
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 
@@ -520,5 +521,49 @@ impl SyntaxSerializable for Ast {
     /// Returns a normalized string representation of the AST.
     fn serialize_to_string(&self) -> Result<String, SerializationError> {
         Ok(self.to_syntax_string_with_comments())
+    }
+}
+
+impl SyntaxTree<AstNode> {
+
+    /// Remaps identifiers starting only from the root.
+    pub fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+        // We retrieve the root ID. If it exists, we start the recursive remapping.
+        if let Some(root_id) = self.root_id() {
+            self.remap_idents_from(root_id, map)?;
+        }
+        Ok(())
+    }
+
+    /// Recursively remaps all identifiers in the subtree rooted at `id`.
+    ///
+    /// This method performs a depth-first traversal of the subtree and updates
+    /// every node's semantic content using the provided mapping.
+    ///
+    /// # Parameters
+    /// - `id`: The root `NodeId` of the subtree to process.
+    /// - `map`: A hash map containing the identifier translations (Old -> New).
+    ///
+    /// # Errors
+    /// Returns an `InternerError` if the remapping fails on any node.
+    pub fn remap_idents_from(
+        &mut self,
+        id: NodeId,
+        map: &HashMap<StringID, StringID>
+    ) -> Result<(), InternerError> {
+        let mut stack = vec![id];
+        while let Some(current_id) = stack.pop() {
+            // Because we are in an impl for SyntaxTree<AstNode>,
+            // the compiler knows that 'node' is an AstNode.
+            if let Some(node) = self.get_node_mut(current_id) {
+                // AstNode implements RemapIdents, so this call is valid.
+                node.remap_idents(map)?;
+
+                for &child_id in node.children() {
+                    stack.push(child_id);
+                }
+            }
+        }
+        Ok(())
     }
 }

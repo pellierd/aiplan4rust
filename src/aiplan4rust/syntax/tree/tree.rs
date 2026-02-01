@@ -336,7 +336,7 @@ where
         self.arena.postorder_from(root)
     }
 
-    /// Recursively remaps all identifiers in the subtree rooted at `id`.
+    /*/// Recursively remaps all identifiers in the subtree rooted at `id`.
     ///
     /// Traverses the syntax tree in a depth-first manner, updating every node's
     /// identifier according to the provided mapping.
@@ -362,7 +362,7 @@ where
             }
         }
         Ok(())
-    }
+    }*/
 
     /// Returns the total number of nodes in the subtree.
     ///
@@ -617,7 +617,7 @@ where
     }
 }
 
-impl<T> RemapIdents for SyntaxTree<T>
+/*impl<T> RemapIdents for SyntaxTree<T>
     where
     T: SyntaxNode,
     T::Content: SyntaxContent,
@@ -649,7 +649,7 @@ impl<T> RemapIdents for SyntaxTree<T>
         }
         Ok(())
     }
-}
+}*/
 
 impl<T> fmt::Display for SyntaxTree<T>
 where

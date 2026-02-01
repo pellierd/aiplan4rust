@@ -296,7 +296,7 @@ impl SyntaxContent for Content {
     }
 }
 
-impl RemapIdents for Content {
+/*impl RemapIdents for Content {
     /// Remaps the identifier inside this content, if it is an `Ident` and exists in the mapping.
     ///
     /// # Parameters
@@ -316,4 +316,4 @@ impl RemapIdents for Content {
         }
         Ok(())
     }
-}
+}*/

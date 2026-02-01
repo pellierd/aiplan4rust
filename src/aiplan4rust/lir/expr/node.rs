@@ -332,28 +332,6 @@ impl SyntaxNode for ExprNode {
         self.inner.set_content(content);
     }
 
-    /*/// Attempts to interpret this node as a symbol if its kind corresponds to
-    /// a symbol type_checker. Returns `None` if not applicable.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if identifier extraction fails.
-    fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError> {
-        let kind = self.kind();
-        let symbol_kind = match kind {
-            ExprKind::Constant => SymbolKind::Constant,
-            ExprKind::Variable => SymbolKind::Variable,
-            ExprKind::FunctionSymbol => SymbolKind::Function,
-            ExprKind::Predicate => SymbolKind::Predicate,
-            ExprKind::TaskSymbol => SymbolKind::Task,
-            ExprKind::TaskID => SymbolKind::TaskID,
-            _ => return Ok(None),
-        };
-
-        let ident = self.try_ident()?;
-        Ok(Some(Symbol::new(ident, symbol_kind)))
-    }*/
-
     /// Creates a shallow clone of the expression node.
     ///
     /// This clone copies the node's kind and content, but **does not include**
