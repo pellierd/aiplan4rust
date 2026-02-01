@@ -56,8 +56,8 @@ use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::syntax::tree::SyntaxNode;
+use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::tree::Node;
 use crate::aiplan4rust::syntax::Span;
 
 /// Normalizes type_checker declarations in the AST by merging all `TypedItem` nodes

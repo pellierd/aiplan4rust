@@ -56,7 +56,7 @@ use crate::aiplan4rust::lang::{LiteralID, RemapIdents, Requirement, StringID};
 use crate::aiplan4rust::semantic::{requirements, SemanticError, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
+use crate::aiplan4rust::tree::{NodeId, Tree};
 
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
@@ -84,7 +84,7 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Context {
     /// The annotated syntax tree stored as an arena of AST nodes.
-    syntax_tree: SyntaxTree<AstNode>,
+    syntax_tree: Tree<AstNode>,
 
     /// The set of semantic requirements declared in the source.
     declared_requirements: HashSet<Requirement>,
@@ -139,7 +139,7 @@ impl Context {
     /// A `Result` containing the new `Context` instance if the syntax tree is valid,
     /// or a `SemanticError` if any invariant is violated.
     fn new(
-        syntax_tree: SyntaxTree<AstNode>,
+        syntax_tree: Tree<AstNode>,
         source_id: LiteralID,
         symbol_table: SymbolTable,
         interner: StringInterner,
@@ -171,7 +171,7 @@ impl Context {
     /// # Errors
     /// - Returns `SemanticError::empty_syntax_tree()` if the tree is empty.
     /// - Returns `SemanticError::unexpected_syntax_tree_root()` if the root node is not a valid domain or problem.
-    fn check_invariant(tree: &SyntaxTree<AstNode>) -> Result<(), SemanticError> {
+    fn check_invariant(tree: &Tree<AstNode>) -> Result<(), SemanticError> {
         // Check that the tree is not empty
         let root_node = match tree.root_node() {
             Some(root) => root,
@@ -263,12 +263,12 @@ impl Context {
     }
 
     /// Returns a reference to the full syntax tree.
-    pub fn syntax_tree(&self) -> &SyntaxTree<AstNode> {
+    pub fn syntax_tree(&self) -> &Tree<AstNode> {
         &self.syntax_tree
     }
 
     /// Takes ownership of the syntax tree, leaving an empty one in its place.
-    pub fn take_syntax_tree(&mut self) -> SyntaxTree<AstNode> {
+    pub fn take_syntax_tree(&mut self) -> Tree<AstNode> {
         std::mem::take(&mut self.syntax_tree)
     }
 

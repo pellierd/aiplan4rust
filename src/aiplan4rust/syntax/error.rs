@@ -25,7 +25,7 @@ use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::artefact::error::ArtefactError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::context::ParseContextError;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Enum representing all possible syntax-related errors encountered
 /// during parsing, AST processing, syntax tree handling, and source management.

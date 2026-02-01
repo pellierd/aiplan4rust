@@ -9,7 +9,7 @@
 use crate::aiplan4rust::lang::{TypedSymbol, Type, TypeID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
+use crate::aiplan4rust::tree::{Node, SyntaxSubtree};
 use crate::aiplan4rust::lir::problem::encode::{ty, EncodingRegistry};
 
 /// Encodes a `TypedSymbol` (an identifier associated with a Type) from the syntax tree.

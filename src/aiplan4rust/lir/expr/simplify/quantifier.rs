@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
+use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Simplifies a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
 ///

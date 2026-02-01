@@ -80,7 +80,6 @@ pub(crate) mod fast_line_table;
 pub mod result;
 pub mod lalrpop;
 pub mod error;
-pub mod tree;
 pub mod context;
 pub mod parser_error;
 

@@ -13,7 +13,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::EncodingRegistry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a PDDL Type from the syntax tree by resolving its identifiers.
 ///

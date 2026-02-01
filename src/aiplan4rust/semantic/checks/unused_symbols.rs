@@ -10,7 +10,7 @@ use crate::aiplan4rust::lang::Requirement::Typing;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::tree::Tree;
 
 /// Checks for symbols that are declared but never used within their scope or any parent scope,
 /// emitting warnings for such unused declarations.
@@ -304,7 +304,7 @@ fn check_pddl_builtin_symbol_declaration(
 fn scope_contains_node_of_kind(
     scope: &Scope,
     kind: AstKind,
-    ast: &SyntaxTree<AstNode>,
+    ast: &Tree<AstNode>,
 ) -> Result<bool, SemanticCheckError> {
     for &id in scope.iter() {
         let node = ast.try_node(id)?;

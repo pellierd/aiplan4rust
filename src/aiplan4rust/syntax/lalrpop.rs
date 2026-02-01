@@ -19,7 +19,7 @@
 
 use crate::aiplan4rust::syntax::ParseContext;
 use crate::aiplan4rust::syntax::lexer::Lexer;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::error::SyntaxError;
 use crate::aiplan4rust::syntax::grammar::{PDDLParser, HDDLParser};
 

@@ -3,7 +3,7 @@
 //! This module defines the [`Expr`] struct, a wrapper around an abstract syntax tree (AST)
 //! specialized to represent expressions in parsing and semantic analysis.
 //!
-//! The [`Expr`] struct encapsulates a generic [`SyntaxTree`] whose nodes are [`ExprNode`]s,
+//! The [`Expr`] struct encapsulates a generic [`Tree`] whose nodes are [`ExprNode`]s,
 //! each associating an expression kind (`ExprKind`) with semantic content (`ExprContent`).
 //!
 //! This module also provides utility methods to create common predefined expressions,
@@ -35,13 +35,13 @@
 //!
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{StringID, Optimization, RemapIdents, RemapTypes, Type};
+use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::lang::{StringID, Optimization, RemapTypes, Type};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::{NodeId, Node, Tree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -50,7 +50,7 @@ use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 
-/// Represents an expression tree, a wrapper around a [`SyntaxTree`] containing [`ExprNode`]s.
+/// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
 /// This struct enables manipulation of expressions as syntax trees with precise semantic content,
 /// facilitating construction, transformation, and display of expressions.
@@ -65,7 +65,7 @@ use std::ops::{Deref, DerefMut};
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Expr {
-    tree: SyntaxTree<ExprNode>,
+    tree: Tree<ExprNode>,
 }
 
 impl Expr {
@@ -83,7 +83,7 @@ impl Expr {
     /// A new instance of `Expr` with an empty underlying syntax tree.
     pub fn new() -> Self {
         Self {
-            tree: SyntaxTree::<ExprNode>::new(),
+            tree: Tree::<ExprNode>::new(),
         }
     }
 
@@ -118,7 +118,7 @@ impl Expr {
     ///   be enforced by public constructors like `Expr::new()`.
     /// - It is designed to be used in conjunction with builders or internal
     ///   APIs where the tree is already guaranteed to be valid.
-    pub(crate) fn from_tree(tree: SyntaxTree<ExprNode>) -> Self {
+    pub(crate) fn from_tree(tree: Tree<ExprNode>) -> Self {
         Expr { tree }
     }
 
@@ -592,9 +592,9 @@ impl Expr {
 }
 
 impl Deref for Expr {
-    type Target = SyntaxTree<ExprNode>;
+    type Target = Tree<ExprNode>;
 
-    /// Dereferences `Expr` to the underlying [`SyntaxTree`] of [`ExprNode`]s.
+    /// Dereferences `Expr` to the underlying [`Tree`] of [`ExprNode`]s.
     ///
     /// This enables convenient transparent access to all tree operations on the expression.
     ///
@@ -607,7 +607,7 @@ impl Deref for Expr {
 }
 
 impl DerefMut for Expr {
-    /// Mutable dereference to the underlying [`SyntaxTree`] of [`ExprNode`]s.
+    /// Mutable dereference to the underlying [`Tree`] of [`ExprNode`]s.
     ///
     /// Allows mutation of the expression tree structure.
     ///
@@ -650,7 +650,8 @@ impl InternerDisplay for Expr {
         f: &mut fmt::Formatter<'_>,
         interner: &StringInterner,
     ) -> fmt::Result {
-        self.tree.fmt_with_interner(f, interner)
+        //self.tree.fmt_with_interner(f, interner)
+        writeln!(f, "{}", "TO DO".to_string())
     }
 }
 
@@ -672,8 +673,9 @@ impl SyntaxInternerDisplay for Expr {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        write_indent(f, indent)?;
+        /*write_indent(f, indent)?;
         self.tree
-            .fmt_syntax_with_interner_and_indent(f, interner, indent)
+            .fmt_syntax_with_interner_and_indent(f, interner, indent)*/
+        writeln!(f, "{}", "TO DO".to_string())
     }
 }

@@ -1,13 +1,14 @@
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::tree::{Node, Tree};
 
-pub fn render<T: SyntaxNode>(
-    node: &T,
+pub fn render(
+    node: &AstNode,
     f: &mut Formatter<'_>,
-    arena: &SyntaxTree<T>,
+    arena: &Tree<AstNode>,
     interner: &StringInterner,
     indent: usize, // pas de multiline ici
 ) -> fmt::Result {
@@ -16,7 +17,7 @@ pub fn render<T: SyntaxNode>(
 
     // 1. (forall / exists + début ligne)
     write!(f, "{}(", indent_str)?;
-    node.render_kind().fmt_syntax_with_interner(f, interner)?;
+    node.kind().fmt_syntax_with_interner(f, interner)?;
     write!(f, " ")?;
 
     let body_index;

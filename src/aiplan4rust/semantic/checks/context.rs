@@ -15,7 +15,7 @@ use crate::aiplan4rust::lang::{LiteralID, Requirement};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use std::collections::HashSet;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::tree::Tree;
 
 /// A lightweight wrapper that provides semantic context components to verification functions.
 ///
@@ -61,7 +61,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// - `requirements`: Set of active requirements (e.g., `:typing`, `:durative-actions`).
 #[derive(Clone)]
 pub struct Context<'a> {
-    syntax_tree: &'a SyntaxTree<AstNode>,
+    syntax_tree: &'a Tree<AstNode>,
     symbols: &'a SymbolTable,
     interner: &'a StringInterner,
     source_id: LiteralID,
@@ -108,7 +108,7 @@ impl<'a> Context<'a> {
     /// [`Requirement`]: crate::features::Requirement
     /// [`Literal`]: crate::interner::Literal
     pub fn new(
-        syntax_tree: &'a SyntaxTree<AstNode>,
+        syntax_tree: &'a Tree<AstNode>,
         symbols: &'a SymbolTable,
         interner: &'a StringInterner,
         source_id: LiteralID,
@@ -124,7 +124,7 @@ impl<'a> Context<'a> {
     }
 
     /// Returns the AST.
-    pub fn syntax_tree(&self) -> &'a SyntaxTree<AstNode> {
+    pub fn syntax_tree(&self) -> &'a Tree<AstNode> {
         self.syntax_tree
     }
 

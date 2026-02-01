@@ -7,7 +7,7 @@ use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
+use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Checks for errors in the symbol declarations and their usages in the given annotated syntax arena.
 ///

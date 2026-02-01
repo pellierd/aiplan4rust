@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
+use crate::aiplan4rust::tree::{Node, SyntaxSubtree};
 
 /// Encodes the PDDL `:types` section into the Lifted Intermediate Representation (LIR).
 ///

@@ -14,7 +14,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents all possible errors that can occur while working with the AST
 /// or its related parsing context.

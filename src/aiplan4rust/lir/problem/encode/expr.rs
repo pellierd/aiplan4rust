@@ -43,7 +43,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{typed_list, EncodingRegistry};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree};
+use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 
 /// Encodes an AST subtree into a LIR Expression.
 /// This is the "free function" version of the previous TryFrom.

@@ -9,7 +9,7 @@
 //! - A [`Span`] indicating its position in the source code.
 //!
 //! `AstNode` implements several traits:
-//! - [`SyntaxNode`] for AST traversal and rendering.
+//! - [`Node`] for AST traversal and rendering.
 //! - [`ArenaNode`] to integrate with arena-based memory allocation.
 //! - [`Deref`] / [`DerefMut`] for seamless access to its inner node.
 //!
@@ -22,20 +22,19 @@
 //! [`AstError`] or [`SyntaxTreeError`] when semantic constraints are violated.
 
 use std::collections::HashMap;
-use std::fmt::{self, Formatter};
+use std::fmt::{self, Display, Formatter};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::{InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use crate::aiplan4rust::lang::{RemapIdents, Requirement, StringID};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
-use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree, NodeId};
-use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
+use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree, NodeId};
+use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents a node in the Abstract Syntax Tree (AST).
 ///
@@ -48,7 +47,7 @@ use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
 /// - `span`: A `Span` representing the start and end positions of the node in the source.
 ///
 /// # Trait Implementations
-/// Implements [`SyntaxNode`] and [`ArenaNode`] to allow AST manipulation and traversal.
+/// Implements [`Node`] and [`ArenaNode`] to allow AST manipulation and traversal.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct AstNode {
     inner: SyntaxBaseNode<AstKind, AstContent>,
@@ -260,9 +259,11 @@ impl ArenaNode for AstNode {
     fn add_child(&mut self, child: NodeId) {
         self.inner.add_child(child);
     }
+
+
 }
 
-impl SyntaxNode for AstNode {
+impl Node for AstNode {
     type Kind = AstKind;
     type Content = AstContent;
 
@@ -280,20 +281,6 @@ impl SyntaxNode for AstNode {
     /// - `kind`: The new kind to assign to the node.
     fn set_kind(&mut self, kind: Self::Kind) {
         self.inner.set_kind(kind);
-    }
-
-    /// Returns the rendering kind of this AST node.
-    ///
-    /// The `render_kind` provides a high-level categorization of the node
-    /// that is used by renderers to determine how to display it. This
-    /// abstracts over the specific underlying AST and maps it to a `RenderKind` variant.
-    ///
-    /// # Returns
-    /// A `RenderKind` value representing the node’s appearance in rendered
-    /// output. This is typically used by syntax tree renderers or formatters
-    /// to decide keywords, indentation, or visual representation.
-    fn render_kind(&self) -> RenderKind {
-        RenderKind::from_ast_kind(self.kind())
     }
 
     /// Returns a shared reference to the node's semantic content.
@@ -325,7 +312,7 @@ impl SyntaxNode for AstNode {
     /// This clone copies the node's kind, content, and span, but **does not include**
     /// its parent or children. The resulting node has an empty children list and no parent.
     ///
-    /// Typically used when reconstructing a subtree with [`SyntaxTree::clone_subtree`],
+    /// Typically used when reconstructing a subtree with [`Tree::clone_subtree`],
     /// where each node is cloned individually before linking to new parent nodes.
     ///
     /// # Returns
@@ -408,50 +395,12 @@ impl SyntaxNode for AstNode {
     fn is_not(&self) -> bool {
         matches!(self.kind(), AstKind::Not)
     }
-
-    /// Formats the AST node for display, using a syntax tree and string interner.
-    ///
-    /// # Arguments
-    /// - `f`: The formatter to write to.
-    /// - `syntax_tree`: The full syntax tree containing this node and its children.
-    /// - `interner`: The string interner used to resolve identifier strings.
-    ///
-    /// # Returns
-    /// A `fmt::Result` indicating whether formatting succeeded.
-    fn fmt_with_interner(
-        &self,
-        f: &mut Formatter<'_>,
-        syntax_tree: &SyntaxTree<Self>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        renderer::tree::render(self, f, syntax_tree, interner)
-    }
-
-    /// Formats the AST node with indentation for nested structure representation.
-    ///
-    /// # Arguments
-    /// - `f`: The formatter to write to.
-    /// - `syntax_tree`: The syntax tree that contains the node and its children.
-    /// - `interner`: The interner used to resolve identifier names.
-    /// - `indent`: The current indentation level (used for pretty-printing).
-    ///
-    /// # Returns
-    /// A `fmt::Result` indicating whether formatting succeeded.
-    fn fmt_syntax_with_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        syntax_tree: &SyntaxTree<Self>,
-        interner: &StringInterner,
-        _indent: usize,
-    ) -> fmt::Result {
-        syntax::tree::renderers::syntax_rendering(self, f, syntax_tree, interner)
-    }
 }
 
 impl RemapIdents for AstNode {
     /// Remaps identifiers in this syntax node's content using the provided map.
     ///
-    /// This default implementation works for any type implementing [`SyntaxNode`],
+    /// This default implementation works for any type implementing [`Node`],
     /// delegating the remapping to `content_mut()`.
     ///
     /// # Parameters
@@ -462,5 +411,61 @@ impl RemapIdents for AstNode {
     fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         self.content_mut().remap_idents(map)?;
         Ok(())
+    }
+}
+
+impl AstNode {
+
+    // --- Rendu de l'Arbre (Visualisation) ---
+    pub fn fmt_with_interner(
+        &self,
+        f: &mut Formatter<'_>,
+        syntax_tree: &Tree<AstNode>,
+        interner: &StringInterner
+    ) -> fmt::Result {
+        renderer::tree::render(self, f, syntax_tree, interner)
+    }
+
+    pub fn to_string_with_interner(&self, tree: &Tree<AstNode>, interner: &StringInterner) -> String {
+        struct Wrapper<'a>(&'a AstNode, &'a Tree<AstNode>, &'a StringInterner);
+        impl fmt::Display for Wrapper<'_> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                self.0.fmt_with_interner(f, self.1, self.2)
+            }
+        }
+        format!("{}", Wrapper(self, tree, interner))
+    }
+
+    // --- Rendu Syntaxique (PDDL) ---
+
+    pub fn fmt_syntax(
+        &self,
+        f: &mut Formatter<'_>,
+        syntax_tree: &Tree<AstNode>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        // Elle délègue simplement à la version avec indent 0
+        self.fmt_syntax_with_indent(f, syntax_tree, interner, 0)
+    }
+
+    pub fn fmt_syntax_with_indent(
+        &self,
+        f: &mut Formatter<'_>,
+        syntax_tree: &Tree<AstNode>,
+        interner: &StringInterner,
+        _indent: usize,
+    ) -> fmt::Result {
+        // Appelle ton renderer PDDL spécialisé
+        renderer::syntax::render(self, f, syntax_tree, interner)
+    }
+
+    pub fn to_syntax_string(&self, tree: &Tree<AstNode>, interner: &StringInterner) -> String {
+        struct Wrapper<'a>(&'a AstNode, &'a Tree<AstNode>, &'a StringInterner);
+        impl fmt::Display for Wrapper<'_> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                self.0.fmt_syntax_with_indent(f, self.1, self.2, 0)
+            }
+        }
+        format!("{}", Wrapper(self, tree, interner))
     }
 }

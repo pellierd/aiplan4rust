@@ -8,7 +8,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, expr, named_typed_list};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
 

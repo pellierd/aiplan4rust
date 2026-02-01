@@ -10,7 +10,7 @@ use crate::aiplan4rust::lang::Requirement;
 use std::collections::HashSet;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::syntax::tree::SyntaxNode;
+use crate::aiplan4rust::tree::Node;
 
 pub fn check_requirement_violations(
     context: &CheckContext,

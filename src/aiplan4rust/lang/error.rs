@@ -22,7 +22,7 @@
 //! }
 //! ```
 use thiserror::Error;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents errors specific to the `lang` module.
 ///

@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Removes all `Imply` nodes in the subtree rooted at `node_id` by transforming
 /// each `A -> B` into `(Or(Not(A), B))`.

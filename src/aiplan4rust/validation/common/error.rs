@@ -27,7 +27,7 @@ use std::panic::Location;
 use log::debug;
 use thiserror::Error;
 
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 
 /// Represents errors that can occur during AST validation.

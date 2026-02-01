@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Recursively pushes negations down the expression tree using De Morgan’s laws
 /// and quantifier negation rules.

@@ -50,8 +50,8 @@ use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::tree::Tree;
 
 /// Normalizes the requirement declarations by removing duplicates from the `RequireDef` syntax.
 ///
@@ -159,7 +159,7 @@ pub fn normalize_require_def(
 /// )?;
 /// ```
 fn report_duplicate_requirements_warnings(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
     require_def_id: NodeId,
     source_id: LiteralID,
     diagnostic_manager: &mut DiagnosticManager,
@@ -257,7 +257,7 @@ pub fn new_duplicate_requirement_warning(
 /// # Errors
 /// Returns an error if the syntax with `require_def_id` or its children cannot be accessed mutably.
 pub fn remove_requirement_duplicates(
-    syntax_tree: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut Tree<AstNode>,
     require_def_id: NodeId,
 ) -> Result<bool, NormalizationPassError> {
     // Get mutable reference to RequireDef syntax

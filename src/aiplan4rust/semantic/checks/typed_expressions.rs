@@ -11,7 +11,7 @@ use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, NodeId};
+use crate::aiplan4rust::tree::{SyntaxContent, Node, NodeId};
 
 /// Checks the type_checker correctness of typed expr in the syntax arena, including comparisons,
 /// assignments, and arithmetic operations.

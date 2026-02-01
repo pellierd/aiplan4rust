@@ -16,7 +16,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes the `:predicates` section of a PDDL domain into the LIR.
 ///

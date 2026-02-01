@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use crate::aiplan4rust::lang::Requirement;
 use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::tree::Tree;
 
 /// Extracts all semantic requirements from the syntax tree.
 ///
@@ -17,7 +17,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// # Errors
 /// Returns `SemanticError` if traversing the tree fails.
 pub fn extract_declared_requirements(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
 ) -> Result<HashSet<Requirement>, SemanticError> {
     let mut requirements = HashSet::new();
 
@@ -58,7 +58,7 @@ pub fn extract_declared_requirements(
 ///
 /// A `HashSet<Requirement>` containing all requirements that are actually used.
 pub fn extract_required_requirements(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
 ) -> HashSet<Requirement> {
     let mut needed: HashSet<Requirement> = HashSet::new();
 

@@ -66,8 +66,8 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
-use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::tree::Tree;
 
 /// Recursively normalizes all `TypedList` nodes in the given AST subtree.
 ///
@@ -250,7 +250,7 @@ fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError
 /// normalize_typed_list_node_children(syntax_tree, typed_list_node_id)?;
 /// ```
 fn normalize_typed_list_node_children(
-    syntax_tree: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut Tree<AstNode>,
     node_id: NodeId,
 ) -> Result<(), NormalizationPassError> {
     // 1. Retrieve and clear the current children of the TypedList syntax.
@@ -316,7 +316,7 @@ fn normalize_typed_list_node_children(
 /// }
 /// ```
 fn is_typed_list_node(
-    syntax_tree: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut Tree<AstNode>,
     node_id: NodeId,
 ) -> Result<bool, NormalizationPassError> {
     let node = syntax_tree.try_node(node_id)?;
@@ -356,7 +356,7 @@ fn is_typed_list_node(
 /// let (element_ids, type_id, span) = extract_typed_item_data(syntax_tree, typed_item_id)?;
 /// ```
 fn extract_typed_item_data(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
     typed_item_id: NodeId,
 ) -> Result<(Vec<NodeId>, Option<NodeId>, Span), NormalizationPassError> {
     // Retrieve the TypedItem syntax
@@ -411,7 +411,7 @@ fn create_typed_item_node(
     type_id_opt: Option<NodeId>,
     span: Span,
     parent_id: NodeId,
-    syntax_tree: &mut SyntaxTree<AstNode>,
+    syntax_tree: &mut Tree<AstNode>,
 ) -> Result<AstNode, NormalizationPassError> {
     // Initialize children with the mandatory element syntax
     let mut children = vec![element_id];

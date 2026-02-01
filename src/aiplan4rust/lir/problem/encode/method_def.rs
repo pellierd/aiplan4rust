@@ -2,7 +2,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list, task_network};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::problem::method::Method;

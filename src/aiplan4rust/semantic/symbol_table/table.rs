@@ -35,7 +35,7 @@ use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol::Usage;
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableBuilder, SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::semantic::SymbolTable;
 use linked_hash_map::LinkedHashMap;
 use serde::Deserialize;

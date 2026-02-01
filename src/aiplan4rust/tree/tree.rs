@@ -2,9 +2,9 @@
 //!
 //! Provides a high-level wrapper over an arena-based tree structure tailored for syntax representation.
 //!
-//! This module defines the [`SyntaxTree`] struct, which supports allocation, traversal,
+//! This module defines the [`Tree`] struct, which supports allocation, traversal,
 //! mutation, and identifier remapping of syntax nodes. It is parameterized over types
-//! implementing the [`SyntaxNode`] trait and is intended to be used for organizing
+//! implementing the [`Node`] trait and is intended to be used for organizing
 //! syntax trees in a structured and type-safe way.
 //!
 //! The tree is built on top of the low-level [`ArenaTree`] and provides ergonomic access to
@@ -16,42 +16,37 @@
 //! - Identifier remapping
 //! - Syntax-aware formatting with interner support
 
-use std::collections::HashMap;
 use std::fmt;
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::{ArenaTree, NodeId, NodeRef};
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
 use crate::aiplan4rust::arena::node_ref::NodeRefMut;
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{StringID, RemapIdents};
-use crate::aiplan4rust::semantic::symbol::Symbol;
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode};
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::{SyntaxContent, Node};
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// High-level syntax tree built on top of [`ArenaTree`], specialized for syntax node manipulation.
 ///
 /// This structure supports node allocation, hierarchical queries, traversal, and identifier remapping,
-/// and is parameterized over types implementing [`SyntaxNode`].
+/// and is parameterized over types implementing [`Node`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct SyntaxTree<T: SyntaxNode>
+pub struct Tree<T: Node>
 where
     T::Content: SyntaxContent,
 {
     arena: ArenaTree<T>,
 }
 
-impl<T: SyntaxNode> SyntaxTree<T>
+impl<T: Node> Tree<T>
 where
     T::Content: SyntaxContent,
 {
-    /// Creates a new, empty [`SyntaxTree`] instance.
+    /// Creates a new, empty [`Tree`] instance.
     ///
     /// # Returns
     /// A new `SyntaxTree` with an empty internal arena.
     pub fn new() -> Self {
-        SyntaxTree {
+        Tree {
             arena: ArenaTree::new(),
         }
     }
@@ -336,34 +331,6 @@ where
         self.arena.postorder_from(root)
     }
 
-    /*/// Recursively remaps all identifiers in the subtree rooted at `id`.
-    ///
-    /// Traverses the syntax tree in a depth-first manner, updating every node's
-    /// identifier according to the provided mapping.
-    ///
-    /// # Parameters
-    /// - `id`: The `NodeId` of the subtree root to start remapping from.
-    /// - `map`: A mapping from old `Ident`s to new `Ident`s.
-    ///
-    /// # Behavior
-    /// - Updates all nodes in the subtree in place.
-    /// - Nodes whose identifiers are not present in `map` remain unchanged.
-    ///
-    /// # Errors
-    /// Returns a `InternerError` if remapping fails for any node.
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
-        let mut stack = vec![id];
-        while let Some(current_id) = stack.pop() {
-            if let Some(node) = self.arena.get_node_mut(current_id) {
-                node.remap_idents(map)?;
-                for &child_id in node.children() {
-                    stack.push(child_id);
-                }
-            }
-        }
-        Ok(())
-    }*/
-
     /// Returns the total number of nodes in the subtree.
     ///
     /// # Arguments
@@ -617,43 +584,9 @@ where
     }
 }
 
-/*impl<T> RemapIdents for SyntaxTree<T>
-    where
-    T: SyntaxNode,
-    T::Content: SyntaxContent,
-{
-    /// Recursively remaps all identifiers in this syntax tree using the provided mapping.
-    ///
-    /// This ensures that every node in the tree that contains an `Ident` is updated
-    /// according to the `map`. Useful when merging, flattening, or renaming symbols
-    /// across multiple contexts while keeping the tree internally consistent.
-    ///
-    /// # Parameters
-    ///
-    /// - `map`: A `HashMap` mapping old `Ident` values to their new `Ident` values.
-    ///
-    /// # Behavior
-    ///
-    /// - If the syntax tree is empty, no action is taken.
-    /// - The remapping starts from the root node and traverses all child nodes recursively.
-    /// - Any identifier not present in the mapping remains unchanged.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `InternerError` if remapping fails for any node (propagates errors from nested structures).
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
-        if !self.is_empty() {
-            if let Ok(root_id) = self.arena.try_root_id() {
-                self.remap_idents_from(root_id, map)?;
-            }
-        }
-        Ok(())
-    }
-}*/
-
-impl<T> fmt::Display for SyntaxTree<T>
+impl<T> fmt::Display for Tree<T>
 where
-    T: SyntaxNode,
+    T: Node,
     T::Content: SyntaxContent,
 {
     /// Formats the syntax tree using the underlying arena's `Display` implementation.
@@ -667,62 +600,5 @@ where
     /// A `fmt::Result` indicating whether formatting was successful.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.arena.fmt(f)
-    }
-}
-
-impl<T> InternerDisplay for SyntaxTree<T>
-where
-    T: SyntaxNode,
-    T::Content: SyntaxContent,
-{
-    /// Formats the syntax tree using a string interner for resolving identifiers.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter used to write the formatted output.
-    /// * `interner` - The string interner used to resolve symbol identifiers to their string representations.
-    ///
-    /// # Returns
-    ///
-    /// A `fmt::Result` indicating whether formatting was successful.
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        if self.is_empty() {
-            write!(f, "<empty>")
-        } else {
-            let root = self.root_node().expect("root_node should exist if not empty");
-            write!(f, "{}", root.to_string_with_interner(self, interner))
-        }
-    }
-}
-
-impl<T> SyntaxInternerDisplay for SyntaxTree<T>
-where
-    T: SyntaxNode,
-    T::Content: SyntaxContent,
-{
-    /// Formats the syntax tree with indentation and interner-aware resolution of identifiers.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter used to write the formatted output.
-    /// * `interner` - A string interner used to resolve identifiers.
-    /// * `indent` - The number of spaces to use for indentation in the formatted output.
-    ///
-    /// # Returns
-    ///
-    /// A `fmt::Result` indicating whether formatting was successful.
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        if self.is_empty() {
-            Ok(()) // Tree is empty; nothing to display.
-        } else if let Some(root) = self.root_node() {
-            root.fmt_syntax_with_indent(f, self, interner, indent)
-        } else {
-            Ok(()) // Inconsistent state: root ID exists but no node found.
-        }
     }
 }

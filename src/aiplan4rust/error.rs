@@ -10,7 +10,7 @@ use crate::aiplan4rust::semantic::SemanticError;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::SyntaxError;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::validation::common::WellNormalizedError;
 
 #[derive(Debug, Error)]

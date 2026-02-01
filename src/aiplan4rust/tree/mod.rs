@@ -4,8 +4,8 @@
 /// and error handling, all built on top of a generic arena-based storage
 /// system to efficiently manage tree nodes.
 ///
-/// The module exports key traits and types such as [`SyntaxNode`], [`SyntaxContent`],
-/// [`SyntaxTree`], and error types, enabling construction and manipulation
+/// The module exports key traits and types such as [`Node`], [`SyntaxContent`],
+/// [`Tree`], and error types, enabling construction and manipulation
 /// of syntax trees representing language constructs.
 ///
 /// It also defines type aliases to decouple syntax-specific code
@@ -22,12 +22,11 @@ pub mod tree;
 pub mod base_node;
 pub mod error;
 pub mod subtree;
-pub mod renderers;
 pub mod builder;
 
-pub use tree::SyntaxTree;
+pub use tree::Tree;
 pub use subtree::SyntaxSubtree;
-pub use node::SyntaxNode;
+pub use node::Node;
 pub use content::SyntaxContent;
 pub use base_node::SyntaxBaseNode;
 pub use builder::SyntaxTreeBuilder;

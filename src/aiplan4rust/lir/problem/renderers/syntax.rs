@@ -4,7 +4,7 @@ use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::{display, SyntaxInternerDisplay};
 use std::fmt;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::syntax::tree::SyntaxNode;
+use crate::aiplan4rust::tree::Node;
 
 /// Renders a `DomainDef` as a PDDL-like syntax string.
 ///

@@ -3,11 +3,11 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{FunctorID, LangError, PredicateID, StringID, Type};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Represents errors that can occur within the `lir` (Lifted Intermediate Representation) module.
 ///

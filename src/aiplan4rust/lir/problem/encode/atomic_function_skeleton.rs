@@ -8,7 +8,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::atomic_skeleton::function::Function;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{named_typed_list, ty, EncodingRegistry};
 
 /// Encodes a PDDL numeric function (fluent) from the syntax tree into the LIR.

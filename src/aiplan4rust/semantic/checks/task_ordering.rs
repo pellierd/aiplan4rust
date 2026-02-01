@@ -4,7 +4,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
 use crate::aiplan4rust::lang::StringID;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::tree::{Node, Tree};
 
 /// Checks the task ordering constraints in the provided annotated syntax arena and detects any
 /// cyclic dependencies.
@@ -137,7 +137,7 @@ pub fn check_task_ordering(
 ///   its child nodes.
 fn extract_task_ids(
     node: &AstNode,
-    tree: &SyntaxTree<AstNode>,
+    tree: &Tree<AstNode>,
 ) -> Result<Vec<StringID>, SemanticCheckError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {

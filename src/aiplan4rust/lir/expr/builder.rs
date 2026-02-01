@@ -4,8 +4,8 @@ use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctorID, Id
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::lir::problem::encode::EncodingRegistry;
-use crate::aiplan4rust::syntax::tree::NodeId;
-use crate::aiplan4rust::syntax::tree::builder::SyntaxTreeBuilder;
+use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
 
 /// Ergonomic builder for `Expr` (expression trees).
 ///

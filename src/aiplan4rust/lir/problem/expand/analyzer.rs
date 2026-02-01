@@ -5,49 +5,49 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::expand::inertia::Inertia;
 use crate::aiplan4rust::lir::problem::expand::inertia_table::InertiaTable;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::syntax::tree::SyntaxNode;
+use crate::aiplan4rust::tree::Node;
 
 /// Analyse le problème pour identifier l'inertie des prédicats et des fonctions.
 pub fn analyze_inertia(problem: &LiftedProblem) -> Result<InertiaTable, LirError> {
-    let mut fluent_predicates = HashSet::new();
+/*    let mut fluent_predicates = HashSet::new();
     let mut fluent_functions = HashSet::new();
     let mut initial_predicates = HashSet::new();
-    let mut initial_functions = HashSet::new();
+    let mut initial_functions = HashSet::new();*/
 
     // 1. Scan des effets (Actions et Actions Duratives)
     // On identifie tout ce qui est modifié par une action.
-    for action in problem.actions() {
+    /*for action in problem.actions() {
         collect_fluents_from_expr(
             action.effect(),
             problem, // Optionnel selon ta signature finale
             &mut fluent_predicates,
             &mut fluent_functions
         )?;
-    }
+    }*/
 
-    for d_action in problem.durative_actions() {
+    /*for d_action in problem.durative_actions() {
         collect_fluents_from_expr(
             d_action.effect(),
             problem,
             &mut fluent_predicates,
             &mut fluent_functions
         )?;
-    }
+    }*/
 
     // 2. Scan de l'état initial
     // On identifie les faits statiques (Initiaux) et les TILs (Fluents temporels)
-    collect_initial_facts(
+    /*collect_initial_facts(
         problem.init(),
         problem,
         &mut initial_predicates,
         &mut initial_functions,
         &mut fluent_predicates,
         &mut fluent_functions,
-    )?;
+    )?;*/
 
     let mut table = InertiaTable::new();
 
-    // 3. Catégorisation des Prédicats
+    /*// 3. Catégorisation des Prédicats
     // On utilise les IDs typés pour correspondre aux HashSets
     for (idx, _) in problem.atom_skeletons().iter().enumerate() {
         let pred_id = PredicateID::new(idx); // Conversion vers ton type ID
@@ -74,12 +74,12 @@ pub fn analyze_inertia(problem: &LiftedProblem) -> Result<InertiaTable, LirError
             Inertia::Negative // Indéfinie : jamais initialisée ni modifiée
         };
         table.insert_function(func_id, inertia);
-    }
+    }*/
 
     Ok(table)
 }
 
-/// Parcourt un effet pour identifier les prédicats et fonctions modifiés (Fluents).
+/*/// Parcourt un effet pour identifier les prédicats et fonctions modifiés (Fluents).
 pub fn collect_fluents_from_expr(
     expr: &Expr,
     _problem: &LiftedProblem,
@@ -119,9 +119,9 @@ pub fn collect_fluents_from_expr(
         }
     }
     Ok(())
-}
+}*/
 
-pub fn collect_initial_facts(
+/*pub fn collect_initial_facts(
     init_expr: &Expr,
     _problem: &LiftedProblem,
     initial_predicates: &mut HashSet<PredicateID>,
@@ -165,4 +165,4 @@ pub fn collect_initial_facts(
         }
     }
     Ok(())
-}
+}*/

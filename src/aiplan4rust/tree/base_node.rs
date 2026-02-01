@@ -42,7 +42,7 @@ use std::fmt::{Debug, Display};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::arena::{ArenaNode, BaseNode, NodeId};
-use crate::aiplan4rust::syntax::tree::SyntaxContent;
+use crate::aiplan4rust::tree::SyntaxContent;
 
 /// Represents a generic syntax node in an abstract syntax tree (AST).
 ///

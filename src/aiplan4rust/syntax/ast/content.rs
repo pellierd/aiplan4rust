@@ -41,8 +41,8 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::syntax::ast::AstError;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::SyntaxContent;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::SyntaxContent;
 
 /// Represents semantic content associated with an AST syntax.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -254,18 +254,6 @@ impl SyntaxInternerDisplay for Content {
 }
 
 impl SyntaxContent for Content {
-    /// Returns the identifier if this content is an `Ident`.
-    ///
-    /// # Returns
-    ///
-    /// - `Some(Ident)` if the content is an identifier.
-    /// - `None` otherwise.
-    /*fn as_ident(&self) -> Option<StringID> {
-        match self {
-            Content::Ident(id) => Some(*id),
-            _ => None,
-        }
-    }*/
 
     /// Returns the floating-point literal if this content is a `Float`.
     ///

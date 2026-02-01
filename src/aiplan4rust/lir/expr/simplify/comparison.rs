@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lang::BinaryComp;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
+use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
 /// Simplifies an FComp node by applying all relevant normalizations and simplifications.
 ///

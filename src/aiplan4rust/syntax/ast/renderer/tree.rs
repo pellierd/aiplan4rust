@@ -26,7 +26,7 @@
 use std::fmt::{self, Formatter};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstContent};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::tree::Tree;
 
 /// Recursively renders an [`AstNode`] and its subtree as a visually indented tree.
 ///
@@ -67,7 +67,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
     interner: &StringInterner,
 ) -> fmt::Result {
     /// Internal helper to recursively format a node and its children.
@@ -87,7 +87,7 @@ pub fn render(
     fn fmt_node(
         node: &AstNode,
         f: &mut Formatter<'_>,
-        syntax_tree: &SyntaxTree<AstNode>,
+        syntax_tree: &Tree<AstNode>,
         interner: &StringInterner,
         prefix: &str,
         last: bool,

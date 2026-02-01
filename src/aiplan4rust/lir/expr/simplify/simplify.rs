@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::lir::expr::kind::Kind;
 use crate::aiplan4rust::lir::expr::simplify::{and_or, arithmetic, assign, comparison, not, quantifier, when};
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a PDDL-like expression tree in a post-order traversal.
 ///

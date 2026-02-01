@@ -1,36 +1,37 @@
 use std::fmt;
 use std::fmt::Formatter;
-
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::tree::{SyntaxContent, Node, Tree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
-use crate::aiplan4rust::syntax::tree::renderers::RenderKind;
-use crate::aiplan4rust::syntax::tree::renderers::syntax::{quantifiers, task, typed_list};
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
+use crate::aiplan4rust::syntax::ast::renderer::syntax::{quantifiers, task, typed_list};
 
-pub fn render<T: SyntaxNode>(
-    node: &T,
+pub fn render(
+    node: &AstNode,
     f: &mut Formatter<'_>,
-    arena: &SyntaxTree<T>,
+    arena: &Tree<AstNode>,
     interner: &StringInterner,
 ) -> fmt::Result {
     render_with_indent(node, f, arena, interner, 0)?;
     Ok(())
 }
 
-pub fn render_with_indent<T: SyntaxNode>(
-    node: &T,
+pub fn render_with_indent(
+    node: &AstNode,
     f: &mut Formatter<'_>,
-    arena: &SyntaxTree<T>,
+    arena: &Tree<AstNode>,
     interner: &StringInterner,
     indent: usize,
 ) -> fmt::Result {
-    let indent_str = T::make_indent(indent);
-    match node.render_kind() {
-        RenderKind::Domain => {
+
+    match node.kind() {
+        AstKind::Domain => {
             // Write the opening line with base indentation
-            write!(f, "{}(define (domain ", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(define (domain ")?;
 
             // Domain name (mandatory)
             if let Some(name_id) = node.children().get(0) {
@@ -61,16 +62,18 @@ pub fn render_with_indent<T: SyntaxNode>(
 
             // Closing parenthesis of the domain
             writeln!(f)?;
-            write!(f, "{})\n", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, ")\n")?;
 
             Ok(())
         }
 
-        RenderKind::Problem => {
+        AstKind::Problem => {
             let children = node.children();
 
             // Opening line with base indentation
-            write!(f, "{}(define (problem ", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(define (problem ")?;
 
             // Problem name (mandatory)
             if let Some(name_id) = children.get(0) {
@@ -89,19 +92,19 @@ pub fn render_with_indent<T: SyntaxNode>(
                 if let Some(domain_node) = arena.get_node(*domain_id) {
                     // On met le :domain à la ligne suivante
                     writeln!(f)?;
-                    let child_indent = T::make_indent(indent + 1);
-                    write!(f, "{}(:domain ", child_indent)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "(:domain ")?;
                     domain_node.fmt_syntax(f, arena, interner)?;
                     write!(f, ")")?;
                 } else {
                     writeln!(f)?;
-                    let child_indent = T::make_indent(indent + 1);
-                    write!(f, "{}<invalid-domain-name>", child_indent)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "<invalid-domain-name>")?;
                 }
             } else {
                 writeln!(f)?;
-                let child_indent = T::make_indent(indent + 1);
-                write!(f, "{}<missing-domain-name>", child_indent)?;
+                write_indent(f, indent + 1)?;
+                write!(f, "<missing-domain-name>")?;
             }
 
             // Remaining children (index >=2)
@@ -121,14 +124,15 @@ pub fn render_with_indent<T: SyntaxNode>(
 
             // Closing line
             writeln!(f)?;
-            write!(f, "{})", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, ")")?;
 
             Ok(())
         }
 
-        RenderKind::RequireDef => {
+        AstKind::RequireDef => {
             // Indentation de la ligne d'ouverture
-            f.write_str(&indent_str)?;
+            write_indent(f, indent)?;
             write!(f, "(:requirements")?;
 
             // Chaque enfant est écrit sur la même ligne, séparé par un espace
@@ -143,10 +147,10 @@ pub fn render_with_indent<T: SyntaxNode>(
             writeln!(f, ")")
         }
 
-        RenderKind::TypesDef => {
-            f.write_str(&indent_str)?;
+        AstKind::TypesDef => {
+            write_indent(f, indent)?;
             write!(f, "(")?;
-            node.render_kind().fmt_syntax_with_interner(f, interner)?;
+            node.kind().fmt_syntax_with_interner(f, interner)?;
             writeln!(f)?;
 
             if let Some(child_id) = node.children().first() {
@@ -156,19 +160,18 @@ pub fn render_with_indent<T: SyntaxNode>(
                 }
             } else {
                 // No children: optionally write a comment or just an empty indented line
-                let empty_indent = T::make_indent(indent + 1);
-                writeln!(f, "{}; <missing-typed-list>", empty_indent)?;
+                write_indent(f, indent + 1)?;
+                writeln!(f, "<missing-typed-list>")?;
             }
-
-            f.write_str(&indent_str)?; // root indentation for closing parenthesis
+            write_indent(f, indent)?;
             writeln!(f, ")")
         }
 
-        RenderKind::TypedList => typed_list::render(node, f, arena, interner, false, indent),
+        AstKind::TypedList => typed_list::render(node, f, arena, interner, false, indent),
 
-        RenderKind::TypedItemElements => {
+        AstKind::TypedItemElements => {
             // Write the indentation once before the list of elements
-            write!(f, "{}", indent_str)?;
+            write_indent(f, indent)?;
 
             // Iterate over children nodes
             for (i, child_id) in node.children().iter().enumerate() {
@@ -188,8 +191,7 @@ pub fn render_with_indent<T: SyntaxNode>(
             Ok(())
         }
 
-        RenderKind::TypedItem => {
-            let indent_str = T::make_indent(indent);
+        AstKind::TypedItem => {
 
             // Handle first child (elements)
             if let Some(first_child_id) = node.get_child(0) {
@@ -197,10 +199,12 @@ pub fn render_with_indent<T: SyntaxNode>(
                     first_child_node
                         .fmt_syntax_with_indent(f, arena, interner, indent)?;
                 } else {
-                    write!(f, "{}<invalid_node>", indent_str)?;
+                    write_indent(f, indent)?;
+                    write!(f, "<invalid_node>")?;
                 }
             } else {
-                write!(f, "{}<missing_child>", indent_str)?;
+                write_indent(f, indent)?;
+                write!(f, "<missing_child>")?;
             }
 
             // Handle optional second child (type_checker)
@@ -215,24 +219,26 @@ pub fn render_with_indent<T: SyntaxNode>(
             Ok(())
         }
 
-        RenderKind::Type => {
+        AstKind::Type => {
             match node.arity() {
                 0 => write!(f, ""),
                 1 => {
                     let ty_node_id = node.children()[0];
                     if let Some(ty_node) = arena.get_node(ty_node_id) {
                         // Write indentation before the single type_checker
-                        write!(f, "{}", indent_str)?;
+                        write_indent(f, indent)?;
                         // Recursively format the type_checker content with the current indentation
                         write!(f, "{}",  ty_node.content().to_syntax_string_with_interner(interner))
                     } else {
-                        write!(f, "{}<invalid_node>", indent_str)
+                        write_indent(f, indent)?;
+                        write!(f, "<invalid_node>")
                     }
                 }
 
                 _ => {
                     // Write indentation and opening either keyword
-                    write!(f, "{}(either", indent_str)?;
+                    write_indent(f, indent)?;
+                    write!(f, "(either")?;
 
                     for child_id in node.children() {
                         write!(f, " ")?;
@@ -248,9 +254,10 @@ pub fn render_with_indent<T: SyntaxNode>(
             }
         }
 
-        RenderKind::ConstantsDef => {
+        AstKind::ConstantsDef => {
             // Write the opening line with current indentation
-            writeln!(f, "{}(:constants", indent_str)?;
+            write_indent(f, indent)?;
+            writeln!(f, "(:constants")?;
 
             // Format the constants list line by line with increased indentation for readability
             if let Some(child_id) = node.children().first() {
@@ -261,31 +268,34 @@ pub fn render_with_indent<T: SyntaxNode>(
             }
 
             // Write the closing parenthesis aligned with the opening line
-            writeln!(f, "{})", indent_str)
+            write_indent(f, indent)?;
+            writeln!(f, ")")
         }
 
-        RenderKind::PredicatesDef => {
+        AstKind::PredicatesDef => {
             // Write the opening line with current indentation
-            writeln!(f, "{}(:predicates", indent_str)?;
+            write_indent(f, indent)?;
+            writeln!(f, "(:predicates")?;
 
             // Iterate over all children and format each predicate with increased indentation
             for child_id in node.children() {
                 if let Some(child_node) = arena.get_node(*child_id) {
                     // Write indent for predicates' lines (one level deeper)
-                    let child_indent_str = T::make_indent(indent + 1);
-                    write!(f, "{}", child_indent_str)?;
+                    write_indent(f, indent + 1)?;
                     child_node.fmt_syntax(f, arena, interner)?;
                     writeln!(f)?;
                 }
             }
 
             // Write the closing parenthesis aligned with the opening line
-            writeln!(f, "{})", indent_str)
+            write_indent(f, indent)?;
+            writeln!(f, ")")
         }
 
-        RenderKind::FunctionsDef => {
+        AstKind::FunctionsDef => {
             // Write the opening line with current indentation
-            write!(f, "{}(:functions", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(:functions")?;
 
             // Iterate over children and format each function inline separated by spaces
             for child_id in node.children() {
@@ -299,9 +309,10 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::AtomicFormulaSkeleton | RenderKind::AtomicFunctionSkeleton => {
+        AstKind::AtomicFormulaSkeleton | AstKind::AtomicFunctionSkeleton => {
             // Write the opening parenthesis with the given indentation
-            write!(f, "{}(", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
 
             let children = node.children();
 
@@ -329,9 +340,10 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::TaskDef => {
+        AstKind::TaskDef => {
             // Write opening line with indentation
-            write!(f, "{}(:task ", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(:task ")?;
 
             let children = node.children();
             let mut idx = 0;
@@ -352,7 +364,8 @@ pub fn render_with_indent<T: SyntaxNode>(
             if let Some(&params_id) = children.get(idx) {
                 if let Some(params_node) = arena.get_node(params_id) {
                     writeln!(f)?;
-                    write!(f, "{}:parameters (", T::make_indent(indent + 1))?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, ":parameters (")?;
 
                     let mut first = true;
                     for child_id in params_node.children() {
@@ -370,26 +383,28 @@ pub fn render_with_indent<T: SyntaxNode>(
                     write!(f, ")")?;
                 } else {
                     writeln!(f)?;
-                    write!(f, "{}<invalid_parameters>", T::make_indent(indent + 1))?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "<invalid_parameters>")?;
                 }
             } else {
                 // parameters syntax is missing: error
                 writeln!(f)?;
-                write!(f, "{}<missing_parameters>", T::make_indent(indent + 1))?;
+                write_indent(f, indent + 1)?;
+                write!(f, "<missing_parameters>")?;
             }
 
             // Close the task definition
-            writeln!(f, "\n{})", indent_str)
+            writeln!(f, "\n)")?;
+            write_indent(f, indent)
         }
 
-        RenderKind::MethodDef => {
+        AstKind::MethodDef => {
             let children = node.children();
 
-            // Base indentation for :parameters etc.
-            let indent_param = T::make_indent(indent + 1);
 
             // Write the opening line with base indentation
-            write!(f, "{}(:method ", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(:method ")?;
 
             // === 1. Name (mandatory) ===
             if let Some(&name_id) = children.get(0) {
@@ -406,16 +421,19 @@ pub fn render_with_indent<T: SyntaxNode>(
             if let Some(&params_id) = children.get(1) {
                 if let Some(params_node) = arena.get_node(params_id) {
                     writeln!(f)?;
-                    write!(f, "{}:parameters (", indent_param)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, ":parameters (")?;
                     typed_list::render(params_node, f, arena, interner, false, indent + 1)?;
                     write!(f, ")")?;
                 } else {
                     writeln!(f)?;
-                    write!(f, "{}<invalid-parameters>", indent_param)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "<invalid-parameters>")?;
                 }
             } else {
                 writeln!(f)?;
-                write!(f, "{}<missing-parameters>", indent_param)?;
+                write_indent(f, indent + 1)?;
+                write!(f, "<missing-parameters>")?;
             }
 
             // === 3. MethodDefBody (mandatory) ===
@@ -429,41 +447,41 @@ pub fn render_with_indent<T: SyntaxNode>(
                         indent + 1,
                     )?;
                 } else {
-                    let indent_body = T::make_indent(indent + 1);
-                    write!(f, "{}<invalid-method-body>", indent_body)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "<invalid-method-body>")?;
                 }
             } else {
                 writeln!(f)?;
-                let indent_body = T::make_indent(indent + 1);
-                write!(f, "{}<missing-method-body>", indent_body)?;
+                write_indent(f, indent + 1)?;
+                write!(f, "<missing-method-body>")?;
             }
 
             // Closing parenthesis
-            writeln!(f, "{})", indent_str)?;
+            write_indent(f, indent)?;
+            writeln!(f, ")")?;
 
             Ok(())
         }
 
-        RenderKind::Task => {
+        AstKind::Task => {
             // Call fmt_task with increased indentation level for nested formatting
             task::render(node, f, arena, interner, false, 0)
         }
 
-        RenderKind::PreconditionDef
-        | RenderKind::EffectDef
-        | RenderKind::MethodPreconditionDef
-        | RenderKind::TaskLogicalConstraintDef => {
+        AstKind::PreconditionDef
+        | AstKind::EffectDef
+        | AstKind::MethodPreconditionDef
+        | AstKind::TaskLogicalConstraintDef => {
             // Write the kind label
-            write!(f, "{}", indent_str)?;
-            node.render_kind().fmt_syntax_with_interner(f, interner)?;
+            write_indent(f, indent)?;
+            node.kind().fmt_syntax_with_interner(f, interner)?;
 
             // Newline after the label
             writeln!(f)?;
 
-            let child_indent_str = T::make_indent(indent + 1);
 
             // Write the indentation for the child syntax
-            write!(f, "{}", child_indent_str)?;
+            write_indent(f, indent + 1)?;
 
             // Format the first child if it exists, else print <no-children>
             if let Some(first_child_id) = node.children().first() {
@@ -479,9 +497,10 @@ pub fn render_with_indent<T: SyntaxNode>(
             Ok(())
         }
 
-        RenderKind::AtomicFormula | RenderKind::FunctionTerm => {
+        AstKind::AtomicFormula | AstKind::FunctionTerm => {
             // Write the opening parenthesis with current indentation
-            write!(f, "{}(", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
 
             let mut first = true;
 
@@ -502,9 +521,10 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::Assign | RenderKind::FComp => {
+        AstKind::Assign | AstKind::FComp => {
             // Write the opening parenthesis with current indentation
-            write!(f, "{}(", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
 
             // Write the operator keyword using syntax syntax formatting
             write!(f, "{}", node.content().to_string_with_interner(interner))?;
@@ -523,18 +543,19 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::And
-        | RenderKind::Or
-        | RenderKind::Not
-        | RenderKind::Imply
-        | RenderKind::AtStart
-        | RenderKind::AtEnd
-        | RenderKind::Overall => {
+        AstKind::And
+        | AstKind::Or
+        | AstKind::Not
+        | AstKind::Imply
+        | AstKind::AtStart
+        | AstKind::AtEnd
+        | AstKind::Overall => {
             // Write the opening parenthesis with current indentation
-            write!(f, "{}(", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
 
             // Write the operator keyword using syntax syntax formatting
-            node.render_kind().fmt_syntax_with_interner(f, interner)?;
+            node.kind().fmt_syntax_with_interner(f, interner)?;
 
             // Format each child syntax, separated by spaces
             for child_id in node.children() {
@@ -550,16 +571,17 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::Forall | RenderKind::Exists => {
+        AstKind::Forall | AstKind::Exists => {
             quantifiers::render(node, f, arena, interner, indent)
         }
 
-        RenderKind::When => {
+        AstKind::When => {
             let children = node.children();
 
             // 1. (when + début ligne
-            write!(f, "{}(", indent_str)?;
-            node.render_kind().fmt_syntax_with_interner(f, interner)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
+            node.kind().fmt_syntax_with_interner(f, interner)?;
             write!(f, " ")?;
 
             // 2. Condition sur la même ligne
@@ -598,29 +620,29 @@ pub fn render_with_indent<T: SyntaxNode>(
         }
 
 
-        RenderKind::TaskNetworkDef => {
+        AstKind::TaskNetworkDef => {
             let children = node.children();
 
             for (i, &child_id) in children.iter().enumerate() {
                 let is_last = i == children.len() - 1;
 
                 if let Some(child_node) = arena.get_node(child_id) {
-                    match child_node.render_kind() {
-                        RenderKind::OrderedSubtaskDef | RenderKind::PartiallyOrderedSubtaskDef => {
+                    match child_node.kind() {
+                        AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
                             child_node
                                 .fmt_syntax_with_indent(f, arena, interner, indent)?;
                             if !is_last {
                                 writeln!(f)?;
                             }
                         }
-                        RenderKind::TaskOrderingConstraintDef => {
+                        AstKind::TaskOrderingConstraintDef => {
                             child_node
                                 .fmt_syntax_with_indent(f, arena, interner, indent)?;
                             if !is_last {
                                 writeln!(f)?;
                             }
                         }
-                        RenderKind::TaskLogicalConstraintDef => {
+                        AstKind::TaskLogicalConstraintDef => {
                             child_node
                                 .fmt_syntax_with_indent(f, arena, interner, indent)?;
                             if !is_last {
@@ -628,21 +650,23 @@ pub fn render_with_indent<T: SyntaxNode>(
                             }
                         }
                         _ => {
-                            writeln!(f, "{}<unexpected-child-kind>", indent_str)?;
+                            write_indent(f, indent)?;
+                            writeln!(f, "<unexpected-child-kind>")?;
                         }
                     }
                 } else {
-                    writeln!(f, "{}<invalid-child-syntax>", indent_str)?;
+                    write_indent(f, indent)?;
+                    writeln!(f, "<invalid-child-syntax>")?;
                 }
             }
 
             Ok(())
         }
 
-        RenderKind::OrderedSubtaskDef | RenderKind::PartiallyOrderedSubtaskDef => {
+        AstKind::OrderedSubtaskDef | AstKind::PartiallyOrderedSubtaskDef => {
             // Write the type_checker of subtask with current indentation
-            write!(f, "{}", indent_str)?;
-            node.render_kind().fmt_syntax_with_interner(f, interner)?;
+            write_indent(f, indent)?;
+            node.kind().fmt_syntax_with_interner(f, interner)?;
             writeln!(f)?;
 
             let mut children = node.children().iter();
@@ -655,7 +679,7 @@ pub fn render_with_indent<T: SyntaxNode>(
                     // Begin the clause with increased indentation: (and
                     write_indent(f, indent + 1)?;
                     write!(f, "(")?;
-                    and_node.render_kind().fmt_syntax_with_interner(f, interner)?; // prints "and"
+                    and_node.kind().fmt_syntax_with_interner(f, interner)?; // prints "and"
 
                     if and_children.is_empty() {
                         // Empty case, close the clause on the same line
@@ -664,58 +688,60 @@ pub fn render_with_indent<T: SyntaxNode>(
                         writeln!(f)?;
                         for child_id in and_children {
                             if let Some(task_node) = arena.get_node(*child_id) {
-                                match task_node.render_kind() {
-                                    RenderKind::Task => {
+                                match task_node.kind() {
+                                    AstKind::Task => {
                                         // Print task without prefix with one more indentation level
-                                        write!(f, "{}", T::make_indent(indent + 2))?;
+                                        write_indent(f, indent + 2)?;
                                         task::render(task_node, f, arena, interner, false, 0)?;
                                         writeln!(f)?;
                                     }
-                                    RenderKind::TaggedTask => {
+                                    AstKind::TaggedTask => {
                                         // Print tagged task using fmt_planning with indentation
-                                        write!(f, "{}", T::make_indent(indent + 2))?;
+                                        write_indent(f, indent + 2)?;
                                         task_node.fmt_syntax(f, arena, interner)?;
                                         writeln!(f)?;
                                     }
                                     other => {
                                         // Unexpected syntax kind
-                                        writeln!(
-                                            f,
-                                            "{}<unexpected-{}>",
-                                            T::make_indent(indent + 2),
-                                            other
-                                        )?;
+                                        write_indent(f, indent + 2)?;
+                                        writeln!(f, "<unexpected-{}>", other)?;
                                     }
                                 }
                             } else {
-                                writeln!(f, "{}<invalid>", T::make_indent(indent + 1))?;
+                                write_indent(f, indent + 1)?;
+                                writeln!(f, "<invalid>")?;
                             }
                         }
                         // Close the clause with one level less indentation
-                        write!(f, "{})", T::make_indent(indent + 1))?;
+                        write_indent(f, indent + 1)?;
+                        write!(f, ")")?;
                     }
                 } else {
-                    writeln!(f, "{}<invalid-and-syntax>", indent_str)?;
+                    write_indent(f, indent)?;
+                    writeln!(f, "<invalid-and-syntax>")?;
                 }
             } else {
-                writeln!(f, "{}<no-children>", indent_str)?;
+                write_indent(f, indent)?;
+                writeln!(f, "<no-children>")?;
             }
 
             Ok(())
         }
 
-        RenderKind::TaggedTask => {
+        AstKind::TaggedTask => {
             let children = node.children();
 
             // Validate that there are exactly 2 children for TaggedTask
             if children.len() != 2 {
                 // Print invalid placeholder with current indentation
-                write!(f, "{}<invalid-tagged-task>", indent_str)?;
+                write_indent(f, indent)?;
+                write!(f, "<invalid-tagged-task>")?;
                 return Ok(());
             }
 
             // Write opening parenthesis with current indentation
-            write!(f, "{}(", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
 
             // Print the TaskID (first child)
             if let Some(task_id_node) = arena.get_node(children[0]) {
@@ -737,9 +763,10 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::TaskOrderingConstraintDef => {
+        AstKind::TaskOrderingConstraintDef => {
             // Write the kind line with current indentation
-            writeln!(f, "{}{}", indent_str, ORDER)?;
+            write_indent(f, indent)?;
+            writeln!(f, "{}", ORDER)?;
 
             let mut children = node.children().iter();
 
@@ -748,8 +775,9 @@ pub fn render_with_indent<T: SyntaxNode>(
                     let and_children = and_node.children();
 
                     // Write opening line for the 'and' clause with increased indentation
-                    write!(f, "{}(", T::make_indent(indent + 1))?;
-                    and_node.render_kind().fmt_syntax_with_interner(f, interner)?; // prints "and"
+                    write_indent(f, indent + 1)?;
+                    write!(f, "(")?;
+                    and_node.kind().fmt_syntax_with_interner(f, interner)?; // prints "and"
 
                     if and_children.is_empty() {
                         write!(f, ")")?;
@@ -758,31 +786,34 @@ pub fn render_with_indent<T: SyntaxNode>(
                         for child_id in and_children {
                             if let Some(ordering_node) = arena.get_node(*child_id) {
                                 // Print each ordering child with further indentation
-                                write!(f, "{}", T::make_indent(indent + 2))?;
+                                write_indent(f, indent + 2)?;
                                 ordering_node.fmt_syntax(f, arena, interner)?;
                                 writeln!(f)?;
                             } else {
-                                writeln!(f, "{}<invalid>", T::make_indent(indent + 2))?;
+                                write_indent(f, indent + 2)?;
+                                writeln!(f, "<invalid>")?;
                             }
                         }
                         // Closing parenthesis with increased indentation
-                        write!(f, "{})", T::make_indent(indent + 1))?;
+                        write_indent(f, indent + 1)?;
+                        write!(f, ")")?;
                     }
                 } else {
-                    writeln!(f, "{}<invalid-and>", indent_str)?;
+                    write_indent(f, indent)?;
+                    writeln!(f, "<invalid-and>")?;
                 }
             } else {
-                writeln!(f, "{}<no-children>", indent_str)?;
+                write_indent(f, indent)?;
+                writeln!(f, "<no-children>")?;
             }
 
             Ok(())
         }
 
-        RenderKind::TaskOrderingConstraint => {
-            let indent_str = T::make_indent(indent); // Compute indent string once
-
+        AstKind::TaskOrderingConstraint => {
             // Write opening parenthesis with indentation
-            write!(f, "{}(", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
 
             // Print the content (e.g., "<")
             write!(f, "{}", node.content())?;
@@ -813,12 +844,12 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::MethodDefBody => {
+        AstKind::MethodDefBody => {
             let children = node.children();
 
             // Task (toujours présent en premier)
             if let Some(&task_id) = children.get(0) {
-                write!(f, "{}", indent_str)?;
+                write_indent(f, indent)?;
                 if let Some(task_node) = arena.get_node(task_id) {
                     task::render(task_node, f, arena, interner, true, 0)?;
                 } else {
@@ -826,7 +857,8 @@ pub fn render_with_indent<T: SyntaxNode>(
                 }
             } else {
                 writeln!(f)?;
-                write!(f, "{}<missing-task>", indent_str)?;
+                write_indent(f, indent)?;
+                write!(f, "<missing-task>")?;
             }
 
             // Preconditions (optionnel, uniquement s'il y a 3 enfants)
@@ -851,20 +883,19 @@ pub fn render_with_indent<T: SyntaxNode>(
                 }
             } else {
                 writeln!(f)?;
-                write!(f, "{}<missing-task-network>", indent_str)?;
+                write_indent(f, indent)?;
+                write!(f, "<missing-task-network>")?;
             }
 
             Ok(())
         }
 
-        RenderKind::ActionDef => {
+        AstKind::ActionDef => {
             let children = node.children();
 
-            // Base indentation for :parameters etc.
-            let indent_param = T::make_indent(indent + 1);
-
             // Write the opening line with base indentation
-            write!(f, "{}(:action ", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(:action ")?;
 
             // === 1. Name (mandatory) ===
             if let Some(&name_id) = children.get(0) {
@@ -881,16 +912,19 @@ pub fn render_with_indent<T: SyntaxNode>(
             if let Some(&params_id) = children.get(1) {
                 if let Some(params_node) = arena.get_node(params_id) {
                     writeln!(f)?;
-                    write!(f, "{}:parameters (", indent_param)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, ":parameters (")?;
                     typed_list::render(params_node, f, arena, interner, false, indent + 1)?;
                     write!(f, ")")?;
                 } else {
                     writeln!(f)?;
-                    write!(f, "{}<invalid-parameters>", indent_param)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "<invalid-parameters>")?;
                 }
             } else {
                 writeln!(f)?;
-                write!(f, "{}<missing-parameters>", indent_param)?;
+                write_indent(f, indent +1 )?;
+                write!(f, "<missing-parameters>")?;
             }
 
             // === 3. ActionDefBody (mandatory) ===
@@ -905,25 +939,25 @@ pub fn render_with_indent<T: SyntaxNode>(
                     )?;
                     writeln!(f)?;
                 } else {
-                    let indent_body = T::make_indent(indent + 1);
-                    write!(f, "{}<invalid-action-body>", indent_body)?;
+                    write_indent(f, indent + 1)?;
+                    write!(f, "<invalid-action-body>")?;
                     writeln!(f)?;
                 }
             } else {
                 writeln!(f)?;
-                let indent_body = T::make_indent(indent + 1);
-                write!(f, "{}<missing-action-body>", indent_body)?;
+                write_indent(f, indent + 1)?;
+                write!(f, "<missing-action-body>")?;
             }
 
             // Closing parenthesis
-            writeln!(f, "{})", indent_str)?;
+            write_indent(f, indent)?;
+            writeln!(f, ")")?;
 
             Ok(())
         }
 
-        RenderKind::ActionDefBody => {
+        AstKind::ActionDefBody => {
             let children = node.children();
-            let indent_child = T::make_indent(indent);
 
             let mut wrote_something = false;
 
@@ -936,10 +970,11 @@ pub fn render_with_indent<T: SyntaxNode>(
                 if let Some(child_node) = arena.get_node(child_id) {
                     child_node.fmt_syntax_with_indent(f, arena, interner, indent)?;
                 } else {
+                    write_indent(f, indent)?;
                     match i {
-                        0 => write!(f, "{}<invalid-precondition>", indent_child)?,
-                        1 => write!(f, "{}<invalid-effect>", indent_child)?,
-                        _ => write!(f, "{}<unexpected-child>", indent_child)?,
+                        0 => write!(f, "<invalid-precondition>")?,
+                        1 => write!(f, "<invalid-effect>")?,
+                        _ => write!(f, "<unexpected-child>")?,
                     }
                 }
 
@@ -949,12 +984,12 @@ pub fn render_with_indent<T: SyntaxNode>(
             Ok(())
         }
 
-        RenderKind::ObjectsDef => {
-            let indent_str = T::make_indent(indent);
+        AstKind::ObjectsDef => {
 
             // Opening line
-            write!(f, "{}(", indent_str)?;
-            node.render_kind().fmt_syntax_with_interner(f, interner)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
+            node.kind().fmt_syntax_with_interner(f, interner)?;
             writeln!(f)?;
 
             // Children on their own line(s), indented
@@ -964,22 +999,22 @@ pub fn render_with_indent<T: SyntaxNode>(
                     typed_list::render(child_node, f, arena, interner, true, indent + 1)?;
                 }
             } else {
-                let empty_indent = T::make_indent(indent + 1);
-                writeln!(f, "{}; <missing-objects>", empty_indent)?;
+                write_indent(f, indent + 1)?;
+                writeln!(f, "<missing-objects>")?;
             }
 
             // Closing line
-            write!(f, "{})", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, ")")?;
 
             Ok(())
         }
 
-        RenderKind::Init => {
-            let indent_str = T::make_indent(indent);
-            let child_indent_str = T::make_indent(indent + 1);
+        AstKind::Init => {
 
             // Opening line: (:init
-            writeln!(f, "{}(:init", indent_str)?;
+            write_indent(f, indent)?;
+            writeln!(f, "(:init")?;
 
             // Init should have exactly 1 child: the root AND syntax
             if let Some(and_node_id) = node.children().first() {
@@ -996,29 +1031,34 @@ pub fn render_with_indent<T: SyntaxNode>(
                             )?;
                         } else {
                             // Manually indent the error line
-                            write!(f, "{}<invalid-init-child>", child_indent_str)?;
+                            write_indent(f, indent + 1)?;
+                            write!(f, "<invalid-init-child>")?;
                         }
                         writeln!(f)?;
                     }
                 } else {
                     // Invalid AND syntax
-                    writeln!(f, "{}<invalid-init-syntax>", child_indent_str)?;
+                    write_indent(f, indent + 1)?;
+                    writeln!(f, "<invalid-init-syntax>")?;
                 }
             } else {
                 // Missing AND syntax
-                writeln!(f, "{}<missing-init-expression>", child_indent_str)?;
+                write_indent(f, indent + 1)?;
+                writeln!(f, "<missing-init-expression>")?;
             }
 
             // Closing parenthesis
-            write!(f, "{})", indent_str)
+            write_indent(f, indent)?;
+            write!(f, ")")
         }
 
-        RenderKind::InitialTaskNetwork => {
-            let indent_str = T::make_indent(indent);
-            let child_indent_str = T::make_indent(indent + 1);
+        AstKind::InitialTaskNetwork => {
+
+
             let children = node.children();
 
-            writeln!(f, "{}(:htn", indent_str)?;
+            write_indent(f, indent)?;
+            writeln!(f, "(:htn")?;
 
             // Si on a au moins deux enfants : premier = paramètres, deuxième = task network
             // Si un seul enfant : task network seulement
@@ -1034,12 +1074,14 @@ pub fn render_with_indent<T: SyntaxNode>(
             if let Some(param_id) = param_opt {
                 match arena.get_node(param_id) {
                     Some(param_node) => {
-                        write!(f, "{}:parameters ", child_indent_str)?;
+                        write_indent(f, indent + 1)?;
+                        write!(f, ":parameters ")?;
                         typed_list::render(param_node, f, arena, interner, false, indent + 2)?;
                         writeln!(f)?;
                     }
                     None => {
-                        writeln!(f, "{}<invalid-parameters>", child_indent_str)?;
+                        write_indent(f, indent + 1)?;
+                        writeln!(f, "<invalid-parameters>")?;
                     }
                 }
             }
@@ -1056,19 +1098,23 @@ pub fn render_with_indent<T: SyntaxNode>(
                         )?;
                     }
                     None => {
-                        writeln!(f, "{}<invalid-task-network>", child_indent_str)?;
+                        write_indent(f, indent + 1)?;
+                        writeln!(f, "<invalid-task-network>")?;
                     }
                 }
             } else {
-                writeln!(f, "{}<missing-task-network>", child_indent_str)?;
+                write_indent(f, indent + 1)?;
+                writeln!(f, "<missing-task-network>")?;
             }
 
-            write!(f, "\n{})", indent_str)
+            write!(f, "\n)")?;
+            write_indent(f, indent)
         }
 
-        RenderKind::Goal => {
+        AstKind::Goal => {
             // Write the opening line with indentation
-            writeln!(f, "{}(:goal", indent_str)?;
+            write_indent(f, indent)?;
+            writeln!(f, "(:goal")?;
 
             // Expect exactly one child syntax (the goal expression)
             if let Some(&child_id) = node.children().get(0) {
@@ -1082,22 +1128,24 @@ pub fn render_with_indent<T: SyntaxNode>(
                     )?;
                 } else {
                     // Child syntax is invalid, print placeholder with indentation
-                    let child_indent = T::make_indent(indent + 1);
-                    writeln!(f, "{}<invalid-goal>", child_indent)?;
+                    write_indent(f, indent + 1)?;
+                    writeln!(f, "<invalid-goal>")?;
                 }
             } else {
                 // Missing child syntax, print placeholder with indentation
-                let child_indent = T::make_indent(indent + 1);
-                writeln!(f, "{}<missing-goal>", child_indent)?;
+                write_indent(f, indent + 1)?;
+                writeln!(f, "<missing-goal>")?;
             }
 
             // Write the closing parenthesis aligned with the opening indentation
-            write!(f, "\n{})", indent_str)
+            write!(f, "\n)")?;
+            write_indent(f, indent)
         }
 
-        RenderKind::Metric => {
+        AstKind::Metric => {
             // Write the opening line for the metric section with base indentation
-            write!(f, "{}(:metric", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(:metric")?;
 
             // Iterate over all children, separated by spaces (no newlines)
             for child_id in node.children() {
@@ -1116,36 +1164,40 @@ pub fn render_with_indent<T: SyntaxNode>(
             write!(f, ")")
         }
 
-        RenderKind::Constant
-        | RenderKind::Variable
-        | RenderKind::FunctionSymbol
-        | RenderKind::PrimitiveType
-        | RenderKind::DomainName
-        | RenderKind::ProblemName
-        | RenderKind::Number
-        | RenderKind::Predicate
-        | RenderKind::ActionSymbol
-        | RenderKind::DASymbol
-        | RenderKind::MethodSymbol
-        | RenderKind::TaskSymbol
-        | RenderKind::PrefName
-        | RenderKind::Requirement
-        | RenderKind::TaskID => {
-            write!(f, "{}{}", indent_str, node.content().to_syntax_string_with_interner(interner))
+        AstKind::Constant
+        | AstKind::Variable
+        | AstKind::FunctionSymbol
+        | AstKind::PrimitiveType
+        | AstKind::DomainName
+        | AstKind::ProblemName
+        | AstKind::Number
+        | AstKind::Predicate
+        | AstKind::ActionSymbol
+        | AstKind::DASymbol
+        | AstKind::MethodSymbol
+        | AstKind::TaskSymbol
+        | AstKind::PrefName
+        | AstKind::Requirement
+        | AstKind::TaskID => {
+            write_indent(f, indent)?;
+            write!(f, "{}", node.content().to_syntax_string_with_interner(interner))
         }
 
-        RenderKind::TotalTime => {
-            write!(f, "{}{}", indent_str, TOTAL_TIME)
+        AstKind::TotalTime => {
+            write_indent(f, indent)?;
+            write!(f, "{}", TOTAL_TIME)
         }
 
-        RenderKind::Error => {
-            write!(f, "{}<error>", indent_str)
+        AstKind::Error => {
+            write_indent(f, indent)?;
+            write!(f, "<error>")
         }
-        RenderKind::Operation => {
+        AstKind::Operation => {
             let children = node.children();
 
             // Write opening parenthesis with current indentation
-            write!(f, "{}(", indent_str)?;
+            write_indent(f, indent)?;
+            write!(f, "(")?;
 
             if let Some(op) = node.content().as_arithmetic_op() {
                 write!(f, "{}", op)?;
@@ -1169,7 +1221,7 @@ pub fn render_with_indent<T: SyntaxNode>(
 
 
         _ => {
-            write!(f, "(DEFAULT {}", node.render_kind())?;
+            write!(f, "(DEFAULT {}", node.kind())?;
             for child_id in node.children() {
                 write!(f, " ")?;
                 if let Some(child_node) = arena.get_node(*child_id) {

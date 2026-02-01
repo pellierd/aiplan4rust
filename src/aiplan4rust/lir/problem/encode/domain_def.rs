@@ -13,7 +13,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::encode::{action_def, predicates_def, functions_def, types_def, constants_def, expr, durative_action_def, method_def, derived_predicate_def, task_def};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 
 /// Encodes the PDDL domain into the Lifted Intermediate Representation (LIR).
 ///
@@ -42,7 +42,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
 /// * The AST structure is inconsistent with the expected PDDL format.
 /// * Identifiers used in actions or constraints cannot be found in the domain's symbol table.
 pub(crate) fn encode(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
@@ -83,7 +83,7 @@ pub(crate) fn encode(
 /// Returns a `LirError` if any structural definition is malformed or if mandatory
 /// identifiers are missing.
 fn collect_definitions(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 
@@ -132,7 +132,7 @@ fn collect_definitions(
 /// Elements already processed in the collection phase (like Types or Constants)
 /// are ignored in this pass.
 fn encode_logic(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {

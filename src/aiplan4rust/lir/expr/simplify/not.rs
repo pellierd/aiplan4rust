@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a `Not` node in a PDDL expression tree.
 ///

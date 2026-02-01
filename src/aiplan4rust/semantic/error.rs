@@ -17,8 +17,8 @@ use crate::aiplan4rust::semantic::checks::SemanticCheckError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 use crate::aiplan4rust::syntax::ast::AstKind;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Indicates an AST node has a kind different than expected.
 ///

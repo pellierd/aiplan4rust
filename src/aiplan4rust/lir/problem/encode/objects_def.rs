@@ -11,7 +11,7 @@ use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::tree::{NodeId, Node, SyntaxSubtree, Tree};
 
 /// Encodes a list of objects from the syntax tree into the Lifted Intermediate Representation (LIR).
 ///

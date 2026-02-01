@@ -55,7 +55,7 @@ use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Opt
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
-use crate::aiplan4rust::syntax::tree::{SyntaxContent, SyntaxSubtree};
+use crate::aiplan4rust::tree::{SyntaxContent, SyntaxSubtree};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};

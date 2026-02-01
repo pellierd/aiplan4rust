@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::rewrite::push_time_specifier::push_time_specifier;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
+use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Factorizes temporal specifiers in an expression tree.
 ///

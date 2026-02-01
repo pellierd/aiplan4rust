@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode};
+use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Recursively pushes temporal specifier nodes (`AtStart`, `AtEnd`, `Overall`)
 /// down to atomic formulas in an expression tree.

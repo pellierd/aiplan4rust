@@ -9,7 +9,7 @@ use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, Ob
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Context used during the encoding of actions, methods, and expressions.
 ///

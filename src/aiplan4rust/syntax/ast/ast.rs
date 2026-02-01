@@ -9,7 +9,7 @@
 //!
 //! The [`Ast`] holds the following components:
 //!
-//! - A [`SyntaxTree<AstNode>`] representing the complete AST structure.
+//! - A [`Tree<AstNode>`] representing the complete AST structure.
 //! - A [`StringInterner`] used during parsing for deduplicating string content such as symbols.
 //! - A human-readable [`source_name`] (e.g., a filename or label).
 //! - A [`SystemTime`] timestamp recording when the AST was created.
@@ -60,7 +60,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay, SyntaxInternerDisplay};
 use crate::aiplan4rust::syntax::ast::error::AstError;
-use crate::aiplan4rust::syntax::tree::{SyntaxTree, NodeId, SyntaxNode};
+use crate::aiplan4rust::tree::{Tree, NodeId, Node};
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -86,7 +86,7 @@ use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ast {
     /// The complete syntax tree of the AST.
-    syntax_tree: SyntaxTree<AstNode>,
+    syntax_tree: Tree<AstNode>,
 
     /// String interner used during parsing.
     interner: StringInterner,
@@ -108,7 +108,7 @@ impl Default for Ast {
     /// - A generation timestamp set to the current system time.
     fn default() -> Self {
         Ast {
-            syntax_tree: SyntaxTree::<AstNode>::new(),
+            syntax_tree: Tree::<AstNode>::new(),
             interner: StringInterner::new(),
             source_id: LiteralID::default(),
             generated_at: SystemTime::now(),
@@ -144,7 +144,7 @@ impl Ast {
     /// let ast = Ast::new(syntax_tree, interner, source_name, generated_at);
     /// ```
     pub fn new(
-        syntax_tree: SyntaxTree<AstNode>,
+        syntax_tree: Tree<AstNode>,
         interner: StringInterner,
         source_id: LiteralID,
         generated_at: SystemTime,
@@ -164,7 +164,7 @@ impl Ast {
     ///
     /// # Returns
     ///
-    /// A reference to the internal [`SyntaxTree<AstNode>`], which holds all nodes
+    /// A reference to the internal [`Tree<AstNode>`], which holds all nodes
     /// allocated during parsing.
     ///
     /// # Example
@@ -173,7 +173,7 @@ impl Ast {
     /// let tree_ref = ctx.syntax_tree();
     /// assert!(tree_ref.is_empty());
     /// ```
-    pub fn syntax_tree(&self) -> &SyntaxTree<AstNode> {
+    pub fn syntax_tree(&self) -> &Tree<AstNode> {
         &self.syntax_tree
     }
 
@@ -181,8 +181,8 @@ impl Ast {
     ///
     /// # Returns
     ///
-    /// A mutable reference to the internal [`SyntaxTree<AstNode>`].
-    pub fn syntax_tree_mut(&mut self) -> &mut SyntaxTree<AstNode> {
+    /// A mutable reference to the internal [`Tree<AstNode>`].
+    pub fn syntax_tree_mut(&mut self) -> &mut Tree<AstNode> {
         &mut self.syntax_tree
     }
 
@@ -190,8 +190,8 @@ impl Ast {
     ///
     /// # Returns
     ///
-    /// The owned [`SyntaxTree<AstNode>`] that was contained in the `Ast`.
-    pub fn take_syntax_tree(&mut self) -> SyntaxTree<AstNode> {
+    /// The owned [`Tree<AstNode>`] that was contained in the `Ast`.
+    pub fn take_syntax_tree(&mut self) -> Tree<AstNode> {
         std::mem::take(&mut self.syntax_tree)
     }
 
@@ -399,8 +399,11 @@ impl Ast {
         buf.push_str(&format!(";; Generated at: {:?}\n\n", self.generated_at));
 
         // Append the PDDL syntax representation of the AST
-        buf.push_str(&self.syntax_tree().to_syntax_string_with_interner(self.interner()));
-
+        if let Some(root_id) = self.syntax_tree().root_id() {
+            if let Some(root_node) = self.syntax_tree().get_node(root_id) {
+                buf.push_str(&root_node.to_syntax_string(self.syntax_tree(), self.interner()));
+            }
+        }
         buf
     }
 
@@ -454,7 +457,12 @@ impl SyntaxDisplay for Ast {
     /// println!("{}", s);
     /// ```
     fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.syntax_tree().fmt_syntax_with_interner_and_indent(f, self.interner(), 0)
+        if let Some(root_id) = self.syntax_tree().root_id() {
+            if let Some(root_node) = self.syntax_tree().get_node(root_id) {
+                return root_node.fmt_syntax_with_indent(f, self.syntax_tree(), self.interner(), 0);
+            }
+        }
+        Ok(())
     }
 }
 
@@ -482,7 +490,13 @@ impl SelfInternerDisplay for Ast {
     /// println!("{}", s);
     /// ```
     fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        self.syntax_tree().fmt_with_interner(f, self.interner())
+        if let Some(root_id) = self.syntax_tree().root_id() {
+            if let Some(root_node) = self.syntax_tree().get_node(root_id) {
+                // Utilise la méthode de rendu d'arbre que nous avons créée
+                return root_node.fmt_with_interner(f, self.syntax_tree(), self.interner());
+            }
+        }
+        Ok(())
     }
 }
 
@@ -495,8 +509,7 @@ impl fmt::Display for Ast {
         writeln!(f, " - Source: {}", self.source_name_string())?;
         writeln!(f, " - Generated at: {:?}", self.generated_at)?;
         writeln!(f, " - Nodes:\n")?;
-        self.syntax_tree().fmt_with_interner(f, self.interner())?;
-        Ok(())
+        self.fmt_interner(f)
     }
 }
 
@@ -524,7 +537,7 @@ impl SyntaxSerializable for Ast {
     }
 }
 
-impl SyntaxTree<AstNode> {
+impl Tree<AstNode> {
 
     /// Remaps identifiers starting only from the root.
     pub fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {

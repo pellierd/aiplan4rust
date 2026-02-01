@@ -16,7 +16,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxNode, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::tree::{NodeId, Node, SyntaxSubtree, Tree};
 use crate::aiplan4rust::lir::problem::encode::{typed_list, EncodingRegistry};
 
 /// Encodes a `NamedTypedList` (skeleton) from a syntax subtree.
@@ -80,7 +80,7 @@ pub fn encode(
 /// ou présentes directement dans la liste.
 pub fn bind_variables(
     params_root_id: NodeId,
-    ast: &SyntaxTree<AstNode>,
+    ast: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
 ) -> Result<(), LirError> {
     registry.clear_variables();

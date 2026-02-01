@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{expr, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a HTN Task Network from the given syntax subtree.
 ///

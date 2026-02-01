@@ -38,19 +38,14 @@
 
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
-use crate::aiplan4rust::semantic::symbol::{SymbolKind, Symbol};
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::expr::resolution::Resolution;
-use crate::aiplan4rust::syntax;
-use crate::aiplan4rust::syntax::tree::{SyntaxBaseNode, SyntaxNode, SyntaxTree};
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::syntax::tree::renderers::{RenderKind};
+use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree};
 
 /// Expression node wrapping a syntax base node specialized with `ExprKind` and `ExprContent`.
 ///
@@ -59,7 +54,6 @@ use crate::aiplan4rust::syntax::tree::renderers::{RenderKind};
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct ExprNode {
     inner: SyntaxBaseNode<ExprKind, ExprContent>,
-    resolution: Resolution,
 }
 
 impl ExprNode {
@@ -77,7 +71,6 @@ impl ExprNode {
     pub fn new(kind: ExprKind, content: Content, parent: Option<NodeId>) -> Self {
         ExprNode {
             inner: SyntaxBaseNode::new(kind, content, Vec::new(), parent),
-            resolution: Resolution::None,
         }
     }
 
@@ -97,45 +90,22 @@ impl ExprNode {
         self.kind() == ExprKind::Or && self.children().is_empty()
     }
 
-    /// Returns a reference to the resolution of this expression node.
-    ///
-    /// The resolution indicates how a symbol (identifier) has been linked
-    /// to a specific domain entity such as a parameter, variable, or constant.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the [`Resolution`] associated with this node.
-    /// If the node has not been processed by the encoder yet, it returns [`Resolution::None`].
-    pub fn resolution(&self) -> &Resolution {
-        &self.resolution
+    pub fn to_syntax_string(
+        &self,
+        tree: &Tree<ExprNode>,
+        interner: &StringInterner
+    ) -> String {
+        struct Wrapper<'a>(&'a ExprNode, &'a Tree<ExprNode>, &'a StringInterner);
+        impl fmt::Display for Wrapper<'_> {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                // Appelle ici le renderer spécifique au LIR/Expr
+                // Si tu n'en as pas encore, utilise la version générique ou simplifiée
+               writeln!(f, "{}", "TO DO".to_string())
+            }
+        }
+        format!("{}", Wrapper(self, tree, interner))
     }
 
-    /// Sets the semantic resolution for this expression node.
-    ///
-    /// This method is typically called during the encoding or linking phase
-    /// once the identifier's meaning is determined from the symbol table.
-    ///
-    /// # Parameters
-    ///
-    /// - `resolution`: The [`Resolution`] to assign to this node,
-    ///   encapsulating the resolved ID and its associated type.
-    pub fn set_resolution(&mut self, resolution: Resolution) {
-        self.resolution = resolution;
-    }
-
-    /// Checks whether the expression node has been semantically resolved.
-    ///
-    /// A resolved node means its identifier or symbol has been successfully
-    /// linked to a specific entity (like a Constant, Parameter, or Function)
-    /// within the domain or problem context.
-    ///
-    /// # Returns
-    ///
-    /// `true` if the node's resolution is anything other than [`Resolution::None`],
-    /// `false` otherwise.
-    pub fn is_resolved(&self) -> bool {
-        !matches!(self.resolution, Resolution::None)
-    }
 
 }
 
@@ -162,7 +132,7 @@ impl DerefMut for ExprNode {
 /// - A list of children node IDs
 impl fmt::Display for ExprNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        syntax::tree::renderers::default_rendering(self, f)
+        writeln!(f, "{}", "TO DO".to_string())
     }
 }
 
@@ -234,7 +204,7 @@ impl ArenaNode for ExprNode {
 ///
 /// The `as_symbol_ref` method returns a `SymbolRef` if the node's kind corresponds to a symbol,
 /// such as a variable, constant, or function. Otherwise, it returns `None`.
-impl SyntaxNode for ExprNode {
+impl Node for ExprNode {
     type Kind = ExprKind;
     type Content = ExprContent;
 
@@ -272,20 +242,6 @@ impl SyntaxNode for ExprNode {
     /// ```
     fn set_kind(&mut self, kind: Self::Kind) {
         self.inner.set_kind(kind);
-    }
-
-    /// Returns the rendering kind of this Expr node.
-    ///
-    /// The `render_kind` provides a high-level categorization of the node
-    /// that is used by renderers to determine how to display it. This
-    /// abstracts over the specific underlying `ExprNode` and maps it to a `RenderKind` variant.
-    ///
-    /// # Returns
-    /// A `RenderKind` value representing the node’s appearance in rendered
-    /// output. This is typically used by syntax tree renderers or formatters
-    /// to decide keywords, indentation, or visual representation.
-    fn render_kind(&self) -> RenderKind {
-        RenderKind::from_expr_kind(self.kind())
     }
 
     /// Returns a reference to the semantic content of the node.
@@ -338,7 +294,7 @@ impl SyntaxNode for ExprNode {
     /// its parent or children. The resulting node has an empty children list and no parent.
     ///
     /// This is typically used when reconstructing a subtree in-place within
-    /// a [`SyntaxTree`] or [`Expr`] using methods like [`SyntaxTree::clone_subtree`]
+    /// a [`Tree`] or [`Expr`] using methods like [`Tree::clone_subtree`]
     /// or `Expr`’s equivalent subtree-cloning functions.
     ///
     /// # Returns
@@ -361,7 +317,6 @@ impl SyntaxNode for ExprNode {
                 Vec::new(),         // no children
                 None,               // no parent
             ),
-            resolution: self.resolution.clone(),
         }
     }
 
@@ -422,7 +377,7 @@ impl SyntaxNode for ExprNode {
         matches!(self.kind(), ExprKind::Not)
     }
 
-    /// Recursively pretty-prints the syntax subtree rooted at this node,
+    /*/// Recursively pretty-prints the syntax subtree rooted at this node,
     /// formatting the tree structure with branch graphics and displaying interned strings.
     ///
     /// # Parameters
@@ -467,5 +422,5 @@ impl SyntaxNode for ExprNode {
         Self: Sized,
     {
         syntax::tree::renderers::syntax_rendering(self, f, arena, interner)
-    }
+    }*/
 }

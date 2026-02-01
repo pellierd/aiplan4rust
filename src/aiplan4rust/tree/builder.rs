@@ -1,8 +1,8 @@
 use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::syntax::tree::{SyntaxTree, SyntaxNode, SyntaxContent};
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::{Tree, Node, SyntaxContent};
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
-/// Generic builder for [`SyntaxTree<T>`].
+/// Generic builder for [`Tree<T>`].
 ///
 /// `SyntaxTreeBuilder` provides a convenient way to construct syntax trees
 /// in an arena-based structure. It handles:
@@ -10,7 +10,7 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// - Assigning children to nodes
 /// - Setting the root node
 ///
-/// This builder is generic over any type `T` implementing [`SyntaxNode`].
+/// This builder is generic over any type `T` implementing [`Node`].
 /// Concrete builders like [`ExprBuilder`] or [`AstBuilder`] can wrap this
 /// generic builder to provide domain-specific helpers (e.g., `and`, `or`, `forall`).
 ///
@@ -56,14 +56,14 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// assert_eq!(tree.root_id(), Some(root));
 /// ```
 #[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
-pub struct SyntaxTreeBuilder<T: SyntaxNode>
+pub struct SyntaxTreeBuilder<T: Node>
 where
     T::Content: SyntaxContent,
 {
-    tree: SyntaxTree<T>,
+    tree: Tree<T>,
 }
 
-impl<T: SyntaxNode> SyntaxTreeBuilder<T>
+impl<T: Node> SyntaxTreeBuilder<T>
 where
     T::Content: SyntaxContent,
 {
@@ -73,15 +73,15 @@ where
     /// A new instance of `SyntaxTreeBuilder<T>` with no nodes allocated.
     pub fn new() -> Self {
         Self {
-            tree: SyntaxTree::new(),
+            tree: Tree::new(),
         }
     }
 
-    /// Consumes the builder and returns the built [`SyntaxTree<T>`].
+    /// Consumes the builder and returns the built [`Tree<T>`].
     ///
     /// # Returns
     /// The fully constructed `SyntaxTree<T>`.
-    pub fn finish(self) -> SyntaxTree<T> {
+    pub fn finish(self) -> Tree<T> {
         self.tree
     }
 
@@ -136,16 +136,16 @@ where
     /// Provides mutable access to the underlying syntax tree.
     ///
     /// # Returns
-    /// A mutable reference to the internal [`SyntaxTree<T>`].
-    pub fn tree_mut(&mut self) -> &mut SyntaxTree<T> {
+    /// A mutable reference to the internal [`Tree<T>`].
+    pub fn tree_mut(&mut self) -> &mut Tree<T> {
         &mut self.tree
     }
 
     /// Provides immutable access to the underlying syntax tree.
     ///
     /// # Returns
-    /// An immutable reference to the internal [`SyntaxTree<T>`].
-    pub fn tree(&self) -> &SyntaxTree<T> {
+    /// An immutable reference to the internal [`Tree<T>`].
+    pub fn tree(&self) -> &Tree<T> {
         &self.tree
     }
 }

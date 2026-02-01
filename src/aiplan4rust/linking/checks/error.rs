@@ -20,7 +20,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents errors that may occur during the linking checks phase.
 ///

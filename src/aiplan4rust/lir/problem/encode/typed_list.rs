@@ -7,7 +7,7 @@
 use crate::aiplan4rust::lang::{StringID, TypeID, TypedList};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingRegistry};
 
 /// Encodes a `TypedList` from a syntax subtree into the LIR representation.

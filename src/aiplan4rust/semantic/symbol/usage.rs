@@ -18,7 +18,7 @@ use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterne
 use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::lang::{StringID, RemapIdents};
 use crate::aiplan4rust::syntax::Span;
 use std::collections::HashMap;

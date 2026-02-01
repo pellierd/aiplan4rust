@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{expr, EncodingRegistry};
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes the goal condition of the problem from the `:goal` AST section.
 ///

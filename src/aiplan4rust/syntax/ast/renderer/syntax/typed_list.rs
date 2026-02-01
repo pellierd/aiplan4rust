@@ -19,8 +19,8 @@ use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax;
-use crate::aiplan4rust::syntax::tree::renderers;
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
+use crate::aiplan4rust::syntax::ast::{renderer, AstNode};
+use crate::aiplan4rust::tree::Tree;
 
 /// Recursively renders the given AST node and its children into the formatter.
 ///
@@ -41,10 +41,10 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxTree};
 /// # Errors
 ///
 /// Returns a formatting error if writing to the formatter fails.
-pub fn render<T: SyntaxNode>(
-    node: &T,
+pub fn render(
+    node: &AstNode,
     f: &mut Formatter<'_>,
-    arena: &SyntaxTree<T>,
+    arena: &Tree<AstNode>,
     interner: &StringInterner,
     multiline: bool,
     indent: usize,
@@ -64,7 +64,7 @@ pub fn render<T: SyntaxNode>(
                 syntax::display::write_indent(f, indent)?;
             }
             // Recursively renderers the child node
-            renderers::syntax::render(child_node, f, arena, interner)?;
+            renderer::syntax::render(child_node, f, arena, interner)?;
             // Add a newline after the child if multiline is enabled
             if multiline {
                 writeln!(f)?;

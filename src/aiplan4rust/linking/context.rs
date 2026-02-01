@@ -28,7 +28,7 @@ use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::tree::SyntaxTree;
+use crate::aiplan4rust::tree::Tree;
 
 /// Represents a linked semantic context combining a domain and a problem.
 ///
@@ -67,8 +67,8 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// including source information, timestamps, and counts of AST nodes and symbol table entries.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LinkedSemanticContext {
-    domain_syntax_tree: SyntaxTree<AstNode>,
-    problem_syntax_tree: SyntaxTree<AstNode>,
+    domain_syntax_tree: Tree<AstNode>,
+    problem_syntax_tree: Tree<AstNode>,
     domain_table: SymbolTable,
     problem_table: SymbolTable,
     declared_requirements: HashSet<Requirement>,
@@ -332,7 +332,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// A reference to the `SyntaxTree` representing the domain AST.
-    pub fn domain_syntax_tree(&self) -> &SyntaxTree<AstNode> {
+    pub fn domain_syntax_tree(&self) -> &Tree<AstNode> {
         &self.domain_syntax_tree
     }
 
@@ -341,7 +341,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// The previously held `SyntaxTree` representing the domain.
-    pub fn take_domain_syntax_tree(&mut self) -> SyntaxTree<AstNode> {
+    pub fn take_domain_syntax_tree(&mut self) -> Tree<AstNode> {
         std::mem::take(&mut self.domain_syntax_tree)
     }
 
@@ -350,7 +350,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// A reference to the `SyntaxTree` representing the problem AST.
-    pub fn problem_syntax_tree(&self) -> &SyntaxTree<AstNode> {
+    pub fn problem_syntax_tree(&self) -> &Tree<AstNode> {
         &self.problem_syntax_tree
     }
 
@@ -359,7 +359,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// The previously held `SyntaxTree` representing the problem.
-    pub fn take_problem_syntax_tree(&mut self) -> SyntaxTree<AstNode> {
+    pub fn take_problem_syntax_tree(&mut self) -> Tree<AstNode> {
         std::mem::take(&mut self.problem_syntax_tree)
     }
 

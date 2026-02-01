@@ -12,7 +12,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list, EncodingRegistry};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree, Tree};
 
 /// Encodes a PDDL action from the syntax tree into the LIR.
 ///

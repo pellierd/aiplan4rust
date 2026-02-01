@@ -7,7 +7,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::problem::encode::{named_typed_list, task_network, typed_list};
 use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::problem::InitialTaskNetwork;

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::NodeId;
+use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN expressions.
 ///

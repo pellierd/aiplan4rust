@@ -6,7 +6,7 @@
 //! introduces AST-specific errors such as unexpected content or internal logic faults.
 
 use thiserror::Error;
-use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Errors that can arise during AST manipulation.
 #[derive(Error, Debug)]

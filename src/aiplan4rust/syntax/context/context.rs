@@ -3,19 +3,19 @@
 //! This module provides the [`ParseContext`] structure, which acts as the central
 //! context object during parsing. It is responsible for managing:
 //!
-//! - A [`SyntaxTree`] of arena-allocated AST nodes,
+//! - A [`Tree`] of arena-allocated AST nodes,
 //! - A [`StringInterner`] for deduplicating string identifiers,
 //! - A list of recoverable lexical or syntactic errors.
 //!
 //! ## Components
 //! - [`ParseContext`]: Owns and coordinates syntax tree, interner, and error list.
-//! - [`SyntaxTree`]: Arena-based tree used to allocate and structure [`AstNode`]s.
+//! - [`Tree`]: Arena-based tree used to allocate and structure [`AstNode`]s.
 //! - [`StringInterner`]: Deduplicates and manages unique string identifiers.
 //!
 //! ## Responsibilities
 //! `ParseContext` is passed throughout the parsing pipeline and serves to:
 //!
-//! - Allocate and link AST nodes in the [`SyntaxTree`],
+//! - Allocate and link AST nodes in the [`Tree`],
 //! - Intern all strings used in identifiers (`Ident`),
 //! - Collect recoverable errors (`ErrorRecovery`) produced during parsing.
 //!
@@ -46,13 +46,13 @@ use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::context::error::ParseContextError;
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::CustomParseError;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxTree};
+use crate::aiplan4rust::tree::{NodeId, Tree};
 use crate::aiplan4rust::syntax::Span;
 
 /// Parsing context used throughout the LALRPOP parsing process.
 ///
 /// The `ParseContext` owns and manages:
-/// - A [`SyntaxTree`] of AST nodes, used to construct the program structure.
+/// - A [`Tree`] of AST nodes, used to construct the program structure.
 /// - A [`StringInterner`] to deduplicate and reference strings used in identifiers.
 /// - A list of recoverable [`CustomParseError`]s and parse errors.
 ///
@@ -61,7 +61,7 @@ use crate::aiplan4rust::syntax::Span;
 /// and all collected errors.
 pub struct ParseContext {
     interner: RefCell<StringInterner>,
-    syntax_tree: RefCell<SyntaxTree<AstNode>>,
+    syntax_tree: RefCell<Tree<AstNode>>,
     errors: RefCell<Vec<ErrorRecovery<usize, Token, CustomParseError>>>,
 }
 
@@ -83,7 +83,7 @@ impl ParseContext {
     pub fn new() -> Self {
         Self {
             interner: RefCell::new(StringInterner::new()),
-            syntax_tree: RefCell::new(SyntaxTree::new()),
+            syntax_tree: RefCell::new(Tree::new()),
             errors: RefCell::new(Vec::new()),
         }
     }
@@ -97,7 +97,7 @@ impl ParseContext {
     /// # Panics
     ///
     /// Panics if the internal borrow rules are violated.
-    pub fn borrow_syntax_tree(&self) -> std::cell::Ref<'_, SyntaxTree<AstNode>> {
+    pub fn borrow_syntax_tree(&self) -> std::cell::Ref<'_, Tree<AstNode>> {
         self.syntax_tree.borrow()
     }
 
@@ -110,7 +110,7 @@ impl ParseContext {
     /// # Panics
     ///
     /// Panics if there is an existing active borrow (mutable or immutable).
-    pub fn borrow_syntax_tree_mut(&self) -> std::cell::RefMut<'_, SyntaxTree<AstNode>> {
+    pub fn borrow_syntax_tree_mut(&self) -> std::cell::RefMut<'_, Tree<AstNode>> {
         self.syntax_tree.borrow_mut()
     }
 
@@ -123,7 +123,7 @@ impl ParseContext {
     /// # Notes
     ///
     /// After this operation, the internal syntax tree is reset.
-    pub fn take_syntax_tree(&self) -> SyntaxTree<AstNode> {
+    pub fn take_syntax_tree(&self) -> Tree<AstNode> {
         std::mem::take(&mut *self.syntax_tree.borrow_mut())
     }
 

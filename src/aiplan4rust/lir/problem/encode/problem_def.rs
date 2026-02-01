@@ -8,7 +8,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{constants_def, expr, goal, init, initial_task_network, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
+use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 
 /// Encodes a PDDL/HTN problem AST into the Lifted Intermediate Representation (LIR).
 ///
@@ -35,7 +35,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
 /// * The problem name or object definitions are malformed.
 /// * A logical expression (metric, constraint, length) fails to encode.
 pub fn encode(
-    syntax_tree: &SyntaxTree<AstNode>,
+    syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {

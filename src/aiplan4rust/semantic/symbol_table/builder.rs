@@ -25,7 +25,7 @@ use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, Symb
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::NodeRef;
+use crate::aiplan4rust::tree::NodeRef;
 
 /// A builder for constructing a [`SymbolTable`] from an abstract syntax arena (AST).
 ///

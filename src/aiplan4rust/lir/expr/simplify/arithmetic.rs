@@ -2,7 +2,7 @@ use ordered_float::OrderedFloat;
 use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxContent};
+use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
 /// Simplifies an arithmetic expression node.
 ///
