@@ -41,6 +41,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::syntax::ast::AstError;
+use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::SyntaxContent;
 
 /// Represents semantic content associated with an AST syntax.
@@ -101,6 +102,24 @@ impl Content {
             _ => Err(AstError::not_a_requirement()),
         }
     }
+
+    /// Returns the content as an identifier if available.
+    pub fn as_ident(&self) -> Option<StringID> {
+        match self {
+            Content::Ident(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Attempts to extract an identifier from the content.
+    ///
+    /// Returns `Ok(Ident)` if successful or
+    /// `Err(SyntaxTreeError::NotAnIdent)` if the content is not an identifier.
+    pub fn try_ident(&self) -> Result<StringID, AstError> {
+        self.as_ident()
+            .ok_or_else(|| AstError::not_a_symbol_id())
+    }
+
 }
 
 /// Implements the standard `fmt::Display` trait for the `Content` enum.
@@ -241,12 +260,12 @@ impl SyntaxContent for Content {
     ///
     /// - `Some(Ident)` if the content is an identifier.
     /// - `None` otherwise.
-    fn as_ident(&self) -> Option<StringID> {
+    /*fn as_ident(&self) -> Option<StringID> {
         match self {
             Content::Ident(id) => Some(*id),
             _ => None,
         }
-    }
+    }*/
 
     /// Returns the floating-point literal if this content is a `Float`.
     ///

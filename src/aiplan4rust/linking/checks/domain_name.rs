@@ -65,7 +65,7 @@ pub fn check_domain_name(
 
     // --- 3. Compare both domain names ---
     // If the names don't match, emit a diagnostic warning.
-    if declared.symbol().ident() != referenced.symbol().ident() {
+    if declared.symbol().id() != referenced.symbol().id() {
 
         // --- 4. Retrieve the corresponding AST entry ---
         let ast = problem.syntax_tree().try_node(referenced.node_id())?;

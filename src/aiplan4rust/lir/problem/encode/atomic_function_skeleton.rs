@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::function::Function;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::problem::encode::{named_typed_list, ty};
+use crate::aiplan4rust::lir::problem::encode::{named_typed_list, ty, EncodingRegistry};
 
 /// Encodes a PDDL numeric function (fluent) from the syntax tree into the LIR.
 ///
@@ -30,18 +30,21 @@ use crate::aiplan4rust::lir::problem::encode::{named_typed_list, ty};
 /// This function returns an error if:
 /// * The first two children (name and parameters) cannot be parsed as a `NamedTypedList`.
 /// * The third child (index 2) is missing or cannot be parsed as a valid `Type`.
-pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<Function, LirError> {
+pub fn encode(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &EncodingRegistry,
+) -> Result<Function, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
     // 1. Encode the signature (name + parameters)
     // This handles Child 0 (Ident) and Child 1 (TypedList)
-    let header = named_typed_list::encode(subtree)?;
+    let header = named_typed_list::encode(subtree, registry)?;
 
     // 2. Extract and encode the return type (Child 2)
     let ty_id = node.try_child(2)?;
     let ty_node = ast.try_node(ty_id)?;
-    let return_type = ty::encode(&SyntaxSubtree::new(ty_node, ty_id, ast))?;
+    let return_type = ty::encode(&SyntaxSubtree::new(ty_node, ty_id, ast), registry)?;
 
     // 3. Construct the Function using the internal from_header constructor
     Ok(Function::from_header(header, return_type))

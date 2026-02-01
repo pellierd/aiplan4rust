@@ -87,7 +87,7 @@ pub enum LirError {
     MissingFunctionInertia { id: FunctorID },
 
     #[error("Failed to bind {symbol}")]
-    SymbolBindingFailed { symbol: Symbol },
+    SymbolBindingFailed { symbol: NodeId },
 
     #[error("Failed to bind type: {ty:?})")]
     TypeBindingFailed { ty: Type<StringID> },
@@ -174,7 +174,7 @@ impl LirError {
     /// # Parameters
     /// - `kind`: The kind of symbol (from your semantic analysis).
     /// - `node_id`: The ID of the AST node.
-    pub fn symbol_binding_failed(symbol: Symbol) -> Self {
+    pub fn symbol_binding_failed(symbol: NodeId) -> Self {
         Self::SymbolBindingFailed { symbol }
     }
 

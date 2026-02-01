@@ -1,38 +1,43 @@
-//! Atomic Formula Encoding
+//! Atomic Formula Skeleton Encoding
 //!
-//! This module handles the encoding of atomic formulas (predicates applied to terms).
-//! In the LIR, a Formula represents the declaration or the occurrence of a
-//! predicate with its associated parameters.
+//! This module handles the encoding of atomic formula structures (predicates).
+//! It specializes the generic `NamedTypedList` into an `AtomicFormulaSkeleton`,
+//! representing the declaration of a predicate and its parameter signature.
 
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::problem::encode::named_typed_list;
+use crate::aiplan4rust::lir::problem::encode::{named_typed_list, EncodingRegistry};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 
-/// Encodes an atomic formula from the syntax tree into the LIR.
+/// Encodes an atomic formula skeleton from the syntax tree.
 ///
-/// This function extracts the predicate identifier and its typed parameters.
-/// It is used for both predicate declarations in the domain and atomic
-/// propositions in logical expressions.
+/// This function leverages the generic `named_typed_list` encoder to extract
+/// the predicate symbol and its typed parameters, then wraps them into an
+/// `AtomicFormulaSkeleton`.
 ///
 /// # Arguments
 ///
-/// * `subtree` - The syntax subtree representing the atomic formula (e.g., `(at ?robot ?location)`).
+/// * `subtree` - The syntax subtree representing the predicate (e.g., `(at ?r - robot ?l - location)`).
+/// * `registry` - The symbol registry for type resolution.
 ///
 /// # Returns
 ///
-/// * `Ok(Formula)` - The encoded atomic formula skeleton.
-/// * `Err(LirError)` - If the identifier is missing or the parameter list is malformed.
+/// * `Ok(AtomicFormulaSkeleton)` - The encoded predicate signature.
+/// * `Err(LirError)` - If the name or the parameter list is malformed.
 ///
 /// # Errors
 ///
-/// This function returns an error if `named_typed_list::encode` fails to
-/// parse the mandatory identifier (Child 0) or the parameter list (Child 1).
-pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<AtomicFormulaSkeleton, LirError> {
-    // 1. Encode the signature (predicate name + terms/parameters)
-    let header = named_typed_list::encode(subtree)?;
+/// Returns an error if the underlying `named_typed_list::encode` fails,
+/// typically due to a missing identifier or an unknown type.
+pub fn encode(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &EncodingRegistry,
+) -> Result<AtomicFormulaSkeleton, LirError> {
+    // 1. Reuse the generic signature encoder (Name + Parameters)
+    let header = named_typed_list::encode(subtree, registry)?;
 
-    // 2. Use the internal constructor to take ownership of the header
+    // 2. Wrap the generic NamedTypedList into the specific AtomicFormulaSkeleton
+    // Assuming AtomicFormulaSkeleton::new or from_header exists to take ownership.
     Ok(AtomicFormulaSkeleton::from_header(header))
 }

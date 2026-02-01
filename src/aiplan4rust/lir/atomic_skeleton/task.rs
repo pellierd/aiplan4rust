@@ -19,7 +19,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, TypedList};
+use crate::aiplan4rust::lang::{StringID, TypeID, TypedList};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
@@ -62,7 +62,7 @@ impl Task {
     ///
     /// - `name`: The identifier for this task.
     /// - `parameters`: A typed list describing the task's parameters.
-    pub fn new(name: StringID, parameters: TypedList<StringID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<TypeID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature }
     }
@@ -90,6 +90,9 @@ impl Task {
         Self { header }
     }
 
+    pub fn task_symbol(&self) -> StringID {
+        self.header.symbol()
+    }
 }
 
 impl Deref for Task {

@@ -22,6 +22,7 @@ mod derived_predicate_def;
 mod task_def;
 mod atomic_function_skeleton;
 mod atomic_formula_skeleton;
+mod objects_def;
 
-pub(crate) use registry::EncodingContext;
+pub(crate) use registry::EncodingRegistry;
 pub use typed_list::encode;

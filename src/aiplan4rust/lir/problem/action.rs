@@ -42,7 +42,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, RemapTypes, Type};
+use crate::aiplan4rust::lang::{StringID, RemapTypes, Type, TypeID};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
@@ -98,7 +98,7 @@ impl Action {
     /// ```
     pub fn new(
         name: StringID,
-        parameters: TypedList<StringID>,
+        parameters: TypedList<TypeID>,
         precondition: Expr,
         effect: Expr,
     ) -> Self {
@@ -163,7 +163,7 @@ impl Action {
     /// Returns a slice of the action's typed parameters.
     ///
     /// These represent the variables and their types used by the action.
-    pub fn parameters(&self) -> &[TypedSymbol<StringID>] {
+    pub fn parameters(&self) -> &[TypedSymbol<TypeID>] {
         &self.header.parameters()
     }
 
@@ -172,7 +172,7 @@ impl Action {
     /// # Arguments
     ///
     /// * `parameters` - The new list of typed parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
         self.header.set_parameters(parameters);
     }
 
@@ -263,7 +263,7 @@ impl Action {
     }
 }
 
-impl RemapTypes for Action {
+/*impl RemapTypes for Action {
     /// Remaps union types (`Type::Either`) in the action's parameters, precondition, and effect.
     ///
     /// # Parameters
@@ -278,7 +278,7 @@ impl RemapTypes for Action {
         self.effect.remap_types(map)?;
         Ok(())
     }
-}
+}*/
 
 impl fmt::Display for Action {
     /// Formats the `Action` for human-readable output.

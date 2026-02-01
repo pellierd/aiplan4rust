@@ -182,7 +182,7 @@ impl Declaration {
 
     /// Returns the [`StringID`] of the referenced symbol.
     pub fn symbol_ident(&self) -> StringID {
-        self.symbol.ident()
+        self.symbol.id()
     }
 
     /// Returns the [`SymbolKind`] of the referenced symbol.

@@ -72,6 +72,10 @@ impl<ID: Id> SymbolTable<ID> {
         self.elements.iter()
     }
 
+    pub fn ids(&self) -> &[StringID] {
+        &self.elements
+    }
+
     /// Attempts to get the ID for an `Ident`, returning an error if not found.
     pub fn try_get_id(&self, ident: &StringID) -> Result<ID, IndexTableError> {
         self.get_id(ident).ok_or(IndexTableError::ident_not_found(*ident))

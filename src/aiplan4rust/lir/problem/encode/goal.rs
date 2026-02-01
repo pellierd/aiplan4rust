@@ -7,7 +7,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{expr, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{expr, EncodingRegistry};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
@@ -20,7 +20,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree corresponding to the `Goal` node.
-/// * `ctx` - The encoding context used for symbol lookup and scoping.
+/// * `registry` - The registry used for symbol lookup and scoping.
 /// * `ir` - The mutable lifted problem where goal-related bindings are registered.
 ///
 /// # Returns
@@ -35,7 +35,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// * The underlying expression fails to encode (e.g., unknown predicate).
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    ctx: &EncodingContext,
+    registry: &mut EncodingRegistry,
 ) -> Result<Expr, LirError> {
     // 1. Access the first child of the Goal node (the root of the logical expression)
     let child_id = subtree.node().try_child(0)?;
@@ -44,5 +44,5 @@ pub fn encode(
 
     // 2. Encode using the context to resolve symbols (objects, predicates, etc.)
     // We pass ir mutably to register bindings if necessary.
-    expr::encode(&child_subtree, ctx)
+    expr::encode(&child_subtree, registry)
 }

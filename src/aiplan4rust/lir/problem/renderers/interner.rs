@@ -89,10 +89,10 @@ pub fn render_problem(
 
     // Constants
     writeln_centered(f, "CONSTANTS", 80, '=')?;
-    if !problem.has_constants() {
+    if !problem.has_domain_constants() {
         writeln!(f, "  - no constants")?;
     } else {
-        for c in problem.constants() {
+        for c in problem.domain_constants() {
             writeln!(f, "  - {}", c.to_string_with_interner(interner))?;
         }
     }
@@ -100,10 +100,10 @@ pub fn render_problem(
 
     // Objects
     writeln_centered(f, "OBJECTS", 80, '=')?;
-    if !problem.has_objects() {
+    if !problem.has_problem_objects() {
         writeln!(f, "  - no objects")?;
     } else {
-        for o in problem.objects() {
+        for o in problem.problem_objects() {
             writeln!(f, "  - {}", o.to_string_with_interner(interner))?;
         }
     }
@@ -111,10 +111,10 @@ pub fn render_problem(
 
     // Predicates
     writeln_centered(f, "PREDICATES", 80, '=')?;
-    if problem.predicates().is_empty() {
+    if problem.atom_skeletons().is_empty() {
         writeln!(f, "  - no predicates")?;
     } else {
-        for p in problem.predicates() {
+        for p in problem.atom_skeletons() {
             writeln!(f, "  - {}", p.to_string_with_interner(interner))?;
         }
     }
@@ -122,10 +122,10 @@ pub fn render_problem(
 
     // Functions
     writeln_centered(f, "FUNCTIONS", 80, '=')?;
-    if problem.functions().is_empty() {
+    if problem.function_skeletons().is_empty() {
         writeln!(f, "  - no functions")?;
     } else {
-        for func in problem.functions() {
+        for func in problem.function_skeletons() {
             writeln!(f, "  - {}", func.to_string_with_interner(interner))?;
         }
     }

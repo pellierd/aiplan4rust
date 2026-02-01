@@ -24,7 +24,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{RemapTypes, StringID, RemapIdents, Type, TypedList};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, RemapIdents, Type, TypedList, TypeID};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
@@ -46,7 +46,7 @@ pub struct NamedTypedList {
     /// Name of the predicate or function.
     symbol: StringID,
     /// Signature describing parameter types and optional return type_checker.
-    parameters: TypedList<StringID>,
+    parameters: TypedList<TypeID>,
 }
 
 impl NamedTypedList {
@@ -60,7 +60,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A new instance of `NamedTypedList`.
-    pub fn new(name: StringID, parameters: TypedList<StringID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<TypeID>) -> Self {
         Self { symbol: name, parameters }
     }
 
@@ -87,7 +87,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A reference to the `TypedList` representing the parameters.
-    pub fn parameters(&self) -> &TypedList<StringID> {
+    pub fn parameters(&self) -> &TypedList<TypeID> {
         &self.parameters
     }
 
@@ -98,7 +98,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A mutable reference to the `TypedList`.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<StringID> {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<TypeID> {
         &mut self.parameters
     }
 
@@ -107,43 +107,8 @@ impl NamedTypedList {
     /// # Parameters
     ///
     /// - `parameters`: The new `TypedList` to set as the parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
         self.parameters = parameters;
-    }
-}
-
-impl RemapIdents for NamedTypedList {
-    /// Remaps all identifiers in this `NamedTypedList`, including its main symbol
-    /// and its parameters, according to the provided mapping.
-    ///
-    /// Any `Ident` present in `map` is replaced with the corresponding new value.
-    ///
-    /// # Parameters
-    ///
-    /// - `map`: A `HashMap<Ident, Ident>` mapping old identifiers to new identifiers.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
-        self.symbol.remap_idents(map)?;
-        self.parameters.remap_idents(map)?;
-        Ok(())
-    }
-}
-
-impl RemapTypes for NamedTypedList {
-    /// Remaps union types (`Type::Either`) in the parameters according to the provided mapping.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all parameter types were successfully remapped.
-    /// - `Err(LirError)` if an error occurs during remapping.
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        self.parameters.remap_types(map)?;
-        Ok(())
     }
 }
 

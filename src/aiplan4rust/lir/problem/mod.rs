@@ -13,6 +13,7 @@ mod durative_action;
 mod derived_predicate;
 pub mod expand;
 pub mod encode;
+pub mod symbol_table;
 
 pub use problem::Problem as LiftedProblem;
 pub use problem_def::ProblemDef;

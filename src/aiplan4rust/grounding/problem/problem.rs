@@ -351,7 +351,7 @@ impl TryFrom<LiftedProblem> for Problem {
     /// 4. Build the types table using the type symbols.
     /// 5. Build objects (constants and object fluents) based on symbols and types.
     fn try_from(mut lifted_problem: LiftedProblem) -> Result<Self, Self::Error> {
-        flatten::flatten_types(&mut lifted_problem)?;
+        //flatten::flatten_types(&mut lifted_problem)?;
 
         expander::expand_quantifiers(&mut lifted_problem)?;
 
@@ -370,39 +370,39 @@ impl TryFrom<LiftedProblem> for Problem {
         builders::build_functions_symbols_table(&lifted_problem, problem.functions_symbols_mut());
         builders::build_objects_symbols_table(&lifted_problem, problem.objects_symbols_mut());
 
-        let types = builders::build_type_parent_table(&lifted_problem, problem.types_symbols_mut())?;
-        problem.set_type_parent_table(types);
+        /*let types = builders::build_type_parent_table(&lifted_problem, problem.types_symbols_mut())?;
+        problem.set_type_parent_table(types);*/
 
-        let objects = builders::build_objects_table(
+        /*let objects = builders::build_objects_table(
             &lifted_problem,
             problem.objects_symbols(),
             problem.types_symbols(),
         )?;
-        problem.set_objects(objects);
+        problem.set_objects(objects);*/
 
-        let mut types_domains = builders::build_object_type_value_domains_table(
+        /*let mut types_domains = builders::build_object_type_value_domains_table(
             &lifted_problem,
             problem.objects_symbols(),
             problem.types_symbols(),
-        )?;
+        )?;*/
 
-        let object_fluents_table = builders::build_object_fluents_table(
+        /*let object_fluents_table = builders::build_object_fluents_table(
             &lifted_problem,
             problem.functions_symbols(),
             problem.types_symbols(),
             &mut types_domains
-        )?;
+        )?;*/
 
-        builders::build_object_fluent_type_value_domain(&mut types_domains, &object_fluents_table);
-        problem.set_types_domains(types_domains);
+        /*builders::build_object_fluent_type_value_domain(&mut types_domains, &object_fluents_table);
+        problem.set_types_domains(types_domains);*/
 
-        let fluents = builders::build_fluents_table(
+        /*let fluents = builders::build_fluents_table(
             &lifted_problem,
             problem.predicates_symbols(),
             problem.types_symbols(),
             problem.types_domains()
         )?;
-        problem.set_fluents(fluents);
+        problem.set_fluents(fluents);*/
 
 
 

@@ -19,7 +19,7 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{StringID, RemapIdents, RemapTypes, Type, TypedList};
+use crate::aiplan4rust::lang::{StringID, RemapIdents, RemapTypes, Type, TypedList, TypeID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -75,7 +75,7 @@ pub struct Function {
     header: NamedTypedList,
 
     /// The return type_checker of the function.
-    ty: Type<StringID>,
+    ty: Type<TypeID>,
 }
 
 impl Function {
@@ -85,7 +85,7 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `ty`: The return type_checker of the function.
-    pub fn new(name: StringID, parameters: TypedList<StringID>, ty: Type<StringID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<TypeID>, ty: Type<TypeID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature, ty }
     }
@@ -105,42 +105,23 @@ impl Function {
     /// # Returns
     ///
     /// A new `Function` instance.
-    pub(crate) fn from_header(header: NamedTypedList, ty: Type<StringID>) -> Self {
+    pub(crate) fn from_header(header: NamedTypedList, ty: Type<TypeID>) -> Self {
         Self { header, ty }
     }
 
     /// Returns a reference to the return type_checker.
-    pub fn return_type(&self) -> &Type<StringID> {
+    pub fn return_type(&self) -> &Type<TypeID> {
         &self.ty
     }
 
-    pub fn functor(&self) -> Symbol {
-        Symbol::new( self.header.symbol(), SymbolKind::Function)
+    pub fn functor(&self) -> StringID {
+        self.header.symbol()
     }
 
 }
 
-impl RemapIdents for Function {
-    /// Remaps all identifiers in this `Function`, including its name (header),
-    /// parameters, and return type, according to the provided mapping table.
-    ///
-    /// Any `Ident` present in `map` is replaced with the corresponding new value.
-    ///
-    /// # Parameters
-    ///
-    /// - `map`: A `HashMap<Ident, Ident>` mapping old identifiers to new identifiers.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`InternerError`] if any identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
-        self.header.remap_idents(map)?;
-        self.ty.remap_idents(map)?;
-        Ok(())
-    }
-}
 
-impl RemapTypes for Function {
+/*impl RemapTypes for Function {
     /// Remaps union types (`Type::Either`) in the function's parameters and return type.
     ///
     /// # Parameters
@@ -154,7 +135,8 @@ impl RemapTypes for Function {
         self.ty.remap_types(map)?;
         Ok(())
     }
-}
+}*/
+
 // Allow transparent access to the underlying NamedTypedList (e.g., name, parameters).
 impl Deref for Function {
     type Target = NamedTypedList;

@@ -27,7 +27,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::Requirement;
+use crate::aiplan4rust::lang::{Requirement, StringID};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
@@ -110,6 +110,55 @@ impl AstNode {
     pub fn try_requirement(&self) -> Result<Requirement, AstError> {
         self.content().try_requirement()
     }
+
+    pub fn as_ident(&self) -> Option<StringID> {
+        self.content().as_ident()
+    }
+
+    pub fn try_ident(&self) -> Result<StringID, AstError> {
+        self.content().try_ident()
+    }
+
+    /// Converts this node into an optional `SymbolRef`, if applicable.
+    ///
+    /// This is only possible for nodes that represent symbol-bearing constructs
+    /// such as identifiers (e.g. predicates, types, tasks).
+    ///
+    /// # Returns
+    /// - `Ok(Some(Symbol))` if the node's kind maps to a symbol kind and has an associated identifier.
+    /// - `Ok(None)` if the node kind is not symbol-bearing.
+    /// - `Err(SyntaxTreeError)` if the node is malformed or missing an expected identifier.
+    fn as_symbol(&self) -> Result<Option<Symbol>, AstError> {
+        let symbol_kind = match self.kind() {
+            AstKind::DomainName => SymbolKind::DomainName,
+            AstKind::PrimitiveType => SymbolKind::PrimitiveType,
+            AstKind::ProblemName => SymbolKind::ProblemName,
+            AstKind::Constant => SymbolKind::Constant,
+            AstKind::Variable => SymbolKind::Variable,
+            AstKind::FunctionSymbol => SymbolKind::Function,
+            AstKind::Predicate => SymbolKind::Predicate,
+            AstKind::ActionSymbol => SymbolKind::Action,
+            AstKind::DASymbol => SymbolKind::DASymbol,
+            AstKind::MethodSymbol => SymbolKind::Method,
+            AstKind::TaskSymbol => SymbolKind::Task,
+            AstKind::TaskID => SymbolKind::TaskID,
+            _ => return Ok(None),
+        };
+
+        let ident = self.try_ident()?;
+        Ok(Some(Symbol::new(ident, symbol_kind)))
+    }
+
+    /// Attempts to extract a symbol  from the syntax’s content.
+    ///
+    /// # Returns
+    ///
+    /// A `Result<Symbol, SyntaxTreeError>` containing the symbol if successful,
+    /// or an error if extraction failed or no symbol is present.
+    pub(crate) fn try_symbol(&self) -> Result<Symbol, AstError> {
+        self.as_symbol()?.ok_or_else(|| AstError::not_a_symbol_id())
+    }
+
 }
 
 
@@ -270,35 +319,7 @@ impl SyntaxNode for AstNode {
         self.inner.set_content(content);
     }
 
-    /// Converts this node into an optional `SymbolRef`, if applicable.
-    ///
-    /// This is only possible for nodes that represent symbol-bearing constructs
-    /// such as identifiers (e.g. predicates, types, tasks).
-    ///
-    /// # Returns
-    /// - `Ok(Some(Symbol))` if the node's kind maps to a symbol kind and has an associated identifier.
-    /// - `Ok(None)` if the node kind is not symbol-bearing.
-    /// - `Err(SyntaxTreeError)` if the node is malformed or missing an expected identifier.
-    fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError> {
-        let symbol_kind = match self.kind() {
-            AstKind::DomainName => SymbolKind::DomainName,
-            AstKind::PrimitiveType => SymbolKind::PrimitiveType,
-            AstKind::ProblemName => SymbolKind::ProblemName,
-            AstKind::Constant => SymbolKind::Constant,
-            AstKind::Variable => SymbolKind::Variable,
-            AstKind::FunctionSymbol => SymbolKind::Function,
-            AstKind::Predicate => SymbolKind::Predicate,
-            AstKind::ActionSymbol => SymbolKind::Action,
-            AstKind::DASymbol => SymbolKind::DASymbol,
-            AstKind::MethodSymbol => SymbolKind::Method,
-            AstKind::TaskSymbol => SymbolKind::Task,
-            AstKind::TaskID => SymbolKind::TaskID,
-            _ => return Ok(None),
-        };
 
-        let ident = self.try_ident()?;
-        Ok(Some(Symbol::new(ident, symbol_kind)))
-    }
 
     /// Creates a shallow clone of the node.
     ///

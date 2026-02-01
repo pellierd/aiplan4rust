@@ -11,7 +11,7 @@
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::problem::encode::{action_def, predicates_def, functions_def, types_def, constants_def, expr, durative_action_def, method_def, derived_predicate_def, task_def};
-use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
+use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
 
@@ -43,19 +43,19 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
 /// * Identifiers used in actions or constraints cannot be found in the domain's symbol table.
 pub(crate) fn encode(
     syntax_tree: &SyntaxTree<AstNode>,
-    context: &mut EncodingContext,
+    registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
 
     // 1. Collection Phase: Fill the IR skeletons and the mapping tables.
     // We do NOT return the EncodingContext here to avoid borrow checker conflicts
     // between the mutable maps and the context itself.
-    collect_definitions(syntax_tree, context, ir)?;
+    collect_definitions(syntax_tree, registry, ir)?;
 
     // 3. Logic Encoding Phase:
     // Since 'ctx' only borrows the maps and NOT the 'ir', Rust allows
     // passing 'ir' as a mutable reference here.
-    encode_logic(syntax_tree, context, ir)?;
+    encode_logic(syntax_tree, registry, ir)?;
 
     Ok(())
 }
@@ -84,7 +84,7 @@ pub(crate) fn encode(
 /// identifiers are missing.
 fn collect_definitions(
     syntax_tree: &SyntaxTree<AstNode>,
-    context: &mut EncodingContext,
+    registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 
 ) -> Result<(), LirError> {
@@ -94,24 +94,11 @@ fn collect_definitions(
 
         match node.kind() {
             AstKind::DomainName => ir.set_domain_id(node.try_ident()?)?,
-            AstKind::TypesDef => types_def::encode(&subtree, context, ir)?,
-            AstKind::ConstantsDef => {
-                // 1. On remplit l'IR avec les constantes
-                constants_def::encode(&subtree, context, ir)?;
-                // 2. On fige la frontière !
-                // Tout ce qui sera ajouté après sera considéré comme un "Object"
-                ir.set_constant_offset();
-            },
-            AstKind::PredicatesDef => {
-                predicates_def::encode(&subtree, context, ir)?;
-            }
-            AstKind::FunctionsDef => {
-                functions_def::encode(&subtree, context, ir)?;
-            }
-            AstKind::TaskDef => {
-                let task = task_def::encode(&subtree)?;
-                ir.add_task(task);
-            }
+            AstKind::TypesDef => types_def::encode(&subtree, registry, ir)?,
+            AstKind::ConstantsDef => constants_def::encode(&subtree, registry, ir)?,
+            AstKind::PredicatesDef => predicates_def::encode(&subtree, registry, ir)?,
+            AstKind::FunctionsDef => functions_def::encode(&subtree, registry, ir)?,
+            AstKind::TaskDef =>  task_def::encode(&subtree, registry, ir)?,
             _ => {}
         }
     }
@@ -146,7 +133,7 @@ fn collect_definitions(
 /// are ignored in this pass.
 fn encode_logic(
     syntax_tree: &SyntaxTree<AstNode>,
-    context: &EncodingContext,
+    registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
 
@@ -155,23 +142,23 @@ fn encode_logic(
 
         match node.kind() {
             AstKind::Constraints => {
-                let constraints = expr::encode(&subtree, context)?;
+                let constraints = expr::encode(&subtree, registry)?;
                 ir.set_domain_constraints(constraints);
             }
             AstKind::ActionDef => {
-                let action = action_def::encode(&subtree, context)?;
+                let action = action_def::encode(&subtree, registry)?;
                 ir.add_action(action);
             }
             AstKind::DurativeActionDef => {
-                let action = durative_action_def::encode(&subtree, &context)?;
+                let action = durative_action_def::encode(&subtree, registry)?;
                 ir.add_durative_action(action);
             }
             AstKind::DerivedDef => {
-                let derived_predicate = derived_predicate_def::encode(&subtree, &context)?;
+                let derived_predicate = derived_predicate_def::encode(&subtree, registry)?;
                 ir.add_derived_predicate(derived_predicate);
             }
             AstKind::MethodDef => {
-                let method = method_def::encode(&subtree, &context)?;
+                let method = method_def::encode(&subtree, registry)?;
                 ir.add_method(method);
             }
             _ => {} 

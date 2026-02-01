@@ -1,26 +1,41 @@
 //! Typed List Encoding
 //!
-//! This module provides functions to parse and encode lists of typed symbols,
-//! commonly found in parameters, constants, and object definitions.
+//! This module provides functions to parse and encode lists of typed symbols.
+//! It is a core utility used to process parameters (in predicates and actions),
+//! as well as global constants and objects.
 
-use crate::aiplan4rust::lang::{StringID, TypedList};
+use crate::aiplan4rust::lang::{StringID, TypeID, TypedList};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::problem::encode::typed_symbol;
+use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingRegistry};
 
-/// Encodes a `TypedList` from a syntax subtree.
+/// Encodes a `TypedList` from a syntax subtree into the LIR representation.
 ///
-/// Iterates through the children of the provided node, encoding each as a
-/// `TypedSymbol` and collecting them into a unified list.
+/// This function iterates through the children of the provided node, delegating
+/// the encoding of each element to the `typed_symbol` module. The resulting
+/// symbols are collected into a `TypedList<TypeID>`.
 ///
 /// # Arguments
+///
 /// * `subtree` - The AST subtree containing a sequence of typed symbols.
+/// * `registry` - The symbol registry used to resolve type identifiers.
 ///
 /// # Returns
-/// * `Ok(TypedList)` - A list of successfully encoded typed symbols.
-/// * `Err(LirError)` - If any individual symbol fails to encode.
-pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<TypedList<StringID>, LirError> {
+///
+/// * `Ok(TypedList<TypeID>)` - A list of successfully encoded typed symbols.
+/// * `Err(LirError)` - If any individual symbol fails to encode or if the AST
+///   structure is invalid.
+///
+/// # Errors
+///
+/// This function returns an error if:
+/// * A child node cannot be retrieved from the AST.
+/// * The `typed_symbol::encode` process fails (e.g., due to an unknown type).
+pub fn encode(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &EncodingRegistry
+) -> Result<TypedList<TypeID>, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
@@ -31,7 +46,7 @@ pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<TypedList<StringID>, L
         let child_subtree = SyntaxSubtree::new(child_node, id, ast);
 
         // Delegate encoding of each individual symbol to the symbols module
-        let symbol = typed_symbol::encode(&child_subtree)?;
+        let symbol = typed_symbol::encode(&child_subtree, registry)?;
         typed_list.push(symbol);
     }
 

@@ -24,7 +24,7 @@ use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
 ///
 /// Returns an `ExprError` if normalization fails for any expression.
 pub(crate) fn normalize_problem(problem: &mut LiftedProblem) -> Result<(), ExprError> {
-    // Normalize problem-level expressions
+/*    // Normalize problem-level expressions
     expr::normalize(&mut problem.goal_mut())?;
     expr::normalize(&mut problem.domain_constraints_mut())?;
     expr::normalize(&mut problem.problem_constraints_mut())?;
@@ -51,7 +51,7 @@ pub(crate) fn normalize_problem(problem: &mut LiftedProblem) -> Result<(), ExprE
     }
 
     // Normalize the initial task network
-    normalize_initial_task_network(&mut problem.initial_task_network_mut())?;
+    normalize_initial_task_network(&mut problem.initial_task_network_mut())?;*/
 
     Ok(())
 }

@@ -49,7 +49,7 @@ pub fn analyze_inertia(problem: &LiftedProblem) -> Result<InertiaTable, LirError
 
     // 3. Catégorisation des Prédicats
     // On utilise les IDs typés pour correspondre aux HashSets
-    for (idx, _) in problem.predicates().iter().enumerate() {
+    for (idx, _) in problem.atom_skeletons().iter().enumerate() {
         let pred_id = PredicateID::new(idx); // Conversion vers ton type ID
 
         let inertia = if fluent_predicates.contains(&pred_id) {
@@ -63,7 +63,7 @@ pub fn analyze_inertia(problem: &LiftedProblem) -> Result<InertiaTable, LirError
     }
 
     // 4. Catégorisation des Fonctions
-    for (idx, _) in problem.functions().iter().enumerate() {
+    for (idx, _) in problem.function_skeletons().iter().enumerate() {
         let func_id = FunctorID::new(idx);
 
         let inertia = if fluent_functions.contains(&func_id) {

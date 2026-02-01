@@ -355,10 +355,11 @@ impl SymbolTableBuilder {
     ) -> Result<(), SymbolTableError> {
         // Extract the symbol reference from the AST node ID.
         // This retrieves symbol metadata such as the identifier name and kind.
-        let symbol_ref = ast.syntax_tree().try_symbol(node_ref.id())?;
+        let node = ast.syntax_tree().try_node(node_ref.id())?;
+        let symbol_ref = node.try_symbol()?;
 
         // Obtain the symbol's identifier (name) from the symbol reference.
-        let ident = symbol_ref.ident();
+        let ident = symbol_ref.id();
 
         // Determine the origin context of this symbol declaration.
         // This helps track where the symbol was declared, for error reporting and resolution.
@@ -453,20 +454,26 @@ impl SymbolTableBuilder {
             node_ref.node().kind(),
             AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
         ) {
-            // Retrieve the first child node ID
+            // 1. Retrieve the ID of the first child.
+            // In these specific kinds, the symbol identifier is located in the first child node.
             let first_child_id = node_ref.node().children()[0];
             target_id = first_child_id;
-            // Get a reference to the first child node
-            let first_node_ref = ast.syntax_tree().try_node_ref(first_child_id)?;
-            // Extract the symbol reference from the first child node
-            ast.syntax_tree().try_symbol(first_node_ref.id())?
+
+            // 2. Fetch the child node from the syntax tree.
+            // This returns an &AstNode, allowing access to AST-specific semantic methods.
+            let first_node = ast.syntax_tree().try_node(first_child_id)?;
+
+            // 3. Extract the symbol directly from the child node.
+            // Since try_symbol is now an AstNode method, we call it here.
+            first_node.try_symbol()?
         } else {
-            // For other kinds, get the symbol reference directly from this node
-            ast.syntax_tree().try_symbol(node_ref.id())?
+            // For other kinds, the current node itself contains the symbol.
+            // node_ref.node() returns the underlying AstNode.
+            node_ref.node().try_symbol()?
         };
 
         // Extract the identifier (name) of the symbol
-        let ident = symbol_ref.ident();
+        let ident = symbol_ref.id();
 
         // Retrieve the origin of the symbol (context/source of declaration)
         let origin = SymbolOrigin::from(self.table().origin());
@@ -1343,14 +1350,17 @@ impl SymbolTableBuilder {
 
         match elt.node().kind() {
             AstKind::Constant | AstKind::Variable => {
-                let symbol_ref = syntax_tree.try_symbol(elt.id())?;
-                let name = symbol_ref.ident();
+                // 1. Extract the symbol reference directly from the AstNode.
+                // We use the node() method to access the underlying AstNode which
+                // now holds the try_symbol semantic logic.
+                let symbol_ref = elt.node().try_symbol()?;
+                let name = symbol_ref.id();
 
-                // Create a TypedSymbol with extracted name and associated types
+                // 2. Create a TypedSymbol with the extracted name and associated types.
                 typed_arguments.push(TypedSymbol::new(name, types));
             }
             found => {
-                // Unexpected kind for symbol part of TypedItem
+                // Handle cases where the node kind does not match expected symbol types for TypedItem.
                 return Err(SymbolTableError::unexpected_node_kind(
                     elt.id(),
                     vec![AstKind::Constant, AstKind::Variable],
@@ -1398,8 +1408,11 @@ impl SymbolTableBuilder {
 
             // Expect each child to be of kind PrimitiveType
             if ty_ref.node().kind() == AstKind::PrimitiveType {
-                let symbol_ref = arena.try_symbol(ty_ref.id())?; // Get the symbol associated with this type
-                let name = symbol_ref.ident();
+                // 1. Extract the symbol directly from the child AstNode.
+                // We use ty_ref.node() to get the &AstNode and call its semantic method.
+                let symbol_ref = ty_ref.node().try_symbol()?;
+
+                let name = symbol_ref.id();
                 super_types.add_type(name);
             } else {
                 // Return a semantic error when the structure does not match expectations

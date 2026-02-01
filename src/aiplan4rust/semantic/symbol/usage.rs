@@ -104,7 +104,7 @@ impl Usage {
 
     /// Returns the identifier of the referenced symbol.
     pub fn symbol_ident(&self) -> StringID {
-        self.symbol.ident()
+        self.symbol.id()
     }
 
     /// Returns the kind of the referenced symbol.

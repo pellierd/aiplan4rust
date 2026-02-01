@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::LirError;
 const EITHER_PREFIX: &str = "either";
 const EITHER_SEP: &str = "_";
 
-/// Flattens all union types (`Type::Either`) in a `LiftedProblem`.
+/*/// Flattens all union types (`Type::Either`) in a `LiftedProblem`.
 ///
 /// # Parameters
 /// - `problem`: The `LiftedProblem` to be flattened in place.
@@ -24,7 +24,7 @@ pub fn flatten_types(problem: &mut LiftedProblem) -> Result<(), LirError> {
         constant.remap_types(&flatten_types_map)?;
     }
 
-    for predicate in problem.predicates_mut() {
+    for predicate in problem.atom_skeletons_mut() {
         predicate.remap_types(&flatten_types_map)?;
     }
 
@@ -108,14 +108,14 @@ fn flatten_types_def(
 
     // Maps original type identifiers to their flattened primitive Type.
     // We'll use this later to update the types in the problem.
-    let mut to_update: HashMap<StringID, Type<StringID>> = HashMap::with_capacity(problem.types().count());
+    let mut to_update: HashMap<StringID, Type<StringID>> = HashMap::with_capacity(problem.types().len());
 
     // Maps union (either) types to the new primitive Ident representing them.
     // This is returned so we can replace union types in constants, predicates, etc.
-    let mut either_to_primitive = HashMap::with_capacity(problem.types().count());
+    let mut either_to_primitive = HashMap::with_capacity(problem.types().len());
 
     // Cache to avoid recalculating a type that has already been flattened
-    let mut cache: HashMap<StringID, StringID> = HashMap::with_capacity(problem.types().count());
+    let mut cache: HashMap<StringID, StringID> = HashMap::with_capacity(problem.types().len());
 
     while let Some(ident) = to_process.pop_front() {
         // Get a reference to the TypedSymbol
@@ -160,9 +160,9 @@ fn flatten_types_def(
     }
 
     Ok(either_to_primitive)
-}
+}*/
 
-/// Returns the identifiers of all either types in the problem.
+/*/// Returns the identifiers of all either types in the problem.
 ///
 /// # Parameters
 /// - problem: the LiftedProblem containing all types.
@@ -170,16 +170,16 @@ fn flatten_types_def(
 /// # Returns
 /// A VecDeque of Idents representing types that are unions (either types).
 fn either_types(problem: &LiftedProblem) -> VecDeque<StringID> {
-    let mut queue = VecDeque::with_capacity(problem.types().count());
+    let mut queue = VecDeque::with_capacity(problem.types().len());
     for ts in problem.types() {
         if ts.ty().is_either() {
             queue.push_back(ts.symbol());
         }
     }
     queue
-}
+}*/
 
-/// Returns all flattened parent identifiers for a given `Type`, sorted.
+/*/// Returns all flattened parent identifiers for a given `Type`, sorted.
 ///
 /// # Parameters
 /// - `ty`: The `Type` whose parents are to be collected. Assumes `ty` may be an either type.
@@ -201,9 +201,9 @@ fn get_parents(ty: &Type<StringID>, problem: &LiftedProblem) -> Result<Vec<Strin
     let mut parent_idents: Vec<StringID> = parent_set.into_iter().collect();
     parent_idents.sort();
     Ok(parent_idents)
-}
+}*/
 
-/// Generates a canonical name for an "either" type based on its member type identifiers.
+/*/// Generates a canonical name for an "either" type based on its member type identifiers.
 ///
 /// This function constructs a stable string name for a union type (`either`) by
 /// concatenating the string representations of all its member types, separated
@@ -237,9 +237,9 @@ fn make_either_type_name(problem: &LiftedProblem, ty: &Type<StringID>) -> Result
         parent_names.join(EITHER_SEP)
     );
     Ok(result)
-}
+}*/
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use super::*;
     use crate::aiplan4rust::interner::StringInterner;
@@ -277,7 +277,7 @@ mod tests {
         problem.add_type(sym_d);
 
         println!("\nTypes before flattening:");
-        for ts in problem.types() {
+        for ts in problem.type_symbol_table() {
             let members: Vec<String> = ts
                 .ty()
                 .members()
@@ -300,7 +300,7 @@ mod tests {
         flatten_types_def(&mut problem).unwrap();
 
         println!("Types after flattening:");
-        for ts in problem.types() {
+        for ts in problem.type_symbol_table() {
             let members: Vec<String> = ts
                 .ty()
                 .members()
@@ -370,7 +370,7 @@ mod tests {
         }
 
         println!("\nTypes before flattening:");
-        for ts in problem.types() {
+        for ts in problem.type_symbol_table() {
             let members: Vec<String> = ts
                 .ty()
                 .members()
@@ -393,7 +393,7 @@ mod tests {
         super::flatten_types_def(&mut problem).unwrap();
 
         println!("Types after flattening:");
-        for ts in problem.types() {
+        for ts in problem.type_symbol_table() {
             let members: Vec<String> = ts
                 .ty()
                 .members()
@@ -425,4 +425,4 @@ mod tests {
             );
         }
     }
-}
+}*/

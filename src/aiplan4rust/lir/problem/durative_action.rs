@@ -6,7 +6,7 @@
 //! normalize expressions, and render the action in human-readable or PDDL-like syntax.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::TypedList;
+use crate::aiplan4rust::lang::{TypeID, TypedList};
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lang::{StringID, RemapTypes, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
@@ -90,7 +90,7 @@ impl DurativeAction {
     /// ```
     pub fn new(
         name: StringID,
-        parameters: TypedList<StringID>,
+        parameters: TypedList<TypeID>,
         duration: Expr,
         condition: Expr,
         effect: Expr,
@@ -148,7 +148,7 @@ impl DurativeAction {
     }
 
     /// Returns a slice of the action's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol<StringID>] {
+    pub fn parameters(&self) -> &[TypedSymbol<TypeID>] {
         &self.action.parameters()
     }
 
@@ -156,7 +156,7 @@ impl DurativeAction {
     ///
     /// # Parameters
     /// - `parameters`: A typed list of symbols to replace the action's current parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
         self.action.set_parameters(parameters);
     }
 
@@ -228,7 +228,7 @@ impl DurativeAction {
     }
 }
 
-impl RemapTypes for DurativeAction {
+/*impl RemapTypes for DurativeAction {
     /// Remaps union types (`Type::Either`) in the action's parameters, conditions, effects, and duration.
     ///
     /// This method updates all `Type::Either` occurrences in the `DurativeAction`:
@@ -247,7 +247,7 @@ impl RemapTypes for DurativeAction {
         self.action.remap_types(map)?;
         Ok(())
     }
-}
+}*/
 
 /// Implements [`std::fmt::Display`] for `DurativeAction`.
 ///

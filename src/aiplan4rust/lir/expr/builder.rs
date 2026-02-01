@@ -1,8 +1,9 @@
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, StringID, Type, TypedList, TypedSymbol};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctorID, Id, ObjectID, Optimization, PredicateID, PreferenceID, StringID, TaskSymbolID, Type, TypeID, TypedList, TypedSymbol, VariableID};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
+use crate::aiplan4rust::lir::problem::encode::EncodingRegistry;
 use crate::aiplan4rust::syntax::tree::NodeId;
 use crate::aiplan4rust::syntax::tree::builder::SyntaxTreeBuilder;
 
@@ -13,17 +14,26 @@ use crate::aiplan4rust::syntax::tree::builder::SyntaxTreeBuilder;
 pub struct ExprBuilder<'a> {
     base: SyntaxTreeBuilder<ExprNode>,
     interner: &'a mut StringInterner,
+    registry: &'a mut EncodingRegistry
 }
 
 #[allow(dead_code)]
 impl<'a> ExprBuilder<'a> {
     /// Create a new builder with a mutable reference to a `StringInterner`
-    pub fn new(interner: &'a mut StringInterner) -> Self {
+    pub fn new(interner: &'a mut StringInterner, registry: &'a mut EncodingRegistry) -> Self {
         Self {
             base: SyntaxTreeBuilder::new(),
             interner,
+            registry,
         }
     }
+
+    fn mock_node_id(&mut self, name: &str) -> NodeId {
+        let string_id = self.interner.intern_ident(name);
+        NodeId::from(string_id.as_usize())
+    }
+
+
 
     /// Finalize builder into `Expr`
     pub fn finish(self) -> Expr {
@@ -116,8 +126,30 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// NodeId of the newly created Constant node.
     pub fn constant(&mut self, name: &str) -> NodeId {
-        let id = self.interner.intern_ident(name);
-        self.leaf(ExprNode::new(ExprKind::Constant, ExprContent::Ident(id), None))
+        let object_id = self.mock_resolve_constant(name);
+
+        self.leaf(ExprNode::new(
+            ExprKind::Constant,
+            ExprContent::Constant(object_id),
+            None
+        ))
+    }
+
+    /// Mocks constant resolution for unit tests by mapping a name to an [`ObjectID`].
+    ///
+    /// Uses the interned name as a fake `NodeId`. If unregistered, it allocates
+    /// a new [`ObjectID`] derived from the string's interned index and stores it
+    /// in the [`EncodingRegistry`].
+    ///
+    /// # Arguments
+    /// * `name` - The constant or object identifier (e.g., "truck1").
+    fn mock_resolve_constant(&mut self, name: &str) -> ObjectID {
+        let decl_id = self.mock_node_id(name);
+        self.registry.resolve_object(decl_id).unwrap_or_else(|| {
+            let new_id = ObjectID::new(self.interner.intern_ident(name).as_usize());
+            self.registry.register_object(decl_id, new_id);
+            new_id
+        })
     }
 
     /// Create a variable node with a PDDL-compliant name (prefixed with `?` if not already).
@@ -126,16 +158,39 @@ impl<'a> ExprBuilder<'a> {
     /// * `name` - Name of the variable (without `?` or with `?`).
     ///
     /// # Returns
-    /// NodeId of the newly created variable node.
     pub fn variable(&mut self, name: &str) -> NodeId {
-        // Ensure PDDL variable starts with '?'
-        let pddl_name = if name.starts_with('?') {
+        // 1. Handle PDDL naming convention
+        let var_name = if name.starts_with('?') {
             name.to_string()
         } else {
             format!("?{}", name)
         };
-        let id = self.interner.intern_ident(&pddl_name);
-        self.leaf(ExprNode::new(ExprKind::Variable, ExprContent::Ident(id), None))
+
+        // 2. Use a mock resolution to get a VariableID
+        // This ensures that the same name in the same scope returns the same ID
+        let var_id = self.mock_resolve_variable(&var_name);
+
+        // 3. Create the leaf with the proper LIR content
+        self.leaf(ExprNode::new(
+            ExprKind::Variable,
+            ExprContent::Variable(var_id),
+            None,
+        ))
+    }
+
+    /// Mocks variable resolution for unit tests by mapping a name to a [`VariableID`].
+    ///
+    /// This bypasses formal scoping. If the `name` (via a fake `NodeId`) is already
+    /// registered, it returns the existing ID; otherwise, it allocates a new
+    /// incremental index in the [`EncodingRegistry`].
+    ///
+    /// # Arguments
+    /// * `name` - PDDL variable identifier (e.g., "?x").
+    fn mock_resolve_variable(&mut self, name: &str) -> VariableID {
+        let decl_id = self.mock_node_id(name);
+        self.registry.resolve_variable(decl_id).unwrap_or_else(|| {
+            self.registry.register_variable(decl_id)
+        })
     }
 
     /// Create a function symbol node with the given name.
@@ -146,8 +201,25 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// NodeId of the newly created FunctionSymbol node.
     pub fn function_symbol(&mut self, name: &str) -> NodeId {
-        let id = self.interner.intern_ident(name);
-        self.leaf(ExprNode::new(ExprKind::FunctionSymbol, ExprContent::Ident(id), None))
+        let functor_id = self.mock_resolve_functor(name);
+
+        self.leaf(ExprNode::new(
+            ExprKind::FunctionSymbol,
+            ExprContent::Functor(functor_id),
+            None
+        ))
+    }
+
+    /// Private helper to mock functor (function symbol) resolution for unit tests.
+    fn mock_resolve_functor(&mut self, name: &str) -> FunctorID {
+        let decl_id = self.mock_node_id(name);
+
+        self.registry.resolve_functor_symbol(decl_id).unwrap_or_else(|| {
+            // Use the interned ID as the base for the FunctorID
+            let new_id = FunctorID::new(self.interner.intern_ident(name).as_usize());
+            self.registry.register_functor(decl_id, new_id);
+            new_id
+        })
     }
 
     /// Create a predicate node with the given name.
@@ -158,8 +230,30 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// NodeId of the newly created Predicate node.
     pub fn predicate(&mut self, name: &str) -> NodeId {
-        let id = self.interner.intern_ident(name);
-        self.leaf(ExprNode::new(ExprKind::Predicate, ExprContent::Ident(id), None))
+        let pred_id = self.mock_resolve_predicate(name);
+
+        self.leaf(ExprNode::new(
+            ExprKind::Predicate,
+            ExprContent::Predicate(pred_id),
+            None,
+        ))
+    }
+
+    /// Mocks predicate resolution for unit tests by mapping a name to a [`PredicateID`].
+    ///
+    /// Links a fake `NodeId` to a [`PredicateID`] derived from the interned name.
+    /// If the predicate is not found in the [`EncodingRegistry`], it is registered
+    /// to ensure consistent resolution throughout the test.
+    ///
+    /// # Arguments
+    /// * `name` - The predicate identifier (e.g., "on", "at-robot").
+    fn mock_resolve_predicate(&mut self, name: &str) -> PredicateID {
+        let decl_id = self.mock_node_id(name);
+        self.registry.resolve_predicate(decl_id).unwrap_or_else(|| {
+            let new_id = PredicateID::new(self.interner.intern_ident(name).as_usize());
+            self.registry.register_predicate(decl_id, new_id);
+            new_id
+        })
     }
 
     /// Create a task symbol node with the given name.
@@ -170,20 +264,53 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// NodeId of the newly created TaskSymbol node.
     pub fn task_symbol(&mut self, name: &str) -> NodeId {
-        let id = self.interner.intern_ident(name);
-        self.leaf(ExprNode::new(ExprKind::TaskSymbol, ExprContent::Ident(id), None))
+        let task_id = self.mock_resolve_task(name);
+
+        self.leaf(ExprNode::new(
+            ExprKind::TaskSymbol,
+            ExprContent::TaskSymbol(task_id),
+            None,
+        ))
+    }
+
+    /// Mocks task resolution for unit tests by mapping a name to a [`TaskSymbolID`].
+    ///
+    /// Links a fake `NodeId` to a [`TaskSymbolID`] derived from the interned name.
+    /// If the task is not found in the [`EncodingRegistry`], it is registered.
+    fn mock_resolve_task(&mut self, name: &str) -> TaskSymbolID {
+        let decl_id = self.mock_node_id(name);
+        self.registry.resolve_task_symbol(decl_id).unwrap_or_else(|| {
+            let new_id = TaskSymbolID::new(self.interner.intern_ident(name).as_usize());
+            // Note: Ensure your registry has a register_task_symbol or similar method
+            self.registry.register_task_symbol(decl_id, new_id);
+            new_id
+        })
     }
 
     /// Create a preference name node with the given name.
     ///
-    /// # Arguments
-    /// * `name` - Name of the preference.
-    ///
-    /// # Returns
-    /// NodeId of the newly created PrefName node.
+    /// Résout le nom en un [`PreferenceID`] via le registre.
+    /// Utile pour les contraintes de préférences dans les problèmes HTN.
     pub fn pref_name(&mut self, name: &str) -> NodeId {
-        let id = self.interner.intern_ident(name);
-        self.leaf(ExprNode::new(ExprKind::PrefName, ExprContent::Ident(id), None))
+        let pref_id = self.mock_resolve_preference(name);
+
+        self.leaf(ExprNode::new(
+            ExprKind::PrefName,
+            ExprContent::Preference(pref_id),
+            None,
+        ))
+    }
+
+    /// Mocks preference resolution for unit tests by mapping a name to a [`PreferenceID`].
+    fn mock_resolve_preference(&mut self, name: &str) -> PreferenceID {
+        let decl_id = self.mock_node_id(name);
+
+        // On cherche si elle existe déjà, sinon on l'enregistre
+        self.registry.resolve_preference(decl_id).unwrap_or_else(|| {
+            let new_id = PreferenceID::new(self.interner.intern_ident(name).as_usize());
+            self.registry.register_preference(decl_id, new_id);
+            new_id
+        })
     }
 
     /// Create a `FunctionTerm` node in the expression tree.
@@ -301,8 +428,33 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     /// The `NodeId` of the newly created `Forall` node.
-    pub fn forall(&mut self, vars: TypedList<StringID>, body: NodeId) -> NodeId {
-        self.node(ExprNode::new(ExprKind::Forall, ExprContent::QuantifierVariables(vars), None), vec![body])
+    /// Create a `Forall` node: (forall (vars...) body)
+    ///
+    /// # Arguments
+    /// * `vars` - A `TypedList` where each symbol contains a (StringID, TypeID).
+    /// * `body` - The `NodeId` of the expression that is quantified.
+    pub fn forall(&mut self, vars: TypedList<TypeID>, body: NodeId) -> NodeId {
+        // On boucle sur les symboles
+        for symbol in &vars {
+            // On convertit en String pour libérer l'emprunt immuable sur `self.interner`
+            let var_name = self.interner
+                .resolve_ident(symbol.symbol())
+                .expect("Invalid Variable StringID")
+                .to_string();
+
+            // Maintenant on peut emprunter `self` de manière mutable
+            self.mock_resolve_variable(&var_name);
+        }
+
+        // On passe directement la TypedList au contenu du nœud
+        self.node(
+            ExprNode::new(
+                ExprKind::Forall,
+                ExprContent::QuantifierVariables(vars),
+                None,
+            ),
+            vec![body],
+        )
     }
 
     /// Create a Forall node from variable names and type names
@@ -319,29 +471,62 @@ impl<'a> ExprBuilder<'a> {
     }
 
     /// Helper to create a TypedList from variable name/type pairs
-    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList<StringID> {
-        let typed_symbols: Vec<TypedSymbol<StringID>> = vars
-            .into_iter()
-            .map(|(var_name, type_name)| {
-                let var = self.interner.intern_ident(var_name);
-                let typ = Type::primitive(self.interner.intern_ident(type_name));
-                TypedSymbol::new(var, typ)
-            })
-            .collect();
+    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList<TypeID> {
+        let mut typed_symbols = Vec::new();
+
+        for (var_name, type_name) in vars {
+            // 1. On interne le nom de la variable (StringID)
+            let var_string_id = self.interner.intern_ident(var_name);
+
+            // 2. On résout le type immédiatement en TypeID
+            let t_id = self.mock_resolve_type(type_name);
+
+            // 3. On crée le symbole typé avec le TypeID
+            typed_symbols.push(TypedSymbol::new(var_string_id, Type::primitive(t_id)));
+        }
+
         TypedList::from_symbols(typed_symbols)
+    }
+
+    /// Mocks type resolution for unit tests.
+    fn mock_resolve_type(&mut self, name: &str) -> TypeID {
+        let decl_id = self.mock_node_id(name);
+        self.registry.resolve_type_symbol(decl_id).unwrap_or_else(|| {
+            let new_id = TypeID::new(self.interner.intern_ident(name).as_usize());
+            self.registry.register_type_symbol(decl_id);
+            new_id
+        })
     }
 
     /// Create an `Exists` node: (exists (vars...) body)
     ///
     /// # Arguments
-    /// * `vars` - A `TypedList` containing all bound variables for the quantifier.
+    /// * `vars` - A `TypedList` where each symbol contains a (StringID, TypeID).
     /// * `body` - The `NodeId` of the expression that is quantified by the exists.
     ///
     /// # Returns
     /// The `NodeId` of the newly created `Exists` node.
-    pub fn exists(&mut self, vars: TypedList<StringID>, body: NodeId) -> NodeId {
-        //self.binary(ExprKind::Exists, vars, body)
-        self.node(ExprNode::new(ExprKind::Exists, ExprContent::QuantifierVariables(vars), None), vec![body])
+    pub fn exists(&mut self, vars: TypedList<TypeID>, body: NodeId) -> NodeId {
+        for symbol in &vars {
+            // 1. On récupère le nom et on le transforme immédiatement en String
+            // pour libérer l'emprunt sur `self.interner`.
+            let var_name = self.interner
+                .resolve_ident(symbol.symbol())
+                .expect("Invalid Variable StringID")
+                .to_string(); // <--- Crucial : crée une copie possédée
+
+            // 2. Maintenant self est libre d'être emprunté mutablement
+            self.mock_resolve_variable(&var_name);
+        }
+
+        self.node(
+            ExprNode::new(
+                ExprKind::Exists,
+                ExprContent::QuantifierVariables(vars),
+                None,
+            ),
+            vec![body],
+        )
     }
 
     /// Create an Exists node from variable names and type names
@@ -353,6 +538,7 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// NodeId of the newly created Exists node
     pub fn exists_with_string_vars(&mut self, vars: Vec<(&str, &str)>, body: NodeId) -> NodeId {
+        // Note : typed_list_from_strings retourne maintenant TypedList<TypeID>
         let typed_list = self.typed_list_from_strings(vars);
         self.exists(typed_list, body)
     }

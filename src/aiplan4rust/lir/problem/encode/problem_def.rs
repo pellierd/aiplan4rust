@@ -5,7 +5,7 @@
 //! initial task networks. It populates the final `LiftedProblem` IR.
 
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{constants_def, expr, goal, init, initial_task_network, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{constants_def, expr, goal, init, initial_task_network, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
@@ -36,7 +36,7 @@ use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree, SyntaxTree};
 /// * A logical expression (metric, constraint, length) fails to encode.
 pub fn encode(
     syntax_tree: &SyntaxTree<AstNode>,
-    context: &mut EncodingContext,
+    registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
 
@@ -49,30 +49,30 @@ pub fn encode(
                 ir.set_problem_id(id)?;
             }
             AstKind::ObjectsDef => {
-                constants_def::encode(&subtree, context, ir)?;
+                constants_def::encode(&subtree, registry, ir)?;
             }
             AstKind::Init => {
-                let init = init::encode(&subtree, &context)?;
+                let init = init::encode(&subtree, registry)?;
                 ir.set_init(init);
             }
             AstKind::Goal => {
-                let goal_expr = goal::encode(&subtree, &context)?;
+                let goal_expr = goal::encode(&subtree, registry)?;
                 ir.set_goal(goal_expr);
             }
             AstKind::Constraints => {
-                let constraints = expr::encode(&subtree, &context)?;
+                let constraints = expr::encode(&subtree, registry)?;
                 ir.set_problem_constraints(constraints);
             }
             AstKind::Metric => {
-                let metric =  expr::encode(&subtree, &context)?;
+                let metric =  expr::encode(&subtree, registry)?;
                 ir.set_metric_spec(metric);
             }
             AstKind::Length => {
-                let length =  expr::encode(&subtree, &context)?;
+                let length =  expr::encode(&subtree, registry)?;
                 ir.set_length_spec(length);
             }
             AstKind::InitialTaskNetwork => {
-                let network = initial_task_network::encode(&subtree, &context)?;
+                let network = initial_task_network::encode(&subtree, registry)?;
                 ir.set_initial_task_network(network);
             }
             _ => {}

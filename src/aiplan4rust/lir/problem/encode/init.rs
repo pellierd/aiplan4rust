@@ -7,7 +7,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{expr, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{expr, EncodingRegistry};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
@@ -20,7 +20,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree corresponding to the `Init` node.
-/// * `ctx` - The encoding context for symbol and index resolution.
+/// * `registry` - The registry for symbol and index resolution.
 /// * `ir` - The mutable lifted problem where the initial state is registered.
 ///
 /// # Returns
@@ -35,7 +35,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// list of facts) is missing or cannot be parsed as a valid expression.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    ctx: &EncodingContext,
+    registry: &mut EncodingRegistry,
 ) -> Result<Expr, LirError> {
     // 1. Access the first child of the Init node (containing the list of initial facts)
     let child_id = subtree.node().try_child(0)?;
@@ -44,5 +44,5 @@ pub fn encode(
 
     // 2. Use the free expression encoder to transform the AST into a LIR Expr.
     // This populates the problem's binding tables (predicate_bindings).
-    expr::encode(&child_subtree, ctx)
+    expr::encode(&child_subtree, registry)
 }

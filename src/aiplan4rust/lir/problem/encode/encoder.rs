@@ -14,7 +14,7 @@
 
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::problem::encode::{domain_def, problem_def, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{domain_def, problem_def, EncodingRegistry};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxTree;
 
@@ -37,7 +37,7 @@ use crate::aiplan4rust::syntax::tree::SyntaxTree;
 /// * `Err(LirError)` - If a structural error or semantic inconsistency is encountered.
 pub fn encode_domain(
     syntax_tree: &SyntaxTree<AstNode>,
-    context: &mut EncodingContext,
+    context: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
     domain_def::encode(syntax_tree, context, ir)
@@ -67,7 +67,7 @@ pub fn encode_domain(
 /// not defined in the domain, or if initial state expressions are malformed.
 pub fn encode_problem(
     syntax_tree: &SyntaxTree<AstNode>,
-    context: &mut EncodingContext,
+    context: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
     problem_def::encode(syntax_tree, context, ir)

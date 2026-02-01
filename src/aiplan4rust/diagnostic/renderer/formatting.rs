@@ -70,7 +70,7 @@ pub(crate) fn ident_to_string(ident: StringID, interner: Option<&StringInterner>
 /// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
 /// - If the `interner` is not provided, returns the raw identifier as a string.
 pub(crate) fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner>) -> String {
-    ident_to_string(symbol.ident(), interner)
+    ident_to_string(symbol.id(), interner)
 }
 
 /// Converts a `Type` to a `String`, optionally resolving identifiers via a `StringInterner`.

@@ -10,12 +10,15 @@ use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 use crate::aiplan4rust::semantic::UnexpectedNodeKindError;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 #[derive(Debug, Error)]
 pub enum SemanticCheckError {
+
+    #[error(transparent)]
+    Ast(#[from] AstError),
 
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),

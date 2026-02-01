@@ -71,11 +71,14 @@ impl_id_type!(PredicateID);
 impl_id_type!(ParameterID);
 impl_id_type!(VariableID);
 impl_id_type!(FunctorID);
+impl_id_type!(TaskSymbolID);
+impl_id_type!(PreferenceID);
 impl_id_type!(NumericFluentID);
 impl_id_type!(ObjectID);
 impl_id_type!(ObjectFluentID);
-impl_id_type!(ActionSkeletonID);
+impl_id_type!(AtomSkeletonID);
 impl_id_type!(FunctionSkeletonID);
+impl_id_type!(TaskSkeletonID);
 
 // --- LOGIQUE SPÉCIFIQUE (REMAP) ---
 
@@ -115,12 +118,14 @@ impl_display_prefix!(PredicateID, "P");
 impl_display_prefix!(ParameterID, "param");
 impl_display_prefix!(VariableID, "var");
 impl_display_prefix!(FunctorID, "F");
+impl_display_prefix!(TaskSymbolID, "TK");
+impl_display_prefix!(PreferenceID, "Pref");
 impl_display_prefix!(NumericFluentID, "NF");
 impl_display_prefix!(ObjectID, "O");
 impl_display_prefix!(ObjectFluentID, "OF");
-impl_display_prefix!(ActionSkeletonID, "AS");
-impl_display_prefix!(FunctionSkeletonID, "AF");
-
+impl_display_prefix!(AtomSkeletonID, "AS");
+impl_display_prefix!(FunctionSkeletonID, "FS");
+impl_display_prefix!(TaskSkeletonID, "TS");
 
 // --- TRAITS INTERNER (RESOLUTION) ---
 

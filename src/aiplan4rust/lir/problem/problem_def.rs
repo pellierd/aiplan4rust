@@ -36,7 +36,7 @@
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, StringID, TypedSymbol};
+use crate::aiplan4rust::lang::{Requirement, StringID, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
@@ -100,17 +100,8 @@ impl<'a> ProblemDef<'a> {
         self.problem.interner()
     }
 
-    /// Returns an iterator over all objects in this problem.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// for obj in problem.objects() {
-    ///     println!("Object: {:?}", obj);
-    /// }
-    /// ```
-    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
-        self.problem.objects()
+    pub fn objects(&self) -> &[TypedSymbol<TypeID>] {
+        self.problem.problem_objects()
     }
 
     /// Returns true if the problem contains any objects.
@@ -123,7 +114,7 @@ impl<'a> ProblemDef<'a> {
     /// }
     /// ```
     pub fn has_objects(&self) -> bool {
-        self.problem.has_objects()
+        self.problem.has_problem_objects()
     }
 
     /// Returns the initial state expression.

@@ -28,7 +28,7 @@
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::typed_symbol::TypedSymbol;
-use crate::aiplan4rust::lang::{RemapTypes, StringID, Type};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypeID};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::expr::Expr;
@@ -69,7 +69,7 @@ impl Method {
     /// A new `Method` instance.
     pub fn new(
         name: StringID,
-        parameters: TypedList<StringID>,
+        parameters: TypedList<TypeID>,
         task: Expr,
         precondition: Expr,
         task_network: LiftedTaskNetwork,
@@ -129,12 +129,12 @@ impl Method {
     }
 
     /// Returns a slice of the method's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol<StringID>] {
+    pub fn parameters(&self) -> &[TypedSymbol<TypeID>] {
         &self.header.parameters()
     }
 
     /// Sets the method's parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<StringID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
         self.header.set_parameters(parameters);
     }
 
@@ -208,7 +208,7 @@ impl Method {
 
 }
 
-impl RemapTypes for Method {
+/*impl RemapTypes for Method {
     /// Remaps union types (`Type::Either`) in the method's header and precondition.
     ///
     /// # Parameters
@@ -222,7 +222,7 @@ impl RemapTypes for Method {
         self.precondition.remap_types(map)?;
         Ok(())
     }
-}
+}*/
 
 impl fmt::Display for Method {
     /// Formats the `Method` for human-readable output.

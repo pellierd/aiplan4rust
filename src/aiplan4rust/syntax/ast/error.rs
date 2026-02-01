@@ -19,12 +19,20 @@ pub enum AstError {
     #[error("Expected Requirement, but content was not a requirement")]
     NotARequirement,
 
+
+    #[error("Expected symbol id, but content was not a symbol id")]
+    NotASymbolID,
+
 }
 
 impl AstError {
     /// Creates a new `AstError::NotARequirement`.
     pub fn not_a_requirement() -> Self {
         AstError::NotARequirement
+    }
+
+    pub fn not_a_symbol_id() -> Self {
+        AstError::NotASymbolID
     }
 
 }

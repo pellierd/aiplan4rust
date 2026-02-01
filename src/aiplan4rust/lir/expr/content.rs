@@ -51,7 +51,7 @@
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, TypedList};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, TypedList, VariableID, ObjectID, ParameterID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
@@ -76,9 +76,24 @@ pub enum Content {
     /// No content (empty/default syntax node).
     #[default]
     None,
-
-    /// Interned identifier referencing a name stored in a [`StringInterner`].
     Ident(StringID),
+    Variable(VariableID),     // Variables liées (Forall/Exists)
+    Constant(ObjectID),     // Objets/Constantes du domaine
+    Parameter(ParameterID),   // Paramètres d'action
+
+    // --- Symboles de Définition ---
+    Predicate(PredicateID),
+    Functor(FunctorID),
+    TaskSymbol(TaskSymbolID),
+
+    // --- Skeletons (Liaison aux formules atomiques) ---
+    /// Référence à ATOMIC_FORMULA_SKELETON_ID
+    AtomSkeleton(AtomSkeletonID),
+    /// Référence à ATOMIC_FUNCTION_SKELETON_ID
+    FunctionSkeleton(FunctionSkeletonID),
+    TaskSkeleton(TaskSkeletonID),
+
+    Preference(PreferenceID),
 
     /// Floating-point literal wrapped in [`OrderedFloat`] to ensure total ordering.
     #[serde(
@@ -100,7 +115,8 @@ pub enum Content {
     Optimization(Optimization),
 
     /// The bound variables for a quantifier (Forall or Exists) stored as a `TypedList`.
-    QuantifierVariables(TypedList<StringID>),
+    QuantifierVariables(TypedList<TypeID>),
+
 }
 
 impl Content {
@@ -109,7 +125,7 @@ impl Content {
     /// # Returns
     /// * `Some(&TypedList)` if the content holds bound variables
     /// * `None` otherwise
-    pub fn as_quantifier_vars(&self) -> Option<&TypedList<StringID>> {
+    pub fn as_quantifier_vars(&self) -> Option<&TypedList<TypeID>> {
         match self {
             ExprContent::QuantifierVariables(list) => Some(list),
             _ => None,
@@ -120,7 +136,7 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::unsupported_content` if the content is not `TypedVariables`.
-    pub fn try_quantifier_vars(&self) -> Result<&TypedList<StringID>, ExprError> {
+    pub fn try_quantifier_vars(&self) -> Result<&TypedList<TypeID>, ExprError> {
         match self {
             ExprContent::QuantifierVariables(list) => Ok(list),
             _ => Err(ExprError::not_quantifier_variables()),
@@ -132,7 +148,7 @@ impl Content {
     /// # Returns
     /// * `Some(&mut TypedList)` if the content holds bound variables
     /// * `None` otherwise
-    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList<StringID>> {
+    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList<TypeID>> {
         match self {
             ExprContent::QuantifierVariables(list) => Some(list),
             _ => None,
@@ -143,7 +159,7 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::not_quantifier_variables()` if the content is not `TypedVariables`.
-    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<StringID>, ExprError> {
+    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<TypeID>, ExprError> {
         match self {
             ExprContent::QuantifierVariables(list) => Ok(list),
             _ => Err(ExprError::not_quantifier_variables()),
@@ -155,13 +171,34 @@ impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Content::None => write!(f, ""),
-            Content::Ident(idx) => write!(f, "Ident({})", idx),
-            Content::Float(val) => write!(f, "{}", val),
-            Content::BinaryComp(comp) => write!(f, "{}", comp),
-            Content::AssignOp(assign) => write!(f, "{}", assign),
-            Content::ArithmeticOp(op) => write!(f, "{}", op),
-            Content::Optimization(opt) => write!(f, "{}", opt),
-            Content::QuantifierVariables(vars) => write!(f, "{}", vars),
+            Content::Ident(id) => write!(f, "{id}"),
+
+            // Terminaux sémantiques (utilisent les macros de préfixes)
+            Content::Variable(id) => write!(f, "{id}"),
+            Content::Constant(id) => write!(f, "{id}"),
+            Content::Parameter(id) => write!(f, "{id}"),
+
+            // Définitions
+            Content::Predicate(id) => write!(f, "{id}"),
+            Content::Functor(id) => write!(f, "{id}"),
+            Content::TaskSymbol(id) => write!(f, "{id}"),
+            Content::Preference(id) => write!(f, "{id}"),
+
+            // Skeletons
+            Content::AtomSkeleton(id) => write!(f, "{id}"),
+            Content::FunctionSkeleton(id) => write!(f, "{id}"),
+            Content::TaskSkeleton(id) => write!(f, "{id}"),
+
+            // Valeurs et Opérateurs
+            Content::Float(val) => write!(f, "{val}"),
+            Content::BinaryComp(comp) => write!(f, "{comp}"),
+            Content::AssignOp(assign) => write!(f, "{assign}"),
+            Content::ArithmeticOp(op) => write!(f, "{op}"),
+            Content::Optimization(opt) => write!(f, "{opt}"),
+
+            // Listes
+            Content::QuantifierVariables(vars) => write!(f, "{vars}"),
+
         }
     }
 }
@@ -216,12 +253,12 @@ impl SyntaxInternerDisplay for Content {
 }
 
 impl SyntaxContent for Content {
-    fn as_ident(&self) -> Option<StringID> {
+    /*fn as_ident(&self) -> Option<StringID> {
         match self {
             Content::Ident(id) => Some(*id),
             _ => None,
         }
-    }
+    }*/
 
     fn as_float(&self) -> Option<OrderedFloat<f64>> {
         match self {
@@ -278,54 +315,5 @@ impl RemapIdents for Content {
             }
         }
         Ok(())
-    }
-}
-
-impl TryFrom<&AstContent> for Content {
-    type Error = ExprError;
-
-    /// Attempts to convert an [`AstContent`] reference into a [`Content`].
-    ///
-    /// Returns an error if the content is unsupported in the `expr` module.
-    fn try_from(content: &AstContent) -> Result<Self, Self::Error> {
-        match content {
-            AstContent::Ident(ident) => Ok(Content::Ident(*ident)),
-            AstContent::Float(n) => Ok(Content::Float(*n)),
-            AstContent::BinaryComp(op) => Ok(Content::BinaryComp(*op)),
-            AstContent::AssignOp(op) => Ok(Content::AssignOp(*op)),
-            AstContent::ArithmeticOp(op) => Ok(Content::ArithmeticOp(*op)),
-            AstContent::Optimization(op) => Ok(Content::Optimization(*op)),
-            AstContent::Requirement(req) => Err(ExprError::unsupported_content(
-                AstContent::Requirement(*req),
-            )),
-            AstContent::None => Ok(Content::None),
-        }
-    }
-}
-
-impl TryFrom<(&AstNode, &SyntaxSubtree<'_, AstNode>)> for ExprContent {
-    type Error = ExprError;
-
-    fn try_from((ast_node, subtree): (&AstNode, &SyntaxSubtree<'_, AstNode>)) -> Result<Self, Self::Error> {
-        let kind = ExprKind::try_from(ast_node.kind())?;
-
-        match kind {
-            ExprKind::Forall | ExprKind::Exists => {
-                let children = ast_node.children();
-                if children.is_empty() {
-                    return Err(ExprError::invalid_ast_node(ast_node.kind()));
-                }
-                // Récupère le TypedList
-                let typed_list_node = subtree.tree().try_node(children[0])?;
-                let typed_list_tree = SyntaxSubtree::new(typed_list_node, children[0], subtree.tree());
-
-                //let vars = typed_list::encode(&typed_list_tree)?;
-                let vars = typed_list::encode(&typed_list_tree)
-                    .map_err(|_| ExprError::invalid_ast_node(ast_node.kind()))?; // Ou une variante "message"
-
-                Ok(ExprContent::QuantifierVariables(vars))
-            }
-            _ => ExprContent::try_from(ast_node.content()),
-        }
     }
 }

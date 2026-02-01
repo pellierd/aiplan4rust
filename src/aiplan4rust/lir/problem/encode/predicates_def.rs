@@ -1,63 +1,75 @@
-//! Predicate Signature Encoding
+//! Predicate Definitions Encoding
 //!
-//! This module handles the extraction of predicate signatures from the domain
-//! AST and registers them within the LIR. It also maintains the mapping
-//! between AST nodes and their corresponding LIR indices.
+//! This module orchestrates the extraction of predicate signatures (skeletons)
+//! from the domain AST and registers them within the LIR.
+//!
+//! It ensures a dual mapping in the registry:
+//! 1. **Logical Identity**: The predicate's name node is mapped to a [`PredicateID`].
+//! 2. **Structural Signature**: The same node is mapped to an [`AtomSkeletonID`].
+//!
+//! This precise binding allows formulas (preconditions, effects, etc.) to resolve
+//! atom occurrences back to their full LIR definition and unique identity during
+//! the second pass.
 
 use crate::aiplan4rust::lang::PredicateID;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
-/// Encodes predicate definitions into the Lifted Intermediate Representation.
+/// Encodes the `:predicates` section of a PDDL domain into the LIR.
 ///
-/// This function iterates through predicate declarations, converts them into
-/// LIR skeletons, and populates the lookup table used for symbol resolution
-/// in subsequent encoding passes.
+/// This function iterates through each predicate declaration (e.g., `(at ?r - robot)`).
+/// It extracts the formal signature and performs a triple operation:
+/// 1. **Storage**: Adds the signature to the [`LiftedProblem`].
+/// 2. **ID Retrieval**: Obtains the newly generated [`PredicateID`] and [`AtomSkeletonID`].
+/// 3. **Registration**: Binds the AST `NodeId` of the predicate symbol to these LIR IDs.
 ///
 /// # Arguments
 ///
-/// * `subtree` - The syntax subtree containing the `PredicatesDef` node.
-/// * `ir` - The mutable lifted problem where predicates are registered.
-/// * `ast_node_to_predicate_declaration` - A map to be populated with the mapping from AST `NodeId` to LIR predicate index.
+/// * `subtree` - The syntax subtree representing the `PredicatesDef` node.
+/// * `registry` - The mutable registry for node-to-ID mapping.
+/// * `ir` - The mutable Lifted Problem storage.
 ///
 /// # Returns
 ///
-/// * `Ok(())` - If all predicates were successfully registered and mapped.
-/// * `Err(LirError)` - If a predicate definition is malformed.
-///
-/// # Errors
-///
-/// Returns an error if an `AtomicFormulaSkeleton` cannot be constructed from
-/// the provided AST node.
+/// * `Ok(())` - If all predicate signatures were successfully encoded and registered.
+/// * `Err(LirError)` - If a predicate structure is invalid or type resolution fails.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    context: &mut EncodingContext,
+    registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
 
-    // On itère sur chaque définition de prédicat dans la liste
-    for &child_id in subtree.node().children() {
-        let child_node = tree.try_node(child_id)?;
-        let child_subtree = SyntaxSubtree::new(child_node, child_id, tree);
+    // Iterate over each predicate definition (e.g., `(at ?r - robot ?l - location)`)
+    for &atom_skeleton_node_id in subtree.node().children() {
+        let atom_skeleton_node = tree.try_node(atom_skeleton_node_id)?;
+        let atom_skeleton_subtree = SyntaxSubtree::new(
+            atom_skeleton_node,
+            atom_skeleton_node_id,
+            tree
+        );
 
-        // 1. Encode le squelette du prédicat (nom + paramètres)
-        let atomic_formula_skeleton = atomic_formula_skeleton::encode(&child_subtree)?;
+        // 1. Build the skeleton (Symbol + Typed Parameters)
+        // This delegates to atomic_formula_skeleton, which uses named_typed_list.
+        let atom_skeleton = atomic_formula_skeleton::encode(&atom_skeleton_subtree, registry)?;
 
-        // 2. Récupère le symbole (propriété directe, pas de clone nécessaire)
-        let predicate = atomic_formula_skeleton.predicate();
+        // 2. Identify the Predicate Name NodeId
+        // We register the ID of the symbol itself (the "at" in "(at ?r ?l)")
+        // to stay consistent with how the symbol table identifies declarations.
+        let predicate_node_id = atom_skeleton_subtree.node().children()[0];
 
-        // 3. Calcule l'ID avant l'ajout (index 0-based)
-        let predicate_id = PredicateID::new(ir.predicates().len());
+        // 3. Physical storage in the LIR
+        // The LIR returns both the logical PredicateID and the structural AtomSkeletonID.
+        let (predicate_id, atom_skeleton_id) = ir.add_atom_skeleton(atom_skeleton);
 
-        // 4. Mappe le symbole à l'ID
-        context.register_predicate(predicate, predicate_id);
-
-        // 5. Enregistre dans le LiftedProblem
-        ir.add_predicate(atomic_formula_skeleton);
+        // 4. Node mapping in the registry.
+        // We link the declaration's NodeId to both LIR IDs. This allows the
+        // expression encoder to resolve an atom call to its full context.
+        registry.register_atom_skeleton(predicate_node_id, atom_skeleton_id);
+        registry.register_predicate(predicate_node_id, predicate_id);
     }
 
     Ok(())

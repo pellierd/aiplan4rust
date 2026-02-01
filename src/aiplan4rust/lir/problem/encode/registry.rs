@@ -5,9 +5,9 @@
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{FunctorID, ObjectID, PredicateID, StringID, Type, TypeID, VariableID};
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, TaskSymbolID, TaskSkeletonID, TypeID, VariableID, PreferenceID};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
+use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
@@ -15,7 +15,7 @@ use crate::aiplan4rust::syntax::tree::NodeId;
 ///
 /// This structure acts as a bridge between the semantic analysis and the LIR.
 /// It carries the necessary mappings to resolve names into indices.
-pub struct EncodingContext {
+pub struct EncodingRegistry {
 
     /// **The Symbol Table**: A reference to the semantic table containing
     /// identifiers for the current scope (e.g., action parameters, constants).
@@ -23,27 +23,38 @@ pub struct EncodingContext {
 
     /// **Type Mapping**: Links a semantic `Type` structure (primitive or union)
     /// to its unique index in the LIR.
-    type_to_id: HashMap<Symbol, TypeID>,
+    type_to_id: HashMap<NodeId, TypeID>,
+
+    predicate_to_id: HashMap<NodeId, PredicateID>,
 
     /// **Predicate Mapping**: Links a predicate's logical `Symbol`
     /// to its unique positional index in the LIR.
-    predicate_to_id: HashMap<Symbol, PredicateID>,
+    atom_skeleton_to_id: HashMap<NodeId, AtomSkeletonID>,
+
+    functor_to_id: HashMap<NodeId, FunctorID>,
 
     /// **Function Mapping**: Links a function's logical `Symbol`
     /// to its unique index in the LIR.
-    function_to_id: HashMap<Symbol, FunctorID>,
+    function_skeleton_to_id: HashMap<NodeId, FunctionSkeletonID>,
 
     /// **Object Mapping**: Links a logical `Symbol` (either a global Constant
     /// from the domain or an Object from the problem) to its unique index.
-    object_to_id: HashMap<Symbol, ObjectID>,
+    object_to_id: HashMap<NodeId, ObjectID>,
+
+    task_symbol_to_id: HashMap<NodeId, TaskSymbolID>,
+
+    task_skeleton_to_id: HashMap<NodeId, TaskSkeletonID>,
 
     /// **Variable Mapping**: Links a variable's declaration `NodeId` (from AST)
     /// to its local `VariableID` index (0, 1, 2...).
     /// This handles local scope (actions, forall, exists) without naming conflicts.
     variable_to_id: HashMap<NodeId, VariableID>,
+
+    preference_to_id: HashMap<NodeId, PreferenceID>,
+
 }
 
-impl EncodingContext {
+impl EncodingRegistry {
     /// Creates a new `EncodingContext`.
     ///
     /// # Arguments
@@ -58,9 +69,15 @@ impl EncodingContext {
             symbol_table,
             type_to_id : HashMap::new(),
             object_to_id : HashMap::new(),
-            predicate_to_id : HashMap::new(),
-            function_to_id : HashMap::new(),
+            atom_skeleton_to_id: HashMap::new(),
+            predicate_to_id: HashMap::new(),
+            function_skeleton_to_id: HashMap::new(),
+            functor_to_id: HashMap::new(),
+            task_skeleton_to_id: HashMap::new(),
+            task_symbol_to_id: HashMap::new(),
             variable_to_id : HashMap::new(),
+            preference_to_id: HashMap::new(),
+
         }
     }
 
@@ -69,13 +86,10 @@ impl EncodingContext {
         &self.symbol_table
     }
 
-
-
-    pub fn get_type_id(&self, ty: &Type<StringID>) -> Option<Vec<TypeID>> {
+    /*pub fn resolve_type(&self, ty: &Type<NodeId>) -> Option<Vec<TypeID>> {
         let mut ids = Vec::new();
         for t in ty.members() {
-            let type_symbol = Symbol::new(*t, SymbolKind::PrimitiveType);
-            if let Some(id) = self._get_type_id(&type_symbol) {
+            if let Some(id) = self.resolve_type_symbol(*t) {
                 ids.push(id);
             } else {
                 return None; // Un des membres est inconnu
@@ -87,155 +101,152 @@ impl EncodingContext {
     }
 
     /// La version "Strict" que tu utiliseras lors de l'encodage.
-    pub fn try_get_type_id(&self, ty: &Type<StringID>) -> Result<Vec<TypeID>, LirError> {
-        self.get_type_id(ty)
+    pub fn try_resolve_type(&self, ty: &Type<StringID>) -> Result<Vec<TypeID>, LirError> {
+        self.resolve_type(ty)
             .ok_or_else(|| LirError::type_binding_failed(ty.clone()))
-    }
+    }*/
 
     /// Récupère l'ID d'un type PRIMITIF uniquement (par son symbole).
-    fn _get_type_id(&self, symbol: &Symbol) -> Option<TypeID> {
-        self.type_to_id.get(symbol).copied()
+    pub fn resolve_type_symbol(&self, symbol: NodeId) -> Option<TypeID> {
+        self.type_to_id.get(&symbol).copied()
     }
 
     /// Version avec erreur fatale
-    fn _try_get_type_id(&self, symbol: &Symbol) -> Result<TypeID, LirError> {
-        self._get_type_id(symbol)
+    pub fn try_resolve_type_symbol(&self, symbol: NodeId) -> Result<TypeID, LirError> {
+        self.resolve_type_symbol(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+    }
+
+    /// Récupère l'ID d'un prédicat par le NodeId de son symbole de déclaration.
+    pub fn resolve_predicate(&self, symbol: NodeId) -> Option<PredicateID> {
+        self.predicate_to_id.get(&symbol).copied()
+    }
+
+    /// Version avec erreur fatale si le prédicat n'est pas lié dans le registre.
+    pub fn try_resolve_predicate(&self, symbol: NodeId) -> Result<PredicateID, LirError> {
+        self.resolve_predicate(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+    }
+
+    pub fn resolve_atom_skeleton(&self, symbol: NodeId) -> Option<AtomSkeletonID> {
+        self.atom_skeleton_to_id.get(&symbol).copied()
+    }
+
+    pub fn try_resolve_atom_skeleton(&self, symbol: NodeId) -> Result<AtomSkeletonID, LirError> {
+        self.resolve_atom_skeleton(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
 
-    /// Returns the PredicateID associated with a given AST declaration ID, if it exists.
-    ///
-    /// # Parameters
-    ///
-    /// - `decl_id`: The unique [`NodeId`] of the predicate declaration in the AST.
-    ///
-    /// # Returns
-    ///
-    /// An `Option<PredicateID>` containing the mapped LIR ID, or `None` if not found.
-    pub fn get_predicate_id(&self, symbol: &Symbol) -> Option<PredicateID> {
-        self.predicate_to_id.get(symbol).copied()
+    pub fn resolve_functor_symbol(&self, symbol: NodeId) -> Option<FunctorID> {
+        self.functor_to_id.get(&symbol).copied()
     }
 
-    /// Attempts to retrieve the PredicateID for a declaration, returning a fatal error if missing.
-    ///
-    /// This is used during the encoding phase when a predicate is expected to be
-    /// already registered in the LIR mapping.
-    ///
-    /// # Parameters
-    ///
-    /// - `decl_id`: The unique [`NodeId`] of the predicate declaration.
-    ///
-    /// # Returns
-    ///
-    /// A `Result<PredicateID, LirError>` containing the ID or a binding error.
-    pub fn try_get_predicate_id(&self, symbol: &Symbol) -> Result<PredicateID, LirError> {
-        self.get_predicate_id(symbol)
+    pub fn try_resolve_functor(&self, symbol: NodeId) -> Result<FunctorID, LirError> {
+        self.resolve_functor_symbol(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+    }
+
+    pub fn resolve_function_skeleton(&self, symbol: NodeId) -> Option<FunctionSkeletonID> {
+        self.function_skeleton_to_id.get(&symbol).copied()
+    }
+
+    pub fn try_resolve_function_skeleton(&self, symbol: NodeId) -> Result<FunctionSkeletonID, LirError> {
+        self.resolve_function_skeleton(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
 
-    /// Returns the FunctionID associated with a given AST declaration ID, if it exists.
-    ///
-    /// # Parameters
-    ///
-    /// - `decl_id`: The unique [`NodeId`] of the function declaration in the AST.
-    ///
-    /// # Returns
-    ///
-    /// An `Option<FunctionID>` containing the mapped LIR ID, or `None` if not found.
-    pub fn get_function_id(&self, symbol: &Symbol) -> Option<FunctorID> {
-        self.function_to_id.get(symbol).copied()
+    pub fn resolve_object(&self, symbol: NodeId) -> Option<ObjectID> {
+        self.object_to_id.get(&symbol).copied()
     }
 
-    /// Attempts to retrieve the FunctionID for a declaration, returning a fatal error if missing.
-    ///
-    /// # Parameters
-    ///
-    /// - `symbol`: The unique [`NodeId`] of the function declaration.
-    ///
-    /// # Returns
-    ///
-    /// A `Result<FunctionID, LirError>` containing the ID or a binding error.
-    pub fn try_get_function_id(&self, symbol: &Symbol) -> Result<FunctorID, LirError> {
-        self.get_function_id(symbol)
+    pub fn try_resolve_object(&self, symbol: NodeId) -> Result<ObjectID, LirError> {
+        self.resolve_object(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
 
-    /// This covers both global Constants (from the domain) and Objects (from the problem).
-    ///
-    /// # Parameters
-    ///
-    /// - `symbol`: The unique [`Symbol`] representing the constant or object.
-    ///
-    /// # Returns
-    ///
-    /// An `Option<ObjectID>` containing the mapped LIR ID, or `None` if not found.
-    pub fn get_object_id(&self, symbol: &Symbol) -> Option<ObjectID> {
-        self.object_to_id.get(symbol).copied()
+    pub fn register_variable(&mut self, variable: NodeId) -> VariableID{
+        let id = VariableID::new(self.variable_to_id.len());
+        self.variable_to_id.insert(variable, id);
+        id
     }
 
-    /// Attempts to retrieve the ObjectID for a symbol, returning a fatal error if missing.
-    ///
-    /// This is used during expression encoding when a constant or object reference
-    /// is expected to be already registered in the LIR.
-    ///
-    /// # Parameters
-    ///
-    /// - `symbol`: The [`Symbol`] to resolve.
-    ///
-    /// # Returns
-    ///
-    /// A `Result<ObjectID, LirError>` containing the ID or an `ObjectNotFound` error.
-    pub fn try_get_object_id(&self, symbol: &Symbol) -> Result<ObjectID, LirError> {
-        self.get_object_id(symbol)
-            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
-    }
-
-    /// Enregistre une variable avec un ID fourni de l'extérieur.
-    /// (L'ID vient par exemple de l'indexation des enfants dans l'AST)
-    pub fn register_variable(&mut self, decl_id: NodeId, var_id: VariableID) {
-        self.variable_to_id.insert(decl_id, var_id);
-    }
-
-    /// Récupère l'ID associé au NodeId de déclaration.
-    pub fn get_variable_id(&self, decl_id: NodeId) -> Option<VariableID> {
+    pub fn resolve_variable(&self, decl_id: NodeId) -> Option<VariableID> {
         self.variable_to_id.get(&decl_id).copied()
     }
 
-    /// Tries to retrieve the VariableID associated with a declaration NodeId.
-    ///
-    /// # Errors
-    /// Returns `LirError::VariableNotFound` if the NodeId is not registered,
-    /// which usually indicates a logic error in the encoder or a missing registration
-    /// during the action header or quantifier processing.
-    pub fn try_get_variable_id(&self, decl_id: NodeId) -> Result<VariableID, LirError> {
+    pub fn try_resolve_variable(&self, decl_id: NodeId) -> Result<VariableID, LirError> {
         self.variable_to_id
             .get(&decl_id)
             .copied()
             .ok_or_else(|| LirError::variable_not_found(decl_id))
     }
 
-    /// Vide la map pour la prochaine action.
     pub fn clear_variables(&mut self) {
         self.variable_to_id.clear();
     }
 
-    /// Registers a new Type with a pre-assigned TypeID.
-    pub fn register_type(&mut self, symbol: Symbol, id: TypeID) {
-        self.type_to_id.insert(symbol, id);
+    pub fn resolve_task_symbol(&self, symbol: NodeId) -> Option<TaskSymbolID> {
+        self.task_symbol_to_id.get(&symbol).copied()
     }
 
-    /// Registers a new object symbol with a pre-assigned ObjectID.
-    pub fn register_object(&mut self, symbol: Symbol, id: ObjectID) {
+    pub fn try_resolve_task_symbol(&self, symbol: NodeId) -> Result<TaskSymbolID, LirError> {
+        self.resolve_task_symbol(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+    }
+
+    pub fn resolve_task_skeleton(&self, symbol: NodeId) -> Option<TaskSkeletonID> {
+        self.task_skeleton_to_id.get(&symbol).copied()
+    }
+
+    pub fn try_resolve_task_skeleton(&self, symbol: NodeId) -> Result<TaskSkeletonID, LirError> {
+        self.resolve_task_skeleton(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+    }
+
+    pub fn resolve_preference(&self, symbol: NodeId) -> Option<PreferenceID> {
+        self.preference_to_id.get(&symbol).copied()
+    }
+
+    pub fn try_resolve_preference(&self, symbol: NodeId) -> Result<PreferenceID, LirError> {
+        self.resolve_preference(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+    }
+
+    pub fn register_type_symbol(&mut self, symbol: NodeId) -> TypeID {
+        let id = TypeID::new(self.type_to_id.len());
+        self.type_to_id.insert(symbol, id);
+        id
+    }
+
+    pub fn register_object(&mut self, symbol: NodeId, id: ObjectID) {
         self.object_to_id.insert(symbol, id);
     }
 
-    /// Registers a new Predicate symbol with a pre-assigned PredicateID.
-    pub fn register_predicate(&mut self, symbol: Symbol, id: PredicateID) {
+    pub fn register_predicate(&mut self, symbol: NodeId, id: PredicateID) {
         self.predicate_to_id.insert(symbol, id);
     }
 
-    /// Registers a new Function symbol with a pre-assigned FunctionID.
-    pub fn register_function(&mut self, symbol: Symbol, id: FunctorID) {
-        self.function_to_id.insert(symbol, id);
+    pub fn register_atom_skeleton(&mut self, symbol: NodeId, id: AtomSkeletonID) {
+        self.atom_skeleton_to_id.insert(symbol, id);
+    }
+
+    pub fn register_functor(&mut self, symbol: NodeId, id: FunctorID) {
+        self.functor_to_id.insert(symbol, id);
+    }
+
+    pub fn register_function_skeleton(&mut self, symbol: NodeId, id: FunctionSkeletonID) {
+        self.function_skeleton_to_id.insert(symbol, id);
+    }
+
+    pub fn register_task_skeleton(&mut self, symbol: NodeId, id: TaskSkeletonID) {
+        self.task_skeleton_to_id.insert(symbol, id);
+    }
+
+    pub fn register_task_symbol(&mut self, symbol: NodeId, id: TaskSymbolID) {
+        self.task_symbol_to_id.insert(symbol, id);
+    }
+
+    pub fn register_preference(&mut self, symbol: NodeId, id: PreferenceID) {
+        self.preference_to_id.insert(symbol, id);
     }
 }

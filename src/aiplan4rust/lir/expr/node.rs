@@ -332,7 +332,7 @@ impl SyntaxNode for ExprNode {
         self.inner.set_content(content);
     }
 
-    /// Attempts to interpret this node as a symbol if its kind corresponds to
+    /*/// Attempts to interpret this node as a symbol if its kind corresponds to
     /// a symbol type_checker. Returns `None` if not applicable.
     ///
     /// # Errors
@@ -352,7 +352,7 @@ impl SyntaxNode for ExprNode {
 
         let ident = self.try_ident()?;
         Ok(Some(Symbol::new(ident, symbol_kind)))
-    }
+    }*/
 
     /// Creates a shallow clone of the expression node.
     ///

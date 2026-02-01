@@ -9,8 +9,8 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, expr};
-use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
+use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, expr, named_typed_list};
+use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
 
 /// Encodes a derived predicate from the syntax tree into the LIR.
 ///
@@ -20,7 +20,7 @@ use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `:derived` definition.
-/// * `ctx` - The encoding context for resolving identifiers within the logic.
+/// * `registry` - The registry for resolving identifiers within the logic.
 /// * `ir` - The mutable `LiftedProblem` where the derived predicate is registered.
 ///
 /// # Returns
@@ -35,22 +35,33 @@ use crate::aiplan4rust::lir::problem::encode::registry::EncodingContext;
 /// * The body expression cannot be resolved with the current context.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    ctx: &EncodingContext,
+    registry: &mut EncodingRegistry,
 ) -> Result<DerivedPredicate, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
-    // 1. Parse the head (the atom being defined)
-    // We use the skeleton since this is a definition site
+    // 1. Le Head est à l'index 0 (ex: (ontable ?x))
     let head_node_id = node.try_child(0)?;
     let head_node = ast.try_node(head_node_id)?;
-    let head = atomic_formula_skeleton::encode(&SyntaxSubtree::new(head_node, head_node_id, ast))?;
 
-    // 2. Parse the body (the logical formula)
-    // We use the free expr::encode function to resolve symbols
+    // --- ÉTAPE 1 : Binding des variables ---
+    named_typed_list::bind_variables(head_node_id, ast, registry)?;
+
+    // 2. Encode le Head (maintenant que les variables sont bindées)
+    let head = atomic_formula_skeleton::encode(
+        &SyntaxSubtree::new(head_node, head_node_id, ast),
+        registry
+    )?;
+
+    // 3. Encode le Body (l'index 1 est la formule logique)
     let body_node_id = node.try_child(1)?;
     let body_node = ast.try_node(body_node_id)?;
-    let body = expr::encode(&SyntaxSubtree::new(body_node, body_node_id, ast), ctx)?;
+
+    // expr::encode pourra résoudre les variables du head car elles sont dans le registry
+    let body = expr::encode(
+        &SyntaxSubtree::new(body_node, body_node_id, ast),
+        registry
+    )?;
 
     Ok(DerivedPredicate::new(head, body))
 }

@@ -4,7 +4,7 @@ use crate::aiplan4rust::grounding::problem::{Fluent, SymbolTable, ValueDomain};
 use crate::aiplan4rust::lang::ids::{FunctorID, ObjectFluentID, ObjectID, ArgumentID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
-use crate::aiplan4rust::grounding::problem::symbol_table::IndexTableError;
+use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Builds an `IndexTable` containing all type identifiers from the given typed symbols.
@@ -23,14 +23,14 @@ pub fn build_type_symbols_table(
     types_table : &mut SymbolTable<TypeID>,
 )  {
 
-    for ts in lifted_problem.types() {
+    /*for ts in lifted_problem.type_symbol_table() {
         // Add the symbol's own identifier
         types_table.insert(ts.symbol());
         // Add all member identifiers of the type
         for ty_id in ts.ty().iter() {
             types_table.insert(*ty_id);
         }
-    }
+    }*/
 
 }
 
@@ -54,7 +54,7 @@ pub fn build_functions_symbols_table(
     problem: &LiftedProblem,
     table: &mut SymbolTable<FunctorID>
 ) {
-    for func in problem.functions() {
+    for func in problem.function_skeletons() {
         table.insert(func.symbol());
     }
 }
@@ -81,7 +81,7 @@ pub fn build_predicates_symbols_table(
     problem: &LiftedProblem,
     table: &mut SymbolTable<PredicateID>
 ) {
-    for pred in problem.predicates() {
+    for pred in problem.atom_skeletons() {
         table.insert(pred.symbol());
     }
 }
@@ -108,12 +108,12 @@ pub fn build_objects_symbols_table(
     problem: &LiftedProblem,
     table: &mut SymbolTable<ObjectID>,
 ) {
-    for obj in problem.constants().chain(problem.objects()) {
+    for obj in problem.objects() {
         table.insert(obj.symbol());
     }
 }
 
-/// Builds a table mapping each type to its parent (super) type.
+/*/// Builds a table mapping each type to its parent (super) type.
 ///
 /// Each type in the lifted problem is assigned its corresponding parent type ID.
 /// This is used to reconstruct the type hierarchy in the grounded problem.
@@ -143,7 +143,7 @@ pub fn build_type_parent_table(
 ) -> Result<Vec<Option<TypeID>>, GroundingError> {
     let mut types = vec![None; typed_symbols_table.len()];
 
-    for ts in problem.types() {
+    for ts in problem.type_symbol_table() {
         let type_id = typed_symbols_table.try_get_id(&ts.symbol())?;
         let members = ts.ty().members();
 
@@ -158,9 +158,9 @@ pub fn build_type_parent_table(
     }
 
     Ok(types)
-}
+}*/
 
-/// Builds the list of objects (constants and declared objects) for the grounded problem.
+/*/// Builds the list of objects (constants and declared objects) for the grounded problem.
 ///
 /// Each object is represented as an `Object` with a symbol and its associated type.
 /// Constants and objects are merged into a single list, and their types are looked up
@@ -184,16 +184,16 @@ pub fn build_objects_table(
     let mut objects = Vec::new();
 
     // Merge constants and objects
-    for object in problem.constants().chain(problem.objects()) {
+    for object in problem.objects() {
         let object_id = objects_symbols.try_get_id(&object.symbol())?;
         let type_id = type_symbols.try_get_id(&object.ty().members()[0])?;
         objects.push(Object::new(object_id, type_id));
     }
 
     Ok(objects)
-}
+}*/
 
-/// Builds the value-domain table associated with each type.
+/*/// Builds the value-domain table associated with each type.
 ///
 /// For every type, this table contains the set of objects that belong to it,
 /// based on the constants and objects declared in the lifted problem.
@@ -213,15 +213,15 @@ pub fn build_object_type_value_domains_table(
 ) -> Result<Vec<ValueDomain>, IndexTableError> {
     let mut type_value_domains_table = vec![ValueDomain::empty(); types.len()];
 
-    for obj in problem.constants().chain(problem.objects()) {
+    for obj in problem.constants().chain(problem.object_symbol_table()) {
         let ty_id = types.try_get_id(&obj.ty().members()[0])?;
         let obj_id = objects.try_get_id(&obj.symbol())?;
         type_value_domains_table[ty_id].add_object(obj_id);
     }
 
     Ok(type_value_domains_table)
-}
-pub fn build_object_fluent_type_value_domain(
+}*/
+/*pub fn build_object_fluent_type_value_domain(
     type_value_domains_table: &mut [ValueDomain],
     object_fluents_table: &[ObjectFluent],
 ) {
@@ -229,9 +229,9 @@ pub fn build_object_fluent_type_value_domain(
         let of_id = ObjectFluentID::new(idx);
         type_value_domains_table[of.ty().as_usize()].add_object_fluent(of_id);
     }
-}
+}*/
 
-pub fn build_object_fluents_table(
+/*pub fn build_object_fluents_table(
     problem: &LiftedProblem,
     function_symbols_table: &SymbolTable<FunctorID>,
     type_symbols_table: &SymbolTable<TypeID>,
@@ -240,7 +240,7 @@ pub fn build_object_fluents_table(
 
     let mut object_fluents_table = Vec::new();
 
-    for f in problem.functions() {
+    for f in problem.function_skeletons() {
         let name = function_symbols_table.try_get_id(&f.symbol())?;
         let mut parameter_domains: Vec<&[ObjectID]> = Vec::with_capacity(f.parameters().len());
 
@@ -262,9 +262,9 @@ pub fn build_object_fluents_table(
     }
 
     Ok(object_fluents_table)
-}
+}*/
 
-pub fn build_fluents_table(
+/*pub fn build_fluents_table(
     problem: &LiftedProblem,
     predicate_symbols_table: &SymbolTable<PredicateID>,
     type_symbols_table: &SymbolTable<TypeID>,
@@ -274,7 +274,7 @@ pub fn build_fluents_table(
     let mut fluents_table = Vec::new();
 
     // Pour chaque prédicat lifté
-    for p in problem.predicates() {
+    for p in problem.atom_skeletons() {
         let predicate = predicate_symbols_table.try_get_id(&p.symbol())?;
         let mut parameter_domains = Vec::with_capacity(p.parameters().len());
 
@@ -300,7 +300,7 @@ pub fn build_fluents_table(
     }
 
     Ok(fluents_table)
-}
+}*/
 
 
 

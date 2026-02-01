@@ -55,7 +55,7 @@ impl Symbol {
     }
 
     /// Returns the identifier (`Ident`) of the symbol.
-    pub fn ident(&self) -> StringID {
+    pub fn id(&self) -> StringID {
         self.ident
     }
 
@@ -98,7 +98,7 @@ impl RemapIdents for Symbol {
     ///
     /// Returns `InternerError` if the remapping fails (propagated from inner calls).
     fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
-        self.ident().remap_idents(map)?;
+        self.id().remap_idents(map)?;
         Ok(())
     }
 }
@@ -127,9 +127,9 @@ impl InternerDisplay for Symbol {
     ///
     /// Returns `fmt::Result` indicating success or failure of the write operation.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        match interner.resolve_ident(self.ident()) {
+        match interner.resolve_ident(self.id()) {
             Some(resolved) => write!(f, "{}", resolved),
-            None => write!(f, "unknown({})", self.ident()),
+            None => write!(f, "unknown({})", self.id()),
         }
     }
 }

@@ -32,6 +32,7 @@
 use thiserror::Error;
 
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
+use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::validation::common::WellNormalizedError;
 
 /// Represents errors that can occur during the normalization process.
@@ -47,6 +48,7 @@ use crate::aiplan4rust::validation::common::WellNormalizedError;
 ///   is well normalized after processing.
 #[derive(Debug, Error)]
 pub enum NormalizationError {
+
     /// An error originating from a normalization pass.
     ///
     /// This usually indicates that an invalid or unexpected node

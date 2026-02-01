@@ -13,13 +13,17 @@ use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::semantic::error::InvalidNodeArityError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
 use crate::aiplan4rust::semantic::UnexpectedNodeKindError;
-use crate::aiplan4rust::syntax::ast::AstKind;
+use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::syntax::tree::NodeId;
 
 /// Represents all the errors that can occur during symbol table construction and resolution.
 #[derive(Debug, Error)]
 pub enum SymbolTableError {
+    /// Error originating from the ast error.
+    #[error(transparent)]
+    Ast(#[from] AstError),
+
     /// Error originating from the syntax tree layer.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),

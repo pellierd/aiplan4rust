@@ -5,12 +5,14 @@
 //! body, including preconditions and effects, using the provided context.
 
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lang::VariableID;
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::action::Action;
-use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list, EncodingRegistry};
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
+use crate::aiplan4rust::syntax::tree::{NodeId, SyntaxSubtree, SyntaxTree};
 
 /// Encodes a PDDL action from the syntax tree into the LIR.
 ///
@@ -37,28 +39,20 @@ use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 /// * Expression encoding fails due to unresolved symbols.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    ctx: &EncodingContext,
+    registry: &mut EncodingRegistry,
 ) -> Result<Action, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
-    // 1. Parse the action signature (name + parameters)
-    // Now using the free function named_typed_list::encode
-    let header = named_typed_list::encode(&subtree)?;
+    // --- ÉTAPE 1 : Binding des variables ---
+    // On récupère le ParameterDef (index 1) et on enregistre les NodeIds
+    // Cela prépare le terrain pour TOUT l'encodage de l'action.
+    let parameters_def_id = node.try_child(1)?;
+    named_typed_list::bind_variables(parameters_def_id, ast, registry)?;
 
-    /*// --- ÉTAPE CRUCIALE : Enregistrement des variables dans le contexte ---
-    // On vide les variables de l'action précédente
-    ctx.clear_variables();
-
-    // On récupère le nœud qui contient la liste des paramètres (souvent l'enfant 1)
-    let params_list_id = node.try_child(1)?;
-    let params_list_node = ast.try_node(params_list_id)?;
-
-    // Pour chaque paramètre de l'action, on associe son ID de nœud AST à un index local
-    for (index, &param_id) in params_list_node.children().iter().enumerate() {
-        // param_id est le NodeId unique de la DÉCLARATION du paramètre
-        ctx.register_variable(param_id, VariableID::new(index));
-    }*/
+    // --- ÉTAPE 2 : Encodage du Header (Nom + Paramètres) ---
+    // On utilise maintenant le registre qui contient déjà les variables mappées.
+    let header = named_typed_list::encode(subtree, registry)?;
 
     // 2. Get the body node of the action (typically Child 2)
     let def_body_node = ast.try_node(node.try_child(2)?)?;
@@ -77,7 +71,7 @@ pub fn encode(
                 let pre_subtree = SyntaxSubtree::new(pre_node, pre_node_id, ast);
 
                 // Encode the logical expression for preconditions
-                precondition = expr::encode(&pre_subtree, ctx)?;
+                precondition = expr::encode(&pre_subtree, registry)?;
             }
             AstKind::EffectDef => {
                 let eff_node_id = child_node.try_child(0)?;
@@ -85,7 +79,7 @@ pub fn encode(
                 let eff_subtree = SyntaxSubtree::new(eff_node, eff_node_id, ast);
 
                 // Encode the logical expression for effects
-                effect = expr::encode(&eff_subtree, ctx)?;
+                effect = expr::encode(&eff_subtree, registry)?;
             }
             _ => {
                 // Return an error for unexpected AST nodes (e.g., :vars which is not supported here)

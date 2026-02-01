@@ -1,50 +1,61 @@
 //! Typed Symbol Encoding
 //!
-//! This module provides utilities to encode PDDL symbols (constants, objects, or parameters)
-//! and bind them to their respective types during the LIR translation.
+//! This module provides utilities to encode PDDL symbols (such as constants, objects,
+//! or parameters) and bind them to their respective types during LIR translation.
+//!
+//! It processes nodes that pair identifiers with their type definitions, ensuring
+//! that types are resolved against the provided `EncodingContext`.
 
-use crate::aiplan4rust::lang::{TypedSymbol, Type, StringID};
+use crate::aiplan4rust::lang::{TypedSymbol, Type, TypeID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::{SyntaxNode, SyntaxSubtree};
-use crate::aiplan4rust::lir::problem::encode::ty;
+use crate::aiplan4rust::lir::problem::encode::{ty, EncodingRegistry};
 
-/// Encodes a TypedSymbol (a name associated with a Type) from the syntax tree.
+/// Encodes a `TypedSymbol` (an identifier associated with a Type) from the syntax tree.
 ///
-/// This is used to encode individual constants, objects, or parameters where
-/// a name is optionally followed by a type definition.
+/// This function extracts a symbol name and resolves its associated type(s). It is
+/// commonly used for parsing action parameters, constants in a domain, or objects
+/// in a problem definition.
 ///
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the symbol and its optional type.
+/// * `registry` - The encoding context used to resolve type identifiers.
 ///
 /// # Returns
 ///
-/// * `Ok(TypedSymbol)` - The encoded symbol with its resolved type.
-/// * `Err(LirError)` - If the identifier is missing or the type encoding fails.
+/// * `Ok(TypedSymbol<TypeID>)` - The encoded symbol with its resolved numeric TypeIDs.
+/// * `Err(LirError)` - If the identifier is missing or type resolution fails.
 ///
 /// # Errors
 ///
-/// This function returns an error if:
-/// * The first child (the symbol name) cannot be converted to an identifier.
-/// * The second child (the type), if present, fails to encode.
-pub fn encode(subtree: &SyntaxSubtree<AstNode>) -> Result<TypedSymbol<StringID>, LirError> {
-    let node = subtree.node();
+/// This function will return an error if:
+/// * The first child (the symbol name) cannot be resolved to a valid identifier.
+/// * The second child (the type definition), if present, fails the encoding process
+///   (e.g., refers to an unregistered type).
+pub fn encode(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &EncodingRegistry,
+) -> Result<TypedSymbol<TypeID>, LirError> {
+    let typed_symbol_node = subtree.node();
     let ast = subtree.tree();
-    let children = node.children();
+    let children = typed_symbol_node.children();
 
-    // The first child is always the symbol/identifier
+    // The first child is the symbol/identifier (e.g., the 'x' in 'x - type1')
     let symbol_node = ast.try_node(children[0])?;
-    let name = symbol_node.try_ident()?;
+    let symbol_id = symbol_node.try_ident()?;
 
-    // The second child is the optional type definition
+    // The second child contains the type definitions (e.g., 'type1' or an 'either' block)
     let ty = if children.len() > 1 {
         let ty_node_id = children[1];
         let ty_node = ast.try_node(ty_node_id)?;
-        ty::encode(&SyntaxSubtree::new(ty_node, ty_node_id, ast))?
+        // Delegate to the type encoding module to resolve the TypeID(s)
+        ty::encode(&SyntaxSubtree::new(ty_node, ty_node_id, ast), registry)?
     } else {
-        Type::new() // Default to untyped/object
+        // Fallback to an empty Type (representing 'object' or untyped) if no type is provided
+        Type::new()
     };
 
-    Ok(TypedSymbol::new(name, ty))
+    Ok(TypedSymbol::new(symbol_id, ty))
 }

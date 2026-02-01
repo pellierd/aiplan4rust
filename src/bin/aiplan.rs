@@ -15,11 +15,11 @@ fn main() {
     let args = cli.get_matches_mut();
 
     match args.subcommand() {
-        Some((subcommand @ GROUND_SUBCOMMAND, sub_matches)) => {
+        /*Some((subcommand @ GROUND_SUBCOMMAND, sub_matches)) => {
             // Nouvelle sous-commande ground
             let result = handle_ground_command(sub_matches);
             handle_cli_result(result, &mut cli, subcommand);
-        }
+        }*/
         Some((subcommand @ LINK_SUBCOMMAND, sub_matches)) => {
             let result = handle_link_command(sub_matches);
             handle_cli_result(result, &mut cli, subcommand);

@@ -8,6 +8,7 @@ use thiserror::Error;
 
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
+use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 
 /// Represents errors that may occur during the normalization pass of the compiler.
@@ -18,6 +19,10 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// Each variant uses the `#[from]` attribute to allow automatic conversion via the `?` operator.
 #[derive(Debug, Error)]
 pub enum NormalizationPassError {
+    /// Error originating from the ast error.
+    #[error(transparent)]
+    Ast(#[from] AstError),
+
     /// An error arising from semantic analysis related to memory arena allocation.
     ///
     /// Typically indicates a failure in allocating or managing memory in the arena during normalization.

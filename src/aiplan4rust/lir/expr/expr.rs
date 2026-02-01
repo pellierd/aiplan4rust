@@ -579,7 +579,7 @@ impl Expr {
             let node = self.tree.try_node_mut(node_id)?;
             match node.kind() {
                 ExprKind::Forall | ExprKind::Exists => {
-                    node.content_mut().try_quantifier_vars_mut()?.remap_types(map)?;
+                    //node.content_mut().try_quantifier_vars_mut()?.remap_types(map)?;
                 }
                 _ => {}
             }

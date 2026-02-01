@@ -159,14 +159,14 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
     // Delegation methods to the syntax’s content, allowing convenient extraction
     // of specific semantic types without manually matching on content.
 
-    /// Returns the identifier if present in the syntax’s content.
+    /*/// Returns the identifier if present in the syntax’s content.
     ///
     /// # Returns
     ///
     /// An `Option<Ident>` containing the identifier if it exists, or `None` otherwise.
     fn as_ident(&self) -> Option<StringID> {
         self.content().as_ident()
-    }
+    }*/
 
     /// Returns the floating-point literal if present in the syntax’s content.
     ///
@@ -213,15 +213,15 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
         self.content().as_optimization()
     }
 
-    /// Returns the symbol reference if present in the syntax’s content.
+    /*/// Returns the symbol reference if present in the syntax’s content.
     ///
     /// # Returns
     ///
     /// A `Result<Option<Symbol>, SyntaxTreeError>` containing the symbol reference
     /// if it exists, or an error if the extraction failed.
-    fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError>;
+    fn as_symbol(&self) -> Result<Option<Symbol>, SyntaxTreeError>;*/
 
-    /// Attempts to extract an identifier from the syntax’s content.
+    /*/// Attempts to extract an identifier from the syntax’s content.
     ///
     /// # Returns
     ///
@@ -229,7 +229,7 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
     /// or an error if extraction failed.
     fn try_ident(&self) -> Result<StringID, SyntaxTreeError> {
         self.content().try_ident()
-    }
+    }*/
 
     /// Attempts to extract a floating-point literal from the syntax’s content.
     ///
@@ -281,7 +281,7 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
         self.content().try_optimization()
     }
 
-    /// Attempts to extract a symbol  from the syntax’s content.
+    /*/// Attempts to extract a symbol  from the syntax’s content.
     ///
     /// # Returns
     ///
@@ -289,7 +289,7 @@ pub trait SyntaxNode: ArenaNode + RemapIdents + Display {
     /// or an error if extraction failed or no symbol is present.
     fn try_symbol(&self) -> Result<Symbol, SyntaxTreeError> {
         self.as_symbol()?.ok_or_else(|| SyntaxTreeError::not_a_symbol_ref())
-    }
+    }*/
 
     /// Creates a shallow clone of the node.
     ///

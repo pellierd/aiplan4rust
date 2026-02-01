@@ -40,8 +40,8 @@
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, StringID, TypedSymbol};
-use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton};
+use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TaskSkeletonID, TypeID, TypedSymbol};
+use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
@@ -137,95 +137,59 @@ impl<'a> DomainDef<'a> {
     ///     println!("Type: {:?}", ty);
     /// }
     /// ```
-    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
+    pub fn types(&self) -> &[TypedSymbol<TypeID>] {
         self.problem.types()
     }
 
-    /// Returns true if the problem contains any types.
     pub fn has_types(&self) -> bool {
         self.problem.has_types()
     }
 
-    /// Returns an iterator over all constants in the domain.
-    ///
-    /// # Returns
-    ///
-    /// An iterator over references to [`TypedSymbol`]s representing domain-level constants.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// for c in domain.constants() {
-    ///     println!("Constant: {:?}", c);
-    /// }
-    /// ```
-    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
-        self.problem.constants()
+    pub fn constants(&self) -> &[TypedSymbol<TypeID>] {
+        self.problem.domain_constants()
     }
 
-    /// Returns true if the domain contains any constants.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// assert!(domain.has_constants());
-    /// ```
     pub fn has_constants(&self) -> bool {
-        self.problem.has_constants()
+        self.problem.has_domain_constants()
     }
 
-    /// Returns the predicates declared in the domain.
-    ///
-    /// # Returns
-    ///
-    /// A reference to a [`Vec`] of [`AtomicFormulaSkeleton`] representing predicates.
-    pub fn predicates(&self) -> &Vec<AtomicFormulaSkeleton> {
-        self.problem.predicates()
+    pub fn predicates(&self) -> &[AtomicFormulaSkeleton] {
+        self.problem.atom_skeletons()
     }
 
-    /// Returns the functions declared in the domain.
-    ///
-    /// # Returns
-    ///
-    /// A reference to a [`Vec`] of [`AtomicFunctionSkeleton`] representing functions.
-    pub fn functions(&self) -> &Vec<AtomicFunctionSkeleton> {
-        self.problem.functions()
+    pub fn has_predicates(&self) -> bool {
+       self.problem.has_predicates()
+    }
+
+    pub fn functions(&self) -> &[AtomicFunctionSkeleton] {
+        self.problem.function_skeletons()
+    }
+
+    pub fn has_functions(&self) -> bool {
+        self.problem.has_functions()
+    }
+
+    pub fn tasks(&self) -> &[AtomicTaskSkeleton] {
+        self.problem.task_skeletons()
+    }
+
+    pub fn has_tasks(&self) -> bool {
+        self.problem.has_tasks()
     }
 
 
-    /// Returns a reference to the list of derived predicates.
-    ///
-    /// # Returns
-    ///
-    /// A reference to a [`Vec`] of [`LiftedDerivedPredicate`] representing derived predicates.
-    pub fn derived_predicates(&self) -> &Vec<LiftedDerivedPredicate> {
+    pub fn derived_predicates(&self) -> &[LiftedDerivedPredicate] {
         &self.problem.derived_predicates()
     }
 
-    /// Returns the actions declared in the domain.
-    ///
-    /// # Returns
-    ///
-    /// A reference to a [`Vec`] of [`LiftedAction`] representing actions.
-    pub fn actions(&self) -> &Vec<LiftedAction> {
+    pub fn actions(&self) -> &[LiftedAction] {
         self.problem.actions()
     }
-
-    /// Returns the durative actions declared in the domain.
-    ///
-    /// # Returns
-    ///
-    /// A reference to a [`Vec`] of [`LiftedDurativeAction`] representing actions.
-    pub fn durative_actions(&self) -> &Vec<LiftedDurativeAction> {
+    pub fn durative_actions(&self) -> &[LiftedDurativeAction] {
         self.problem.durative_actions()
     }
 
-    /// Returns the methods declared in the domain.
-    ///
-    /// # Returns
-    ///
-    /// A reference to a [`Vec`] of [`LiftedMethod`] representing methods.
-    pub fn methods(&self) -> &Vec<LiftedMethod> {
+    pub fn methods(&self) -> &[LiftedMethod] {
         self.problem.methods()
     }
 
@@ -338,7 +302,6 @@ impl<'a> SyntaxSerializable for DomainDef<'a> {
     fn serialize_to_string(
         &self,
     ) -> Result<String, SerializationError> {
-        // Use the existing SyntaxInternerDisplay implementation
         Ok(self.to_syntax_string())
     }
 }

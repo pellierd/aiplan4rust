@@ -1,63 +1,78 @@
-//! Numeric Function Signature Encoding
+//! Function Signature Encoding
 //!
 //! This module handles the extraction of numeric function signatures (fluents)
-//! from the domain AST. It registers these functions in the LIR and maintains
-//! the mapping between AST nodes and their internal LIR indices.
+//! from the domain AST and registers them within the LIR.
+//!
+//! It ensures a dual mapping in the registry:
+//! 1. **Functor Identity**: The function's name node is mapped to a [`StringID`] (Functor).
+//! 2. **Structural Signature**: The same node is mapped to a [`FunctionSkeletonID`].
+//!
+//! This precise binding allows the expression encoder to resolve function calls
+//! during the second encoding pass by looking up the declaration symbol's IDs
+//! to validate both the fluent's identity and its expected arguments.
 
-use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::FunctorID;
+use crate::aiplan4rust::lang::FunctionSkeletonID;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::tree::SyntaxSubtree;
 
-/// Encodes numeric function definitions (fluents) into the LIR.
+/// Encodes function definitions into the Lifted Intermediate Representation (LIR).
 ///
-/// This function parses function declarations, creates their corresponding LIR
-/// skeletons, and populates the lookup table necessary for resolving numeric
-/// expressions during the second encoding pass.
+/// This function iterates through each child of the `:functions` node (e.g., `(total-cost) - number`).
+/// It performs a triple operation for each declaration:
+/// 1. **Storage**: Adds the complete signature to the [`LiftedProblem`].
+/// 2. **ID Retrieval**: Obtains the unique [`StringID`] (functor identity) and [`FunctionSkeletonID`].
+/// 3. **Registration**: Binds the AST `NodeId` of the functor symbol to these LIR IDs.
 ///
 /// # Arguments
 ///
-/// * `subtree` - The syntax subtree corresponding to the `FunctionsDef` node.
-/// * `ir` - The mutable lifted problem where functions are registered.
-/// * `ast_func_to_lir_index` - A map populated with the mapping from AST `NodeId` to LIR function index.
+/// * `subtree` - The syntax subtree representing the `FunctionsDef` node.
+/// * `registry` - The mutable registry for node-to-ID mapping.
+/// * `ir` - The mutable Lifted Problem storage.
 ///
 /// # Returns
 ///
-/// * `Ok(())` - If all function signatures were successfully registered.
-/// * `Err(LirError)` - If a function definition is malformed or its type is invalid.
-///
-/// # Errors
-///
-/// This function returns an error if an `AtomicFunctionSkeleton` cannot be
-/// constructed from the provided AST node (e.g., missing return type or name).
+/// * `Ok(())` - If all functions were encoded and their functors bound to LIR IDs.
+/// * `Err(LirError)` - If a definition is malformed or types are unresolved.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    context: &mut EncodingContext,
+    registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
 
-    for &child_id in subtree.node().children() {
-        let child_node = tree.try_node(child_id)?;
-        let child_subtree = SyntaxSubtree::new(child_node, child_id, tree);
+    // Iterate over each function definition (e.g., `(distance ?a ?b) - number`)
+    for &function_skeleton_node_id in subtree.node().children() {
+        let function_skeleton_node = tree.try_node(function_skeleton_node_id)?;
+        let function_skeleton_subtree = SyntaxSubtree::new(
+            function_skeleton_node,
+            function_skeleton_node_id,
+            tree
+        );
 
-        // 1. Encode the function skeleton (handles name, params, and return type)
-        let function_skeleton = atomic_function_skeleton::encode(&child_subtree)?;
+        // 1. Encode the function skeleton (Functor, Parameters, and Return Type)
+        // This validates types and builds the structural representation.
+        let function_skeleton = atomic_function_skeleton::encode(
+            &function_skeleton_subtree,
+            registry
+        )?;
 
-        // 2. Prepare the key (the Symbol)
-        let functor = function_skeleton.functor();
+        // 2. Identify the Functor NodeId
+        // We register the ID of the symbol itself (e.g., 'distance') rather than
+        // the parent expression node to match the symbol table's declaration lookup.
+        let functor_node_id = function_skeleton_subtree.node().children()[0];
 
-        // 3. Register the skeleton in the IR
-        ir.add_function(function_skeleton);
+        // 3. Physical storage in the LIR
+        // The LIR returns both the logical identity (StringID/FunctorID)
+        // and the structural ID (FunctionSkeletonID).
+        let (functor_id, function_skeleton_id) = ir.add_function_skeleton(function_skeleton);
 
-        // 4. Map the Symbol to the LIR index
-        // Since we just added it, the ID is current length - 1
-        let function_id = FunctorID::new(ir.functions().len() - 1);
-
-        context.register_function(functor, function_id);
+        // 4. Node mapping in the registry
+        // Binds the functor's AST NodeId to both LIR identifiers.
+        registry.register_function_skeleton(functor_node_id, function_skeleton_id);
+        registry.register_functor(functor_node_id, functor_id);
     }
 
     Ok(())

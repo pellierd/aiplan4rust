@@ -41,7 +41,7 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, ObjectID, Requirement, TypedSymbol};
+use crate::aiplan4rust::lang::{StringID, ObjectID, Requirement, TypedSymbol, TypeID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSymbolID, TaskSkeletonID};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -55,84 +55,39 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
+use itertools::Itertools;
+use crate::aiplan4rust::grounding::problem::SymbolTable;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::problem::encode::{encoder, EncodingContext};
+use crate::aiplan4rust::lir::problem::encode::{encoder, EncodingRegistry};
 
-/// Represents a lifted planning problem defined in PDDL syntax.
-///
-/// A `Problem` aggregates all syntactic constructs relevant to a specific problem instance,
-/// including domain and problem identifiers, type definitions, constants, predicates, actions,
-/// and constraints, along with the initial state and goal specifications.
-///
-/// # Fields
-///
-/// - `interner`: String interner used to deduplicate identifiers and symbols.
-/// - `domain_name`: Identifier of the associated domain.
-/// - `problem_name`: Identifier of the problem instance.
-/// - `requirements`: Declared requirements (features) used in the problem.
-/// - `types`: Types declared in the problem (if any; may be inherited from the domain).
-/// - `constants`: Constants declared in the problem.
-/// - `predicates`: Predicate skeletons (signatures) available in the problem.
-/// - `functions`: Function skeletons (signatures) available in the problem.
-/// - `domain_constraints`: Global domain-level constraints (can be empty).
-/// - `tasks`: Decomposable task declarations used in HTN planning.
-/// - `derived_predicates`: Derived predicates available in the problem.
-/// - `actions`: Primitive actions available in the problem.
-/// - `durative_actions`: Durative actions available in the problem.
-/// - `methods`: HTN decomposition methods.
-/// - `objects`: Concrete objects defined in the problem instance.
-/// - `init`: The initial state, expressed as a logical expression.
-/// - `goal`: The goal condition to be achieved, as a logical expression.
-/// - `problem_constraints`: Problem-specific constraints (distinct from domain-level).
-/// - `metric_spec`: The optimization metric, such as `minimize` or `maximize` some expression.
-/// - `length_spec`: A deprecated field from PDDL 2.1 specifying plan length bounds.
-/// - `initial_task_network`: The initial task network for HTN planning (if applicable).
-///
-/// # Example
-///
-/// ```
-/// use aiplan4rust::aiplan4rust::interner::StringID;
-/// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
-/// let mut problem = LiftedProblem::new();
-/// problem.set_domain_id(StringID::new("my_domain"));
-/// problem.set_problem_id(StringID::new("my_problem"));
-///
-/// assert_eq!(problem.domain_id().as_str(), "my_domain");
-/// assert_eq!(problem.problem_id().as_str(), "my_problem");
-/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
-    /// The interner used for string deduplication.
     interner: StringInterner,
 
-    /// The identifier of the domain.
-    domain_id: StringID,
+    domain_name: StringID,
+    problem_name: StringID,
 
-    /// The identifier of the problem.
-    problem_id: StringID,
-
-    /// The set of requirements for this syntax problem.
     requirements: HashSet<Requirement>,
 
-    /// The set of types defined in this syntax problem.
-    types: HashMap<StringID, TypedSymbol<StringID>>,
-
-    /// The set of constants defined in this syntax problem.
-    constants: HashMap<StringID, TypedSymbol<StringID>>,
+    type_symbols: SymbolTable<TypeID>,
+    types: Vec<TypedSymbol<TypeID>>,
 
 
-    /// The list of predicates in the syntax problem.
-    predicates: Vec<AtomicFormulaSkeleton>,
+    object_symbols: SymbolTable<ObjectID>,
+    objects: Vec<TypedSymbol<TypeID>>,
+    constant_offset: usize,
 
-    /// The list of functions in the syntax problem.
-    functions: Vec<AtomicFunctionSkeleton>,
+    predicates: SymbolTable<PredicateID>,
+    atom_skeletons: Vec<AtomicFormulaSkeleton>,
 
-    /// The constraints defined in the domain, i.e., the global constraints
-    /// No constraints are represented by an empty and `Expr'.
+    functors: SymbolTable<FunctorID>,
+    function_skeletons: Vec<AtomicFunctionSkeleton>,
+
+    task_symbols: SymbolTable<TaskSymbolID>,
+    task_skeletons: Vec<AtomicTaskSkeleton>,
+    
     domain_constraints: Expr,
-
-    /// The list of tasks defined in this syntax problem.
-    tasks: Vec<AtomicTaskSkeleton>,
 
     /// The list of derived predicates defined in this syntax problem.
     derived_predicates: Vec<LiftedDerivedPredicate>,
@@ -146,13 +101,6 @@ pub struct Problem {
     /// The list of methods defined in this syntax problem.
     methods: Vec<LiftedMethod>,
 
-    /// The set of objects defined in this syntax problem.
-    objects: HashMap<StringID, TypedSymbol<StringID>>,
-
-    /// Indice à partir duquel commencent les objets du problème.
-    /// [0 .. constant_offset[  -> Constantes du domaine
-    /// [constant_offset .. [   -> Objets du problème
-    constant_offset: usize,
 
     /// The initial state of the problem.
     init: Expr,
@@ -186,26 +134,33 @@ impl Problem {
     /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
     /// let problem = LiftedProblem::new();
     /// assert!(problem.actions().is_empty());
-    /// assert!(problem.types().is_empty());
+    /// assert!(problem.type_symbol_table().is_empty());
     /// ```
     pub(crate) fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
+        let rc_interner = Rc::new(interner);
+
         Self {
-            interner,
-            domain_id: StringID::default(),
-            problem_id: StringID::default(),
+            interner: Rc::try_unwrap(rc_interner.clone())
+                .unwrap_or_else(|rc| (*rc).clone()),
+            domain_name: StringID::default(),
+            problem_name: StringID::default(),
             requirements,
-            types: HashMap::new(),
-            constants: HashMap::new(),
-            predicates: Vec::new(),
-            functions: Vec::new(),
+            type_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
+            types: Vec::new(),
+            object_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
+            objects: Vec::new(),
+            constant_offset: 0,
+            predicates: SymbolTable::new(Rc::clone(&rc_interner)),
+            atom_skeletons: Vec::new(),
+            functors: SymbolTable::new(Rc::clone(&rc_interner)),
+            function_skeletons: Vec::new(),
+            task_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
+            task_skeletons: Vec::new(),
             domain_constraints: Expr::empty_or(),
-            tasks: Vec::new(), // Add for HDDL
             derived_predicates: Vec::new(),
             actions: Vec::new(),
             durative_actions: Vec::new(),
             methods: Vec::new(), // Add for HDDL
-            objects: HashMap::new(),
-            constant_offset: 0,
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
             problem_constraints: Expr::empty_or(),
@@ -215,132 +170,62 @@ impl Problem {
         }
     }
 
-    /// Définit la frontière entre les constantes et les objets.
-    /// On appelle généralement cela après avoir encodé toutes les constantes du domaine.
-    pub fn set_constant_offset(&mut self) {
-        // L'offset est égal au nombre d'objets actuellement présents (les constantes)
-        self.constant_offset = self.constants.len();
-    }
-
-    /// Indique si un ObjectID fait référence à une constante définie dans le domaine.
-    pub fn is_constant(&self, id: ObjectID) -> bool {
-        // En Rust, l'ID est une constante si son index est strictement inférieur à l'offset
-        id.as_usize() < self.constant_offset
-    }
-
-    /// Indique si un ObjectID fait référence à un objet défini dans le problème.
-    pub fn is_object(&self, id: ObjectID) -> bool {
-        !self.is_constant(id)
-    }
-
-    /// Returns an immutable reference to the unified string interner.
-    ///
-    /// # Returns
-    ///
-    /// A reference to the `StringInterner` used for identifier management.
     pub fn interner(&self) -> &StringInterner {
         &self.interner
     }
 
-    /// Returns a mutable reference to the unified string interner.
-    ///
-    /// # Returns
-    ///
-    /// A mutable reference to the `StringInterner`.
     pub fn interner_mut(&mut self) -> &mut StringInterner {
         &mut self.interner
     }
 
-    /// Sets the internal [`StringInterner`] used by this problem.
-    ///
-    /// This replaces the existing interner with the one provided.
-    ///
-    /// # Arguments
-    ///
-    /// * `interner` - The new [`StringInterner`] to assign to this problem.
     pub fn set_interner(&mut self, interner: StringInterner) {
         self.interner = interner;
     }
 
-    /// Consumes and returns the internal `StringInterner`, leaving a new empty one in its place.
-    ///
-    /// # Returns
-    /// The previously held `StringInterner`.
     pub fn take_interner(&mut self) -> StringInterner {
         std::mem::take(&mut self.interner)
     }
 
-
-    /// Returns the identifier of the domain.
     pub fn domain_id(&self) -> StringID {
-        self.domain_id
+        self.domain_name
     }
 
-    /// Sets the identifier of the domain.
-    ///
-    /// Checks that the identifier exists in the interner.
-    ///
-    /// # Errors
-    /// Returns `InternerError` if the identifier is not present in the interner.
     pub fn set_domain_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
-        self.domain_id = id;
+        self.domain_name = id;
         Ok(())
     }
 
-    /// Returns the name of the domain as a string slice.
-    ///
-    /// # Returns
-    /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
     pub fn domain_name(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.domain_id)
+        self.interner.try_resolve_ident(self.domain_name)
     }
 
-    /// Returns the identifier of the problem.
     pub fn problem_id(&self) -> StringID {
-        self.problem_id.clone()
+        self.problem_name.clone()
     }
 
-    /// Sets the identifier of the problem.
-    ///
-    /// Checks that the identifier exists in the interner.
-    ///
-    /// # Errors
-    /// Returns `InternerError` if the identifier is not present in the interner.
     pub fn set_problem_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
-        self.problem_id = id;
+        self.problem_name = id;
         Ok(())
     }
 
-    /// Returns the name of the problem as a string slice.
-    ///
-    /// # Returns
-    /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
     pub fn problem_name(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.problem_id)
+        self.interner.try_resolve_ident(self.problem_name)
     }
 
-    // === Requirements ===
-
-    /// Returns a reference to the set of requirements.
     pub fn requirements(&self) -> &HashSet<Requirement> {
         &self.requirements
     }
 
-    /// Returns a mutable reference to the set of requirements.
     pub fn requirements_mut(&mut self) -> &mut HashSet<Requirement> {
         &mut self.requirements
     }
 
-    /// Adds a single requirement.
-    ///
-    /// If the requirement already exists, it is not added again.
     pub fn add_requirement(&mut self, requirement: Requirement) {
         self.requirements.insert(requirement);
     }
 
-    /// Adds multiple requirements.
     pub fn add_requirements<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = Requirement>,
@@ -348,611 +233,277 @@ impl Problem {
         self.requirements.extend(iter);
     }
 
-    /// Checks if a given semantic requirement is actually required by the AST content.
-    ///
-    /// Required requirements represent the minimal set of features that are actively used
-    /// in the domain or problem definitions. A requirement may be declared in the context
-    /// but not actually required if it is never referenced in the ASTs.
-    ///
-    /// # Arguments
-    /// * `requirement` - The semantic requirement to check.
-    ///
-    /// # Returns
-    /// `true` if the requirement is required by the AST (i.e., used in the domain/problem),
-    /// `false` otherwise.
-    ///
-    /// # Example
-    /// ```rust
-    /// if context.is_required(Requirement::DurativeActions) {
-    ///     println!("DurativeActions are actually used in this context.");
-    /// }
-    /// ```
     pub fn is_required(&self, requirement: Requirement) -> bool {
         self.requirements.contains(&requirement)
     }
 
-    /// Replaces the current set of requirements with a new set.
-    ///
-    /// # Arguments
-    /// * `new_requirements` - The new set of requirements to use.
-    ///
-    /// # Example
-    /// ```rust
-    /// problem.set_requirements(HashSet::from([Requirement::DurativeActions]));
-    /// ```
     pub fn set_requirements(&mut self, new_requirements: HashSet<Requirement>) {
         self.requirements = new_requirements;
     }
 
-    /// Consumes and returns all declared requirements, leaving an empty set in its place.
-    ///
-    /// # Returns
-    /// The previously held `HashSet<Requirement>`.
     pub fn take_requirements(&mut self) -> HashSet<Requirement> {
         std::mem::take(&mut self.requirements)
     }
 
-    // === Types ===
-
-    /// Returns a reference to the set of types.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// use aiplan4rust::aiplan4rust::lir::problem::LiftedProblem;
-    /// let problem = LiftedProblem::new();
-    /// assert!(problem.types().is_empty());
-    /// ```
-    pub fn types(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
-        self.types.values()
+    pub fn type_symbol_table(&self) -> &SymbolTable<TypeID> {
+        &self.type_symbols
     }
 
-    /// Returns true if the problem contains any types.
+    pub fn types(&self) -> &[TypedSymbol<TypeID>] {
+        &self.types
+    }
+
     pub fn has_types(&self) -> bool {
         !self.types.is_empty()
     }
 
-    /// Returns a mutable reference to the types map.
-    ///
-    /// This allows modifying existing `TypedSymbol`s directly,
-    /// while still keeping the internal storage as a HashMap.
-    pub fn types_mut(&mut self) -> &mut HashMap<StringID, TypedSymbol<StringID>> {
-        &mut self.types
+    pub fn add_type(&mut self, ty: TypedSymbol<TypeID>) -> TypeID {
+        let id = self.type_symbols.insert(ty.symbol());
+        let idx = id.as_usize();
+        if idx >= self.types.len() {
+            self.types.push(ty);
+        } else {
+            self.types[idx] = ty;
+        }
+        id
     }
 
-    /// Get a type by its Ident (immutable)
-    pub fn get_type(&self, id: StringID) -> Option<&TypedSymbol<StringID>> {
-        self.types.get(&id)
-    }
-
-    /// Get a type by its Ident (mutable)
-    pub fn get_type_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol<StringID>> {
-        self.types.get_mut(&id)
-    }
-
-    /// Get a type by its `Ident` (immutable).
-    pub fn try_get_type(&self, id: StringID) -> Result<&TypedSymbol<StringID>, LirError> {
-        self.types.get(&id).ok_or_else(|| LirError::type_not_found(id))
-    }
-
-    /// Get a type by its `Ident` (mutable).
-    pub fn try_get_type_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol<StringID>, LirError> {
-        self.types.get_mut(&id).ok_or_else(|| LirError::type_not_found(id))
-    }
-
-    /// Adds a single type_checker.
-    ///
-    /// If the type_checker already exists, it is not added again.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// problem.add_type(TypedSymbol::new("vehicle", "object"));
-    /// ```
-    pub fn add_type(&mut self, ty: TypedSymbol<StringID>) {
-        self.types.insert(ty.symbol(), ty);
-    }
-
-    /// Adds multiple types at once.
-    ///
-    /// Existing types with the same `Ident` will be overwritten.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let mut problem = LiftedProblem::new();
-    /// problem.add_types(vec![
-    ///     TypedSymbol::new(a, type_a),
-    ///     TypedSymbol::new(b, type_b),
-    /// ]);
-    /// ```
     pub fn add_types<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = TypedSymbol<StringID>>,
+        I: IntoIterator<Item = TypedSymbol<TypeID>>,
     {
         for ty in iter {
             self.add_type(ty);
         }
     }
 
-    // === Constants ===
-
-    /// Returns an iterator over the constants of the problem.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let problem = LiftedProblem::new();
-    /// for c in problem.constants() {
-    ///     println!("{:?}", c);
-    /// }
-    /// ```
-    pub fn constants(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
-        self.constants.values()
+    pub fn object_symbol_table(&self) -> &SymbolTable<ObjectID> {
+        &self.object_symbols
     }
 
-    /// Returns a mutable iterator over the constants of the problem.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let mut problem = LiftedProblem::new();
-    /// for c in problem.constants_mut_iter() {
-    ///     c.set_name(Ident::new("new_name")); // Exemple de modification
-    /// }
-    /// ```
-    pub fn constants_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol<StringID>> {
-        self.constants.values_mut()
+    pub fn objects(&self) -> &[TypedSymbol<TypeID>] {
+        &self.objects
     }
 
-    /// Returns true if the problem contains any constants.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let problem = LiftedProblem::new();
-    /// assert!(!problem.has_constants());
-    /// ```
-    pub fn has_constants(&self) -> bool {
-        !self.constants.is_empty()
+    pub fn domain_constants(&self) -> &[TypedSymbol<TypeID>] {
+        &self.objects[..self.constant_offset]
     }
 
-
-    /// Get a constant by its `Ident` (immutable).
-    ///
-    /// # Returns
-    /// - `Some(&TypedSymbol)` if the constant exists.
-    /// - `None` otherwise.
-    pub fn get_constant(&self, id: StringID) -> Option<&TypedSymbol<StringID>> {
-        self.constants.get(&id)
+    pub fn has_domain_constants(&self) -> bool {
+        self.constant_offset > 0
     }
 
-    /// Get a constant by its `Ident` (mutable).
-    ///
-    /// # Returns
-    /// - `Some(&mut TypedSymbol)` if the constant exists.
-    /// - `None` otherwise.
-    pub fn get_constant_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol<StringID>> {
-        self.constants.get_mut(&id)
+    pub fn problem_objects(&self) -> &[TypedSymbol<TypeID>] {
+        &self.objects[self.constant_offset..]
     }
 
-    /// Get a constant by its `Ident` (immutable).
-    ///
-    /// # Errors
-    /// - [`LirError::constant_not_found`] if the constant does not exist.
-    pub fn try_get_constant(&self, id: StringID) -> Result<&TypedSymbol<StringID>, LirError> {
-        self.constants
-            .get(&id)
-            .ok_or_else(|| LirError::constant_not_found(id))
+    pub fn has_problem_objects(&self) -> bool {
+        self.objects.len() > self.constant_offset
     }
 
-    /// Get a constant by its `Ident` (mutable).
-    ///
-    /// # Errors
-    /// - [`LirError::constant_not_found`] if the constant does not exist.
-    pub fn try_get_constant_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol<StringID>, LirError> {
-        self.constants
-            .get_mut(&id)
-            .ok_or_else(|| LirError::constant_not_found(id))
+    pub fn add_object(&mut self, obj: TypedSymbol<TypeID>) -> ObjectID {
+        let id = self.object_symbols.insert(obj.symbol());
+        let idx = id.as_usize();
+        if idx >= self.objects.len() {
+            self.objects.push(obj);
+        } else {
+            self.objects[idx] = obj;
+        }
+        id
     }
 
-    /// Adds a single constant to the problem.
-    ///
-    /// If a constant with the same `Ident` already exists, it is overwritten.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// problem.add_constant(TypedSymbol::new(id, ty));
-    /// ```
-    pub fn add_constant(&mut self, constant: TypedSymbol<StringID>) {
-        self.constants.insert(constant.symbol(), constant);
-    }
-
-    /// Adds multiple constants at once.
-    ///
-    /// Existing constants with the same `Ident` will be overwritten.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// problem.add_constants(vec![c1, c2, c3]);
-    /// ```
-    pub fn add_constants<I>(&mut self, iter: I)
+    pub fn add_objects<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = TypedSymbol<StringID>>,
+        I: IntoIterator<Item = TypedSymbol<TypeID>>,
     {
-        for constant in iter {
-            self.add_constant(constant);
+        for obj in iter {
+            self.add_object(obj);
         }
     }
 
-    // === Predicates ===
+    pub fn set_constant_offset(&mut self) {
+        self.constant_offset = self.object_symbols.len();
+    }
 
-    /// Returns a reference to the list of predicates.
-    pub fn predicates(&self) -> &Vec<AtomicFormulaSkeleton> {
+    pub fn is_constant(&self, id: ObjectID) -> bool {
+        id.as_usize() < self.constant_offset
+    }
+
+    pub fn is_object(&self, id: ObjectID) -> bool {
+        let idx = id.as_usize();
+        idx >= self.constant_offset && idx < self.objects.len()
+    }
+
+    pub fn predicate_symbol_table(&self) -> &SymbolTable<PredicateID> {
         &self.predicates
     }
 
-    /// Returns a mutable reference to the list of predicates.
-    pub fn predicates_mut(&mut self) -> &mut Vec<AtomicFormulaSkeleton> {
-        &mut self.predicates
+    pub fn atom_skeletons(&self) -> &[AtomicFormulaSkeleton] {
+        &self.atom_skeletons
     }
 
-    /// Adds a single predicate.
-    pub fn add_predicate(&mut self, predicate: AtomicFormulaSkeleton) {
-        self.predicates.push(predicate);
+    pub fn has_predicates(&self) -> bool {
+        !self.atom_skeletons.is_empty()
     }
 
-    /// Adds multiple predicates.
-    pub fn add_predicates<I>(&mut self, iter: I)
+    pub fn add_atom_skeleton(&mut self, atom_skeleton: AtomicFormulaSkeleton) -> (PredicateID, AtomSkeletonID) {
+        let predicate_id = self.predicates.insert(atom_skeleton.symbol());
+        let skeleton_id = AtomSkeletonID::from(self.atom_skeletons.len());
+        self.atom_skeletons.push(atom_skeleton);
+        (predicate_id, skeleton_id)
+    }
+
+    pub fn add_atom_skeletons<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = AtomicFormulaSkeleton>,
     {
-        self.predicates.extend(iter);
+        for atom in iter {
+            self.add_atom_skeleton(atom);
+        }
     }
 
-    // === Functions ===
-
-    /// Returns a reference to the list of functions.
-    pub fn functions(&self) -> &Vec<AtomicFunctionSkeleton> {
-        &self.functions
+    pub fn functor_symbol_table(&self) -> &SymbolTable<FunctorID> {
+        &self.functors
     }
 
-    /// Returns a mutable reference to the list of functions.
-    pub fn functions_mut(&mut self) -> &mut Vec<AtomicFunctionSkeleton> {
-        &mut self.functions
+    pub fn function_skeletons(&self) -> &[AtomicFunctionSkeleton] {
+        &self.function_skeletons
     }
 
-    /// Adds a single function.
-    pub fn add_function(&mut self, function: AtomicFunctionSkeleton) {
-        self.functions.push(function);
+    pub fn has_functions(&self) -> bool {
+        !self.function_skeletons.is_empty()
     }
 
-    /// Adds multiple functions.
-    pub fn add_functions<I>(&mut self, iter: I)
+    pub fn add_function_skeleton(&mut self, function: AtomicFunctionSkeleton) -> (FunctorID, FunctionSkeletonID) {
+        let functor_id = self.functors.insert(function.symbol());
+        let skeleton_id = FunctionSkeletonID::from(self.function_skeletons.len());
+        self.function_skeletons.push(function);
+        (functor_id, skeleton_id)
+    }
+
+    pub fn add_function_skeletons<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = AtomicFunctionSkeleton>,
     {
-        self.functions.extend(iter);
+        for function in iter {
+            self.add_function_skeleton(function);
+        }
     }
 
-    // === Domain Constraints ===
+    pub fn task_symbol_table(&self) -> &SymbolTable<TaskSymbolID> {
+        &self.task_symbols
+    }
 
-    /// Returns a reference to the domain constraints' expression.
+    pub fn task_skeletons(&self) -> &[AtomicTaskSkeleton] {
+        &self.task_skeletons
+    }
+
+    pub fn has_tasks(&self) -> bool {
+        !self.task_skeletons.is_empty()
+    }
+
+    pub fn add_task_skeleton(&mut self, task_skeleton: AtomicTaskSkeleton) -> (TaskSymbolID, TaskSkeletonID) {
+        let task_symbol_id = self.task_symbols.insert(task_skeleton.symbol());
+        let task_skeleton_id = TaskSkeletonID::new(self.task_skeletons.len());
+        self.task_skeletons.push(task_skeleton);
+        (task_symbol_id, task_skeleton_id)
+    }
+
+    pub fn add_task_skeletons<I>(&mut self, iter: I)
+    where
+        I: IntoIterator<Item = AtomicTaskSkeleton>,
+    {
+        for task in iter {
+            self.add_task_skeleton(task);
+        }
+    }
+
+
     pub fn domain_constraints(&self) -> &Expr {
         &self.domain_constraints
     }
 
-    /// Returns a mutable reference to the domain constraints' expression.
-    pub fn domain_constraints_mut(&mut self) -> &mut Expr {
-        &mut self.domain_constraints
-    }
-
-    /// Sets the domain constraints expression.
     pub fn set_domain_constraints(&mut self, constraints: Expr) {
         self.domain_constraints = constraints;
     }
 
-    // === Tasks ===
 
-    /// Returns a reference to the list of tasks.
-    pub fn tasks(&self) -> &Vec<AtomicTaskSkeleton> {
-        &self.tasks
-    }
-
-    /// Returns a mutable reference to the list of tasks.
-    pub fn tasks_mut(&mut self) -> &mut Vec<AtomicTaskSkeleton> {
-        &mut self.tasks
-    }
-
-    /// Adds a single task.
-    pub fn add_task(&mut self, task: AtomicTaskSkeleton) {
-        self.tasks.push(task);
-    }
-
-    /// Adds multiple tasks.
-    pub fn add_tasks<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = AtomicTaskSkeleton>,
-    {
-        self.tasks.extend(iter);
-    }
-
-    // === Derived Predicates ===
-
-    /// Returns a reference to the list of derived predicates.
     pub fn derived_predicates(&self) -> &Vec<LiftedDerivedPredicate> {
         &self.derived_predicates
     }
 
-    /// Returns a mutable reference to the list of derived predicates.
-    pub fn derived_predicates_mut(&mut self) -> &mut Vec<LiftedDerivedPredicate> {
-        &mut self.derived_predicates
-    }
 
-    /// Adds a single derived predicate to the problem.
     pub fn add_derived_predicate(&mut self, predicate: LiftedDerivedPredicate) {
         self.derived_predicates.push(predicate);
     }
 
-    // === Actions ===
-
-    /// Returns a reference to the list of actions.
-    pub fn actions(&self) -> &Vec<LiftedAction> {
+    pub fn actions(&self) -> &[LiftedAction] {
         &self.actions
     }
 
-    /// Returns a mutable reference to the list of actions.
-    pub fn actions_mut(&mut self) -> &mut Vec<LiftedAction> {
-        &mut self.actions
-    }
-
-    /// Adds a single action.
     pub fn add_action(&mut self, action: LiftedAction) {
         self.actions.push(action);
     }
 
-    // === Durative Actions ===
-
-    /// Returns a reference to the list of durative actions.
-    pub fn durative_actions(&self) -> &Vec<LiftedDurativeAction> {
+    pub fn durative_actions(&self) -> &[LiftedDurativeAction] {
         &self.durative_actions
     }
 
-    /// Returns a mutable reference to the list of durative actions.
-    pub fn durative_actions_mut(&mut self) -> &mut Vec<LiftedDurativeAction> {
-        &mut self.durative_actions
-    }
-
-    /// Adds a single durative action.
     pub fn add_durative_action(&mut self, action: LiftedDurativeAction) {
         self.durative_actions.push(action);
     }
 
-    /// Adds multiple duratives actions.
-    pub fn add_actions<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = LiftedDurativeAction>,
-    {
-        self.durative_actions.extend(iter);
-    }
-
-    // === Methods ===
-
-    /// Returns a reference to the list of methods.
-    pub fn methods(&self) -> &Vec<LiftedMethod> {
+    pub fn methods(&self) -> &[LiftedMethod] {
         &self.methods
     }
 
-    /// Returns a mutable reference to the list of methods.
-    pub fn methods_mut(&mut self) -> &mut Vec<LiftedMethod> {
-        &mut self.methods
-    }
-
-    /// Adds a single method.
     pub fn add_method(&mut self, method: LiftedMethod) {
         self.methods.push(method);
     }
 
-    /// Adds multiple methods.
-    pub fn add_methods<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = LiftedMethod>,
-    {
-        self.methods.extend(iter);
-    }
-
-    // === Objects ===
-
-    /// Returns an iterator over the objects of the problem.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let problem = LiftedProblem::new();
-    /// for obj in problem.objects_iter() {
-    ///     println!("{:?}", obj);
-    /// }
-    /// ```
-    pub fn objects(&self) -> impl Iterator<Item = &TypedSymbol<StringID>> {
-        self.objects.values()
-    }
-
-    /// Returns a mutable iterator over the objects of the problem.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// let mut problem = LiftedProblem::new();
-    /// for obj in problem.objects_iter_mut() {
-    ///     obj.set_name(Ident::new("new_object"));
-    /// }
-    /// ```
-    pub fn objects_mut(&mut self) -> impl Iterator<Item = &mut TypedSymbol<StringID>> {
-        self.objects.values_mut()
-    }
-
-    /// Returns true if the problem contains any objects.
-    pub fn has_objects(&self) -> bool {
-        !self.objects.is_empty()
-    }
-
-    /// Get an object by its `Ident` (immutable).
-    pub fn get_object(&self, id: StringID) -> Option<&TypedSymbol<StringID>> {
-        self.objects.get(&id)
-    }
-
-    /// Get an object by its `Ident` (mutable).
-    pub fn get_object_mut(&mut self, id: StringID) -> Option<&mut TypedSymbol<StringID>> {
-        self.objects.get_mut(&id)
-    }
-
-    /// Get an object by its `Ident` (immutable), or return an error if not found.
-    pub fn try_get_object(&self, id: StringID) -> Result<&TypedSymbol<StringID>, LirError> {
-        self.objects.get(&id).ok_or_else(|| LirError::object_not_found(id))
-    }
-
-    /// Get an object by its `Ident` (mutable), or return an error if not found.
-    pub fn try_get_object_mut(&mut self, id: StringID) -> Result<&mut TypedSymbol<StringID>, LirError> {
-        self.objects.get_mut(&id).ok_or_else(|| LirError::object_not_found(id))
-    }
-
-    /// Adds a single object.
-    ///
-    /// If the object already exists, it is overwritten.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// problem.add_object(TypedSymbol::new("robot1", "vehicle"));
-    /// ```
-    pub fn add_object(&mut self, object: TypedSymbol<StringID>) {
-        self.objects.insert(object.symbol(), object);
-    }
-
-    /// Adds multiple objects at once.
-    ///
-    /// Existing objects with the same `Ident` will be overwritten.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// problem.add_objects(vec![
-    ///     TypedSymbol::new("robot1", "vehicle"),
-    ///     TypedSymbol::new("robot2", "vehicle"),
-    /// ]);
-    /// ```
-    pub fn add_objects<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = TypedSymbol<StringID>>,
-    {
-        for object in iter {
-            self.add_object(object);
-        }
-    }
-
-    // === Init ===
-
-    /// Returns the initial state expression.
-    ///
-    /// Typically, an `Expr::And(...)` representing a conjunction of initial facts.
     pub fn init(&self) -> &Expr {
         &self.init
     }
 
-    /// Returns a mutable reference to the initial state expression.
-    pub fn init_mut(&mut self) -> &mut Expr {
-        &mut self.init
-    }
-
-    /// Sets the initial state expression.
     pub fn set_init(&mut self, init_expr: Expr) {
         self.init = init_expr;
     }
 
-    // === Goal ===
-
-    /// Returns the goal state expression.
-    ///
-    /// Typically, an `Expr::And(...)` representing a conjunction of goal conditions.
     pub fn goal(&self) -> &Expr {
         &self.goal
     }
 
-    /// Returns a mutable reference to the goal state expression.
-    pub fn goal_mut(&mut self) -> &mut Expr {
-        &mut self.goal
-    }
-
-    /// Sets the goal state expression.
     pub fn set_goal(&mut self, goal_expr: Expr) {
         self.goal = goal_expr;
     }
 
-    // === Problem Constraints ===
-
-    /// Returns a reference to the problem constraints' expression.
     pub fn problem_constraints(&self) -> &Expr {
         &self.problem_constraints
     }
 
-    /// Returns a mutable reference to the problem constraints' expression.
-    pub fn problem_constraints_mut(&mut self) -> &mut Expr {
-        &mut self.problem_constraints
-    }
-
-    /// Sets the problem constraints expression.
     pub fn set_problem_constraints(&mut self, constraints: Expr) {
         self.problem_constraints = constraints;
     }
 
-    // === Metric Specification ===
-
-    /// Returns a reference to the metric specification expression.
     pub fn metric_spec(&self) -> &Expr {
         &self.metric_spec
     }
 
-    /// Returns a mutable reference to the metric specification expression.
-    pub fn metric_spec_mut(&mut self) -> &mut Expr {
-        &mut self.metric_spec
-    }
-
-    /// Sets the metric specification expression.
     pub fn set_metric_spec(&mut self, metric: Expr) {
         self.metric_spec = metric;
     }
-    // === Length Specification ===
-
-    /// Returns a reference to the length specification.
     pub fn length_spec(&self) -> &Expr {
         &self.length_spec
     }
 
-    /// Returns a mutable reference to the length specification.
-    pub fn length_spec_mut(&mut self) -> &mut Expr {
-        &mut self.length_spec
-    }
-
-    /// Sets the length specification.
     pub fn set_length_spec(&mut self, length_spec: Expr) {
         self.length_spec = length_spec;
     }
 
-    // === Initial Task Network ===
-
-    /// Returns a reference to the initial task network.
     pub fn initial_task_network(&self) -> &InitialTaskNetwork {
         &self.initial_task_network
     }
 
-    /// Returns a mutable reference to the initial task network.
-    pub fn initial_task_network_mut(&mut self) -> &mut InitialTaskNetwork {
-        &mut self.initial_task_network
-    }
-
-    /// Sets the initial task network.
     pub fn set_initial_task_network(&mut self, initial_task_network: InitialTaskNetwork) {
         self.initial_task_network = initial_task_network;
     }
@@ -1093,7 +644,7 @@ impl TryFrom<LinkedSemanticContext> for Problem {
         // 3. Extract domain-level elements
         let domain_symbol_table = context.take_domain_table();
         let domain_syntax_tree = context.take_domain_syntax_tree();
-        let mut registry = EncodingContext::new(domain_symbol_table);
+        let mut registry = EncodingRegistry::new(domain_symbol_table);
         encoder::encode_domain(&domain_syntax_tree, &mut registry, &mut problem)?;
 
         // 4. Extract problem-level elements
