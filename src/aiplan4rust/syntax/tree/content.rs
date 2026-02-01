@@ -53,8 +53,6 @@ use crate::aiplan4rust::syntax::tree::error::SyntaxTreeError;
 /// - [`Clone`] for safe copying.
 /// - [`Debug`] for debugging purposes.
 pub trait SyntaxContent:  RemapIdents + Display + InternerDisplay + SyntaxInternerDisplay + Clone + Debug  + Default {
-    /// Returns the content as an identifier if available.
-    //fn as_ident(&self) -> Option<StringID>;
 
     /// Returns the content as a floating-point number if available.
     fn as_float(&self) -> Option<OrderedFloat<f64>>;
@@ -75,15 +73,6 @@ pub trait SyntaxContent:  RemapIdents + Display + InternerDisplay + SyntaxIntern
     ///
     /// Defaults to `false`. Can be overridden to signal absence of content.
     fn is_none(&self) -> bool { false }
-
-    /// Attempts to extract an identifier from the content.
-    ///
-    /// Returns `Ok(Ident)` if successful or
-    /// `Err(SyntaxTreeError::NotAnIdent)` if the content is not an identifier.
-    /*fn try_ident(&self) -> Result<StringID, SyntaxTreeError> {
-        self.as_ident()
-            .ok_or_else(|| SyntaxTreeError::not_an_ident())
-    }*/
 
     /// Attempts to extract a floating-point value from the content.
     ///

@@ -290,18 +290,6 @@ where
         Ok(self.arena.try_node_ref_mut(id)?)
     }
 
-    /*/// Attempts to extract a [`Symbol`] from the node with the given ID.
-    ///
-    /// # Arguments
-    /// * `id` - Node ID to retrieve a symbol from.
-    ///
-    /// # Returns
-    /// `Ok(SymbolRef)` or [`SyntaxTreeError`] if the node is invalid or has no symbol.
-    pub fn try_symbol(&self, id: NodeId) -> Result<Symbol, SyntaxTreeError> {
-        let node = self.try_node(id)?;
-        Ok(node.try_symbol()?)
-    }*/
-
     /// Returns the number of nodes in the tree.
     ///
     /// # Returns
