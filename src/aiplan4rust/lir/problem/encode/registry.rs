@@ -5,10 +5,12 @@
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, TaskSymbolID, TaskSkeletonID, TypeID, VariableID, PreferenceID};
+use clap_builder::builder::Str;
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, TaskSymbolID, TaskSkeletonID, TypeID, VariableID, PreferenceID, StringID, TaskLabelID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
+use crate::aiplan4rust::semantic::symbol_table::table::Table;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Context used during the encoding of actions, methods, and expressions.
@@ -23,7 +25,8 @@ pub struct EncodingRegistry {
 
     /// **Type Mapping**: Links a semantic `Type` structure (primitive or union)
     /// to its unique index in the LIR.
-    type_to_id: HashMap<NodeId, TypeID>,
+    type_node_to_id: HashMap<NodeId, TypeID>,
+    type_symbol_to_id: HashMap<StringID, TypeID>,
 
     predicate_to_id: HashMap<NodeId, PredicateID>,
 
@@ -52,6 +55,15 @@ pub struct EncodingRegistry {
 
     preference_to_id: HashMap<NodeId, PreferenceID>,
 
+    task_label_to_id: HashMap<StringID, TaskLabelID>,
+    task_label_id_to_symbol: Vec<StringID>,
+
+}
+
+impl EncodingRegistry {
+    pub fn set_symbol_table(&mut self, p0: SymbolTable) {
+        self.symbol_table = p0;
+    }
 }
 
 impl EncodingRegistry {
@@ -67,7 +79,8 @@ impl EncodingRegistry {
     ) -> Self {
         Self {
             symbol_table,
-            type_to_id : HashMap::new(),
+            type_node_to_id : HashMap::new(),
+            type_symbol_to_id: HashMap::new(),
             object_to_id : HashMap::new(),
             atom_skeleton_to_id: HashMap::new(),
             predicate_to_id: HashMap::new(),
@@ -77,6 +90,8 @@ impl EncodingRegistry {
             task_symbol_to_id: HashMap::new(),
             variable_to_id : HashMap::new(),
             preference_to_id: HashMap::new(),
+            task_label_to_id: HashMap::new(),
+            task_label_id_to_symbol: Vec::new(),
 
         }
     }
@@ -108,13 +123,17 @@ impl EncodingRegistry {
 
     /// Récupère l'ID d'un type PRIMITIF uniquement (par son symbole).
     pub fn resolve_type_symbol(&self, symbol: NodeId) -> Option<TypeID> {
-        self.type_to_id.get(&symbol).copied()
+        self.type_node_to_id.get(&symbol).copied()
     }
 
     /// Version avec erreur fatale
     pub fn try_resolve_type_symbol(&self, symbol: NodeId) -> Result<TypeID, LirError> {
         self.resolve_type_symbol(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol))
+    }
+
+    pub fn resolve_type_by_name(&self, name_id: StringID) -> Option<TypeID> {
+        self.type_symbol_to_id.get(&name_id).copied()
     }
 
     /// Récupère l'ID d'un prédicat par le NodeId de son symbole de déclaration.
@@ -212,9 +231,17 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
 
-    pub fn register_type_symbol(&mut self, symbol: NodeId) -> TypeID {
-        let id = TypeID::new(self.type_to_id.len());
-        self.type_to_id.insert(symbol, id);
+
+
+    pub fn register_type_symbol(&mut self, symbol: StringID, node_id: NodeId) -> TypeID {
+        let id = if let Some(&existing_id) = self.type_symbol_to_id.get(&symbol) {
+            existing_id
+        } else {
+            let new_id = TypeID::new(self.type_symbol_to_id.len());
+            self.type_symbol_to_id.insert(symbol, new_id);
+            new_id
+        };
+        self.type_node_to_id.insert(node_id, id);
         id
     }
 
@@ -248,5 +275,40 @@ impl EncodingRegistry {
 
     pub fn register_preference(&mut self, symbol: NodeId, id: PreferenceID) {
         self.preference_to_id.insert(symbol, id);
+    }
+
+    pub fn register_task_label(&mut self, symbol: StringID) -> TaskLabelID {
+        if let Some(&id) = self.task_label_to_id.get(&symbol) {
+            return id;
+        }
+
+        let id = TaskLabelID::new(self.task_label_to_id.len());
+        self.task_label_to_id.insert(symbol, id);
+        self.task_label_id_to_symbol.push(symbol);
+
+        id
+
+    }
+
+    pub fn resolve_task_label(&self, symbol: StringID) -> Option<TaskLabelID> {
+        self.task_label_to_id.get(&symbol).copied()
+    }
+
+    pub fn try_resolve_task_label(&self, symbol: StringID) -> Result<TaskLabelID, LirError> {
+        self.resolve_task_label(symbol)
+            .ok_or_else(|| LirError::symbol_binding_failed(NodeId::default()))
+    }
+    /// La méthode dont tu as besoin dans finalize_task_network
+    pub fn resolve_task_label_symbol(&self, id: TaskLabelID) -> StringID {
+        self.task_label_id_to_symbol[id.as_usize()]
+    }
+
+    pub fn clear_task_label(&mut self) {
+        self.task_label_to_id.clear();
+        self.task_label_id_to_symbol.clear();
+    }
+
+    pub fn task_label_count(&self) -> usize {
+        self.task_label_to_id.len()
     }
 }

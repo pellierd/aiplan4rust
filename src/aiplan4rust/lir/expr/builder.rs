@@ -1,11 +1,12 @@
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctorID, Id, ObjectID, Optimization, PredicateID, PreferenceID, StringID, TaskSymbolID, Type, TypeID, TypedList, TypedSymbol, VariableID};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctorID, Id, ObjectID, Optimization, PredicateID, PreferenceID, StringID, TaskLabelID, TaskSymbolID, Type, TypeID, TypedList, TypedSymbol, VariableID};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::lir::problem::encode::EncodingRegistry;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
+use crate::SymbolTable;
 
 /// Ergonomic builder for `Expr` (expression trees).
 ///
@@ -14,17 +15,17 @@ use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
 pub struct ExprBuilder<'a> {
     base: SyntaxTreeBuilder<ExprNode>,
     interner: &'a mut StringInterner,
-    registry: &'a mut EncodingRegistry
+    registry: EncodingRegistry
 }
 
 #[allow(dead_code)]
 impl<'a> ExprBuilder<'a> {
     /// Create a new builder with a mutable reference to a `StringInterner`
-    pub fn new(interner: &'a mut StringInterner, registry: &'a mut EncodingRegistry) -> Self {
+    pub fn new(interner: &'a mut StringInterner) -> Self {
         Self {
             base: SyntaxTreeBuilder::new(),
             interner,
-            registry,
+            registry: EncodingRegistry::new(SymbolTable::new()),
         }
     }
 
@@ -492,8 +493,9 @@ impl<'a> ExprBuilder<'a> {
     fn mock_resolve_type(&mut self, name: &str) -> TypeID {
         let decl_id = self.mock_node_id(name);
         self.registry.resolve_type_symbol(decl_id).unwrap_or_else(|| {
-            let new_id = TypeID::new(self.interner.intern_ident(name).as_usize());
-            self.registry.register_type_symbol(decl_id);
+            let symbol_id = self.interner.intern_ident(name);
+            let new_id = TypeID::new(symbol_id.as_usize());
+            self.registry.register_type_symbol(symbol_id, decl_id);
             new_id
         })
     }
@@ -1093,8 +1095,17 @@ impl<'a> ExprBuilder<'a> {
     /// # Returns
     /// NodeId of the newly created TaskID node.
     pub fn task_id(&mut self, name: &str) -> NodeId {
-        let id = self.interner.intern_ident(name);
-        self.leaf(ExprNode::new(ExprKind::TaskID, ExprContent::Ident(id), None))
+        let task_id = self.mock_resolve_task_id(name);
+        self.leaf(ExprNode::new(
+            ExprKind::TaskID,
+            ExprContent::TaskID(task_id),
+            None,
+        ))
+    }
+
+    fn mock_resolve_task_id(&mut self, name: &str) -> TaskLabelID {
+        let symbol = self.interner.intern_ident(name);
+        self.registry.register_task_label(symbol)
     }
 
     /// Create a TaggedTask node with a TaskID and a Task as children.

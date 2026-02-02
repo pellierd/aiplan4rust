@@ -67,8 +67,8 @@ pub fn encode_domain(
 /// not defined in the domain, or if initial state expressions are malformed.
 pub fn encode_problem(
     syntax_tree: &Tree<AstNode>,
-    context: &mut EncodingRegistry,
+    registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-    problem_def::encode(syntax_tree, context, ir)
+    problem_def::encode(syntax_tree, registry, ir)
 }

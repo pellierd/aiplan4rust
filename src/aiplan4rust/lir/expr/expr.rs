@@ -260,8 +260,7 @@ impl Expr {
     /// # Returns
     /// A [`PreorderIter`] over all nodes from the root.
     pub fn preorder(&self) -> PreorderIter<ExprNode> {
-        let root_id = self.root_id().expect("Expr has no root");
-        self.tree.preorder_from(root_id)
+        self.tree.preorder()
     }
 
     /// Returns a preorder iterator starting at the specified node.
@@ -280,8 +279,7 @@ impl Expr {
     /// # Returns
     /// A [`PostorderIter`] over all nodes from the root.
     pub fn postorder(&self) -> PostorderIter<ExprNode> {
-        let root_id = self.root_id().expect("Expr has no root");
-        self.tree.postorder_from(root_id)
+        self.tree.postorder()
     }
 
     /// Returns a postorder iterator starting at the specified node.
@@ -294,20 +292,6 @@ impl Expr {
     pub fn postorder_from(&self, root: NodeId) -> PostorderIter<ExprNode> {
         self.tree.postorder_from(root)
     }
-
-    /*/// Recursively remaps all identifiers starting from a specific node in the tree.
-    ///
-    /// # Parameters
-    /// - `id` – The root node of the subtree to apply remapping.
-    /// - `map` – A `HashMap` mapping old `Ident`s to new `Ident`s.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `InternerError` if any identifier in the subtree fails to remap.
-    pub fn remap_idents_from(&mut self, id: NodeId, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
-        self.tree.remap_idents_from(id, map)?;
-        Ok(())
-    }*/
 
     /// Compare two subtrees of possibly different `Expr`s for deep equality.
     ///
@@ -512,31 +496,6 @@ impl Expr {
     }
 }
 
-/*impl RemapIdents for Expr {
-    /// Recursively remaps all identifiers in this expression.
-    ///
-    /// This updates every `Ident` contained within the expression's internal
-    /// syntax tree according to the provided mapping. Useful when merging,
-    /// flattening, or renaming symbols to ensure consistency across contexts.
-    ///
-    /// # Parameters
-    ///
-    /// - `map`: A `HashMap` mapping old `Ident` values to their new `Ident` values.
-    ///
-    /// # Behavior
-    ///
-    /// - The remapping is applied recursively to all nodes in the expression tree.
-    /// - Identifiers not present in the mapping remain unchanged.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `InternerError` if remapping fails for any node in the tree.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
-        self.tree.remap_idents(map)?;
-        Ok(())
-    }
-}*/
-
 impl RemapTypes for Expr {
     /// Recursively remaps all union types (`Type::Either`) in the expression tree.
     ///
@@ -631,27 +590,6 @@ impl fmt::Display for Expr {
     /// A formatting result indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.tree, f)
-    }
-}
-
-impl InternerDisplay for Expr {
-    /// Formats the expression using a [`StringInterner`] to resolve interned identifiers.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter.
-    /// * `interner` - The interner used to resolve interned strings.
-    ///
-    /// # Returns
-    ///
-    /// A formatting result indicating success or failure.
-    fn fmt_with_interner(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        //self.tree.fmt_with_interner(f, interner)
-        writeln!(f, "{}", "TO DO".to_string())
     }
 }
 

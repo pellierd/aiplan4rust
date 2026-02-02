@@ -3,6 +3,23 @@ use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedD
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 
+/// Structure privée pour faire le pont avec le système de formatage de Rust
+struct ProblemWrapper<'a>(&'a LiftedProblem);
+
+impl<'a> fmt::Display for ProblemWrapper<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // C'est ici que le formatter 'f' nous est donné par Rust !
+        // On appelle ta fonction existante en lui passant 'f'
+        render_problem(f, self.0)
+    }
+}
+
+/// Retourne la représentation textuelle complète du problème
+pub fn to_string(problem: &LiftedProblem) -> String {
+    // L'appel à .to_string() utilise l'implémentation fmt::Display ci-dessus
+    ProblemWrapper(problem).to_string()
+}
+
 /// Renders a `LiftedProblem` in a structured, human-readable format to a `Formatter`.
 ///
 /// This function prints all parts of the problem in sections with centered titles

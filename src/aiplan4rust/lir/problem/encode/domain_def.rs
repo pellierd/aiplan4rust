@@ -98,7 +98,9 @@ fn collect_definitions(
             AstKind::ConstantsDef => constants_def::encode(&subtree, registry, ir)?,
             AstKind::PredicatesDef => predicates_def::encode(&subtree, registry, ir)?,
             AstKind::FunctionsDef => functions_def::encode(&subtree, registry, ir)?,
-            AstKind::TaskDef =>  task_def::encode(&subtree, registry, ir)?,
+            AstKind::TaskDef => task_def::encode(&subtree, registry, ir)?,
+            AstKind::ActionDef => task_def::encode(&subtree, registry, ir)?,
+            AstKind::DurativeActionDef => task_def::encode(&subtree, registry, ir)?,
             _ => {}
         }
     }
@@ -145,10 +147,7 @@ fn encode_logic(
                 let constraints = expr::encode(&subtree, registry)?;
                 ir.set_domain_constraints(constraints);
             }
-            AstKind::ActionDef => {
-                let action = action_def::encode(&subtree, registry)?;
-                ir.add_action(action);
-            }
+            AstKind::ActionDef => action_def::encode(&subtree, registry, ir)?,
             AstKind::DurativeActionDef => {
                 let action = durative_action_def::encode(&subtree, registry)?;
                 ir.add_durative_action(action);

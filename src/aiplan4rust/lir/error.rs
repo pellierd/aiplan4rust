@@ -182,7 +182,24 @@ impl LirError {
         Self::TypeBindingFailed { ty }
     }
 
+    #[track_caller]
     pub fn variable_not_found(node_id: NodeId) -> Self {
-        Self::VariableNotFound { node_id }
+        let caller = std::panic::Location::caller();
+        let err = Self::VariableNotFound { node_id };
+
+        if log::log_enabled!(log::Level::Debug) {
+            let bt = std::backtrace::Backtrace::force_capture();
+
+            log::debug!(
+            "\nVariable Error at {}:{}:{}\n{}\nStack trace:\n{}",
+            caller.file(),
+            caller.line(),
+            caller.column(),
+            err,
+            bt
+        );
+        }
+
+        err
     }
 }

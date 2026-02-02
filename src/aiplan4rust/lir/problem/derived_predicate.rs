@@ -172,7 +172,7 @@ impl fmt::Display for DerivedPredicate {
     }
 }
 
-/// Implements [`InternerDisplay`] for `DerivedPredicate`.
+/*/// Implements [`InternerDisplay`] for `DerivedPredicate`.
 ///
 /// This allows printing the derived predicate using a [`StringInterner`] to
 /// resolve interned identifiers.
@@ -192,7 +192,7 @@ impl InternerDisplay for DerivedPredicate {
     ) -> fmt::Result {
         renderers::interner::render_derived_predicate(f, self, interner)
     }
-}
+}*/
 
 /// Implements [`SyntaxInternerDisplay`] for `DerivedPredicate`.
 ///

@@ -38,6 +38,8 @@
 //! available for resolution by child nodes (the quantifier's body) during the
 //! traversal.
 
+use std::fs::exists;
+use crate::aiplan4rust::lang::TaskLabelID;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::encode::{typed_list, EncodingRegistry};
@@ -313,10 +315,24 @@ fn encode_content(
             Ok(ExprContent::FunctionSkeleton(function_skeleton_id))
         },
         AstKind::Task => {
+            // The task identifier is the first child of the Task node
             let task_id = ast_node.children()[0];
-            let task_skeleton_declaration = registry.symbol_table()
-                .try_resolve_declaration_by_usage(task_id, SymbolKind::Task)?;
-            let task_skeleton_id = registry.try_resolve_task_skeleton(task_skeleton_declaration.node_id())?;
+
+            // 1. Attempt "soft" resolution for a Compound Task skeleton.
+            let declaration = match registry.symbol_table().resolve_declaration_by_usage(task_id, SymbolKind::Task)? {
+                // Successfully resolved as a Compound Task
+                Some(decl) => decl,
+
+                // 2. Fallback to "strict" resolution for a Primitive Action.
+                // If it's not a compound task, it must be an action.
+                None => registry.symbol_table()
+                    .try_resolve_declaration_by_usage(task_id, SymbolKind::Action)?
+            };
+
+            // 3. Retrieve the unique Skeleton ID from the registry.
+            // This ID was generated during the first pass (Collection Phase).
+            let task_skeleton_id = registry.try_resolve_task_skeleton(declaration.node_id())?;
+
             Ok(ExprContent::TaskSkeleton(task_skeleton_id))
         },
 
@@ -365,6 +381,28 @@ fn encode_content(
             let variable_id = registry.try_resolve_variable(variable_declaration.node_id())?;
             Ok(ExprContent::Variable(variable_id))
         },
+        AstKind::TaskSymbol => {
+            // 1. Attempt "soft" resolution for a Compound Task.
+            let declaration = match registry.symbol_table().resolve_declaration_by_usage(ast_node_id, SymbolKind::Task)? {
+                // Successfully resolved as a Compound Task.
+                Some(decl) => decl,
+
+                // 2. Fallback to "strict" resolution for a Primitive Action.
+                // If it's not a Task, we try to resolve as an Action.
+                None => registry.symbol_table()
+                    .try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Action)?
+            };
+
+            // 3. Final ID Retrieval from the Registry (Pass 1).
+            let task_symbol_id = registry.try_resolve_task_symbol(declaration.node_id())?;
+
+            Ok(ExprContent::TaskSymbol(task_symbol_id))
+        }
+        AstKind::TaskID => {
+            let label_symbol_id = ast_node.try_ident()?;
+            let task_label_id = registry.try_resolve_task_label(label_symbol_id)?;
+            Ok(ExprContent::TaskID(task_label_id))
+        }
 
         // --- Leaf Nodes and Operators ---
         // If the Kind is not a complex symbol, we extract the raw primitive
@@ -376,7 +414,10 @@ fn encode_content(
             AstContent::ArithmeticOp(op) => Ok(ExprContent::ArithmeticOp(*op)),
             AstContent::Optimization(op) => Ok(ExprContent::Optimization(*op)),
             AstContent::None => Ok(ExprContent::None),
-            _ => Err(ExprError::unsupported_content(ast_node.content().clone()).into()),
+            _ => {
+                println!("{}", ast_node);
+                Err(ExprError::unsupported_content(ast_node.content().clone()).into())
+            },
         }
     }
 }

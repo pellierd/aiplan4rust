@@ -12,6 +12,7 @@
 //! By centralizing this logic, the LIR ensures consistent handling of identifier
 //! extraction and parameter scope across all operators.
 
+use std::fs::exists;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::LirError;
@@ -89,17 +90,19 @@ pub fn bind_variables(
 
     // Si on pointe sur un ParameterDef (ex: Action), on descend d'un cran.
     // Sinon (ex: Task), on utilise le nœud directement.
-    let target_node = if root_node.kind() == AstKind::ParametersDef {
+    let typed_list = if root_node.kind() == AstKind::ParametersDef {
         let content_id = root_node.try_child(0)?;
         ast.try_node(content_id)?
     } else {
         root_node
     };
 
-    for &child_id in target_node.children() {
-        let child_node = ast.try_node(child_id)?;
-        if child_node.kind() == AstKind::Variable {
-            registry.register_variable(child_id);
+    for &typed_symbol_id in typed_list.children() {
+        let typed_symbol_node = ast.try_node(typed_symbol_id)?;
+        let variable_node_id = typed_symbol_node.children()[0];
+        let variable_node = ast.try_node(variable_node_id)?;
+        if variable_node.kind() == AstKind::Variable {
+            registry.register_variable(variable_node_id);
         }
     }
 

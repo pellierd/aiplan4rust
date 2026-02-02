@@ -182,7 +182,7 @@ impl<'a> SyntaxDisplay for ProblemDef<'a> {
     }
 }
 
-impl<'a> SelfInternerDisplay for ProblemDef<'a> {
+/*impl<'a> SelfInternerDisplay for ProblemDef<'a> {
     /// Formats the problem using its internal [`StringInterner`].
     ///
     /// This allows resolving interned identifiers when rendering the problem.
@@ -196,7 +196,7 @@ impl<'a> SelfInternerDisplay for ProblemDef<'a> {
     fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::interner::render_problem(f, self.problem, self.problem.interner())
     }
-}
+}*/
 
 impl<'a> Display for ProblemDef<'a> {
     /// Provides the default human-readable string representation of the problem.

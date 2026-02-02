@@ -1,4 +1,4 @@
-use std::fmt;
+/*use std::fmt;
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
@@ -823,4 +823,4 @@ pub fn render_derived_predicate(
     }
 
     Ok(())
-}
+}*/

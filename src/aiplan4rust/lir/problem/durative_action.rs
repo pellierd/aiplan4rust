@@ -266,7 +266,7 @@ impl fmt::Display for DurativeAction {
     }
 }
 
-/// Implements [`InternerDisplay`] for `DurativeAction`.
+/*/// Implements [`InternerDisplay`] for `DurativeAction`.
 ///
 /// Renders the action using a [`StringInterner`] to resolve interned identifiers,
 /// producing readable names for the action's name and parameters.
@@ -286,7 +286,7 @@ impl InternerDisplay for DurativeAction {
     ) -> fmt::Result {
         renderers::interner::render_durative_action(f, self, interner)
     }
-}
+}*/
 
 /// Implements [`SyntaxInternerDisplay`] for `DurativeAction`.
 ///

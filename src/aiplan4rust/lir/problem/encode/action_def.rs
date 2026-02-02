@@ -7,10 +7,12 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::VariableID;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::atomic_skeleton::task::Task;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list, EncodingRegistry};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree, Tree};
 
@@ -40,18 +42,19 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree, Tree};
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<Action, LirError> {
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
-    // --- ÉTAPE 1 : Binding des variables ---
-    // On récupère le ParameterDef (index 1) et on enregistre les NodeIds
-    // Cela prépare le terrain pour TOUT l'encodage de l'action.
+    // --- STEP 1: Variable Binding ---
+    // Retrieve the ParameterDef (index 1) and register the NodeIds.
+    // This sets up the local scope for the entire action encoding process.
     let parameters_def_id = node.try_child(1)?;
     named_typed_list::bind_variables(parameters_def_id, ast, registry)?;
 
-    // --- ÉTAPE 2 : Encodage du Header (Nom + Paramètres) ---
-    // On utilise maintenant le registre qui contient déjà les variables mappées.
+    // --- STEP 2: Header Encoding (Name + Parameters) ---
+    // Encode the signature using the registry, which now contains the variable mappings.
     let header = named_typed_list::encode(subtree, registry)?;
 
     // 2. Get the body node of the action (typically Child 2)
@@ -87,6 +90,6 @@ pub fn encode(
             }
         }
     }
-
-    Ok(Action::from_header(header, precondition, effect))
+    ir.add_action(Action::from_header(header, precondition, effect));
+    Ok(())
 }

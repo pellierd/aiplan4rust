@@ -5,6 +5,8 @@
 //! such as duplicate declarations, ambiguous symbol usage, invalid AST node types,
 //! or malformed typed items.
 
+use std::panic::Location;
+use log::debug;
 use thiserror::Error;
 
 use crate::aiplan4rust::arena::ArenaError;
@@ -78,7 +80,7 @@ pub enum SymbolTableError {
     InvalidNodeArity(#[from] InvalidNodeArityError),
 
     /// No declaration found corresponding to a usage AST node.
-    #[error("No declaration found for usage at node {node_id:?}")]
+    #[error("No declaration found for usage at node '{node_id}'")]
     DeclarationNotFoundForUsage {
         /// The AST node ID where the usage was expected to be declared.
         node_id: NodeId,
@@ -202,8 +204,25 @@ impl SymbolTableError {
     /// # Returns
     ///
     /// A new `SymbolTableError::UsageNotFound` instance.
+    #[track_caller]
     pub fn declaration_not_found_for_usage(node_id: NodeId) -> Self {
-        SymbolTableError::DeclarationNotFoundForUsage { node_id }
+        let caller = std::panic::Location::caller();
+        let err = SymbolTableError::DeclarationNotFoundForUsage { node_id };
+
+        if log::log_enabled!(log::Level::Debug) {
+            let bt = std::backtrace::Backtrace::force_capture();
+
+            log::debug!(
+            "\nError at {}:{}:{}\n{}\nStack trace:\n{}",
+            caller.file(),
+            caller.line(),
+            caller.column(),
+            err,
+            bt
+        );
+        }
+
+        err
     }
 
     /// Constructs a `DeclarationNotFound` error indicating no declaration found for a symbol in scope.

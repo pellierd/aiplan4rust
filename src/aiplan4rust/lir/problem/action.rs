@@ -308,7 +308,7 @@ impl fmt::Display for Action {
     }
 }
 
-impl InternerDisplay for Action {
+/*impl InternerDisplay for Action {
     /// Formats the `Action` using a [`StringInterner`] to resolve interned symbols.
     ///
     /// This implementation resolves names and parameters for human-readable output.
@@ -339,7 +339,7 @@ impl InternerDisplay for Action {
     ) -> fmt::Result {
         renderers::interner::render_action(f, self, interner)
     }
-}
+}*/
 
 impl SyntaxInternerDisplay for Action {
     /// Formats the `Action` in a syntax-oriented form using a [`StringInterner`] and indentation.

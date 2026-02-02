@@ -40,7 +40,7 @@
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
-use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{StringID, ObjectID, Requirement, TypedSymbol, TypeID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSymbolID, TaskSkeletonID};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
@@ -603,9 +603,10 @@ impl SelfInternerDisplay for Problem {
     ///
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::interner::render_domain_def(f, &self.domain_def(), &self.interner())?;
-        writeln!(f)?;
-        renderers::interner::render_problem_def(f, &self.problem_def(), &self.interner())
+        //renderers::interner::render_domain_def(f, &self.domain_def(), &self.interner())?;
+        //writeln!(f)?;
+        //renderers::interner::render_problem_def(f, &self.problem_def(), &self.interner())
+        writeln!(f)
     }
 }
 
@@ -645,15 +646,20 @@ impl TryFrom<LinkedSemanticContext> for Problem {
         let domain_symbol_table = context.take_domain_table();
         let domain_syntax_tree = context.take_domain_syntax_tree();
         let mut registry = EncodingRegistry::new(domain_symbol_table);
+
         encoder::encode_domain(&domain_syntax_tree, &mut registry, &mut problem)?;
 
         // 4. Extract problem-level elements
-        //encoder::encode_problem(&context, &mut problem, &mut type_to_id, &mut predicate_to_id, &mut functor_to_id)?;
+        let problem_symbol_table = context.take_problem_table();
+        let problem_syntax_tree = context.take_problem_syntax_tree();
+        registry.set_symbol_table(problem_symbol_table);
+        encoder::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
 
         // 5. Normalize all expressions in the problem
         normalize::normalize_problem(&mut problem)?;
 
         // 6. Return the fully constructed and normalized problem
+        println!("Problem successfully created:\n{}", problem);
         Ok(problem)
     }
 }
@@ -672,7 +678,7 @@ impl Display for Problem {
     ///
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::interner::render_problem(f, &self, &self.interner())
+        renderers::default::render_problem(f, self)
     }
 }
 

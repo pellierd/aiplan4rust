@@ -10,8 +10,10 @@
 
 use crate::aiplan4rust::lang::{Type, TypeID};
 use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::LirError::SymbolTable;
 use crate::aiplan4rust::lir::problem::encode::EncodingRegistry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
+use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 
@@ -42,26 +44,26 @@ pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &EncodingRegistry,
 ) -> Result<Type<TypeID>, LirError> {
-    let type_node = subtree.node();
-    let symbol_table = registry.symbol_table();
     let mut ty = Type::new();
+    let tree = subtree.tree();
 
-    // Iterate through children: for a single type, this is one ID;
-    // for an 'either' node, it iterates through all member types.
-    for primitive_id in type_node.children() {
-        // 1. Resolve the usage to its declaration in the symbol table
-        let type_declaration = symbol_table.try_resolve_declaration_by_usage(
-            *primitive_id,
-            SymbolKind::PrimitiveType
-        )?;
+    for primitive_id in subtree.node().children() {
+        // TENTATIVE 1 : Par NodeId (très rapide)
+        if let Some(type_id) = registry.resolve_type_symbol(*primitive_id) {
+            ty.add_type(type_id);
+        }
+        else {
+            // TENTATIVE 2 : Fallback par StringId
+            // On extrait le nom du nœud actuel (ex: l'ID de "object")
+            let name_id = tree.try_node(*primitive_id)?.try_ident()?;
 
-        // 2. Map the declaration's NodeId to the LIR's TypeID
-        let primitive_type_symbol_id = registry.try_resolve_type_symbol(
-            type_declaration.node_id()
-        )?;
-
-        // 3. Accumulate in the LIR Type structure
-        ty.add_type(primitive_type_symbol_id);
+            if let Some(type_id) = registry.resolve_type_by_name(name_id) {
+                ty.add_type(type_id);
+            } else {
+                // Si même par nom on ne trouve rien, le type n'existe vraiment pas
+                return Err(SymbolTableError::declaration_not_found_for_usage(*primitive_id).into());
+            }
+        }
     }
 
     Ok(ty)

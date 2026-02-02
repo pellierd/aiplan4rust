@@ -36,40 +36,49 @@ pub fn encode(
     Ok(())
 }
 
-/// Phase 1: Collects all type identifiers and assigns them unique IDs in the registry.
+/// Phase 1: Collects all type identifiers (types and their supertypes)
+/// and assigns them unique IDs in the registry.
 ///
-/// This pass performs an initial scan of the `:types` block to register every type name
-/// before any inheritance resolution occurs. This ensures that Phase 2 can safely
-/// resolve parent-child relationships regardless of the order in which types appear
-/// in the PDDL file.
+/// This pass performs an initial scan of the `:types` block to register
+/// every type name before inheritance resolution occurs. It ensures
+/// that types appearing only as parents (e.g., 'object' in 'number - object')
+/// are assigned a `TypeID`.
+///
+/// This prevents "unknown type" errors during Phase 2, especially when
+/// parents are used before being defined or are implicit root types.
 ///
 /// # Arguments
 ///
 /// * `subtree` - The syntax subtree representing the `TypesDef` node.
-/// * `registry` - The mutable encoding context where type symbols are mapped to new `TypeID`s.
+/// * `registry` - The mutable encoding context where type symbols are mapped to `TypeID`s.
 ///
 /// # Returns
 ///
-/// * `Ok(())` - If all type identifiers were successfully discovered and registered.
-/// * `Err(LirError)` - If the AST structure is unexpected or identifiers cannot be extracted.
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// * The expected list of typed symbols is missing from the AST.
-/// * A node that should contain a type name fails to provide a valid identifier via `try_ident()`.
+/// * `Ok(())` - If all identifiers were successfully discovered and registered.
+/// * `Err(LirError)` - If the AST structure is unexpected or nodes are inaccessible.
 fn collect_type_ids(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
-    let list_node_id = subtree.node().try_child(0)?;
-    let list_node = tree.try_node(list_node_id)?;
+    let list_node = tree.try_node(subtree.node().try_child(0)?)?;
 
     for typed_symbol_id in list_node.children() {
         let typed_symbol_node = tree.try_node(*typed_symbol_id)?;
-        let ty_node_id = typed_symbol_node.children()[0];
-        registry.register_type_symbol(ty_node_id);
+        let symbol_id = typed_symbol_node.children()[0];
+        let symbol_node = tree.try_node(symbol_id)?;
+        let symbol = symbol_node.try_ident()?;
+        registry.register_type_symbol(symbol, symbol_id);
+
+        if typed_symbol_node.children().len() > 1 {
+            let type_id = typed_symbol_node.children()[1];
+            let type_node = tree.try_node(type_id)?;
+            for &primitive_type_id in type_node.children() {
+                let primitive_type_node = tree.try_node(primitive_type_id)?;
+                let primitive_type_symbol = primitive_type_node.try_ident()?;
+                registry.register_type_symbol(primitive_type_symbol, primitive_type_id);
+            }
+        }
     }
     Ok(())
 }

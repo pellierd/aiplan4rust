@@ -51,7 +51,7 @@
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, TypedList, VariableID, ObjectID, ParameterID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, TypedList, VariableID, ObjectID, ParameterID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID, TaskLabelID};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
@@ -76,7 +76,7 @@ pub enum Content {
     /// No content (empty/default syntax node).
     #[default]
     None,
-    Ident(StringID),
+    //Ident(StringID),
     Variable(VariableID),     // Variables liées (Forall/Exists)
     Constant(ObjectID),     // Objets/Constantes du domaine
     Parameter(ParameterID),   // Paramètres d'action
@@ -85,6 +85,8 @@ pub enum Content {
     Predicate(PredicateID),
     Functor(FunctorID),
     TaskSymbol(TaskSymbolID),
+    TaskID(TaskLabelID),
+    Preference(PreferenceID),
 
     // --- Skeletons (Liaison aux formules atomiques) ---
     /// Référence à ATOMIC_FORMULA_SKELETON_ID
@@ -93,7 +95,7 @@ pub enum Content {
     FunctionSkeleton(FunctionSkeletonID),
     TaskSkeleton(TaskSkeletonID),
 
-    Preference(PreferenceID),
+
 
     /// Floating-point literal wrapped in [`OrderedFloat`] to ensure total ordering.
     #[serde(
@@ -171,7 +173,7 @@ impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Content::None => write!(f, ""),
-            Content::Ident(id) => write!(f, "{id}"),
+            //Content::Ident(id) => write!(f, "{id}"),
 
             // Terminaux sémantiques (utilisent les macros de préfixes)
             Content::Variable(id) => write!(f, "{id}"),
@@ -183,6 +185,7 @@ impl fmt::Display for Content {
             Content::Functor(id) => write!(f, "{id}"),
             Content::TaskSymbol(id) => write!(f, "{id}"),
             Content::Preference(id) => write!(f, "{id}"),
+            Content::TaskID(id) => write!(f, "{id}"),
 
             // Skeletons
             Content::AtomSkeleton(id) => write!(f, "{id}"),
@@ -199,6 +202,7 @@ impl fmt::Display for Content {
             // Listes
             Content::QuantifierVariables(vars) => write!(f, "{vars}"),
 
+
         }
     }
 }
@@ -213,10 +217,10 @@ impl InternerDisplay for Content {
         interner: &StringInterner,
     ) -> fmt::Result {
         match self {
-            Content::Ident(idx) => {
+            /*Content::Ident(idx) => {
                 let resolved = interner.resolve_ident(*idx).unwrap_or("(unknown)");
                 write!(f, "Ident(\"{}\")", resolved)
-            }
+            }*/
             //Content::QuantifierVariables(vars) => vars.fmt_with_interner(f, interner),
             _ => fmt::Display::fmt(self, f),
         }
@@ -245,7 +249,7 @@ impl SyntaxInternerDisplay for Content {
         // Write the indentation prefix
         write_indent(f, indent)?;
         match self {
-            Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
+            //Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
             Content::QuantifierVariables(vars) => vars.fmt_syntax_with_interner_and_indent(f, interner, indent),
             _ => fmt::Display::fmt(self, f),
         }

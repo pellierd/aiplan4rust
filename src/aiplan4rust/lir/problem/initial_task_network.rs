@@ -106,12 +106,12 @@ impl Display for InitialTaskNetwork {
     }
 }
 
-impl InternerDisplay for InitialTaskNetwork {
+/*impl InternerDisplay for InitialTaskNetwork {
     /// Formats the initial task network using a string interner for symbol resolution.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         renderers::interner::render_initial_task_network(f, self, interner)
     }
-}
+}*/
 
 impl SyntaxInternerDisplay for InitialTaskNetwork {
     /// Formats the initial task network syntax using a string interner.

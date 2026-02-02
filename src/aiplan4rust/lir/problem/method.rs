@@ -253,7 +253,7 @@ impl fmt::Display for Method {
     }
 }
 
-impl InternerDisplay for Method {
+/*impl InternerDisplay for Method {
     /// Formats the `Method` using a [`StringInterner`] for name resolution.
     ///
     /// This implementation resolves interned identifiers for the method's
@@ -286,7 +286,7 @@ impl InternerDisplay for Method {
     ) -> fmt::Result {
         renderers::interner::render_method(f, self, interner)
     }
-}
+}*/
 
 impl SyntaxInternerDisplay for Method {
     /// Formats the `Method` syntax with a [`StringInterner`] and optional indentation.

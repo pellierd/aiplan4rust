@@ -73,6 +73,7 @@ impl_id_type!(VariableID);
 impl_id_type!(FunctorID);
 impl_id_type!(TaskSymbolID);
 impl_id_type!(PreferenceID);
+impl_id_type!(TaskLabelID);
 impl_id_type!(NumericFluentID);
 impl_id_type!(ObjectID);
 impl_id_type!(ObjectFluentID);
@@ -111,21 +112,22 @@ macro_rules! impl_display_prefix {
     };
 }
 
-impl_display_prefix!(StringID, "S");
-impl_display_prefix!(LiteralID, "@");
-impl_display_prefix!(TypeID, "T");
-impl_display_prefix!(PredicateID, "P");
-impl_display_prefix!(ParameterID, "param");
-impl_display_prefix!(VariableID, "var");
-impl_display_prefix!(FunctorID, "F");
-impl_display_prefix!(TaskSymbolID, "TK");
-impl_display_prefix!(PreferenceID, "Pref");
-impl_display_prefix!(NumericFluentID, "NF");
-impl_display_prefix!(ObjectID, "O");
-impl_display_prefix!(ObjectFluentID, "OF");
-impl_display_prefix!(AtomSkeletonID, "AS");
-impl_display_prefix!(FunctionSkeletonID, "FS");
-impl_display_prefix!(TaskSkeletonID, "TS");
+impl_display_prefix!(StringID, "s");           // s42 (minuscule pour le distinguer des types)
+impl_display_prefix!(LiteralID, "L");          // L10 (L pour Literal)
+impl_display_prefix!(TypeID, "T");             // T1  (T pour Type)
+impl_display_prefix!(PredicateID, "P");        // P5  (P pour Predicate)
+impl_display_prefix!(ParameterID, "p");        // p0  (p minuscule pour différencier des prédicats)
+impl_display_prefix!(VariableID, "v");         // v1  (v pour Variable)
+impl_display_prefix!(FunctorID, "f");          // f2  (f pour Functor)
+impl_display_prefix!(TaskSymbolID, "tk");      // tk3 (tk pour Task Symbol)
+impl_display_prefix!(PreferenceID, "pref");    // pref0
+impl_display_prefix!(TaskLabelID, "TK");            // TK1 (Majuscule pour l'instance de tâche vs le symbole)
+impl_display_prefix!(NumericFluentID, "nf");     // nf8 (Numeric Fluent)
+impl_display_prefix!(ObjectID, "o");           // o12 (o pour Object)
+impl_display_prefix!(ObjectFluentID, "of");    // of4 (Object Fluent)
+impl_display_prefix!(AtomSkeletonID, "as");    // as9 (Atom Skeleton)
+impl_display_prefix!(FunctionSkeletonID, "fs"); // fs2 (Function Skeleton)
+impl_display_prefix!(TaskSkeletonID, "ts");     // ts7 (Task Skeleton)
 
 // --- TRAITS INTERNER (RESOLUTION) ---
 

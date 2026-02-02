@@ -225,7 +225,7 @@ impl<'a> SyntaxDisplay for DomainDef<'a> {
     }
 }
 
-/// Implements [`SelfInternerDisplay`] for [`DomainDef`], allowing the domain
+/*/// Implements [`SelfInternerDisplay`] for [`DomainDef`], allowing the domain
 /// to format itself using its own internal `StringInterner`.
 ///
 /// This is useful for producing human-readable representations where
@@ -243,7 +243,7 @@ impl<'a> SelfInternerDisplay for DomainDef<'a> {
     fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::interner::render_domain_def(f, &self.problem.domain_def(), self.interner())
     }
-}
+}*/
 
 /// Implements the standard [`Display`] trait for [`DomainDef`].
 ///

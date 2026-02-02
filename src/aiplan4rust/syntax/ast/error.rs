@@ -32,7 +32,23 @@ impl AstError {
     }
 
     pub fn not_a_symbol_id() -> Self {
-        AstError::NotASymbolID
+        let caller = std::panic::Location::caller();
+        let err = AstError::NotASymbolID;
+
+        if log::log_enabled!(log::Level::Debug) {
+            let bt = std::backtrace::Backtrace::force_capture();
+
+            log::debug!(
+            "\nAST Error at {}:{}:{}\n{}\nStack trace:\n{}",
+            caller.file(),
+            caller.line(),
+            caller.column(),
+            err,
+            bt
+        );
+        }
+
+        err
     }
 
 }

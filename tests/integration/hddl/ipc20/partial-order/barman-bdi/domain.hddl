@@ -13,7 +13,6 @@
 )
 
 (:predicates
-	(text ?x ?y - d)
 	(clean ?p0 - container)
 	(cocktailPart1 ?p0 - cocktail ?p1 - ingredient)
 	(cocktailPart2 ?p0 - cocktail ?p1 - ingredient)
