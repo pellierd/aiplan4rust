@@ -27,11 +27,6 @@ pub fn encode(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-    // 1. Reuse the generic object encoding logic (DRY)
     objects_def::encode(subtree, registry, ir)?;
-
-    // 2. Lock the offset to separate domain constants from problem objects
-    ir.set_constant_offset();
-
     Ok(())
 }

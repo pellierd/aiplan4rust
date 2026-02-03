@@ -581,9 +581,9 @@ impl SyntaxDisplay for Problem {
     ///
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::syntax::render_domain_def(f, &self.domain_def(), &self.interner())?;
+        renderers::syntax::problem::render(f, &self);
         writeln!(f)?;
-        renderers::syntax::render_problem_def(f, &self.problem_def(), &self.interner())
+        renderers::syntax_old::render_problem_def(f, &self.problem_def(), &self.interner())
     }
 }
 
@@ -678,7 +678,8 @@ impl Display for Problem {
     ///
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::default::render_problem(f, self)
+        //renderers::default::render_problem(f, self)
+        renderers::syntax::problem::render(f, self)
     }
 }
 

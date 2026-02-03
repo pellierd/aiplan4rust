@@ -307,6 +307,6 @@ impl SyntaxInternerDisplay for DurativeAction {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        renderers::syntax::render_durative_action(f, self, interner, indent)
+        renderers::syntax_old::render_durative_action(f, self, interner, indent)
     }
 }

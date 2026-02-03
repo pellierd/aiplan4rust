@@ -5,7 +5,74 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-/// Représente un symbole typé. 
+
+
+/*#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TypedSymbol<SID: Id, TID: Id> {
+    /// SID est l'ID du symbole (StringID, VariableID, etc.)
+    symbol: SID,
+    /// TID est l'ID utilisé pour le type
+    ty: Type<TID>,
+}
+
+impl<SID: Id, TID: Id> TypedSymbol<SID, TID> {
+    pub fn new(symbol: SID, ty: Type<TID>) -> Self {
+        TypedSymbol { symbol, ty }
+    }
+
+    pub fn symbol(&self) -> SID { self.symbol }
+    pub fn set_symbol(&mut self, symbol: SID) { self.symbol = symbol; }
+
+    pub fn ty(&self) -> &Type<TID> { &self.ty }
+    pub fn ty_mut(&mut self) -> &mut Type<TID> { &mut self.ty }
+    pub fn set_ty(&mut self, ty: Type<TID>) { self.ty = ty; }
+}
+
+
+impl RemapIdents for TypedSymbol<StringID, StringID> {
+    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+        self.symbol.remap_idents(map)?;
+        self.ty.remap_idents(map)?;
+        Ok(())
+    }
+}
+
+impl<SID: Id, TID: Id> InternerDisplay for TypedSymbol<SID, TID>
+where
+    SID: InternerDisplay, // SID doit savoir s'afficher avec l'interner
+    Type<TID>: InternerDisplay
+{
+    fn fmt_with_interner(&self, w: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        // On délègue l'affichage du symbole à son propre type SID
+        self.symbol.fmt_with_interner(w, interner)?;
+
+        if !self.ty.is_empty() {
+            write!(w, " - ")?;
+            self.ty.fmt_with_interner(w, interner)?;
+        }
+        Ok(())
+    }
+}
+
+impl<SID: Id, TID: Id> SyntaxInternerDisplay for TypedSymbol<SID, TID>
+where
+    SID: SyntaxInternerDisplay,
+    Type<TID>: SyntaxInternerDisplay
+{
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+        write_indent(f, indent)?;
+        self.symbol.fmt_syntax_with_interner(f, interner)?;
+
+        if !self.ty.is_empty() {
+            write!(f, " - ")?;
+            self.ty.fmt_syntax_with_interner(f, interner)?;
+        }
+        Ok(())
+    }
+}*/
+
+
+/// Représente un symbole typé.
 /// ID peut être StringID (syntaxe) ou TypeID (grounding/sémantique pour les types).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol<ID: Id> {

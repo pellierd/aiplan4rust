@@ -115,25 +115,25 @@ pub fn render_domain_def(
 
     // Derived Predicates
     for derived_predicate in domain.derived_predicates() {
-        renderers::syntax::render_derived_predicate(f, derived_predicate, interner, 1)?;
+        renderers::syntax_old::render_derived_predicate(f, derived_predicate, interner, 1)?;
         writeln!(f)?;
     }
 
     // Actions
     for action in domain.actions() {
-        renderers::syntax::render_action(f, action, interner, 1)?;
+        renderers::syntax_old::render_action(f, action, interner, 1)?;
         writeln!(f)?;
     }
 
     // Durative Actions
     for action in domain.durative_actions() {
-        renderers::syntax::render_durative_action(f, action, interner, 1)?;
+        renderers::syntax_old::render_durative_action(f, action, interner, 1)?;
         writeln!(f)?;
     }
 
     // Methods
     for method in domain.methods() {
-        renderers::syntax::render_method(f, method, interner, 1)?;
+        renderers::syntax_old::render_method(f, method, interner, 1)?;
         writeln!(f)?;
     }
 

@@ -1,3 +1,6 @@
+use std::fmt;
+use crate::aiplan4rust::lir::expr::Expr;
+
 /// Writes a centered title to a formatter with optional fill characters on both sides.
 ///
 /// This function prints the given `title` centered within a line of total `width` characters.
@@ -42,4 +45,37 @@ pub(crate) fn writeln_centered(
             fill.to_string().repeat(right_fill)
         )
     }
+}
+
+pub(crate) fn render_labeled_typed_list<T: std::fmt::Display>(
+    f: &mut fmt::Formatter<'_>,
+    label: &str,
+    items: &[T]
+) -> fmt::Result {
+    writeln!(f, "{}:", label)?;
+
+    if items.is_empty() {
+        writeln!(f, "  <None>")?;
+    } else {
+        for item in items {
+            writeln!(f, "  {}", item)?;
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn render_labeled_expr(f: &mut fmt::Formatter<'_>, label: &str, expr: &Expr) -> fmt::Result {
+    writeln!(f, "{}:", label)?;
+
+    // On vérifie si l'expression est vide via son root_id
+    if expr.root_id().is_none() {
+        writeln!(f, "  <None>")?;
+    } else {
+        // L'expression n'est pas vide, on l'affiche ligne par ligne
+        let content = format!("{}", expr);
+        for line in content.lines() {
+            writeln!(f, "  {}", line)?;
+        }
+    }
+    Ok(())
 }

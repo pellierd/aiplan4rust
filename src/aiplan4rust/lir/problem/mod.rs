@@ -24,3 +24,4 @@ pub use durative_action::DurativeAction as LiftedDurativeAction;
 pub use method::Method as LiftedMethod;
 pub use task_network::TaskNetwork as LiftedTaskNetwork;
 pub use initial_task_network::InitialTaskNetwork;
+pub use symbol_table::SymbolTable;

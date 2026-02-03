@@ -49,6 +49,8 @@ pub fn encode(
                 ir.set_problem_id(id)?;
             }
             AstKind::ObjectsDef => {
+                // 2. Lock the offset to separate domain constants from problem objects
+                ir.set_constant_offset();
                 constants_def::encode(&subtree, registry, ir)?;
             }
             AstKind::Init => {

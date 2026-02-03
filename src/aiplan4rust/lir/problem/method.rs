@@ -321,6 +321,6 @@ impl SyntaxInternerDisplay for Method {
         interner: &StringInterner,
         indent: usize
     ) -> fmt::Result {
-        renderers::syntax::render_method(f, self, interner, indent)
+        renderers::syntax_old::render_method(f, self, interner, indent)
     }
 }

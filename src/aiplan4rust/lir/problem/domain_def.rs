@@ -221,29 +221,9 @@ impl<'a> SyntaxDisplay for DomainDef<'a> {
     ///
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::syntax::render_domain_def(f, &self.problem.domain_def(), self.interner())
+        renderers::syntax_old::render_domain_def(f, &self.problem.domain_def(), self.interner())
     }
 }
-
-/*/// Implements [`SelfInternerDisplay`] for [`DomainDef`], allowing the domain
-/// to format itself using its own internal `StringInterner`.
-///
-/// This is useful for producing human-readable representations where
-/// interned identifiers are resolved directly without requiring an external interner.
-impl<'a> SelfInternerDisplay for DomainDef<'a> {
-    /// Formats the domain using its internal interner.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::interner::render_domain_def(f, &self.problem.domain_def(), self.interner())
-    }
-}*/
 
 /// Implements the standard [`Display`] trait for [`DomainDef`].
 ///

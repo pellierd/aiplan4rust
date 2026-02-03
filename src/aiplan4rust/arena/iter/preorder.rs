@@ -38,32 +38,22 @@ use crate::aiplan4rust::arena::{ArenaNode, ArenaTree, NodeId, NodeRef};
 ///     println!("Visited node {:?} at depth {}", id, depth);
 /// }
 /// ```
+// --- 1. MISE À JOUR DE LA STRUCT ---
 pub struct PreorderIter<'a, T: ArenaNode> {
     arena: &'a ArenaTree<T>,
-    stack: Vec<(NodeId, usize)>, // (node ID, depth)
+    // Il faut ajouter le bool ici pour que le compilateur accepte (NodeId, usize, bool)
+    stack: Vec<(NodeId, usize, bool)>,
 }
 
 impl<'a, T: ArenaNode> PreorderIter<'a, T> {
-    /// Creates a new preorder iterator starting from the given `root`.
-    ///
-    /// # Parameters
-    ///
-    /// * `arena` - Reference to the arena tree to traverse.
-    /// * `root` - The starting node ID for traversal.
-    ///
-    /// # Returns
-    ///
-    /// A `PreorderIter` that will yield nodes in preorder.
     pub fn new(arena: &'a ArenaTree<T>, root: NodeId) -> Self {
         Self {
             arena,
-            stack: vec![(root, 0)],
+            // (ID, profondeur, is_last)
+            stack: vec![(root, 0, true)],
         }
     }
 
-    /// Creates an empty preorder iterator.
-    ///
-    /// Useful for conditional traversal cases.
     pub fn empty(arena: &'a ArenaTree<T>) -> Self {
         Self {
             arena,
@@ -71,48 +61,48 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
         }
     }
 
-    /// Transforms this iterator to yield `(NodeId, &T)` tuples,
-    /// dropping depth information.
+    // --- 2. MISE À JOUR DES ADAPTATEURS ---
+    // Note le pattern matching (id, _, _, node) pour ignorer le booléen
+
     pub fn with_id(self) -> impl Iterator<Item = (NodeId, &'a T)> {
-        self.map(|(id, _, node)| (id, node))
+        self.map(|(id, _, _, node)| (id, node))
     }
 
-    /// Transforms this iterator to yield `(depth, &T)` tuples,
-    /// dropping node ID information.
     pub fn with_depth(self) -> impl Iterator<Item = (usize, &'a T)> {
-        self.map(|(_, depth, node)| (depth, node))
+        self.map(|(_, depth, _, node)| (depth, node))
     }
 
-    /// Transforms this iterator to yield `NodeRef` structs,
-    /// bundling node ID and node reference.
     pub fn node_refs(self) -> impl Iterator<Item = NodeRef<'a, T>> {
-        self.map(|(id, _, node)| NodeRef::new(id, node))
+        self.map(|(id, _, _, node)| NodeRef::new(id, node))
     }
 
-    /// Transforms this iterator to yield only node references `&T`,
-    /// dropping node ID and depth.
     pub fn values(self) -> impl Iterator<Item = &'a T> {
-        self.map(|(_, _, node)| node)
+        self.map(|(_, _, _, node)| node)
     }
 
-    /// Iterator that yields only `(NodeId, &T)`, dropping depth information.
     pub fn ids(self) -> impl Iterator<Item = (NodeId, &'a T)> {
-        self.map(|(id, _depth, node)| (id, node))
+        self.map(|(id, _, _, node)| (id, node))
     }
 }
 
+// --- 3. MISE À JOUR DE L'ITERATOR ---
 impl<'a, T: ArenaNode> Iterator for PreorderIter<'a, T> {
-    type Item = (NodeId, usize, &'a T);
+    type Item = (NodeId, usize, bool, &'a T);
 
     fn next(&mut self) -> Option<Self::Item> {
-        let (id, depth) = self.stack.pop()?;
+        // On récupère le tuple à 3 éléments
+        let (id, depth, is_last) = self.stack.pop()?;
         let node = self.arena.get_node(id)?;
 
-        // Push children in reverse order to maintain left-to-right traversal
-        for &child_id in node.children().iter().rev() {
-            self.stack.push((child_id, depth + 1));
+        let children = node.children();
+        let len = children.len();
+
+        // On empile les enfants en sens inverse (reverse)
+        for (i, &child_id) in children.iter().enumerate().rev() {
+            // On pousse le tuple à 3 éléments : (ID, profondeur, est_le_dernier)
+            self.stack.push((child_id, depth + 1, i == len - 1));
         }
 
-        Some((id, depth, node))
+        Some((id, depth, is_last, node))
     }
 }

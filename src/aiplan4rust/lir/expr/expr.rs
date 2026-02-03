@@ -49,6 +49,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::lir::problem::renderers;
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
@@ -589,7 +590,7 @@ impl fmt::Display for Expr {
     ///
     /// A formatting result indicating success or failure.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Display::fmt(&self.tree, f)
+        renderers::default::render_expr(f, self)
     }
 }
 

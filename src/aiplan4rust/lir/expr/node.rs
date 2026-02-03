@@ -45,6 +45,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::problem::renderers;
 use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree};
 
 /// Expression node wrapping a syntax base node specialized with `ExprKind` and `ExprContent`.
@@ -132,7 +133,7 @@ impl DerefMut for ExprNode {
 /// - A list of children node IDs
 impl fmt::Display for ExprNode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "{}", "TO DO".to_string())
+        renderers::default::render_expr_node(f, self)
     }
 }
 

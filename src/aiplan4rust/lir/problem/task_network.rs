@@ -329,6 +329,6 @@ impl SyntaxInternerDisplay for TaskNetwork {
         interner: &StringInterner,
         indent: usize
     ) -> std::fmt::Result {
-        renderers::syntax::render_task_network(f, self, interner, indent)
+        renderers::syntax_old::render_task_network(f, self, interner, indent)
     }
 }

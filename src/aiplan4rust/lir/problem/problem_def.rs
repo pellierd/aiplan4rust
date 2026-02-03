@@ -178,7 +178,7 @@ impl<'a> SyntaxDisplay for ProblemDef<'a> {
     /// # Returns
     /// [`fmt::Result`] indicating whether formatting succeeded or failed.
     fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::syntax::render_problem_def(f, &self.problem.problem_def(), self.interner())
+        renderers::syntax_old::render_problem_def(f, &self.problem.problem_def(), self.interner())
     }
 }
 

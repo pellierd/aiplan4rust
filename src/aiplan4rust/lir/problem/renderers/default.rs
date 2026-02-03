@@ -1,6 +1,8 @@
 use std::fmt;
+use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::expr::{Expr, ExprNode};
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
-use crate::aiplan4rust::lir::problem::renderers::common::writeln_centered;
+use crate::aiplan4rust::lir::problem::renderers::common::{render_labeled_expr, render_labeled_typed_list, writeln_centered};
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 
 /// Structure privée pour faire le pont avec le système de formatage de Rust
@@ -64,77 +66,120 @@ pub fn to_string(problem: &LiftedProblem) -> String {
 /// ```
 pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> std::fmt::Result {
     // Titre principal
-    writeln_centered(f, "PROBLEM", 80, '=')?;
-    writeln!(f, "DOMAIN NAME  : {}", problem.domain_id())?;
-    writeln!(f, "PROBLEM NAME : {}\n", problem.problem_id())?;
+    writeln_centered(f, " [ PROBLEM ] ", 80, '=')?;
+    writeln!(f, "  {:<12} : {}", "DOMAIN NAME", problem.domain_id())?;
+    writeln!(f, "  {:<12} : {}", "PROBLEM NAME", problem.problem_id())?;
+    writeln!(f, "{:-<80}\n", "")?;
 
     // Requirements
-    writeln_centered(f, "REQUIREMENTS", 80, '=')?;
-    let mut reqs: Vec<_> = problem.requirements().iter().collect();
-    if reqs.is_empty() {
-        writeln!(f, "  - no requirements")?;
-    } else {
+    if !problem.requirements().is_empty() {
+        writeln_centered(f, " [ REQUIREMENTS ] ", 80, '=')?;
+        writeln!(f, "  ID    : FEATURE")?;
+        writeln!(f, "{:-<80}", "")?;
+
+        let mut reqs: Vec<_> = problem.requirements().iter().collect();
         reqs.sort();
-        for r in reqs {
-            writeln!(f, "  - {}", r)?;
+
+        for (i, r) in reqs.iter().enumerate() {
+            let id_str = format!("#{}", i);
+            // On garde le {:<5} pour l'ID et le ":" pour l'alignement vertical global
+            writeln!(f, "  {:<5} : {}", id_str, r)?;
         }
+        writeln!(f, "{:-<80}\n", "")?;
     }
-    writeln!(f)?;
 
     // Types
-    writeln_centered(f, "TYPES", 80, '=')?;
-    if !problem.has_types() {
-        writeln!(f, "  - no types")?;
-    } else {
-        for t in problem.types() {
-            writeln!(f, "  - {}", t)?;
+    if !problem.types().is_empty() {
+        writeln_centered(f, " [ TYPES ] ", 80, '=')?;
+        writeln!(f, "  ID    : NAME            - PARENT")?;
+        writeln!(f, "{:-<80}", "")?;
+        for (i, t) in problem.types().iter().enumerate() {
+            let id_str = format!("#{}", i);
+            let name = format!("{}", t.symbol()).trim().to_string();
+            let parent = format!("{}", t.ty()).trim().to_string();
+            writeln!(f, "  {:<5} : {:<15} - {}", id_str, name, parent)?;
         }
+        writeln!(f, "{:-<80}\n", "")?;
     }
-    writeln!(f)?;
 
     // Constants
-    writeln_centered(f, "CONSTANTS", 80, '=')?;
-    if !problem.has_domain_constants() {
-        writeln!(f, "  - no constants")?;
-    } else {
-        for c in problem.domain_constants() {
-            writeln!(f, "  - {}", c)?;
+    if !problem.domain_constants().is_empty() {
+        writeln_centered(f, " [ CONSTANTS ] ", 80, '=')?;
+        writeln!(f, "  ID    : NAME            - TYPE")?;
+        writeln!(f, "{:-<80}", "")?;
+        for (i, c) in problem.domain_constants().iter().enumerate() {
+            let id_str = format!("#{}", i);
+            let name = format!("{}", c.symbol()).trim().to_string();
+            let c_type = format!("{}", c.ty()).trim().to_string();
+            writeln!(f, "  {:<5} : {:<15} - {}", id_str, name, c_type)?;
         }
+        writeln!(f, "{:-<80}\n", "")?;
     }
-    writeln!(f)?;
 
     // Objects
-    writeln_centered(f, "OBJECTS", 80, '=')?;
-    if !problem.has_problem_objects() {
-        writeln!(f, "  - no objects")?;
-    } else {
-        for o in problem.problem_objects() {
-            writeln!(f, "  - {}", o)?;
+    if !problem.problem_objects().is_empty() {
+        writeln_centered(f, " [ OBJECTS ] ", 80, '=')?;
+        // Alignement identique : ID (5), NAME (15) et TYPE
+        writeln!(f, "  ID    : NAME            - TYPE")?;
+        writeln!(f, "{:-<80}", "")?;
+        for (i, o) in problem.problem_objects().iter().enumerate() {
+            let id_str = format!("#{}", i);
+            let name = format!("{}", o.symbol()).trim().to_string();
+            let type_name = format!("{}", o.ty()).trim().to_string();
+            writeln!(f, "  {:<5} : {:<15} - {}", id_str, name, type_name)?;
         }
+        writeln!(f, "{:-<80}\n", "")?;
     }
-    writeln!(f)?;
 
     // Predicates
-    writeln_centered(f, "PREDICATES", 80, '=')?;
-    if problem.atom_skeletons().is_empty() {
-        writeln!(f, "  - no predicates")?;
-    } else {
-        for p in problem.atom_skeletons() {
-            writeln!(f, "  - {}", p)?;
+    if !problem.atom_skeletons().is_empty() {
+        writeln_centered(f, " [ PREDICATES ] ", 80, '=')?;
+        // Colonnes : ID, Nom du prédicat, et Paramètres
+        writeln!(f, "  {:<5} : {:<15} {}", "ID", "NAME", "PARAMETERS")?;
+        writeln!(f, "{:-<80}", "")?;
+
+        for (i, p) in problem.atom_skeletons().iter().enumerate() {
+            let id_str = format!("#{}", i);
+            let name = format!("{}", p.symbol()).trim().to_string();
+
+            // On récupère les paramètres et on les formate (ex: "?x ?y")
+            let params: Vec<String> = p.parameters()
+                .iter()
+                .map(|param| format!("{}", param))
+                .collect();
+            let params_str = format!("({})", params.join(" "));
+
+            // Rendu final aligné
+            writeln!(f, "  {:<5} : {:<15} {}",
+                     id_str,
+                     name,
+                     params_str
+            )?;
         }
+        writeln!(f, "{:-<80}\n", "")?;
     }
-    writeln!(f)?;
 
     // Functions
-    writeln_centered(f, "FUNCTIONS", 80, '=')?;
-    if problem.function_skeletons().is_empty() {
-        writeln!(f, "  - no functions")?;
-    } else {
-        for fct in problem.function_skeletons() {
-            writeln!(f, "  - {}", fct)?;
+    if !problem.function_skeletons().is_empty() {
+        writeln_centered(f, " [ FUNCTIONS ] ", 80, '=')?;
+        writeln!(f, "  {:<5} : {:<15} - {}", "ID", "NAME", "PARAMETERS")?;
+        writeln!(f, "{:-<80}", "")?;
+        for (i, fct) in problem.function_skeletons().iter().enumerate() {
+            let id_str = format!("#{}", i);
+            let name = format!("{}", fct.symbol()).trim().to_string();
+            let params: Vec<String> = fct.parameters()
+                .iter()
+                .map(|param| format!("{}", param))
+                .collect();
+            let params_str = format!("({})", params.join(" "));
+            writeln!(f, "  {:<5} : {:<15} - {}",
+                     id_str,
+                     name,
+                     params_str
+            )?;
         }
+        writeln!(f, "{:-<80}\n", "")?;
     }
-    writeln!(f)?;
 
     // Domain constraints
     writeln_centered(f, "DOMAIN CONSTRAINTS", 80, '=')?;
@@ -554,24 +599,10 @@ pub fn render_problem_def(f: &mut fmt::Formatter<'_>, problem: &ProblemDef) -> s
 /// println!("{}", output);
 /// ```
 pub fn render_action(f: &mut fmt::Formatter<'_>, action: &LiftedAction) -> std::fmt::Result {
-    let params = action
-        .parameters()
-        .iter()
-        .map(|p| p.to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    writeln_centered(f, "ACTION", 80, '-')?;
-    writeln!(f, "NAME: {}", action.name())?;
-    writeln!(f, "PARAMETERS: {}", params)?;
-    writeln!(f, "PRECONDITION:")?;
-    for line in format!("{}", action.precondition()).lines() {
-        writeln!(f, "  {}", line)?;
-    }
-    writeln!(f, "EFFECT:")?;
-    for line in format!("{}", action.effect()).lines() {
-        writeln!(f, "  {}", line)?;
-    }
+    writeln_centered(f, &format!(" ACTION: {} ", action.name()), 80, '=')?;
+    render_labeled_typed_list(f, "PARAMETERS", action.parameters())?;
+    render_labeled_expr(f, "PRECONDITION", action.precondition())?;
+    render_labeled_expr(f, "EFFECT", action.effect())?;
     Ok(())
 }
 
@@ -796,4 +827,93 @@ pub fn render_derived_predicate(
         writeln!(f, "  {}", line)?;
     }
     Ok(())
+}
+
+pub fn render_expr(f: &mut fmt::Formatter<'_>, expr: &Expr) -> fmt::Result {
+    let root_id = match expr.root_id() {
+        Some(id) => id,
+        None => return write!(f, "<Empty Expression>"),
+    };
+
+    let mut ancestor_is_last = Vec::new();
+
+    for (id, depth, is_last, node) in expr.preorder_from(root_id) {
+        // 1. On aligne la pile sur la profondeur actuelle
+        ancestor_is_last.truncate(depth);
+
+        // 2. Rendu du préfixe des ancêtres (3 caractères par niveau)
+        for &parent_was_last in ancestor_is_last.iter() {
+            if parent_was_last {
+                write!(f, "   ")?; // 3 espaces
+            } else {
+                write!(f, "│  ")?; // Barre + 2 espaces
+            }
+        }
+
+        // 3. Rendu de la branche actuelle (3 caractères)
+        if depth > 0 {
+            // "├─ " ou "└─ "
+            write!(f, "{}", if is_last { "└─ " } else { "├─ " })?;
+        }
+
+        // 4. On enregistre l'état pour les enfants
+        ancestor_is_last.push(is_last);
+
+        // 5. Contenu du nœud
+        write!(f, "{}", node.kind())?;
+        let content = node.content();
+        if !matches!(content, Content::None) {
+            write!(f, " [{}]", content)?;
+        }
+
+        // ID et nouvelle ligne
+        writeln!(f, " ({})", id)?;
+    }
+
+    Ok(())
+}
+
+/// Rendu compact d'un ExprNode au format "Kind (Content)"
+pub fn render_expr_node(f: &mut fmt::Formatter<'_>, node: &ExprNode) -> fmt::Result {
+        write!(f, "{}", node.kind())?;
+    write!(f, " (")?;
+    render_node_expr_content(f, node.content())?;
+    write!(f, ")")
+}
+
+pub fn render_node_expr_content(
+    f: &mut fmt::Formatter<'_>,
+    content: &Content,
+) -> fmt::Result {
+    match content {
+        Content::None => write!(f, "None"),
+
+        // --- Identifiants (Délégation à tes impl_display_prefix) ---
+        Content::Variable(id)   => write!(f, "{}", id), // Sortie ex: v#1
+        Content::Constant(id)   => write!(f, "{}", id), // Sortie ex: o#12
+        Content::Parameter(id)  => write!(f, "{}", id), // Sortie ex: p#0
+        Content::Predicate(id)  => write!(f, "{}", id), // Sortie ex: P#5
+        Content::Functor(id)    => write!(f, "{}", id), // Sortie ex: f#2
+        Content::TaskSymbol(id) => write!(f, "{}", id), // Sortie ex: tk#3
+        Content::TaskID(id)     => write!(f, "{}", id), // Sortie ex: TK#1
+        Content::Preference(id) => write!(f, "{}", id), // Sortie ex: pref#0
+
+        // --- Skeletons ---
+        Content::AtomSkeleton(id)     => write!(f, "{}", id), // Sortie ex: as#9
+        Content::FunctionSkeleton(id) => write!(f, "{}", id), // Sortie ex: fs#2
+        Content::TaskSkeleton(id)     => write!(f, "{}", id), // Sortie ex: ts#7
+
+        // --- Valeurs et Opérateurs ---
+        Content::Float(val)        => write!(f, "Float({})", val),
+        Content::BinaryComp(op)    => write!(f, "BinaryComp({:?})", op),
+        Content::AssignOp(op)      => write!(f, "AssignOp({:?})", op),
+        Content::ArithmeticOp(op)  => write!(f, "ArithmeticOp({:?})", op),
+        Content::Optimization(opt) => write!(f, "Optimization({:?})", opt),
+
+        // --- Listes ---
+        Content::QuantifierVariables(vars) => {
+            // Ici, si TypedList n'implémente pas Display, on affiche juste la taille
+            write!(f, "QuantifierVars(len:{})", vars.len())
+        }
+    }
 }

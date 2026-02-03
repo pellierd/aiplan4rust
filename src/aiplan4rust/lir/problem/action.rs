@@ -373,6 +373,6 @@ impl SyntaxInternerDisplay for Action {
         interner: &StringInterner,
         indent: usize,
     ) -> fmt::Result {
-        renderers::syntax::render_action(f, self, interner, indent)
+        renderers::syntax_old::render_action(f, self, interner, indent)
     }
 }

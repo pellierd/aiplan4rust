@@ -64,6 +64,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::lir::problem::encode::typed_list;
+use crate::aiplan4rust::lir::problem::renderers;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///
@@ -171,39 +172,7 @@ impl Content {
 
 impl fmt::Display for Content {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Content::None => write!(f, ""),
-            //Content::Ident(id) => write!(f, "{id}"),
-
-            // Terminaux sémantiques (utilisent les macros de préfixes)
-            Content::Variable(id) => write!(f, "{id}"),
-            Content::Constant(id) => write!(f, "{id}"),
-            Content::Parameter(id) => write!(f, "{id}"),
-
-            // Définitions
-            Content::Predicate(id) => write!(f, "{id}"),
-            Content::Functor(id) => write!(f, "{id}"),
-            Content::TaskSymbol(id) => write!(f, "{id}"),
-            Content::Preference(id) => write!(f, "{id}"),
-            Content::TaskID(id) => write!(f, "{id}"),
-
-            // Skeletons
-            Content::AtomSkeleton(id) => write!(f, "{id}"),
-            Content::FunctionSkeleton(id) => write!(f, "{id}"),
-            Content::TaskSkeleton(id) => write!(f, "{id}"),
-
-            // Valeurs et Opérateurs
-            Content::Float(val) => write!(f, "{val}"),
-            Content::BinaryComp(comp) => write!(f, "{comp}"),
-            Content::AssignOp(assign) => write!(f, "{assign}"),
-            Content::ArithmeticOp(op) => write!(f, "{op}"),
-            Content::Optimization(opt) => write!(f, "{opt}"),
-
-            // Listes
-            Content::QuantifierVariables(vars) => write!(f, "{vars}"),
-
-
-        }
+        renderers::default::render_node_expr_content(f, self)
     }
 }
 
