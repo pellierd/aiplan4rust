@@ -32,8 +32,9 @@ use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 /// typically due to a missing identifier or an unknown type.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    registry: &EncodingRegistry,
+    registry: &mut EncodingRegistry,
 ) -> Result<AtomicFormulaSkeleton, LirError> {
+    registry.clear_variables();
     // 1. Reuse the generic signature encoder (Name + Parameters)
     let header = named_typed_list::encode(subtree, registry)?;
 

@@ -351,7 +351,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
         types: Option<Type<StringID>>,
-        arguments: Option<TypedList<StringID>>,
+        arguments: Option<TypedList<StringID, StringID>>,
     ) -> Result<(), SymbolTableError> {
         // Extract the symbol reference from the AST node ID.
         // This retrieves symbol metadata such as the identifier name and kind.
@@ -1273,7 +1273,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList<StringID>, SymbolTableError> {
+    ) -> Result<TypedList<StringID, StringID>, SymbolTableError> {
         let mut typed_arguments = TypedList::new();
         for typed_item_id in node_ref.node().children() {
             let typed_item_ref = &ast.syntax_tree().try_node_ref(*typed_item_id)?;
@@ -1319,7 +1319,7 @@ impl SymbolTableBuilder {
         &mut self,
         typed_item_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList<StringID>, SymbolTableError> {
+    ) -> Result<TypedList<StringID, StringID>, SymbolTableError> {
         let syntax_tree = ast.syntax_tree();
         let node = typed_item_ref.node();
 

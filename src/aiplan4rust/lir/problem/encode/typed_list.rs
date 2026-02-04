@@ -4,7 +4,7 @@
 //! It is a core utility used to process parameters (in predicates and actions),
 //! as well as global constants and objects.
 
-use crate::aiplan4rust::lang::{StringID, TypeID, TypedList};
+use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -32,10 +32,10 @@ use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingRegistry};
 /// This function returns an error if:
 /// * A child node cannot be retrieved from the AST.
 /// * The `typed_symbol::encode` process fails (e.g., due to an unknown type).
-pub fn encode(
+pub fn encode_variable_list(
     subtree: &SyntaxSubtree<AstNode>,
-    registry: &EncodingRegistry
-) -> Result<TypedList<TypeID>, LirError> {
+    registry: &mut EncodingRegistry, // Mutable pour enregistrer les variables
+) -> Result<TypedList<VariableID, TypeID>, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
@@ -45,10 +45,30 @@ pub fn encode(
         let child_node = ast.try_node(id)?;
         let child_subtree = SyntaxSubtree::new(child_node, id, ast);
 
-        // Delegate encoding of each individual symbol to the symbols module
-        let symbol = typed_symbol::encode(&child_subtree, registry)?;
+        // On appelle la version "Variable" du symbole
+        let symbol = typed_symbol::encode_typed_variable(&child_subtree, registry)?;
         typed_list.push(symbol);
     }
 
     Ok(typed_list)
 }
+/*pub fn encode_type_list(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &EncodingRegistry,
+) -> Result<TypedList<TypeID, TypeID>, LirError> {
+    let node = subtree.node();
+    let ast = subtree.tree();
+
+    let mut typed_list = TypedList::new();
+
+    for &id in node.children() {
+        let child_node = ast.try_node(id)?;
+        let child_subtree = SyntaxSubtree::new(child_node, id, ast);
+
+        // On appelle la version "Type" du symbole
+        let symbol = typed_symbol::encode_typed_type(&child_subtree, registry)?;
+        typed_list.push(symbol);
+    }
+
+    Ok(typed_list)
+}*/

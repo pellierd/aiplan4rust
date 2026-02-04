@@ -49,7 +49,7 @@ pub fn encode(
             child_index += 1;
 
             // Encodage de la liste typée
-            typed_list::encode(&SyntaxSubtree::new(param_node, param_node_id, ast), registry)?
+            typed_list::encode_variable_list(&SyntaxSubtree::new(param_node, param_node_id, ast), registry)?
         } else {
             // Si ce n'est pas un ParametersDef, on s'assure que le registre est vide
             registry.clear_variables();

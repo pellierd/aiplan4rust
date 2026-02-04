@@ -45,7 +45,7 @@ use crate::aiplan4rust::lir::problem::encode::{typed_list, EncodingRegistry};
 /// * The parameter encoding fails due to unknown types in the `EncodingRegistry`.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    registry: &EncodingRegistry
+    registry: &mut EncodingRegistry
 ) -> Result<NamedTypedList, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
@@ -64,11 +64,11 @@ pub fn encode(
         AstKind::ParametersDef => {
             let parameters_id = second_child_node.try_child(0)?;
             let parameters_node = ast.try_node(parameters_id)?;
-            typed_list::encode(&SyntaxSubtree::new(parameters_node, parameters_id, ast), registry)?
+            typed_list::encode_variable_list(&SyntaxSubtree::new(parameters_node, parameters_id, ast), registry)?
         }
         // If the parameters are directly under the node (e.g., (at ?l - location))
         _ => {
-            typed_list::encode(&SyntaxSubtree::new(second_child_node, second_child_id, ast), registry)?
+            typed_list::encode_variable_list(&SyntaxSubtree::new(second_child_node, second_child_id, ast), registry)?
         }
     };
 

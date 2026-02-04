@@ -64,7 +64,7 @@ impl RemapTypes for Type<StringID> {
     }
 }
 
-impl RemapTypes for TypedList<StringID> {
+impl RemapTypes for TypedList<StringID, StringID> {
     /// Flattens union types (`Type::Either`) in all `TypedSymbol`s of this `TypedList`
     /// according to the provided mapping.
     ///
@@ -87,7 +87,7 @@ impl RemapTypes for TypedList<StringID> {
 }
 
 
-impl RemapTypes for TypedSymbol<StringID> {
+impl RemapTypes for TypedSymbol<StringID, StringID> {
     /// Flattens union types (`Type::Either`) in the symbol’s type
     /// according to the provided mapping.
     ///

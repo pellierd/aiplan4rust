@@ -5,7 +5,7 @@
 //! initial task networks. It populates the final `LiftedProblem` IR.
 
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{constants_def, expr, goal, init, initial_task_network, EncodingRegistry};
+use crate::aiplan4rust::lir::problem::encode::{constants_def, expr, goal, init, initial_task_network, objects_def, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
@@ -34,7 +34,7 @@ use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 /// * Symbol resolution fails for the initial state or goal.
 /// * The problem name or object definitions are malformed.
 /// * A logical expression (metric, constraint, length) fails to encode.
-pub fn encode(
+/*pub fn encode(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
@@ -81,5 +81,78 @@ pub fn encode(
         }
     }
 
+    Ok(())
+}*/
+
+pub fn encode(
+    syntax_tree: &Tree<AstNode>,
+    registry: &mut EncodingRegistry,
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
+    // PASSE 1 : Déclarations structurelles
+    collect_problem_definitions(syntax_tree, registry, ir)?;
+
+    // PASSE 2 : État initial et buts
+    encode_problem_logic(syntax_tree, registry, ir)?;
+
+    Ok(())
+}
+
+fn collect_problem_definitions(
+    syntax_tree: &Tree<AstNode>,
+    registry: &mut EncodingRegistry,
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
+    for (node_id, node) in syntax_tree.preorder().ids() {
+        let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
+
+        match node.kind() {
+            AstKind::ProblemName => ir.set_problem_id(node.try_ident()?)?,
+            AstKind::ObjectsDef => {
+                ir.set_constant_offset();
+                objects_def::encode(&subtree, registry, ir)?;
+            }
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+fn encode_problem_logic(
+    syntax_tree: &Tree<AstNode>,
+    registry: &mut EncodingRegistry,
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
+    for (node_id, node) in syntax_tree.preorder().ids() {
+        let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
+
+        match node.kind() {
+            AstKind::Init => {
+                let init = init::encode(&subtree, registry)?;
+                ir.set_init(init);
+            }
+            AstKind::Goal => {
+                let goal_expr = goal::encode(&subtree, registry)?;
+                ir.set_goal(goal_expr);
+            }
+            AstKind::Constraints => {
+                let constraints = expr::encode(&subtree, registry)?;
+                ir.set_problem_constraints(constraints);
+            }
+            AstKind::Metric => {
+                let metric =  expr::encode(&subtree, registry)?;
+                ir.set_metric_spec(metric);
+            }
+            AstKind::Length => {
+                let length =  expr::encode(&subtree, registry)?;
+                ir.set_length_spec(length);
+            }
+            AstKind::InitialTaskNetwork => {
+                let network = initial_task_network::encode(&subtree, registry)?;
+                ir.set_initial_task_network(network);
+            }
+            _ => {}
+        }
+    }
     Ok(())
 }

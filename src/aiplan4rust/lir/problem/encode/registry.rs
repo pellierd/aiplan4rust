@@ -43,9 +43,9 @@ pub struct EncodingRegistry {
     /// **Object Mapping**: Links a logical `Symbol` (either a global Constant
     /// from the domain or an Object from the problem) to its unique index.
     object_to_id: HashMap<NodeId, ObjectID>,
+    object_symbol_to_id: HashMap<StringID, ObjectID>,
 
     task_symbol_to_id: HashMap<NodeId, TaskSymbolID>,
-
     task_skeleton_to_id: HashMap<NodeId, TaskSkeletonID>,
 
     /// **Variable Mapping**: Links a variable's declaration `NodeId` (from AST)
@@ -82,6 +82,7 @@ impl EncodingRegistry {
             type_node_to_id : HashMap::new(),
             type_symbol_to_id: HashMap::new(),
             object_to_id : HashMap::new(),
+            object_symbol_to_id : HashMap::new(),
             atom_skeleton_to_id: HashMap::new(),
             predicate_to_id: HashMap::new(),
             function_skeleton_to_id: HashMap::new(),
@@ -132,8 +133,13 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::symbol_binding_failed(symbol))
     }
 
-    pub fn resolve_type_by_name(&self, name_id: StringID) -> Option<TypeID> {
+    pub fn resolve_type_symbol_by_name(&self, name_id: StringID) -> Option<TypeID> {
         self.type_symbol_to_id.get(&name_id).copied()
+    }
+
+    pub fn try_resolve_type_symbol_by_name(&self, name_id: StringID) -> Result<TypeID, LirError> {
+        self.resolve_type_symbol_by_name(name_id)
+            .ok_or_else(|| LirError::type_not_found(name_id))
     }
 
     /// Récupère l'ID d'un prédicat par le NodeId de son symbole de déclaration.
@@ -181,6 +187,22 @@ impl EncodingRegistry {
     pub fn try_resolve_object(&self, symbol: NodeId) -> Result<ObjectID, LirError> {
         self.resolve_object(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
+    }
+
+
+    /// Résout un ObjectID à partir de son nom (StringID).
+    /// Retourne None si l'objet n'a pas été enregistré en Phase 1.
+    pub fn resolve_object_symbol_by_name(&self, name_id: StringID) -> Option<ObjectID> {
+        self.object_symbol_to_id.get(&name_id).copied()
+    }
+
+    /// Tente de résoudre un ObjectID à partir de son nom.
+    ///
+    /// # Errors
+    /// Retourne une erreur `LirError::ObjectNotFound` si le symbole est inconnu.
+    pub fn try_resolve_object_symbol_by_name(&self, name_id: StringID) -> Result<ObjectID, LirError> {
+        self.resolve_object_symbol_by_name(name_id)
+            .ok_or_else(|| LirError::object_not_found(name_id))
     }
 
     pub fn register_variable(&mut self, variable: NodeId) -> VariableID{
@@ -247,6 +269,22 @@ impl EncodingRegistry {
 
     pub fn register_object(&mut self, symbol: NodeId, id: ObjectID) {
         self.object_to_id.insert(symbol, id);
+    }
+
+    pub fn register_object_symbol(&mut self, symbol: StringID, node_id: NodeId) -> ObjectID {
+        // 1. On vérifie si l'objet existe déjà (ex: c'est une constante du domaine)
+        let id = if let Some(&existing_id) = self.object_symbol_to_id.get(&symbol) {
+            existing_id
+        } else {
+            // 2. Sinon, on crée un nouvel ID basé sur le nombre total d'objets enregistrés
+            let new_id = ObjectID::new(self.object_symbol_to_id.len());
+            self.object_symbol_to_id.insert(symbol, new_id);
+            new_id
+        };
+
+        // 3. On lie le NodeId actuel à cet ID pour que try_resolve_object(node_id) fonctionne
+        self.object_to_id.insert(node_id, id);
+        id
     }
 
     pub fn register_predicate(&mut self, symbol: NodeId, id: PredicateID) {

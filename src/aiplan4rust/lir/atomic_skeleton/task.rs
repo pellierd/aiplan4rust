@@ -19,7 +19,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, TypeID, TypedList};
+use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
@@ -62,7 +62,7 @@ impl Task {
     ///
     /// - `name`: The identifier for this task.
     /// - `parameters`: A typed list describing the task's parameters.
-    pub fn new(name: StringID, parameters: TypedList<TypeID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature }
     }
@@ -118,7 +118,7 @@ impl fmt::Display for Task {
     }
 }
 
-impl InternerDisplay for Task {
+/*impl InternerDisplay for Task {
     /// Formats the task using the provided interner to resolve identifier names.
     ///
     /// This allows rendering identifiers as their original strings instead of numeric IDs.
@@ -143,4 +143,4 @@ impl SyntaxInternerDisplay for Task {
     ) -> fmt::Result {
         self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)
     }
-}
+}*/

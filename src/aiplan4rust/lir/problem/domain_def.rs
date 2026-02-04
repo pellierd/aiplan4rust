@@ -40,7 +40,7 @@
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TaskSkeletonID, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TaskSkeletonID, TypeID, TypedSymbol, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::serialization::SerializationError;
@@ -137,7 +137,7 @@ impl<'a> DomainDef<'a> {
     ///     println!("Type: {:?}", ty);
     /// }
     /// ```
-    pub fn types(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn types(&self) -> &[TypedSymbol<TypeID, TypeID>] {
         self.problem.types()
     }
 
@@ -145,7 +145,7 @@ impl<'a> DomainDef<'a> {
         self.problem.has_types()
     }
 
-    pub fn constants(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn constants(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
         self.problem.domain_constants()
     }
 
@@ -203,7 +203,7 @@ impl<'a> DomainDef<'a> {
     }
 }
 
-/// Implements [`SyntaxDisplay`] for [`DomainDef`], providing a way to render
+/*/// Implements [`SyntaxDisplay`] for [`DomainDef`], providing a way to render
 /// the domain as a syntax string without relying on indentation or external formatting.
 ///
 /// This uses the `renderers::syntax::render_domain_def` function to generate
@@ -223,7 +223,7 @@ impl<'a> SyntaxDisplay for DomainDef<'a> {
     fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::syntax_old::render_domain_def(f, &self.problem.domain_def(), self.interner())
     }
-}
+}*/
 
 /// Implements the standard [`Display`] trait for [`DomainDef`].
 ///
@@ -252,7 +252,7 @@ impl<'a> Display for DomainDef<'a> {
     }
 }
 
-impl<'a> SyntaxSerializable for DomainDef<'a> {
+/*impl<'a> SyntaxSerializable for DomainDef<'a> {
     /// Serializes the domain definition into a syntax string.
     ///
     /// This uses the internal [`StringInterner`] of the domain to resolve
@@ -284,4 +284,4 @@ impl<'a> SyntaxSerializable for DomainDef<'a> {
     ) -> Result<String, SerializationError> {
         Ok(self.to_syntax_string())
     }
-}
+}*/

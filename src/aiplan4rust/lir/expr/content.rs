@@ -118,7 +118,7 @@ pub enum Content {
     Optimization(Optimization),
 
     /// The bound variables for a quantifier (Forall or Exists) stored as a `TypedList`.
-    QuantifierVariables(TypedList<TypeID>),
+    QuantifierVariables(TypedList<VariableID, TypeID>),
 
 }
 
@@ -128,7 +128,7 @@ impl Content {
     /// # Returns
     /// * `Some(&TypedList)` if the content holds bound variables
     /// * `None` otherwise
-    pub fn as_quantifier_vars(&self) -> Option<&TypedList<TypeID>> {
+    pub fn as_quantifier_vars(&self) -> Option<&TypedList<VariableID, TypeID>> {
         match self {
             ExprContent::QuantifierVariables(list) => Some(list),
             _ => None,
@@ -139,7 +139,7 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::unsupported_content` if the content is not `TypedVariables`.
-    pub fn try_quantifier_vars(&self) -> Result<&TypedList<TypeID>, ExprError> {
+    pub fn try_quantifier_vars(&self) -> Result<&TypedList<VariableID, TypeID>, ExprError> {
         match self {
             ExprContent::QuantifierVariables(list) => Ok(list),
             _ => Err(ExprError::not_quantifier_variables()),
@@ -151,7 +151,7 @@ impl Content {
     /// # Returns
     /// * `Some(&mut TypedList)` if the content holds bound variables
     /// * `None` otherwise
-    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList<TypeID>> {
+    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList<VariableID, TypeID>> {
         match self {
             ExprContent::QuantifierVariables(list) => Some(list),
             _ => None,
@@ -162,7 +162,7 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::not_quantifier_variables()` if the content is not `TypedVariables`.
-    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<TypeID>, ExprError> {
+    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<VariableID, TypeID>, ExprError> {
         match self {
             ExprContent::QuantifierVariables(list) => Ok(list),
             _ => Err(ExprError::not_quantifier_variables()),
@@ -176,7 +176,7 @@ impl fmt::Display for Content {
     }
 }
 
-impl InternerDisplay for Content {
+/*impl InternerDisplay for Content {
     /// Displays the content with context from a [`StringInterner`], resolving identifiers to strings.
     ///
     /// For non-identifier variants, falls back to the default [`Display`] implementation.
@@ -223,7 +223,7 @@ impl SyntaxInternerDisplay for Content {
             _ => fmt::Display::fmt(self, f),
         }
     }
-}
+}*/
 
 impl SyntaxContent for Content {
     /*fn as_ident(&self) -> Option<StringID> {

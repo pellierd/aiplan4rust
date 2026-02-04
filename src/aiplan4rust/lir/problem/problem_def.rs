@@ -36,7 +36,7 @@
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, StringID, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol, VariableID};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
@@ -100,7 +100,7 @@ impl<'a> ProblemDef<'a> {
         self.problem.interner()
     }
 
-    pub fn objects(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn objects(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
         self.problem.problem_objects()
     }
 
@@ -166,7 +166,7 @@ impl<'a> ProblemDef<'a> {
     }
 }
 
-impl<'a> SyntaxDisplay for ProblemDef<'a> {
+/*impl<'a> SyntaxDisplay for ProblemDef<'a> {
     /// Formats the problem as a syntax string suitable for output or serialization.
     ///
     /// This implementation delegates to `renderers::syntax::render_problem_def`,
@@ -180,7 +180,7 @@ impl<'a> SyntaxDisplay for ProblemDef<'a> {
     fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::syntax_old::render_problem_def(f, &self.problem.problem_def(), self.interner())
     }
-}
+}*/
 
 /*impl<'a> SelfInternerDisplay for ProblemDef<'a> {
     /// Formats the problem using its internal [`StringInterner`].
@@ -221,7 +221,7 @@ impl<'a> Display for ProblemDef<'a> {
     }
 }
 
-impl<'a> SyntaxSerializable for ProblemDef<'a> {
+/*impl<'a> SyntaxSerializable for ProblemDef<'a> {
     /// Serializes the problem definition into a syntax string.
     ///
     /// This method produces a normalized, human-readable representation of the problem,
@@ -256,4 +256,4 @@ impl<'a> SyntaxSerializable for ProblemDef<'a> {
         // Use the existing SyntaxInternerDisplay implementation
         Ok(self.to_syntax_string())
     }
-}
+}*/

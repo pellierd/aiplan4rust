@@ -434,20 +434,10 @@ impl<'a> ExprBuilder<'a> {
     /// # Arguments
     /// * `vars` - A `TypedList` where each symbol contains a (StringID, TypeID).
     /// * `body` - The `NodeId` of the expression that is quantified.
-    pub fn forall(&mut self, vars: TypedList<TypeID>, body: NodeId) -> NodeId {
-        // On boucle sur les symboles
-        for symbol in &vars {
-            // On convertit en String pour libérer l'emprunt immuable sur `self.interner`
-            let var_name = self.interner
-                .resolve_ident(symbol.symbol())
-                .expect("Invalid Variable StringID")
-                .to_string();
+    pub fn forall(&mut self, vars: TypedList<VariableID, TypeID>, body: NodeId) -> NodeId {
+        // Plus besoin de boucler pour résoudre les noms ici !
+        // La TypedList contient déjà les IDs sémantiques définitifs.
 
-            // Maintenant on peut emprunter `self` de manière mutable
-            self.mock_resolve_variable(&var_name);
-        }
-
-        // On passe directement la TypedList au contenu du nœud
         self.node(
             ExprNode::new(
                 ExprKind::Forall,
@@ -472,18 +462,23 @@ impl<'a> ExprBuilder<'a> {
     }
 
     /// Helper to create a TypedList from variable name/type pairs
-    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList<TypeID> {
+    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList<VariableID, TypeID> {
         let mut typed_symbols = Vec::new();
 
         for (var_name, type_name) in vars {
-            // 1. On interne le nom de la variable (StringID)
+            // 1. On interne le nom (utile pour le registry plus tard)
             let var_string_id = self.interner.intern_ident(var_name);
 
-            // 2. On résout le type immédiatement en TypeID
+            // 2. Problème : register_variable veut un NodeID.
+            // On suppose ici que tu crées un nœud virtuel ou que tu passes
+            // le NodeID du parent.
+            let dummy_node_id = self.mock_node_id(var_name); // Crée un NodeID bidon pour le test
+            let v_id = self.registry.register_variable(dummy_node_id);
+
+            // 3. Résolution du type
             let t_id = self.mock_resolve_type(type_name);
 
-            // 3. On crée le symbole typé avec le TypeID
-            typed_symbols.push(TypedSymbol::new(var_string_id, Type::primitive(t_id)));
+            typed_symbols.push(TypedSymbol::new(v_id, Type::primitive(t_id)));
         }
 
         TypedList::from_symbols(typed_symbols)
@@ -508,18 +503,7 @@ impl<'a> ExprBuilder<'a> {
     ///
     /// # Returns
     /// The `NodeId` of the newly created `Exists` node.
-    pub fn exists(&mut self, vars: TypedList<TypeID>, body: NodeId) -> NodeId {
-        for symbol in &vars {
-            // 1. On récupère le nom et on le transforme immédiatement en String
-            // pour libérer l'emprunt sur `self.interner`.
-            let var_name = self.interner
-                .resolve_ident(symbol.symbol())
-                .expect("Invalid Variable StringID")
-                .to_string(); // <--- Crucial : crée une copie possédée
-
-            // 2. Maintenant self est libre d'être emprunté mutablement
-            self.mock_resolve_variable(&var_name);
-        }
+    pub fn exists(&mut self, vars: TypedList<VariableID, TypeID>, body: NodeId) -> NodeId {
 
         self.node(
             ExprNode::new(

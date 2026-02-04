@@ -52,7 +52,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 /// - [`InternerDisplay`] to support pretty-printing with identifier interning.
 /// - [`Clone`] for safe copying.
 /// - [`Debug`] for debugging purposes.
-pub trait SyntaxContent: Display + InternerDisplay + SyntaxInternerDisplay + Clone + Debug  + Default {
+pub trait SyntaxContent: Display + Clone + Debug  + Default {
 
     /// Returns the content as a floating-point number if available.
     fn as_float(&self) -> Option<OrderedFloat<f64>>;

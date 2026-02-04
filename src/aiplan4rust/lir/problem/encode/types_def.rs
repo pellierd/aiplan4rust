@@ -14,7 +14,7 @@ use crate::aiplan4rust::tree::{Node, SyntaxSubtree};
 
 /// Encodes the PDDL `:types` section into the Lifted Intermediate Representation (LIR).
 ///
-/// This function coordinates a two-pass process to ensure that types can reference 
+/// This function coordinates a two-pass process to ensure that types can reference
 /// each other regardless of their declaration order in the AST.
 ///
 /// # Arguments
@@ -120,10 +120,10 @@ fn encode_definitions(
         let child_subtree = SyntaxSubtree::new(typed_symbol_node, typed_symbol_id, tree);
 
         // Encode the TypedSymbol which now can resolve its parent TypeIDs from the registry
-        let type_declaration = typed_symbol::encode(&child_subtree, registry)?;
+        let typed_type = typed_symbol::encode_typed_type(&child_subtree, registry)?;
 
         // Store the final declaration in the LIR
-        ir.add_type(type_declaration);
+        ir.add_type(typed_type);
     }
 
     Ok(())

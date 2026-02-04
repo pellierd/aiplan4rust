@@ -28,7 +28,7 @@
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::typed_symbol::TypedSymbol;
-use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypeID};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypeID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::expr::Expr;
@@ -69,7 +69,7 @@ impl Method {
     /// A new `Method` instance.
     pub fn new(
         name: StringID,
-        parameters: TypedList<TypeID>,
+        parameters: TypedList<VariableID, TypeID>,
         task: Expr,
         precondition: Expr,
         task_network: LiftedTaskNetwork,
@@ -129,12 +129,12 @@ impl Method {
     }
 
     /// Returns a slice of the method's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn parameters(&self) -> &[TypedSymbol<VariableID, TypeID>] {
         &self.header.parameters()
     }
 
     /// Sets the method's parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
         self.header.set_parameters(parameters);
     }
 
@@ -288,7 +288,7 @@ impl fmt::Display for Method {
     }
 }*/
 
-impl SyntaxInternerDisplay for Method {
+/*impl SyntaxInternerDisplay for Method {
     /// Formats the `Method` syntax with a [`StringInterner`] and optional indentation.
     ///
     /// This implementation produces a PDDL-like syntax representation of the method,
@@ -323,4 +323,4 @@ impl SyntaxInternerDisplay for Method {
     ) -> fmt::Result {
         renderers::syntax_old::render_method(f, self, interner, indent)
     }
-}
+}*/

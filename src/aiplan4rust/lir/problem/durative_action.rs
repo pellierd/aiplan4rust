@@ -6,7 +6,7 @@
 //! normalize expressions, and render the action in human-readable or PDDL-like syntax.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{TypeID, TypedList};
+use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lang::{StringID, RemapTypes, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
@@ -90,7 +90,7 @@ impl DurativeAction {
     /// ```
     pub fn new(
         name: StringID,
-        parameters: TypedList<TypeID>,
+        parameters: TypedList<VariableID, TypeID>,
         duration: Expr,
         condition: Expr,
         effect: Expr,
@@ -148,7 +148,7 @@ impl DurativeAction {
     }
 
     /// Returns a slice of the action's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn parameters(&self) -> &[TypedSymbol<VariableID, TypeID>] {
         &self.action.parameters()
     }
 
@@ -156,7 +156,7 @@ impl DurativeAction {
     ///
     /// # Parameters
     /// - `parameters`: A typed list of symbols to replace the action's current parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
         self.action.set_parameters(parameters);
     }
 
@@ -288,7 +288,7 @@ impl InternerDisplay for DurativeAction {
     }
 }*/
 
-/// Implements [`SyntaxInternerDisplay`] for `DurativeAction`.
+/*/// Implements [`SyntaxInternerDisplay`] for `DurativeAction`.
 ///
 /// Renders the action in a PDDL-like syntax using a [`StringInterner`] and indentation.
 impl SyntaxInternerDisplay for DurativeAction {
@@ -309,4 +309,4 @@ impl SyntaxInternerDisplay for DurativeAction {
     ) -> fmt::Result {
         renderers::syntax_old::render_durative_action(f, self, interner, indent)
     }
-}
+}*/

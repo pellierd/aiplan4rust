@@ -343,7 +343,7 @@ fn encode_content(
             let typed_list_tree = SyntaxSubtree::new(typed_list_node, children[0], subtree.tree());
 
             // 1. Encode the variable signatures (names and types)
-            let vars = typed_list::encode(&typed_list_tree, registry)?;
+            let vars = typed_list::encode_variable_list(&typed_list_tree, registry)?;
 
             // 2. Register variables in the local scope.
             // Since we use an iterative traversal, variables are registered in the

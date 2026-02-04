@@ -1,3 +1,4 @@
+use std::panic::Location;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{FunctorID, LangError, PredicateID, StringID, Type};
@@ -174,24 +175,33 @@ impl LirError {
     /// # Parameters
     /// - `kind`: The kind of symbol (from your semantic analysis).
     /// - `node_id`: The ID of the AST node.
+    #[track_caller]
     pub fn symbol_binding_failed(symbol: NodeId) -> Self {
-        Self::SymbolBindingFailed { symbol }
+        let err = Self::SymbolBindingFailed { symbol };
+        Self::log_error(&err, std::panic::Location::caller());
+        err
     }
 
+    #[track_caller]
     pub fn type_binding_failed(ty: Type<StringID>) -> Self {
-        Self::TypeBindingFailed { ty }
+        let err = Self::TypeBindingFailed { ty };
+        Self::log_error(&err, std::panic::Location::caller());
+        err
     }
 
     #[track_caller]
     pub fn variable_not_found(node_id: NodeId) -> Self {
-        let caller = std::panic::Location::caller();
         let err = Self::VariableNotFound { node_id };
+        Self::log_error(&err, std::panic::Location::caller());
+        err
+    }
 
+    /// Helper privé pour uniformiser le logging et la stack trace sans polluer les fonctions publiques
+    fn log_error(err: &Self, caller: &std::panic::Location) {
         if log::log_enabled!(log::Level::Debug) {
             let bt = std::backtrace::Backtrace::force_capture();
-
             log::debug!(
-            "\nVariable Error at {}:{}:{}\n{}\nStack trace:\n{}",
+            "\nLIR Error at {}:{}:{}\n{}\nStack trace:\n{}",
             caller.file(),
             caller.line(),
             caller.column(),
@@ -199,7 +209,5 @@ impl LirError {
             bt
         );
         }
-
-        err
     }
 }

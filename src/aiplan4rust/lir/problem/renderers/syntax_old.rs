@@ -1,4 +1,4 @@
-use crate::aiplan4rust::interner::StringInterner;
+/*use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::lexer::Token;
 use crate::aiplan4rust::syntax::{display, SyntaxInternerDisplay};
@@ -728,4 +728,4 @@ pub fn render_derived_predicate(
     writeln!(f, ")")?;
 
     Ok(())
-}
+}*/

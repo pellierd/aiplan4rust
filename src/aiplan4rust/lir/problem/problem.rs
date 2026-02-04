@@ -41,7 +41,7 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, ObjectID, Requirement, TypedSymbol, TypeID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSymbolID, TaskSkeletonID};
+use crate::aiplan4rust::lang::{StringID, ObjectID, Requirement, TypedSymbol, TypeID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSymbolID, TaskSkeletonID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -71,11 +71,11 @@ pub struct Problem {
     requirements: HashSet<Requirement>,
 
     type_symbols: SymbolTable<TypeID>,
-    types: Vec<TypedSymbol<TypeID>>,
+    types: Vec<TypedSymbol<TypeID, TypeID>>,
 
 
     object_symbols: SymbolTable<ObjectID>,
-    objects: Vec<TypedSymbol<TypeID>>,
+    objects: Vec<TypedSymbol<ObjectID, TypeID>>,
     constant_offset: usize,
 
     predicates: SymbolTable<PredicateID>,
@@ -249,7 +249,7 @@ impl Problem {
         &self.type_symbols
     }
 
-    pub fn types(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn types(&self) -> &[TypedSymbol<TypeID, TypeID>] {
         &self.types
     }
 
@@ -257,8 +257,8 @@ impl Problem {
         !self.types.is_empty()
     }
 
-    pub fn add_type(&mut self, ty: TypedSymbol<TypeID>) -> TypeID {
-        let id = self.type_symbols.insert(ty.symbol());
+    pub fn add_type(&mut self, ty: TypedSymbol<TypeID, TypeID>) -> TypeID {
+        let id = ty.symbol();
         let idx = id.as_usize();
         if idx >= self.types.len() {
             self.types.push(ty);
@@ -270,7 +270,7 @@ impl Problem {
 
     pub fn add_types<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = TypedSymbol<TypeID>>,
+        I: IntoIterator<Item = TypedSymbol<TypeID, TypeID>>,
     {
         for ty in iter {
             self.add_type(ty);
@@ -281,11 +281,11 @@ impl Problem {
         &self.object_symbols
     }
 
-    pub fn objects(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn objects(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
         &self.objects
     }
 
-    pub fn domain_constants(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn domain_constants(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
         &self.objects[..self.constant_offset]
     }
 
@@ -293,7 +293,7 @@ impl Problem {
         self.constant_offset > 0
     }
 
-    pub fn problem_objects(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn problem_objects(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
         &self.objects[self.constant_offset..]
     }
 
@@ -301,8 +301,8 @@ impl Problem {
         self.objects.len() > self.constant_offset
     }
 
-    pub fn add_object(&mut self, obj: TypedSymbol<TypeID>) -> ObjectID {
-        let id = self.object_symbols.insert(obj.symbol());
+    pub fn add_object(&mut self, obj: TypedSymbol<ObjectID, TypeID>) -> ObjectID {
+        let id = obj.symbol();
         let idx = id.as_usize();
         if idx >= self.objects.len() {
             self.objects.push(obj);
@@ -314,7 +314,7 @@ impl Problem {
 
     pub fn add_objects<I>(&mut self, iter: I)
     where
-        I: IntoIterator<Item = TypedSymbol<TypeID>>,
+        I: IntoIterator<Item = TypedSymbol<ObjectID, TypeID>>,
     {
         for obj in iter {
             self.add_object(obj);
@@ -565,7 +565,7 @@ impl Problem {
     }
 }
 
-impl SyntaxDisplay for Problem {
+/*impl SyntaxDisplay for Problem {
     /// Formats the entire problem, including both domain and problem definitions,
     /// as a syntax string.
     ///
@@ -608,7 +608,7 @@ impl SelfInternerDisplay for Problem {
         //renderers::interner::render_problem_def(f, &self.problem_def(), &self.interner())
         writeln!(f)
     }
-}
+}*/
 
 impl TryFrom<LinkedSemanticContext> for Problem {
     type Error = LirError;

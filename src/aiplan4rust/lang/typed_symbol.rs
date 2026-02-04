@@ -7,7 +7,7 @@ use std::fmt;
 
 
 
-/*#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol<SID: Id, TID: Id> {
     /// SID est l'ID du symbole (StringID, VariableID, etc.)
     symbol: SID,
@@ -28,6 +28,16 @@ impl<SID: Id, TID: Id> TypedSymbol<SID, TID> {
     pub fn set_ty(&mut self, ty: Type<TID>) { self.ty = ty; }
 }
 
+impl<SID, TID> fmt::Display for TypedSymbol<SID, TID>
+where
+    SID: Id + fmt::Display,
+    TID: Id + fmt::Display
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // Affiche "symbole - type"
+        write!(f, "{} - {}", self.symbol, self.ty)
+    }
+}
 
 impl RemapIdents for TypedSymbol<StringID, StringID> {
     fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
@@ -37,7 +47,7 @@ impl RemapIdents for TypedSymbol<StringID, StringID> {
     }
 }
 
-impl<SID: Id, TID: Id> InternerDisplay for TypedSymbol<SID, TID>
+/*impl<SID: Id, TID: Id> InternerDisplay for TypedSymbol<SID, TID>
 where
     SID: InternerDisplay, // SID doit savoir s'afficher avec l'interner
     Type<TID>: InternerDisplay
@@ -52,9 +62,44 @@ where
         }
         Ok(())
     }
+}*/
+
+impl InternerDisplay for TypedSymbol<StringID, StringID> {
+    fn fmt_with_interner(&self, w: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+        // Comme self.symbol est un StringID, il implémente InternerDisplay
+        self.symbol.fmt_with_interner(w, interner)?;
+
+        if !self.ty.is_empty() {
+            write!(w, " - ")?;
+            // Comme self.ty est un Type<StringID>, il implémente InternerDisplay
+            self.ty.fmt_with_interner(w, interner)?;
+        }
+        Ok(())
+    }
 }
 
-impl<SID: Id, TID: Id> SyntaxInternerDisplay for TypedSymbol<SID, TID>
+impl SyntaxInternerDisplay for TypedSymbol<StringID, StringID> {
+    fn fmt_syntax_with_interner_and_indent(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+        indent: usize
+    ) -> fmt::Result {
+        write_indent(f, indent)?;
+
+        // Utilise directement l'implémentation de StringID pour le symbole
+        self.symbol.fmt_syntax_with_interner(f, interner)?;
+
+        if !self.ty.is_empty() {
+            write!(f, " - ")?;
+            // Utilise l'implémentation de Type<StringID>
+            self.ty.fmt_syntax_with_interner(f, interner)?;
+        }
+        Ok(())
+    }
+}
+
+/*impl<SID: Id, TID: Id> SyntaxInternerDisplay for TypedSymbol<SID, TID>
 where
     SID: SyntaxInternerDisplay,
     Type<TID>: SyntaxInternerDisplay
@@ -72,7 +117,7 @@ where
 }*/
 
 
-/// Représente un symbole typé.
+/*/// Représente un symbole typé.
 /// ID peut être StringID (syntaxe) ou TypeID (grounding/sémantique pour les types).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol<ID: Id> {
@@ -153,4 +198,4 @@ where Type<ID>: SyntaxInternerDisplay
         }
         Ok(())
     }
-}
+}*/

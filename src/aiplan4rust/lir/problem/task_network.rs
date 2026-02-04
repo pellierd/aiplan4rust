@@ -296,7 +296,7 @@ impl Display for TaskNetwork {
     }
 }*/
 
-impl SyntaxInternerDisplay for TaskNetwork {
+/*impl SyntaxInternerDisplay for TaskNetwork {
     /// Formats the `TaskNetwork` as a syntax-oriented representation using a [`StringInterner`] and indentation.
     ///
     /// This implementation produces a PDDL-like output of the task network,
@@ -331,4 +331,4 @@ impl SyntaxInternerDisplay for TaskNetwork {
     ) -> std::fmt::Result {
         renderers::syntax_old::render_task_network(f, self, interner, indent)
     }
-}
+}*/

@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypeID, TypedList};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ use crate::aiplan4rust::lir::error::LirError;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct InitialTaskNetwork {
     /// The typed parameters of the initial task network.
-    parameters: TypedList<TypeID>,
+    parameters: TypedList<VariableID, TypeID>,
 
     /// The lifted task network describing the initial tasks.
     task_network: LiftedTaskNetwork,
@@ -37,22 +37,22 @@ impl InitialTaskNetwork {
     ///
     /// # Returns
     /// A new instance of `InitialTaskNetwork`.
-    pub fn new(parameters: TypedList<TypeID>, task_network: LiftedTaskNetwork) -> Self {
+    pub fn new(parameters: TypedList<VariableID, TypeID>, task_network: LiftedTaskNetwork) -> Self {
         Self { parameters, task_network }
     }
 
     /// Returns an immutable reference to the parameters.
-    pub fn parameters(&self) -> &TypedList<TypeID> {
+    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
         &self.parameters
     }
 
     /// Returns a mutable reference to the parameters.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<TypeID> {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
         &mut self.parameters
     }
 
     /// Sets the parameters to a new `TypedList`.
-    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
         self.parameters = parameters;
     }
 
@@ -113,9 +113,9 @@ impl Display for InitialTaskNetwork {
     }
 }*/
 
-impl SyntaxInternerDisplay for InitialTaskNetwork {
+/*impl SyntaxInternerDisplay for InitialTaskNetwork {
     /// Formats the initial task network syntax using a string interner.
     fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
         renderers::syntax_old::render_initial_task_network(f, self, interner, indent)
     }
-}
+}*/

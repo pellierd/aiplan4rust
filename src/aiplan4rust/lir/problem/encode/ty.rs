@@ -57,7 +57,7 @@ pub fn encode(
             // On extrait le nom du nœud actuel (ex: l'ID de "object")
             let name_id = tree.try_node(*primitive_id)?.try_ident()?;
 
-            if let Some(type_id) = registry.resolve_type_by_name(name_id) {
+            if let Some(type_id) = registry.resolve_type_symbol_by_name(name_id) {
                 ty.add_type(type_id);
             } else {
                 // Si même par nom on ne trouve rien, le type n'existe vraiment pas

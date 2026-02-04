@@ -19,7 +19,7 @@
 //! ```
 
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{StringID, RemapIdents, RemapTypes, Type, TypedList, TypeID};
+use crate::aiplan4rust::lang::{StringID, RemapIdents, RemapTypes, Type, TypedList, TypeID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -85,7 +85,7 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `ty`: The return type_checker of the function.
-    pub fn new(name: StringID, parameters: TypedList<TypeID>, ty: Type<TypeID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>, ty: Type<TypeID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature, ty }
     }
@@ -159,7 +159,7 @@ impl fmt::Display for Function {
     }
 }
 
-impl InternerDisplay for Function {
+/*impl InternerDisplay for Function {
     /// Displays the function using interned identifiers.
     fn fmt_with_interner(
         &self,
@@ -195,4 +195,4 @@ impl SyntaxInternerDisplay for Function {
 
         Ok(())
     }
-}
+}*/

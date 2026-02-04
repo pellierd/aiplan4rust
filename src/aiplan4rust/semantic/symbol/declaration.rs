@@ -105,7 +105,7 @@ pub struct Declaration {
     types: Option<Type<StringID>>,
 
     /// Optional list of argument types, grouped in parameter lists.
-    arguments: Option<TypedList<StringID>>,
+    arguments: Option<TypedList<StringID, StringID>>,
 
     /// The span in source code where the declaration is located.
     span: Span,
@@ -157,7 +157,7 @@ impl Declaration {
         scope: Scope,
         origin: SymbolOrigin,
         types: Option<Type<StringID>>,
-        arguments: Option<TypedList<StringID>>,
+        arguments: Option<TypedList<StringID, StringID>>,
         span: Span,
         node_id: NodeId,
         imported_scope: Option<Scope>,
@@ -210,7 +210,7 @@ impl Declaration {
     }
 
     /// Returns an optional reference to the list of arguments associated with the symbol.
-    pub fn arguments(&self) -> Option<&TypedList<StringID>> {
+    pub fn arguments(&self) -> Option<&TypedList<StringID, StringID>> {
         self.arguments.as_ref()
     }
 

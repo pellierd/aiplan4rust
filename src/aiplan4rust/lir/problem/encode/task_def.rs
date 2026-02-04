@@ -44,6 +44,7 @@ pub fn encode(
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
     // 1. Reuse the generic signature encoder (Name + Parameters)
+    registry.clear_variables();
     let signature = named_typed_list::encode(subtree, registry)?;
 
     // 2. Specialized Task creation

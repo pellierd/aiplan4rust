@@ -37,7 +37,7 @@ use crate::aiplan4rust::tree::{NodeId, Node, SyntaxSubtree, Tree};
 /// This function returns an error if:
 /// * The internal AST structure for the typed list is unreachable.
 /// * Any individual symbol fails to encode (e.g., refers to a non-existent type).
-pub fn encode(
+/*pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
@@ -52,14 +52,86 @@ pub fn encode(
         let child_subtree = SyntaxSubtree::new(child_node, child_id, subtree.tree());
 
         // Resolve the TypedSymbol structure (StringID + TypeID)
-        let object = typed_symbol::encode(&child_subtree, registry)?;
-        let object_node_id = child_node.children()[0];
+        let object = typed_symbol::encode_typed_object(&child_subtree, registry)?;
+        let object_node_id = child_node.try_child(0)?;
 
         // Add to LIR and retrieve the definitive ObjectID
         let object_id = ir.add_object(object);
 
         // Bind the name to the ID in the registry for semantic lookups
         registry.register_object(object_node_id, object_id);
+    }
+
+    Ok(())
+}*/
+
+/// Encodes the PDDL `:objects` or `:constants` section into the Lifted Intermediate Representation (LIR).
+pub fn encode(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &mut EncodingRegistry,
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
+
+    // Phase 1: Register all object names to generate their ObjectIDs in the registry
+    collect_object_ids(subtree, registry)?;
+
+    // Phase 2: Resolve types and finalize the object definitions in the LIR
+    encode_definitions(subtree, registry, ir)?;
+
+    Ok(())
+}
+
+/// Phase 1: Collects all object identifiers and assigns them unique IDs in the registry.
+///
+/// This ensures that even if an object is referenced elsewhere, its ID is already
+/// known to the registry.
+fn collect_object_ids(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &mut EncodingRegistry
+) -> Result<(), LirError> {
+    let tree = subtree.tree();
+    let list_node = tree.try_node(subtree.node().try_child(0)?)?;
+
+    for typed_symbol_id in list_node.children() {
+        let typed_symbol_node = tree.try_node(*typed_symbol_id)?;
+
+        // In PDDL AST, the first child of a TypedSymbol node is the identifier (name)
+        let symbol_node_id = typed_symbol_node.try_child(0)?;
+        let symbol_node = tree.try_node(symbol_node_id)?;
+        let symbol_id = symbol_node.try_ident()?;
+
+        // Register the object. Your `register_object_symbol` logic handles
+        // the NodeId mapping and ID generation.
+        registry.register_object_symbol(symbol_id, symbol_node_id);
+    }
+    Ok(())
+}
+
+/// Phase 2: Resolves object types and adds full declarations to the LIR.
+///
+/// It uses the `typed_symbol` module to resolve the `TypeID` for each object,
+/// then stores the resulting `TypedSymbol<ObjectID, TypeID>` in the IR.
+fn encode_definitions(
+    subtree: &SyntaxSubtree<AstNode>,
+    registry: &mut EncodingRegistry,
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
+    let tree = subtree.tree();
+    let list_node_id = subtree.node().try_child(0)?;
+    let list_node = tree.try_node(list_node_id)?;
+
+    for &typed_symbol_id in list_node.children() {
+        let typed_symbol_node = tree.try_node(typed_symbol_id)?;
+        let child_subtree = SyntaxSubtree::new(typed_symbol_node, typed_symbol_id, tree);
+
+        // This call will now succeed because:
+        // 1. The ObjectID was registered in Phase 1.
+        // 2. The TypeIDs were registered during Domain encoding.
+        let typed_object = typed_symbol::encode_typed_object(&child_subtree, registry)?;
+
+        // Store the final definition. We use the internal ObjectID from
+        // the definition to ensure consistency.
+        ir.add_object(typed_object);
     }
 
     Ok(())

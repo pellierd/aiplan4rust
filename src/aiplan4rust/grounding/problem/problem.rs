@@ -368,7 +368,7 @@ impl TryFrom<LiftedProblem> for Problem {
         builders::build_type_symbols_table(&lifted_problem, problem.types_symbols_mut());
         builders::build_predicates_symbols_table(&lifted_problem, problem.predicates_symbols_mut());
         builders::build_functions_symbols_table(&lifted_problem, problem.functions_symbols_mut());
-        builders::build_objects_symbols_table(&lifted_problem, problem.objects_symbols_mut());
+//        builders::build_objects_symbols_table(&lifted_problem, problem.objects_symbols_mut());
 
         /*let types = builders::build_type_parent_table(&lifted_problem, problem.types_symbols_mut())?;
         problem.set_type_parent_table(types);*/

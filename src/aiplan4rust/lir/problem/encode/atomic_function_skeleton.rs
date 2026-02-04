@@ -32,13 +32,14 @@ use crate::aiplan4rust::lir::problem::encode::{named_typed_list, ty, EncodingReg
 /// * The third child (index 2) is missing or cannot be parsed as a valid `Type`.
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
-    registry: &EncodingRegistry,
+    registry: &mut EncodingRegistry,
 ) -> Result<Function, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
     // 1. Encode the signature (name + parameters)
     // This handles Child 0 (Ident) and Child 1 (TypedList)
+    registry.clear_variables();
     let header = named_typed_list::encode(subtree, registry)?;
 
     // 2. Extract and encode the return type (Child 2)

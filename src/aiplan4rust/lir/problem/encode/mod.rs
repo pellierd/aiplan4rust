@@ -25,4 +25,3 @@ mod atomic_formula_skeleton;
 mod objects_def;
 
 pub(crate) use registry::EncodingRegistry;
-pub use typed_list::encode;

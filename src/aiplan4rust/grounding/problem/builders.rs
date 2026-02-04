@@ -86,7 +86,7 @@ pub fn build_predicates_symbols_table(
     }
 }
 
-/// Populates a `SymbolTable` with all objects from a `LiftedProblem`.
+/*/// Populates a `SymbolTable` with all objects from a `LiftedProblem`.
 ///
 /// This includes:
 /// - Constants defined in the domain.
@@ -111,7 +111,7 @@ pub fn build_objects_symbols_table(
     for obj in problem.objects() {
         table.insert(obj.symbol());
     }
-}
+}*/
 
 /*/// Builds a table mapping each type to its parent (super) type.
 ///

@@ -42,7 +42,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, RemapTypes, Type, TypeID};
+use crate::aiplan4rust::lang::{StringID, RemapTypes, Type, TypeID, VariableID};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
@@ -98,7 +98,7 @@ impl Action {
     /// ```
     pub fn new(
         name: StringID,
-        parameters: TypedList<TypeID>,
+        parameters: TypedList<VariableID, TypeID>,
         precondition: Expr,
         effect: Expr,
     ) -> Self {
@@ -163,7 +163,7 @@ impl Action {
     /// Returns a slice of the action's typed parameters.
     ///
     /// These represent the variables and their types used by the action.
-    pub fn parameters(&self) -> &[TypedSymbol<TypeID>] {
+    pub fn parameters(&self) -> &[TypedSymbol<VariableID, TypeID>] {
         &self.header.parameters()
     }
 
@@ -172,7 +172,7 @@ impl Action {
     /// # Arguments
     ///
     /// * `parameters` - The new list of typed parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
         self.header.set_parameters(parameters);
     }
 
@@ -341,7 +341,7 @@ impl fmt::Display for Action {
     }
 }*/
 
-impl SyntaxInternerDisplay for Action {
+/*impl SyntaxInternerDisplay for Action {
     /// Formats the `Action` in a syntax-oriented form using a [`StringInterner`] and indentation.
     ///
     /// Produces a PDDL-like syntax representation of the action, including
@@ -375,4 +375,4 @@ impl SyntaxInternerDisplay for Action {
     ) -> fmt::Result {
         renderers::syntax_old::render_action(f, self, interner, indent)
     }
-}
+}*/

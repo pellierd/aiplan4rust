@@ -194,7 +194,7 @@ impl InternerDisplay for DerivedPredicate {
     }
 }*/
 
-/// Implements [`SyntaxInternerDisplay`] for `DerivedPredicate`.
+/*/// Implements [`SyntaxInternerDisplay`] for `DerivedPredicate`.
 ///
 /// This allows printing the derived predicate in a PDDL-like syntax format,
 /// with indentation and identifier resolution via a [`StringInterner`].
@@ -216,4 +216,4 @@ impl SyntaxInternerDisplay for DerivedPredicate {
     ) -> fmt::Result {
         renderers::syntax_old::render_derived_predicate(f, self, interner, indent)
     }
-}
+}*/

@@ -19,7 +19,7 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, TypeID, TypedList};
+use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
@@ -73,7 +73,7 @@ impl Formula {
     /// # Returns
     ///
     /// A `Formula` instance whose return type_checker is always `None`.
-    pub fn new(name: StringID, parameters: TypedList<TypeID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>) -> Self {
         let header = NamedTypedList::new(name, parameters);
         Self { header }
     }
@@ -123,7 +123,7 @@ impl fmt::Display for Formula {
     }
 }
 
-impl InternerDisplay for Formula {
+/*impl InternerDisplay for Formula {
     /// Formats the formula using the provided interner to resolve identifiers.
     fn fmt_with_interner(
         &self,
@@ -144,4 +144,4 @@ impl SyntaxInternerDisplay for Formula {
     ) -> fmt::Result {
         self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)
     }
-}
+}*/

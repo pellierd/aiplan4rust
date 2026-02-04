@@ -14,7 +14,7 @@ pub fn render(
 
     // 2. Paramètres : utilisation du helper du contexte pour le formatage PDDL
     write!(f, "  :parameters (")?;
-    typed_list::render(f, action.parameters(), ctx)?;
+    typed_list::render_variables(f, action.parameters(), ctx)?;
     writeln!(f, ")")?;
 
     // 3. Préconditions : appel de ton itérateur non-récursif

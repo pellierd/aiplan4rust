@@ -24,7 +24,7 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{RemapTypes, StringID, RemapIdents, Type, TypedList, TypeID};
+use crate::aiplan4rust::lang::{RemapTypes, StringID, RemapIdents, Type, TypedList, TypeID, VariableID};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::syntax;
@@ -46,7 +46,7 @@ pub struct NamedTypedList {
     /// Name of the predicate or function.
     symbol: StringID,
     /// Signature describing parameter types and optional return type_checker.
-    parameters: TypedList<TypeID>,
+    parameters: TypedList<VariableID, TypeID>,
 }
 
 impl NamedTypedList {
@@ -60,7 +60,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A new instance of `NamedTypedList`.
-    pub fn new(name: StringID, parameters: TypedList<TypeID>) -> Self {
+    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>) -> Self {
         Self { symbol: name, parameters }
     }
 
@@ -87,7 +87,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A reference to the `TypedList` representing the parameters.
-    pub fn parameters(&self) -> &TypedList<TypeID> {
+    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
         &self.parameters
     }
 
@@ -98,7 +98,7 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A mutable reference to the `TypedList`.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<TypeID> {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
         &mut self.parameters
     }
 
@@ -107,7 +107,7 @@ impl NamedTypedList {
     /// # Parameters
     ///
     /// - `parameters`: The new `TypedList` to set as the parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
         self.parameters = parameters;
     }
 }
@@ -125,7 +125,7 @@ impl Display for NamedTypedList {
     }
 }
 
-impl InternerDisplay for NamedTypedList {
+/*impl InternerDisplay for NamedTypedList {
     /// Formats the `NamedTypedList` with a string interner, used for pretty printing.
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
         write!(f, "[name: ")?;
@@ -146,4 +146,4 @@ impl SyntaxInternerDisplay for NamedTypedList {
         self.parameters.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
         write!(f, "{}", Token::RParen)
     }
-}
+}*/

@@ -57,7 +57,7 @@ pub fn render(
 
         // --- Listes typées ---
         Content::QuantifierVariables(vars) =>
-            typed_list::render(f, vars, ctx),
+            typed_list::render_variables(f, vars, ctx),
 
         // Pour les autres IDs techniques, on peut garder le Display par défaut ou enrichir
         Content::FunctionSkeleton(_) => Ok(()),
