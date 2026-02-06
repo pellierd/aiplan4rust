@@ -298,200 +298,216 @@ fn simplify_comparison_trivial_identity(
     Ok(false)
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test that a constant equality comparison is simplified to `and`.
     /// Input: (= 3 3)
     /// Expected: (and)
     #[test]
-    fn test_simplify_constant_equal() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_simplify_constant_equal() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (= 3.0 3.0)
         let left = builder.number(3.0);
         let right = builder.number(3.0);
         let eq_node = builder.equal(left, right);
 
-        builder.set_root(eq_node).unwrap();
+        builder.set_root(eq_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (= x x) -> True
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // L'égalité disparait au profit d'un (and) vide (True)
         assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(output, "(and)");
+        assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test that a constant inequality comparison is simplified to `or`.
     /// Input: (= 2 3)
     /// Expected: (or)
     #[test]
-    fn test_simplify_constant_not_equal() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_simplify_constant_not_equal() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (= 2.0 3.0)
         let left = builder.number(2.0);
         let right = builder.number(3.0);
         let eq_node = builder.equal(left, right);
 
-        builder.set_root(eq_node).unwrap();
+        builder.set_root(eq_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (= 2 3) -> False
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // L'égalité est remplacée par un (or) vide, signifiant "Faux"
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or)");
+        assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test that a comparison with identical variables simplifies correctly.
     /// Input: (= ?x ?x)
     /// Expected: (and)
     #[test]
-    fn test_simplify_identical_variables() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_simplify_identical_variables() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let x = builder.variable("?x");
+        // 1. Setup: (= ?x ?x)
+        let x = builder.variable(1); // "?x"
         let eq_node = builder.equal(x, x);
 
-        builder.set_root(eq_node).unwrap();
+        builder.set_root(eq_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (= ?x ?x) -> True
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // On s'assure que même sans connaître la valeur de ?x,
+        // le moteur reconnaît que c'est une tautologie.
         assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(output, "(and)");
+        assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test that a comparison with structurally identical functions simplifies correctly.
     /// Input: (= (f a b) (f a b))
     /// Expected: (and)
     #[test]
-    fn test_simplify_structural_identity() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_simplify_structural_identity() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.variable("?a");
-        let b = builder.variable("?b");
-        let f1 = builder.function_term("f", vec![a, b]);
-        let f2 = builder.function_term("f", vec![a, b]);
+        // 1. Setup: (= (f ?a ?b) (f ?a ?b))
+        let a = builder.variable(1);
+        let b = builder.variable(2);
+        // f1 et f2 sont deux nœuds différents dans l'AST au départ
+        let f1 = builder.function_term(3, vec![a, b]);
+        let f2 = builder.function_term(3, vec![a, b]);
 
         let eq_node = builder.equal(f1, f2);
 
-        builder.set_root(eq_node).unwrap();
+        builder.set_root(eq_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (= f1 f2) -> True
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Le moteur a identifié que f1 == f2 structurellement
         assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(output, "(and)");
+        assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test that a non-simplifiable comparison remains unchanged.
     /// Input: (= ?x ?y)
     /// Expected: (= ?x ?y)
     #[test]
-    fn test_no_simplification_different_variables() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_no_simplification_different_variables() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let x = builder.variable("?x");
-        let y = builder.variable("?y");
+        // 1. Setup: (= ?x ?y)
+        let x = builder.variable(1); // "?x"
+        let y = builder.variable(2); // "?y"
         let eq_node = builder.equal(x, y);
 
-        builder.set_root(eq_node).unwrap();
+        builder.set_root(eq_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (ne devrait rien changer ici)
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // On vérifie que le nœud est resté une comparaison (FComp / Equal)
+        // et n'a pas été transformé en (and) ou (or)
         assert_eq!(root_node.kind(), ExprKind::FComp);
-        assert_eq!(output, "(= ?x ?y)");
+        assert_eq!(root_node.children().len(), 2);
+
+        Ok(())
     }
 
     /// Test that greater-equal on identical variables simplifies to `and`.
     /// Input: (>= ?x ?x)
     /// Expected: (and)
     #[test]
-    fn test_simplify_greater_eq_identity() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_simplify_greater_eq_identity() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let x = builder.variable("?x");
+        // 1. Setup: (>= ?x ?x)
+        let x = builder.variable(1); // "?x"
         let ge_node = builder.greater_eq(x, x);
 
-        builder.set_root(ge_node).unwrap();
+        builder.set_root(ge_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (>= ?x ?x) -> True
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // On s'attend à ce que l'inégalité large soit simplifiée en "Vrai"
         assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(output, "(and)");
+        assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test that greater-than on identical variables simplifies to `or`.
     /// Input: (> ?x ?x)
     /// Expected: (or)
     #[test]
-    fn test_simplify_greater_identity() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_simplify_greater_identity() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let x = builder.variable("?x");
+        // 1. Setup: (> ?x ?x)
+        let x = builder.variable(1);
         let gt_node = builder.greater(x, x);
 
-        builder.set_root(gt_node).unwrap();
+        builder.set_root(gt_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (> ?x ?x) -> False
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Une valeur ne peut pas être strictement supérieure à elle-même.
+        // Le résultat doit être un (or) vide.
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or)");
+        assert!(root_node.children().is_empty());
+
+        Ok(())
     }
-}*/
+}
