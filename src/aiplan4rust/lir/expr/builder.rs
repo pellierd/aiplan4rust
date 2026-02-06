@@ -1,40 +1,29 @@
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctorID, Id, ObjectID, Optimization, PredicateID, PreferenceID, StringID, TaskLabelID, TaskSymbolID, Type, TypeID, TypedList, TypedSymbol, VariableID};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
-use crate::aiplan4rust::lir::problem::encode::EncodingRegistry;
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
-use crate::SymbolTable;
 
 /// Ergonomic builder for `Expr` (expression trees).
 ///
 /// Provides high-level helpers to construct expressions using `ExprKind` + `ExprContent`.
 /// Requires a mutable reference to a `StringInterner` for identifiers.
-pub struct ExprBuilder<'a> {
+pub struct ExprBuilder {
     base: SyntaxTreeBuilder<ExprNode>,
-    interner: &'a mut StringInterner,
-    registry: EncodingRegistry
 }
 
 #[allow(dead_code)]
-impl<'a> ExprBuilder<'a> {
-    /// Create a new builder with a mutable reference to a `StringInterner`
-    pub fn new(interner: &'a mut StringInterner) -> Self {
+impl ExprBuilder {
+    /// Creates a new `ExprBuilder` with an empty syntax tree.
+    ///
+    /// This builder is used to construct expression trees using direct identifiers
+    /// (like `VariableID`, `ObjectID`, etc.) instead of strings.
+    pub fn new() -> Self {
         Self {
             base: SyntaxTreeBuilder::new(),
-            interner,
-            registry: EncodingRegistry::new(SymbolTable::new()),
         }
     }
-
-    fn mock_node_id(&mut self, name: &str) -> NodeId {
-        let string_id = self.interner.intern_ident(name);
-        NodeId::from(string_id.as_usize())
-    }
-
-
 
     /// Finalize builder into `Expr`
     pub fn finish(self) -> Expr {
@@ -119,230 +108,147 @@ impl<'a> ExprBuilder<'a> {
     // High-level helpers
     // -------------------------
 
-    /// Create a constant node with the given name.
+    /// Creates a constant (object) node with the given identifier.
+    ///
+    /// This helper accepts any type that can be converted into an [`ObjectID`],
+    /// making it easy to use either a typed ID or a raw `usize` (especially in tests).
     ///
     /// # Arguments
-    /// * `name` - Name of the constant.
+    /// * `id` - The identifier of the constant/object (e.g., an `ObjectID` or `usize`).
     ///
     /// # Returns
-    /// NodeId of the newly created Constant node.
-    pub fn constant(&mut self, name: &str) -> NodeId {
-        let object_id = self.mock_resolve_constant(name);
-
+    /// The [`NodeId`] of the newly created leaf node in the expression tree.
+    pub fn constant<I: Into<ObjectID>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Constant,
-            ExprContent::Constant(object_id),
+            ExprContent::Constant(id.into()),
             None
         ))
     }
 
-    /// Mocks constant resolution for unit tests by mapping a name to an [`ObjectID`].
+    /// Creates a variable node with the given identifier.
     ///
-    /// Uses the interned name as a fake `NodeId`. If unregistered, it allocates
-    /// a new [`ObjectID`] derived from the string's interned index and stores it
-    /// in the [`EncodingRegistry`].
+    /// This helper accepts any type that can be converted into a [`VariableID`],
+    /// allowing the use of typed IDs or raw `usize`.
     ///
-    /// # Arguments
-    /// * `name` - The constant or object identifier (e.g., "truck1").
-    fn mock_resolve_constant(&mut self, name: &str) -> ObjectID {
-        let decl_id = self.mock_node_id(name);
-        self.registry.resolve_object(decl_id).unwrap_or_else(|| {
-            let new_id = ObjectID::new(self.interner.intern_ident(name).as_usize());
-            self.registry.register_object(decl_id, new_id);
-            new_id
-        })
-    }
-
-    /// Create a variable node with a PDDL-compliant name (prefixed with `?` if not already).
+    /// Note: PDDL-specific naming (like the `?` prefix) should be handled
+    /// during the initial encoding/interning phase, not in this builder.
     ///
     /// # Arguments
-    /// * `name` - Name of the variable (without `?` or with `?`).
+    /// * `id` - The identifier of the variable (e.g., a `VariableID` or `usize`).
     ///
     /// # Returns
-    pub fn variable(&mut self, name: &str) -> NodeId {
-        // 1. Handle PDDL naming convention
-        let var_name = if name.starts_with('?') {
-            name.to_string()
-        } else {
-            format!("?{}", name)
-        };
-
-        // 2. Use a mock resolution to get a VariableID
-        // This ensures that the same name in the same scope returns the same ID
-        let var_id = self.mock_resolve_variable(&var_name);
-
-        // 3. Create the leaf with the proper LIR content
+    /// The [`NodeId`] of the newly created `Variable` leaf node.
+    pub fn variable<I: Into<VariableID>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Variable,
-            ExprContent::Variable(var_id),
+            ExprContent::Variable(id.into()),
             None,
         ))
     }
 
-    /// Mocks variable resolution for unit tests by mapping a name to a [`VariableID`].
+    /// Creates a function symbol (functor) node with the given identifier.
     ///
-    /// This bypasses formal scoping. If the `name` (via a fake `NodeId`) is already
-    /// registered, it returns the existing ID; otherwise, it allocates a new
-    /// incremental index in the [`EncodingRegistry`].
-    ///
-    /// # Arguments
-    /// * `name` - PDDL variable identifier (e.g., "?x").
-    fn mock_resolve_variable(&mut self, name: &str) -> VariableID {
-        let decl_id = self.mock_node_id(name);
-        self.registry.resolve_variable(decl_id).unwrap_or_else(|| {
-            self.registry.register_variable(decl_id)
-        })
-    }
-
-    /// Create a function symbol node with the given name.
+    /// This helper accepts any type that can be converted into a [`FunctorID`],
+    /// making it easy to use either a pre-resolved ID or a raw `usize`.
     ///
     /// # Arguments
-    /// * `name` - Name of the function symbol.
+    /// * `id` - The identifier of the function symbol (e.g., a `FunctorID` or `usize`).
     ///
     /// # Returns
-    /// NodeId of the newly created FunctionSymbol node.
-    pub fn function_symbol(&mut self, name: &str) -> NodeId {
-        let functor_id = self.mock_resolve_functor(name);
-
+    /// The [`NodeId`] of the newly created `FunctionSymbol` leaf node.
+    pub fn function_symbol<I: Into<FunctorID>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::FunctionSymbol,
-            ExprContent::Functor(functor_id),
+            ExprContent::Functor(id.into()),
             None
         ))
     }
 
-    /// Private helper to mock functor (function symbol) resolution for unit tests.
-    fn mock_resolve_functor(&mut self, name: &str) -> FunctorID {
-        let decl_id = self.mock_node_id(name);
-
-        self.registry.resolve_functor_symbol(decl_id).unwrap_or_else(|| {
-            // Use the interned ID as the base for the FunctorID
-            let new_id = FunctorID::new(self.interner.intern_ident(name).as_usize());
-            self.registry.register_functor(decl_id, new_id);
-            new_id
-        })
-    }
-
-    /// Create a predicate node with the given name.
+    /// Creates a predicate node with the given identifier.
+    ///
+    /// This helper accepts any type that can be converted into a [`PredicateID`],
+    /// allowing for the use of typed identifiers or raw `usize` for quick prototyping.
     ///
     /// # Arguments
-    /// * `name` - Name of the predicate.
+    /// * `id` - The identifier of the predicate (e.g., a [`PredicateID`] or `usize`).
     ///
     /// # Returns
-    /// NodeId of the newly created Predicate node.
-    pub fn predicate(&mut self, name: &str) -> NodeId {
-        let pred_id = self.mock_resolve_predicate(name);
-
+    /// The [`NodeId`] of the newly created `Predicate` leaf node.
+    pub fn predicate<I: Into<PredicateID>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Predicate,
-            ExprContent::Predicate(pred_id),
+            ExprContent::Predicate(id.into()),
             None,
         ))
     }
 
-    /// Mocks predicate resolution for unit tests by mapping a name to a [`PredicateID`].
+    /// Creates a task symbol node with the given identifier.
     ///
-    /// Links a fake `NodeId` to a [`PredicateID`] derived from the interned name.
-    /// If the predicate is not found in the [`EncodingRegistry`], it is registered
-    /// to ensure consistent resolution throughout the test.
-    ///
-    /// # Arguments
-    /// * `name` - The predicate identifier (e.g., "on", "at-robot").
-    fn mock_resolve_predicate(&mut self, name: &str) -> PredicateID {
-        let decl_id = self.mock_node_id(name);
-        self.registry.resolve_predicate(decl_id).unwrap_or_else(|| {
-            let new_id = PredicateID::new(self.interner.intern_ident(name).as_usize());
-            self.registry.register_predicate(decl_id, new_id);
-            new_id
-        })
-    }
-
-    /// Create a task symbol node with the given name.
+    /// This helper accepts any type that can be converted into a [`TaskSymbolID`],
+    /// which is useful for HTN (Hierarchical Task Network) expressions where
+    /// task identifiers are already resolved.
     ///
     /// # Arguments
-    /// * `name` - Name of the task symbol.
+    /// * `id` - The identifier of the task symbol (e.g., a [`TaskSymbolID`] or `usize`).
     ///
     /// # Returns
-    /// NodeId of the newly created TaskSymbol node.
-    pub fn task_symbol(&mut self, name: &str) -> NodeId {
-        let task_id = self.mock_resolve_task(name);
-
+    /// The [`NodeId`] of the newly created `TaskSymbol` leaf node.
+    pub fn task_symbol<I: Into<TaskSymbolID>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::TaskSymbol,
-            ExprContent::TaskSymbol(task_id),
+            ExprContent::TaskSymbol(id.into()),
             None,
         ))
     }
 
-    /// Mocks task resolution for unit tests by mapping a name to a [`TaskSymbolID`].
+    /// Creates a preference name node with the given identifier.
     ///
-    /// Links a fake `NodeId` to a [`TaskSymbolID`] derived from the interned name.
-    /// If the task is not found in the [`EncodingRegistry`], it is registered.
-    fn mock_resolve_task(&mut self, name: &str) -> TaskSymbolID {
-        let decl_id = self.mock_node_id(name);
-        self.registry.resolve_task_symbol(decl_id).unwrap_or_else(|| {
-            let new_id = TaskSymbolID::new(self.interner.intern_ident(name).as_usize());
-            // Note: Ensure your registry has a register_task_symbol or similar method
-            self.registry.register_task_symbol(decl_id, new_id);
-            new_id
-        })
-    }
-
-    /// Create a preference name node with the given name.
-    ///
-    /// Résout le nom en un [`PreferenceID`] via le registre.
-    /// Utile pour les contraintes de préférences dans les problèmes HTN.
-    pub fn pref_name(&mut self, name: &str) -> NodeId {
-        let pref_id = self.mock_resolve_preference(name);
-
-        self.leaf(ExprNode::new(
-            ExprKind::PrefName,
-            ExprContent::Preference(pref_id),
-            None,
-        ))
-    }
-
-    /// Mocks preference resolution for unit tests by mapping a name to a [`PreferenceID`].
-    fn mock_resolve_preference(&mut self, name: &str) -> PreferenceID {
-        let decl_id = self.mock_node_id(name);
-
-        // On cherche si elle existe déjà, sinon on l'enregistre
-        self.registry.resolve_preference(decl_id).unwrap_or_else(|| {
-            let new_id = PreferenceID::new(self.interner.intern_ident(name).as_usize());
-            self.registry.register_preference(decl_id, new_id);
-            new_id
-        })
-    }
-
-    /// Create a `FunctionTerm` node in the expression tree.
-    ///
-    /// A `FunctionTerm` represents the application of a function symbol to a list of arguments
-    /// (variables, constants, or other expressions) in the intermediate representation (IR) of a PDDL/HDDL expression.
+    /// This helper accepts any type that can be converted into a [`PreferenceID`].
+    /// It is typically used for preference constraints in PDDL or HTN problems.
     ///
     /// # Arguments
-    ///
-    /// * `name` - The name of the function symbol, interned via the builder's `StringInterner`.
-    /// * `args` - A vector of [`NodeId`] representing the argument nodes of the function.
+    /// * `id` - The identifier of the preference (e.g., a [`PreferenceID`] or `usize`).
     ///
     /// # Returns
+    /// The [`NodeId`] of the newly created `PrefName` leaf node.
+    pub fn pref_name<I: Into<PreferenceID>>(&mut self, id: I) -> NodeId {
+        self.leaf(ExprNode::new(
+            ExprKind::PrefName,
+            ExprContent::Preference(id.into()),
+            None,
+        ))
+    }
+
+    /// Creates a `FunctionTerm` node in the expression tree.
     ///
+    /// A `FunctionTerm` represents the application of a function symbol to a list of arguments
+    /// (variables, constants, or other expressions).
+    ///
+    /// # Arguments
+    /// * `id` - The identifier of the function symbol (e.g., a [`FunctorID`] or `usize`).
+    /// * `args` - A vector of [`NodeId`] representing the argument nodes.
+    ///
+    /// # Returns
     /// The [`NodeId`] of the newly created `FunctionTerm` node.
-    pub fn function_term(&mut self, name: &str, args: Vec<NodeId>) -> NodeId {
-        let func_symbol = self.function_symbol(name);
+    pub fn function_term<I: Into<FunctorID>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
+        let func_symbol = self.function_symbol(id);
         let mut children = vec![func_symbol];
         children.extend(args);
         self.nary(ExprKind::FunctionTerm, children)
     }
 
-    /// Create a numeric literal node.
+    /// Creates a numeric literal node.
     ///
-    /// This node stores a floating-point value as an `ExprNode` with kind `Number`.
+    /// This node stores a floating-point value as an [`ExprNode`] with the kind [`ExprKind::Number`].
+    /// The value is internally converted to an [`OrderedFloat`] to ensure compatibility
+    /// with the rest of the expression tree logic.
     ///
     /// # Arguments
-    /// * `value` - The numeric value to store in the node.
+    /// * `value` - The numeric value (f64) to store in the node.
     ///
     /// # Returns
-    /// NodeId of the newly created `Number` node.
+    /// The [`NodeId`] of the newly created `Number` leaf node.
     pub fn number(&mut self, value: f64) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Number,
@@ -351,93 +257,119 @@ impl<'a> ExprBuilder<'a> {
         ))
     }
 
-    /// Create an AtomicFormula node: (predicate arg1 arg2 ...)
+    /// Creates an `AtomicFormula` node: (predicate arg1 arg2 ...)
+    ///
+    /// This represents a logical atom where a predicate is applied to a set of arguments.
+    /// The first child of the resulting node is always the predicate symbol.
     ///
     /// # Arguments
-    /// * `name` - Name of the predicate.
-    /// * `args` - Vector of arguments as NodeId.
+    /// * `id` - The identifier of the predicate (e.g., a [`PredicateID`] or `usize`).
+    /// * `args` - A vector of [`NodeId`] representing the terms/arguments of the formula.
     ///
     /// # Returns
-    /// NodeId of the created AtomicFormula node.
-    pub fn atomic_formula(&mut self, name: &str, args: Vec<NodeId>) -> NodeId {
-        let predicate_node = self.predicate(name);
+    /// The [`NodeId`] of the newly created `AtomicFormula` node.
+    pub fn atomic_formula<I: Into<PredicateID>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
+        let predicate_node = self.predicate(id);
         let mut children = vec![predicate_node];
         children.extend(args);
         self.nary(ExprKind::AtomicFormula, children)
     }
 
-    /// Create a logical AND node with one or more child expressions.
+    /// Creates a logical `AND` node with one or more child expressions.
+    ///
+    /// In PDDL/HDDL, this represents a conjunction. An empty vector of children
+    /// is technically allowed and usually represents a "True" constant in logical contexts.
     ///
     /// # Arguments
-    /// * `children` - A vector of NodeIds, each pointing to an expression to be ANDed.
+    /// * `children` - A vector of [`NodeId`]s, each pointing to a sub-expression to be conjoined.
     ///
     /// # Returns
-    /// NodeId of the newly created `And` node.
+    /// The [`NodeId`] of the newly created `And` node.
     pub fn and(&mut self, children: Vec<NodeId>) -> NodeId {
         self.nary(ExprKind::And, children)
     }
 
-    /// Create an empty logical AND node, representing True.
+    /// Creates an empty logical `AND` node, representing a "True" constant.
+    ///
+    /// In PDDL and many logical frameworks, a conjunction with no operands
+    /// is vacuously true. This is commonly used as a default precondition
+    /// or an empty effect block.
+    ///
+    /// # Returns
+    /// The [`NodeId`] of the newly created `And` node with no children.
     pub fn empty_and(&mut self) -> NodeId {
         self.nary(ExprKind::And, vec![])
     }
 
-    /// Create a logical OR node with one or more child expressions.
+    /// Creates a logical `OR` node with one or more child expressions.
+    ///
+    /// In PDDL/HDDL, this represents a disjunction. If the vector of children
+    /// is empty, the expression is technically "False" (the identity element for OR).
     ///
     /// # Arguments
-    /// * `children` - A vector of NodeIds, each pointing to an expression to be ORed.
+    /// * `children` - A vector of [`NodeId`]s, each pointing to a sub-expression to be disjoined.
     ///
     /// # Returns
-    /// NodeId of the newly created `Or` node.
+    /// The [`NodeId`] of the newly created `Or` node.
     pub fn or(&mut self, children: Vec<NodeId>) -> NodeId {
         self.nary(ExprKind::Or, children)
     }
 
-    /// Create an empty logical OR node, representing False.
+    /// Creates an empty logical `OR` node, representing a "False" constant.
+    ///
+    /// In logic and planning languages like PDDL, a disjunction with no operands
+    /// is vacuously false. This is often used to represent an unsatisfiable
+    /// condition or an initial state for an accumulator.
+    ///
+    /// # Returns
+    /// The [`NodeId`] of the newly created `Or` node with no children.
     pub fn empty_or(&mut self) -> NodeId {
         self.nary(ExprKind::Or, vec![])
     }
 
-    /// Create a logical NOT node with a single child expression.
+    /// Creates a logical `NOT` node with a single child expression.
+    ///
+    /// In PDDL/HDDL, this represents the negation of a formula. It is an unary
+    /// operator, meaning it must have exactly one child node representing
+    /// the expression being negated.
     ///
     /// # Arguments
-    /// * `expr` - NodeId of the expression to negate.
+    /// * `expr` - The [`NodeId`] of the expression to negate.
     ///
     /// # Returns
-    /// NodeId of the newly created `Not` node.
+    /// The [`NodeId`] of the newly created `Not` node.
     pub fn not(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::Not, expr)
     }
 
-    /// Create an Imply node: (imply A B)
+    /// Creates an `Imply` node: (imply A B)
+    ///
+    /// In logic, this represents the material implication (A → B). It is a binary
+    /// operator where the first child is the antecedent and the second is the consequent.
     ///
     /// # Arguments
-    /// * `antecedent` - The left part of the implication.
-    /// * `consequent` - The right part of the implication.
+    /// * `antecedent` - The [`NodeId`] of the condition (the "if" part).
+    /// * `consequent` - The [`NodeId`] of the result (the "then" part).
     ///
     /// # Returns
-    /// NodeId of the created Imply node.
+    /// The [`NodeId`] of the newly created `Imply` node.
     pub fn imply(&mut self, antecedent: NodeId, consequent: NodeId) -> NodeId {
         self.binary(ExprKind::Imply, antecedent, consequent)
     }
 
-    /// Create a `Forall` node: (forall (vars...) body)
+    /// Creates a `Forall` node: (forall (vars...) body)
+    ///
+    /// This represents a universal quantifier. The variables and their associated
+    /// types are stored directly in the node's content, while the quantified
+    /// formula is attached as a child node.
     ///
     /// # Arguments
-    /// * `vars` - A `TypedList` containing all bound variables for the quantifier.
-    /// * `body` - The `NodeId` of the expression that is quantified by the forall.
+    /// * `vars` - A [`TypedList`] mapping [`VariableID`]s to their respective [`TypeID`]s.
+    /// * `body` - The [`NodeId`] of the sub-expression within the scope of this quantifier.
     ///
     /// # Returns
-    /// The `NodeId` of the newly created `Forall` node.
-    /// Create a `Forall` node: (forall (vars...) body)
-    ///
-    /// # Arguments
-    /// * `vars` - A `TypedList` where each symbol contains a (StringID, TypeID).
-    /// * `body` - The `NodeId` of the expression that is quantified.
+    /// The [`NodeId`] of the newly created `Forall` node.
     pub fn forall(&mut self, vars: TypedList<VariableID, TypeID>, body: NodeId) -> NodeId {
-        // Plus besoin de boucler pour résoudre les noms ici !
-        // La TypedList contient déjà les IDs sémantiques définitifs.
-
         self.node(
             ExprNode::new(
                 ExprKind::Forall,
@@ -448,63 +380,19 @@ impl<'a> ExprBuilder<'a> {
         )
     }
 
-    /// Create a Forall node from variable names and type names
+    /// Creates an `Exists` node: (exists (vars...) body)
+    ///
+    /// This represents an existential quantifier. The variables and their associated
+    /// types are stored directly in the node's content, while the quantified
+    /// formula is attached as a single child node.
     ///
     /// # Arguments
-    /// * `vars` - Vector of (variable_name, type_name) pairs
-    /// * `body` - NodeId of the expression over which the variables are quantified
+    /// * `vars` - A [`TypedList`] mapping [`VariableID`]s to their respective [`TypeID`]s.
+    /// * `body` - The [`NodeId`] of the sub-expression within the scope of this quantifier.
     ///
     /// # Returns
-    /// NodeId of the created Forall node
-    pub fn forall_with_string_vars(&mut self, vars: Vec<(&str, &str)>, body: NodeId) -> NodeId {
-        let typed_list = self.typed_list_from_strings(vars);
-        self.forall(typed_list, body)
-    }
-
-    /// Helper to create a TypedList from variable name/type pairs
-    fn typed_list_from_strings(&mut self, vars: Vec<(&str, &str)>) -> TypedList<VariableID, TypeID> {
-        let mut typed_symbols = Vec::new();
-
-        for (var_name, type_name) in vars {
-            // 1. On interne le nom (utile pour le registry plus tard)
-            let var_string_id = self.interner.intern_ident(var_name);
-
-            // 2. Problème : register_variable veut un NodeID.
-            // On suppose ici que tu crées un nœud virtuel ou que tu passes
-            // le NodeID du parent.
-            let dummy_node_id = self.mock_node_id(var_name); // Crée un NodeID bidon pour le test
-            let v_id = self.registry.register_variable(dummy_node_id);
-
-            // 3. Résolution du type
-            let t_id = self.mock_resolve_type(type_name);
-
-            typed_symbols.push(TypedSymbol::new(v_id, Type::primitive(t_id)));
-        }
-
-        TypedList::from_symbols(typed_symbols)
-    }
-
-    /// Mocks type resolution for unit tests.
-    fn mock_resolve_type(&mut self, name: &str) -> TypeID {
-        let decl_id = self.mock_node_id(name);
-        self.registry.resolve_type_symbol(decl_id).unwrap_or_else(|| {
-            let symbol_id = self.interner.intern_ident(name);
-            let new_id = TypeID::new(symbol_id.as_usize());
-            self.registry.register_type_symbol(symbol_id, decl_id);
-            new_id
-        })
-    }
-
-    /// Create an `Exists` node: (exists (vars...) body)
-    ///
-    /// # Arguments
-    /// * `vars` - A `TypedList` where each symbol contains a (StringID, TypeID).
-    /// * `body` - The `NodeId` of the expression that is quantified by the exists.
-    ///
-    /// # Returns
-    /// The `NodeId` of the newly created `Exists` node.
+    /// The [`NodeId`] of the newly created `Exists` node.
     pub fn exists(&mut self, vars: TypedList<VariableID, TypeID>, body: NodeId) -> NodeId {
-
         self.node(
             ExprNode::new(
                 ExprKind::Exists,
@@ -515,386 +403,486 @@ impl<'a> ExprBuilder<'a> {
         )
     }
 
-    /// Create an Exists node from variable names and type names
-    ///
-    /// # Arguments
-    /// * `vars` - Vector of (variable_name, type_name) pairs
-    /// * `body` - NodeId of the expression over which the variables are quantified
-    ///
-    /// # Returns
-    /// NodeId of the newly created Exists node
-    pub fn exists_with_string_vars(&mut self, vars: Vec<(&str, &str)>, body: NodeId) -> NodeId {
-        // Note : typed_list_from_strings retourne maintenant TypedList<TypeID>
-        let typed_list = self.typed_list_from_strings(vars);
-        self.exists(typed_list, body)
+    /// Helper to convert a vector of TypedSymbols into a TypedList
+    pub fn typed_variable_list(&mut self, vars: Vec<TypedSymbol<VariableID, TypeID>>) -> TypedList<VariableID, TypeID> {
+        let mut list = TypedList::new();
+        for typed_var in vars {
+            list.push(typed_var);
+        }
+        list
     }
 
-    /// Create a Preference node with a name and a body expression.
+    /// Helper for a single typed symbol: (SymbolID, [TypeIDs])
+    pub fn typed_variable(&mut self, id: usize, type_ids: &[usize]) -> TypedSymbol<VariableID, TypeID> {
+        let ty = self.ty(type_ids);
+        TypedSymbol::new(
+            VariableID::from(id),
+            ty,
+        )
+    }
+
+    /// Helper to create a list of TypeIDs from a slice of integers
+    pub fn ty(&mut self, ids: &[usize]) -> Type<TypeID> {
+        Type::either(ids.iter().map(|&id| TypeID::from(id)).collect())
+    }
+
+    /// Creates a `Preference` node: (preference name body)
+    ///
+    /// This represents a named preference constraint. The first child is the
+    /// identifier of the preference, and the second child is the expression
+    /// (the goal or constraint) being preferred.
     ///
     /// # Arguments
-    /// * `name` - Name of the preference (interned automatically)
-    /// * `body` - NodeId of the expression that forms the body of the preference
+    /// * `id` - The identifier of the preference (e.g., a [`PreferenceID`] or `usize`).
+    /// * `body` - The [`NodeId`] of the expression that forms the body of the preference.
     ///
     /// # Returns
-    /// NodeId of the newly created Preference node
-    pub fn preference(&mut self, name: &str, body: NodeId) -> NodeId {
-        let pref_symbol_node = self.pref_name(name);
+    /// The [`NodeId`] of the newly created `Preference` node.
+    pub fn preference<I: Into<PreferenceID>>(&mut self, id: I, body: NodeId) -> NodeId {
+        let pref_symbol_node = self.pref_name(id);
         self.binary(ExprKind::Preference, pref_symbol_node, body)
     }
 
-    /// Create a When node with a condition and an effect expression.
+    /// Creates a `When` node: (when condition effect)
+    ///
+    /// This represents a conditional effect. It is a binary operator where
+    /// the first child is the antecedent (the condition that must hold)
+    /// and the second child is the consequent (the effect that occurs).
     ///
     /// # Arguments
-    /// * `condition` - NodeId of the condition expression
-    /// * `effect` - NodeId of the effect expression
+    /// * `condition` - The [`NodeId`] of the logical formula governing the effect.
+    /// * `effect` - The [`NodeId`] of the effect expression to be applied.
     ///
     /// # Returns
-    /// NodeId of the newly created When node
+    /// The [`NodeId`] of the newly created `When` node.
     pub fn when(&mut self, condition: NodeId, effect: NodeId) -> NodeId {
         self.binary(ExprKind::When, condition, effect)
     }
 
-    /// Create a functional comparison (FComp) node with a binary operator and two child expressions.
+    /// Creates a functional comparison (`FComp`) node: (op left right)
+    ///
+    /// Functional comparisons are used to compare two numeric expressions
+    /// (terms, fluents, or literals) using a binary operator.
     ///
     /// # Arguments
-    /// * `op` - Binary comparison operator (e.g., GreaterEq, Less, Equal)
-    /// * `left` - NodeId of the left-hand expression
-    /// * `right` - NodeId of the right-hand expression
+    /// * `op` - The binary comparison operator (e.g., [`BinaryComp::GreaterEq`], [`BinaryComp::Less`]).
+    /// * `left` - The [`NodeId`] of the left-hand side expression.
+    /// * `right` - The [`NodeId`] of the right-hand side expression.
     ///
     /// # Returns
-    /// NodeId of the newly created FComp node
-    fn fcomp(&mut self, op: BinaryComp, left: NodeId, right: NodeId) -> NodeId {
+    /// The [`NodeId`] of the newly created `FComp` node.
+    pub fn fcomp(&mut self, op: BinaryComp, left: NodeId, right: NodeId) -> NodeId {
         self.node(
-            ExprNode::new(ExprKind::FComp, ExprContent::BinaryComp(op), None),
+            ExprNode::new(
+                ExprKind::FComp,
+                ExprContent::BinaryComp(op),
+                None
+            ),
             vec![left, right],
         )
     }
 
-    /// Create a "<" comparison node.
+    /// Creates a "less than" comparison node: (< left right)
     ///
-    /// This constructs an FComp (`Functional Comparison`) expression of the form:
-    /// `( < left right )`
+    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
+    /// using the [`BinaryComp::Less`] operator.
     ///
     /// # Arguments
-    /// * `left` – `NodeId` representing the left-hand expression.
-    /// * `right` – `NodeId` representing the right-hand expression.
+    /// * `left` - The [`NodeId`] of the left-hand numeric expression.
+    /// * `right` - The [`NodeId`] of the right-hand numeric expression.
     ///
     /// # Returns
-    /// A `NodeId` referencing the newly created FComp node using the `<` operator.
+    /// The [`NodeId`] of the newly created `FComp` node.
     pub fn less(&mut self, left: NodeId, right: NodeId) -> NodeId {
         self.fcomp(BinaryComp::Less, left, right)
     }
 
-    /// Create a "<=" comparison node.
+    /// Creates a "less than or equal to" comparison node: (<= left right)
     ///
-    /// This constructs an FComp (`Functional Comparison`) expression of the form:
-    /// `( <= left right )`
+    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
+    /// using the [`BinaryComp::LessEq`] operator.
     ///
     /// # Arguments
-    /// * `left` – `NodeId` representing the left-hand expression.
-    /// * `right` – `NodeId` representing the right-hand expression.
+    /// * `left` - The [`NodeId`] of the left-hand numeric expression.
+    /// * `right` - The [`NodeId`] of the right-hand numeric expression.
     ///
     /// # Returns
-    /// A `NodeId` referencing the newly created FComp node using the `<=` operator.
+    /// The [`NodeId`] of the newly created `FComp` node.
     pub fn less_eq(&mut self, left: NodeId, right: NodeId) -> NodeId {
         self.fcomp(BinaryComp::LessEq, left, right)
     }
 
-    /// Create a ">" comparison node.
+    /// Creates a "greater than" comparison node: (> left right)
     ///
-    /// This constructs an FComp (`Functional Comparison`) expression of the form:
-    /// `( > left right )`
+    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
+    /// using the [`BinaryComp::Greater`] operator.
     ///
     /// # Arguments
-    /// * `left` – `NodeId` representing the left-hand expression.
-    /// * `right` – `NodeId` representing the right-hand expression.
+    /// * `left` - The [`NodeId`] of the left-hand numeric expression.
+    /// * `right` - The [`NodeId`] of the right-hand numeric expression.
     ///
     /// # Returns
-    /// A `NodeId` referencing the newly created FComp node using the `>` operator.
+    /// The [`NodeId`] of the newly created `FComp` node.
     pub fn greater(&mut self, left: NodeId, right: NodeId) -> NodeId {
         self.fcomp(BinaryComp::Greater, left, right)
     }
 
-    /// Create a ">=" comparison node.
+    /// Creates a "greater than or equal to" comparison node: (>= left right)
     ///
-    /// This constructs an FComp (`Functional Comparison`) expression of the form:
-    /// `( >= left right )`
+    /// This is a convenience helper that constructs an [`ExprKind::FComp`] node
+    /// using the [`BinaryComp::GreaterEq`] operator.
     ///
     /// # Arguments
-    /// * `left` – `NodeId` representing the left-hand expression.
-    /// * `right` – `NodeId` representing the right-hand expression.
+    /// * `left` - The [`NodeId`] of the left-hand numeric expression.
+    /// * `right` - The [`NodeId`] of the right-hand numeric expression.
     ///
     /// # Returns
-    /// A `NodeId` referencing the newly created FComp node using the `>=` operator.
+    /// The [`NodeId`] of the newly created `FComp` node.
     pub fn greater_eq(&mut self, left: NodeId, right: NodeId) -> NodeId {
         self.fcomp(BinaryComp::GreaterEq, left, right)
     }
 
-    /// Create an "=" comparison node.
+    /// Creates a "numeric equality" comparison node: (= left right)
     ///
-    /// This constructs an FComp (`Functional Comparison`) expression of the form:
-    /// `( = left right )`
+    /// This constructs an [`ExprKind::FComp`] node using the [`BinaryComp::Equal`] operator.
+    /// In PDDL, this is used for comparing fluents or numeric values, and should be
+    /// distinguished from logical equivalence or object identity depending on your
+    /// solver's implementation.
     ///
     /// # Arguments
-    /// * `left` – `NodeId` representing the left-hand expression.
-    /// * `right` – `NodeId` representing the right-hand expression.
+    /// * `left` - The [`NodeId`] of the left-hand numeric expression.
+    /// * `right` - The [`NodeId`] of the right-hand numeric expression.
     ///
     /// # Returns
-    /// A `NodeId` referencing the newly created FComp node using the `=` operator.
+    /// The [`NodeId`] of the newly created `FComp` node.
     pub fn equal(&mut self, left: NodeId, right: NodeId) -> NodeId {
         self.fcomp(BinaryComp::Equal, left, right)
     }
 
-    /// Create an assignment expression node with a specified operation.
+    /// Creates an assignment expression node: (op target value)
+    ///
+    /// This node represents a functional effect that modifies a fluent.
+    /// Common operations include direct assignment, incrementing, or decrementing.
     ///
     /// # Arguments
-    /// * `op` - The type of assignment operation (e.g., `AssignOp::Set`, `AssignOp::Add`, etc.).
-    /// * `target` - NodeId of the expression representing the target of the assignment.
-    /// * `value` - NodeId of the expression representing the value to be assigned.
+    /// * `op` - The type of assignment operation (e.g., [`AssignOp::Assign`], [`AssignOp::Increase`]).
+    /// * `target` - The [`NodeId`] of the fluent (function term) being modified.
+    /// * `value` - The [`NodeId`] of the numeric expression to apply.
     ///
     /// # Returns
-    /// A `NodeId` of the newly created `Assign` node in the expression tree.
+    /// The [`NodeId`] of the newly created `Assign` node.
     fn assign_expr(&mut self, op: AssignOp, target: NodeId, value: NodeId) -> NodeId {
         self.node(
-            ExprNode::new(ExprKind::Assign, ExprContent::AssignOp(op), None),
+            ExprNode::new(
+                ExprKind::Assign,
+                ExprContent::AssignOp(op),
+                None
+            ),
             vec![target, value],
         )
     }
 
-    /// Create an assignment that sets `target` to `value`.
+    /// Creates an assignment node that sets `target` to `value`: (assign target value)
+    ///
+    /// This is a convenience helper for the [`AssignOp::Assign`] operation. It is
+    /// typically used in action effects to reset a fluent to a specific numeric value.
     ///
     /// # Arguments
-    /// * `target` - The `NodeId` of the expression whose value is being set.
-    /// * `value` - The `NodeId` of the expression representing the new value.
+    /// * `target` - The [`NodeId`] of the fluent (function term) being set.
+    /// * `value` - The [`NodeId`] of the numeric expression representing the new value.
     ///
     /// # Returns
-    /// The `NodeId` of the created `Assign` node.
+    /// The [`NodeId`] of the newly created `Assign` node.
     pub fn assign(&mut self, target: NodeId, value: NodeId) -> NodeId {
         self.assign_expr(AssignOp::Assign, target, value)
     }
 
-    /// Create an assignment that increases `target` by `value`.
+    /// Creates an increase assignment: (increase target value)
+    ///
+    /// This represents a functional effect where the current value of the `target`
+    /// is incremented by the result of the `value` expression.
     ///
     /// # Arguments
-    /// * `target` - The `NodeId` of the expression being increased.
-    /// * `value` - The `NodeId` of the expression representing the increment.
+    /// * `target` - The [`NodeId`] of the fluent (function term) to be increased.
+    /// * `value` - The [`NodeId`] of the numeric expression representing the increment.
     ///
     /// # Returns
-    /// The `NodeId` of the created `Assign` node.
+    /// The [`NodeId`] of the newly created `Assign` node.
     pub fn increase(&mut self, target: NodeId, value: NodeId) -> NodeId {
         self.assign_expr(AssignOp::Increase, target, value)
     }
 
-    /// Create an assignment that decreases `target` by `value`.
+    /// Creates a decrease assignment: (decrease target value)
+    ///
+    /// This represents a functional effect where the current value of the `target`
+    /// is decremented by the result of the `value` expression.
     ///
     /// # Arguments
-    /// * `target` - The `NodeId` of the expression being decreased.
-    /// * `value` - The `NodeId` of the expression representing the decrement.
+    /// * `target` - The [`NodeId`] of the fluent (function term) to be decreased.
+    /// * `value` - The [`NodeId`] of the numeric expression representing the decrement.
     ///
     /// # Returns
-    /// The `NodeId` of the created `Assign` node.
+    /// The [`NodeId`] of the newly created `Assign` node.
     pub fn decrease(&mut self, target: NodeId, value: NodeId) -> NodeId {
         self.assign_expr(AssignOp::Decrease, target, value)
     }
 
-    /// Create an assignment that scales `target` up by `value`.
+    /// Creates a scale-up assignment: (scale-up target value)
+    ///
+    /// This represents a functional effect where the current value of the `target`
+    /// is multiplied by the result of the `value` expression.
     ///
     /// # Arguments
-    /// * `target` - The `NodeId` of the expression being scaled.
-    /// * `value` - The `NodeId` of the expression representing the scaling factor.
+    /// * `target` - The [`NodeId`] of the fluent (function term) to be scaled up.
+    /// * `value` - The [`NodeId`] of the numeric expression representing the factor.
     ///
     /// # Returns
-    /// The `NodeId` of the created `Assign` node.
+    /// The [`NodeId`] of the newly created `Assign` node.
     pub fn scale_up(&mut self, target: NodeId, value: NodeId) -> NodeId {
         self.assign_expr(AssignOp::ScaleUp, target, value)
     }
 
-    /// Create an assignment that scales `target` down by `value`.
+    /// Creates a scale-down assignment: (scale-down target value)
+    ///
+    /// This represents a functional effect where the current value of the `target`
+    /// is divided by the result of the `value` expression.
     ///
     /// # Arguments
-    /// * `target` - The `NodeId` of the expression being scaled.
-    /// * `value` - The `NodeId` of the expression representing the scaling factor.
+    /// * `target` - The [`NodeId`] of the fluent (function term) to be scaled down.
+    /// * `value` - The [`NodeId`] of the numeric expression representing the divisor.
     ///
     /// # Returns
-    /// The `NodeId` of the created `Assign` node.
+    /// The [`NodeId`] of the newly created `Assign` node.
     pub fn scale_down(&mut self, target: NodeId, value: NodeId) -> NodeId {
         self.assign_expr(AssignOp::ScaleDown, target, value)
     }
 
-    /// Create an `ArithmeticExp` node with the specified operator.
+    /// Creates an arithmetic expression node: (op operands...)
+    ///
+    /// This node represents a functional operation (addition, multiplication, etc.)
+    /// applied to one or more numeric sub-expressions.
     ///
     /// # Arguments
-    /// * `op` - The arithmetic operator to apply (e.g., `ArithmeticOp::Add`, `ArithmeticOp::Mul`).
-    /// * `operands` - Vector of NodeIds representing the operands.
+    /// * `op` - The arithmetic operator to apply (e.g., [`ArithmeticOp::Add`], [`ArithmeticOp::Mul`]).
+    /// * `operands` - A [`Vec<NodeId>`] of the numeric expressions to be operated upon.
     ///
     /// # Returns
-    /// NodeId of the newly created `Operation` node.
+    /// The [`NodeId`] of the newly created `Operation` node.
     fn arithmetic_exp(&mut self, op: ArithmeticOp, operands: Vec<NodeId>) -> NodeId {
         self.node(
-            ExprNode::new(ExprKind::Operation, ExprContent::ArithmeticOp(op), None),
+            ExprNode::new(
+                ExprKind::Operation,
+                ExprContent::ArithmeticOp(op),
+                None
+            ),
             operands,
         )
     }
 
-    /// Create an addition node (`+`) over the given operands.
+    /// Creates an addition node: (+ operands...)
+    ///
+    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Add`]
+    /// operator. It can take any number of operands, representing their cumulative sum.
     ///
     /// # Arguments
-    /// * `operands` - Vector of NodeIds to sum.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions to be added together.
     ///
     /// # Returns
-    /// NodeId of the newly created addition node.
+    /// The [`NodeId`] of the newly created addition node.
     pub fn add(&mut self, operands: Vec<NodeId>) -> NodeId {
         self.arithmetic_exp(ArithmeticOp::Add, operands)
     }
 
-    /// Create a subtraction node (`-`) over the given operands.
+    /// Creates a subtraction node: (- operands...)
+    ///
+    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Sub`]
+    /// operator.
+    ///
+    /// * If one operand is provided, it represents unary negation: (- a) => -a.
+    /// * If multiple operands are provided, it represents left-associative subtraction:
+    ///   (- a b c) => (a - b - c).
     ///
     /// # Arguments
-    /// * `operands` - Vector of NodeIds to subtract.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions.
     ///
     /// # Returns
-    /// NodeId of the newly created subtraction node.
+    /// The [`NodeId`] of the newly created subtraction node.
     pub fn sub(&mut self, operands: Vec<NodeId>) -> NodeId {
         self.arithmetic_exp(ArithmeticOp::Sub, operands)
     }
 
-    /// Create a multiplication node (`*`) over the given operands.
+    /// Creates a multiplication node: (* operands...)
+    ///
+    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Mul`]
+    /// operator. It represents the product of all expressions contained in the
+    /// `operands` vector.
     ///
     /// # Arguments
-    /// * `operands` - Vector of NodeIds to multiply.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions to be multiplied.
     ///
     /// # Returns
-    /// NodeId of the newly created multiplication node.
+    /// The [`NodeId`] of the newly created multiplication node.
     pub fn mul(&mut self, operands: Vec<NodeId>) -> NodeId {
         self.arithmetic_exp(ArithmeticOp::Mul, operands)
     }
 
-    /// Create a division node (`/`) over the given operands.
+    /// Creates a division node: (/ operands...)
+    ///
+    /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Div`]
+    /// operator.
     ///
     /// # Arguments
-    /// * `operands` - Vector of NodeIds to divide.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions. Usually, this contains
+    ///   two nodes representing the dividend and the divisor.
     ///
     /// # Returns
-    /// NodeId of the newly created division node.
+    /// The [`NodeId`] of the newly created division node.
     pub fn div(&mut self, operands: Vec<NodeId>) -> NodeId {
         self.arithmetic_exp(ArithmeticOp::Div, operands)
     }
 
-
-    /// Create an `AtStart` node wrapping a single expression.
+    /// Creates an `AtStart` temporal node: (at start expr)
+    ///
+    /// This node is used in temporal planning to constrain an expression
+    /// (condition or effect) to the beginning of the action's execution.
     ///
     /// # Arguments
-    /// * `expr` - The `NodeId` of the expression that occurs at the start.
+    /// * `expr` - The [`NodeId`] of the expression to be wrapped in the temporal constraint.
     ///
     /// # Returns
-    /// A `NodeId` of the newly created `AtStart` node.
+    /// The [`NodeId`] of the newly created `AtStart` node.
     pub fn at_start(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::AtStart, expr)
     }
 
-    /// Create an `AtEnd` node wrapping a single expression.
+    /// Creates an `AtEnd` temporal node: (at end expr)
+    ///
+    /// This node is used in temporal planning to anchor an expression
+    /// (condition or effect) to the end of the action's execution interval.
     ///
     /// # Arguments
-    /// * `expr` - The `NodeId` of the expression that occurs at the end.
+    /// * `expr` - The [`NodeId`] of the expression to be wrapped in the temporal constraint.
     ///
     /// # Returns
-    /// A `NodeId` of the newly created `AtEnd` node.
+    /// The [`NodeId`] of the newly created `AtEnd` node.
     pub fn at_end(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::AtEnd, expr)
     }
 
-    /// Create an `Overall` node wrapping a single expression.
+    /// Creates an `Overall` temporal node: (over all expr)
+    ///
+    /// This node represents a temporal invariant. In the context of PDDL, it ensures
+    /// that the specified condition remains true throughout the entire duration
+    /// of an action's execution.
     ///
     /// # Arguments
-    /// * `expr` - The `NodeId` of the expression to be wrapped.
+    /// * `expr` - The [`NodeId`] of the condition expression to be maintained.
     ///
     /// # Returns
-    /// A `NodeId` of the newly created `Overall` node.
+    /// The [`NodeId`] of the newly created `Overall` node.
     pub fn overall(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::Overall, expr)
     }
-    /// Create an `Always` node wrapping a single expression.
+
+    /// Creates an `Always` constraint node: (always expr)
+    ///
+    /// This node represents a global trajectory constraint. It asserts that the
+    /// given expression must hold true in every state of the plan execution.
     ///
     /// # Arguments
-    /// * `expr` - The `NodeId` of the expression to be wrapped.
+    /// * `expr` - The [`NodeId`] of the condition expression that must always hold.
     ///
     /// # Returns
-    /// A `NodeId` of the newly created `Always` node.
+    /// The [`NodeId`] of the newly created `Always` node.
     pub fn always(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::Always, expr)
     }
 
-    /// Create a `Sometime` temporal operator node with a single child expression.
+    /// Creates a `Sometime` temporal node: (sometime expr)
+    ///
+    /// This node represents a modal operator asserting that the given expression
+    /// must hold true in at least one state during the plan execution.
     ///
     /// # Arguments
-    /// * `expr` - NodeId of the expression to which the `Sometime` operator applies.
+    /// * `expr` - The [`NodeId`] of the condition that must eventually be satisfied.
     ///
     /// # Returns
-    /// NodeId of the newly created `Sometime` node.
+    /// The [`NodeId`] of the newly created `Sometime` node.
     pub fn sometime(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::Sometime, expr)
     }
 
-    /// Create a `Within` node with a numeric duration and an expression.
+    /// Creates a `Within` node representing a temporal constraint.
+    ///
+    /// This node defines a time window during which an expression must be satisfied.
+    /// The generated structure places the duration as the first child and the
+    /// expression as the second.
     ///
     /// # Arguments
-    /// * `value` - The numeric bound (f64) for the `Within` operator.
-    /// * `expr` - NodeId of the expression node to which `Within` applies.
     ///
-    /// # Returns
-    /// NodeId of the newly created `Within` node.
+    /// * `value` - The numeric time bound (duration) for the `Within` operator.
+    /// * `expr` - The `NodeId` of the expression to which the constraint applies.
     pub fn within(&mut self, value: f64, expr: NodeId) -> NodeId {
+        // 1. Create a leaf node for the numeric duration
         let duration_node = self.number(value);
+
+        // 2. Create the parent Within node linking the duration and the expression
         self.node(
+            // ExprContent::None is used because the data is stored in the children
             ExprNode::new(ExprKind::Within, ExprContent::None, None),
             vec![duration_node, expr],
         )
     }
 
-    /// Create an `AtMostOnce` node with a single expression child.
+    /// Creates an `AtMostOnce` node representing a cardinality constraint.
+    ///
+    /// This node specifies that the given expression or action can occur at most one time
+    /// within the problem's scope.
     ///
     /// # Arguments
-    /// * `expr` - NodeId of the expression to constrain to at most once.
     ///
-    /// # Returns
-    /// NodeId of the newly created `AtMostOnce` node.
+    /// * `expr` - The `NodeId` of the expression to which the constraint applies.
     pub fn at_most_once(&mut self, expr: NodeId) -> NodeId {
         self.unary(ExprKind::AtMostOnce, expr)
     }
 
-    /// Create a `SometimeAfter` node with two child expressions.
+    /// Creates a `SometimeAfter` node representing a temporal ordering constraint.
+    ///
+    /// This node specifies that if the first expression occurs, the second expression
+    /// must occur at some point following it.
     ///
     /// # Arguments
-    /// * `first` - NodeId of the first expression (the reference event).
-    /// * `second` - NodeId of the second expression (the event that must occur after the first).
     ///
-    /// # Returns
-    /// NodeId of the newly created `SometimeAfter` node.
+    /// * `first` - The `NodeId` of the reference event (the trigger).
+    /// * `second` - The `NodeId` of the event that must follow the first.
     pub fn sometime_after(&mut self, first: NodeId, second: NodeId) -> NodeId {
         self.binary(ExprKind::SometimeAfter, first, second)
     }
 
-    /// Create a `SometimeBefore` node with two child expressions.
+    /// Creates a `SometimeBefore` node representing a temporal ordering constraint.
+    ///
+    /// This node specifies that if the second expression occurs, the first expression
+    /// must have occurred at some point prior to it.
     ///
     /// # Arguments
-    /// * `first` - NodeId of the first expression (the event that must occur before the second).
-    /// * `second` - NodeId of the second expression (the reference event).
     ///
-    /// # Returns
-    /// NodeId of the newly created `SometimeBefore` node.
+    /// * `first` - The `NodeId` of the event that must precede the second.
+    /// * `second` - The `NodeId` of the reference event.
     pub fn sometime_before(&mut self, first: NodeId, second: NodeId) -> NodeId {
         self.binary(ExprKind::SometimeBefore, first, second)
     }
 
-    /// Create an `AlwaysWithin` node with a numeric bound and two child expressions.
+    /// Creates an `AlwaysWithin` node representing a bounded temporal constraint.
+    ///
+    /// This node specifies that whenever the first expression (the trigger) occurs,
+    /// the second expression must occur within a specific time duration.
     ///
     /// # Arguments
-    /// * `duration` - f64 value representing the time bound.
-    /// * `first` - NodeId of the first expression (start event).
-    /// * `second` - NodeId of the second expression (end event).
     ///
-    /// # Returns
-    /// NodeId of the newly created `AlwaysWithin` node.
+    /// * `duration` - The numeric f64 value representing the maximum time allowed
+    ///   between the two events.
+    /// * `first` - The `NodeId` of the first expression (the start event).
+    /// * `second` - The `NodeId` of the second expression (the end event).
     pub fn always_within(&mut self, duration: f64, first: NodeId, second: NodeId) -> NodeId {
         let number_node = self.number(duration);
         self.node(
@@ -903,15 +891,16 @@ impl<'a> ExprBuilder<'a> {
         )
     }
 
-    /// Create a `HoldDuring` node with start/end numeric bounds and a child expression.
+    /// Creates a `HoldDuring` node representing a persistent interval constraint.
+    ///
+    /// This node specifies that the given expression must remain true (hold)
+    /// throughout the entire time interval defined by the start and end bounds.
     ///
     /// # Arguments
-    /// * `start` - f64 value for the start time.
-    /// * `end` - f64 value for the end time.
-    /// * `expr` - NodeId of the expression to hold during the interval.
     ///
-    /// # Returns
-    /// NodeId of the newly created `HoldDuring` node.
+    /// * `start` - The numeric f64 value for the beginning of the time interval.
+    /// * `end` - The numeric f64 value for the end of the time interval.
+    /// * `expr` - The `NodeId` of the expression that must be maintained during this period.
     pub fn hold_during(&mut self, start: f64, end: f64, expr: NodeId) -> NodeId {
         let start_node = self.number(start);
         let end_node = self.number(end);
@@ -921,14 +910,15 @@ impl<'a> ExprBuilder<'a> {
         )
     }
 
-    /// Create a `HoldAfter` node with a time bound and a child expression.
+    /// Creates a `HoldAfter` node representing a temporal persistence constraint.
+    ///
+    /// This node specifies that the given expression must remain true (hold)
+    /// from a specific point in time onwards.
     ///
     /// # Arguments
-    /// * `time` - f64 value representing the time after which the expression holds.
-    /// * `expr` - NodeId of the expression to hold after the given time.
     ///
-    /// # Returns
-    /// NodeId of the newly created `HoldAfter` node.
+    /// * `time` - The numeric f64 value representing the start time from which the expression must hold.
+    /// * `expr` - The `NodeId` of the expression that must be maintained.
     pub fn hold_after(&mut self, time: f64, expr: NodeId) -> NodeId {
         let time_node = self.number(time);
         self.node(
@@ -937,14 +927,15 @@ impl<'a> ExprBuilder<'a> {
         )
     }
 
-    /// Create a `TimedInitialLiteral` node with a time and a child expression.
+    /// Creates a `TimedInitialLiteral` node representing a timed fact.
+    ///
+    /// This node specifies that a particular expression or literal becomes true
+    /// at a specific point in time, typically used for exogenous events or initial conditions.
     ///
     /// # Arguments
-    /// * `time` - f64 value representing the initial time.
-    /// * `expr` - NodeId of the expression true at that time.
     ///
-    /// # Returns
-    /// NodeId of the newly created `TimedInitialLiteral` node.
+    /// * `time` - The numeric f64 value representing the exact time at which the expression occurs.
+    /// * `expr` - The `NodeId` of the expression that becomes true at the given time.
     pub fn timed_initial_literal(&mut self, time: f64, expr: NodeId) -> NodeId {
         let time_node = self.number(time);
         self.node(
@@ -953,74 +944,84 @@ impl<'a> ExprBuilder<'a> {
         )
     }
 
-    /// Create a Metric node with the specified optimization directive and child expression.
+    /// Creates a `Metric` node representing the optimization goal of the problem.
+    ///
+    /// This node defines how the solver should evaluate the quality of a solution,
+    /// using a specific directive (Minimize or Maximize) applied to a target expression.
     ///
     /// # Arguments
-    /// * `opt` - The optimization directive (Minimize or Maximize)
-    /// * `expr` - NodeId of the expression representing the metric target
     ///
-    /// # Returns
-    /// NodeId of the newly created Metric node
+    /// * `opt` - The `Optimization` directive, specifying whether to minimize or maximize the metric.
+    /// * `expr` - The `NodeId` of the expression (e.g., total cost, time, or resource usage) to be optimized.
     fn metric_exp(&mut self, opt: Optimization, expr: NodeId) -> NodeId {
         self.node(
+            // The optimization directive is stored directly in the node's content
             ExprNode::new(ExprKind::Metric, ExprContent::Optimization(opt), None),
             vec![expr],
         )
     }
 
-    /// Create a Metric node that **minimizes** the given expression.
+    /// Creates a `Metric` node that specifies a minimization goal.
+    ///
+    /// This is a convenience wrapper around `metric_exp` that sets the optimization
+    /// directive to `Minimize`. It is typically used to reduce costs, time, or resource consumption.
     ///
     /// # Arguments
-    /// * `expr` - NodeId of the expression representing the metric to minimize
     ///
-    /// # Returns
-    /// NodeId of the newly created Metric node
+    /// * `expr` - The `NodeId` of the expression to be minimized.
     pub fn minimize(&mut self, expr: NodeId) -> NodeId {
         self.metric_exp(Optimization::Minimize, expr)
     }
 
-    /// Create a Metric node that **maximizes** the given expression.
+    /// Creates a `Metric` node that specifies a maximization goal.
+    ///
+    /// This is a convenience wrapper around `metric_exp` that sets the optimization
+    /// directive to `Maximize`. It is commonly used for goals like maximizing
+    /// utility, profit, or resource efficiency.
     ///
     /// # Arguments
-    /// * `expr` - NodeId of the expression representing the metric to maximize
     ///
-    /// # Returns
-    /// NodeId of the newly created Metric node
+    /// * `expr` - The `NodeId` of the expression to be maximized.
     pub fn maximize(&mut self, expr: NodeId) -> NodeId {
         self.metric_exp(Optimization::Maximize, expr)
     }
 
-
-    /// Create a `TotalTime` node.
+    /// Creates a `TotalTime` node.
     ///
-    /// Represents the total time metric of a plan or task sequence in the LIR.
+    /// This node represents the total duration or makespan of a plan or task sequence.
+    /// It is typically used as a variable within a metric expression to be minimized.
     ///
     /// # Returns
-    /// NodeId of the newly created `TotalTime` node.
+    ///
+    /// The `NodeId` of the newly created leaf node representing the total time metric.
     pub fn total_time(&mut self) -> NodeId {
         self.leaf(ExprNode::new(ExprKind::TotalTime, ExprContent::None, None))
     }
 
-    /// Create an `IsViolated` node for a given preference name.
+    /// Creates an `IsViolated` node to check the status of a soft constraint.
+    ///
+    /// This node evaluates to true if the named preference has not been satisfied
+    /// in the current plan. It is typically used in metric expressions to penalize
+    /// the violation of specific soft goals.
     ///
     /// # Arguments
-    /// * `name` - The string name of the preference to check.
     ///
-    /// # Returns
-    /// NodeId of the newly created `IsViolated` node.
-    pub fn is_violated(&mut self, name: &str) -> NodeId {
-        let pref_node = self.pref_name(name);
+    /// * `id` - The identifier of the preference to check (e.g., a [`PreferenceID`] or `usize`).
+    pub fn is_violated<I: Into<PreferenceID>>(&mut self, id: I) -> NodeId {
+        let pref_node = self.pref_name(id);
         self.unary(ExprKind::IsViolated, pref_node)
     }
 
-    /// Create a Length node, optionally specifying serial and parallel lengths.
+    /// Creates a `Length` node representing the temporal or structural span of an expression.
+    ///
+    /// This node can optionally incorporate serial and parallel components. If provided,
+    /// these components are added as child nodes to define the specific constraints
+    /// of the length metric.
     ///
     /// # Arguments
-    /// * `serial` - Optional f64 for the serial length.
-    /// * `parallel` - Optional f64 for the parallel length.
     ///
-    /// # Returns
-    /// NodeId of the newly created Length node.
+    /// * `serial` - An optional f64 value representing the sequential length component.
+    /// * `parallel` - An optional f64 value representing the concurrent length component.
     pub fn length(&mut self, serial: Option<f64>, parallel: Option<f64>) -> NodeId {
         let mut children = Vec::new();
         if let Some(s) = serial {
@@ -1032,87 +1033,86 @@ impl<'a> ExprBuilder<'a> {
         self.nary(ExprKind::Length, children)
     }
 
-    /// Create a Serial node representing a serial length specification.
+    /// Creates a `Serial` node representing a sequential duration specification.
+    ///
+    /// This node is typically used as a component within a `Length` expression to
+    /// define the duration of tasks executed in sequence.
     ///
     /// # Arguments
-    /// * `value` - f64 specifying the serial length.
     ///
-    /// # Returns
-    /// NodeId of the newly created Serial node.
+    /// * `value` - The numeric f64 value specifying the serial length.
     pub fn serial(&mut self, value: f64) -> NodeId {
         let number = self.number(value);
         self.unary(ExprKind::Serial, number)
     }
 
-    /// Create a Parallel node representing a parallel length specification.
+    /// Creates a `Parallel` node representing a concurrent duration specification.
+    ///
+    /// This node is typically used as a component within a `Length` expression to
+    /// define the duration of tasks that are executed in parallel.
     ///
     /// # Arguments
-    /// * `value` - f64 specifying the parallel length.
     ///
-    /// # Returns
-    /// NodeId of the newly created Parallel node.
+    /// * `value` - The numeric f64 value specifying the parallel length.
     pub fn parallel(&mut self, value: f64) -> NodeId {
         let number = self.number(value);
         self.unary(ExprKind::Parallel, number)
     }
 
-    /// Create a Task node consisting of a TaskSymbol and argument nodes.
+    /// Creates a `Task` node representing a task instance with its associated arguments.
+    ///
+    /// This node combines a task symbol identifier with a set of parameters or arguments.
     ///
     /// # Arguments
-    /// * `name` - Name of the task symbol.
-    /// * `arguments` - Vector of NodeIds representing argument nodes.
     ///
-    /// # Returns
-    /// NodeId of the newly created Task node.
-    pub fn task(&mut self, name: &str, arguments: Vec<NodeId>) -> NodeId {
-        let task_symbol = self.task_symbol(name);
+    /// * `id` - The identifier of the task symbol (e.g., a [`TaskSymbolID`] or `usize`).
+    /// * `arguments` - A vector of `NodeId`s representing the arguments passed to the task.
+    pub fn task<I: Into<TaskSymbolID>>(&mut self, id: I, arguments: Vec<NodeId>) -> NodeId {
+        let task_symbol = self.task_symbol(id);
         let mut children = vec![task_symbol];
         children.extend(arguments);
         self.nary(ExprKind::Task, children)
     }
 
-    /// Create a TaskID node representing a task identifier.
+    /// Creates a `TaskID` node representing a unique identifier for a task instance.
+    ///
+    /// This node stores a task label identifier as a leaf node. It is typically used
+    /// to reference specific task instances within temporal or causal constraints.
     ///
     /// # Arguments
-    /// * `name` - Name of the task identifier.
     ///
-    /// # Returns
-    /// NodeId of the newly created TaskID node.
-    pub fn task_id(&mut self, name: &str) -> NodeId {
-        let task_id = self.mock_resolve_task_id(name);
+    /// * `id` - The identifier of the task label (e.g., a [`TaskLabelID`] or `usize`).
+    pub fn task_id<I: Into<TaskLabelID>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::TaskID,
-            ExprContent::TaskID(task_id),
+            ExprContent::TaskID(id.into()),
             None,
         ))
     }
 
-    fn mock_resolve_task_id(&mut self, name: &str) -> TaskLabelID {
-        let symbol = self.interner.intern_ident(name);
-        self.registry.register_task_label(symbol)
-    }
-
-    /// Create a TaggedTask node with a TaskID and a Task as children.
+    /// Creates a `TaggedTask` node that associates a specific identifier with a task.
+    ///
+    /// This node represents a labeled task instance, linking a unique `TaskID` (the tag)
+    /// to a `Task` definition.
     ///
     /// # Arguments
-    /// * `id` - Name of the task identifier.
-    /// * `task` - NodeId of the task node.
     ///
-    /// # Returns
-    /// NodeId of the newly created TaggedTask node.
-    pub fn tagged_task(&mut self, id: &str, task: NodeId) -> NodeId {
-        let task_id = self.task_id(id);
-        self.binary(ExprKind::TaggedTask, task_id, task)
+    /// * `id` - The identifier to be used as the task's tag (e.g., a [`TaskLabelID`] or `usize`).
+    /// * `task` - The `NodeId` of the task expression being tagged.
+    pub fn tagged_task<I: Into<TaskLabelID>>(&mut self, id: I, task: NodeId) -> NodeId {
+        let task_id_node = self.task_id(id);
+        self.binary(ExprKind::TaggedTask, task_id_node, task)
     }
 
-    /// Create a TaskOrderingConstraint node comparing two tasks (< task1 task2).
+    /// Creates a `TaskOrderingConstraint` node representing a strictly sequential relationship.
+    ///
+    /// This node enforces a temporal order between two tasks, specifically that
+    /// the first task must be completed before the second task can begin.
     ///
     /// # Arguments
-    /// * `task1` - NodeId of the first task.
-    /// * `task2` - NodeId of the second task.
     ///
-    /// # Returns
-    /// NodeId of the newly created TaskOrderingConstraint node.
+    /// * `task1` - The `NodeId` of the task that must occur first.
+    /// * `task2` - The `NodeId` of the task that must occur second.
     pub fn task_ordering_constraint(
         &mut self,
         task1: NodeId,

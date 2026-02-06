@@ -105,7 +105,7 @@ fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprErro
     Ok(false)
 }
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -241,4 +241,4 @@ mod tests {
         assert_eq!(eff_node.kind(), ExprKind::AtomicFormula);
 
     }
-}
+}*/

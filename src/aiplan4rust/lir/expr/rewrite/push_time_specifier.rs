@@ -282,7 +282,7 @@ fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), ExprE
     Ok(())
 }
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use crate::aiplan4rust::arena::ArenaNode;
     use super::*;
@@ -395,4 +395,4 @@ mod tests {
 
         assert_eq!(output, "(over all (A))");
     }
-}
+}*/

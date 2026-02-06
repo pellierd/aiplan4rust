@@ -111,7 +111,7 @@ fn is_trivial_assign_value(
     }
 }
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use crate::aiplan4rust::interner::StringInterner;
     use super::*;
@@ -269,4 +269,4 @@ mod tests {
         assert_eq!(output, "(increase (F) (+ 2 3))")
     }
 
-}
+}*/

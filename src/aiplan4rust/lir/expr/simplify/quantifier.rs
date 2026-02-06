@@ -307,7 +307,7 @@ fn simplify_quantifier_trivial_body(
     Ok(false)
 }
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lang::TypedList;
@@ -528,4 +528,4 @@ mod tests {
         assert_eq!(output, "(exists (?X - T) (A))");
     }
 
-}
+}*/

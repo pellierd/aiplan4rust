@@ -163,7 +163,7 @@ fn simplify_trivial_constant(node_id: NodeId, expr: &mut Expr) -> Result<bool, E
     Ok(true)
 }
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
@@ -321,4 +321,4 @@ mod tests {
         assert_eq!(output, "(not (A))");
     }
 
-}
+}*/

@@ -50,6 +50,7 @@ use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
@@ -193,6 +194,7 @@ impl Expr {
     pub fn set_root_id(&mut self, id: NodeId) -> Result<(), SyntaxTreeError> {
         self.tree.set_root_id(id)
     }
+
 
     /// Allocates a new node in the expression tree.
     ///
@@ -594,27 +596,9 @@ impl fmt::Display for Expr {
     }
 }
 
-impl SyntaxInternerDisplay for Expr {
-    /// Formats the expression with indentation and interner support for pretty printing.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter.
-    /// * `interner` - The string interner for resolving identifiers.
-    /// * `indent` - The indentation level (number of spaces or tabs).
-    ///
-    /// # Returns
-    ///
-    /// A formatting result indicating success or failure.
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        /*write_indent(f, indent)?;
-        self.tree
-            .fmt_syntax_with_interner_and_indent(f, interner, indent)*/
-        writeln!(f, "{}", "TO DO".to_string())
+impl LiftedSyntaxDisplay for Expr {
+
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        renderers::syntax::expr::render(f, self, ctx)
     }
 }

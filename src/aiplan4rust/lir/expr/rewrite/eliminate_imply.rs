@@ -100,117 +100,194 @@ pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError
 
 #[cfg(test)]
 mod tests {
+    use crate::aiplan4rust::arena::ArenaNode;
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
+    use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
     use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Input: (A -> B)
     /// Expected output: (or (B) (not (A)))
     #[test]
-    fn test_simple_imply() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_nested_imply() {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
-        let imply = builder.imply(a, b);
-        builder.set_root(imply).unwrap();
+        // Setup: (imply (1) (imply (2) (3)))
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
+        let c = builder.atomic_formula(3, vec![]);
+
+        let inner_imply = builder.imply(b, c);
+        let root_imply = builder.imply(a, inner_imply);
+
+        builder.set_root(root_imply).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
         eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
 
-        print!("{} -> {} ", input, output);
+        // --- Structure Validation ---
+        let root_id = expr.root_id().unwrap();
+        let root_node = expr.try_node(root_id).unwrap();
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // 1. Root should be OR
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (A)) (B))");
+        let children = root_node.children();
+        assert_eq!(children.len(), 2);
+
+        // 2. First child: (not A)
+        let not_a_id = children[0];
+        assert_eq!(expr.try_node(not_a_id).unwrap().kind(), ExprKind::Not);
+
+        // 3. Second child: (or (not B) C)
+        let inner_or_id = children[1];
+        let inner_or_node = expr.try_node(inner_or_id).unwrap();
+        assert_eq!(inner_or_node.kind(), ExprKind::Or);
+
+        let inner_children = inner_or_node.children();
+        assert_eq!(inner_children.len(), 2);
+
+        // 4. Inner children: (not B) and (C)
+        assert_eq!(expr.try_node(inner_children[0]).unwrap().kind(), ExprKind::Not);
+        assert_eq!(expr.try_node(inner_children[1]).unwrap().kind(), ExprKind::AtomicFormula);
     }
 
     /// Input: (A -> (and B C))
     /// Expected output: (or (and (B) (C)) (not (A)))
     #[test]
     fn test_imply_with_and_consequence() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
-        let c = builder.atomic_formula("C", vec![]);
+        // Setup: (imply (1) (and (2) (3)))
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
+        let c = builder.atomic_formula(3, vec![]);
         let and_bc = builder.and(vec![b, c]);
         let imply = builder.imply(a, and_bc);
 
         builder.set_root(imply).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
         eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
 
-        print!("{} -> {} ", input, output);
+        // --- Structure Validation ---
+        let root_id = expr.root_id().unwrap();
+        let root_node = expr.try_node(root_id).unwrap();
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // 1. Root should be OR
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(output, "(or (not (A)) (and (B) (C)))");
+        let children = root_node.children();
+        assert_eq!(children.len(), 2);
+
+        // 2. First child: (not A)
+        let not_id = children[0];
+        assert_eq!(expr.try_node(not_id).unwrap().kind(), ExprKind::Not);
+
+        let not_children = expr.try_node(not_id).unwrap().children();
+        assert_eq!(expr.try_node(not_children[0]).unwrap().kind(), ExprKind::AtomicFormula);
+
+        // 3. Second child: (and B C)
+        let and_id = children[1];
+        let and_node = expr.try_node(and_id).unwrap();
+        assert_eq!(and_node.kind(), ExprKind::And);
+
+        let and_children = and_node.children();
+        assert_eq!(and_children.len(), 2);
+        assert_eq!(expr.try_node(and_children[0]).unwrap().kind(), ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node(and_children[1]).unwrap().kind(), ExprKind::AtomicFormula);
     }
 
     /// Input: (A -> (and))
     /// Expected output: (or (not (A)) (and))
     #[test]
     fn test_imply_with_empty_and_consequence() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
+        // Setup: (imply (1) (and))
+        let a = builder.atomic_formula(1, vec![]);
         let empty_and = builder.and(vec![]);
         let imply = builder.imply(a, empty_and);
 
         builder.set_root(imply).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
         eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
 
-        print!("{} -> {} ", input, output);
+        // --- Structure Validation ---
+        let root_id = expr.root_id().unwrap();
+        let root_node = expr.try_node(root_id).unwrap();
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // 1. Root should be OR
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert!(!root_node.children().is_empty());
-        assert_eq!(output, "(or (not (A)) (and))");
+        let children = root_node.children();
+        assert_eq!(children.len(), 2);
+
+        // 2. First child: (not A)
+        let not_id = children[0];
+        assert_eq!(expr.try_node(not_id).unwrap().kind(), ExprKind::Not);
+
+        // 3. Second child: empty AND
+        let and_id = children[1];
+        let and_node = expr.try_node(and_id).unwrap();
+        assert_eq!(and_node.kind(), ExprKind::And);
+        assert!(and_node.children().is_empty());
     }
 
     /// Input: ((forall ?X A) -> (exists ?Y B))
     /// Expected output: (or (not (forall (?X) (A))) (exists (?Y) (B)))
     #[test]
     fn test_imply_with_quantifiers() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], a);
+        // 1. Create typed variables using the new helpers
+        // ?x has ID 10 and Type 100, ?y has ID 11 and Type 101
+        let var_x = builder.typed_variable(10, &[100]);
+        let var_y = builder.typed_variable(11, &[101]);
 
-        let b = builder.atomic_formula("B", vec![]);
-        let exists_node = builder.exists_with_string_vars(vec![("?Y", "T")], b);
+        // 2. Build atomic formulas: (A) and (B)
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
 
+        // 3. Wrap them in quantifiers
+        let forall_vars = builder.typed_variable_list(vec![var_x]);
+        let forall_node = builder.forall(forall_vars, a);
+
+        let exists_vars = builder.typed_variable_list(vec![var_y]);
+        let exists_node = builder.exists(exists_vars, b);
+
+        // 4. Create the implication: (forall (?x) (A ?x)) => (exists (?y) (B ?y))
         let imply = builder.imply(forall_node, exists_node);
         builder.set_root(imply).unwrap();
+
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
+        // --- Transformation ---
+        // (P => Q) becomes (not P or Q)
         eliminate_imply(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
 
-        print!("{} -> {} ", input, output);
+        // --- Validation ---
+        let root_id = expr.root_id().unwrap();
+        let root_node = expr.try_node(root_id).unwrap();
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // The root must now be an OR
         assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(
-            output,
-            "(or (not (forall (?X - T) (A))) (exists (?Y - T) (B)))"
-        );
+
+        let children = root_node.children();
+        assert_eq!(children.len(), 2);
+
+        // First child must be NOT: (not (forall (?x) (A)))
+        let not_node_id = children[0];
+        let not_node = expr.try_node(not_node_id).unwrap();
+        assert_eq!(not_node.kind(), ExprKind::Not);
+
+        let not_child_id = expr.try_node(not_node_id).unwrap().children()[0];
+        let not_child_node = expr.try_node(not_child_id).unwrap();
+        assert_eq!(not_child_node.kind(), ExprKind::Forall);
+
+        // Second child must be the unchanged EXISTS: (exists (?y) (B))
+        let exists_node_id = children[1];
+        let exists_node = expr.try_node(exists_node_id).unwrap();
+        assert_eq!(exists_node.kind(), ExprKind::Exists);
     }
 }

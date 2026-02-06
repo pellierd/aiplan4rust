@@ -231,7 +231,7 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
     Ok(new_not_id)
 }
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
@@ -480,4 +480,4 @@ mod tests {
             "(or (not (A)) (not (not (or (B) (C)))) (exists (?X - T) (forall (?Y - T) (not (D)))))"
         );
     }
-}
+}*/

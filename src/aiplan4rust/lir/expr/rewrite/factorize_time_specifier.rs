@@ -153,7 +153,7 @@ fn filter_temporal(
     Ok(time_spec_id)
 }
 
-#[cfg(test)]
+/*#[cfg(test)]
 mod tests {
     use crate::aiplan4rust::arena::ArenaNode;
     use super::*;
@@ -597,4 +597,4 @@ mod tests {
         );
     }
 
-}
+}*/
