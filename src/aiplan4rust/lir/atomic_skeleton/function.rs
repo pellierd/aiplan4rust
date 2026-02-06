@@ -110,7 +110,7 @@ impl Function {
     }
 
     /// Returns a reference to the return type_checker.
-    pub fn return_type(&self) -> &Type<TypeID> {
+    pub fn ty(&self) -> &Type<TypeID> {
         &self.ty
     }
 

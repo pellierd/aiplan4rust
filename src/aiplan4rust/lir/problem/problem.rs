@@ -40,26 +40,25 @@
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, ObjectID, Requirement, TypedSymbol, TypeID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSymbolID, TaskSkeletonID, VariableID};
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{normalize, renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{normalize, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::{renderers, LirError};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
-use crate::aiplan4rust::syntax::SyntaxDisplay;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::rc::Rc;
 use itertools::Itertools;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::encode::{encoder, EncodingRegistry};
+use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
@@ -86,7 +85,9 @@ pub struct Problem {
 
     task_symbols: SymbolTable<TaskSymbolID>,
     task_skeletons: Vec<AtomicTaskSkeleton>,
-    
+
+
+
     domain_constraints: Expr,
 
     /// The list of derived predicates defined in this syntax problem.
@@ -137,24 +138,21 @@ impl Problem {
     /// assert!(problem.type_symbol_table().is_empty());
     /// ```
     pub(crate) fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
-        let rc_interner = Rc::new(interner);
-
         Self {
-            interner: Rc::try_unwrap(rc_interner.clone())
-                .unwrap_or_else(|rc| (*rc).clone()),
+            interner,
             domain_name: StringID::default(),
             problem_name: StringID::default(),
             requirements,
-            type_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
+            type_symbols: SymbolTable::new(),
             types: Vec::new(),
-            object_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
+            object_symbols: SymbolTable::new(),
             objects: Vec::new(),
             constant_offset: 0,
-            predicates: SymbolTable::new(Rc::clone(&rc_interner)),
+            predicates: SymbolTable::new(),
             atom_skeletons: Vec::new(),
-            functors: SymbolTable::new(Rc::clone(&rc_interner)),
+            functors: SymbolTable::new(),
             function_skeletons: Vec::new(),
-            task_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
+            task_symbols: SymbolTable::new(),
             task_skeletons: Vec::new(),
             domain_constraints: Expr::empty_or(),
             derived_predicates: Vec::new(),
@@ -249,6 +247,19 @@ impl Problem {
         &self.type_symbols
     }
 
+    pub fn add_type_symbol(&mut self, symbol: StringID) -> TypeID {
+
+        let id = self.type_symbols.insert(symbol);
+        let idx = id.as_usize();
+        if (idx >= self.types.len()) {
+            let typed = TypedSymbol::new(id, Type::default());
+            self.types.push(typed);
+
+        }
+        id
+    }
+
+
     pub fn types(&self) -> &[TypedSymbol<TypeID, TypeID>] {
         &self.types
     }
@@ -257,28 +268,44 @@ impl Problem {
         !self.types.is_empty()
     }
 
-    pub fn add_type(&mut self, ty: TypedSymbol<TypeID, TypeID>) -> TypeID {
+    pub fn add_type(&mut self, ty: TypedSymbol<TypeID, TypeID>) -> Result<TypeID, LirError> {
         let id = ty.symbol();
         let idx = id.as_usize();
-        if idx >= self.types.len() {
-            self.types.push(ty);
-        } else {
-            self.types[idx] = ty;
-        }
-        id
+
+        // 1. Vérification stricte : l'ID doit avoir été pré-alloué en Phase 1
+        // Si l'index dépasse, c'est une erreur de cohérence entre les deux phases.
+        //if idx >= self.types.len() {
+            // On utilise l'erreur VariableNotFound (ou une erreur plus spécifique si tu préfères)
+        //    return Err(LirError::type_not_found(;
+        //}
+
+        // 2. Mise à jour de la réservation par la définition réelle
+        // On écrase le TypedSymbol "vide" par celui contenant les membres/parents
+        self.types[idx] = ty;
+
+        Ok(id)
     }
 
-    pub fn add_types<I>(&mut self, iter: I)
+    /*pub fn add_types<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = TypedSymbol<TypeID, TypeID>>,
     {
         for ty in iter {
             self.add_type(ty);
         }
-    }
+    }*/
 
     pub fn object_symbol_table(&self) -> &SymbolTable<ObjectID> {
         &self.object_symbols
+    }
+
+    pub fn add_object_symbol(&mut self, symbol: StringID) -> ObjectID {
+        let id = self.object_symbols.insert(symbol);
+        let idx = id.as_usize();
+        if (idx >= self.objects.len()) {
+            self.objects.push(TypedSymbol::new(id, Type::default()));
+        }
+        id
     }
 
     pub fn objects(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
@@ -304,22 +331,20 @@ impl Problem {
     pub fn add_object(&mut self, obj: TypedSymbol<ObjectID, TypeID>) -> ObjectID {
         let id = obj.symbol();
         let idx = id.as_usize();
-        if idx >= self.objects.len() {
-            self.objects.push(obj);
-        } else {
-            self.objects[idx] = obj;
-        }
+
+        self.objects[idx] = obj;
+
         id
     }
 
-    pub fn add_objects<I>(&mut self, iter: I)
+    /*pub fn add_objects<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = TypedSymbol<ObjectID, TypeID>>,
     {
         for obj in iter {
             self.add_object(obj);
         }
-    }
+    }*/
 
     pub fn set_constant_offset(&mut self) {
         self.constant_offset = self.object_symbols.len();
@@ -659,7 +684,12 @@ impl TryFrom<LinkedSemanticContext> for Problem {
         normalize::normalize_problem(&mut problem)?;
 
         // 6. Return the fully constructed and normalized problem
-        println!("Problem successfully created:\n{}", problem);
+
+        let domain_def = problem.domain_def();
+        println!("Domain: \n{}", domain_def.to_syntax_string());
+
+        println!("Problem : \n{}", problem.problem_def().to_syntax_string());
+
         Ok(problem)
     }
 }
@@ -678,9 +708,9 @@ impl Display for Problem {
     ///
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        //renderers::default::render_problem(f, self)
-        renderers::syntax::problem::render(f, self)
+        renderers::default::render_problem(f, self)
     }
 }
+
 
 impl SerdeSerializable for Problem { }

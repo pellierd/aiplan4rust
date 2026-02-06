@@ -99,7 +99,7 @@ pub fn bind_variables(
 
     for &typed_symbol_id in typed_list.children() {
         let typed_symbol_node = ast.try_node(typed_symbol_id)?;
-        let variable_node_id = typed_symbol_node.children()[0];
+        let variable_node_id = typed_symbol_node.try_child(0)?;
         let variable_node = ast.try_node(variable_node_id)?;
         if variable_node.kind() == AstKind::Variable {
             registry.register_variable(variable_node_id);

@@ -5,7 +5,6 @@ pub mod method;
 pub mod task_network;
 pub mod initial_task_network;
 pub(crate) mod normalize;
-pub mod renderers;
 pub mod domain_def;
 pub mod problem_def;
 pub mod flatten;

@@ -7,7 +7,7 @@ use std::fmt;
 
 
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct TypedSymbol<SID: Id, TID: Id> {
     /// SID est l'ID du symbole (StringID, VariableID, etc.)
     symbol: SID,

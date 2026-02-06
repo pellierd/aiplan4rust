@@ -39,20 +39,18 @@
 //!
 //! Parsing from AST may fail with `LirError` if the structure is invalid or missing expected parts.
 
-use std::collections::HashMap;
 use std::fmt;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, RemapTypes, Type, TypeID, VariableID};
+use std::fmt::Formatter;
+use crate::aiplan4rust::lang::{StringID, TypeID, VariableID};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
-
 use serde::{Deserialize, Serialize};
-use std::fmt::Formatter;
-use crate::aiplan4rust::lir::problem::{normalize, renderers};
+use crate::aiplan4rust::lir::problem::normalize;
+use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
@@ -281,98 +279,13 @@ impl Action {
 }*/
 
 impl fmt::Display for Action {
-    /// Formats the `Action` for human-readable output.
-    ///
-    /// This implementation uses the default renderer to display the action's
-    /// name, parameters, precondition, and effect in a readable form.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let action: Action = todo!();
-    /// let mut s = String::new();
-    /// write!(&mut s, "{}", action).unwrap();
-    /// println!("{}", s);
-    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         renderers::default::render_action(f, self)
     }
 }
 
-/*impl InternerDisplay for Action {
-    /// Formats the `Action` using a [`StringInterner`] to resolve interned symbols.
-    ///
-    /// This implementation resolves names and parameters for human-readable output.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    /// * `interner` - The [`StringInterner`] used to resolve identifiers.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let action: Action = todo!();
-    /// # let interner: StringInterner = todo!();
-    /// let mut s = String::new();
-    /// action.fmt_with_interner(&mut s, &interner).unwrap();
-    /// println!("{}", s);
-    /// ```
-    fn fmt_with_interner(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        renderers::interner::render_action(f, self, interner)
+impl LiftedSyntaxDisplay for Action {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        renderers::syntax::action::render(f, self, ctx)
     }
-}*/
-
-/*impl SyntaxInternerDisplay for Action {
-    /// Formats the `Action` in a syntax-oriented form using a [`StringInterner`] and indentation.
-    ///
-    /// Produces a PDDL-like syntax representation of the action, including
-    /// parameters, precondition, and effect, with indentation according to `indent`.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    /// * `interner` - The [`StringInterner`] used to resolve interned identifiers.
-    /// * `indent` - The indentation level for the rendered syntax.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let action: Action = todo!();
-    /// # let interner: StringInterner = todo!();
-    /// let mut s = String::new();
-    /// action.fmt_syntax_with_interner_and_indent(&mut s, &interner, 2).unwrap();
-    /// println!("{}", s);
-    /// ```
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        renderers::syntax_old::render_action(f, self, interner, indent)
-    }
-}*/
+}

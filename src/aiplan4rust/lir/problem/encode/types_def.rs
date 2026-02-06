@@ -28,7 +28,7 @@ pub fn encode(
 ) -> Result<(), LirError> {
 
     // Phase 1: Register all type symbols to generate their TypeIDs
-    collect_type_ids(subtree, registry)?;
+    collect_type_ids(subtree, registry, ir)?;
 
     // Phase 2: Encode the semantic definitions (inheritance and properties)
     encode_definitions(subtree, registry, ir)?;
@@ -58,28 +58,32 @@ pub fn encode(
 /// * `Err(LirError)` - If the AST structure is unexpected or nodes are inaccessible.
 fn collect_type_ids(
     subtree: &SyntaxSubtree<AstNode>,
-    registry: &mut EncodingRegistry
+    registry: &mut EncodingRegistry,
+    ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
     let list_node = tree.try_node(subtree.node().try_child(0)?)?;
 
     for typed_symbol_id in list_node.children() {
         let typed_symbol_node = tree.try_node(*typed_symbol_id)?;
-        let symbol_id = typed_symbol_node.children()[0];
+        let symbol_id = typed_symbol_node.try_child(0)?;
         let symbol_node = tree.try_node(symbol_id)?;
         let symbol = symbol_node.try_ident()?;
         registry.register_type_symbol(symbol, symbol_id);
+        ir.add_type_symbol(symbol);
 
         if typed_symbol_node.children().len() > 1 {
-            let type_id = typed_symbol_node.children()[1];
+            let type_id = typed_symbol_node.try_child(1)?;
             let type_node = tree.try_node(type_id)?;
             for &primitive_type_id in type_node.children() {
                 let primitive_type_node = tree.try_node(primitive_type_id)?;
                 let primitive_type_symbol = primitive_type_node.try_ident()?;
                 registry.register_type_symbol(primitive_type_symbol, primitive_type_id);
+                ir.add_type_symbol(primitive_type_symbol);
             }
         }
     }
+
     Ok(())
 }
 
@@ -122,8 +126,8 @@ fn encode_definitions(
         // Encode the TypedSymbol which now can resolve its parent TypeIDs from the registry
         let typed_type = typed_symbol::encode_typed_type(&child_subtree, registry)?;
 
-        // Store the final declaration in the LIR
-        ir.add_type(typed_type);
+        // Store the final declaration in the LIR;
+        ir.add_type(typed_type)?;
     }
 
     Ok(())

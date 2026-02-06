@@ -2,7 +2,7 @@ use std::fmt;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode};
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
-use crate::aiplan4rust::lir::problem::renderers::common::{render_labeled_expr, render_labeled_typed_list, writeln_centered};
+use crate::aiplan4rust::lir::renderers::common::{render_labeled_expr, render_labeled_typed_list, writeln_centered};
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
 
 /// Structure privée pour faire le pont avec le système de formatage de Rust

@@ -1,6 +1,5 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::lang::{FunctorID, PredicateID};
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, Resolution};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::expand::inertia::Inertia;
 use crate::aiplan4rust::lir::problem::expand::inertia_table::InertiaTable;

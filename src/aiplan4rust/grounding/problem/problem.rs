@@ -9,7 +9,6 @@ use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
 use crate::aiplan4rust::interner::{InternerError, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, StringID};
-use crate::aiplan4rust::lir::problem::flatten::flatten;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
@@ -84,17 +83,15 @@ impl Problem {
     /// # Returns
     /// A new `Problem` instance ready for incremental construction.
     pub fn new(interner: StringInterner, requirements: HashSet<Requirement>) -> Self {
-        let rc_interner = Rc::new(interner);
         Self {
-            interner: Rc::try_unwrap(rc_interner.clone())
-                .unwrap_or_else(|rc| (*rc).clone()),
+            interner,
             domain_id: StringID::default(),
             problem_id: StringID::default(),
             requirements,
-            types_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
-            predicates_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
-            functions_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
-            objects_symbols: SymbolTable::new(Rc::clone(&rc_interner)),
+            types_symbols: SymbolTable::new(),
+            predicates_symbols: SymbolTable::new(),
+            functions_symbols: SymbolTable::new(),
+            objects_symbols: SymbolTable::new(),
             type_parents_table: Vec::new(),
             types_domains: Vec::new(),
             objects: Vec::new(),
@@ -472,7 +469,7 @@ impl fmt::Display for Problem {
             for (idx, object_fluent) in self.objects_fluents().iter().enumerate() {
                 write!(f, "{}: ", idx)?;
                 // Utilise fmt_object_fluent_with_interner pour afficher proprement
-                self.fmt_object_fluent_with_interner(f, object_fluent)?;
+                //self.fmt_object_fluent_with_interner(f, object_fluent)?;
                 writeln!(f)?;
             }
         }
@@ -484,7 +481,7 @@ impl fmt::Display for Problem {
         } else {
             for (idx, fluent) in self.fluents().iter().enumerate() {
                 write!(f, "{}: ", idx)?;
-                self.fmt_fluent_with_interner(f, fluent)?;
+                //self.fmt_fluent_with_interner(f, fluent)?;
                 writeln!(f)?;
             }
         }
@@ -493,7 +490,7 @@ impl fmt::Display for Problem {
     }
 }
 
-impl Problem {
+/*impl Problem {
     /// Format a single ObjectFluent using the problem's symbol tables.
     pub fn fmt_object_fluent_with_interner<W: fmt::Write>(
         &self,
@@ -576,6 +573,6 @@ impl Problem {
             .unwrap_or_else(|_| s.push_str("<fluent-format-error>"));
         s
     }
-}
+}*/
 
 impl SerdeSerializable for Problem { }

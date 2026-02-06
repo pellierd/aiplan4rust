@@ -28,30 +28,51 @@ impl<'a> RenderContext<'a> {
     pub fn predicates(&self) -> &SymbolTable<PredicateID> { self.predicate_symbols }
     pub fn functors(&self) -> &SymbolTable<FunctorID> { self.functor_symbols }
     pub fn objects(&self) -> &SymbolTable<ObjectID> { self.object_symbols }
-    pub fn tasks(&self) -> &SymbolTable<TaskSymbolID> { self.task_symbols }
+    pub fn tasks_symbol(&self) -> &SymbolTable<TaskSymbolID> { self.task_symbols }
     pub fn interner(&self) -> &StringInterner { self.interner }
 
     // --- Résolution de noms via les SymbolTables ---
 
-    /// Résout n'importe quel ID via sa table respective
+    /// La base : résout un StringID brut via l'interner.
+    pub fn resolve_symbol(&self, id: StringID) -> &str {
+        self.interner.resolve_ident(id).unwrap_or("<unknown_id>")
+    }
+
+    /// Résout un TypeID en passant par sa table, puis en utilisant resolve_ident.
     pub fn resolve_type(&self, id: TypeID) -> &str {
-        self.type_symbols.get_string(id).unwrap_or("<unknown_type>")
+        self.type_symbols
+            .get_ident(id)
+            .map(|&s_id| self.resolve_symbol(s_id)) // On réutilise la fonction de base
+            .unwrap_or("<unknown_type>")
     }
 
     pub fn resolve_predicate(&self, id: PredicateID) -> &str {
-        self.predicate_symbols.get_string(id).unwrap_or("<unknown_pred>")
+        self.predicate_symbols
+            .get_ident(id)
+            .map(|&s_id| self.resolve_symbol(s_id))
+            .unwrap_or("<unknown_pred>")
     }
 
     pub fn resolve_object(&self, id: ObjectID) -> &str {
-        self.object_symbols.get_string(id).unwrap_or("<unknown_obj>")
+        self.object_symbols
+            .get_ident(id)
+            .map(|&s_id| self.resolve_symbol(s_id))
+            .unwrap_or("<unknown_obj>")
     }
 
     pub fn resolve_functor(&self, id: FunctorID) -> &str {
-        self.functor_symbols.get_string(id).unwrap_or("<unknown_func>")
+        self.functor_symbols
+            .get_ident(id)
+            .map(|&s_id| self.resolve_symbol(s_id))
+            .unwrap_or("<unknown_func>")
     }
 
-    /// Résout un StringID brut (ident) directement via l'interner
-    pub fn resolve_ident(&self, id: StringID) -> &str {
-        self.interner.resolve_ident(id).unwrap_or("<unknown_id>")
+    pub fn resolve_task_symbol(&self, id: TaskSymbolID) -> &str {
+        self.task_symbols
+            .get_ident(id)
+            .map(|&s_id| self.resolve_symbol(s_id))
+            .unwrap_or("<unknown_task>")
     }
+
+
 }

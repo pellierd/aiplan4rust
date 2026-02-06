@@ -4,15 +4,13 @@
 //! The `InitialTaskNetwork` consists of a list of typed parameters and
 //! a lifted task network describing the tasks and their relationships.
 
-use std::collections::HashMap;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{RemapTypes, StringID, Type, TypeID, TypedList, VariableID};
-use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedTaskNetwork};
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lir::problem::{normalize, LiftedTaskNetwork};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::aiplan4rust::lir::error::LirError;
+use crate::aiplan4rust::lir::renderers;
 
 /// Represents the initial task network, containing parameters and a lifted task network.
 ///
@@ -105,17 +103,3 @@ impl Display for InitialTaskNetwork {
         renderers::default::render_initial_task_network(f, self)
     }
 }
-
-/*impl InternerDisplay for InitialTaskNetwork {
-    /// Formats the initial task network using a string interner for symbol resolution.
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        renderers::interner::render_initial_task_network(f, self, interner)
-    }
-}*/
-
-/*impl SyntaxInternerDisplay for InitialTaskNetwork {
-    /// Formats the initial task network syntax using a string interner.
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
-        renderers::syntax_old::render_initial_task_network(f, self, interner, indent)
-    }
-}*/

@@ -34,12 +34,12 @@
 //! ```
 
 use std::fmt::{self, Display, Formatter};
-use crate::aiplan4rust::lir::problem::{renderers, InitialTaskNetwork, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol, VariableID};
+use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
+use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 
 /// Wrapper around a specific problem instance within a domain.
@@ -166,37 +166,6 @@ impl<'a> ProblemDef<'a> {
     }
 }
 
-/*impl<'a> SyntaxDisplay for ProblemDef<'a> {
-    /// Formats the problem as a syntax string suitable for output or serialization.
-    ///
-    /// This implementation delegates to `renderers::syntax::render_problem_def`,
-    /// passing the underlying [`LiftedProblem`] and its associated [`StringInterner`].
-    ///
-    /// # Parameters
-    /// - `f`: The [`Formatter`] to write the formatted output into.
-    ///
-    /// # Returns
-    /// [`fmt::Result`] indicating whether formatting succeeded or failed.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::syntax_old::render_problem_def(f, &self.problem.problem_def(), self.interner())
-    }
-}*/
-
-/*impl<'a> SelfInternerDisplay for ProblemDef<'a> {
-    /// Formats the problem using its internal [`StringInterner`].
-    ///
-    /// This allows resolving interned identifiers when rendering the problem.
-    /// Delegates to `renderers::interner::render_problem`.
-    ///
-    /// # Parameters
-    /// - `f`: The [`Formatter`] to write the output into.
-    ///
-    /// # Returns
-    /// [`fmt::Result`] indicating success or failure.
-    fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::interner::render_problem(f, self.problem, self.problem.interner())
-    }
-}*/
 
 impl<'a> Display for ProblemDef<'a> {
     /// Provides the default human-readable string representation of the problem.
@@ -218,6 +187,17 @@ impl<'a> Display for ProblemDef<'a> {
     /// ```
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::default::render_problem(f, self.problem)
+    }
+}
+
+impl<'a> LiftedSyntaxDisplay for ProblemDef<'a> {
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        renderers::syntax::problem::render(f, self, ctx)
+    }
+
+    fn fmt_syntax_self(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let ctx = RenderContext::new(self.problem);
+        self.fmt_syntax(f, &ctx)
     }
 }
 

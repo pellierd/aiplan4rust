@@ -4,17 +4,16 @@
 //! A `DerivedPredicate` is a logical fact derived from other facts,
 //! consisting of a head (name and parameters) and a body (logical expression).
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{RemapTypes, StringID, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{normalize, renderers};
-use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::lir::problem::normalize;
+use crate::aiplan4rust::lir::{renderers, LirError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents a derived predicate in a PDDL problem.
 ///
@@ -172,48 +171,8 @@ impl fmt::Display for DerivedPredicate {
     }
 }
 
-/*/// Implements [`InternerDisplay`] for `DerivedPredicate`.
-///
-/// This allows printing the derived predicate using a [`StringInterner`] to
-/// resolve interned identifiers.
-impl InternerDisplay for DerivedPredicate {
-    /// Formats the derived predicate using the given interner.
-    ///
-    /// # Parameters
-    /// - `f`: The [`Formatter`] to write the output into.
-    /// - `interner`: The [`StringInterner`] to resolve identifiers.
-    ///
-    /// # Returns
-    /// [`fmt::Result`] indicating whether writing was successful.
-    fn fmt_with_interner(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        renderers::interner::render_derived_predicate(f, self, interner)
-    }
-}*/
 
-/*/// Implements [`SyntaxInternerDisplay`] for `DerivedPredicate`.
-///
-/// This allows printing the derived predicate in a PDDL-like syntax format,
-/// with indentation and identifier resolution via a [`StringInterner`].
-impl SyntaxInternerDisplay for DerivedPredicate {
-    /// Formats the derived predicate as PDDL syntax with the given interner and indentation.
-    ///
-    /// # Parameters
-    /// - `f`: The [`Formatter`] to write the output into.
-    /// - `interner`: The [`StringInterner`] to resolve identifiers.
-    /// - `indent`: Indentation level for pretty-printing.
-    ///
-    /// # Returns
-    /// [`fmt::Result`] indicating whether writing was successful.
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        renderers::syntax_old::render_derived_predicate(f, self, interner, indent)
-    }
-}*/
+impl LiftedSyntaxDisplay for DerivedPredicate {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        renderers::syntax::derive_predicate::render(f, self, ctx)    }
+}

@@ -45,7 +45,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::problem::renderers;
+use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree};
 
 /// Expression node wrapping a syntax base node specialized with `ExprKind` and `ExprContent`.

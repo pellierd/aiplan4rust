@@ -73,7 +73,7 @@ pub fn encode(
 ) -> Result<(), LirError> {
 
     // Phase 1: Register all object names to generate their ObjectIDs in the registry
-    collect_object_ids(subtree, registry)?;
+    collect_object_ids(subtree, registry, ir)?;
 
     // Phase 2: Resolve types and finalize the object definitions in the LIR
     encode_definitions(subtree, registry, ir)?;
@@ -87,7 +87,8 @@ pub fn encode(
 /// known to the registry.
 fn collect_object_ids(
     subtree: &SyntaxSubtree<AstNode>,
-    registry: &mut EncodingRegistry
+    registry: &mut EncodingRegistry,
+    ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
     let list_node = tree.try_node(subtree.node().try_child(0)?)?;
@@ -103,6 +104,7 @@ fn collect_object_ids(
         // Register the object. Your `register_object_symbol` logic handles
         // the NodeId mapping and ID generation.
         registry.register_object_symbol(symbol_id, symbol_node_id);
+        ir.add_object_symbol(symbol_id);
     }
     Ok(())
 }
@@ -124,13 +126,15 @@ fn encode_definitions(
         let typed_symbol_node = tree.try_node(typed_symbol_id)?;
         let child_subtree = SyntaxSubtree::new(typed_symbol_node, typed_symbol_id, tree);
 
-        // This call will now succeed because:
-        // 1. The ObjectID was registered in Phase 1.
-        // 2. The TypeIDs were registered during Domain encoding.
+        // 1. Encodage de la structure (ID + Type)
         let typed_object = typed_symbol::encode_typed_object(&child_subtree, registry)?;
 
-        // Store the final definition. We use the internal ObjectID from
-        // the definition to ensure consistency.
+        // 2. Récupération du nom (StringID) de l'objet
+        let symbol_node_id = typed_symbol_node.try_child(0)?;
+        let symbol_node = tree.try_node(symbol_node_id)?;
+        let symbol_name_id = symbol_node.try_ident()?;
+
+        // 3. Ajout au LIR avec son nom
         ir.add_object(typed_object);
     }
 

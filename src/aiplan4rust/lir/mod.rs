@@ -49,6 +49,7 @@ pub mod atomic_skeleton;
 pub mod result;
 pub mod error;
 pub mod problem;
+pub mod renderers;
 
 pub use builder::LirBuilder;
 pub use result::Result as LirBuilderResult;

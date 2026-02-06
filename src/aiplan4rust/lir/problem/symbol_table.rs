@@ -1,9 +1,9 @@
+use std::cell::RefCell;
 use crate::aiplan4rust::lang::ids::Id;
-use crate::aiplan4rust::interner::{InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
-use std::rc::Rc;
 use thiserror::Error;
 use crate::aiplan4rust::lang::StringID;
 
@@ -13,19 +13,15 @@ use crate::aiplan4rust::lang::StringID;
 /// Provides fast lookups in both directions.
 #[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
 pub struct SymbolTable<ID: Id> {
-    elements: Vec<StringID>,   // idx -> Ident
-    map: HashMap<StringID, ID>, // Ident -> ID
-    /// Reference-counted interner
-    #[serde(skip)]
-    interner: Rc<StringInterner>,
+    pub elements: Vec<StringID>,   // idx -> Ident
+    pub map: HashMap<StringID, ID>, // Ident -> ID
 }
 
 impl<ID: Id> SymbolTable<ID> {
-    pub fn new(interner: Rc<StringInterner>) -> Self {
+    pub fn new() -> Self {
         Self {
             elements: Vec::new(),
             map: HashMap::new(),
-            interner
         }
     }
 
@@ -85,55 +81,48 @@ impl<ID: Id> SymbolTable<ID> {
     pub fn try_get_ident(&self, id: ID) -> Result<&StringID, IndexTableError> {
         self.get_ident(id).ok_or(IndexTableError::index_out_of_bounds(id.as_usize()))
     }
-
-    /// Résout un `ID` en une chaîne de caractères, si possible.
-    pub fn get_string(&self, id: ID) -> Option<&str> {
-        self.get_ident(id)
-            .and_then(|ident| self.interner.resolve_ident(*ident))
-    }
-
-    /// Résout un `ID` en une chaîne de caractères, renvoie une erreur si impossible.
-    pub fn try_get_string(&self, id: ID) -> Result<&str, IndexTableError> {
-        let ident = self.try_get_ident(id)?; // utilise try_get_ident pour l'erreur si invalide
-        Ok(self.interner.try_resolve_ident(*ident)?)
-    }
-
-    /// Réinjecte un interner après désérialisation
-    pub fn set_interner(&mut self, interner: Rc<StringInterner>) {
-        self.interner = interner;
-    }
 }
 
 impl<ID: Id> fmt::Display for SymbolTable<ID> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Cas où la table est vide
         if self.elements.is_empty() {
-            writeln!(f, "<None>")?;
-            return Ok(());
+            return writeln!(f, "<empty table>");
         }
 
-        // Calculer la largeur maximale de l'indice et du nom
         let idx_width = self.elements.len().to_string().len();
-        let name_width = self
-            .elements
-            .iter()
-            .map(|ident| {
-                self.interner
-                    .resolve_ident(*ident)
-                    .unwrap_or("<unresolved>")
-                    .len()
-            })
+        for (idx, ident) in self.elements.iter().enumerate() {
+            // On affiche l'ID numérique du StringID puisqu'on n'a plus l'interner ici
+            writeln!(f, "{:>idx_width$}: {}", idx, ident, idx_width = idx_width)?;
+        }
+        Ok(())
+    }
+}
+
+impl<ID: Id> InternerDisplay for SymbolTable<ID> {
+    fn fmt_with_interner(
+        &self,
+        f: &mut fmt::Formatter<'_>,
+        interner: &StringInterner,
+    ) -> fmt::Result {
+        if self.elements.is_empty() {
+            return writeln!(f, "<empty table>");
+        }
+
+        // Calcul des largeurs pour un joli alignement
+        let idx_width = self.elements.len().to_string().len();
+        let name_width = self.elements.iter()
+            .map(|ident| interner.resolve_ident(*ident).unwrap_or("?").len())
             .max()
             .unwrap_or(0);
 
         for (idx, ident) in self.elements.iter().enumerate() {
-            let name = self.interner.resolve_ident(*ident).unwrap_or("<unresolved>");
+            let name = interner.resolve_ident(*ident).unwrap_or("<unresolved>");
             writeln!(
                 f,
                 "{:>idx_width$}: {:<name_width$} - {}",
                 idx,
                 name,
-                ident,
+                ident, // Affiche le StringID (entier)
                 idx_width = idx_width,
                 name_width = name_width
             )?;
@@ -141,7 +130,6 @@ impl<ID: Id> fmt::Display for SymbolTable<ID> {
         Ok(())
     }
 }
-
 
 #[derive(Debug, Error)]
 pub enum IndexTableError {
@@ -156,13 +144,32 @@ pub enum IndexTableError {
 }
 
 impl IndexTableError {
+    #[track_caller]
     pub fn ident_not_found(id: StringID) -> Self {
-        log::debug!("Creating IndexTableError::IdentNotFound for {:?}", id);
-        IndexTableError::IdentNotFound(id)
+        let err = IndexTableError::IdentNotFound(id);
+        Self::log_error(&err, std::panic::Location::caller());
+        err
     }
 
+    #[track_caller]
     pub fn index_out_of_bounds(idx: usize) -> Self {
-        log::debug!("Creating IndexTableError::IndexOutOfBounds for {}", idx);
-        IndexTableError::IndexOutOfBounds(idx)
+        let err = IndexTableError::IndexOutOfBounds(idx);
+        Self::log_error(&err, std::panic::Location::caller());
+        err
+    }
+
+    /// Helper privé pour le logging détaillé avec Backtrace
+    fn log_error(err: &Self, caller: &std::panic::Location) {
+        if log::log_enabled!(log::Level::Debug) {
+            let bt = std::backtrace::Backtrace::force_capture();
+            log::debug!(
+                "\nIndexTable Error at {}:{}:{}\n{}\nStack trace:\n{}",
+                caller.file(),
+                caller.line(),
+                caller.column(),
+                err,
+                bt
+            );
+        }
     }
 }

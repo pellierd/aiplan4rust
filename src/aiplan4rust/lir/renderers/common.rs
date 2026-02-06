@@ -1,5 +1,17 @@
 use std::fmt;
+use std::fmt::Formatter;
 use crate::aiplan4rust::lir::expr::Expr;
+
+// Taille standard d'un palier d'indentation (nombre d'espaces).
+pub const INDENT_SIZE: usize = 2;
+
+/// Écrit l'indentation correspondant au niveau demandé.
+pub fn write_indent(f: &mut Formatter<'_>, level: usize) -> fmt::Result {
+    for _ in 0..(level * INDENT_SIZE) {
+        write!(f, " ")?;
+    }
+    Ok(())
+}
 
 /// Writes a centered title to a formatter with optional fill characters on both sides.
 ///

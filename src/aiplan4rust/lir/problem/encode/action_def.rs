@@ -47,12 +47,7 @@ pub fn encode(
     let node = subtree.node();
     let ast = subtree.tree();
 
-    // --- STEP 1: Variable Binding ---
-    // Retrieve the ParameterDef (index 1) and register the NodeIds.
-    // This sets up the local scope for the entire action encoding process.
-    let parameters_def_id = node.try_child(1)?;
-    named_typed_list::bind_variables(parameters_def_id, ast, registry)?;
-
+    registry.clear_variables();
     // --- STEP 2: Header Encoding (Name + Parameters) ---
     // Encode the signature using the registry, which now contains the variable mappings.
     let header = named_typed_list::encode(subtree, registry)?;

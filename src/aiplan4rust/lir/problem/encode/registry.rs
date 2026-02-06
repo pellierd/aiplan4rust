@@ -97,6 +97,13 @@ impl EncodingRegistry {
         }
     }
 
+    pub fn types_count(&self) -> usize {
+        self.type_node_to_id.len()
+    }
+
+    pub fn type_symbols_count(&self) -> usize {
+        self.type_symbol_to_id.len()
+    }
     /// Returns the symbol table for identifier resolution.
     pub fn symbol_table(&self) -> &SymbolTable {
         &self.symbol_table
@@ -263,7 +270,6 @@ impl EncodingRegistry {
             self.type_symbol_to_id.insert(symbol, new_id);
             new_id
         };
-        self.type_node_to_id.insert(node_id, id);
         id
     }
 

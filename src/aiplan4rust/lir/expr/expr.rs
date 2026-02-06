@@ -49,7 +49,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::lir::problem::renderers;
+use crate::aiplan4rust::lir::renderers;
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///

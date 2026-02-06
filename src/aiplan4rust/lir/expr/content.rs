@@ -64,7 +64,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::lir::problem::encode::typed_list;
-use crate::aiplan4rust::lir::problem::renderers;
+use crate::aiplan4rust::lir::renderers;
 
 /// Represents the semantic content attached to an AST syntax node.
 ///

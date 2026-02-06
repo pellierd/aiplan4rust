@@ -5,19 +5,18 @@
 //! It provides methods to access and modify the action's components,
 //! normalize expressions, and render the action in human-readable or PDDL-like syntax.
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lang::TypedSymbol;
-use crate::aiplan4rust::lang::{StringID, RemapTypes, Type};
+use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{normalize, renderers, LiftedAction};
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::lir::problem::{normalize, LiftedAction};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents a lifted PDDL durative action.
 ///
@@ -266,47 +265,8 @@ impl fmt::Display for DurativeAction {
     }
 }
 
-/*/// Implements [`InternerDisplay`] for `DurativeAction`.
-///
-/// Renders the action using a [`StringInterner`] to resolve interned identifiers,
-/// producing readable names for the action's name and parameters.
-impl InternerDisplay for DurativeAction {
-    /// Writes the action using the provided interner.
-    ///
-    /// # Parameters
-    /// - `f`: The formatter to write into.
-    /// - `interner`: Interner used to resolve identifiers.
-    ///
-    /// # Returns
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt_with_interner(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        renderers::interner::render_durative_action(f, self, interner)
+impl LiftedSyntaxDisplay for DurativeAction {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        renderers::syntax::durative_action::render(f, self, ctx)
     }
-}*/
-
-/*/// Implements [`SyntaxInternerDisplay`] for `DurativeAction`.
-///
-/// Renders the action in a PDDL-like syntax using a [`StringInterner`] and indentation.
-impl SyntaxInternerDisplay for DurativeAction {
-    /// Writes the action in PDDL-like syntax with indentation.
-    ///
-    /// # Parameters
-    /// - `f`: The formatter to write into.
-    /// - `interner`: Interner used to resolve identifiers.
-    /// - `indent`: Number of spaces for indentation.
-    ///
-    /// # Returns
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        renderers::syntax_old::render_durative_action(f, self, interner, indent)
-    }
-}*/
+}

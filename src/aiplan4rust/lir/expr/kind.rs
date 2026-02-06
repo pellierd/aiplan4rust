@@ -100,6 +100,72 @@ pub enum Kind {
     TaskOrderingConstraint, // check
 }
 
+impl Kind {
+    pub fn to_pddl_keyword(&self) -> &'static str {
+        match self {
+            // Leaves and terminals (content is handled by the Content module)
+            Kind::Constant |
+            Kind::Variable |
+            Kind::FunctionSymbol |
+            Kind::Predicate |
+            Kind::TaskSymbol |
+            Kind::PrefName |
+            Kind::FunctionTerm |
+            Kind::Number |
+            Kind::AtomicFormula |
+            Kind::Task |
+            Kind::TaskID |
+            Kind::TaggedTask => "",
+
+            // Logical Connectives
+            Kind::And => "and",
+            Kind::Or => "or",
+            Kind::Not => "not",
+            Kind::Imply => "imply",
+            Kind::Forall => "forall",
+            Kind::Exists => "exists",
+            Kind::When => "when",
+
+            // Quantifiers and Preferences
+            Kind::Preference => "preference",
+            Kind::IsViolated => "is-violated",
+
+            // Numerical Comparisons and Operations
+            // Note: Usually handled by Content (e.g., <, >, +, -)
+            Kind::FComp |
+            Kind::Operation => "",
+            Kind::Assign => "",
+
+            // Temporal (PDDL 2.1+)
+            Kind::AtStart => "at start",
+            Kind::AtEnd => "at end",
+            Kind::Overall => "overall",
+
+            // Modal Constraints / Trajectories (PDDL 3.0)
+            Kind::Always => "always",
+            Kind::Sometime => "sometime",
+            Kind::Within => "within",
+            Kind::AtMostOnce => "at-most-once",
+            Kind::SometimeAfter => "sometime-after",
+            Kind::SometimeBefore => "sometime-before",
+            Kind::AlwaysWithin => "always-within",
+            Kind::HoldDuring => "hold-during",
+            Kind::HoldAfter => "hold-after",
+
+            // Temporal Planning and Metrics
+            Kind::TimedInitialLiteral => "at",
+            Kind::Metric => "metric",
+            Kind::TotalTime => "total-time",
+
+            // HTN and specific extensions
+            Kind::TaskOrderingConstraint => "ordering",
+            Kind::Serial => "serial",
+            Kind::Parallel => "parallel",
+            Kind::Length => "length",
+        }
+    }
+}
+
 impl fmt::Display for Kind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {

@@ -38,13 +38,13 @@
 //! ```
 
 use std::fmt::{self, Display, Formatter};
-use crate::aiplan4rust::lir::problem::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::{LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TaskSkeletonID, TypeID, TypedSymbol, VariableID};
+use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::serialization::SerializationError;
-use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
+use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
 /// Wrapper around the domain view of a lifted problem.
@@ -203,28 +203,6 @@ impl<'a> DomainDef<'a> {
     }
 }
 
-/*/// Implements [`SyntaxDisplay`] for [`DomainDef`], providing a way to render
-/// the domain as a syntax string without relying on indentation or external formatting.
-///
-/// This uses the `renderers::syntax::render_domain_def` function to generate
-/// a textual representation of the domain's definitions (types, constants,
-/// predicates, functions, actions, methods, and constraints) using the
-/// domain's internal `StringInterner`.
-impl<'a> SyntaxDisplay for DomainDef<'a> {
-    /// Formats the domain as a syntax string.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the syntax string into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::syntax_old::render_domain_def(f, &self.problem.domain_def(), self.interner())
-    }
-}*/
-
 /// Implements the standard [`Display`] trait for [`DomainDef`].
 ///
 /// This provides a default string representation of the domain, typically
@@ -249,6 +227,17 @@ impl<'a> Display for DomainDef<'a> {
     /// A [`fmt::Result`] indicating success or failure.
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         renderers::default::render_problem(f, self.problem)
+    }
+}
+
+impl<'a>  LiftedSyntaxDisplay for DomainDef<'a> {
+    fn fmt_syntax(&self, f: &mut fmt::Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
+        renderers::syntax::domain::render(f, self, ctx)
+    }
+
+    fn fmt_syntax_self(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let ctx = RenderContext::new(self.problem);
+        self.fmt_syntax(f, &ctx)
     }
 }
 

@@ -38,12 +38,13 @@
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{StringID, TaskSkeletonID};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::problem::{normalize, renderers};
+use crate::aiplan4rust::lir::problem::normalize;
+use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::renderers::syntax::method::render;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Represents a network of tasks along with their ordering and logical constraints.
@@ -266,69 +267,8 @@ impl Display for TaskNetwork {
     }
 }
 
-/*impl InternerDisplay for TaskNetwork {
-    /// Formats the `TaskNetwork` using a [`StringInterner`] to resolve identifiers.
-    ///
-    /// This implementation resolves interned names of tasks and constraints
-    /// for a human-readable output.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    /// * `interner` - The [`StringInterner`] used to resolve interned identifiers.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let network: TaskNetwork = todo!();
-    /// # let interner: StringInterner = todo!();
-    /// let mut s = String::new();
-    /// network.fmt_with_interner(&mut s, &interner).unwrap();
-    /// println!("{}", s);
-    /// ```
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> std::fmt::Result {
-        renderers::interner::render_task_network(f, self, interner)
+impl LiftedSyntaxDisplay for TaskNetwork {
+    fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> std::fmt::Result {
+        renderers::syntax::task_network::render_task_network(f, self, ctx)
     }
-}*/
-
-/*impl SyntaxInternerDisplay for TaskNetwork {
-    /// Formats the `TaskNetwork` as a syntax-oriented representation using a [`StringInterner`] and indentation.
-    ///
-    /// This implementation produces a PDDL-like output of the task network,
-    /// including tasks, ordering constraints, and logical constraints,
-    /// indented according to the `indent` parameter.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write into.
-    /// * `interner` - The [`StringInterner`] used to resolve interned identifiers.
-    /// * `indent` - The indentation level to apply to the rendered syntax.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::fmt::Write;
-    /// # let network: TaskNetwork = todo!();
-    /// # let interner: StringInterner = todo!();
-    /// let mut s = String::new();
-    /// network.fmt_syntax_with_interner_and_indent(&mut s, &interner, 2).unwrap();
-    /// println!("{}", s);
-    /// ```
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize
-    ) -> std::fmt::Result {
-        renderers::syntax_old::render_task_network(f, self, interner, indent)
-    }
-}*/
+}
