@@ -14,7 +14,7 @@
 
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::problem::encode::{domain_def, problem_def, EncodingRegistry};
+use crate::aiplan4rust::lir::encode::{domain, problem, EncodingRegistry};
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::Tree;
 
@@ -40,7 +40,7 @@ pub fn encode_domain(
     context: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-    domain_def::encode(syntax_tree, context, ir)
+    domain::encode(syntax_tree, context, ir)
 }
 
 /// Extracts and encodes all problem-level elements into the LIR.
@@ -70,5 +70,5 @@ pub fn encode_problem(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-    problem_def::encode(syntax_tree, registry, ir)
+    problem::encode(syntax_tree, registry, ir)
 }

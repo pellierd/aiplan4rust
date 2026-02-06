@@ -17,7 +17,7 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::artefact::source::Source;
 use crate::aiplan4rust::linking::Linker;
-use crate::aiplan4rust::lir::{LirBuilder, LirBuilderResult};
+use crate::aiplan4rust::lir::{LirEncoder, LirBuilderResult};
 use crate::aiplan4rust::normalization::Normalizer;
 use crate::aiplan4rust::semantic::{Analyzer, AnalyzerResult};
 use crate::aiplan4rust::syntax::Parser;
@@ -156,7 +156,7 @@ impl Frontend {
 
         // Step 3: If linking succeeded, build the LIR
         if let Some(linked_semantic_context) = linker_result.take_linked_semantic_context() {
-            let mut ir_builder = LirBuilder::new();
+            let mut ir_builder = LirEncoder::new();
             let builder_result = ir_builder.build_with_diagnostic_manager(
                 linked_semantic_context,
                 linker_result.take_diagnostic_manager(),
@@ -220,7 +220,7 @@ impl Frontend {
 
         // 3. Build LIR if possible
         if let Some(linked_context) = linker_result.take_linked_semantic_context() {
-            let mut lir_builder = LirBuilder::new();
+            let mut lir_builder = LirEncoder::new();
             let lir_result = lir_builder.build_with_diagnostic_manager(
                 linked_context,
                 linker_result.take_diagnostic_manager(),
@@ -261,7 +261,7 @@ impl Frontend {
         };
 
         // --- Step 3: Build LIR ---
-        let mut lir_builder = LirBuilder::new();
+        let mut lir_builder = LirEncoder::new();
         let mut lir_result = lir_builder.build_with_diagnostic_manager(
             linked_semantic_context,
             linker_result.take_diagnostic_manager(),

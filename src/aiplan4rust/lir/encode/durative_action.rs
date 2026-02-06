@@ -8,9 +8,9 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::problem::encode::{expr, named_typed_list};
-use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
-use crate::aiplan4rust::lir::problem::durative_action::DurativeAction;
+use crate::aiplan4rust::lir::encode::{expr, named_typed_list};
+use crate::aiplan4rust::lir::encode::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::durative_action::DurativeAction;
 
 /// Encodes a PDDL durative action from the syntax tree into the LIR.
 ///
@@ -42,11 +42,7 @@ pub fn encode(
     let node = subtree.node();
     let ast = subtree.tree();
 
-    // --- ÉTAPE 1 : Binding des variables ---
-    // On récupère le ParameterDef (index 1) et on enregistre les NodeIds
-    // Cela prépare le terrain pour TOUT l'encodage de l'action.
-    let parameters_def_id = node.try_child(1)?;
-    named_typed_list::bind_variables(parameters_def_id, ast, registry)?;
+    registry.clear_variables();
 
     // --- ÉTAPE 2 : Encodage du Header (Nom + Paramètres) ---
     // On utilise maintenant le registre qui contient déjà les variables mappées.

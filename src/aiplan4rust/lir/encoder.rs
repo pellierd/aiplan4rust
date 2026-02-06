@@ -38,8 +38,10 @@
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::{LirBuilderResult, LirError};
+use crate::aiplan4rust::lir::problem::{normalize, LiftedProblem};
+use crate::aiplan4rust::lir::{encode, LirBuilderResult, LirError};
+use crate::aiplan4rust::lir::encode::{domain, problem, EncodingRegistry};
+use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
 /// syntax domain/problem into a *lifted intermediate representation* (LiftedProblem).
@@ -68,14 +70,14 @@ use crate::aiplan4rust::lir::{LirBuilderResult, LirError};
 /// It only prepares data for later use.
 /// The input has already been verified to be semantically correct.
 #[derive(Debug, Default)]
-pub struct LirBuilder {
+pub struct LirEncoder {
     diagnostic_manager: DiagnosticManager,
 }
 
-impl LirBuilder {
+impl LirEncoder {
     /// Creates a new instance of IRBuilder.
     pub fn new() -> Self {
-        LirBuilder {
+        LirEncoder {
             diagnostic_manager: DiagnosticManager::new(),
         }
     }
@@ -122,12 +124,12 @@ impl LirBuilder {
     ///     }
     /// }
     /// ```
-    pub fn build(
+    pub fn encode(
         &mut self,
         context: LinkedSemanticContext,
     ) -> Result<LirBuilderResult, LirError> {
         // 1. Create a LiftedProblem from the linked semantic context
-        let lifted_problem = LiftedProblem::try_from(context)?;
+        let lifted_problem = encode_lifted_problem(context)?;
 
         // 2. Return the successful result containing the constructed LiftedProblem
         //    and the diagnostics collected during the build process
@@ -143,6 +145,43 @@ impl LirBuilder {
         diagnostic_manager: DiagnosticManager,
     ) -> Result<LirBuilderResult, LirError> {
         self.diagnostic_manager = diagnostic_manager;
-        self.build(context)
+        self.encode(context)
     }
+}
+
+
+// Encode a LiftedProblem from a LinkedSemanticContext.
+/// This is the core transformation that was previously in `try_from`.
+pub fn encode_lifted_problem(
+    mut context: LinkedSemanticContext,
+) -> Result<LiftedProblem, LirError> {
+    // 1. Consume interner and required requirements from the context
+    let interner = context.take_interner();
+    let requirements = context.take_required_requirements();
+
+    // 2. Create a new LiftedProblem with interner and requirements
+    let mut problem = LiftedProblem::new(interner, requirements);
+
+    // 3. Encode domain-level elements
+    let domain_symbol_table = context.take_domain_table();
+    let domain_syntax_tree = context.take_domain_syntax_tree();
+    let mut registry = EncodingRegistry::new(domain_symbol_table);
+    domain::encode(&domain_syntax_tree, &mut registry, &mut problem)?;
+
+    // 4. Encode problem-level elements
+    let problem_symbol_table = context.take_problem_table();
+    let problem_syntax_tree = context.take_problem_syntax_tree();
+    registry.set_symbol_table(problem_symbol_table);
+    problem::encode(&problem_syntax_tree, &mut registry, &mut problem)?;
+
+    // 5. Normalize all expressions in the problem
+    normalize::normalize_problem(&mut problem)?;
+
+    // Optional: print definitions for debugging
+    let domain_def = problem.domain_def();
+    println!("Domain: \n{}", domain_def.to_syntax_string());
+    println!("Problem : \n{}", problem.problem_def().to_syntax_string());
+
+    // 6. Return the fully constructed and normalized problem
+    Ok(problem)
 }

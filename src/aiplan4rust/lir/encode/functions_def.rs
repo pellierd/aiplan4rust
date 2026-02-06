@@ -13,7 +13,7 @@
 
 use crate::aiplan4rust::lang::FunctionSkeletonID;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{atomic_function_skeleton, EncodingRegistry};
+use crate::aiplan4rust::lir::encode::{atomic_function_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;

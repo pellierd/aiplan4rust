@@ -18,7 +18,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, Node, SyntaxSubtree, Tree};
-use crate::aiplan4rust::lir::problem::encode::{typed_list, EncodingRegistry};
+use crate::aiplan4rust::lir::encode::{typed_list, EncodingRegistry};
 
 /// Encodes a `NamedTypedList` (skeleton) from a syntax subtree.
 ///
@@ -73,38 +73,4 @@ pub fn encode(
     };
 
     Ok(NamedTypedList::new(name, parameters))
-}
-
-/// Helper universel pour lier les variables d'une liste de paramètres au registre.
-///
-/// Cette fonction gère le cas où les variables sont enveloppées dans un ParameterDef
-/// ou présentes directement dans la liste.
-pub fn bind_variables(
-    params_root_id: NodeId,
-    ast: &Tree<AstNode>,
-    registry: &mut EncodingRegistry,
-) -> Result<(), LirError> {
-    registry.clear_variables();
-
-    let root_node = ast.try_node(params_root_id)?;
-
-    // Si on pointe sur un ParameterDef (ex: Action), on descend d'un cran.
-    // Sinon (ex: Task), on utilise le nœud directement.
-    let typed_list = if root_node.kind() == AstKind::ParametersDef {
-        let content_id = root_node.try_child(0)?;
-        ast.try_node(content_id)?
-    } else {
-        root_node
-    };
-
-    for &typed_symbol_id in typed_list.children() {
-        let typed_symbol_node = ast.try_node(typed_symbol_id)?;
-        let variable_node_id = typed_symbol_node.try_child(0)?;
-        let variable_node = ast.try_node(variable_node_id)?;
-        if variable_node.kind() == AstKind::Variable {
-            registry.register_variable(variable_node_id);
-        }
-    }
-
-    Ok(())
 }

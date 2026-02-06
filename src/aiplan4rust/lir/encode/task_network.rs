@@ -10,8 +10,8 @@ use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::kind::Kind;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{expr, EncodingRegistry};
-use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
+use crate::aiplan4rust::lir::encode::{expr, EncodingRegistry};
+use crate::aiplan4rust::lir::task_network::TaskNetwork;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 

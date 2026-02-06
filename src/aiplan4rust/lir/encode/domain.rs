@@ -10,8 +10,8 @@
 //!
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::problem::encode::{action_def, predicates_def, functions_def, types_def, constants_def, expr, durative_action_def, method_def, derived_predicate_def, task_def};
-use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::encode::{action, predicates_def, functions_def, types_def, constants_def, expr, durative_action, method, derived_predicate, task};
+use crate::aiplan4rust::lir::encode::registry::EncodingRegistry;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 
@@ -98,9 +98,9 @@ fn collect_definitions(
             AstKind::ConstantsDef => constants_def::encode(&subtree, registry, ir)?,
             AstKind::PredicatesDef => predicates_def::encode(&subtree, registry, ir)?,
             AstKind::FunctionsDef => functions_def::encode(&subtree, registry, ir)?,
-            AstKind::TaskDef => task_def::encode(&subtree, registry, ir)?,
-            AstKind::ActionDef => task_def::encode(&subtree, registry, ir)?,
-            AstKind::DurativeActionDef => task_def::encode(&subtree, registry, ir)?,
+            AstKind::TaskDef => task::encode(&subtree, registry, ir)?,
+            AstKind::ActionDef => task::encode(&subtree, registry, ir)?,
+            AstKind::DurativeActionDef => task::encode(&subtree, registry, ir)?,
             _ => {}
         }
     }
@@ -147,17 +147,17 @@ fn encode_logic(
                 let constraints = expr::encode(&subtree, registry)?;
                 ir.set_domain_constraints(constraints);
             }
-            AstKind::ActionDef => action_def::encode(&subtree, registry, ir)?,
+            AstKind::ActionDef => action::encode(&subtree, registry, ir)?,
             AstKind::DurativeActionDef => {
-                let action = durative_action_def::encode(&subtree, registry)?;
+                let action = durative_action::encode(&subtree, registry)?;
                 ir.add_durative_action(action);
             }
             AstKind::DerivedDef => {
-                let derived_predicate = derived_predicate_def::encode(&subtree, registry)?;
+                let derived_predicate = derived_predicate::encode(&subtree, registry)?;
                 ir.add_derived_predicate(derived_predicate);
             }
             AstKind::MethodDef => {
-                let method = method_def::encode(&subtree, registry)?;
+                let method = method::encode(&subtree, registry)?;
                 ir.add_method(method);
             }
             _ => {} 

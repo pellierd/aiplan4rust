@@ -8,8 +8,8 @@ use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::problem::encode::{named_typed_list, task_network, typed_list};
-use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::encode::{named_typed_list, task_network, typed_list};
+use crate::aiplan4rust::lir::encode::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::problem::InitialTaskNetwork;
 
 /// Encodes an `InitialTaskNetwork` from the syntax tree.
@@ -32,6 +32,8 @@ pub fn encode(
     let node = subtree.node();
     let ast = subtree.tree();
 
+    registry.clear_variables();
+
     let mut child_index = 0;
 
     // 1. Parse optional parameters
@@ -39,11 +41,6 @@ pub fn encode(
         let parameters_def_node = ast.try_node(parameters_def_id)?;
 
         if parameters_def_node.kind() == AstKind::ParametersDef {
-            // --- ÉTAPE CRUCIALE : BINDING ---
-            // On enregistre les variables dans le registre pour que le Task Network
-            // puisse les résoudre (ex: variables existentielles du problème).
-            named_typed_list::bind_variables(parameters_def_id, ast, registry)?;
-
             let param_node_id = parameters_def_node.try_child(0)?;
             let param_node = ast.try_node(param_node_id)?;
             child_index += 1;

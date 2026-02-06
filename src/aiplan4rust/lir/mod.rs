@@ -7,7 +7,7 @@
 //!
 //! # Submodules
 //!
-//! - [`builder`]: Provides the `LirBuilder` for constructing LIR entities
+//! - [`encoder`]: Provides the `LirBuilder` for constructing LIR entities
 //!   using a builder pattern.
 //! - [`expr`]: Contains definitions related to expressions used within the LIR.
 //! - [`problem`]: Defines the `LiftedProblem` struct representing a lifted syntax problem.
@@ -42,7 +42,7 @@
 //! This module is foundational for hierarchical and lifted AI syntax,
 //! enabling complex task decompositions and parameterized syntax domains.
 
-pub mod builder;
+pub mod encoder;
 pub mod expr;
 
 pub mod atomic_skeleton;
@@ -50,7 +50,14 @@ pub mod result;
 pub mod error;
 pub mod problem;
 pub mod renderers;
+pub mod action;
+mod derived_predicate;
+mod durative_action;
+pub mod initial_task_network;
+pub mod method;
+pub mod task_network;
+pub mod encode;
 
-pub use builder::LirBuilder;
+pub use encoder::LirEncoder;
 pub use result::Result as LirBuilderResult;
 pub use error::LirError;

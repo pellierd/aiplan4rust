@@ -57,7 +57,7 @@ use std::fmt::{Display, Formatter};
 use itertools::Itertools;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::problem::encode::{encoder, EncodingRegistry};
+use crate::aiplan4rust::lir::encode::{encoder, EncodingRegistry};
 use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -589,111 +589,6 @@ impl Problem {
         ProblemDef::new(self)
     }
 }
-
-/*impl SyntaxDisplay for Problem {
-    /// Formats the entire problem, including both domain and problem definitions,
-    /// as a syntax string.
-    ///
-    /// This implementation delegates rendering to the syntax renderers for
-    /// the domain (`render_domain_def`) and the problem (`render_problem_def`),
-    /// inserting a newline between them.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the syntax string into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt_syntax(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        renderers::syntax::problem::render(f, &self);
-        writeln!(f)?;
-        renderers::syntax_old::render_problem_def(f, &self.problem_def(), &self.interner())
-    }
-}
-
-impl SelfInternerDisplay for Problem {
-    /// Formats the problem using its internal `StringInterner`, including both
-    /// domain and problem definitions.
-    ///
-    /// This implementation delegates rendering to the interner-aware renderers
-    /// for the domain (`render_domain_def`) and the problem (`render_problem_def`),
-    /// inserting a newline between them.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write the string into.
-    ///
-    /// # Returns
-    ///
-    /// A [`fmt::Result`] indicating success or failure.
-    fn fmt_interner(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        //renderers::interner::render_domain_def(f, &self.domain_def(), &self.interner())?;
-        //writeln!(f)?;
-        //renderers::interner::render_problem_def(f, &self.problem_def(), &self.interner())
-        writeln!(f)
-    }
-}*/
-
-impl TryFrom<LinkedSemanticContext> for Problem {
-    type Error = LirError;
-
-    /// Attempts to create a `LiftedProblem` from a fully linked and semantically verified
-    /// `LinkedSemanticContext`.
-    ///
-    /// This conversion performs the following steps:
-    /// 1. Consumes the `StringInterner` from the context to manage identifiers.
-    /// 2. Consumes the required `Requirement`s from the context to reflect the actual
-    ///    semantic requirements used in the domain and problem.
-    /// 3. Creates a new `LiftedProblem` initialized with the interner and requirements.
-    /// 4. Extracts all domain-level elements (types, constants, predicates, functions,
-    ///    actions, methods) from the context and populates the problem.
-    /// 5. Extracts all problem-level elements (objects, initial state, goals,
-    ///    constraints, metrics, initial task network) and populates the problem.
-    /// 6. Normalizes all expressions in the problem to canonical form.
-    ///
-    /// After this conversion, the `LiftedProblem` contains a fully constructed,
-    /// semantically consistent, and normalized representation of the lifted problem.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `LirError` if any extraction or normalization step fails.
-    fn try_from(mut context: LinkedSemanticContext) -> Result<Self, Self::Error> {
-
-        // 1. Consume interner and required requirements from the context
-        let interner = context.take_interner();
-        let requirements = context.take_required_requirements();
-
-        // 2. Create a new lifted problem with interner and requirements
-        let mut problem = LiftedProblem::new(interner, requirements);
-
-        // 3. Extract domain-level elements
-        let domain_symbol_table = context.take_domain_table();
-        let domain_syntax_tree = context.take_domain_syntax_tree();
-        let mut registry = EncodingRegistry::new(domain_symbol_table);
-
-        encoder::encode_domain(&domain_syntax_tree, &mut registry, &mut problem)?;
-
-        // 4. Extract problem-level elements
-        let problem_symbol_table = context.take_problem_table();
-        let problem_syntax_tree = context.take_problem_syntax_tree();
-        registry.set_symbol_table(problem_symbol_table);
-        encoder::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
-
-        // 5. Normalize all expressions in the problem
-        normalize::normalize_problem(&mut problem)?;
-
-        // 6. Return the fully constructed and normalized problem
-
-        let domain_def = problem.domain_def();
-        println!("Domain: \n{}", domain_def.to_syntax_string());
-
-        println!("Problem : \n{}", problem.problem_def().to_syntax_string());
-
-        Ok(problem)
-    }
-}
-
 
 impl Display for Problem {
     /// Implements standard Rust [`Display`] for the problem.

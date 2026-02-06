@@ -23,6 +23,6 @@ pub use normalization::Normalizer;
 pub use semantic::Analyzer;
 pub use syntax::Parser;
 pub use linking::Linker;
-pub use lir::LirBuilder;
+pub use lir::LirEncoder;
 
 pub use error::AiplanError;

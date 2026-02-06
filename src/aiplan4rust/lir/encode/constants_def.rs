@@ -5,7 +5,7 @@
 //! in the LIR to ensure global symbol resolution consistency.
 
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{objects_def, EncodingRegistry};
+use crate::aiplan4rust::lir::encode::{objects_def, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;

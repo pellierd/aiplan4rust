@@ -1,11 +1,11 @@
 use crate::aiplan4rust::lir::expr::ExprError;
-use crate::aiplan4rust::lir::problem::action::Action;
+use crate::aiplan4rust::lir::action::Action;
 use crate::aiplan4rust::lir::expr;
 use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
-use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
-use crate::aiplan4rust::lir::problem::durative_action::DurativeAction;
-use crate::aiplan4rust::lir::problem::method::Method;
-use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
+use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate;
+use crate::aiplan4rust::lir::durative_action::DurativeAction;
+use crate::aiplan4rust::lir::method::Method;
+use crate::aiplan4rust::lir::task_network::TaskNetwork;
 
 /// Normalizes all expressions and normalizable components of a `Problem`.
 ///

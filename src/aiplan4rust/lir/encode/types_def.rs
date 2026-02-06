@@ -6,7 +6,7 @@
 
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::encode::{typed_symbol, EncodingRegistry};
+use crate::aiplan4rust::lir::encode::{typed_symbol, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::AstNode;

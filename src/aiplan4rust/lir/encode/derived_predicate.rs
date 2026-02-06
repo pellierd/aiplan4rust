@@ -6,11 +6,11 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::derived_predicate::DerivedPredicate;
+use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::problem::encode::{atomic_formula_skeleton, expr, named_typed_list};
-use crate::aiplan4rust::lir::problem::encode::registry::EncodingRegistry;
+use crate::aiplan4rust::lir::encode::{atomic_formula_skeleton, expr, named_typed_list};
+use crate::aiplan4rust::lir::encode::registry::EncodingRegistry;
 
 /// Encodes a derived predicate from the syntax tree into the LIR.
 ///
@@ -44,8 +44,7 @@ pub fn encode(
     let head_node_id = node.try_child(0)?;
     let head_node = ast.try_node(head_node_id)?;
 
-    // --- ÉTAPE 1 : Binding des variables ---
-    named_typed_list::bind_variables(head_node_id, ast, registry)?;
+    registry.clear_variables();
 
     // 2. Encode le Head (maintenant que les variables sont bindées)
     let head = atomic_formula_skeleton::encode(

@@ -1,7 +1,7 @@
 use std::path::Path;
 use test_case::test_case;
 
-use aiplan4rust::LirBuilder;
+use aiplan4rust::LirEncoder;
 mod common;
 use crate::common::io::{collect_domain_files, delete_all_files_with_extension, filter_problem_files, get_file_stem_as_string};
 use crate::common::pipeline::{analyze_file, link};
@@ -73,8 +73,8 @@ pub fn test_lir_builder_all_files(domain_dir: &Path) -> bool {
         };
 
         // LIR Builder
-        let mut lir_builder = LirBuilder::new();
-        match lir_builder.build(linked_context) {
+        let mut lir_builder = LirEncoder::new();
+        match lir_builder.encode(linked_context) {
             Ok(result) => {
                 if result.lifted_problem().is_none() {
                     errors.push(format!("LIR Builder produced no lifted problem for {}", problem_path.display()));
