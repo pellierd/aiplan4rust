@@ -202,32 +202,32 @@ mod tests {
 
         // --- Branch 1: AtStart ---
         let start_id = root.children()[0];
-        assert_eq!(expr.kind(start_id)?, ExprKind::AtStart);
+        assert_eq!(expr.try_node_kind(start_id)?, ExprKind::AtStart);
 
         let or_start = expr.try_node(expr.try_node(start_id)?.children()[0])?;
         let and_a_id = or_start.children()[0];
-        assert_eq!(expr.kind(expr.try_node(and_a_id)?.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(expr.try_node(and_a_id)?.children()[0])?, ExprKind::AtomicFormula);
 
         // --- Branch 2: AtEnd ---
         let end_id = root.children()[1];
-        assert_eq!(expr.kind(end_id)?, ExprKind::AtEnd);
+        assert_eq!(expr.try_node_kind(end_id)?, ExprKind::AtEnd);
 
         let or_end = expr.try_node(expr.try_node(end_id)?.children()[0])?;
         // Check first child of OR: empty AND
         let and_empty_id = or_end.children()[0];
-        assert_eq!(expr.kind(and_empty_id)?, ExprKind::And);
+        assert_eq!(expr.try_node_kind(and_empty_id)?, ExprKind::And);
         assert!(expr.try_node(and_empty_id)?.children().is_empty());
 
         // Check second child of OR: NOT
-        assert_eq!(expr.kind(or_end.children()[1])?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(or_end.children()[1])?, ExprKind::Not);
 
         // --- Branch 3: Overall ---
         let overall_id = root.children()[2];
-        assert_eq!(expr.kind(overall_id)?, ExprKind::Overall);
+        assert_eq!(expr.try_node_kind(overall_id)?, ExprKind::Overall);
 
         let or_overall = expr.try_node(expr.try_node(overall_id)?.children()[0])?;
         let and_b_id = or_overall.children()[0];
-        assert_eq!(expr.kind(expr.try_node(and_b_id)?.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(expr.try_node(and_b_id)?.children()[0])?, ExprKind::AtomicFormula);
 
         Ok(())
     }
@@ -273,37 +273,37 @@ mod tests {
 
         // --- Branch 1: AtStart (at start (and A (or))) ---
         let start_id = root.children()[0];
-        assert_eq!(expr.kind(start_id)?, ExprKind::AtStart);
+        assert_eq!(expr.try_node_kind(start_id)?, ExprKind::AtStart);
 
         let inner_start = expr.try_node(expr.try_node(start_id)?.children()[0])?;
         assert_eq!(inner_start.kind(), ExprKind::And);
-        assert_eq!(expr.kind(inner_start.children()[0])?, ExprKind::AtomicFormula); // A
+        assert_eq!(expr.try_node_kind(inner_start.children()[0])?, ExprKind::AtomicFormula); // A
 
         let start_or_id = inner_start.children()[1];
-        assert_eq!(expr.kind(start_or_id)?, ExprKind::Or);
+        assert_eq!(expr.try_node_kind(start_or_id)?, ExprKind::Or);
         assert!(expr.try_node(start_or_id)?.children().is_empty());
 
         // --- Branch 2: AtEnd (at end (and (or C))) ---
         let end_id = root.children()[1];
-        assert_eq!(expr.kind(end_id)?, ExprKind::AtEnd);
+        assert_eq!(expr.try_node_kind(end_id)?, ExprKind::AtEnd);
 
         let inner_end = expr.try_node(expr.try_node(end_id)?.children()[0])?;
         assert_eq!(inner_end.kind(), ExprKind::And);
 
         let end_or = expr.try_node(inner_end.children()[0])?;
         assert_eq!(end_or.kind(), ExprKind::Or);
-        assert_eq!(expr.kind(end_or.children()[0])?, ExprKind::AtomicFormula); // C
+        assert_eq!(expr.try_node_kind(end_or.children()[0])?, ExprKind::AtomicFormula); // C
 
         // --- Branch 3: Overall (overall (and (or B))) ---
         let overall_id = root.children()[2];
-        assert_eq!(expr.kind(overall_id)?, ExprKind::Overall);
+        assert_eq!(expr.try_node_kind(overall_id)?, ExprKind::Overall);
 
         let inner_overall = expr.try_node(expr.try_node(overall_id)?.children()[0])?;
         assert_eq!(inner_overall.kind(), ExprKind::And);
 
         let overall_or = expr.try_node(inner_overall.children()[0])?;
         assert_eq!(overall_or.kind(), ExprKind::Or);
-        assert_eq!(expr.kind(overall_or.children()[0])?, ExprKind::AtomicFormula); // B
+        assert_eq!(expr.try_node_kind(overall_or.children()[0])?, ExprKind::AtomicFormula); // B
 
         Ok(())
     }
@@ -354,7 +354,7 @@ mod tests {
 
         // --- Branch 1: AtStart (at start (or (and A B))) ---
         let start_id = root.children()[0];
-        assert_eq!(expr.kind(start_id)?, ExprKind::AtStart);
+        assert_eq!(expr.try_node_kind(start_id)?, ExprKind::AtStart);
 
         let inner_start_or = expr.try_node(expr.try_node(start_id)?.children()[0])?;
         assert_eq!(inner_start_or.kind(), ExprKind::Or);
@@ -365,18 +365,18 @@ mod tests {
 
         // --- Branch 2: AtEnd (at end (or (not E))) ---
         let end_id = root.children()[1];
-        assert_eq!(expr.kind(end_id)?, ExprKind::AtEnd);
+        assert_eq!(expr.try_node_kind(end_id)?, ExprKind::AtEnd);
 
         let inner_end_or = expr.try_node(expr.try_node(end_id)?.children()[0])?;
         assert_eq!(inner_end_or.kind(), ExprKind::Or);
 
         let end_not = expr.try_node(inner_end_or.children()[0])?;
         assert_eq!(end_not.kind(), ExprKind::Not);
-        assert_eq!(expr.kind(end_not.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(end_not.children()[0])?, ExprKind::AtomicFormula);
 
         // --- Branch 3: Overall (overall (or (or C D))) ---
         let overall_id = root.children()[2];
-        assert_eq!(expr.kind(overall_id)?, ExprKind::Overall);
+        assert_eq!(expr.try_node_kind(overall_id)?, ExprKind::Overall);
 
         let inner_overall_or = expr.try_node(expr.try_node(overall_id)?.children()[0])?;
         assert_eq!(inner_overall_or.kind(), ExprKind::Or);
@@ -387,7 +387,7 @@ mod tests {
 
         // Check leaf atoms for Branch 3
         for &child_id in final_or.children() {
-            assert_eq!(expr.kind(child_id)?, ExprKind::AtomicFormula);
+            assert_eq!(expr.try_node_kind(child_id)?, ExprKind::AtomicFormula);
         }
 
         Ok(())
@@ -435,18 +435,18 @@ mod tests {
 
         // --- Branch 1: at_start (at start (or (and A))) ---
         let start_id = root.children()[0];
-        assert_eq!(expr.kind(start_id)?, ExprKind::AtStart);
+        assert_eq!(expr.try_node_kind(start_id)?, ExprKind::AtStart);
 
         let inner_start_or = expr.try_node(expr.try_node(start_id)?.children()[0])?;
         assert_eq!(inner_start_or.kind(), ExprKind::Or);
 
         let and_a = expr.try_node(inner_start_or.children()[0])?;
         assert_eq!(and_a.kind(), ExprKind::And);
-        assert_eq!(expr.kind(and_a.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(and_a.children()[0])?, ExprKind::AtomicFormula);
 
         // --- Branch 2: at_end (at end (or (and) (not C))) ---
         let end_id = root.children()[1];
-        assert_eq!(expr.kind(end_id)?, ExprKind::AtEnd);
+        assert_eq!(expr.try_node_kind(end_id)?, ExprKind::AtEnd);
 
         let inner_end_or = expr.try_node(expr.try_node(end_id)?.children()[0])?;
         assert_eq!(inner_end_or.kind(), ExprKind::Or);
@@ -454,24 +454,24 @@ mod tests {
 
         // Check empty And
         let empty_and_id = inner_end_or.children()[0];
-        assert_eq!(expr.kind(empty_and_id)?, ExprKind::And);
+        assert_eq!(expr.try_node_kind(empty_and_id)?, ExprKind::And);
         assert!(expr.try_node(empty_and_id)?.children().is_empty());
 
         // Check Not C
         let not_c_id = inner_end_or.children()[1];
-        assert_eq!(expr.kind(not_c_id)?, ExprKind::Not);
-        assert_eq!(expr.kind(expr.try_node(not_c_id)?.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(not_c_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(expr.try_node(not_c_id)?.children()[0])?, ExprKind::AtomicFormula);
 
         // --- Branch 3: overall (overall (or (and B))) ---
         let overall_id = root.children()[2];
-        assert_eq!(expr.kind(overall_id)?, ExprKind::Overall);
+        assert_eq!(expr.try_node_kind(overall_id)?, ExprKind::Overall);
 
         let inner_overall_or = expr.try_node(expr.try_node(overall_id)?.children()[0])?;
         assert_eq!(inner_overall_or.kind(), ExprKind::Or);
 
         let and_b = expr.try_node(inner_overall_or.children()[0])?;
         assert_eq!(and_b.kind(), ExprKind::And);
-        assert_eq!(expr.kind(and_b.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(and_b.children()[0])?, ExprKind::AtomicFormula);
 
         Ok(())
     }
@@ -520,27 +520,27 @@ mod tests {
 
         // --- Branch 1: AtStart (at start (and (or A forall_B))) ---
         let start_id = root.children()[0];
-        assert_eq!(expr.kind(start_id)?, ExprKind::AtStart);
+        assert_eq!(expr.try_node_kind(start_id)?, ExprKind::AtStart);
 
         let inner_start = expr.try_node(expr.try_node(start_id)?.children()[0])?;
         assert_eq!(inner_start.kind(), ExprKind::And);
 
         let or_child = expr.try_node(inner_start.children()[0])?;
         assert_eq!(or_child.kind(), ExprKind::Or);
-        assert_eq!(expr.kind(or_child.children()[0])?, ExprKind::AtomicFormula); // A
-        assert_eq!(expr.kind(or_child.children()[1])?, ExprKind::Forall);        // forall
+        assert_eq!(expr.try_node_kind(or_child.children()[0])?, ExprKind::AtomicFormula); // A
+        assert_eq!(expr.try_node_kind(or_child.children()[1])?, ExprKind::Forall);        // forall
 
         // --- Branch 2: AtEnd (at end (and C)) ---
         let end_id = root.children()[1];
-        assert_eq!(expr.kind(end_id)?, ExprKind::AtEnd);
+        assert_eq!(expr.try_node_kind(end_id)?, ExprKind::AtEnd);
 
         let inner_end = expr.try_node(expr.try_node(end_id)?.children()[0])?;
         assert_eq!(inner_end.kind(), ExprKind::And);
-        assert_eq!(expr.kind(inner_end.children()[0])?, ExprKind::AtomicFormula); // C
+        assert_eq!(expr.try_node_kind(inner_end.children()[0])?, ExprKind::AtomicFormula); // C
 
         // --- Branch 3: Overall (over all (and)) ---
         let overall_id = root.children()[2];
-        assert_eq!(expr.kind(overall_id)?, ExprKind::Overall);
+        assert_eq!(expr.try_node_kind(overall_id)?, ExprKind::Overall);
 
         let inner_overall = expr.try_node(expr.try_node(overall_id)?.children()[0])?;
         assert_eq!(inner_overall.kind(), ExprKind::And);

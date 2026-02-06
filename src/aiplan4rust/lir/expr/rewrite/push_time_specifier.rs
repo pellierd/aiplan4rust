@@ -282,117 +282,115 @@ fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), ExprE
     Ok(())
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use crate::aiplan4rust::arena::ArenaNode;
     use super::*;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test pushing AtStart temporal specifier through an AND node.
     /// Input: (at start (and (A) (B)))
     /// Expected Output: (and (at start A) (at start B))
     #[test]
-    fn test_push_at_start_and() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_at_start_and() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
+        // 1. Setup : (at start (and A B))
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
         let and_node = builder.and(vec![a, b]);
         let root = builder.at_start(and_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_time_specifier(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation : (at start (and A B)) -> (and (at start A) (at start B))
+        push_time_specifier(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::And);
+        assert_eq!(root.children().len(), 2);
 
-        let root_node = expr.try_node(root).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(root_node.children().len(), 2);
-
-        for &child_id in root_node.children().iter() {
-            let child_node = expr.try_node(child_id).unwrap();
+        // Vérification que chaque enfant est un AtStart portant sur un atome
+        for &child_id in root.children() {
+            let child_node = expr.try_node(child_id)?;
             assert_eq!(child_node.kind(), ExprKind::AtStart);
-            assert_eq!(child_node.children().len(), 1);
 
-            let atomic_id = child_node.children()[0];
-            let atomic_node = expr.try_node(atomic_id).unwrap();
-            assert_eq!(atomic_node.kind(), ExprKind::AtomicFormula);
+            let leaf_id = child_node.children()[0];
+            assert_eq!(expr.try_node_kind(leaf_id)?, ExprKind::AtomicFormula);
         }
 
-        assert_eq!(output, "(and (at start (A)) (at start (B)))");
+        Ok(())
     }
 
     /// Test pushing AtEnd temporal specifier through a Forall quantifier.
     /// Input: (at_end (forall (?X) (A)))
     /// Expected Output: (forall (?X) (at end (A)))
     #[test]
-    fn test_push_at_end_forall() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_at_end_forall() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], a);
+        // 1. Setup: (at end (forall (?X - T) (A)))
+        let a = builder.atomic_formula(1, vec![]);
+
+        // Prepare variables separately to avoid builder nesting
+        let var_x = builder.typed_variable(10, &[100]); // ID 10, Type 100
+        let var_list = builder.typed_variable_list(vec![var_x]);
+        let forall_node = builder.forall(var_list, a);
+
         let root = builder.at_end(forall_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_time_specifier(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: (at end (forall x. A)) -> (forall x. (at end A))
+        push_time_specifier(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Forall);
+        assert_eq!(root.children().len(), 1);
 
-        let root_node = expr.try_node(root).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Forall);
-        assert_eq!(root_node.children().len(), 1);
-        let body_id = root_node.children()[0];
-        let body_node = expr.try_node(body_id).unwrap();
+        // Verify the body: (at end (A))
+        let body_id = root.children()[0];
+        let body_node = expr.try_node(body_id)?;
         assert_eq!(body_node.kind(), ExprKind::AtEnd);
-        assert_eq!(body_node.children().len(), 1);
-        let a_id = body_node.children()[0];
-        let a_node = expr.try_node(a_id).unwrap();
-        assert_eq!(a_node.kind(), ExprKind::AtomicFormula);
 
-        assert_eq!(output, "(forall (?X - T) (at end (A)))");
+        // Verify the final leaf atom
+        let leaf_id = body_node.children()[0];
+        assert_eq!(expr.try_node_kind(leaf_id)?, ExprKind::AtomicFormula);
+
+        Ok(())
     }
 
     /// Test pushing Overall temporal specifier to an atomic formula.
     /// Input: (overall (A))
     /// Expected Output: (overall (A))  (no change needed)
     #[test]
-    fn test_push_overall_atomic() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_overall_atomic() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
+        // 1. Setup: (overall (A))
+        let a = builder.atomic_formula(1, vec![]);
         let root = builder.overall(a);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_time_specifier(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: No change expected on an atomic formula
+        push_time_specifier(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Overall);
+        assert_eq!(root.children().len(), 1);
 
-        let root_node = expr.try_node(root).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Overall);
-        assert_eq!(root_node.children().len(), 1);
+        // Verify that the child is still the original atom
+        let child_id = root.children()[0];
+        assert_eq!(expr.try_node_kind(child_id)?, ExprKind::AtomicFormula);
 
-        let child_id = root_node.children()[0];
-        let child_node = expr.try_node(child_id).unwrap();
-        assert_eq!(child_node.kind(), ExprKind::AtomicFormula);
-
-        assert_eq!(output, "(over all (A))");
+        Ok(())
     }
-}*/
+}

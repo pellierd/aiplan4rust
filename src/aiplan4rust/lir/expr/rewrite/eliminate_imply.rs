@@ -132,7 +132,7 @@ mod tests {
 
         // Direct check of first child: (not A)
         // Using root.children()[0] or your try_child helper
-        assert_eq!(expr.kind(root.children()[0])?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(root.children()[0])?, ExprKind::Not);
 
         // Navigate to second child: (or (not B) C)
         let inner_or = expr.try_node(root.children()[1])?;
@@ -140,8 +140,8 @@ mod tests {
         assert_eq!(inner_or.children().len(), 2);
 
         // Verify grand-children: (not B) and (C)
-        assert_eq!(expr.kind(inner_or.children()[0])?, ExprKind::Not);
-        assert_eq!(expr.kind(inner_or.children()[1])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(inner_or.children()[0])?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(inner_or.children()[1])?, ExprKind::AtomicFormula);
 
         Ok(())
     }
@@ -172,8 +172,8 @@ mod tests {
 
         // Verify first child: (not A)
         let not_id = root.children()[0];
-        assert_eq!(expr.kind(not_id)?, ExprKind::Not);
-        assert_eq!(expr.kind(expr.try_node(not_id)?.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(not_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(expr.try_node(not_id)?.children()[0])?, ExprKind::AtomicFormula);
 
         // Verify second child: (and B C)
         let and_id = root.children()[1];
@@ -182,8 +182,8 @@ mod tests {
         assert_eq!(and_node.children().len(), 2);
 
         // Verify leaf atoms in the AND block
-        assert_eq!(expr.kind(and_node.children()[0])?, ExprKind::AtomicFormula);
-        assert_eq!(expr.kind(and_node.children()[1])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(and_node.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(and_node.children()[1])?, ExprKind::AtomicFormula);
 
         Ok(())
     }
@@ -211,7 +211,7 @@ mod tests {
         assert_eq!(root.children().len(), 2);
 
         // Verify first child: (not A)
-        assert_eq!(expr.kind(root.children()[0])?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(root.children()[0])?, ExprKind::Not);
 
         // Verify second child: empty AND
         let and_node = expr.try_node(root.children()[1])?;
@@ -255,14 +255,14 @@ mod tests {
 
         // Verify first child: (not (forall ...))
         let not_id = root.children()[0];
-        assert_eq!(expr.kind(not_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(not_id)?, ExprKind::Not);
 
         let inner_forall_id = expr.try_node(not_id)?.children()[0];
-        assert_eq!(expr.kind(inner_forall_id)?, ExprKind::Forall);
+        assert_eq!(expr.try_node_kind(inner_forall_id)?, ExprKind::Forall);
 
         // Verify second child: unchanged (exists ...)
         let exists_id = root.children()[1];
-        assert_eq!(expr.kind(exists_id)?, ExprKind::Exists);
+        assert_eq!(expr.try_node_kind(exists_id)?, ExprKind::Exists);
 
         Ok(())
     }

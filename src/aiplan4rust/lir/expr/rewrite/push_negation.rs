@@ -262,11 +262,11 @@ mod tests {
 
         // Verify that all children are NOT nodes
         for &child_id in root.children() {
-            assert_eq!(expr.kind(child_id)?, ExprKind::Not);
+            assert_eq!(expr.try_node_kind(child_id)?, ExprKind::Not);
 
             // Bonus: verify that the leaf is an AtomicFormula
             let leaf_id = expr.try_node(child_id)?.children()[0];
-            assert_eq!(expr.kind(leaf_id)?, ExprKind::AtomicFormula);
+            assert_eq!(expr.try_node_kind(leaf_id)?, ExprKind::AtomicFormula);
         }
 
         Ok(())
@@ -297,11 +297,11 @@ mod tests {
 
         // Verify that all children are NOT nodes
         for &child_id in root.children() {
-            assert_eq!(expr.kind(child_id)?, ExprKind::Not);
+            assert_eq!(expr.try_node_kind(child_id)?, ExprKind::Not);
 
             // Verify leaf is the expected AtomicFormula
             let leaf_id = expr.try_node(child_id)?.children()[0];
-            assert_eq!(expr.kind(leaf_id)?, ExprKind::AtomicFormula);
+            assert_eq!(expr.try_node_kind(leaf_id)?, ExprKind::AtomicFormula);
         }
 
         Ok(())
@@ -333,10 +333,10 @@ mod tests {
 
         // Verify the body of the Exists: (not (A))
         let body_id = root.children()[0];
-        assert_eq!(expr.kind(body_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(body_id)?, ExprKind::Not);
 
         let inner_atom_id = expr.try_node(body_id)?.children()[0];
-        assert_eq!(expr.kind(inner_atom_id)?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(inner_atom_id)?, ExprKind::AtomicFormula);
 
         Ok(())
     }
@@ -367,10 +367,10 @@ mod tests {
 
         // Verify the body of the Forall: (not (A))
         let body_id = root.children()[0];
-        assert_eq!(expr.kind(body_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(body_id)?, ExprKind::Not);
 
         let inner_atom_id = expr.try_node(body_id)?.children()[0];
-        assert_eq!(expr.kind(inner_atom_id)?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(inner_atom_id)?, ExprKind::AtomicFormula);
 
         Ok(())
     }
@@ -397,7 +397,7 @@ mod tests {
 
         // Vérification de l'enfant unique
         let child_id = root.children()[0];
-        assert_eq!(expr.kind(child_id)?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(child_id)?, ExprKind::AtomicFormula);
 
         Ok(())
     }
@@ -435,19 +435,19 @@ mod tests {
         assert_eq!(root.children().len(), 3);
 
         // Premier fils : ¬A
-        assert_eq!(expr.kind(root.children()[0])?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(root.children()[0])?, ExprKind::Not);
 
         // Deuxième fils : ¬¬B
         let second_id = root.children()[1];
-        assert_eq!(expr.kind(second_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(second_id)?, ExprKind::Not);
         let inner_not_id = expr.try_node(second_id)?.children()[0];
-        assert_eq!(expr.kind(inner_not_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(inner_not_id)?, ExprKind::Not);
 
         // Troisième fils : ∀x.¬C
         let third_id = root.children()[2];
-        assert_eq!(expr.kind(third_id)?, ExprKind::Forall);
+        assert_eq!(expr.try_node_kind(third_id)?, ExprKind::Forall);
         let body_id = expr.try_node(third_id)?.children()[0];
-        assert_eq!(expr.kind(body_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(body_id)?, ExprKind::Not);
 
         Ok(())
     }
@@ -492,24 +492,24 @@ mod tests {
         assert_eq!(root.children().len(), 3);
 
         // Branche A : ¬A
-        assert_eq!(expr.kind(root.children()[0])?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(root.children()[0])?, ExprKind::Not);
 
         // Branche B/C : ¬¬(B ∨ C)
         let second_child_id = root.children()[1];
-        assert_eq!(expr.kind(second_child_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(second_child_id)?, ExprKind::Not);
         let inner_not_id = expr.try_node(second_child_id)?.children()[0];
-        assert_eq!(expr.kind(inner_not_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(inner_not_id)?, ExprKind::Not);
 
         // Branche D (Quantificateurs) : ∃x.∀y.¬D
         let exists_id = root.children()[2];
-        assert_eq!(expr.kind(exists_id)?, ExprKind::Exists);
+        assert_eq!(expr.try_node_kind(exists_id)?, ExprKind::Exists);
 
         let forall_id = expr.try_node(exists_id)?.children()[0];
-        assert_eq!(expr.kind(forall_id)?, ExprKind::Forall);
+        assert_eq!(expr.try_node_kind(forall_id)?, ExprKind::Forall);
 
         let final_not_id = expr.try_node(forall_id)?.children()[0];
-        assert_eq!(expr.kind(final_not_id)?, ExprKind::Not);
-        assert_eq!(expr.kind(expr.try_node(final_not_id)?.children()[0])?, ExprKind::AtomicFormula);
+        assert_eq!(expr.try_node_kind(final_not_id)?, ExprKind::Not);
+        assert_eq!(expr.try_node_kind(expr.try_node(final_not_id)?.children()[0])?, ExprKind::AtomicFormula);
 
         Ok(())
     }
