@@ -307,225 +307,270 @@ fn simplify_quantifier_trivial_body(
     Ok(false)
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lang::TypedList;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::lir::expr::ExprKind;
+    use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
     use crate::aiplan4rust::lir::expr::simplify::quantifier;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test that an empty forall quantifier is replaced by its body.
     /// Input: (forall () (A))
     /// Expected: (A)
     #[test]
-    fn test_remove_empty_forall() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_remove_empty_forall() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
+        // 1. Setup: (forall () (A))
+        let atomic_a = builder.atomic_formula(1, vec![]); // "A"
         let forall_node = builder.forall(TypedList::new(), atomic_a);
 
-        builder.set_root(forall_node).unwrap();
+        builder.set_root(forall_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: simplify (quantifier::simplify)
+        // Le quantificateur sans variables est élagué.
+        quantifier::simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Le nœud ForAll doit avoir disparu au profit de son enfant unique (A)
         assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
-        assert_eq!(output, "(A)");
+
+        Ok(())
     }
 
-    /// Test that nested forall quantifiers are fused.
-    /// Input: (forall (?X - T2) (forall (?Y - T1) (A)))
-    /// Expected: (forall (?X - T2 ?Y - T1) (A))
-    #[test]
-    fn test_fuse_nested_forall() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+       /// Test that nested forall quantifiers are fused.
+       /// Input: (forall (?X - T2) (forall (?Y - T1) (A)))
+       /// Expected: (forall (?X - T2 ?Y - T1) (A))
+       #[test]
+       fn test_fuse_nested_forall_structured() -> Result<(), ExprError> {
+           let mut builder = ExprBuilder::new();
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
+           // 1. Préparation des variables (Méthode recommandée)
+           let var_y = builder.typed_variable(1, &[101]); // ?Y - T1
+           let list_y = builder.typed_variable_list(vec![var_y]);
 
-        let inner_forall = builder.forall_with_string_vars(vec![("?Y", "T1")], atomic_a);
-        let outer_forall = builder.forall_with_string_vars(vec![("?X", "T2")], inner_forall);
+           let var_x = builder.typed_variable(2, &[102]); // ?X - T2
+           let list_x = builder.typed_variable_list(vec![var_x]);
 
-        builder.set_root(outer_forall).unwrap();
-        let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+           // 2. Construction de l'arbre
+           let atomic_a = builder.atomic_formula(3, vec![]);
+           let inner_forall = builder.forall(list_y, atomic_a);
+           let outer_forall = builder.forall(list_x, inner_forall);
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+           builder.set_root(outer_forall)?;
+           let mut expr = builder.finish();
+           let root_id = expr.try_root_id()?;
 
-        print!("{} -> {} ", input, output);
+           // 3. Transformation
+           quantifier::simplify(root_id, &mut expr)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Forall);
-        assert_eq!(output, "(forall (?Y - T1 ?X - T2) (A))");
-    }
+           // 4. Validation
+           let root_node = expr.try_node(root_id)?;
+           assert_eq!(root_node.kind(), ExprKind::Forall);
 
-    /// Test that a quantifier with trivial body is replaced by its body.
-    /// Input: (forall (?X - T) (and))
-    /// Expected: (and)
-    #[test]
-    fn test_trivial_body_forall() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+           // On vérifie que la liste fusionnée contient bien les 2 variables
+           let fused_vars = root_node.content().try_quantifier_vars()?;
+           assert_eq!(fused_vars.len(), 2);
 
-        let empty_and = builder.and(vec![]);
-        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], empty_and);
+           Ok(())
+       }
 
-        builder.set_root(forall_node).unwrap();
-        let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+       /// Test that a quantifier with trivial body is replaced by its body.
+       /// Input: (forall (?X - T) (and))
+       /// Expected: (and)
+       #[test]
+       fn test_trivial_body_exists_false() -> Result<(), ExprError> {
+           let mut builder = ExprBuilder::new();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+           // 1. Préparation des variables (Méthode propre)
+           let var_x = builder.typed_variable(10, &[100]);
+           let var_list = builder.typed_variable_list(vec![var_x]);
 
-        print!("{} -> {} ", input, output);
+           // 2. Le corps est une contradiction : (or)
+           let empty_or = builder.or(vec![]);
 
-        let root_node = expr.try_node(root_id).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(output, "(and)");
-    }
+           // 3. Création du exists
+           let exists_node = builder.exists(var_list, empty_or);
 
-    /// Test that no simplification is applied when quantifier is non-empty, non-nested, non-trivial.
-    /// Input: (forall (?X - T) (A))
-    /// Expected unchanged
-    #[test]
-    fn test_no_simplification_forall() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+           builder.set_root(exists_node)?;
+           let mut expr = builder.finish();
+           let root_id = expr.try_root_id()?;
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
-        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], atomic_a);
+           // 4. Simplification
+           quantifier::simplify(root_id, &mut expr)?;
 
-        builder.set_root(forall_node).unwrap();
-        let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+           // 5. Validation : (exists (?x) (or)) -> (or)
+           let root_node = expr.try_node(root_id)?;
+           assert_eq!(root_node.kind(), ExprKind::Or);
+           assert!(root_node.children().is_empty());
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+           Ok(())
+       }
 
-        print!("{} -> {} ", input, output);
+       /// Test that no simplification is applied when quantifier is non-empty, non-nested, non-trivial.
+       /// Input: (forall (?X - T) (A))
+       /// Expected unchanged
+       #[test]
+       #[test]
+       fn test_no_simplification_forall() -> Result<(), ExprError> {
+           let mut builder = ExprBuilder::new();
 
-        let root_node = expr.try_node(root_id).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Forall);
-        assert_eq!(output, "(forall (?X - T) (A))");
-    }
+           // 1. Préparation des variables (Ta méthode propre)
+           let var_x = builder.typed_variable(10, &[100]);
+           let var_list = builder.typed_variable_list(vec![var_x]);
 
-    /// Test that an empty exists quantifier is replaced by its body.
-    /// Input: (exists () (A))
-    /// Expected: (A)
-    #[test]
-    fn test_remove_empty_exists() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+           // 2. Le corps est un prédicat atomique (non simplifiable par défaut)
+           let atomic_a = builder.atomic_formula(3, vec![]);
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
-        let exists_node = builder.exists_with_string_vars(vec![], atomic_a);
+           // 3. Création du forall
+           let forall_node = builder.forall(var_list, atomic_a);
 
-        builder.set_root(exists_node).unwrap();
-        let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+           builder.set_root(forall_node)?;
+           let mut expr = builder.finish();
+           let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+           // 4. Simplification : ne devrait rien changer
+           quantifier::simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+           // 5. Validation
+           let root_node = expr.try_node(root_id)?;
+           assert_eq!(root_node.kind(), ExprKind::Forall);
 
-        let root_node = expr.try_node(root_id).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
-        assert_eq!(output, "(A)");
-    }
+           Ok(())
+       }
 
-    /// Test that nested exists quantifiers are fused into a single node.
-    /// Input: (exists (?X - T2) (exists (?Y - T1) (A)))
-    /// Expected: (exists (?Y - T1 ?X - T2) (A))
-    #[test]
-    fn test_fuse_nested_exists() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+       /// Test that an empty exists quantifier is replaced by its body.
+       /// Input: (exists () (A))
+       /// Expected: (A)
+       #[test]
+       fn test_remove_empty_exists() -> Result<(), ExprError> {
+           let mut builder = ExprBuilder::new();
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
-        let inner_exists = builder.exists_with_string_vars(vec![("?Y", "T1")], atomic_a);
-        let outer_exists = builder.exists_with_string_vars(vec![("?X", "T2")], inner_exists);
+           // 1. Préparation d'une liste de variables vide
+           let var_list = builder.typed_variable_list(vec![]);
 
-        builder.set_root(outer_exists).unwrap();
-        let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+           // 2. Construction : (exists () (A))
+           let atomic_a = builder.atomic_formula(3, vec![]); // ID 3 pour "A"
+           let exists_node = builder.exists(var_list, atomic_a);
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+           builder.set_root(exists_node)?;
+           let mut expr = builder.finish();
+           let root_id = expr.try_root_id()?;
 
-        print!("{} -> {} ", input, output);
+           // 3. Transformation
+           quantifier::simplify(root_id, &mut expr)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Exists);
-        assert_eq!(output, "(exists (?Y - T1 ?X - T2) (A))");
-    }
+           // 4. Validation
+           let root_node = expr.try_node(root_id)?;
+
+           // Le quantificateur a été supprimé, la racine est maintenant l'AtomicFormula
+           assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
+
+           Ok(())
+       }
+
+       /// Test that nested exists quantifiers are fused into a single node.
+       /// Input: (exists (?X - T2) (exists (?Y - T1) (A)))
+       /// Expected: (exists (?Y - T1 ?X - T2) (A))
+       #[test]
+       fn test_fuse_nested_exists() -> Result<(), ExprError> {
+           let mut builder = ExprBuilder::new();
+
+           // 1. Préparation des variables séparément (Méthode recommandée)
+           let var_y = builder.typed_variable(1, &[101]); // ?Y - T1
+           let list_y = builder.typed_variable_list(vec![var_y]);
+
+           let var_x = builder.typed_variable(2, &[102]); // ?X - T2
+           let list_x = builder.typed_variable_list(vec![var_x]);
+
+           // 2. Construction de l'arbre : (exists (?X) (exists (?Y) (A)))
+           let atomic_a = builder.atomic_formula(3, vec![]);
+           let inner_exists = builder.exists(list_y, atomic_a);
+           let outer_exists = builder.exists(list_x, inner_exists);
+
+           builder.set_root(outer_exists)?;
+           let mut expr = builder.finish();
+           let root_id = expr.try_root_id()?;
+
+           // 3. Transformation : simplify
+           quantifier::simplify(root_id, &mut expr)?;
+
+           // 4. Validation
+           let root_node = expr.try_node(root_id)?;
+           assert_eq!(root_node.kind(), ExprKind::Exists);
+
+           // On vérifie que les variables sont fusionnées (longueur 2)
+           let fused_vars = root_node.content().try_quantifier_vars()?;
+           assert_eq!(fused_vars.len(), 2);
+
+           Ok(())
+       }
 
 
-    /// Test that an exists quantifier with a trivial body is replaced by its body.
-    /// Input: (exists (?X - T) (and))
-    /// Expected: (and)
-    #[test]
-    fn test_trivial_body_exists() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+       /// Test that an exists quantifier with a trivial body is replaced by its body.
+       /// Input: (exists (?X - T) (and))
+       /// Expected: (and)
+       #[test]
+       fn test_trivial_body_exists() -> Result<(), ExprError> {
+           let mut builder = ExprBuilder::new();
 
-        let empty_and = builder.and(vec![]);
-        let exists_node = builder.exists_with_string_vars(vec![("?X", "T")], empty_and);
+           // 1. Préparation des variables (Méthode à plat)
+           let var_x = builder.typed_variable(10, &[100]);
+           let var_list = builder.typed_variable_list(vec![var_x]);
 
-        builder.set_root(exists_node).unwrap();
-        let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+           // 2. Le corps est une tautologie : (and)
+           let empty_and = builder.and(vec![]);
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+           // 3. Création du exists
+           let exists_node = builder.exists(var_list, empty_and);
 
-        print!("{} -> {} ", input, output);
+           builder.set_root(exists_node)?;
+           let mut expr = builder.finish();
+           let root_id = expr.try_root_id()?;
 
-        let root_node = expr.try_node(root_id).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(output, "(and)");
-    }
+           // 4. Simplification
+           quantifier::simplify(root_id, &mut expr)?;
 
-    /// Test that no simplification is applied on a non-empty, non-nested exists quantifier.
-    /// Input: (exists (?X - T) (A))
-    /// Expected unchanged: (exists (?X - T) (A))
-    #[test]
-    fn test_no_simplification_exists() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+           // 5. Validation : (exists (?x) (and)) -> (and)
+           let root_node = expr.try_node(root_id)?;
+           assert_eq!(root_node.kind(), ExprKind::And);
+           assert!(root_node.children().is_empty());
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
-        let exists_node = builder.exists_with_string_vars(vec![("?X", "T")], atomic_a);
+           Ok(())
+       }
 
-        builder.set_root(exists_node).unwrap();
-        let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+       /// Test that no simplification is applied on a non-empty, non-nested exists quantifier.
+       /// Input: (exists (?X - T) (A))
+       /// Expected unchanged: (exists (?X - T) (A))
+       #[test]
+       fn test_no_simplification_exists() -> Result<(), ExprError> {
+           let mut builder = ExprBuilder::new();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        quantifier::simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+           // 1. Préparation des variables (Méthode à plat)
+           let var_x = builder.typed_variable(10, &[100]);
+           let var_list = builder.typed_variable_list(vec![var_x]);
 
-        print!("{} -> {} ", input, output);
+           // 2. Le corps est un prédicat atomique : (A)
+           let atomic_a = builder.atomic_formula(3, vec![]);
 
-        let root_node = expr.try_node(root_id).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Exists);
-        assert_eq!(output, "(exists (?X - T) (A))");
-    }
+           // 3. Création du exists
+           let exists_node = builder.exists(var_list, atomic_a);
 
-}*/
+           builder.set_root(exists_node)?;
+           let mut expr = builder.finish();
+           let root_id = expr.try_root_id()?;
+
+           // 4. Simplification : Ne doit rien changer
+           quantifier::simplify(root_id, &mut expr)?;
+
+           // 5. Validation : (exists (?x) (A)) reste (exists (?x) (A))
+           let root_node = expr.try_node(root_id)?;
+           assert_eq!(root_node.kind(), ExprKind::Exists);
+
+           Ok(())
+       }
+}
