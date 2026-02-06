@@ -163,162 +163,169 @@ fn simplify_trivial_constant(node_id: NodeId, expr: &mut Expr) -> Result<bool, E
     Ok(true)
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test simplification of a simple double negation: (not (not (A))) → (A)
     #[test]
-    fn test_double_negation_simple_predicate() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_double_negation_simple_predicate() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
+        // 1. Setup: (not (not (A)))
+        let atomic_a = builder.atomic_formula(1, vec![]); // "A"
         let not1 = builder.not(atomic_a);
         let root = builder.not(not1);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify !!A -> A
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // Le nœud racine n'est plus un NOT, mais directement l'AtomicFormula
         assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
-        assert_eq!(output, "(A)");
+
+        Ok(())
     }
 
     /// Test simplification of a nested double negation containing a subtree.
     /// Input: (not (not (and (A) (B)))) -> (and (A) (B))
     #[test]
-    fn test_double_negation_with_subtree() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_double_negation_with_subtree() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
-        let atomic_b = builder.atomic_formula("B", vec![]);
+        // 1. Setup: (not (not (and (A) (B))))
+        let atomic_a = builder.atomic_formula(1, vec![]);
+        let atomic_b = builder.atomic_formula(2, vec![]);
         let and = builder.and(vec![atomic_a, atomic_b]);
         let not1 = builder.not(and);
         let root = builder.not(not1);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify !!Subtree -> Subtree
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // La racine doit maintenant être le nœud AND original
         assert_eq!(root_node.kind(), ExprKind::And);
         assert_eq!(root_node.children().len(), 2);
-        assert_eq!(output, "(and (A) (B))");
+
+        Ok(())
     }
 
     /// Test that no simplification is applied when negation is not doubled.
     /// Input: (not (and (A) (B))) -> unchanged
     #[test]
-    fn test_not_node_no_simplification() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_not_node_no_simplification() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
-        let atomic_b = builder.atomic_formula("B", vec![]);
+        // 1. Setup: (not (and (A) (B)))
+        let atomic_a = builder.atomic_formula(1, vec![]);
+        let atomic_b = builder.atomic_formula(2, vec![]);
         let and = builder.and(vec![atomic_a, atomic_b]);
         let root = builder.not(and);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify
+        // On vérifie qu'une simple négation sans double négation reste intacte.
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // Le nœud doit rester de type Not
         assert_eq!(root_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(not (and (A) (B)))");
+
+        Ok(())
     }
 
     /// Test simplification of `(not (and))` -> `(or)`
     #[test]
-    fn test_not_empty_and_becomes_or() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_not_empty_and_becomes_or() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (not (and)) -> ¬True
         let empty_and = builder.and(vec![]);
         let root = builder.not(empty_and);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify ¬True -> False
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // Le résultat doit être un (or) vide
         assert_eq!(root_node.kind(), ExprKind::Or);
         assert!(root_node.children().is_empty());
-        assert_eq!(output, "(or)");
+
+        Ok(())
     }
 
     /// Test simplification of `(not (or))` -> `(and)`
     #[test]
-    fn test_not_empty_or_becomes_and() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_not_empty_or_becomes_and() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (not (or)) -> ¬False
         let empty_or = builder.or(vec![]);
         let root = builder.not(empty_or);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify ¬False -> True
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // Le résultat doit être un (and) vide
         assert_eq!(root_node.kind(), ExprKind::And);
         assert!(root_node.children().is_empty());
-        assert_eq!(output, "(and)");
+
+        Ok(())
     }
 
     /// Test that no simplification is applied on a NOT whose child is not a NOT or empty AND/OR.
     /// Input: (not (A)) -> unchanged
     #[test]
-    fn test_not_other_operator_no_simplification() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_not_other_operator_no_simplification() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_a = builder.atomic_formula("A", vec![]);
+        // 1. Setup: (not (A))
+        let atomic_a = builder.atomic_formula(1, vec![]); // "A"
         let root = builder.not(atomic_a);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify
+        // On s'assure qu'un littéral négatif n'est pas touché.
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
+        // Le Kind doit rester ExprKind::Not
         assert_eq!(root_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(not (A))");
+        assert_eq!(root_node.children().len(), 1);
+
+        Ok(())
     }
 
-}*/
+}
