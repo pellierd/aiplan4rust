@@ -89,6 +89,10 @@ impl Expr {
         }
     }
 
+    pub fn kind(&self, id: NodeId) -> Result<ExprKind, ExprError> {
+        Ok(self.try_node(id)?.kind())
+    }
+
     /// Constructs a new `Expr` from an existing `SyntaxTree<ExprNode>`.
     ///
     /// This function is intended for internal or crate-level usage only
@@ -188,6 +192,18 @@ impl Expr {
     /// Returns the root node ID of the expression, if any.
     pub fn root_id(&self) -> Option<NodeId> {
         self.tree.root_id()
+    }
+
+    pub fn try_root_id(&self) -> Result<NodeId, SyntaxTreeError> {
+        self.tree.try_root_id()
+    }
+
+    pub fn root_node(&self) -> Option<&ExprNode> {
+        self.tree.root_node()
+    }
+
+    pub fn try_root_node(&self) -> Result<&ExprNode, SyntaxTreeError> {
+        self.tree.try_node(self.try_root_id()?)
     }
 
     /// Sets the root node ID of the expression.
