@@ -264,130 +264,133 @@ fn evaluate_arithmetic_expression(
 
     Ok(result)
 }
-
-/*#[cfg(test)]
+#[cfg(test)]
 mod simplify_arithmetic_operation_tests {
     use super::*;
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use ordered_float::OrderedFloat;
 
     /// Input: (+ 2 3)
     /// Expected output: 5
     #[test]
-    fn test_addition_of_constants() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_addition_of_constants() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (+ 2.0 3.0)
         let n2 = builder.number(2.0);
         let n3 = builder.number(3.0);
-        let add = builder.add(vec![n2, n3]);
+        let root = builder.add(vec![n2, n3]);
 
-        builder.set_root(add).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Constant folding
+        // This should identify the ADD node with numeric children and compute the sum
+        reduce(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        // The root should no longer be an ADD node, but a single Number node
+        assert_eq!(expr.kind(), Some(ExprKind::Number));
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Number);
+        let root_node = expr.try_root_node()?;
         assert_eq!(root_node.content().as_float(), Some(OrderedFloat(5.0)));
-        assert_eq!(output, "5");
+
+        Ok(())
     }
 
     /// Input: (- 10 3 2)
     /// Expected output: 5
     #[test]
-    fn test_subtraction_of_constants() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_subtraction_of_constants() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (- 10.0 3.0 2.0)
         let n10 = builder.number(10.0);
         let n3 = builder.number(3.0);
         let n2 = builder.number(2.0);
-        let sub = builder.sub(vec![n10, n3, n2]);
+        // Passing a vector implies: n10 - n3 - n2
+        let root = builder.sub(vec![n10, n3, n2]);
 
-        builder.set_root(sub).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Folding the subtraction
+        reduce(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        assert_eq!(expr.kind(), Some(ExprKind::Number));
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Number);
+        let root_node = expr.try_root_node()?;
+        // 10.0 - 3.0 - 2.0 = 5.0
         assert_eq!(root_node.content().as_float(), Some(OrderedFloat(5.0)));
-        assert_eq!(output, "5");
+
+        Ok(())
     }
 
     /// Input: (* 2 3 4)
     /// Expected output: 24
     #[test]
-    fn test_multiplication_of_constants() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_multiplication_of_constants() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (* 2.0 3.0 4.0)
         let n2 = builder.number(2.0);
         let n3 = builder.number(3.0);
         let n4 = builder.number(4.0);
-        let mul = builder.mul(vec![n2, n3, n4]);
+        let root = builder.mul(vec![n2, n3, n4]);
 
-        builder.set_root(mul).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Folding the product
+        reduce(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        assert_eq!(expr.kind(), Some(ExprKind::Number));
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Number);
+        let root_node = expr.try_root_node()?;
+        // Verification: 2.0 * 3.0 * 4.0 = 24.0
         assert_eq!(root_node.content().as_float(), Some(OrderedFloat(24.0)));
-        assert_eq!(output, "24");
+
+        Ok(())
     }
 
     /// Input: (/ 20 2 2)
     /// Expected output: 5
     #[test]
-    fn test_division_of_constants() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_division_of_constants() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (/ 20.0 2.0 2.0)
         let n20 = builder.number(20.0);
         let n2a = builder.number(2.0);
         let n2b = builder.number(2.0);
-        let div = builder.div(vec![n20, n2a, n2b]);
+        let root = builder.div(vec![n20, n2a, n2b]);
 
-        builder.set_root(div).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        reduce(expr.root_id().unwrap(), &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Constant folding for division
+        reduce(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        assert_eq!(expr.kind(), Some(ExprKind::Number));
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Number);
+        let root_node = expr.try_root_node()?;
+        // Calculation: (20 / 2) / 2 = 5.0
         assert_eq!(root_node.content().as_float(), Some(OrderedFloat(5.0)));
-        assert_eq!(output, "5");
+
+        Ok(())
     }
 
     /// Input: (/ 5 0)
     /// Expected output: ArithmeticEvaluationError
     #[test]
     fn test_division_by_zero() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (/ 5.0 0.0)
         let n5 = builder.number(5.0);
         let n0 = builder.number(0.0);
         let div = builder.div(vec![n5, n0]);
@@ -395,18 +398,18 @@ mod simplify_arithmetic_operation_tests {
         builder.set_root(div).unwrap();
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-
+        // 2. Transformation: Attempt to fold the division
         let result = reduce(expr.root_id().unwrap(), &mut expr);
 
-        print!("{} -> error: {:?} ", input, result);
+        // 3. Validation: Check for the specific error variant
+        assert!(result.is_err(), "Folding division by zero should fail");
 
-        assert!(result.is_err());
-        if let Err(ExprError::ArithmeticEvaluationError { op, values }) = result {
-            assert_eq!(op, ArithmeticOp::Div);
-            assert_eq!(values, vec![OrderedFloat(5.0), OrderedFloat(0.0)]);
-        } else {
-            panic!("Expected ArithmeticEvaluationError");
+        match result {
+            Err(ExprError::ArithmeticEvaluationError { op, values }) => {
+                assert_eq!(op, ArithmeticOp::Div);
+                assert_eq!(values, vec![OrderedFloat(5.0), OrderedFloat(0.0)]);
+            }
+            _ => panic!("Expected ArithmeticEvaluationError, got {:?}", result),
         }
     }
-}*/
+}

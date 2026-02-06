@@ -1446,10 +1446,8 @@ mod reduce_single_and_or_node_tests {
 
 #[cfg(test)]
 mod simplify_empty_and_or_node_tests {
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use super::*;
 
     /// Test that an AND node with an empty AND child removes the empty child.
