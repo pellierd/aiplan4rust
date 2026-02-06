@@ -111,162 +111,179 @@ fn is_trivial_assign_value(
     }
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::interner::StringInterner;
+    use crate::aiplan4rust::lang::ArithmeticOp;
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test trivial (increase (F) 0) -> (and)
     #[test]
-    fn test_trivial_increase() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_trivial_increase() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (increase (F) 0.0)
         let value = builder.number(0.0);
-        let target = builder.function_term("F", vec![]);
+        let target = builder.function_term(1, vec![]); // Using ID for "F"
         let assign_node = builder.increase(target, value);
 
-        builder.set_root(assign_node).unwrap();
+        builder.set_root(assign_node)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify the no-op
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        // The increase should disappear, replaced by an empty AND (True)
+        assert_eq!(expr.kind(), Some(ExprKind::And));
 
-        let node = expr.try_node(assign_node).unwrap();
-        assert_eq!(node.kind(), ExprKind::And);
-        assert!(node.children().is_empty());
-        assert_eq!(output, "(and)");
+        let root_node = expr.try_root_node()?;
+        assert!(root_node.children().is_empty(), "Increase by 0 should be pruned to an empty AND");
+
+        Ok(())
     }
 
     /// Test trivial (decrease (F) 0) -> (and)
     #[test]
-    fn test_trivial_decrease() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_trivial_decrease() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (decrease (F) 0.0)
         let value = builder.number(0.0);
-        let target = builder.function_term("F", vec![]);
+        let target = builder.function_term(1, vec![]);
         let assign_node = builder.decrease(target, value);
 
-        builder.set_root(assign_node).unwrap();
+        builder.set_root(assign_node)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Prune the identity operation
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        assert_eq!(expr.kind(), Some(ExprKind::And));
 
-        let node = expr.try_node(assign_node).unwrap();
-        assert_eq!(node.kind(), ExprKind::And);
-        assert!(node.children().is_empty());
-        assert_eq!(output, "(and)");
+        let root_node = expr.try_root_node()?;
+        assert!(root_node.children().is_empty(), "Decrease by 0 should simplify to (and)");
+
+        Ok(())
     }
 
     /// Test trivial (scale-up (F) 1) -> (and)
     #[test]
-    fn test_trivial_scale_up() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_trivial_scale_up() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (scale-up (F) 1.0)
         let value = builder.number(1.0);
-        let target = builder.function_term("F", vec![]);
+        let target = builder.function_term(1, vec![]);
         let assign_node = builder.scale_up(target, value);
 
-        builder.set_root(assign_node).unwrap();
+        builder.set_root(assign_node)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Remove identity scaling
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        assert_eq!(expr.kind(), Some(ExprKind::And));
 
-        let node = expr.try_node(assign_node).unwrap();
-        assert_eq!(node.kind(), ExprKind::And);
-        assert!(node.children().is_empty());
-        assert_eq!(output, "(and)");
+        let root_node = expr.try_root_node()?;
+        assert!(root_node.children().is_empty(), "Scaling by 1.0 should simplify to (and)");
+
+        Ok(())
     }
 
     /// Test assign operator (Assign) is never simplified
     #[test]
-    fn test_assign_op_assign() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_assign_op_assign() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (assign (F) 0.0)
         let value = builder.number(0.0);
-        let target = builder.function_term("F", vec![]);
+        let target = builder.function_term(1, vec![]);
         let assign_node = builder.assign(target, value);
 
-        builder.set_root(assign_node).unwrap();
+        builder.set_root(assign_node)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: simplify (should be a no-op for Assign)
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        // The Assign node must persist because it is not an identity operation.
+        assert_eq!(expr.kind(), Some(ExprKind::Assign));
 
-        let node = expr.try_node(assign_node).unwrap();
-        assert_eq!(node.kind(), ExprKind::Assign);
-        assert_eq!(node.children().len(), 2);
-        assert_eq!(output, "(assign (F) 0)");
+        let root_node = expr.try_root_node()?;
+        assert_eq!(root_node.children().len(), 2);
+
+        // Ensure the value child is still 0.0
+        let value_node = expr.try_node(root_node.children()[1])?;
+        assert_eq!(value_node.content().as_float(), Some(OrderedFloat(0.0)));
+
+        Ok(())
     }
 
     /// Test assign with value as a function -> not simplified
     #[test]
-    fn test_assign_value_function() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_assign_value_function() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let value = builder.function_term("V", vec![]);
-        let target = builder.function_term("F", vec![]);
-        let assign_node = builder.increase(target, value);
+        // 1. Setup: (increase (F) (V))
+        let value = builder.function_term(1, vec![]); // "V"
+        let target = builder.function_term(2, vec![]); // "F"
+        let increase_node = builder.increase(target, value);
 
-        builder.set_root(assign_node).unwrap();
+        builder.set_root(increase_node)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let node = expr.try_root_node()?;
 
-        let node = expr.try_node(assign_node).unwrap();
+        // Correction: This should remain an Increase node, not Assign
         assert_eq!(node.kind(), ExprKind::Assign);
-        assert_eq!(output, "(increase (F) (V))");
+        assert_eq!(node.content().try_assign_op()?, AssignOp::Increase);
+        assert_eq!(node.children().len(), 2);
+
+        // Ensure the second child is still the function term (V)
+        let val_child = expr.try_node(node.children()[1])?;
+        assert_eq!(val_child.kind(), ExprKind::FunctionTerm);
+
+        Ok(())
     }
 
     /// Test assign with value as an arithmetic operation -> not simplified
     #[test]
-    fn test_assign_value_arithmetic() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_assign_value_arithmetic() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
+        // 1. Setup: (increase (F) (+ 2.0 3.0))
         let left = builder.number(2.0);
         let right = builder.number(3.0);
         let op = builder.add(vec![left, right]);
-        let target = builder.function_term("F", vec![]);
+        let target = builder.function_term(1, vec![]);
         let assign_node = builder.increase(target, op);
 
-        builder.set_root(assign_node).unwrap();
+        builder.set_root(assign_node)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(assign_node, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Simplify (Structurel uniquement)
+        simplify(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
-
-        let node = expr.try_node(assign_node).unwrap();
+        // 3. Validation
+        let node = expr.try_root_node()?;
         assert_eq!(node.kind(), ExprKind::Assign);
-        assert_eq!(output, "(increase (F) (+ 2 3))")
+        assert_eq!(node.content().try_assign_op()?, AssignOp::Increase);
+
+        // On vérifie que le nœud ADD est toujours là
+        let val_child = expr.try_node(node.children()[1])?;
+        assert_eq!(val_child.kind(), ExprKind::Operation);
+        assert_eq!(val_child.content().try_arithmetic_op()?, ArithmeticOp::Add);
+
+        Ok(())
     }
 
-}*/
+}
