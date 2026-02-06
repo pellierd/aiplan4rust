@@ -231,158 +231,175 @@ fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId,
     Ok(new_not_id)
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test pushing negation through AND using De Morgan's law.
     /// Input: (not (and (A) (B))) -> (or (not (A)) (not (B)))
     #[test]
-    fn test_push_negation_and() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_negation_and() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
+        // 1. Setup: ¬(A ∧ B)
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
         let and_node = builder.and(vec![a, b]);
         let root = builder.not(and_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: De Morgan's Law ¬(A ∧ B) -> (¬A ∨ ¬B)
+        push_negation(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Or);
+        assert_eq!(root.children().len(), 2);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(root_node.children().len(), 2);
-        for &child_id in root_node.children() {
-            let child = expr.try_node(child_id).unwrap();
-            assert_eq!(child.kind(), ExprKind::Not);
+        // Verify that all children are NOT nodes
+        for &child_id in root.children() {
+            assert_eq!(expr.kind(child_id)?, ExprKind::Not);
+
+            // Bonus: verify that the leaf is an AtomicFormula
+            let leaf_id = expr.try_node(child_id)?.children()[0];
+            assert_eq!(expr.kind(leaf_id)?, ExprKind::AtomicFormula);
         }
 
-        assert_eq!(output, "(or (not (A)) (not (B)))");
+        Ok(())
     }
 
     /// Test pushing negation through OR using De Morgan's law.
     /// Input: (not (or (A) (B))) -> (and (not (A)) (not (B)))
     #[test]
-    fn test_push_negation_or() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_negation_or() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
+        // 1. Setup: ¬(A ∨ B)
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
         let or_node = builder.or(vec![a, b]);
         let root = builder.not(or_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: De Morgan's Law ¬(A ∨ B) -> (¬A ∧ ¬B)
+        push_negation(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::And);
+        assert_eq!(root.children().len(), 2);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::And);
-        assert_eq!(root_node.children().len(), 2);
-        for &child_id in root_node.children() {
-            let child = expr.try_node(child_id).unwrap();
-            assert_eq!(child.kind(), ExprKind::Not);
+        // Verify that all children are NOT nodes
+        for &child_id in root.children() {
+            assert_eq!(expr.kind(child_id)?, ExprKind::Not);
+
+            // Verify leaf is the expected AtomicFormula
+            let leaf_id = expr.try_node(child_id)?.children()[0];
+            assert_eq!(expr.kind(leaf_id)?, ExprKind::AtomicFormula);
         }
 
-        assert_eq!(output, "(and (not (A)) (not (B)))");
+        Ok(())
     }
 
     /// Test pushing negation through a Forall quantifier.
     /// Input: (not (forall x (A))) -> (exists x (not (A)))
     #[test]
-    fn test_push_negation_forall() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_negation_forall() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let forall_node = builder.forall_with_string_vars(vec![("?X", "T")], a);
+        // 1. Setup: ¬(forall (?X - T) (A))
+        let a = builder.atomic_formula(1, vec![]);
+        let var_x = builder.typed_variable(10, &[100]); // ID 10, Type 100
+        let forall_vars = builder.typed_variable_list(vec![var_x]);
+        let forall_node = builder.forall(forall_vars, a);
         let root = builder.not(forall_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: ¬∀x.A -> ∃x.¬A
+        push_negation(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Exists);
+        assert_eq!(root.children().len(), 1);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Exists);
-        let children = root_node.children();
-        assert_eq!(children.len(), 1);
-        let body_node = expr.try_node(children[0]).unwrap();
-        assert_eq!(body_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(exists (?X - T) (not (A)))");
+        // Verify the body of the Exists: (not (A))
+        let body_id = root.children()[0];
+        assert_eq!(expr.kind(body_id)?, ExprKind::Not);
+
+        let inner_atom_id = expr.try_node(body_id)?.children()[0];
+        assert_eq!(expr.kind(inner_atom_id)?, ExprKind::AtomicFormula);
+
+        Ok(())
     }
 
     /// Test pushing negation through an Exists quantifier.
     /// Input: (not (exists x (A))) -> (forall x (not (A)))
     #[test]
-    fn test_push_negation_exists() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_negation_exists() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let exists_node = builder.exists_with_string_vars(vec![("?X", "T")], a);
+        // 1. Setup: ¬(exists (?X - T) (A))
+        let a = builder.atomic_formula(1, vec![]);
+        let var_x = builder.typed_variable(10, &[100]); // ID 10, Type 100
+        let exists_vars = builder.typed_variable_list(vec![var_x]);
+        let exists_node = builder.exists(exists_vars, a);
         let root = builder.not(exists_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: ¬∃x.A -> ∀x.¬A
+        push_negation(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Forall);
+        assert_eq!(root.children().len(), 1);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Forall);
-        let children = root_node.children();
-        assert_eq!(children.len(), 1);
-        let body_node = expr.try_node(children[0]).unwrap();
-        assert_eq!(body_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(forall (?X - T) (not (A)))");
+        // Verify the body of the Forall: (not (A))
+        let body_id = root.children()[0];
+        assert_eq!(expr.kind(body_id)?, ExprKind::Not);
+
+        let inner_atom_id = expr.try_node(body_id)?.children()[0];
+        assert_eq!(expr.kind(inner_atom_id)?, ExprKind::AtomicFormula);
+
+        Ok(())
     }
 
     /// Test that no transformation occurs for a NOT whose child is neither AND/OR nor quantifier.
     /// Input: (not (A)) -> unchanged
     #[test]
-    fn test_push_negation_no_change() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_negation_no_change() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
+        // 1. Setup: ¬A (déjà sous forme normale négative)
+        let a = builder.atomic_formula(1, vec![]);
         let root = builder.not(a);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: Aucun changement attendu
+        push_negation(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Not);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(not (A))");
+        // Vérification de l'enfant unique
+        let child_id = root.children()[0];
+        assert_eq!(expr.kind(child_id)?, ExprKind::AtomicFormula);
+
+        Ok(())
     }
 
     /// Test pushing negation through a nested expression with AND, NOT, and quantifiers.
@@ -390,43 +407,49 @@ mod tests {
     /// Expected output from push_negations alone:
     /// (or (not (A)) (not (not (B))) (forall (?X) (not (C))))
     #[test]
-    fn test_push_negation_nested() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_negation_nested() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
-        let c = builder.atomic_formula("C", vec![]);
+        // 1. Setup: ¬(A ∧ ¬B ∧ ∃x.C)
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
+        let c = builder.atomic_formula(3, vec![]);
+
         let not_b = builder.not(b);
-        let exists_c = builder.exists_with_string_vars(vec![("?X", "T")], c);
+        let var_x = builder.typed_variable(10, &[100]);
+        let exists_vars = builder.typed_variable_list(vec![var_x]);
+        let exists_c = builder.exists(exists_vars, c);
+
         let and_node = builder.and(vec![a, not_b, exists_c]);
         let root = builder.not(and_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: ¬(A ∧ ¬B ∧ ∃x.C) -> (¬A ∨ ¬¬B ∨ ∀x.¬C)
+        push_negation(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Or);
+        assert_eq!(root.children().len(), 3);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(root_node.children().len(), 3);
+        // Premier fils : ¬A
+        assert_eq!(expr.kind(root.children()[0])?, ExprKind::Not);
 
-        let first = expr.try_node(root_node.children()[0]).unwrap();
-        assert_eq!(first.kind(), ExprKind::Not);
-        let second = expr.try_node(root_node.children()[1]).unwrap();
-        assert_eq!(second.kind(), ExprKind::Not);
-        let second_child = expr.try_node(second.children()[0]).unwrap();
-        assert_eq!(second_child.kind(), ExprKind::Not);
-        let third = expr.try_node(root_node.children()[2]).unwrap();
-        assert_eq!(third.kind(), ExprKind::Forall);
-        assert_eq!(third.children().len(), 1);
-        let body_node = expr.try_node(third.children()[0]).unwrap();
-        assert_eq!(body_node.kind(), ExprKind::Not);
-        assert_eq!(output, "(or (not (A)) (not (not (B))) (forall (?X - T) (not (C))))");
+        // Deuxième fils : ¬¬B
+        let second_id = root.children()[1];
+        assert_eq!(expr.kind(second_id)?, ExprKind::Not);
+        let inner_not_id = expr.try_node(second_id)?.children()[0];
+        assert_eq!(expr.kind(inner_not_id)?, ExprKind::Not);
+
+        // Troisième fils : ∀x.¬C
+        let third_id = root.children()[2];
+        assert_eq!(expr.kind(third_id)?, ExprKind::Forall);
+        let body_id = expr.try_node(third_id)?.children()[0];
+        assert_eq!(expr.kind(body_id)?, ExprKind::Not);
+
+        Ok(())
     }
 
     /// Test pushing negation through a deeply nested expression with AND, OR, NOT, and quantifiers.
@@ -434,50 +457,60 @@ mod tests {
     /// Expected (after push_negations only, no simplification):
     /// (or (not (A)) (not (not (or (B) (C)))) (exists (?X) (forall (?Y) (not (D)))))
     #[test]
-    fn test_push_negation_deep_nested() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_push_negation_deep_nested() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let a = builder.atomic_formula("A", vec![]);
-        let b = builder.atomic_formula("B", vec![]);
-        let c = builder.atomic_formula("C", vec![]);
-        let d = builder.atomic_formula("D", vec![]);
-        let or = builder.or(vec![b, c]);
-        let not_or_bc = builder.not(or);
+        // 1. Setup : ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃y.D)
+        let a = builder.atomic_formula(1, vec![]);
+        let b = builder.atomic_formula(2, vec![]);
+        let c = builder.atomic_formula(3, vec![]);
+        let d = builder.atomic_formula(4, vec![]);
 
-        let exists_d = builder.exists_with_string_vars(vec![("?Y", "T")], d);
-        let forall_exists_d = builder.forall_with_string_vars(vec![("?X", "T")], exists_d);
+        let or_bc = builder.or(vec![b, c]);
+        let not_or_bc = builder.not(or_bc);
+
+        // Quantification imbriquée : ∀x.∃y.D
+        let var_y = builder.typed_variable(11, &[100]);
+        let exists_vars = builder.typed_variable_list(vec![var_y]);
+        let exists_d = builder.exists(exists_vars, d);
+        let var_x = builder.typed_variable(10, &[100]);
+        let forall_vars = builder.typed_variable_list(vec![var_x]);
+        let forall_exists_d = builder.forall(forall_vars, exists_d);
 
         let and_node = builder.and(vec![a, not_or_bc, forall_exists_d]);
         let root = builder.not(and_node);
 
-        builder.set_root(root).unwrap();
+        builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        push_negation(root, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation : (¬A ∨ ¬¬(B ∨ C) ∨ ∃x.∀y.¬D)
+        push_negation(expr.try_root_id()?, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root = expr.try_root_node()?;
+        assert_eq!(root.kind(), ExprKind::Or);
+        assert_eq!(root.children().len(), 3);
 
-        let root_node = expr.try_node(expr.root_id().unwrap()).unwrap();
-        assert_eq!(root_node.kind(), ExprKind::Or);
-        assert_eq!(root_node.children().len(), 3);
-        let first = expr.try_node(root_node.children()[0]).unwrap();
-        assert_eq!(first.kind(), ExprKind::Not);
-        let second = expr.try_node(root_node.children()[1]).unwrap();
-        assert_eq!(second.kind(), ExprKind::Not);
-        let third = expr.try_node(root_node.children()[2]).unwrap();
-        assert_eq!(third.kind(), ExprKind::Exists);
-        assert_eq!(third.children().len(), 1);
-        let body_node = expr.try_node(third.children()[0]).unwrap();
-        assert_eq!(body_node.kind(), ExprKind::Forall);
-        assert_eq!(body_node.children().len(), 1);
-        let inner_body = expr.try_node(body_node.children()[0]).unwrap();
-        assert_eq!(inner_body.kind(), ExprKind::Not);
-        assert_eq!(
-            output,
-            "(or (not (A)) (not (not (or (B) (C)))) (exists (?X - T) (forall (?Y - T) (not (D)))))"
-        );
+        // Branche A : ¬A
+        assert_eq!(expr.kind(root.children()[0])?, ExprKind::Not);
+
+        // Branche B/C : ¬¬(B ∨ C)
+        let second_child_id = root.children()[1];
+        assert_eq!(expr.kind(second_child_id)?, ExprKind::Not);
+        let inner_not_id = expr.try_node(second_child_id)?.children()[0];
+        assert_eq!(expr.kind(inner_not_id)?, ExprKind::Not);
+
+        // Branche D (Quantificateurs) : ∃x.∀y.¬D
+        let exists_id = root.children()[2];
+        assert_eq!(expr.kind(exists_id)?, ExprKind::Exists);
+
+        let forall_id = expr.try_node(exists_id)?.children()[0];
+        assert_eq!(expr.kind(forall_id)?, ExprKind::Forall);
+
+        let final_not_id = expr.try_node(forall_id)?.children()[0];
+        assert_eq!(expr.kind(final_not_id)?, ExprKind::Not);
+        assert_eq!(expr.kind(expr.try_node(final_not_id)?.children()[0])?, ExprKind::AtomicFormula);
+
+        Ok(())
     }
-}*/
+}
