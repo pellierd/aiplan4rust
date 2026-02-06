@@ -105,7 +105,7 @@ fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprErro
     Ok(false)
 }
 
-/*#[cfg(test)]
+#[cfg(test)]
 mod tests {
     use super::*;
 
@@ -115,130 +115,144 @@ mod tests {
 
     /// Test case 1: (when (and) E) -> E
     #[test]
-    fn test_when_empty_and_condition() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_when_empty_and_condition() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_e = builder.atomic_formula("E", vec![]);
+        // 1. Setup: (when (and) (E))
+        let atomic_e = builder.atomic_formula(1, vec![]); // "E"
         let empty_and = builder.and(vec![]);
         let when_node = builder.when(empty_and, atomic_e);
 
-        builder.set_root(when_node).unwrap();
+        builder.set_root(when_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: (when True E) -> E
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Le 'when' a disparu, il ne reste que l'AtomicFormula
         assert_eq!(root_node.kind(), ExprKind::AtomicFormula);
+
+        Ok(())
     }
 
     /// Test case 2: (when (or) E) -> (and)
     #[test]
-    fn test_when_empty_or_condition() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_when_empty_or_condition() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_e = builder.atomic_formula("E", vec![]);
+        // 1. Setup: (when (or) (E)) -> condition toujours fausse
+        let atomic_e = builder.atomic_formula(1, vec![]);
         let empty_or = builder.or(vec![]);
         let when_node = builder.when(empty_or, atomic_e);
 
-        builder.set_root(when_node).unwrap();
+        builder.set_root(when_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: simplify (condition fausse -> l'effet disparaît)
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Le 'when' est remplacé par un 'and' vide (effet neutre)
         assert_eq!(root_node.kind(), ExprKind::And);
         assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test case 3: (when E E) -> (and)
     #[test]
-    fn test_when_identical_condition_effect() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_when_identical_condition_effect() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_e = builder.atomic_formula("E", vec![]);
+        // 1. Setup: (when (E) (E))
+        let atomic_e = builder.atomic_formula(1, vec![]);
         let when_node = builder.when(atomic_e, atomic_e);
 
-        builder.set_root(when_node).unwrap();
+        builder.set_root(when_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: simplify
+        // Un effet qui ne change pas l'état est inutile.
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Le résultat doit être un effet neutre (and vide)
         assert_eq!(root_node.kind(), ExprKind::And);
         assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test case 4: (when C (and)) -> (and)
     #[test]
-    fn test_when_empty_effect() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_when_empty_effect() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_c = builder.atomic_formula("C", vec![]);
+        // 1. Setup: (when (C) (and))
+        let atomic_c = builder.atomic_formula(1, vec![]);
         let empty_and = builder.and(vec![]);
         let when_node = builder.when(atomic_c, empty_and);
 
-        builder.set_root(when_node).unwrap();
+        builder.set_root(when_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: simplify
+        // Si l'effet est vide, le 'when' est inutile.
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Le 'when' devient un 'and' vide.
         assert_eq!(root_node.kind(), ExprKind::And);
         assert!(root_node.children().is_empty());
+
+        Ok(())
     }
 
     /// Test case 5: No simplification applied (when (C) (E)) -> (when (C) (E))
     #[test]
-    fn test_when_no_simplification() {
-        let mut interner = StringInterner::new();
-        let mut builder = ExprBuilder::new(&mut interner);
+    fn test_when_no_simplification() -> Result<(), ExprError> {
+        let mut builder = ExprBuilder::new();
 
-        let atomic_c = builder.atomic_formula("C", vec![]);
-        let atomic_e = builder.atomic_formula("E", vec![]);
+        // 1. Setup: (when (C) (E))
+        let atomic_c = builder.atomic_formula(1, vec![]); // Condition "C"
+        let atomic_e = builder.atomic_formula(2, vec![]); // Effet "E"
         let when_node = builder.when(atomic_c, atomic_e);
 
-        builder.set_root(when_node).unwrap();
+        builder.set_root(when_node)?;
         let mut expr = builder.finish();
-        let root_id = expr.root_id().unwrap();
+        let root_id = expr.try_root_id()?;
 
-        let input = expr.to_syntax_string_with_interner(&interner);
-        simplify(root_id, &mut expr).unwrap();
-        let output = expr.to_syntax_string_with_interner(&interner);
+        // 2. Transformation: simplify (no change)
+        simplify(root_id, &mut expr)?;
 
-        print!("{} -> {} ", input, output);
+        // 3. Validation
+        let root_node = expr.try_node(root_id)?;
 
-        let root_node = expr.try_node(root_id).unwrap();
+        // Le Kind doit rester ExprKind::When
         assert_eq!(root_node.kind(), ExprKind::When);
+
+        // On vérifie que les deux enfants (condition et effet) sont toujours là
         let children = root_node.children();
-        assert_eq!(children.len(), 2, "When node should have exactly 2 children");
-        let cond_node = expr.try_node(children[0]).unwrap();
-        let eff_node = expr.try_node(children[1]).unwrap();
+        assert_eq!(children.len(), 2);
+
+        let cond_node = expr.try_node(children[0])?;
+        let eff_node = expr.try_node(children[1])?;
         assert_eq!(cond_node.kind(), ExprKind::AtomicFormula);
         assert_eq!(eff_node.kind(), ExprKind::AtomicFormula);
 
+        Ok(())
     }
-}*/
+}
