@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeID};
 use crate::aiplan4rust::lir::LiftedDurativeAction;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::problem::types::{expr, typed_list};
+use crate::aiplan4rust::lir::passes::types::{expr, typed_list};
 
 /// Flattens all union types (`Type::Either`) within a `LiftedDurativeAction` in place.
 ///

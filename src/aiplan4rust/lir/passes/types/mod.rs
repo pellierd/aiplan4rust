@@ -1,5 +1,5 @@
 
-pub mod flatten;
+pub mod problem;
 mod expr;
 mod typed_symbol;
 mod typed_list;

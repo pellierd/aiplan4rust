@@ -46,8 +46,8 @@ use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{normalize, DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LirError};
+use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
+use crate::aiplan4rust::lir::{passes, renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LirError};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -593,11 +593,20 @@ impl Problem {
         &self.metric_spec
     }
 
+    pub fn metric_spec_mut(&mut self) -> &mut Expr {
+        &mut self.metric_spec
+    }
+
     pub fn set_metric_spec(&mut self, metric: Expr) {
         self.metric_spec = metric;
     }
     pub fn length_spec(&self) -> &Expr {
         &self.length_spec
+    }
+
+    /// Returns a mutable reference to the length specification.
+    pub fn length_spec_mut(&mut self) -> &mut Expr {
+        &mut self.length_spec
     }
 
     pub fn set_length_spec(&mut self, length_spec: Expr) {
@@ -633,7 +642,7 @@ impl Problem {
     ///
     /// Returns a `LirError` if normalization of any expression fails.
     pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(normalize::normalize_problem(self)?)
+        Ok(passes::expressions::problem::normalize(self)?)
     }
 
     /// Returns a wrapper around the domain view of this problem.

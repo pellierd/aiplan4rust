@@ -6,16 +6,14 @@
 //! normalize expressions, and render the action in human-readable or PDDL-like syntax.
 
 use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
-use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::normalize;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::{renderers, LiftedAction};
+use crate::aiplan4rust::lir::{passes, renderers, LiftedAction};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents a lifted PDDL durative action.
@@ -234,30 +232,9 @@ impl DurativeAction {
     ///
     /// Returns a [`LirError`] if normalization of any of the expressions fails.
     pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(normalize::normalize_durative_action(self)?)
+        Ok(passes::expressions::durative_action::normalize(self)?)
     }
 }
-
-/*impl RemapTypes for DurativeAction {
-    /// Remaps union types (`Type::Either`) in the action's parameters, conditions, effects, and duration.
-    ///
-    /// This method updates all `Type::Either` occurrences in the `DurativeAction`:
-    /// - The action's parameters
-    /// - The precondition (via `condition()`)
-    /// - The effect
-    /// - The duration expression
-    ///
-    /// # Parameters
-    /// - `map`: A [`HashMap<Type, StringID>`] mapping union types to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped.
-    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        self.action.remap_types(map)?;
-        Ok(())
-    }
-}*/
 
 /// Implements [`std::fmt::Display`] for `DurativeAction`.
 ///

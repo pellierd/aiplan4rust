@@ -41,8 +41,7 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lang::{StringID, TaskSkeletonID};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::problem::normalize;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::{passes, renderers};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::tree::NodeId;
 
@@ -234,7 +233,7 @@ impl TaskNetwork {
     /// network.normalize()?;
     /// ```
     pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(normalize::normalize_task_network(self)?)
+        Ok(passes::expressions::task_network::normalize(self)?)
     }
 }
 

@@ -6,8 +6,7 @@
 
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::normalize;
-use crate::aiplan4rust::lir::{renderers, LirError};
+use crate::aiplan4rust::lir::{passes, renderers, LirError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
@@ -129,7 +128,7 @@ impl DerivedPredicate {
     /// # }
     /// ```
     pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(normalize::normalize_derived_predicate(self)?)
+        Ok(passes::expressions::derived_predicate::normalize(self)?)
     }
 }
 

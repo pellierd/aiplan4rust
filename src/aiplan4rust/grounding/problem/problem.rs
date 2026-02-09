@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
-use crate::aiplan4rust::lir::problem::quantifiers::expander;
+use crate::aiplan4rust::lir::passes::quantifiers::problem;
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -350,7 +350,7 @@ impl TryFrom<LiftedProblem> for Problem {
     fn try_from(mut lifted_problem: LiftedProblem) -> Result<Self, Self::Error> {
         //types::flatten_types(&mut lifted_problem)?;
 
-        expander::expand_quantifiers(&mut lifted_problem)?;
+        problem::expand_quantifiers(&mut lifted_problem)?;
 
         println!("lifted problem: {}", lifted_problem);
 

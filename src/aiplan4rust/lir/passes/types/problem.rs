@@ -31,7 +31,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::types::{atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, typed_symbol, task, action, durative_action, method, initial_task_network};
+use crate::aiplan4rust::lir::passes::types::{atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, typed_symbol, task, action, durative_action, method, initial_task_network};
 
 const EITHER_PREFIX: &str = "either";
 const EITHER_SEP: &str = "_";

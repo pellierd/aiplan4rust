@@ -812,10 +812,8 @@ mod realistic_tests {
 
 #[cfg(test)]
 mod flatten_and_or_node_tests {
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::ExprKind;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
     use super::*;
 
     /// Test flattening a root AND node with nested AND children.

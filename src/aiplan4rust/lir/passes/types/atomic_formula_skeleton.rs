@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeID};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::types::typed_list;
+use crate::aiplan4rust::lir::passes::types::typed_list;
 
 /// Flattens all types within an `AtomicFormulaSkeleton` in place according to the provided mapping.
 ///

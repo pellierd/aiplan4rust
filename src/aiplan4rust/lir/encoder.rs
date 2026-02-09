@@ -38,8 +38,8 @@
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::problem::{normalize, LiftedProblem};
-use crate::aiplan4rust::lir::{encode, LirBuilderResult, LirError};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
+use crate::aiplan4rust::lir::{passes, LirBuilderResult, LirError};
 use crate::aiplan4rust::lir::encode::{domain, problem, EncodingRegistry};
 use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 
@@ -175,7 +175,7 @@ pub fn encode_lifted_problem(
     problem::encode(&problem_syntax_tree, &mut registry, &mut problem)?;
 
     // 5. Normalize all expressions in the problem
-    normalize::normalize_problem(&mut problem)?;
+    passes::expressions::problem::normalize(&mut problem)?;
 
     // Optional: print definitions for debugging
     let domain_def = problem.domain_def();

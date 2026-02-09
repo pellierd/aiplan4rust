@@ -57,6 +57,7 @@ pub mod initial_task_network;
 pub mod method;
 pub mod task_network;
 pub mod encode;
+pub mod passes;
 
 pub use encoder::LirEncoder;
 pub use result::Result as LirBuilderResult;

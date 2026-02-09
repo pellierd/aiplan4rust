@@ -6,7 +6,7 @@ use std::fmt;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lang::{FunctorID, PredicateID};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::quantifiers::inertia::Inertia;
+use crate::aiplan4rust::lir::passes::quantifiers::inertia::Inertia;
 
 /// A lookup table for inertia, covering both Predicates and Numeric Functions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

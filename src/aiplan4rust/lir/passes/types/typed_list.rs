@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::types::typed_symbol;
+use crate::aiplan4rust::lir::passes::types::typed_symbol;
 
 /// Flattens all types in a `TypedList<VariableID, TypeID>` according to the provided mapping.
 ///

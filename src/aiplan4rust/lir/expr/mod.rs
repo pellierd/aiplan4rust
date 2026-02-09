@@ -46,9 +46,8 @@ pub mod kind;
 pub mod simplify;
 pub mod expr;
 pub mod error;
-mod builder;
-mod rewrite;
-pub mod normalize;
+pub mod builder;
+pub mod rewrite;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode;
@@ -56,4 +55,4 @@ pub use kind::Kind as ExprKind;
 pub use expr::Expr;
 pub use error::ExprError;
 
-pub use normalize::normalize;
+pub use crate::aiplan4rust::lir::passes::expressions::expr::normalize;

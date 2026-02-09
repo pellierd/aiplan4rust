@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::problem::quantifiers::analyzer;
+use crate::aiplan4rust::lir::passes::quantifiers::analyzer;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 

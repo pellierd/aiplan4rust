@@ -43,13 +43,11 @@ use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lang::{StringID, TypeID, VariableID};
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lir::problem::normalize;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::{passes, renderers};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
@@ -266,7 +264,7 @@ impl Action {
     /// action.normalize()?;
     /// ```
     pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(normalize::normalize_action(self)?)
+        Ok(passes::expressions::action::normalize(self)?)
     }
 }
 
