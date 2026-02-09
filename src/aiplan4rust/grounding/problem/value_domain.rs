@@ -79,8 +79,8 @@ pub fn generate_object_fluents_map(
         // Pour chaque paramètre, récupère le domaine correspondant
         let param_domains: Vec<Vec<ObjectID>> = f.parameters().iter()
             .map(|ts| {
-                let ty = ts.ty().members()[0]; // type flatten
-                domains.get(&ty)
+                let types = ts.types().members()[0]; // type types
+                domains.get(&types)
                     .expect("ValueDomain manquant")
                     .clone() // copie des objets du type
             })

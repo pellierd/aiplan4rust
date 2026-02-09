@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::action::Action;
-use crate::aiplan4rust::lir::expr;
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
+use crate::aiplan4rust::lir::{expr, InitialTaskNetwork};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::durative_action::DurativeAction;
 use crate::aiplan4rust::lir::method::Method;

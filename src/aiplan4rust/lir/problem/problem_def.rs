@@ -34,11 +34,11 @@
 //! ```
 
 use std::fmt::{self, Display, Formatter};
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedProblem};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::syntax::SyntaxDisplay;
 

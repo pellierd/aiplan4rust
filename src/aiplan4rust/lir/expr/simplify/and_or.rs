@@ -98,7 +98,7 @@ pub(super) fn simplify(
 /// ```
 ///
 /// # Parameters
-/// - `node_id`: The ID of the node to flatten. Only AND/OR nodes are affected.
+/// - `node_id`: The ID of the node to types. Only AND/OR nodes are affected.
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Behavior

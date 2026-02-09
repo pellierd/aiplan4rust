@@ -35,14 +35,12 @@
 //!
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
-use crate::aiplan4rust::lang::{StringID, Optimization, RemapTypes, Type};
+use crate::aiplan4rust::lang::{StringID, Optimization, Type};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::{NodeId, Node, Tree};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -526,60 +524,6 @@ impl Expr {
     /// see the [`normalize`](crate::normalize) module.
     pub fn normalize(&mut self) -> Result<(), ExprError> {
         normalize(self)
-    }
-}
-
-impl RemapTypes for Expr {
-    /// Recursively remaps all union types (`Type::Either`) in the expression tree.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap` mapping each union type (`Type::Either`) to its corresponding primitive `Ident`.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped.
-    /// - `Err(LirError)` if an error occurs during traversal or remapping.
-    ///
-    /// # Behavior
-    /// - Traverses the expression tree from the root node.
-    /// - Replaces type references according to `map`; non-union or unmapped types remain unchanged.
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        if let Ok(root_id) = self.tree.try_root_id() {
-            self.flatten_types_from(root_id, map)?;
-        }
-        Ok(())
-    }
-}
-
-impl Expr {
-    /// Recursively remaps all union types (`Type::Either`) in this expression tree according to the provided mapping.
-    ///
-    /// This function traverses the expression tree starting from the given `node_id`.
-    /// For each node:
-    /// - If it contains quantified variables (`Forall` or `Exists`), their types are remapped.
-    /// - All other node types are left unchanged.
-    ///
-    /// # Parameters
-    /// - `node_id`: The `NodeId` of the root node to start traversal from.
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types (`Type::Either`) to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped or are already primitive.
-    /// - `Err(LirError)` if an error occurs during traversal or remapping (e.g., missing mapping or invalid node access).
-    pub fn flatten_types_from(&mut self, node_id: NodeId, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        let mut stack = vec![node_id];
-        while let Some(node_id) = stack.pop() {
-            let node = self.tree.try_node_mut(node_id)?;
-            match node.kind() {
-                ExprKind::Forall | ExprKind::Exists => {
-                    //node.content_mut().try_quantifier_vars_mut()?.remap_types(map)?;
-                }
-                _ => {}
-            }
-            for &child_id in node.children() {
-                stack.push(child_id);
-            }
-        }
-        Ok(())
     }
 }
 

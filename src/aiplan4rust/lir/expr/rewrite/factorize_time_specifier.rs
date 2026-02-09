@@ -82,7 +82,7 @@ pub fn factorize_time_specifier(
 /// # Behavior
 /// - Temporal nodes (`ExprKind::AtStart`, `ExprKind::AtEnd`, `ExprKind::Overall`)
 ///   not matching `keep_kind` are removed from the tree.
-/// - Matching temporal nodes are replaced by their first child (if any) to flatten the tree.
+/// - Matching temporal nodes are replaced by their first child (if any) to types the tree.
 /// - Non-temporal nodes are left untouched.
 /// - The resulting filtered subtree is wrapped in a new temporal specifier node of `keep_kind`.
 ///
@@ -125,7 +125,7 @@ fn filter_temporal(
         match kind {
             ExprKind::AtStart | ExprKind::AtEnd | ExprKind::Overall => {
                 if kind == keep_kind {
-                    // If this node is of the desired kind, flatten it by replacing it with its first child
+                    // If this node is of the desired kind, types it by replacing it with its first child
                     if !children.is_empty() {
                         let child_id = children[0];
                         expr.move_to(child_id, node_id)?; // Move child under this node's parent

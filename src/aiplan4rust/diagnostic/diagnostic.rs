@@ -680,7 +680,7 @@ impl Diagnostic {
     /// Indicates potential semantic confusion when the same name is used for both.
     ///
     /// # Arguments
-    /// - `ty`: Declaration of the symbol as a primitive type.
+    /// - `types`: Declaration of the symbol as a primitive type.
     /// - `predicate`: Declaration of the symbol as a predicate.
     /// - `provider`: Origin of the diagnostic.
     /// - `source`: Interned source identifier.
@@ -810,7 +810,7 @@ impl Diagnostic {
     /// Constructs a warning for an implicit `(either ...)` type declaration caused by multiple conflicting parent types.
     ///
     /// # Arguments
-    /// - `ty`: Identifier of the type being declared.
+    /// - `types`: Identifier of the type being declared.
     /// - `duplicate_types`: Conflicting parent type identifiers merged implicitly.
     /// - `duplicate_spans`: Source code spans of each conflicting parent type declaration.
     /// - `provider`: Origin of the diagnostic.

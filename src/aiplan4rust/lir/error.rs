@@ -1,11 +1,12 @@
 use std::panic::Location;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{FunctorID, LangError, PredicateID, StringID, Type};
+use crate::aiplan4rust::lang::{FunctorID, LangError, PredicateID, StringID, Type, TypeID};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use thiserror::Error;
+use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
 use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::tree::NodeId;
@@ -28,6 +29,10 @@ use crate::aiplan4rust::tree::NodeId;
 /// - [`InternalError`]: Generic internal errors indicating unexpected or unrecoverable conditions.
 #[derive(Debug, Error)]
 pub enum LirError {
+
+    #[error(transparent)]
+    IndexTable(#[from] IndexTableError),
+
 
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),
@@ -77,8 +82,8 @@ pub enum LirError {
     ObjectNotFound(StringID),
 
     /// Missing type when remap types
-    #[error("Missing type in flattened hierarchy: {ty:?}")]
-    MissingType { ty: Type<StringID> },
+    #[error("Missing type in flattened hierarchy: {ty:?}")] // Changed {types:?} to {ty:?}
+    MissingType { ty: Type<TypeID> },
 
     #[error("Inertia missing for predicate: {id:?}")]
     MissingPredicateInertia { id: PredicateID },
@@ -90,13 +95,16 @@ pub enum LirError {
     #[error("Failed to bind {symbol}")]
     SymbolBindingFailed { symbol: NodeId },
 
-    #[error("Failed to bind type: {ty:?})")]
+    #[error("Failed to bind type: {ty:?}")] // Changed {types:?} to {ty:?}
     TypeBindingFailed { ty: Type<StringID> },
 
     #[error("Failed to find variable with node id: {node_id:?})")]
     VariableNotFound { node_id: NodeId },
 
+    #[error("Index out of bound: {id})")]
+    IndexOutOfBound { id: usize },
 }
+
 
 impl LirError {
     /// Constructs a `LirError` from an [`ExprError`].
@@ -140,7 +148,7 @@ impl LirError {
     }
 
     /// Creates a new `MissingType` error for the given type.
-    pub fn missing_type(ty: Type<StringID>) -> Self {
+    pub fn missing_type(ty: Type<TypeID>) -> Self {
         LirError::MissingType { ty }
     }
 
@@ -194,6 +202,10 @@ impl LirError {
         let err = Self::VariableNotFound { node_id };
         Self::log_error(&err, std::panic::Location::caller());
         err
+    }
+
+    pub fn index_out_of_bounds(id: usize) -> Self {
+        Self::IndexOutOfBound { id }
     }
 
     /// Helper privé pour uniformiser le logging et la stack trace sans polluer les fonctions publiques

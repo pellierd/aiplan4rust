@@ -67,7 +67,7 @@ pub(super) fn simplify(
 ///
 /// # Parameters
 ///
-/// * `node_id` - The ID of the arithmetic operation node to flatten.
+/// * `node_id` - The ID of the arithmetic operation node to types.
 /// * `expr` - The mutable reference to the expression tree containing the node.
 ///
 /// # Returns

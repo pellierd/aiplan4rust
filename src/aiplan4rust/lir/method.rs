@@ -31,11 +31,11 @@ use crate::aiplan4rust::lang::{StringID, TypeID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::expr::Expr;
-use crate::aiplan4rust::lir::problem::{normalize, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::normalize;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::{renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
@@ -128,9 +128,20 @@ impl Method {
         self.header.set_name(name);
     }
 
-    /// Returns a slice of the method's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol<VariableID, TypeID>] {
-        &self.header.parameters()
+    /// Returns a reference to the action's typed parameters.
+    ///
+    /// These represent the variables and their types used by the action,
+    /// encapsulated in a `TypedList`.
+    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
+        self.header.parameters()
+    }
+
+    /// Returns a mutable reference to the action's typed parameters.
+    ///
+    /// This allows for in-place modification of the parameters (such as type flattening)
+    /// while maintaining the integrity of the `TypedList` structure.
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
+        self.header.parameters_mut()
     }
 
     /// Sets the method's parameters.

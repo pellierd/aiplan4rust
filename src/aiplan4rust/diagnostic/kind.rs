@@ -274,7 +274,7 @@ pub enum Kind {
     /// `Predicate` symbol kind, which can lead to confusion or unexpected behavior in semantic analysis.
     ///
     /// # Fields
-    /// - `ty`: The declaration of the symbol as a primitive type.
+    /// - `types`: The declaration of the symbol as a primitive type.
     /// - `predicate`: The declaration of the symbol as a predicate.
     ///
     /// ```
@@ -381,13 +381,13 @@ pub enum Kind {
     /// Warning emitted when a type is implicitly declared as an `(either ...)` type due to
     /// multiple conflicting parent type declarations.
     ///
-    /// This warning indicates that the type `ty` has been declared with different parent types
+    /// This warning indicates that the type `types` has been declared with different parent types
     /// listed in `duplicate_types`. The system has automatically merged these into an implicit
     /// `(either ...)` type to resolve ambiguity.
     ///
     /// # Fields
     ///
-    /// - `ty`: The identifier of the type being declared.
+    /// - `types`: The identifier of the type being declared.
     /// - `duplicate_types`: A list of conflicting parent type identifiers causing the implicit merge.
     /// - `duplicate_spans`: The source code spans corresponding to each conflicting parent type declaration.
     ///

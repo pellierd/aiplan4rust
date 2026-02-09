@@ -1,7 +1,7 @@
 //! This module handles the PDDL/HDDL representation of lifted actions.
 
 use std::fmt;
-use crate::aiplan4rust::lir::problem::LiftedAction;
+use crate::aiplan4rust::lir::LiftedAction;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::{expr, ty, typed_list};
 

@@ -44,7 +44,6 @@ use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::problem::normalize;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-use crate::aiplan4rust::lir::renderers::syntax::method::render;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Represents a network of tasks along with their ordering and logical constraints.

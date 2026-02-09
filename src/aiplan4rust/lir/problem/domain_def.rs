@@ -38,12 +38,12 @@
 //! ```
 
 use std::fmt::{self, Display, Formatter};
-use crate::aiplan4rust::lir::problem::{LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
@@ -154,19 +154,19 @@ impl<'a> DomainDef<'a> {
     }
 
     pub fn predicates(&self) -> &[AtomicFormulaSkeleton] {
-        self.problem.atom_skeletons()
+        self.problem.atomic_formula_skeletons()
     }
 
     pub fn has_predicates(&self) -> bool {
-       self.problem.has_predicates()
+       self.problem.has_atomic_formula_skeleton()
     }
 
     pub fn functions(&self) -> &[AtomicFunctionSkeleton] {
-        self.problem.function_skeletons()
+        self.problem.atomic_function_skeletons()
     }
 
     pub fn has_functions(&self) -> bool {
-        self.problem.has_functions()
+        self.problem.has_atomic_function_skeletons()
     }
 
     pub fn tasks(&self) -> &[AtomicTaskSkeleton] {
@@ -174,7 +174,7 @@ impl<'a> DomainDef<'a> {
     }
 
     pub fn has_tasks(&self) -> bool {
-        self.problem.has_tasks()
+        self.problem.has_task_skeletons()
     }
 
 

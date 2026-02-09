@@ -109,9 +109,9 @@ impl EncodingRegistry {
         &self.symbol_table
     }
 
-    /*pub fn resolve_type(&self, ty: &Type<NodeId>) -> Option<Vec<TypeID>> {
+    /*pub fn resolve_type(&self, types: &Type<NodeId>) -> Option<Vec<TypeID>> {
         let mut ids = Vec::new();
-        for t in ty.members() {
+        for t in types.members() {
             if let Some(id) = self.resolve_type_symbol(*t) {
                 ids.push(id);
             } else {
@@ -124,9 +124,9 @@ impl EncodingRegistry {
     }
 
     /// La version "Strict" que tu utiliseras lors de l'encodage.
-    pub fn try_resolve_type(&self, ty: &Type<StringID>) -> Result<Vec<TypeID>, LirError> {
-        self.resolve_type(ty)
-            .ok_or_else(|| LirError::type_binding_failed(ty.clone()))
+    pub fn try_resolve_type(&self, types: &Type<StringID>) -> Result<Vec<TypeID>, LirError> {
+        self.resolve_type(types)
+            .ok_or_else(|| LirError::type_binding_failed(types.clone()))
     }*/
 
     /// Récupère l'ID d'un type PRIMITIF uniquement (par son symbole).

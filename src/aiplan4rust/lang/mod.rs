@@ -56,6 +56,5 @@ pub use assign_op::AssignOp;
 pub use binary_comp::BinaryComp;
 pub use optimization::Optimization;
 pub use error::LangError;
-pub use crate::aiplan4rust::lir::problem::flatten::remap_types::RemapTypes;
 pub use crate::aiplan4rust::interner::remap_idents::RemapIdents;
 pub use ids::*;

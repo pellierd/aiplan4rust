@@ -61,3 +61,10 @@ pub mod encode;
 pub use encoder::LirEncoder;
 pub use result::Result as LirBuilderResult;
 pub use error::LirError;
+
+pub use crate::aiplan4rust::lir::action::Action as LiftedAction;
+pub use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate as LiftedDerivedPredicate;
+pub use crate::aiplan4rust::lir::durative_action::DurativeAction as LiftedDurativeAction;
+pub use crate::aiplan4rust::lir::method::Method as LiftedMethod;
+pub use crate::aiplan4rust::lir::task_network::TaskNetwork as LiftedTaskNetwork;
+pub use crate::aiplan4rust::lir::initial_task_network::InitialTaskNetwork;

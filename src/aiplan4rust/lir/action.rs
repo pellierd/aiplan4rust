@@ -158,11 +158,20 @@ impl Action {
         self.header.set_name(name);
     }
 
-    /// Returns a slice of the action's typed parameters.
+    /// Returns a reference to the action's typed parameters.
     ///
-    /// These represent the variables and their types used by the action.
-    pub fn parameters(&self) -> &[TypedSymbol<VariableID, TypeID>] {
-        &self.header.parameters()
+    /// These represent the variables and their types used by the action,
+    /// encapsulated in a `TypedList`.
+    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
+        self.header.parameters()
+    }
+
+    /// Returns a mutable reference to the action's typed parameters.
+    ///
+    /// This allows for in-place modification of the parameters (such as type flattening)
+    /// while maintaining the integrity of the `TypedList` structure.
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
+        self.header.parameters_mut()
     }
 
     /// Sets the action's parameters to a new typed list.

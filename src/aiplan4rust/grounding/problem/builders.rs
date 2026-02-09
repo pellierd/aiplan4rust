@@ -27,7 +27,7 @@ pub fn build_type_symbols_table(
         // Add the symbol's own identifier
         types_table.insert(ts.symbol());
         // Add all member identifiers of the type
-        for ty_id in ts.ty().iter() {
+        for ty_id in ts.types().iter() {
             types_table.insert(*ty_id);
         }
     }*/
@@ -54,7 +54,7 @@ pub fn build_functions_symbols_table(
     problem: &LiftedProblem,
     table: &mut SymbolTable<FunctorID>
 ) {
-    for func in problem.function_skeletons() {
+    for func in problem.atomic_function_skeletons() {
         table.insert(func.symbol());
     }
 }
@@ -81,7 +81,7 @@ pub fn build_predicates_symbols_table(
     problem: &LiftedProblem,
     table: &mut SymbolTable<PredicateID>
 ) {
-    for pred in problem.atom_skeletons() {
+    for pred in problem.atomic_formula_skeletons() {
         table.insert(pred.symbol());
     }
 }
@@ -145,10 +145,10 @@ pub fn build_type_parent_table(
 
     for ts in problem.type_symbol_table() {
         let type_id = typed_symbols_table.try_get_id(&ts.symbol())?;
-        let members = ts.ty().members();
+        let members = ts.types().members();
 
         if members.len() > 1 {
-            return Err(GroundingError::non_flattened_type_error(&ts.ty()));
+            return Err(GroundingError::non_flattened_type_error(&ts.types()));
         }
 
         if let Some(super_type_symbol) = members.first() {
@@ -186,7 +186,7 @@ pub fn build_objects_table(
     // Merge constants and objects
     for object in problem.objects() {
         let object_id = objects_symbols.try_get_id(&object.symbol())?;
-        let type_id = type_symbols.try_get_id(&object.ty().members()[0])?;
+        let type_id = type_symbols.try_get_id(&object.types().members()[0])?;
         objects.push(Object::new(object_id, type_id));
     }
 
@@ -214,7 +214,7 @@ pub fn build_object_type_value_domains_table(
     let mut type_value_domains_table = vec![ValueDomain::empty(); types.len()];
 
     for obj in problem.constants().chain(problem.object_symbol_table()) {
-        let ty_id = types.try_get_id(&obj.ty().members()[0])?;
+        let ty_id = types.try_get_id(&obj.types().members()[0])?;
         let obj_id = objects.try_get_id(&obj.symbol())?;
         type_value_domains_table[ty_id].add_object(obj_id);
     }
@@ -227,7 +227,7 @@ pub fn build_object_type_value_domains_table(
 ) {
     for (idx, of) in object_fluents_table.iter().enumerate() {
         let of_id = ObjectFluentID::new(idx);
-        type_value_domains_table[of.ty().as_usize()].add_object_fluent(of_id);
+        type_value_domains_table[of.types().as_usize()].add_object_fluent(of_id);
     }
 }*/
 
@@ -246,7 +246,7 @@ pub fn build_object_type_value_domains_table(
 
         // Récupère les domaines d'objets pour chaque paramètre
         for ts in f.parameters() {
-            let ty_id = type_symbols_table.try_get_id(&ts.ty().members()[0])?;
+            let ty_id = type_symbols_table.try_get_id(&ts.types().members()[0])?;
             let ty_dom = type_value_domains_table[ty_id].objects();
             parameter_domains.push(ty_dom);
         }
@@ -280,7 +280,7 @@ pub fn build_object_type_value_domains_table(
 
         // Récupère les ValueDomain pour chaque paramètre
         for ts in p.parameters() {
-            let ty_id = type_symbols_table.try_get_id(&ts.ty().members()[0])?;
+            let ty_id = type_symbols_table.try_get_id(&ts.types().members()[0])?;
             let vd = &type_value_domains_table[ty_id];
             // Collecte les ParameterID pour ce type (objets + object-fluents)
             let domain: Vec<ArgumentID> = vd.iter_parameters().collect();
@@ -343,9 +343,9 @@ pub fn build_object_fluents(
         // 2 Préparer les domaines effectifs des paramètres
         // Chaque paramètre peut être une union de types, on fait l'union des ValueDomains de ses types primitifs
         let mut param_domains: Vec<ValueDomain> = Vec::with_capacity(func.arity());
-        for ty in func.parameters().iter() {
+        for types in func.parameters().iter() {
             let mut domain = ValueDomain::new();
-            for &primitive_ty_idx in ty.members() {
+            for &primitive_ty_idx in types.members() {
                 // Ajouter tous les objets du type primitif au domaine
                 domain.union(&types_domains[primitive_ty_idx]);
             }

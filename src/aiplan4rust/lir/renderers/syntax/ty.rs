@@ -1,7 +1,6 @@
 use std::fmt;
 // type
-use crate::aiplan4rust::lang::{ObjectID, Type, TypeID, VariableID};
-use crate::aiplan4rust::lang::TypedSymbol;
+use crate::aiplan4rust::lang::{Type, TypeID};
 use crate::aiplan4rust::lir::renderers::RenderContext; // Importe ton contexte
 
 

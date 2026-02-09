@@ -18,16 +18,11 @@
 //! );
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{StringID, RemapIdents, RemapTypes, Type, TypedList, TypeID, VariableID};
+use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypeID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
 ///
@@ -84,7 +79,7 @@ impl Function {
     /// # Parameters
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
-    /// - `ty`: The return type_checker of the function.
+    /// - `types`: The return type_checker of the function.
     pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>, ty: Type<TypeID>) -> Self {
         let signature = NamedTypedList::new(name, parameters);
         Self { header: signature, ty }
@@ -100,7 +95,7 @@ impl Function {
     /// # Arguments
     ///
     /// * `header` - A fully constructed header containing the function name and parameters.
-    /// * `ty` - The return type of the function (usually a numeric type).
+    /// * `types` - The return type of the function (usually a numeric type).
     ///
     /// # Returns
     ///
@@ -114,28 +109,16 @@ impl Function {
         &self.ty
     }
 
+    /// Returns a mutable reference to the return type.
+    pub fn ty_mut(&mut self) -> &mut Type<TypeID> {
+        &mut self.ty
+    }
+
     pub fn functor(&self) -> StringID {
         self.header.symbol()
     }
 
 }
-
-
-/*impl RemapTypes for Function {
-    /// Remaps union types (`Type::Either`) in the function's parameters and return type.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped.
-    /// - `Err(LirError)` if an error occurs during remapping.
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        self.header.remap_types(map)?;
-        self.ty.remap_types(map)?;
-        Ok(())
-    }
-}*/
 
 // Allow transparent access to the underlying NamedTypedList (e.g., name, parameters).
 impl Deref for Function {
@@ -170,7 +153,7 @@ impl fmt::Display for Function {
             f,
             "{} -> {}",
             self.header.to_string_with_interner(interner),
-            self.ty.to_string_with_interner(interner)
+            self.types.to_string_with_interner(interner)
         )
     }
 }
@@ -190,7 +173,7 @@ impl SyntaxInternerDisplay for Function {
         write!(f, " - ")?;
 
         // Write the type_checker by converting it to string and then writing to formatter
-        let ty_str = self.ty.to_syntax_string_with_interner(interner);
+        let ty_str = self.types.to_syntax_string_with_interner(interner);
         write!(f, "{}", ty_str)?;
 
         Ok(())

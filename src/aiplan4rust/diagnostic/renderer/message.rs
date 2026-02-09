@@ -407,7 +407,7 @@ fn format_domain_problem_name_mismatch(domain_name: &Declaration, problem_name: 
 ///
 /// # Arguments
 ///
-/// * `ty` - The declaration of the ambiguous symbol.
+/// * `types` - The declaration of the ambiguous symbol.
 /// * `interner` - Optional interner for resolving the symbol's name.
 ///
 /// # Returns
@@ -482,7 +482,7 @@ fn format_cross_conflict_symbol_declaration(problem_declaration: &Declaration, i
 ///
 /// # Arguments
 ///
-/// * `ty` - The identifier of the type declared multiple times.
+/// * `types` - The identifier of the type declared multiple times.
 /// * `interner` - Optional interner for resolving the identifier.
 ///
 /// # Returns

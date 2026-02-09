@@ -59,7 +59,7 @@ impl<ID: Id> Type<ID> {
     }
 }
 
-/// Permet d'utiliser `for ty in &my_type` directement.
+/// Permet d'utiliser `for types in &my_type` directement.
 impl<'a, ID: Id> IntoIterator for &'a Type<ID> {
     type Item = &'a ID;
     type IntoIter = std::slice::Iter<'a, ID>;

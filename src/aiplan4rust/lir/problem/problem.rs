@@ -41,14 +41,13 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, Id, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{normalize, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem};
-use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::{renderers, LirError};
+use crate::aiplan4rust::lir::problem::{normalize, DomainDef, ProblemDef};
+use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LirError};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -56,9 +55,6 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 use itertools::Itertools;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
-use crate::aiplan4rust::linking::LinkedSemanticContext;
-use crate::aiplan4rust::lir::encode::{encoder, EncodingRegistry};
-use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
@@ -81,7 +77,7 @@ pub struct Problem {
     atom_skeletons: Vec<AtomicFormulaSkeleton>,
 
     functors: SymbolTable<FunctorID>,
-    function_skeletons: Vec<AtomicFunctionSkeleton>,
+    atomic_function_skeletons: Vec<AtomicFunctionSkeleton>,
 
     task_symbols: SymbolTable<TaskSymbolID>,
     task_skeletons: Vec<AtomicTaskSkeleton>,
@@ -151,7 +147,7 @@ impl Problem {
             predicates: SymbolTable::new(),
             atom_skeletons: Vec::new(),
             functors: SymbolTable::new(),
-            function_skeletons: Vec::new(),
+            atomic_function_skeletons: Vec::new(),
             task_symbols: SymbolTable::new(),
             task_skeletons: Vec::new(),
             domain_constraints: Expr::empty_or(),
@@ -260,8 +256,13 @@ impl Problem {
     }
 
 
+
     pub fn types(&self) -> &[TypedSymbol<TypeID, TypeID>] {
         &self.types
+    }
+
+    pub fn types_mut(&mut self) -> &mut [TypedSymbol<TypeID, TypeID>] {
+        &mut self.types
     }
 
     pub fn has_types(&self) -> bool {
@@ -286,14 +287,25 @@ impl Problem {
         Ok(id)
     }
 
-    /*pub fn add_types<I>(&mut self, iter: I)
-    where
-        I: IntoIterator<Item = TypedSymbol<TypeID, TypeID>>,
-    {
-        for ty in iter {
-            self.add_type(ty);
-        }
-    }*/
+    pub fn get_type(&self, id: TypeID) -> Option<&TypedSymbol<TypeID, TypeID>> {
+        self.types.get(id.as_usize())
+    }
+
+    pub fn get_type_mut(&mut self, id: TypeID) -> Option<&mut TypedSymbol<TypeID, TypeID>> {
+        self.types.get_mut(id.as_usize())
+    }
+
+    // --- Versions RESULT (Pour la gestion d'erreurs avec '?') ---
+
+    pub fn try_get_type(&self, id: TypeID) -> Result<&TypedSymbol<TypeID, TypeID>, LirError> {
+        self.get_type(id)
+            .ok_or_else(|| LirError::index_out_of_bounds(id.as_usize()))
+    }
+
+    pub fn try_get_type_mut(&mut self, id: TypeID) -> Result<&mut TypedSymbol<TypeID, TypeID>, LirError> {
+        self.get_type_mut(id)
+            .ok_or_else(|| LirError::index_out_of_bounds(id.as_usize()))
+    }
 
     pub fn object_symbol_table(&self) -> &SymbolTable<ObjectID> {
         &self.object_symbols
@@ -310,6 +322,10 @@ impl Problem {
 
     pub fn objects(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
         &self.objects
+    }
+
+    pub fn objects_mut(&mut self) -> &mut [TypedSymbol<ObjectID, TypeID>] {
+        &mut self.objects
     }
 
     pub fn domain_constants(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
@@ -363,11 +379,16 @@ impl Problem {
         &self.predicates
     }
 
-    pub fn atom_skeletons(&self) -> &[AtomicFormulaSkeleton] {
+    pub fn atomic_formula_skeletons(&self) -> &[AtomicFormulaSkeleton] {
         &self.atom_skeletons
     }
 
-    pub fn has_predicates(&self) -> bool {
+    /// Returns a mutable slice of all atomic formula skeletons in the problem.
+    pub fn atomic_formula_skeletons_mut(&mut self) -> &mut [AtomicFormulaSkeleton] {
+        &mut self.atom_skeletons
+    }
+    
+    pub fn has_atomic_formula_skeleton(&self) -> bool {
         !self.atom_skeletons.is_empty()
     }
 
@@ -391,18 +412,22 @@ impl Problem {
         &self.functors
     }
 
-    pub fn function_skeletons(&self) -> &[AtomicFunctionSkeleton] {
-        &self.function_skeletons
+    pub fn atomic_function_skeletons(&self) -> &[AtomicFunctionSkeleton] {
+        &self.atomic_function_skeletons
     }
 
-    pub fn has_functions(&self) -> bool {
-        !self.function_skeletons.is_empty()
+    pub fn atomic_function_skeletons_mut(&mut self) -> &mut [AtomicFunctionSkeleton] {
+        &mut self.atomic_function_skeletons
+    }
+
+    pub fn has_atomic_function_skeletons(&self) -> bool {
+        !self.atomic_function_skeletons.is_empty()
     }
 
     pub fn add_function_skeleton(&mut self, function: AtomicFunctionSkeleton) -> (FunctorID, FunctionSkeletonID) {
         let functor_id = self.functors.insert(function.symbol());
-        let skeleton_id = FunctionSkeletonID::from(self.function_skeletons.len());
-        self.function_skeletons.push(function);
+        let skeleton_id = FunctionSkeletonID::from(self.atomic_function_skeletons.len());
+        self.atomic_function_skeletons.push(function);
         (functor_id, skeleton_id)
     }
 
@@ -423,7 +448,12 @@ impl Problem {
         &self.task_skeletons
     }
 
-    pub fn has_tasks(&self) -> bool {
+    /// Returns a mutable slice of all atomic task skeletons in the problem.
+    pub fn task_skeletons_mut(&mut self) -> &mut [AtomicTaskSkeleton] {
+        &mut self.task_skeletons
+    }
+
+    pub fn has_task_skeletons(&self) -> bool {
         !self.task_skeletons.is_empty()
     }
 
@@ -448,15 +478,23 @@ impl Problem {
         &self.domain_constraints
     }
 
+    pub fn domain_constraints_mut(&mut self) -> &mut Expr {
+        &mut self.domain_constraints
+    }
+
     pub fn set_domain_constraints(&mut self, constraints: Expr) {
         self.domain_constraints = constraints;
     }
 
 
-    pub fn derived_predicates(&self) -> &Vec<LiftedDerivedPredicate> {
+    pub fn derived_predicates(&self) -> &[LiftedDerivedPredicate] {
         &self.derived_predicates
     }
 
+    /// Returns a mutable slice of all derived predicates in the problem.
+    pub fn derived_predicates_mut(&mut self) -> &mut [LiftedDerivedPredicate] {
+        &mut self.derived_predicates
+    }
 
     pub fn add_derived_predicate(&mut self, predicate: LiftedDerivedPredicate) {
         self.derived_predicates.push(predicate);
@@ -464,6 +502,14 @@ impl Problem {
 
     pub fn actions(&self) -> &[LiftedAction] {
         &self.actions
+    }
+
+    /// Returns a mutable slice of all actions in the problem.
+    ///
+    /// This is used during the flattening or normalization phases to modify
+    /// action signatures, preconditions, and effects in place.
+    pub fn actions_mut(&mut self) -> &mut [LiftedAction] {
+        &mut self.actions
     }
 
     pub fn add_action(&mut self, action: LiftedAction) {
@@ -474,12 +520,29 @@ impl Problem {
         &self.durative_actions
     }
 
+    /// Returns a mutable slice of all durative actions in the problem.
+    ///
+    /// This is essential for flattening operations, as durative actions contain
+    /// complex temporal conditions (at start, at end, over all) and effects.
+    pub fn durative_actions_mut(&mut self) -> &mut [LiftedDurativeAction] {
+        &mut self.durative_actions
+    }
+
     pub fn add_durative_action(&mut self, action: LiftedDurativeAction) {
         self.durative_actions.push(action);
     }
 
     pub fn methods(&self) -> &[LiftedMethod] {
         &self.methods
+    }
+
+    /// Returns a mutable slice of all methods in the problem.
+    ///
+    /// Methods are key in HTN planning as they define how tasks are decomposed.
+    /// This accessor allows updating the method's parameters, preconditions,
+    /// and its sub-task network.
+    pub fn methods_mut(&mut self) -> &mut [LiftedMethod] {
+        &mut self.methods
     }
 
     pub fn add_method(&mut self, method: LiftedMethod) {
@@ -490,6 +553,14 @@ impl Problem {
         &self.init
     }
 
+    /// Returns a mutable reference to the initial state expression.
+    ///
+    /// This is used to types types in the initial state, such as types
+    /// of objects in ground atoms or constants.
+    pub fn init_mut(&mut self) -> &mut Expr {
+        &mut self.init
+    }
+
     pub fn set_init(&mut self, init_expr: Expr) {
         self.init = init_expr;
     }
@@ -498,12 +569,20 @@ impl Problem {
         &self.goal
     }
 
+    pub fn goal_mut(&mut self) -> &mut Expr {
+        &mut self.goal
+    }
+
     pub fn set_goal(&mut self, goal_expr: Expr) {
         self.goal = goal_expr;
     }
 
     pub fn problem_constraints(&self) -> &Expr {
         &self.problem_constraints
+    }
+
+    pub fn problem_constraints_mut(&mut self) -> &mut Expr {
+        &mut self.problem_constraints
     }
 
     pub fn set_problem_constraints(&mut self, constraints: Expr) {
@@ -527,6 +606,14 @@ impl Problem {
 
     pub fn initial_task_network(&self) -> &InitialTaskNetwork {
         &self.initial_task_network
+    }
+
+    /// Returns a mutable reference to the initial task network.
+    ///
+    /// This is used during the flattening process to remap the types
+    /// of the parameters defined in the HTN problem's entry point.
+    pub fn initial_task_network_mut(&mut self) -> &mut InitialTaskNetwork {
+        &mut self.initial_task_network
     }
 
     pub fn set_initial_task_network(&mut self, initial_task_network: InitialTaskNetwork) {

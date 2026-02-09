@@ -1,7 +1,7 @@
 //! This module handles the rendering of PDDL derived predicates.
 
 use std::fmt;
-use crate::aiplan4rust::lir::problem::LiftedDerivedPredicate;
+use crate::aiplan4rust::lir::LiftedDerivedPredicate;
 use crate::aiplan4rust::lir::renderers::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::{atomic_formula_skeleton, expr};
 

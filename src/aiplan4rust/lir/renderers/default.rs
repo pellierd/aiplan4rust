@@ -1,9 +1,9 @@
 use std::fmt;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode};
-use crate::aiplan4rust::lir::problem::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedProblem, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedTaskNetwork};
 use crate::aiplan4rust::lir::renderers::common::{render_labeled_expr, render_labeled_typed_list, writeln_centered};
-use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
+use crate::aiplan4rust::lir::problem::{DomainDef, LiftedProblem, ProblemDef};
 
 /// Structure privée pour faire le pont avec le système de formatage de Rust
 struct ProblemWrapper<'a>(&'a LiftedProblem);
@@ -132,13 +132,13 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Predicates
-    if !problem.atom_skeletons().is_empty() {
+    if !problem.atomic_formula_skeletons().is_empty() {
         writeln_centered(f, " [ PREDICATES ] ", 80, '=')?;
         // Colonnes : ID, Nom du prédicat, et Paramètres
         writeln!(f, "  {:<5} : {:<15} {}", "ID", "NAME", "PARAMETERS")?;
         writeln!(f, "{:-<80}", "")?;
 
-        for (i, p) in problem.atom_skeletons().iter().enumerate() {
+        for (i, p) in problem.atomic_formula_skeletons().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", p.symbol()).trim().to_string();
 
@@ -160,11 +160,11 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Functions
-    if !problem.function_skeletons().is_empty() {
+    if !problem.atomic_function_skeletons().is_empty() {
         writeln_centered(f, " [ FUNCTIONS ] ", 80, '=')?;
         writeln!(f, "  {:<5} : {:<15} - {}", "ID", "NAME", "PARAMETERS")?;
         writeln!(f, "{:-<80}", "")?;
-        for (i, fct) in problem.function_skeletons().iter().enumerate() {
+        for (i, fct) in problem.atomic_function_skeletons().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", fct.symbol()).trim().to_string();
             let params: Vec<String> = fct.parameters()

@@ -292,7 +292,7 @@ impl<'a> TypeChecker<'a> {
     ///
     /// # Arguments
     ///
-    /// * `ty` - The identifier to check.
+    /// * `types` - The identifier to check.
     ///
     /// # Returns
     ///

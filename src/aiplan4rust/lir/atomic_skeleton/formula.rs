@@ -18,10 +18,9 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay};
 use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
@@ -122,26 +121,3 @@ impl fmt::Display for Formula {
         self.header.fmt(f)
     }
 }
-
-/*impl InternerDisplay for Formula {
-    /// Formats the formula using the provided interner to resolve identifiers.
-    fn fmt_with_interner(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        self.header.fmt_with_interner(f, interner)
-    }
-}
-
-impl SyntaxInternerDisplay for Formula {
-    /// Formats the formula in a syntax-oriented form (e.g., PDDL representation).
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)
-    }
-}*/

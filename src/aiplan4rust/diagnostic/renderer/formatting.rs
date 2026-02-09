@@ -76,7 +76,7 @@ pub(crate) fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner
 /// Converts a `Type` to a `String`, optionally resolving identifiers via a `StringInterner`.
 ///
 /// # Parameters
-/// - `ty`: The `Type` to convert to a string.
+/// - `types`: The `Type` to convert to a string.
 /// - `interner`: An optional reference to a `StringInterner` used to resolve identifiers.
 ///
 /// # Returns

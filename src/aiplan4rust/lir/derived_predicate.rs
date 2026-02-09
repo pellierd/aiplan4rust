@@ -4,13 +4,11 @@
 //! A `DerivedPredicate` is a logical fact derived from other facts,
 //! consisting of a head (name and parameters) and a body (logical expression).
 
-use crate::aiplan4rust::lang::{RemapTypes, StringID, Type};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::normalize;
 use crate::aiplan4rust::lir::{renderers, LirError};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
@@ -132,25 +130,6 @@ impl DerivedPredicate {
     /// ```
     pub fn normalize(&mut self) -> Result<(), LirError> {
         Ok(normalize::normalize_derived_predicate(self)?)
-    }
-}
-
-/// Implements [`RemapTypes`] for [`LiftedDerivedPredicate`].
-///
-/// This allows remapping all union types (`Type::Either`) in a derived predicate
-/// to concrete types according to a provided mapping.
-impl RemapTypes for DerivedPredicate {
-    /// Remaps union types in the derived predicate's head and body.
-    ///
-    /// # Parameters
-    /// - `map`: A [`HashMap<Type, StringID>`] mapping union types to primitive identifiers.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped.
-    /// - `Err(LirError)` if any type cannot be remapped.
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        self.body.remap_types(map)?;
-        Ok(())
     }
 }
 

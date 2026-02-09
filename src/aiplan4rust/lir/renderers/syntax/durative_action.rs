@@ -1,7 +1,7 @@
 //! This module handles the PDDL representation of durative actions.
 
 use std::fmt;
-use crate::aiplan4rust::lir::problem::LiftedDurativeAction;
+use crate::aiplan4rust::lir::LiftedDurativeAction;
 use crate::aiplan4rust::lir::renderers::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::{expr, ty, typed_list};
 

@@ -19,7 +19,7 @@
 //! Before normalization:
 //! ```pddl
 //! (:types
-//!     e1 e2 - ty
+//!     e1 e2 - types
 //!     e3
 //! )
 //! ```
@@ -27,8 +27,8 @@
 //! After normalization:
 //! ```pddl
 //! (:types
-//!    e1 - ty
-//!    e2 - ty
+//!    e1 - types
+//!    e2 - types
 //!    e3
 //! )
 //! ```
@@ -86,7 +86,7 @@ use crate::aiplan4rust::tree::Tree;
 /// Before normalization:
 /// ```pddl
 /// (:types
-///     e1 e2 - ty
+///     e1 e2 - types
 ///     e3
 /// )
 /// ```
@@ -94,8 +94,8 @@ use crate::aiplan4rust::tree::Tree;
 /// After normalization:
 /// ```pddl
 /// (:types
-///    e1 - ty
-///    e2 - ty
+///    e1 - types
+///    e2 - types
 ///    e3
 /// )
 /// ```

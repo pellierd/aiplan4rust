@@ -5,12 +5,12 @@
 //! a lifted task network describing the tasks and their relationships.
 
 use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
-use crate::aiplan4rust::lir::problem::{normalize, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::problem::normalize;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::{renderers, LiftedTaskNetwork};
 
 /// Represents the initial task network, containing parameters and a lifted task network.
 ///

@@ -56,9 +56,9 @@ where
         // On délègue l'affichage du symbole à son propre type SID
         self.symbol.fmt_with_interner(w, interner)?;
 
-        if !self.ty.is_empty() {
+        if !self.types.is_empty() {
             write!(w, " - ")?;
-            self.ty.fmt_with_interner(w, interner)?;
+            self.types.fmt_with_interner(w, interner)?;
         }
         Ok(())
     }
@@ -71,7 +71,7 @@ impl InternerDisplay for TypedSymbol<StringID, StringID> {
 
         if !self.ty.is_empty() {
             write!(w, " - ")?;
-            // Comme self.ty est un Type<StringID>, il implémente InternerDisplay
+            // Comme self.types est un Type<StringID>, il implémente InternerDisplay
             self.ty.fmt_with_interner(w, interner)?;
         }
         Ok(())
@@ -108,9 +108,9 @@ where
         write_indent(f, indent)?;
         self.symbol.fmt_syntax_with_interner(f, interner)?;
 
-        if !self.ty.is_empty() {
+        if !self.types.is_empty() {
             write!(f, " - ")?;
-            self.ty.fmt_syntax_with_interner(f, interner)?;
+            self.types.fmt_syntax_with_interner(f, interner)?;
         }
         Ok(())
     }
@@ -125,20 +125,20 @@ pub struct TypedSymbol<ID: Id> {
     /// mais on pourrait aussi le rendre générique si besoin. 
     /// Ici, on garde StringID pour le nom et ID pour le type.
     symbol: StringID,
-    ty: Type<ID>,
+    types: Type<ID>,
 }
 
 impl<ID: Id> TypedSymbol<ID> {
     pub fn new(symbol: StringID, types: Type<ID>) -> Self {
-        TypedSymbol { symbol, ty: types }
+        TypedSymbol { symbol, types: types }
     }
 
     pub fn symbol(&self) -> StringID { self.symbol }
     pub fn set_symbol(&mut self, symbol: StringID) { self.symbol = symbol; }
 
-    pub fn ty(&self) -> &Type<ID> { &self.ty }
-    pub fn ty_mut(&mut self) -> &mut Type<ID> { &mut self.ty }
-    pub fn set_ty(&mut self, ty: Type<ID>) { self.ty = ty; }
+    pub fn types(&self) -> &Type<ID> { &self.types }
+    pub fn ty_mut(&mut self) -> &mut Type<ID> { &mut self.types }
+    pub fn set_ty(&mut self, types: Type<ID>) { self.types = types; }
 
 }
 
@@ -147,7 +147,7 @@ impl<ID: Id> TypedSymbol<ID> {
 impl RemapIdents for TypedSymbol<StringID> {
     fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
         self.symbol.remap_idents(map)?;
-        self.ty.remap_idents(map)?;
+        self.types.remap_idents(map)?;
         Ok(())
     }
 }
@@ -157,8 +157,8 @@ impl RemapIdents for TypedSymbol<StringID> {
 impl<ID: Id> fmt::Display for TypedSymbol<ID> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.symbol)?;
-        if !self.ty.is_empty() {
-            write!(f, " - {}", self.ty)?;
+        if !self.types.is_empty() {
+            write!(f, " - {}", self.types)?;
         }
         Ok(())
     }
@@ -174,9 +174,9 @@ where Type<ID>: InternerDisplay
             None => write!(w, "{}", self.symbol)?,
         }
 
-        if !self.ty.is_empty() {
+        if !self.types.is_empty() {
             write!(w, " - ")?;
-            self.ty.fmt_with_interner(w, interner)?;
+            self.types.fmt_with_interner(w, interner)?;
         }
         Ok(())
     }
@@ -192,9 +192,9 @@ where Type<ID>: SyntaxInternerDisplay
             None => write!(f, "{}", self.symbol)?,
         }
 
-        if !self.ty.is_empty() {
+        if !self.types.is_empty() {
             write!(f, " - ")?;
-            self.ty.fmt_syntax_with_interner(f, interner)?;
+            self.types.fmt_syntax_with_interner(f, interner)?;
         }
         Ok(())
     }

@@ -584,7 +584,7 @@ fn format_domain_problem_name_mismatch_suggestion(
 ///
 /// # Arguments
 ///
-/// * `ty` - The type symbol involved in the ambiguity.
+/// * `types` - The type symbol involved in the ambiguity.
 /// * `interner` - Optional string interner to convert symbols to strings.
 ///
 /// # Returns
@@ -735,7 +735,7 @@ fn format_cross_conflict_symbol_declaration_suggestion(
 ///
 /// # Arguments
 ///
-/// * `ty` - The type identifier that is duplicated.
+/// * `types` - The type identifier that is duplicated.
 /// * `duplicate_spans` - A slice of spans marking duplicate declarations.
 /// * `interner` - Optional string interner used for formatting identifiers.
 ///

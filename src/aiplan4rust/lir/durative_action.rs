@@ -11,11 +11,11 @@ use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::problem::{normalize, LiftedAction};
+use crate::aiplan4rust::lir::problem::normalize;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::renderers;
+use crate::aiplan4rust::lir::{renderers, LiftedAction};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents a lifted PDDL durative action.
@@ -146,9 +146,20 @@ impl DurativeAction {
         self.action.set_name(name);
     }
 
-    /// Returns a slice of the action's parameters.
-    pub fn parameters(&self) -> &[TypedSymbol<VariableID, TypeID>] {
-        &self.action.parameters()
+    /// Returns a reference to the action's typed parameters.
+    ///
+    /// These represent the variables and their types used by the action,
+    /// encapsulated in a `TypedList`.
+    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
+        self.action.parameters()
+    }
+
+    /// Returns a mutable reference to the action's typed parameters.
+    ///
+    /// This allows for in-place modification of the parameters (such as type flattening)
+    /// while maintaining the integrity of the `TypedList` structure.
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
+        self.action.parameters_mut()
     }
 
     /// Sets the parameters of the action.

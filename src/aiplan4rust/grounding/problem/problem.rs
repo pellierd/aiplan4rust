@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
-use crate::aiplan4rust::lir::problem::expand::expander;
+use crate::aiplan4rust::lir::problem::quantifiers::expander;
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -348,7 +348,7 @@ impl TryFrom<LiftedProblem> for Problem {
     /// 4. Build the types table using the type symbols.
     /// 5. Build objects (constants and object fluents) based on symbols and types.
     fn try_from(mut lifted_problem: LiftedProblem) -> Result<Self, Self::Error> {
-        //flatten::flatten_types(&mut lifted_problem)?;
+        //types::flatten_types(&mut lifted_problem)?;
 
         expander::expand_quantifiers(&mut lifted_problem)?;
 
