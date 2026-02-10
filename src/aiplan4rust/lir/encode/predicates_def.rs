@@ -63,7 +63,7 @@ pub fn encode(
 
         // 3. Physical storage in the LIR
         // The LIR returns both the logical PredicateID and the structural AtomSkeletonID.
-        let (predicate_id, atom_skeleton_id) = ir.add_atom_skeleton(atom_skeleton);
+        let (predicate_id, atom_skeleton_id) = ir.add_predicate_def(atom_skeleton);
 
         // 4. Node mapping in the registry.
         // We link the declaration's NodeId to both LIR IDs. This allows the

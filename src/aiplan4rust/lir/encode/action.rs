@@ -85,6 +85,6 @@ pub fn encode(
             }
         }
     }
-    ir.add_action(Action::from_header(header, precondition, effect));
+    ir.add_action_def(Action::from_header(header, precondition, effect));
     Ok(())
 }

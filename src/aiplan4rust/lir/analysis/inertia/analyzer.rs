@@ -1,21 +1,19 @@
 use std::collections::HashSet;
-use crate::aiplan4rust::lang::{FunctorID, PredicateID};
+use crate::aiplan4rust::lir::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::passes::quantifiers::inertia::Inertia;
-use crate::aiplan4rust::lir::passes::quantifiers::inertia_table::InertiaTable;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::tree::Node;
+
 
 /// Analyse le problème pour identifier l'inertie des prédicats et des fonctions.
 pub fn analyze_inertia(problem: &LiftedProblem) -> Result<InertiaTable, LirError> {
-/*    let mut fluent_predicates = HashSet::new();
+    /*let mut fluent_predicates = HashSet::new();
     let mut fluent_functions = HashSet::new();
     let mut initial_predicates = HashSet::new();
-    let mut initial_functions = HashSet::new();*/
+    let mut initial_functions = HashSet::new();
 
     // 1. Scan des effets (Actions et Actions Duratives)
     // On identifie tout ce qui est modifié par une action.
-    /*for action in problem.actions() {
+    for action in problem.actions() {
         collect_fluents_from_expr(
             action.effect(),
             problem, // Optionnel selon ta signature finale

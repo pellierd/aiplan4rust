@@ -34,56 +34,6 @@ use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 /// * Symbol resolution fails for the initial state or goal.
 /// * The problem name or object definitions are malformed.
 /// * A logical expression (metric, constraint, length) fails to encode.
-/*pub fn encode(
-    syntax_tree: &Tree<AstNode>,
-    registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
-
-    for (node_id, node) in syntax_tree.preorder().ids() {
-        let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
-
-        match subtree.node().kind() {
-            AstKind::ProblemName => {
-                let id = subtree.node().try_ident()?;
-                ir.set_problem_id(id)?;
-            }
-            AstKind::ObjectsDef => {
-                // 2. Lock the offset to separate domain constants from problem objects
-                ir.set_constant_offset();
-                constants_def::encode(&subtree, registry, ir)?;
-            }
-            AstKind::Init => {
-                let init = init::encode(&subtree, registry)?;
-                ir.set_init(init);
-            }
-            AstKind::Goal => {
-                let goal_expr = goal::encode(&subtree, registry)?;
-                ir.set_goal(goal_expr);
-            }
-            AstKind::Constraints => {
-                let constraints = expr::encode(&subtree, registry)?;
-                ir.set_problem_constraints(constraints);
-            }
-            AstKind::Metric => {
-                let metric =  expr::encode(&subtree, registry)?;
-                ir.set_metric_spec(metric);
-            }
-            AstKind::Length => {
-                let length =  expr::encode(&subtree, registry)?;
-                ir.set_length_spec(length);
-            }
-            AstKind::InitialTaskNetwork => {
-                let network = initial_task_network::encode(&subtree, registry)?;
-                ir.set_initial_task_network(network);
-            }
-            _ => {}
-        }
-    }
-
-    Ok(())
-}*/
-
 pub fn encode(
     syntax_tree: &Tree<AstNode>,
     registry: &mut EncodingRegistry,
@@ -107,7 +57,7 @@ fn collect_problem_definitions(
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
         match node.kind() {
-            AstKind::ProblemName => ir.set_problem_id(node.try_ident()?)?,
+            AstKind::ProblemName => ir.set_problem_name(node.try_ident()?)?,
             AstKind::ObjectsDef => {
                 ir.set_constant_offset();
                 objects_def::encode(&subtree, registry, ir)?;

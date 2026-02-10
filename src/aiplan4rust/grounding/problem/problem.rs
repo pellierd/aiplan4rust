@@ -8,13 +8,14 @@ use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
 use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, StringID};
+use crate::aiplan4rust::lang::{Requirement, StringID, TaskSymbolID, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::rc::Rc;
+use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::passes::quantifiers::problem;
 
 /// Represents a fully grounded PDDL problem.
@@ -25,38 +26,27 @@ use crate::aiplan4rust::lir::passes::quantifiers::problem;
 /// efficient string management.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
-    /// Interned strings for efficient storage of identifiers.
     interner: StringInterner,
-
-    /// The identifier of the domain.
-    domain_id: StringID,
-
-    /// The identifier of the problem.
-    problem_id: StringID,
-
-    /// Set of requirements declared for this problem.
+    domain_name: StringID,
+    problem_name: StringID,
     requirements: HashSet<Requirement>,
 
-    /// Symbol table for all types.
-    types_symbols: SymbolTable<TypeID>,
+    type_symbols: SymbolTable<TypeID>,
+    object_symbols: SymbolTable<ObjectID>,
+    predicate_symbols: SymbolTable<PredicateID>,
+    function_symbols: SymbolTable<FunctorID>,
+    task_symbols: SymbolTable<TaskSymbolID>,
+    
 
-    /// Symbol table for all predicates.
-    predicates_symbols: SymbolTable<PredicateID>,
+    type_defs: Vec<TypedSymbol<TypeID, TypeID>>,
+    object_defs: Vec<TypedSymbol<ObjectID, TypeID>>,
+    predicate_defs: Vec<AtomicFormulaSkeleton>,
+    functions_def: Vec<AtomicFunctionSkeleton>,
+    task_defs: Vec<AtomicTaskSkeleton>,
 
-    /// Symbol table for all numeric functions.
-    functions_symbols: SymbolTable<FunctorID>,
-
-    /// Symbol table for all objects.
-    objects_symbols: SymbolTable<ObjectID>,
-
-    /// List of types of the problem
-    type_parents_table: Vec<Option<TypeID>>,
-
+    constant_offset: usize,
     /// List of value domains for types
-    types_domains: Vec<ValueDomain>,
-
-    /// List of objects
-    objects: Vec<Object>,
+    type_objects: Vec<ValueDomain>,
 
     /// List of fluents (predicates grounded)
     fluents: Vec<Fluent>,
@@ -69,6 +59,48 @@ pub struct Problem {
 }
 
 impl Problem {
+
+    /// Creates a new `Problem` by consuming a `LiftedProblem`.
+    ///
+    /// This implementation performs an ownership transfer of all internal
+    /// data structures, ensuring no deep clones are required.
+    pub fn from(mut lifted: LiftedProblem) -> Self {
+        // Extract the interner
+        let interner = lifted.take_interner();
+
+        Self {
+            interner,
+            domain_name: lifted.domain_name(),
+            problem_name: lifted.problem_name(),
+            requirements: lifted.take_requirements(),
+
+            // Symbol Tables: Mapping IDs to their string representations
+            // These methods move the individual symbol maps out of the lifted problem
+            type_symbols: lifted.take_type_symbols(),
+            object_symbols: lifted.take_object_symbols(),
+            predicate_symbols: lifted.take_predicate_symbols(),
+            function_symbols: lifted.take_function_symbols(),
+            task_symbols: lifted.take_task_symbols(),
+
+            // Definitions: The "lifted" blueprints for the domain elements
+            type_defs: lifted.take_type_defs(),
+            object_defs: lifted.take_object_defs(),
+            predicate_defs: lifted.take_predicate_defs(),
+            functions_def: lifted.take_function_defs(),
+            task_defs: lifted.take_task_defs(),
+
+            // Offsets and Metadata
+            constant_offset: lifted.constant_offset(),
+
+            // Value domains and fluents are initialized empty.
+            // They serve as placeholders for the subsequent grounding phase.
+            type_objects: Vec::new(),
+            fluents: Vec::new(),
+            objects_fluents: Vec::new(),
+            numeric_fluents: Vec::new(),
+        }
+    }
+
     /// Creates a new empty grounded `Problem` with the given requirements.
     ///
     /// All symbol tables (types, predicates, functions, objects) and vectors
@@ -76,28 +108,30 @@ impl Problem {
     /// to `Ident::default()` and must be assigned later using `set_domain_id`
     /// and `set_problem_id`.
     ///
-    /// # Parameters
-    /// - `interner`: The `StringInterner` storing all identifiers.
-    /// - `requirements`: The set of PDDL requirements for this problem.
     ///
     /// # Returns
     /// A new `Problem` instance ready for incremental construction.
-    pub fn new(interner: StringInterner, requirements: HashSet<Requirement>) -> Self {
+    pub fn new() -> Self {
         Self {
-            interner,
-            domain_id: StringID::default(),
-            problem_id: StringID::default(),
-            requirements,
-            types_symbols: SymbolTable::new(),
-            predicates_symbols: SymbolTable::new(),
-            functions_symbols: SymbolTable::new(),
-            objects_symbols: SymbolTable::new(),
-            type_parents_table: Vec::new(),
-            types_domains: Vec::new(),
-            objects: Vec::new(),
+            interner: StringInterner::new(),
+            domain_name: StringID::default(),
+            problem_name: StringID::default(),
+            requirements: HashSet::new(),
+            type_symbols: SymbolTable::new(),
+            predicate_symbols: SymbolTable::new(),
+            predicate_defs: Vec::new(),
+            function_symbols: SymbolTable::new(),
+            functions_def: Vec::new(),
+            task_symbols: SymbolTable::new(),
+            object_symbols: SymbolTable::new(),
+            type_objects: Vec::new(),
+            object_defs: Vec::new(),
             fluents: Vec::new(),
             objects_fluents: Vec::new(),
             numeric_fluents: Vec::new(),
+            type_defs: Vec::new(),
+            task_defs: Vec::new(),
+            constant_offset: 0,
         }
     }
 
@@ -106,7 +140,7 @@ impl Problem {
     /// # Returns
     /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
     pub fn domain_name(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.domain_id)
+        self.interner.try_resolve_ident(self.domain_name)
     }
 
     /// Returns the problem name as a string slice.
@@ -114,30 +148,30 @@ impl Problem {
     /// # Returns
     /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
     pub fn problem_name(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.problem_id)
+        self.interner.try_resolve_ident(self.problem_name)
     }
 
     /// Returns the domain identifier.
     pub fn domain_id(&self) -> StringID {
-        self.domain_id
+        self.domain_name
     }
 
     /// Returns the problem identifier.
     pub fn problem_id(&self) -> StringID {
-        self.problem_id
+        self.problem_name
     }
 
     // Sets the domain identifier, validating it exists in the interner.
     pub fn set_domain_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
-        self.domain_id = id;
+        self.domain_name = id;
         Ok(())
     }
 
     /// Sets the problem identifier, validating it exists in the interner.
     pub fn set_problem_id(&mut self, id: StringID) -> Result<(), InternerError> {
         self.interner.try_resolve_ident(id)?;
-        self.problem_id = id;
+        self.problem_name = id;
         Ok(())
     }
 
@@ -152,69 +186,69 @@ impl Problem {
     // ---------- Type symbol table ----------
 
     /// Returns a reference to the type symbols table.
-    pub fn types_symbols(&self) -> &SymbolTable<TypeID> {
-        &self.types_symbols
+    pub fn type_symbols(&self) -> &SymbolTable<TypeID> {
+        &self.type_symbols
     }
 
     /// Returns a mutable reference to the type symbols table.
-    pub fn types_symbols_mut(&mut self) -> &mut SymbolTable<TypeID> {
-        &mut self.types_symbols
+    pub fn type_symbols_mut(&mut self) -> &mut SymbolTable<TypeID> {
+        &mut self.type_symbols
     }
 
     /// Replaces the current type symbols table with the provided one.
-    pub fn set_types_symbols(&mut self, table: SymbolTable<TypeID>) {
-        self.types_symbols = table;
+    pub fn set_type_symbols(&mut self, table: SymbolTable<TypeID>) {
+        self.type_symbols = table;
     }
 
     // ---------- Type parents ----------
 
     /// Returns a reference to the list of parent types (as `Option<TypeID>`).
-    pub fn type_parent_table(&self) -> &Vec<Option<TypeID>> {
-        &self.type_parents_table
+    pub fn type_defs(&self) -> &Vec<TypedSymbol<TypeID, TypeID>> {
+        &self.type_defs
     }
 
     /// Returns a mutable reference to the list of parent types (as `Option<TypeID>`).
-    pub fn type_parent_table_mut(&mut self) -> &mut Vec<Option<TypeID>> {
-        &mut self.type_parents_table
+    pub fn type_def_mut(&mut self) -> &mut Vec<TypedSymbol<TypeID, TypeID>> {
+        &mut self.type_defs
     }
 
     /// Replaces the current type parents list with the provided one.
-    pub fn set_type_parent_table(&mut self, types: Vec<Option<TypeID>>) {
-        self.type_parents_table = types;
+    pub fn set_type_defs(&mut self, types: Vec<TypedSymbol<TypeID, TypeID>>) {
+        self.type_defs = types;
     }
 
-    // ---------- Type domains ----------
+    // ---------- Type objects ----------
 
     /// Returns a reference to the type domains (values associated with each type).
-    pub fn types_domains(&self) -> &Vec<ValueDomain> {
-        &self.types_domains
+    pub fn type_objects(&self) -> &Vec<ValueDomain> {
+        &self.type_objects
     }
 
     /// Returns a mutable reference to the type domains.
-    pub fn types_domains_mut(&mut self) -> &mut Vec<ValueDomain> {
-        &mut self.types_domains
+    pub fn type_objects_mut(&mut self) -> &mut Vec<ValueDomain> {
+        &mut self.type_objects
     }
 
     /// Replaces the current type domains with the provided one.
-    pub fn set_types_domains(&mut self, domains: Vec<ValueDomain>) {
-        self.types_domains = domains;
+    pub fn set_type_objects(&mut self, domains: Vec<ValueDomain>) {
+        self.type_objects = domains;
     }
 
     // ------------------- PREDICATES -------------------
 
     /// Returns the symbol table mapping predicate identifiers to indices.
-    pub fn predicates_symbols(&self) -> &SymbolTable<PredicateID> {
-        &self.predicates_symbols
+    pub fn predicate_symbols(&self) -> &SymbolTable<PredicateID> {
+        &self.predicate_symbols
     }
 
     /// Returns the symbol table for predicates, mutable.
-    fn predicates_symbols_mut(&mut self) -> &mut SymbolTable<PredicateID> {
-        &mut self.predicates_symbols
+    fn predicate_symbols_mut(&mut self) -> &mut SymbolTable<PredicateID> {
+        &mut self.predicate_symbols
     }
 
     /// Replaces the predicates symbol table with the provided one.
-    fn set_predicates_symbols(&mut self, table: SymbolTable<PredicateID>) {
-        self.predicates_symbols = table;
+    fn set_predicate_symbols(&mut self, table: SymbolTable<PredicateID>) {
+        self.predicate_symbols = table;
     }
 
     /// Returns a reference to the list of all predicates.
@@ -235,18 +269,18 @@ impl Problem {
     // ------------------- FUNCTIONS -------------------
 
     /// Returns the symbol table mapping numeric function identifiers to indices.
-    pub fn functions_symbols(&self) -> &SymbolTable<FunctorID> {
-        &self.functions_symbols
+    pub fn function_symbols(&self) -> &SymbolTable<FunctorID> {
+        &self.function_symbols
     }
 
     /// Returns a mutable reference to the functions symbol table.
-    fn functions_symbols_mut(&mut self) -> &mut SymbolTable<FunctorID> {
-        &mut self.functions_symbols
+    fn function_symbols_mut(&mut self) -> &mut SymbolTable<FunctorID> {
+        &mut self.function_symbols
     }
 
     /// Replaces the functions symbol table with the provided one.
-    fn set_functions_symbols(&mut self, table: SymbolTable<FunctorID>) {
-        self.functions_symbols = table;
+    fn set_function_symbols(&mut self, table: SymbolTable<FunctorID>) {
+        self.function_symbols = table;
     }
 
     /// Returns a reference to the list of all **numeric fluents** (functions that return numeric values).
@@ -275,33 +309,33 @@ impl Problem {
     // ------------------- OBJECTS -------------------
 
     /// Returns the symbol table mapping object identifiers to indices.
-    pub fn objects_symbols(&self) -> &SymbolTable<ObjectID> {
-        &self.objects_symbols
+    pub fn object_symbols(&self) -> &SymbolTable<ObjectID> {
+        &self.object_symbols
     }
 
     /// Returns a mutable reference to the objects symbol table.
-    fn objects_symbols_mut(&mut self) -> &mut SymbolTable<ObjectID> {
-        &mut self.objects_symbols
+    fn object_symbols_mut(&mut self) -> &mut SymbolTable<ObjectID> {
+        &mut self.object_symbols
     }
 
     /// Replaces the objects symbol table with the provided one.
-    fn set_objects_symbols(&mut self, table: SymbolTable<ObjectID>) {
-        self.objects_symbols = table;
+    fn set_object_symbols(&mut self, table: SymbolTable<ObjectID>) {
+        self.object_symbols = table;
     }
 
     /// Returns a reference to the list of all objects.
-    pub fn objects(&self) -> &Vec<Object> {
-        &self.objects
+    pub fn object_defs(&self) -> &Vec<TypedSymbol<ObjectID, TypeID>> {
+        &self.object_defs
     }
 
     /// Returns a mutable reference to the list of objects.
-    fn objects_mut(&mut self) -> &mut Vec<Object> {
-        &mut self.objects
+    fn object_defs_mut(&mut self) -> &mut Vec<TypedSymbol<ObjectID, TypeID>> {
+        &mut self.object_defs
     }
 
     /// Replaces the current list of objects with the provided one.
-    fn set_objects(&mut self, objects: Vec<Object>) {
-        self.objects = objects;
+    fn set_object_defs(&mut self, objects: Vec<TypedSymbol<ObjectID, TypeID>>) {
+        self.object_defs = objects;
     }
 
     /// Returns a reference to the list of all object-fluents.
@@ -336,78 +370,6 @@ impl Problem {
     }
 }
 
-impl TryFrom<LiftedProblem> for Problem {
-    type Error = GroundingError;
-
-    /// Attempts to construct a grounded `Problem` from a `LiftedProblem`.
-    ///
-    /// This involves several steps:
-    /// 1. Take ownership of shared resources like interner and requirements.
-    /// 2. Initialize the grounded `Problem` structure.
-    /// 3. Build symbol tables for types, predicates, functions, and objects.
-    /// 4. Build the types table using the type symbols.
-    /// 5. Build objects (constants and object fluents) based on symbols and types.
-    fn try_from(mut lifted_problem: LiftedProblem) -> Result<Self, Self::Error> {
-        //types::flatten_types(&mut lifted_problem)?;
-
-        problem::expand_quantifiers(&mut lifted_problem)?;
-
-        println!("lifted problem: {}", lifted_problem);
-
-        let interner = lifted_problem.take_interner();
-
-
-        let requirements = lifted_problem.take_requirements();
-        let mut problem = Problem::new(interner, requirements);
-        problem.set_domain_id(lifted_problem.domain_id())?;
-        problem.set_problem_id(lifted_problem.problem_id())?;
-
-        builders::build_type_symbols_table(&lifted_problem, problem.types_symbols_mut());
-        builders::build_predicates_symbols_table(&lifted_problem, problem.predicates_symbols_mut());
-        builders::build_functions_symbols_table(&lifted_problem, problem.functions_symbols_mut());
-//        builders::build_objects_symbols_table(&lifted_problem, problem.objects_symbols_mut());
-
-        /*let types = builders::build_type_parent_table(&lifted_problem, problem.types_symbols_mut())?;
-        problem.set_type_parent_table(types);*/
-
-        /*let objects = builders::build_objects_table(
-            &lifted_problem,
-            problem.objects_symbols(),
-            problem.types_symbols(),
-        )?;
-        problem.set_objects(objects);*/
-
-        /*let mut types_domains = builders::build_object_type_value_domains_table(
-            &lifted_problem,
-            problem.objects_symbols(),
-            problem.types_symbols(),
-        )?;*/
-
-        /*let object_fluents_table = builders::build_object_fluents_table(
-            &lifted_problem,
-            problem.functions_symbols(),
-            problem.types_symbols(),
-            &mut types_domains
-        )?;*/
-
-        /*builders::build_object_fluent_type_value_domain(&mut types_domains, &object_fluents_table);
-        problem.set_types_domains(types_domains);*/
-
-        /*let fluents = builders::build_fluents_table(
-            &lifted_problem,
-            problem.predicates_symbols(),
-            problem.types_symbols(),
-            problem.types_domains()
-        )?;
-        problem.set_fluents(fluents);*/
-
-
-
-        Ok(problem)
-    }
-}
-
-
 impl fmt::Display for Problem {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let domain_name = self.domain_name().unwrap_or("<unknown>");
@@ -426,36 +388,36 @@ impl fmt::Display for Problem {
 
         // ---------- Types ----------
         writeln!(f, "\nTypes Symbols Table:")?;
-        write!(f, "{}", self.types_symbols())?;
+        write!(f, "{}", self.type_symbols())?;
 
         // ---------- Predicates ----------
         writeln!(f, "\nPredicates Symbols Table:")?;
-        write!(f, "{}", self.predicates_symbols())?;
+        write!(f, "{}", self.predicate_symbols())?;
 
         // ---------- Functions ----------
         writeln!(f, "\nFunctions Symbols Table:")?;
-        write!(f, "{}", self.functions_symbols())?;
+        write!(f, "{}", self.function_symbols())?;
 
         // ---------- Objects ----------
         writeln!(f, "\nObjects Symbols Table:")?;
-        write!(f, "{}", self.objects_symbols())?;
+        write!(f, "{}", self.object_symbols())?;
 
-        // ---------- Type Parents ----------
-        writeln!(f, "\nType Parents Table:")?;
-        for (idx, parent) in self.type_parent_table().iter().enumerate() {
-            match parent {
-                Some(parent_id) => writeln!(f, "{} : {}", idx, parent_id)?,
-                None => writeln!(f, "{} : <None>", idx, )?,
+        // ---------- Type definitions ----------
+        writeln!(f, "\nType definition:")?;
+        if self.type_defs().is_empty() {
+            writeln!(f, "<None>")?;
+        } else {
+            for (idx, values) in self.type_defs().iter().enumerate() {
+                writeln!(f, "{}: {}", idx, values)?;
             }
-
         }
 
         // ---------- Object Type Domains ----------
         writeln!(f, "\nType Domains Table:")?;
-        if self.types_domains().is_empty() {
+        if self.type_objects().is_empty() {
             writeln!(f, "<None>")?;
         } else {
-            for (idx, values) in self.types_domains().iter().enumerate() {
+            for (idx, values) in self.type_objects().iter().enumerate() {
                 writeln!(f, "{}: {}", idx, values)?;
             }
         }

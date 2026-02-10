@@ -67,8 +67,8 @@ pub fn to_string(problem: &LiftedProblem) -> String {
 pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> std::fmt::Result {
     // Titre principal
     writeln_centered(f, " [ PROBLEM ] ", 80, '=')?;
-    writeln!(f, "  {:<12} : {}", "DOMAIN NAME", problem.domain_id())?;
-    writeln!(f, "  {:<12} : {}", "PROBLEM NAME", problem.problem_id())?;
+    writeln!(f, "  {:<12} : {}", "DOMAIN NAME", problem.domain_name())?;
+    writeln!(f, "  {:<12} : {}", "PROBLEM NAME", problem.problem_name())?;
     writeln!(f, "{:-<80}\n", "")?;
 
     // Requirements
@@ -89,11 +89,11 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Types
-    if !problem.types().is_empty() {
+    if !problem.type_defs().is_empty() {
         writeln_centered(f, " [ TYPES ] ", 80, '=')?;
         writeln!(f, "  ID    : NAME            - PARENT")?;
         writeln!(f, "{:-<80}", "")?;
-        for (i, t) in problem.types().iter().enumerate() {
+        for (i, t) in problem.type_defs().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", t.symbol()).trim().to_string();
             let parent = format!("{}", t.ty()).trim().to_string();
@@ -103,11 +103,11 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Constants
-    if !problem.domain_constants().is_empty() {
+    if !problem.domain_constant_def().is_empty() {
         writeln_centered(f, " [ CONSTANTS ] ", 80, '=')?;
         writeln!(f, "  ID    : NAME            - TYPE")?;
         writeln!(f, "{:-<80}", "")?;
-        for (i, c) in problem.domain_constants().iter().enumerate() {
+        for (i, c) in problem.domain_constant_def().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", c.symbol()).trim().to_string();
             let c_type = format!("{}", c.ty()).trim().to_string();
@@ -117,12 +117,12 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Objects
-    if !problem.problem_objects().is_empty() {
+    if !problem.problem_object_def().is_empty() {
         writeln_centered(f, " [ OBJECTS ] ", 80, '=')?;
         // Alignement identique : ID (5), NAME (15) et TYPE
         writeln!(f, "  ID    : NAME            - TYPE")?;
         writeln!(f, "{:-<80}", "")?;
-        for (i, o) in problem.problem_objects().iter().enumerate() {
+        for (i, o) in problem.problem_object_def().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", o.symbol()).trim().to_string();
             let type_name = format!("{}", o.ty()).trim().to_string();
@@ -132,13 +132,13 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Predicates
-    if !problem.atomic_formula_skeletons().is_empty() {
+    if !problem.predicate_defs().is_empty() {
         writeln_centered(f, " [ PREDICATES ] ", 80, '=')?;
         // Colonnes : ID, Nom du prédicat, et Paramètres
         writeln!(f, "  {:<5} : {:<15} {}", "ID", "NAME", "PARAMETERS")?;
         writeln!(f, "{:-<80}", "")?;
 
-        for (i, p) in problem.atomic_formula_skeletons().iter().enumerate() {
+        for (i, p) in problem.predicate_defs().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", p.symbol()).trim().to_string();
 
@@ -160,11 +160,11 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Functions
-    if !problem.atomic_function_skeletons().is_empty() {
+    if !problem.functions_defs().is_empty() {
         writeln_centered(f, " [ FUNCTIONS ] ", 80, '=')?;
         writeln!(f, "  {:<5} : {:<15} - {}", "ID", "NAME", "PARAMETERS")?;
         writeln!(f, "{:-<80}", "")?;
-        for (i, fct) in problem.atomic_function_skeletons().iter().enumerate() {
+        for (i, fct) in problem.functions_defs().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", fct.symbol()).trim().to_string();
             let params: Vec<String> = fct.parameters()
@@ -191,40 +191,40 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Derived predicates
-    if problem.derived_predicates().is_empty() {
+    if problem.derived_predicate_defs().is_empty() {
         writeln!(f, "  - no derived predicates\n")?;
     } else {
-        for derived_predicate in problem.derived_predicates() {
+        for derived_predicate in problem.derived_predicate_defs() {
             render_derived_predicate(f, derived_predicate)?;
             writeln!(f)?;
         }
     }
 
     // Actions
-    if problem.actions().is_empty() {
+    if problem.action_defs().is_empty() {
         writeln!(f, "  - no actions\n")?;
     } else {
-        for action in problem.actions() {
+        for action in problem.action_defs() {
             render_action(f, action)?;
             writeln!(f)?;
         }
     }
 
     // Durative Actions
-    if problem.durative_actions().is_empty() {
+    if problem.durative_action_defs().is_empty() {
         writeln!(f, "  - no durative actions\n")?;
     } else {
-        for action in problem.durative_actions() {
+        for action in problem.durative_action_defs() {
             render_durative_action(f, action)?;
             writeln!(f)?;
         }
     }
 
     // Methods
-    if problem.methods().is_empty() {
+    if problem.method_defs().is_empty() {
         writeln!(f, "  - no methods\n")?;
     } else {
-        for method in problem.methods() {
+        for method in problem.method_defs() {
             render_method(f, method)?;
             writeln!(f)?;
         }
@@ -347,10 +347,10 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
 
     // Types
     writeln_centered(f, "TYPES", 80, '=')?;
-    if !domain.has_types() {
+    if !domain.has_type_defs() {
         writeln!(f, "  - no types")?;
     } else {
-        for t in domain.types() {
+        for t in domain.type_defs() {
             writeln!(f, "  - {}", t)?;
         }
     }
@@ -358,10 +358,10 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
 
     // Constants
     writeln_centered(f, "CONSTANTS", 80, '=')?;
-    if !domain.has_constants() {
+    if !domain.has_constant_defs() {
         writeln!(f, "  - no constants")?;
     } else {
-        for c in domain.constants() {
+        for c in domain.constant_defs() {
             writeln!(f, "  - {}", c)?;
         }
     }
@@ -369,10 +369,10 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
 
     // Predicates
     writeln_centered(f, "PREDICATES", 80, '=')?;
-    if domain.predicates().is_empty() {
+    if domain.predicate_defs().is_empty() {
         writeln!(f, "  - no predicates")?;
     } else {
-        for p in domain.predicates() {
+        for p in domain.predicate_defs() {
             writeln!(f, "  - {}", p)?;
         }
     }
@@ -380,10 +380,10 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
 
     // Functions
     writeln_centered(f, "FUNCTIONS", 80, '=')?;
-    if domain.functions().is_empty() {
+    if domain.functions_defs().is_empty() {
         writeln!(f, "  - no functions")?;
     } else {
-        for fct in domain.functions() {
+        for fct in domain.functions_defs() {
             writeln!(f, "  - {}", fct)?;
         }
     }
@@ -391,7 +391,7 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
 
     // Domain constraints
     writeln_centered(f, "DOMAIN CONSTRAINTS", 80, '=')?;
-    let dc = domain.domain_constraints();
+    let dc = domain.constraints();
     if dc.is_empty() {
         writeln!(f, "  - no domain constraints\n")?;
     } else {
@@ -409,30 +409,30 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
     }
 
     // Actions
-    if domain.actions().is_empty() {
+    if domain.action_defs().is_empty() {
         writeln!(f, "  - no actions\n")?;
     } else {
-        for action in domain.actions() {
+        for action in domain.action_defs() {
             render_action(f, action)?;
             writeln!(f)?;
         }
     }
 
     // Durative Actions
-    if domain.durative_actions().is_empty() {
+    if domain.durative_action_defs().is_empty() {
         writeln!(f, "  - no durative actions\n")?;
     } else {
-        for action in domain.durative_actions() {
+        for action in domain.durative_action_defs() {
             render_durative_action(f, action)?;
             writeln!(f)?;
         }
     }
 
     // Methods
-    if domain.methods().is_empty() {
+    if domain.method_defs().is_empty() {
         writeln!(f, "  - no methods\n")?;
     } else {
-        for method in domain.methods() {
+        for method in domain.method_defs() {
             render_method(f, method)?;
             writeln!(f)?;
         }
@@ -507,10 +507,10 @@ pub fn render_problem_def(f: &mut fmt::Formatter<'_>, problem: &ProblemDef) -> s
 
     // Objects
     writeln_centered(f, "OBJECTS", 80, '=')?;
-    if !problem.has_objects() {
+    if !problem.has_object_defs() {
         writeln!(f, "  - no objects")?;
     } else {
-        for o in problem.objects() {
+        for o in problem.object_defs() {
             writeln!(f, "  - {}", o)?;
         }
     }
@@ -536,7 +536,7 @@ pub fn render_problem_def(f: &mut fmt::Formatter<'_>, problem: &ProblemDef) -> s
 
     // Problem constraints
     writeln_centered(f, "PROBLEM CONSTRAINTS", 80, '=')?;
-    let pc = problem.problem_constraints();
+    let pc = problem.constraints();
     if pc.is_empty() {
         writeln!(f, "  - no problem constraints\n")?;
     } else {

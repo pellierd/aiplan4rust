@@ -24,9 +24,9 @@ pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderConte
     }
 
     // 3. Objects
-    if problem.has_objects() {
+    if problem.has_object_defs() {
         write!(f, "\n  (:objects\n    ")?;
-        typed_list::render_typed_object_list(f, problem.objects(), ctx)?;
+        typed_list::render_typed_object_list(f, problem.object_defs(), ctx)?;
         write!(f, "\n  )")?;
     }
 
@@ -51,9 +51,9 @@ pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderConte
     task_network::render_init_task_network(f, problem.initial_task_network(), ctx)?;
 
     // 7. Constraints (Problem level)
-    if !problem.problem_constraints().is_empty() {
+    if !problem.constraints().is_empty() {
         write!(f, "\n  (:constraints ")?;
-        expr::render(f, problem.problem_constraints(), ctx)?;
+        expr::render(f, problem.constraints(), ctx)?;
         write!(f, ")")?;
     }
 

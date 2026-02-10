@@ -27,22 +27,22 @@ pub fn normalize(problem: &mut LiftedProblem) -> Result<(), ExprError> {
     expr::normalize(&mut problem.metric_spec_mut())?;
 
     // Normalize all derived predicates
-    for derived_predicate in problem.derived_predicates_mut() {
+    for derived_predicate in problem.derived_predicate_defs_mut() {
         derived_predicate::normalize(derived_predicate)?;
     }
 
     // Normalize all actions
-    for action in problem.actions_mut() {
+    for action in problem.action_defs_mut() {
         action::normalize(action)?;
     }
 
     // Normalize all durative actions
-    for action in problem.durative_actions_mut() {
+    for action in problem.durative_action_def_mut() {
         durative_action::normalize(action)?;
     }
 
     // Normalize all methods
-    for method in problem.methods_mut() {
+    for method in problem.method_def_mut() {
         method::normalize(method)?;
     }
 

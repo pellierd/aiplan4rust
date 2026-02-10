@@ -21,23 +21,23 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
     }
 
     // 3. Types
-    if domain.has_types() {
+    if domain.has_type_defs() {
         write!(f, "\n  (:types\n    ")?;
-        render_type_def(f, domain.types(), ctx)?;
+        render_type_def(f, domain.type_defs(), ctx)?;
         write!(f, "\n  )")?;
     }
 
     // 4. Constants
-    if domain.has_constants() {
+    if domain.has_constant_defs() {
         write!(f, "\n  (:constants\n    ")?;
-        typed_list::render_typed_object_list(f, domain.constants(), ctx)?;
+        typed_list::render_typed_object_list(f, domain.constant_defs(), ctx)?;
         write!(f, "\n  )")?;
     }
 
     // 5. Predicates
-    if domain.has_predicates() {
+    if domain.has_predicate_defs() {
         write!(f, "\n  (:predicates")?;
-        for pred in domain.predicates() {
+        for pred in domain.predicate_defs() {
             write!(f, "\n    ")?;
             atomic_formula_skeleton::render(f, pred, ctx)?;
         }
@@ -45,9 +45,9 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
     }
 
     // 6. Functions
-    if domain.has_functions() {
+    if domain.has_function_defs() {
         write!(f, "\n  (:functions")?;
-        for func in domain.functions() {
+        for func in domain.functions_defs() {
             write!(f, "\n    ")?;
             atomic_function_skeleton::render(f, func, ctx)?;
         }
@@ -55,17 +55,17 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
     }
 
     // 7. Tasks (Spécifique HDDL)
-    if domain.has_tasks() {
-        for task in domain.tasks() {
+    if domain.has_task_defs() {
+        for task in domain.task_defs() {
             write!(f, "\n  ")?;
             task::render(f, task, ctx)?;
         }
     }
 
     // 11. Constraints (Domain level)
-    if !domain.domain_constraints().is_empty() {
+    if !domain.constraints().is_empty() {
         write!(f, "\n  (:constraints ")?;
-        expr::render(f, domain.domain_constraints(), ctx)?;
+        expr::render(f, domain.constraints(), ctx)?;
         write!(f, ")")?;
     }
 
@@ -76,18 +76,18 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
     }
 
     // 8. Actions & Durative Actions
-    for action in domain.actions() {
+    for action in domain.action_defs() {
         write!(f, "\n")?;
         action::render(f, action, ctx)?;
     }
 
-    for d_action in domain.durative_actions() {
+    for d_action in domain.durative_action_defs() {
         write!(f, "\n")?;
         durative_action::render(f, d_action, ctx)?;
     }
 
     // 10. Methods (HDDL)
-    for method in domain.methods() {
+    for method in domain.method_defs() {
         write!(f, "\n")?;
         method::render(f, method, ctx)?;
     }

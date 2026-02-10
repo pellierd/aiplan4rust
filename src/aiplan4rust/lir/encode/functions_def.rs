@@ -67,7 +67,7 @@ pub fn encode(
         // 3. Physical storage in the LIR
         // The LIR returns both the logical identity (StringID/FunctorID)
         // and the structural ID (FunctionSkeletonID).
-        let (functor_id, function_skeleton_id) = ir.add_function_skeleton(function_skeleton);
+        let (functor_id, function_skeleton_id) = ir.add_function_def(function_skeleton);
 
         // 4. Node mapping in the registry
         // Binds the functor's AST NodeId to both LIR identifiers.

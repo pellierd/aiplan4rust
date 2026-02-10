@@ -135,7 +135,7 @@ fn encode_definitions(
         let symbol_name_id = symbol_node.try_ident()?;
 
         // 3. Ajout au LIR avec son nom
-        ir.add_object(typed_object);
+        ir.add_object_def(typed_object);
     }
 
     Ok(())

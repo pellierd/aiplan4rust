@@ -56,7 +56,7 @@ pub fn encode(
     let task_symbol_node_id = subtree.node().children()[0];
 
     // 4. Dual registration: Physical storage and Node-based mapping
-    let (task_symbol_id, task_skeleton_id) = ir.add_task_skeleton(task_skeleton);
+    let (task_symbol_id, task_skeleton_id) = ir.add_task_def(task_skeleton);
     registry.register_task_skeleton(task_symbol_node_id, task_skeleton_id);
     registry.register_task_symbol(task_symbol_node_id, task_symbol_id);
 

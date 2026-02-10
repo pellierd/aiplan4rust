@@ -123,7 +123,7 @@ fn create_pivots_and_map(
 
                 // Register the new type symbol and definition in the problem
                 let symbol_id = problem.add_type_symbol(name_id);
-                let new_id = problem.add_type(TypedSymbol::new(symbol_id, flattened_parents))?;
+                let new_id = problem.add_type_defs(TypedSymbol::new(symbol_id, flattened_parents))?;
 
                 e.insert(new_id);
                 new_id
@@ -155,7 +155,7 @@ fn apply_map_to_type_definitions(
 ) -> Result<(), LirError> {
     // Iterate through all types by index to safely perform in-place mutation.
     // Note: This assumes that the indices in the type vector remain stable.
-    for i in 0..problem.types().len() {
+    for i in 0..problem.type_defs().len() {
         let tid = TypeID::from(i);
 
         // Retrieve the current structure to check if it needs remapping.
@@ -164,7 +164,7 @@ fn apply_map_to_type_definitions(
         // If the structure (e.g., Either(A, B)) exists in our map,
         // we replace its definition with a Primitive pointer to the pivot.
         if let Some(&pivot_id) = map.get(&current_ty) {
-            if let Some(type_symbol) = problem.types_mut().get_mut(i) {
+            if let Some(type_symbol) = problem.type_defs_mut().get_mut(i) {
                 type_symbol.set_ty(Type::primitive(pivot_id));
             }
         }
@@ -196,16 +196,16 @@ fn apply_map_to_problem_components(
     // with the changes already applied to the type definitions.
 
     // Update Objects
-    for object in problem.objects_mut() {
+    for object in problem.object_defs_mut() {
         typed_symbol::flatten_typed_object(object, map)?;
     }
 
     // Update Predicate and Function signatures
-    for atomic_formula in problem.atomic_formula_skeletons_mut() {
+    for atomic_formula in problem.predicate_defs_mut() {
         atomic_formula_skeleton::flatten(atomic_formula, map)?;
     }
 
-    for atomic_function in problem.atomic_function_skeletons_mut() {
+    for atomic_function in problem.function_defs_mut() {
         atomic_function_skeleton::flatten(atomic_function, map)?;
     }
 
@@ -214,26 +214,26 @@ fn apply_map_to_problem_components(
     expr::flatten(problem.problem_constraints_mut(), map)?;
 
     // Update HTN Task Skeletons
-    for task in problem.task_skeletons_mut() {
+    for task in problem.task_defs_mut() {
         task::flatten(task, map)?;
     }
 
     // Update Derived Predicates
-    for derived_predicate in problem.derived_predicates_mut() {
+    for derived_predicate in problem.derived_predicate_defs_mut() {
         derived_predicate::flatten(derived_predicate, map)?;
     }
 
     // Update Action signatures and effects
-    for action in problem.actions_mut() {
+    for action in problem.action_defs_mut() {
         action::flatten(action, map)?;
     }
 
-    for durative_action in problem.durative_actions_mut() {
+    for durative_action in problem.durative_action_def_mut() {
         durative_action::flatten(durative_action, map)?;
     }
 
     // Update HTN Methods
-    for method in problem.methods_mut() {
+    for method in problem.method_def_mut() {
         method::flatten(method, map)?;
     }
 
@@ -333,7 +333,7 @@ fn flatten_types_def(
                 let name_id = problem.interner_mut().intern_ident(new_name);
 
                 let symbol_id = problem.add_type_symbol(name_id);
-                let new_type_id = problem.add_type(TypedSymbol::new(symbol_id, flattened_parents_ty))?;
+                let new_type_id = problem.add_type_defs(TypedSymbol::new(symbol_id, flattened_parents_ty))?;
 
                 entry.insert(new_type_id);
                 new_type_id
@@ -347,7 +347,7 @@ fn flatten_types_def(
     // 3. Application Phase (Update the problem definitions)
     for (old_id, new_pivot_id) in to_update {
         let new_ty_def = Type::primitive(new_pivot_id);
-        if let Some(ts_mut) = problem.types_mut().get_mut(old_id.as_usize()) {
+        if let Some(ts_mut) = problem.type_defs_mut().get_mut(old_id.as_usize()) {
             ts_mut.set_ty(new_ty_def);
         }
     }
@@ -367,7 +367,7 @@ fn either_types(problem: &LiftedProblem) -> VecDeque<TypeID> {
     // We don't pre-allocate the full length because either types are usually
     // a small subset of the total types. VecDeque will grow as needed.
     problem
-        .types()
+        .type_defs()
         .iter()
         .filter(|ts| ts.ty().is_either())
         .map(|ts| ts.symbol())
@@ -458,7 +458,7 @@ fn make_either_type_name(problem: &LiftedProblem, ty: &Type<TypeID>) -> Result<S
 
     // 2. Resolve all identifiers to their string slices
     for id in ty.iter() {
-        let string_id = problem.type_symbol_table().try_get_ident(*id)?;
+        let string_id = problem.type_symbols().try_get_ident(*id)?;
         let name = problem.interner().try_resolve_ident(*string_id)?;
         parent_names.push(name);
     }
@@ -525,19 +525,19 @@ mod tests {
         // 4. Data Injection phase
         // We define a, b, c as primitives of 'object' (roots for the purpose of this test)
         // Note: In a real LIR problem, roots often have an empty definition Type::new()
-        problem.add_type(TypedSymbol::new(id_a, Type::new()))?;
-        problem.add_type(TypedSymbol::new(id_b, Type::new()))?;
-        problem.add_type(TypedSymbol::new(id_c, Type::new()))?;
+        problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
+        problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?;
+        problem.add_type_defs(TypedSymbol::new(id_c, Type::new()))?;
 
         // Define 'd' as a union (either) of a, b, and c
         let either_abc_type = Type::either(vec![id_a, id_b, id_c]);
-        problem.add_type(TypedSymbol::new(id_d, either_abc_type))?;
+        problem.add_type_defs(TypedSymbol::new(id_d, either_abc_type))?;
 
         // --- BEFORE Flattening Output ---
         println!("\nTypes before flattening:");
-        for (idx, ts) in problem.types().iter().enumerate() {
+        for (idx, ts) in problem.type_defs().iter().enumerate() {
             let type_id = TypeID::from(idx);
-            let string_id = problem.type_symbol_table().get_ident(type_id)
+            let string_id = problem.type_symbols().get_ident(type_id)
                 .expect("TypeID must have an associated name");
 
             let name = problem.interner().try_resolve_ident(*string_id)?;
@@ -549,9 +549,9 @@ mod tests {
 
         // --- AFTER Flattening Output ---
         println!("\nTypes after flattening:");
-        for (idx, ts) in problem.types().iter().enumerate() {
+        for (idx, ts) in problem.type_defs().iter().enumerate() {
             let type_id = TypeID::from(idx);
-            let string_id = problem.type_symbol_table().try_get_ident(type_id)?;
+            let string_id = problem.type_symbols().try_get_ident(type_id)?;
             let name = problem.interner().try_resolve_ident(*string_id)?;
             println!("{}: {:?}", name, ts.ty().members());
         }
@@ -576,7 +576,7 @@ mod tests {
         assert!(pivot_members.contains(&id_c));
 
         // Verify Pivot naming in the interner
-        let pivot_string_id = problem.type_symbol_table().get_ident(pivot_type_id)
+        let pivot_string_id = problem.type_symbols().get_ident(pivot_type_id)
             .expect("Pivot type must be registered in the symbol table");
 
         let pivot_name = problem.interner().try_resolve_ident(*pivot_string_id)?;
@@ -619,18 +619,18 @@ mod tests {
         let id_f = problem.add_type_symbol(name_f);
 
         // 4. Injection phase (add_type)
-        problem.add_type(TypedSymbol::new(id_a, Type::new()))?; // Root type
-        problem.add_type(TypedSymbol::new(id_b, Type::new()))?; // Root type
+        problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?; // Root type
+        problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?; // Root type
 
         // Define complex hierarchy:
         // c = either(a, b)
-        problem.add_type(TypedSymbol::new(id_c, Type::either(vec![id_a, id_b])))?;
+        problem.add_type_defs(TypedSymbol::new(id_c, Type::either(vec![id_a, id_b])))?;
         // d = either(a, c) -> should resolve to {a, b}
-        problem.add_type(TypedSymbol::new(id_d, Type::either(vec![id_a, id_c])))?;
+        problem.add_type_defs(TypedSymbol::new(id_d, Type::either(vec![id_a, id_c])))?;
         // e = either(c, d) -> should resolve to {a, b}
-        problem.add_type(TypedSymbol::new(id_e, Type::either(vec![id_c, id_d])))?;
+        problem.add_type_defs(TypedSymbol::new(id_e, Type::either(vec![id_c, id_d])))?;
         // f = either(b, c) -> should resolve to {a, b}
-        problem.add_type(TypedSymbol::new(id_f, Type::either(vec![id_b, id_c])))?;
+        problem.add_type_defs(TypedSymbol::new(id_f, Type::either(vec![id_b, id_c])))?;
 
         // 5. Execute flattening
         super::flatten_types_def(&mut problem)?;
@@ -645,7 +645,7 @@ mod tests {
 
             // A. Verify type is now a Primitive (Single pointer)
             let type_name = problem.interner().try_resolve_ident(
-                *problem.type_symbol_table().try_get_ident(id)?
+                *problem.type_symbols().try_get_ident(id)?
             )?;
 
             assert!(
@@ -691,7 +691,7 @@ mod tests {
 
         // G. Verify pivot naming convention
         let final_pivot_id = *pivot_ids.iter().next().unwrap();
-        let pivot_string_id = problem.type_symbol_table().try_get_ident(final_pivot_id)?;
+        let pivot_string_id = problem.type_symbols().try_get_ident(final_pivot_id)?;
         let pivot_name = problem.interner().try_resolve_ident(*pivot_string_id)?;
 
         assert!(
@@ -720,25 +720,25 @@ mod tests {
         let e = problem.interner_mut().intern_ident("e");
         let id_e = problem.add_type_symbol(e);
 
-        problem.add_type(TypedSymbol::new(id_a, Type::new()))?;
-        problem.add_type(TypedSymbol::new(id_b, Type::new()))?;
-        problem.add_type(TypedSymbol::new(id_e, Type::new()))?;
+        problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
+        problem.add_type_defs(TypedSymbol::new(id_b, Type::new()))?;
+        problem.add_type_defs(TypedSymbol::new(id_e, Type::new()))?;
 
         // 2. Intermediate types
         let c = problem.interner_mut().intern_ident("c");
         let id_c = problem.add_type_symbol(c);
         let d = problem.interner_mut().intern_ident("d");
         let id_d = problem.add_type_symbol(d);
-        problem.add_type(TypedSymbol::new(id_c, Type::either(vec![id_a, id_b])))?;
-        problem.add_type(TypedSymbol::new(id_d, Type::either(vec![id_b, id_e])))?;
+        problem.add_type_defs(TypedSymbol::new(id_c, Type::either(vec![id_a, id_b])))?;
+        problem.add_type_defs(TypedSymbol::new(id_d, Type::either(vec![id_b, id_e])))?;
 
         // 3. Diamond types: both resolve to {a, b, e}
         let f = problem.interner_mut().intern_ident("f");
         let id_f = problem.add_type_symbol(f);
         let g = problem.interner_mut().intern_ident("g");
         let id_g = problem.add_type_symbol(g);
-        problem.add_type(TypedSymbol::new(id_f, Type::either(vec![id_c, id_d])))?; // {a, b} + {b, e}
-        problem.add_type(TypedSymbol::new(id_g, Type::either(vec![id_a, id_d])))?; // {a} + {b, e}
+        problem.add_type_defs(TypedSymbol::new(id_f, Type::either(vec![id_c, id_d])))?; // {a, b} + {b, e}
+        problem.add_type_defs(TypedSymbol::new(id_g, Type::either(vec![id_a, id_d])))?; // {a} + {b, e}
 
         // 4. Flatten
         super::flatten_types_def(&mut problem)?;

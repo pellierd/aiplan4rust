@@ -127,7 +127,7 @@ fn encode_definitions(
         let typed_type = typed_symbol::encode_typed_type(&child_subtree, registry)?;
 
         // Store the final declaration in the LIR;
-        ir.add_type(typed_type)?;
+        ir.add_type_defs(typed_type)?;
     }
 
     Ok(())

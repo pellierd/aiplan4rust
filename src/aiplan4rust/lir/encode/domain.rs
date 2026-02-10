@@ -93,7 +93,7 @@ fn collect_definitions(
         let subtree = SyntaxSubtree::new(node, node_id, syntax_tree);
 
         match node.kind() {
-            AstKind::DomainName => ir.set_domain_id(node.try_ident()?)?,
+            AstKind::DomainName => ir.set_domain_name(node.try_ident()?)?,
             AstKind::TypesDef => types_def::encode(&subtree, registry, ir)?,
             AstKind::ConstantsDef => constants_def::encode(&subtree, registry, ir)?,
             AstKind::PredicatesDef => predicates_def::encode(&subtree, registry, ir)?,
@@ -150,15 +150,15 @@ fn encode_logic(
             AstKind::ActionDef => action::encode(&subtree, registry, ir)?,
             AstKind::DurativeActionDef => {
                 let action = durative_action::encode(&subtree, registry)?;
-                ir.add_durative_action(action);
+                ir.add_durative_action_def(action);
             }
             AstKind::DerivedDef => {
                 let derived_predicate = derived_predicate::encode(&subtree, registry)?;
-                ir.add_derived_predicate(derived_predicate);
+                ir.add_derived_predicate_def(derived_predicate);
             }
             AstKind::MethodDef => {
                 let method = method::encode(&subtree, registry)?;
-                ir.add_method(method);
+                ir.add_method_def(method);
             }
             _ => {} 
         }

@@ -16,26 +16,6 @@
 //! - [`SyntaxDisplay`] – formats the domain as a syntax string without interner or indentation.
 //! - [`SelfInternerDisplay`] – formats the domain using its internal `StringInterner`.
 //! - [`Display`] – default string representation of the domain.
-//!
-//! # Example
-//!
-//! ```rust
-//! use crate::aiplan4rust::lir::problem::{LiftedProblem, DomainDef};
-//!
-//! # let problem: LiftedProblem = todo!();
-//! let domain = DomainDef::new(&problem);
-//!
-//! // Access domain-level information
-//! let name = domain.domain_name();
-//! let requirements = domain.requirements();
-//! let types = domain.types();
-//! let constants = domain.constants();
-//! let predicates = domain.predicates();
-//! let functions = domain.functions();
-//! let actions = domain.actions();
-//! let methods = domain.methods();
-//! let constraints = domain.domain_constraints();
-//! ```
 
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -56,27 +36,6 @@ use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 ///
 /// This struct is typically used when you want to analyze or render the domain
 /// of a problem without modifying it.
-///
-/// # Example
-///
-/// ```rust
-/// use crate::aiplan4rust::lir::problem::LiftedProblem;
-/// use crate::aiplan4rust::lir::problem::DomainDef;
-///
-/// # let problem: LiftedProblem = todo!();
-/// let domain = DomainDef::new(&problem);
-///
-/// // Access domain-level information
-/// let name = domain.domain_name();
-/// let requirements = domain.requirements();
-/// let types = domain.types();
-/// let constants = domain.constants();
-/// let predicates = domain.predicates();
-/// let functions = domain.functions();
-/// let actions = domain.actions();
-/// let methods = domain.methods();
-/// let constraints = domain.domain_constraints();
-/// ```
 #[derive(Debug, Clone)]
 pub struct DomainDef<'a> {
     problem: &'a LiftedProblem,
@@ -102,7 +61,7 @@ impl<'a> DomainDef<'a> {
     ///
     /// The [`StringID`] representing the domain's name.
     pub fn domain_name(&self) -> StringID {
-        self.problem.domain_id()
+        self.problem.domain_name()
     }
 
     /// Returns the string interner associated with this domain.
@@ -137,60 +96,98 @@ impl<'a> DomainDef<'a> {
     ///     println!("Type: {:?}", ty);
     /// }
     /// ```
-    pub fn types(&self) -> &[TypedSymbol<TypeID, TypeID>] {
-        self.problem.types()
+    pub fn type_defs(&self) -> &[TypedSymbol<TypeID, TypeID>] {
+        self.problem.type_defs()
     }
 
-    pub fn has_types(&self) -> bool {
-        self.problem.has_types()
+    /// Checks if the problem contains any type definitions.
+    ///
+    /// This is typically true for PDDL domains that use the `:typing` requirement.
+    pub fn has_type_defs(&self) -> bool {
+        self.problem.has_type_defs()
     }
 
-    pub fn constants(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
-        self.problem.domain_constants()
+    /// Returns a slice of constant definitions defined in the domain.
+    ///
+    /// Constants are "global" objects available across all problems
+    /// associated with this domain.
+    pub fn constant_defs(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
+        self.problem.domain_constant_def()
     }
 
-    pub fn has_constants(&self) -> bool {
-        self.problem.has_domain_constants()
+    /// Checks if the domain defines any constants.
+    pub fn has_constant_defs(&self) -> bool {
+        self.problem.has_domain_constant_defs()
     }
 
-    pub fn predicates(&self) -> &[AtomicFormulaSkeleton] {
-        self.problem.atomic_formula_skeletons()
+    /// Returns a slice of the predicate definitions (skeletons).
+    ///
+    /// Each skeleton defines the symbol and the expected parameter types
+    /// for a boolean fluent.
+    pub fn predicate_defs(&self) -> &[AtomicFormulaSkeleton] {
+        self.problem.predicate_defs()
     }
 
-    pub fn has_predicates(&self) -> bool {
-       self.problem.has_atomic_formula_skeleton()
+    /// Checks if the problem has any predicate definitions.
+    pub fn has_predicate_defs(&self) -> bool {
+        self.problem.has_predicate_defs()
     }
 
-    pub fn functions(&self) -> &[AtomicFunctionSkeleton] {
-        self.problem.atomic_function_skeletons()
+    /// Returns a slice of the functional definitions (numeric fluents).
+    ///
+    /// These represent functions that map objects to numeric values,
+    /// often used with the `:fluents` requirement.
+    pub fn functions_defs(&self) -> &[AtomicFunctionSkeleton] {
+        self.problem.functions_defs()
     }
 
-    pub fn has_functions(&self) -> bool {
-        self.problem.has_atomic_function_skeletons()
+    /// Checks if the problem contains any function definitions.
+    pub fn has_function_defs(&self) -> bool {
+        self.problem.has_function_defs()
     }
 
-    pub fn tasks(&self) -> &[AtomicTaskSkeleton] {
-        self.problem.task_skeletons()
+    /// Returns a slice of all task definitions (skeletons).
+    ///
+    /// In HTN planning, these represent the abstract or primitive tasks
+    /// that can be part of a task network.
+    pub fn task_defs(&self) -> &[AtomicTaskSkeleton] {
+        self.problem.task_defs()
     }
 
-    pub fn has_tasks(&self) -> bool {
-        self.problem.has_task_skeletons()
+    /// Checks if the problem defines any tasks.
+    pub fn has_task_defs(&self) -> bool {
+        self.problem.has_task_defs()
     }
 
-
+    /// Returns a slice of all derived predicate definitions (axioms).
+    ///
+    /// Derived predicates are evaluated based on the current state and
+    /// other predicates, rather than being modified directly by actions.
     pub fn derived_predicates(&self) -> &[LiftedDerivedPredicate] {
-        &self.problem.derived_predicates()
+        self.problem.derived_predicate_defs()
     }
 
-    pub fn actions(&self) -> &[LiftedAction] {
-        self.problem.actions()
-    }
-    pub fn durative_actions(&self) -> &[LiftedDurativeAction] {
-        self.problem.durative_actions()
+    /// Returns a slice of all lifted action definitions.
+    ///
+    /// These are the primitive operators available to the planner.
+    pub fn action_defs(&self) -> &[LiftedAction] {
+        self.problem.action_defs()
     }
 
-    pub fn methods(&self) -> &[LiftedMethod] {
-        self.problem.methods()
+    /// Returns a slice of all lifted durative action definitions.
+    ///
+    /// These actions have a temporal component, including duration
+    /// and conditions/effects applied at different time points (start, end, over all).
+    pub fn durative_action_defs(&self) -> &[LiftedDurativeAction] {
+        self.problem.durative_action_defs()
+    }
+
+    /// Returns a slice of all lifted method definitions.
+    ///
+    /// Methods define how an abstract task can be decomposed into
+    /// sub-tasks within an HTN framework.
+    pub fn method_defs(&self) -> &[LiftedMethod] {
+        self.problem.method_defs()
     }
 
     /// Returns the global domain constraints.
@@ -198,7 +195,7 @@ impl<'a> DomainDef<'a> {
     /// # Returns
     ///
     /// A reference to an [`Expr`] representing the domain-level constraints.
-    pub fn domain_constraints(&self) -> &Expr {
+    pub fn constraints(&self) -> &Expr {
         self.problem.domain_constraints()
     }
 }

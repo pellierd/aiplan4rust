@@ -15,11 +15,11 @@ impl<'a> RenderContext<'a> {
     pub fn new(problem: &'a LiftedProblem) -> Self {
         Self {
             interner: &problem.interner(),
-            type_symbols: &problem.type_symbol_table(),
-            predicate_symbols: &problem.predicate_symbol_table(),
-            functor_symbols: &problem.functor_symbol_table(),
-            object_symbols: &problem.object_symbol_table(),
-            task_symbols: &problem.task_symbol_table(),
+            type_symbols: &problem.type_symbols(),
+            predicate_symbols: &problem.predicate_symbols(),
+            functor_symbols: &problem.function_symbols(),
+            object_symbols: &problem.object_symbol(),
+            task_symbols: &problem.task_symbols(),
         }
     }
 

@@ -81,7 +81,7 @@ impl<'a> ProblemDef<'a> {
     /// # Returns
     /// An [`StringID`] representing the problem name.
     pub fn problem_name(&self) -> StringID {
-        self.problem.problem_id()
+        self.problem.problem_name()
     }
 
     /// Returns the domain name associated with this problem.
@@ -89,7 +89,7 @@ impl<'a> ProblemDef<'a> {
     /// # Returns
     /// An [`StringID`] representing the domain name.
     pub fn domain_name(&self) -> StringID {
-        self.problem.domain_id()
+        self.problem.domain_name()
     }
 
     /// Returns the string interner associated with this problem.
@@ -100,8 +100,8 @@ impl<'a> ProblemDef<'a> {
         self.problem.interner()
     }
 
-    pub fn objects(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
-        self.problem.problem_objects()
+    pub fn object_defs(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
+        self.problem.problem_object_def()
     }
 
     /// Returns true if the problem contains any objects.
@@ -113,8 +113,8 @@ impl<'a> ProblemDef<'a> {
     ///     println!("There are objects defined.");
     /// }
     /// ```
-    pub fn has_objects(&self) -> bool {
-        self.problem.has_problem_objects()
+    pub fn has_object_defs(&self) -> bool {
+        self.problem.has_problem_object_defs()
     }
 
     /// Returns the initial state expression.
@@ -137,7 +137,7 @@ impl<'a> ProblemDef<'a> {
     ///
     /// # Returns
     /// Reference to an [`Expr`] representing constraints defined specifically for this problem.
-    pub fn problem_constraints(&self) -> &Expr {
+    pub fn constraints(&self) -> &Expr {
         self.problem.problem_constraints()
     }
 

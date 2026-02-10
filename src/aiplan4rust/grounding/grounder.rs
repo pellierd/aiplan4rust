@@ -1,6 +1,8 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::GroundingResult;
 use crate::aiplan4rust::grounding::problem::Problem;
+use crate::aiplan4rust::lir;
+use crate::aiplan4rust::lir::passes::types::problem;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::DiagnosticManager;
 
@@ -49,9 +51,16 @@ impl Grounder {
     /// ```
     pub fn ground(
         &mut self,
-        lifted_problem: LiftedProblem,
+        mut lifted_problem: LiftedProblem,
     ) -> Result<GroundingResult, GroundingError> {
-        let problem = Problem::try_from(lifted_problem)?;
+
+        // Perform type inference and flatten the lifted problem.
+        problem::flatten(&mut lifted_problem)?;
+
+        let problem = Problem::from(lifted_problem);
+
+
+
         Ok(GroundingResult::success(
             problem,
             std::mem::take(&mut self.diagnostic_manager),

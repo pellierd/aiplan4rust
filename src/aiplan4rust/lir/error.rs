@@ -1,7 +1,7 @@
 use std::panic::Location;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{FunctorID, LangError, PredicateID, StringID, Type, TypeID};
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, LangError, ObjectID, PredicateID, StringID, TaskSkeletonID, Type, TypeID};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
@@ -103,6 +103,24 @@ pub enum LirError {
 
     #[error("Index out of bound: {id})")]
     IndexOutOfBound { id: usize },
+
+    // A definition was provided for a type that was never registered in the symbol table.
+    #[error("Type definition provided for an unregistered ID: {id:?}")]
+    TypeDefinitionOrphan { id: TypeID },
+
+    // In the LirError enum
+    #[error("Object definition provided for an unregistered ID: {id:?}")]
+    ObjectDefinitionOrphan { id: ObjectID },
+
+    #[error("Predicate definition requested for an unregistered ID: {id:?}")]
+    PredicateDefinitionOrphan { id: AtomSkeletonID },
+
+    #[error("Function definition requested for an unregistered ID: {id:?}")]
+    FunctionDefinitionOrphan { id: FunctionSkeletonID },
+
+    // In your LirError enum
+    #[error("Task definition requested for an unregistered ID: {id:?}")]
+    TaskDefinitionOrphan { id: TaskSkeletonID },
 }
 
 
@@ -206,6 +224,29 @@ impl LirError {
 
     pub fn index_out_of_bounds(id: usize) -> Self {
         Self::IndexOutOfBound { id }
+    }
+
+    pub fn type_definition_orphan(id: TypeID) -> Self {
+        Self::TypeDefinitionOrphan { id }
+    }
+
+    // In the LirError impl block
+    pub fn object_definition_orphan(id: ObjectID) -> Self {
+        Self::ObjectDefinitionOrphan { id }
+    }
+
+    pub fn predicate_definition_orphan(id: AtomSkeletonID) -> Self {
+        Self::PredicateDefinitionOrphan { id }
+    }
+
+    /// Constructeur pour l'erreur de fonction
+    pub fn function_definition_orphan(id: FunctionSkeletonID) -> Self {
+        Self::FunctionDefinitionOrphan { id }
+    }
+
+    // In your impl LirError block
+    pub fn task_definition_orphan(id: TaskSkeletonID) -> Self {
+        Self::TaskDefinitionOrphan { id }
     }
 
     /// Helper privé pour uniformiser le logging et la stack trace sans polluer les fonctions publiques
