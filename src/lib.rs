@@ -1,6 +1,6 @@
 
-extern crate core;
 extern crate alloc;
+extern crate core;
 
 pub mod aiplan4rust;
 

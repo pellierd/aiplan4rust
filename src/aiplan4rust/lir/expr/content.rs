@@ -50,20 +50,14 @@
 //! The [`Content::remap_idents`] method allows in-place remapping of interned identifiers
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, TypedList, VariableID, ObjectID, ParameterID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID, TaskLabelID};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableID, ObjectID, ParameterID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID, TaskLabelID};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
-use crate::aiplan4rust::syntax::ast::{AstContent, AstNode};
-use crate::aiplan4rust::tree::{SyntaxContent, SyntaxSubtree};
-use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
+use crate::aiplan4rust::tree::SyntaxContent;
 use ordered_float::OrderedFloat;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
-use std::fmt::Formatter;
-use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
-use crate::aiplan4rust::lir::encode::typed_list;
+use crate::aiplan4rust::lir::expr::ExprContent;
 use crate::aiplan4rust::lir::renderers;
 
 /// Represents the semantic content attached to an AST syntax node.

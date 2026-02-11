@@ -32,7 +32,6 @@
 use thiserror::Error;
 
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
-use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::validation::common::WellNormalizedError;
 
 /// Represents errors that can occur during the normalization process.

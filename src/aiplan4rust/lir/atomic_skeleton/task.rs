@@ -18,10 +18,8 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
 /// Represents a syntax task declaration in HDDL.
 ///

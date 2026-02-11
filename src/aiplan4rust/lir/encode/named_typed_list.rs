@@ -12,12 +12,11 @@
 //! By centralizing this logic, the LIR ensures consistent handling of identifier
 //! extraction and parameter scope across all operators.
 
-use std::fs::exists;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{NodeId, Node, SyntaxSubtree, Tree};
+use crate::aiplan4rust::tree::{Node, SyntaxSubtree};
 use crate::aiplan4rust::lir::encode::{typed_list, EncodingRegistry};
 
 /// Encodes a `NamedTypedList` (skeleton) from a syntax subtree.

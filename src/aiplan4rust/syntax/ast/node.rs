@@ -22,19 +22,17 @@
 //! [`AstError`] or [`SyntaxTreeError`] when semantic constraints are violated.
 
 use std::collections::HashMap;
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Formatter};
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerError, StringInterner};
 use crate::aiplan4rust::lang::{RemapIdents, Requirement, StringID};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
-use crate::aiplan4rust::syntax;
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree, NodeId};
-use crate::aiplan4rust::syntax::{Span, SyntaxDisplay};
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
+use crate::aiplan4rust::syntax::Span;
 
 /// Represents a node in the Abstract Syntax Tree (AST).
 ///

@@ -4,13 +4,12 @@
 //! 1. **Phase 1 (Discovery):** Scans all type names to populate the registry with unique `TypeID`s.
 //! 2. **Phase 2 (Definition):** Resolves inheritance relationships and adds full type declarations to the LIR.
 
-use crate::aiplan4rust::arena::{ArenaNode, NodeId};
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encode::{typed_symbol, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{Node, SyntaxSubtree};
+use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes the PDDL `:types` section into the Lifted Intermediate Representation (LIR).
 ///

@@ -34,9 +34,6 @@ pub fn handle_ground_command(matches: &ArgMatches) -> Result<(), CliError> {
         .cloned()
         .collect();
 
-    let domain_file = PathBuf::from(&files[0]);
-    let problem_file = PathBuf::from(&files[1]);
-
     // --- Determine output format ---
     let format = *matches
         .get_one::<SerdeFormat>(FORMAT_ARG)

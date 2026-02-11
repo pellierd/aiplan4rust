@@ -35,14 +35,12 @@
 //!
 
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::lang::{StringID, Optimization, Type};
+use crate::aiplan4rust::lang::Optimization;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::{NodeId, Node, Tree};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};

@@ -5,10 +5,8 @@
 //! subtasks, ordering dependencies, and logical constraints against the LIR context.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{StringID, TaskLabelID, TaskSkeletonID};
+use crate::aiplan4rust::lang::{StringID, TaskSkeletonID};
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
-use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::expr::kind::Kind;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encode::{expr, EncodingRegistry};
 use crate::aiplan4rust::lir::task_network::TaskNetwork;

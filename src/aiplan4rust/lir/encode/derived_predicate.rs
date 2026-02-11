@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::encode::{atomic_formula_skeleton, expr, named_typed_list};
+use crate::aiplan4rust::lir::encode::{atomic_formula_skeleton, expr};
 use crate::aiplan4rust::lir::encode::registry::EncodingRegistry;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 

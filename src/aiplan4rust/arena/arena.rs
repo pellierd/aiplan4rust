@@ -761,7 +761,7 @@ impl<T: ArenaNode> ArenaTree<T> {
 /// # Example
 ///
 /// ```
-/// # use your_crate::{ArenaTree, NodeId};
+/// # use crate::aiplan4rust::{ArenaTree, NodeId};
 /// let mut arena = ArenaTree::new();
 /// let node_id = arena.alloc(MyNode::new("root"));
 /// arena.set_root_id(node_id).unwrap();
@@ -793,7 +793,7 @@ where
             node: &T,
             node_index: usize,
             indent: usize,
-            is_last: bool,
+            _is_last: bool,
         ) -> fmt::Result {
             // Print indentation
             for _ in 0..indent {

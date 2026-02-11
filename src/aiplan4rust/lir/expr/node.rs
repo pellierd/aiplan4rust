@@ -36,17 +36,15 @@
 //! The symbol resolution method returns `Result` to handle cases where
 //! identification extraction fails or when the node kind does not correspond to a symbol.
 
-use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::renderers;
-use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree};
+use crate::aiplan4rust::tree::{SyntaxBaseNode, Node};
 
 /// Expression node wrapping a syntax base node specialized with `ExprKind` and `ExprContent`.
 ///
@@ -90,23 +88,6 @@ impl ExprNode {
     pub fn is_empty_or(&self) -> bool {
         self.kind() == ExprKind::Or && self.children().is_empty()
     }
-
-    pub fn to_syntax_string(
-        &self,
-        tree: &Tree<ExprNode>,
-        interner: &StringInterner
-    ) -> String {
-        struct Wrapper<'a>(&'a ExprNode, &'a Tree<ExprNode>, &'a StringInterner);
-        impl fmt::Display for Wrapper<'_> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                // Appelle ici le renderer spécifique au LIR/Expr
-                // Si tu n'en as pas encore, utilise la version générique ou simplifiée
-               writeln!(f, "{}", "TO DO".to_string())
-            }
-        }
-        format!("{}", Wrapper(self, tree, interner))
-    }
-
 
 }
 

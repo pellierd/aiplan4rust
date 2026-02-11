@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use crate::aiplan4rust::lang::ids::Id;
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
 use serde::{Deserialize, Serialize};

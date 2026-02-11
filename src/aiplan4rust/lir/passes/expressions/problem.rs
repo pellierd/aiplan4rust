@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::expr;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::passes::expressions::{action, derived_predicate, durative_action, initial_task_network, method, task_network};
+use crate::aiplan4rust::lir::passes::expressions::{action, derived_predicate, durative_action, initial_task_network, method};
 
 /// Normalizes all expressions and normalizable components of a `Problem`.
 ///

@@ -168,7 +168,6 @@ mod tests {
     ///     (at end (or (and) (not (C))))
     ///     (over all (or (and (B)))))
     #[test]
-    #[test]
     fn test_normalize_temporal_complex() -> Result<(), ExprError> {
         let mut builder = ExprBuilder::new();
 

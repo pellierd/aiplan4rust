@@ -10,9 +10,8 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{TypedSymbol, Type, TypeID, VariableID, ObjectID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::tree::{Node, SyntaxSubtree};
+use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::encode::{ty, EncodingRegistry};
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 
 /// Encodes a `TypedSymbol` (an identifier associated with a Type) from the syntax tree.
 ///

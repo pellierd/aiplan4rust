@@ -3,7 +3,7 @@
 use std::fmt;
 use crate::aiplan4rust::lir::LiftedDurativeAction;
 use crate::aiplan4rust::lir::renderers::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{expr, ty, typed_list};
+use crate::aiplan4rust::lir::renderers::syntax::{expr, typed_list};
 
 /// Renders a [DurativeAction] into its PDDL-compliant string representation.
 ///

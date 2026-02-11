@@ -1,13 +1,11 @@
-use std::panic::Location;
+use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, LangError, ObjectID, PredicateID, StringID, TaskSkeletonID, Type, TypeID};
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, LangError, ObjectID, StringID, TaskSkeletonID, Type, TypeID};
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use thiserror::Error;
 use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
-use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::tree::NodeId;
 
@@ -32,7 +30,6 @@ pub enum LirError {
 
     #[error(transparent)]
     IndexTable(#[from] IndexTableError),
-
 
     #[error(transparent)]
     SymbolTable(#[from] SymbolTableError),

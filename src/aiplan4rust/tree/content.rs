@@ -32,9 +32,7 @@
 
 use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::interner::InternerDisplay;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents};
-use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Trait representing the semantic content of a syntax node.

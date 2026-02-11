@@ -175,5 +175,5 @@ impl fmt::Display for DerivedPredicate {
 
 impl LiftedSyntaxDisplay for DerivedPredicate {
     fn fmt_syntax(&self, f: &mut Formatter<'_>, ctx: &RenderContext) -> fmt::Result {
-        renderers::syntax::derive_predicate::render(f, self, ctx)    }
+        renderers::syntax::derived_predicate::render(f, self, ctx)    }
 }

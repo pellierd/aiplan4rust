@@ -415,7 +415,6 @@ mod tests {
        /// Input: (forall (?X - T) (A))
        /// Expected unchanged
        #[test]
-       #[test]
        fn test_no_simplification_forall() -> Result<(), ExprError> {
            let mut builder = ExprBuilder::new();
 

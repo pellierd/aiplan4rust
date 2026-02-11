@@ -3,7 +3,7 @@
 use std::fmt;
 use crate::aiplan4rust::lir::LiftedAction;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{expr, ty, typed_list};
+use crate::aiplan4rust::lir::renderers::syntax::{expr, typed_list};
 
 /// Renders a [LiftedAction] into a PDDL-compliant action block.
 ///

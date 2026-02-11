@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 
 pub fn expand_quantifiers(problem: &mut LiftedProblem) -> Result<(), LirError> {
-    let interner = problem.interner();
+    let _interner = problem.interner();
 
     
 

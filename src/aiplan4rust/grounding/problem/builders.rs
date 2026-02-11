@@ -1,4 +1,4 @@
-use itertools::Itertools;
+/*use itertools::Itertools;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::problem::{Fluent, SymbolTable, ValueDomain};
 use crate::aiplan4rust::lang::ids::{FunctorID, ObjectFluentID, ObjectID, ArgumentID, PredicateID, TypeID};
@@ -8,7 +8,7 @@ use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 
-/*/// Builds the value-domain table associated with each type.
+/// Builds the value-domain table associated with each type.
 ///
 /// For every type, this table contains the set of objects that belong to it,
 /// based on the constants and objects declared in the lifted problem.

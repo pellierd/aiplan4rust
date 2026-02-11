@@ -5,8 +5,6 @@
 //! such as duplicate declarations, ambiguous symbol usage, invalid AST node types,
 //! or malformed typed items.
 
-use std::panic::Location;
-use log::debug;
 use thiserror::Error;
 
 use crate::aiplan4rust::arena::ArenaError;

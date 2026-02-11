@@ -4,7 +4,7 @@
 //! It is a core utility used to process parameters (in predicates and actions),
 //! as well as global constants and objects.
 
-use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;

@@ -5,13 +5,11 @@
 //! and is called by the `constants_def` module to parse domain constants.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::ObjectID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encode::{typed_symbol, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
-use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{NodeId, Node, SyntaxSubtree, Tree};
+use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a list of objects from the syntax tree into the Lifted Intermediate Representation (LIR).
 ///
@@ -37,35 +35,6 @@ use crate::aiplan4rust::tree::{NodeId, Node, SyntaxSubtree, Tree};
 /// This function returns an error if:
 /// * The internal AST structure for the typed list is unreachable.
 /// * Any individual symbol fails to encode (e.g., refers to a non-existent type).
-/*pub fn encode(
-    subtree: &SyntaxSubtree<AstNode>,
-    registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
-) -> Result<(), LirError> {
-    // 1. Access the list container (usually the first child of the Def node)
-    let list_node_id = subtree.node().try_child(0)?;
-    let list_node = subtree.tree().try_node(list_node_id)?;
-
-    // 2. Iterate and encode each symbol in the list
-    for &child_id in list_node.children() {
-        let child_node = subtree.tree().try_node(child_id)?;
-        let child_subtree = SyntaxSubtree::new(child_node, child_id, subtree.tree());
-
-        // Resolve the TypedSymbol structure (StringID + TypeID)
-        let object = typed_symbol::encode_typed_object(&child_subtree, registry)?;
-        let object_node_id = child_node.try_child(0)?;
-
-        // Add to LIR and retrieve the definitive ObjectID
-        let object_id = ir.add_object(object);
-
-        // Bind the name to the ID in the registry for semantic lookups
-        registry.register_object(object_node_id, object_id);
-    }
-
-    Ok(())
-}*/
-
-/// Encodes the PDDL `:objects` or `:constants` section into the Lifted Intermediate Representation (LIR).
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
@@ -129,13 +98,8 @@ fn encode_definitions(
         // 1. Encodage de la structure (ID + Type)
         let typed_object = typed_symbol::encode_typed_object(&child_subtree, registry)?;
 
-        // 2. Récupération du nom (StringID) de l'objet
-        let symbol_node_id = typed_symbol_node.try_child(0)?;
-        let symbol_node = tree.try_node(symbol_node_id)?;
-        let symbol_name_id = symbol_node.try_ident()?;
-
-        // 3. Ajout au LIR avec son nom
-        ir.add_object_def(typed_object);
+        // 2. Ajout au LIR avec son nom
+        ir.add_object_def(typed_object)?;
     }
 
     Ok(())

@@ -10,9 +10,7 @@
 
 use crate::aiplan4rust::lang::{Type, TypeID};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::LirError::SymbolTable;
 use crate::aiplan4rust::lir::encode::EncodingRegistry;
-use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;

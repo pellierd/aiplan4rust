@@ -108,7 +108,6 @@ mod tests {
     /// Input: (A -> B)
     /// Expected output: (or (B) (not (A)))
     #[test]
-    #[test]
     fn test_nested_imply() -> Result<(), ExprError> {
         let mut builder = ExprBuilder::new();
 

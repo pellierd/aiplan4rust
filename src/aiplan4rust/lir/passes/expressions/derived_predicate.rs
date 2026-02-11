@@ -1,4 +1,3 @@
-use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::{expr, LiftedDerivedPredicate};
 use crate::aiplan4rust::lir::expr::ExprError;
 

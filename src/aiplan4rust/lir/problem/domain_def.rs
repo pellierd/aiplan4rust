@@ -17,15 +17,15 @@
 //! - [`SelfInternerDisplay`] – formats the domain using its internal `StringInterner`.
 //! - [`Display`] – default string representation of the domain.
 
-use std::fmt::{self, Display, Formatter};
+use core::fmt::Display;
+use std::fmt::{self, Formatter};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::interner::{SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-use crate::aiplan4rust::syntax::display::SyntaxDisplay;
 
 /// Wrapper around the domain view of a lifted problem.
 ///

@@ -1,10 +1,10 @@
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::kind::Kind;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{ty, typed_list};
+use crate::aiplan4rust::lir::renderers::syntax::typed_list;
 use crate::aiplan4rust::syntax::lexer::token::{AT, LPAREN, RPAREN};
 use crate::aiplan4rust::syntax::write_indent;
 use crate::aiplan4rust::tree::NodeId;
@@ -99,7 +99,7 @@ pub fn render(
                     ExprKind::Not | ExprKind::Imply => {
                         stack.push(RenderOp::Write(RPAREN));
 
-                        for (i, &child_id) in children.iter().enumerate().rev() {
+                        for (_, &child_id) in children.iter().enumerate().rev() {
                             stack.push(RenderOp::Process(child_id, 0));
                             // On ne met un espace que s'il y a un élément avant (donc i > 0)
                             // OU on en met un après le mot-clé
@@ -132,7 +132,7 @@ pub fn render(
                     // --- COMPARISONS & ASSIGNMENTS (= x y) ---
                     ExprKind::FComp | ExprKind::Assign | ExprKind::Operation => {
                         stack.push(RenderOp::Write(RPAREN));
-                        for (i, &child_id) in children.iter().enumerate().rev() {
+                        for (_, &child_id) in children.iter().enumerate().rev() {
                             stack.push(RenderOp::Process(child_id, 0));
                             stack.push(RenderOp::Write(" "));
                         }
@@ -221,7 +221,7 @@ pub fn render(
 
                         let children = node.children();
                         // On suppose que children[0] est id1 et children[1] est id2
-                        for (i, &child_id) in children.iter().enumerate().rev() {
+                        for (_, &child_id) in children.iter().enumerate().rev() {
                             stack.push(RenderOp::Process(child_id, 0));
                             stack.push(RenderOp::Write(" "));
                         }
@@ -256,23 +256,6 @@ pub fn render(
     Ok(())
 }
 
-fn render_node(
-    f: &mut fmt::Formatter<'_>,
-    node: &ExprNode,
-    ctx: &RenderContext,
-) -> std::fmt::Result  {
-    let kind_name = format!("{:?}", node.kind()).to_lowercase();
-    write!(f, "({}", kind_name)?;
-
-    if !matches!(node.content(), Content::None) {
-        write!(f, " ")?;
-        render_exp_content(f, node.content(), ctx)?;
-    }
-
-    write!(f, ")")
-}
-
-
 fn render_exp_content(
     f: &mut fmt::Formatter<'_>,
     content: &Content,
@@ -305,7 +288,7 @@ fn render_exp_content(
             write!(f, "t{}",  id.as_usize())
         },
 
-        Content::Preference(id) => {
+        Content::Preference(_id) => {
             write!(f, "TO DO")
             //write!(f, "pref{}", ctx.resolve_preference(*id))
         }
@@ -324,6 +307,6 @@ fn render_exp_content(
         // Pour les autres IDs techniques, on peut garder le Display par défaut ou enrichir
         Content::FunctionSkeleton(_) => Ok(()),
         Content::TaskSkeleton(_) => Ok(()),
-        Content::AtomSkeleton(id) => Ok(())
+        Content::AtomSkeleton(_) => Ok(())
     }
 }

@@ -11,7 +11,7 @@ use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::TypeChecker;
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::tree::{SyntaxContent, Node, NodeId};
+use crate::aiplan4rust::tree::{Node, NodeId};
 
 /// Checks the type_checker correctness of typed expr in the syntax arena, including comparisons,
 /// assignments, and arithmetic operations.
@@ -67,7 +67,7 @@ pub fn check_typed_expressions(
             )?;
         } else if is_numeric_expression(node) {
             let (ty1, ty2) = get_binary_operation_types(node, context)?;
-            
+
             // Call check_other_cases function to handle these cases
             no_error &= check_numeric_expression(context, node, &ty1, &ty2, source, diagnostic_manager);
         }

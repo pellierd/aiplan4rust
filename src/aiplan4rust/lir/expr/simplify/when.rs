@@ -108,10 +108,7 @@ fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprErro
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use crate::aiplan4rust::interner::StringInterner;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 
     /// Test case 1: (when (and) E) -> E
     #[test]

@@ -41,7 +41,7 @@ pub trait LiftedSyntaxDisplay {
 
     /// Formate l'élément en créant son propre contexte interne.
     /// Par défaut, renvoie une erreur si l'objet n'est pas une racine.
-    fn fmt_syntax_self(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fn fmt_syntax_self(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Les types racines (DomainDef, Problem) doivent surcharger cette méthode.
         Err(fmt::Error)
     }

@@ -33,7 +33,7 @@ use std::fmt::{Debug, Display};
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization};
-use crate::aiplan4rust::tree::{SyntaxContent, Tree};
+use crate::aiplan4rust::tree::SyntaxContent;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Trait representing a node in a syntax tree.

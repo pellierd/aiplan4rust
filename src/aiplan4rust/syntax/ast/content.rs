@@ -41,7 +41,6 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::syntax::ast::AstError;
-use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::SyntaxContent;
 
 /// Represents semantic content associated with an AST syntax.

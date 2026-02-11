@@ -38,8 +38,6 @@
 //! available for resolution by child nodes (the quantifier's body) during the
 //! traversal.
 
-use std::fs::exists;
-use crate::aiplan4rust::lang::TaskLabelID;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encode::{typed_list, EncodingRegistry};

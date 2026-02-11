@@ -11,7 +11,6 @@
 //! during the second encoding pass by looking up the declaration symbol's IDs
 //! to validate both the fluent's identity and its expected arguments.
 
-use crate::aiplan4rust::lang::FunctionSkeletonID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encode::{atomic_function_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;

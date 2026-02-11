@@ -68,109 +68,15 @@ const EITHER_SEP: &str = "_";
 pub fn flatten(problem: &mut LiftedProblem) -> Result<(), LirError> {
     // Step 1: Create the mapping and inject new pivot types
     // Analyzes the hierarchy to ensure each type combination is unique and canonical.
-    let flatten_types_map = create_pivots_and_map(problem)?;
+    let flatten_types_map = flatten_types_def(problem)?;
 
-    // Step 2: Apply the map to existing type definitions
-    // Updates the type symbol table to remove any recursion or union.
-    apply_map_to_type_definitions(problem, &flatten_types_map)?;
-
-    // Step 3: Propagate changes to the rest of the problem components
+    // Step 2: Propagate changes to the rest of the problem components
     // Updates action signatures, method parameters, and object definitions.
     apply_map_to_problem_components(problem, &flatten_types_map)?;
 
     Ok(())
 }
 
-/// STEP 1: Analysis and Pivot Creation
-///
-/// Identifies all unique `Either` type structures within the problem and
-/// creates a canonical "Pivot" type for each unique set of root parents.
-///
-/// This function populates the problem's type table with new types representing
-/// the flattened versions of union types. It ensures that different `Either`
-/// structures that resolve to the same root types share the same Pivot ID.
-///
-/// # Returns
-/// A map associating the original `Type` structure with its new `TypeID` pivot.
-fn create_pivots_and_map(
-    problem: &mut LiftedProblem,
-) -> Result<HashMap<Type<TypeID>, TypeID>, LirError> {
-    let mut map = HashMap::new();
-    let mut parents_to_pivot = HashMap::new();
-    let to_process = either_types(problem);
-
-    // Reusable buffers for DFS traversal to minimize heap allocations during recursion
-    let mut stack_buffer = Vec::with_capacity(32);
-    let mut set_buffer = HashSet::with_capacity(32);
-
-    for original_id in to_process {
-        let ty_structure = problem.try_get_type(original_id)?.ty().clone();
-
-        // Skip if this specific type structure has already been analyzed
-        if map.contains_key(&ty_structure) { continue; }
-
-        // Resolve the type into its terminal root parents
-        let flattened_parents = get_parents(&ty_structure, problem, &mut stack_buffer, &mut set_buffer)?;
-        let parents_vec = flattened_parents.members().to_vec();
-
-        // Canonicalization: Check if a pivot for this set of parents already exists
-        let pivot_id = match parents_to_pivot.entry(parents_vec) {
-            Entry::Occupied(e) => *e.get(),
-            Entry::Vacant(e) => {
-                // Generate a stable name (e.g., "either_a_b") and intern it
-                let name = make_either_type_name(problem, &flattened_parents)?;
-                let name_id = problem.interner_mut().intern_ident(name);
-
-                // Register the new type symbol and definition in the problem
-                let symbol_id = problem.add_type_symbol(name_id);
-                let new_id = problem.add_type_defs(TypedSymbol::new(symbol_id, flattened_parents))?;
-
-                e.insert(new_id);
-                new_id
-            }
-        };
-
-        // Link the original structure to the canonical pivot
-        map.insert(ty_structure, pivot_id);
-    }
-
-    Ok(map)
-}
-
-/// STEP 2: Update Type Definitions (In-place)
-///
-/// Mutates the problem's type table to replace complex `Either` definitions
-/// with simple `Primitive` references to their corresponding pivot types.
-///
-/// This function ensures that any component referring to an existing `TypeID`
-/// (that was originally an `Either`) will now transparently resolve to the
-/// flattened pivot type without needing to change the ID itself.
-///
-/// # Arguments
-/// * `problem` - The [`LiftedProblem`] whose type table is being modified.
-/// * `map` - A lookup table mapping old `Either` structures to new pivot `TypeID`s.
-fn apply_map_to_type_definitions(
-    problem: &mut LiftedProblem,
-    map: &HashMap<Type<TypeID>, TypeID>
-) -> Result<(), LirError> {
-    // Iterate through all types by index to safely perform in-place mutation.
-    // Note: This assumes that the indices in the type vector remain stable.
-    for i in 0..problem.type_defs().len() {
-        let tid = TypeID::from(i);
-
-        // Retrieve the current structure to check if it needs remapping.
-        let current_ty = problem.try_get_type(tid)?.ty().clone();
-
-        // If the structure (e.g., Either(A, B)) exists in our map,
-        // we replace its definition with a Primitive pointer to the pivot.
-        if let Some(&pivot_id) = map.get(&current_ty) {
-            if let Some(type_symbol) = problem.type_defs_mut().get_mut(i) {
-                type_symbol.set_ty(Type::primitive(pivot_id));
-            }
-        }
-    }
-    Ok(())
-}
 
 /// STEP 3: Propagate Type Changes to Problem Components
 ///
@@ -326,8 +232,8 @@ fn flatten_types_def(
 
         // Entry API: find existing pivot or create a new one efficiently
         let pivot_id = match parents_to_pivot.entry(parents_vec) {
-            std::collections::hash_map::Entry::Occupied(entry) => *entry.get(),
-            std::collections::hash_map::Entry::Vacant(entry) => {
+            Entry::Occupied(entry) => *entry.get(),
+            Entry::Vacant(entry) => {
                 // We only generate the name and intern it if we are actually creating a new pivot
                 let new_name = make_either_type_name(problem, &flattened_parents_ty)?;
                 let name_id = problem.interner_mut().intern_ident(new_name);
@@ -492,9 +398,6 @@ fn make_either_type_name(problem: &LiftedProblem, ty: &Type<TypeID>) -> Result<S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aiplan4rust::interner::StringInterner;
-    use crate::aiplan4rust::lang::{Type, TypedSymbol};
-    use crate::aiplan4rust::lir::problem::LiftedProblem;
 
     #[test]
     fn test_flatten_types_def_simple() -> Result<(), LirError> {
@@ -516,7 +419,6 @@ mod tests {
 
         // 3. Symbol Reservation phase
         // add_type_symbol allocates slots in the vector and returns the TypeID
-        let id_obj = problem.add_type_symbol(StringInterner::IDENT_OBJECT);
         let id_a = problem.add_type_symbol(name_a);
         let id_b = problem.add_type_symbol(name_b);
         let id_c = problem.add_type_symbol(name_c);
@@ -709,7 +611,7 @@ mod tests {
         use crate::aiplan4rust::lir::problem::LiftedProblem;
         use std::collections::HashSet;
 
-        let mut interner = StringInterner::new();
+        let interner = StringInterner::new();
         let mut problem = LiftedProblem::new(interner, HashSet::new());
 
         // 1. Create roots

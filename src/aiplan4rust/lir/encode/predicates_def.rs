@@ -11,7 +11,6 @@
 //! atom occurrences back to their full LIR definition and unique identity during
 //! the second pass.
 
-use crate::aiplan4rust::lang::PredicateID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encode::{atomic_formula_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;

@@ -1,7 +1,7 @@
 use std::fmt::{self, Formatter};
 use crate::aiplan4rust::lir::problem::ProblemDef;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{expr, ty, task_network, typed_list};
+use crate::aiplan4rust::lir::renderers::syntax::{expr, task_network, typed_list};
 
 /// Rendu complet d'une définition de problème (PDDL/HDDL).
 pub fn render(f: &mut Formatter<'_>, problem: &ProblemDef<'_>, ctx: &RenderContext) -> fmt::Result {

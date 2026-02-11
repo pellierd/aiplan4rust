@@ -41,7 +41,7 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, Id, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -53,7 +53,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use itertools::Itertools;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -476,7 +475,6 @@ impl Problem {
     /// * `Ok(&mut TypedSymbol)` on success.
     /// * `Err(LirError::TypeDefinitionOrphan)` if the definition does not exist.
     pub fn try_get_type_mut(&mut self, id: TypeID) -> Result<&mut TypedSymbol<TypeID, TypeID>, LirError> {
-        let idx = id.as_usize(); // Capture index for potential error logging
         self.get_type_def_mut(id)
             .ok_or_else(|| LirError::type_definition_orphan(id))
     }

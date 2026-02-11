@@ -1,8 +1,5 @@
-use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::problem::builders;
-use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, ArgumentID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, PredicateID, TypeID};
 use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
-use crate::aiplan4rust::grounding::problem::object::Object;
 use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
@@ -14,9 +11,7 @@ use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
-use std::rc::Rc;
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
-use crate::aiplan4rust::lir::passes::quantifiers::problem;
 
 /// Represents a fully grounded PDDL problem.
 ///
@@ -428,7 +423,7 @@ impl fmt::Display for Problem {
         if self.objects_fluents().is_empty() {
             writeln!(f, "<None>")?;
         } else {
-            for (idx, object_fluent) in self.objects_fluents().iter().enumerate() {
+            for (idx, _object_fluent) in self.objects_fluents().iter().enumerate() {
                 write!(f, "{}: ", idx)?;
                 // Utilise fmt_object_fluent_with_interner pour afficher proprement
                 //self.fmt_object_fluent_with_interner(f, object_fluent)?;
@@ -441,7 +436,7 @@ impl fmt::Display for Problem {
         if self.fluents().is_empty() {
             writeln!(f, "<None>")?;
         } else {
-            for (idx, fluent) in self.fluents().iter().enumerate() {
+            for (idx, _fluent) in self.fluents().iter().enumerate() {
                 write!(f, "{}: ", idx)?;
                 //self.fmt_fluent_with_interner(f, fluent)?;
                 writeln!(f)?;

@@ -2,7 +2,6 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::GroundingResult;
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::lir;
-use crate::aiplan4rust::lir::analysis::inertia::table;
 use crate::aiplan4rust::lir::passes::types::problem;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::DiagnosticManager;

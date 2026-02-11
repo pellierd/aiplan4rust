@@ -5,16 +5,13 @@
 //! body, including preconditions and effects, using the provided context.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::VariableID;
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::atomic_skeleton::task::Task;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::action::Action;
 use crate::aiplan4rust::lir::encode::{expr, named_typed_list, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
-use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree, Tree};
+use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a PDDL action from the syntax tree into the LIR.
 ///

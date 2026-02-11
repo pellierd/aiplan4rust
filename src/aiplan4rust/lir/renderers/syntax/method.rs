@@ -3,7 +3,7 @@
 use std::fmt;
 use crate::aiplan4rust::lir::LiftedMethod;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{expr, task_network, ty, typed_list};
+use crate::aiplan4rust::lir::renderers::syntax::{expr, task_network, typed_list};
 
 /// Renders a [Method] into an HDDL-compliant method block.
 ///

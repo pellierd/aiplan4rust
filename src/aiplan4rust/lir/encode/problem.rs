@@ -5,7 +5,7 @@
 //! initial task networks. It populates the final `LiftedProblem` IR.
 
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::encode::{constants_def, expr, goal, init, initial_task_network, objects_def, EncodingRegistry};
+use crate::aiplan4rust::lir::encode::{expr, goal, init, initial_task_network, objects_def, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};

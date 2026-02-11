@@ -3,7 +3,7 @@ use crate::aiplan4rust::lang::{TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::problem::DomainDef;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{action, atomic_formula_skeleton, atomic_function_skeleton, durative_action, expr, method, task, typed_list};
+use crate::aiplan4rust::lir::renderers::syntax::{action, atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, durative_action, expr, method, task, typed_list};
 
 /// Rendu complet d'une définition de domaine.
 pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext) -> fmt::Result {
@@ -72,7 +72,7 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
     // 9. Derived Predicates
     for derived in domain.derived_predicates() {
         write!(f, "\n")?;
-        //derived_predicate::render(f, derived, ctx)?;
+        derived_predicate::render(f, derived, ctx)?;
     }
 
     // 8. Actions & Durative Actions

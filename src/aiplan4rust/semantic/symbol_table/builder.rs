@@ -20,7 +20,6 @@
 //! enabling better error handling and easier testing.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};

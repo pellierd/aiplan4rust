@@ -5,12 +5,9 @@
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use std::collections::HashMap;
-use clap_builder::builder::Str;
 use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, TaskSymbolID, TaskSkeletonID, TypeID, VariableID, PreferenceID, StringID, TaskLabelID};
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::semantic::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::semantic::symbol_table::table::Table;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Context used during the encoding of actions, methods, and expressions.
@@ -108,26 +105,6 @@ impl EncodingRegistry {
     pub fn symbol_table(&self) -> &SymbolTable {
         &self.symbol_table
     }
-
-    /*pub fn resolve_type(&self, types: &Type<NodeId>) -> Option<Vec<TypeID>> {
-        let mut ids = Vec::new();
-        for t in types.members() {
-            if let Some(id) = self.resolve_type_symbol(*t) {
-                ids.push(id);
-            } else {
-                return None; // Un des membres est inconnu
-            }
-        }
-        ids.sort();
-        ids.dedup();
-        Some(ids)
-    }
-
-    /// La version "Strict" que tu utiliseras lors de l'encodage.
-    pub fn try_resolve_type(&self, types: &Type<StringID>) -> Result<Vec<TypeID>, LirError> {
-        self.resolve_type(types)
-            .ok_or_else(|| LirError::type_binding_failed(types.clone()))
-    }*/
 
     /// Récupère l'ID d'un type PRIMITIF uniquement (par son symbole).
     pub fn resolve_type_symbol(&self, symbol: NodeId) -> Option<TypeID> {
@@ -262,7 +239,7 @@ impl EncodingRegistry {
 
 
 
-    pub fn register_type_symbol(&mut self, symbol: StringID, node_id: NodeId) -> TypeID {
+    /*pub fn register_type_symbol(&mut self, symbol: StringID, node_id: NodeId) -> TypeID {
         let id = if let Some(&existing_id) = self.type_symbol_to_id.get(&symbol) {
             existing_id
         } else {
@@ -271,6 +248,24 @@ impl EncodingRegistry {
             new_id
         };
         id
+    }*/
+
+    pub fn register_type_symbol(&mut self, symbol: StringID, node_id: NodeId) -> TypeID {
+        // 1. Check if the type symbol is already registered
+        if let Some(&existing_id) = self.type_symbol_to_id.get(&symbol) {
+            // Map this specific node to the existing type ID
+            self.type_node_to_id.insert(node_id, existing_id);
+            return existing_id;
+        }
+
+        // 2. Otherwise, generate a new unique TypeID
+        let new_id = TypeID::new(self.type_symbol_to_id.len());
+
+        // 3. Register the new type in both mappings
+        self.type_symbol_to_id.insert(symbol, new_id);
+        self.type_node_to_id.insert(node_id, new_id);
+
+        new_id
     }
 
     pub fn register_object(&mut self, symbol: NodeId, id: ObjectID) {

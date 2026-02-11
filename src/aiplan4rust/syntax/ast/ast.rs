@@ -55,10 +55,10 @@
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
-use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay, SyntaxInternerDisplay};
+use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
 use crate::aiplan4rust::syntax::ast::error::AstError;
 use crate::aiplan4rust::tree::{Tree, NodeId, Node};
 
