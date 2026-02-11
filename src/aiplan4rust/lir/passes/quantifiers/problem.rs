@@ -8,7 +8,7 @@ pub fn expand_quantifiers(problem: &mut LiftedProblem) -> Result<(), LirError> {
 
     
 
-    let inertia = analyzer::analyze_inertia(problem)?;
+    let inertia = analyzer::analyze(problem)?;
 
 
     println!("inertia: {}", inertia);

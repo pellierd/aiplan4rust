@@ -10,6 +10,7 @@ use crate::aiplan4rust::lir::{passes, renderers, LirError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::lang::AtomSkeletonID;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents a derived predicate in a PDDL problem.
@@ -19,7 +20,15 @@ use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 /// - `body`: a logical expression (`Expr`) defining when the predicate holds.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct DerivedPredicate {
-    /// The predicate's head: its name and parameters.
+    /// Unique identifier of the skeleton associated with this predicate.
+    /// Essential for inertia analysis and efficient grounding.
+    head_id: AtomSkeletonID,
+
+    /// The predicate's head, containing name and parameter details.
+    /// While the `skeleton_id` is technically sufficient to retrieve this
+    /// information from the problem's predicate definitions, keeping the
+    /// `head` here avoids frequent and costly lookups in the predicate table
+    /// during rendering and grounding.
     head: AtomicFormulaSkeleton,
 
     /// The logical expression defining the derived predicate.
@@ -27,10 +36,11 @@ pub struct DerivedPredicate {
 }
 
 impl DerivedPredicate {
-    /// Creates a new `DerivedPredicate` with the given head and body expression.
+    /// Creates a new `DerivedPredicate` with the given skeleton ID, head, and body expression.
     ///
     /// # Arguments
     ///
+    /// * `header_id` - The unique identifier for this predicate's definition.
     /// * `head` - The atomic formula skeleton representing the predicate's name and parameters.
     /// * `body` - The logical expression defining when the derived predicate is true.
     ///
@@ -41,15 +51,28 @@ impl DerivedPredicate {
     /// # Example
     ///
     /// ```rust
+    /// # use aiplan4rust::lang::AtomSkeletonID;
     /// # use aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
     /// # use aiplan4rust::lir::expr::Expr;
     /// # use aiplan4rust::lir::problem::DerivedPredicate;
+    /// let id = AtomSkeletonID::from(0);
     /// let head = AtomicFormulaSkeleton::new("reachable", vec!["?x", "?y"]);
-    /// let body = Expr::empty_or(); // placeholder for the actual logic
-    /// let dp = DerivedPredicate::new(head, body);
+    /// let body = Expr::empty_or();
+    /// let dp = DerivedPredicate::new(id, head, body);
     /// ```
-    pub fn new(head: AtomicFormulaSkeleton, body: Expr) -> Self {
-        Self { head, body }
+    pub fn new(header_id: AtomSkeletonID, head: AtomicFormulaSkeleton, body: Expr) -> Self {
+        Self {
+            head_id: header_id,
+            head,
+            body
+        }
+    }
+
+    /// Returns the unique skeleton identifier for this derived predicate.
+    ///
+    /// This ID corresponds to the predicate's index in the problem's global definitions.
+    pub fn header_id(&self) -> AtomSkeletonID {
+        self.head_id
     }
 
     /// Returns a reference to the predicate's head.

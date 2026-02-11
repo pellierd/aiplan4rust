@@ -123,6 +123,14 @@ impl Expr {
         Expr { tree }
     }
 
+    /// Returns `true` if the expression contains no nodes.
+    ///
+    /// An empty expression is defined as having no root node.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.root_id().is_none()
+    }
+
     /// Creates an expression with a single root node of kind `Or` and no content.
     ///
     /// This is useful to represent an empty logical OR expression.

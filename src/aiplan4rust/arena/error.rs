@@ -93,34 +93,61 @@ pub enum ArenaError {
 }
 
 impl ArenaError {
+
+    /// Captures the current call site and backtrace for debugging purposes.
+    #[track_caller]
+    fn capture(self) -> Self {
+        if log::log_enabled!(log::Level::Debug) {
+            let caller = std::panic::Location::caller();
+            let bt = std::backtrace::Backtrace::force_capture();
+
+            log::debug!(
+                "Arena error captured at {file}:{line}:{col}\n\
+                 [Error] {error:?}\n\
+                 [Stack Trace]\n{trace}",
+                file = caller.file(),
+                line = caller.line(),
+                col = caller.column(),
+                error = self,
+                trace = bt
+            );
+        }
+        self
+    }
+
     /// Creates a [`NodeNotFound`] error.
+    #[track_caller]
     pub fn node_not_found(id: usize) -> Self {
-        Self::NodeNotFound(id)
+        Self::NodeNotFound(id).capture()
     }
 
     /// Creates a [`MissingRootId`] error.
+    #[track_caller]
     pub fn missing_root_id() -> Self {
-        Self::MissingRootId
+        Self::MissingRootId.capture()
     }
 
     /// Creates a [`RootNodeNotFound`] error.
+    #[track_caller]
     pub fn root_node_not_found(id: usize) -> Self {
-        Self::RootNodeNotFound(id)
+        Self::RootNodeNotFound(id).capture()
     }
 
     /// Creates a [`NodeIdOutOfBounds`] error.
+    #[track_caller]
     pub fn node_id_out_of_bounds(id: usize, max: usize) -> Self {
-        Self::NodeIdOutOfBounds { id, max }
+        Self::NodeIdOutOfBounds { id, max }.capture()
     }
 
     /// Creates a [`MissingParent`] error.
+    #[track_caller]
     pub fn missing_parent() -> Self {
-        Self::MissingParent
+        Self::MissingParent.capture()
     }
 
     /// Creates a [`ChildIndexOutOfBounds`] error.
+    #[track_caller]
     pub fn child_index_out_of_bounds(index: usize, child_count: usize) -> Self {
-        Self::ChildIndexOutOfBounds { index, child_count }
+        Self::ChildIndexOutOfBounds { index, child_count }.capture()
     }
-
 }

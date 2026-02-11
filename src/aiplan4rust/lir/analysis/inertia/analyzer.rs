@@ -1,165 +1,305 @@
+//! Inertia Analysis for Lifted Planning Problems.
+//!
+//! This module identifies the "stability" of predicates and functions within a
+//! [`LiftedProblem`]. By determining which elements are constant (static) and
+//! which are subject to change (fluents), the planner can perform significantly
+//! more efficient grounding and state-space pruning.
+//!
+//! ### Derived Predicates Simplification
+//! Currently, this analyzer implements a **conservative simplification**: all
+//! derived predicates are automatically categorized as [`Inertia::Fluent`].
+//!
+//! > **Note on Potential Optimization:** In theory, a derived predicate could
+//! > be categorized as [`Inertia::Static`] if, and only if, all predicates
+//! > appearing in its body (definition) are themselves static.
+//! >
+//! > Implementing this recursive check would allow for even more aggressive
+//! > pruning during the search phase. However, in the current implementation,
+//! > we treat them as fluents for simplicity and safety, avoiding the need for
+//! > a dependency graph analysis of axioms.
+
 use std::collections::HashSet;
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID};
+use crate::aiplan4rust::lir::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::lir::analysis::inertia::table::InertiaTable;
+use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
-
-/// Analyse le problème pour identifier l'inertie des prédicats et des fonctions.
-pub fn analyze_inertia(problem: &LiftedProblem) -> Result<InertiaTable, LirError> {
-    /*let mut fluent_predicates = HashSet::new();
+/// Analyzes a lifted planning problem to determine the inertia of all predicates and functions.
+///
+/// This is the entry point of the inertia analysis module. It orchestrates a multi-pass
+/// scan of the problem's actions and initial state to categorize symbols into three
+/// categories:
+/// - **Fluent**: Symbols that can change their value/truth over time (via effects or TILs).
+/// - **Static Positive**: Symbols that are initialized and never modified.
+/// - **Static Negative**: Symbols that are never initialized and never modified (dead facts).
+///
+/// # Arguments
+///
+/// * `problem` - A reference to the [`LiftedProblem`] containing domain and problem definitions.
+///
+/// # Returns
+///
+/// Returns a [`Result`] containing the populated [`InertiaTable`] on success.
+///
+/// # Errors
+///
+/// Returns a [`LirError`] if any expression tree traversal (actions or initial state) fails,
+/// typically due to a malformed AST or an inaccessible node.
+pub fn analyze(problem: &LiftedProblem) -> Result<InertiaTable, LirError> {
+    let mut fluent_predicates = HashSet::new();
     let mut fluent_functions = HashSet::new();
-    let mut initial_predicates = HashSet::new();
-    let mut initial_functions = HashSet::new();
+    let mut static_predicates = HashSet::new();
+    let mut static_functions = HashSet::new();
 
-    // 1. Scan des effets (Actions et Actions Duratives)
-    // On identifie tout ce qui est modifié par une action.
-    for action in problem.actions() {
-        collect_fluents_from_expr(
-            action.effect(),
-            problem, // Optionnel selon ta signature finale
-            &mut fluent_predicates,
-            &mut fluent_functions
-        )?;
-    }*/
+    // Step 1: Identify symbols modified by action effects (Fluents)
+    collect_all_action_fluents(problem, &mut fluent_predicates, &mut fluent_functions)?;
 
-    /*for d_action in problem.durative_actions() {
-        collect_fluents_from_expr(
-            d_action.effect(),
-            problem,
-            &mut fluent_predicates,
-            &mut fluent_functions
-        )?;
-    }*/
-
-    // 2. Scan de l'état initial
-    // On identifie les faits statiques (Initiaux) et les TILs (Fluents temporels)
-    /*collect_initial_facts(
+    // Step 2: Scan initial state for static facts and Timed Initial Literals (TILs)
+    // Note: TILs will add symbols to the fluent sets.
+    collect_initial_facts(
         problem.init(),
-        problem,
-        &mut initial_predicates,
-        &mut initial_functions,
+        &mut static_predicates,
+        &mut static_functions,
         &mut fluent_predicates,
         &mut fluent_functions,
-    )?;*/
+    )?;
 
-    let mut table = InertiaTable::new();
-
-    /*// 3. Catégorisation des Prédicats
-    // On utilise les IDs typés pour correspondre aux HashSets
-    for (idx, _) in problem.atom_skeletons().iter().enumerate() {
-        let pred_id = PredicateID::new(idx); // Conversion vers ton type ID
-
-        let inertia = if fluent_predicates.contains(&pred_id) {
-            Inertia::Fluent
-        } else if initial_predicates.contains(&pred_id) {
-            Inertia::Positive // Statique : présent à T=0 et jamais modifié
-        } else {
-            Inertia::Negative // Statique : absent à T=0 et jamais modifié
-        };
-        table.insert_predicate(pred_id, inertia);
-    }
-
-    // 4. Catégorisation des Fonctions
-    for (idx, _) in problem.function_skeletons().iter().enumerate() {
-        let func_id = FunctorID::new(idx);
-
-        let inertia = if fluent_functions.contains(&func_id) {
-            Inertia::Fluent
-        } else if initial_functions.contains(&func_id) {
-            Inertia::Positive // Constante : définie à l'init et jamais modifiée
-        } else {
-            Inertia::Negative // Indéfinie : jamais initialisée ni modifiée
-        };
-        table.insert_function(func_id, inertia);
-    }*/
-
-    Ok(table)
+    // Step 3: Build and return the final categorization table
+    Ok(build_inertia_table(
+        problem,
+        fluent_predicates,
+        fluent_functions,
+        static_predicates,
+        static_functions,
+    ))
 }
 
-/*/// Parcourt un effet pour identifier les prédicats et fonctions modifiés (Fluents).
-pub fn collect_fluents_from_expr(
-    expr: &Expr,
-    _problem: &LiftedProblem,
-    fluent_predicates: &mut HashSet<PredicateID>, // Utilise tes types ID pour plus de clarté
-    fluent_functions: &mut HashSet<FunctorID>,
+/// Scans all action definitions (standard and durative) to identify modified predicates and functions.
+///
+/// This function iterates through every action's effects to populate the sets of fluents,
+/// which are essential for determining the inertia of the problem's components.
+///
+/// # Arguments
+///
+/// * `problem` - The lifted problem containing all action and durative action definitions.
+/// * `fluent_predicates` - A mutable set to be populated with IDs of predicates modified by any action.
+/// * `fluent_functions` - A mutable set to be populated with IDs of numeric functions modified by any action.
+///
+/// # Errors
+///
+/// Returns a [`LirError`] if an error occurs while traversing an action's effect expression.
+fn collect_all_action_fluents(
+    problem: &LiftedProblem,
+    fluent_predicates: &mut HashSet<AtomSkeletonID>,
+    fluent_functions: &mut HashSet<FunctionSkeletonID>,
 ) -> Result<(), LirError> {
-    let root_id = expr.try_root_id()?;
-    let mut stack = vec![root_id];
+    // Collect fluents from standard instantaneous actions
+    for action in problem.action_defs() {
+        collect_fluents_from_effect(
+            action.effect(),
+            fluent_predicates,
+            fluent_functions
+        )?;
+    }
+
+    // Collect fluents from durative (temporal) actions
+    for d_action in problem.durative_action_defs() {
+        collect_fluents_from_effect(
+            d_action.effect(),
+            fluent_predicates,
+            fluent_functions
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Builds the final [`InertiaTable`] by categorizing every predicate and function
+/// definition found in the problem.
+///
+/// This function aggregates results from effect analysis and initial state scanning
+/// to assign an [`Inertia`] status to each element.
+///
+/// # Arguments
+///
+/// * `problem` - The lifted problem containing all original definitions.
+/// * `fluent_predicates` - Set of predicate IDs modified by actions or TILs.
+/// * `fluent_functions` - Set of function IDs modified by effects or TILs.
+/// * `static_predicates` - Set of predicate IDs present in the initial state but never modified.
+/// * `static_functions` - Set of function IDs initialized but never modified.
+///
+/// # Returns
+///
+/// A populated [`InertiaTable`] representing the stability of all symbols.
+fn build_inertia_table(
+    problem: &LiftedProblem,
+    fluent_predicates: HashSet<AtomSkeletonID>,
+    fluent_functions: HashSet<FunctionSkeletonID>,
+    static_predicates: HashSet<AtomSkeletonID>,
+    static_functions: HashSet<FunctionSkeletonID>,
+) -> InertiaTable {
+    let mut table = InertiaTable::new();
+
+    // Derived predicates are computed via axioms, so they are always treated as Fluents.
+    let derived_ids: HashSet<_> = problem
+        .derived_predicate_defs()
+        .iter()
+        .map(|d| d.header_id())
+        .collect();
+
+    // --- Categorize Predicates ---
+    for (idx, _) in problem.predicate_defs().iter().enumerate() {
+        let id = AtomSkeletonID::from(idx);
+
+        let inertia = if derived_ids.contains(&id) || fluent_predicates.contains(&id) {
+            Inertia::Fluent
+        } else if static_predicates.contains(&id) {
+            Inertia::Positive
+        } else {
+            // Predicate is neither in effects nor in the initial state (Always False).
+            Inertia::Negative
+        };
+        table.insert_predicate(id, inertia);
+    }
+
+    // --- Categorize Functions (Numeric) ---
+    for (idx, _) in problem.functions_defs().iter().enumerate() {
+        let id = FunctionSkeletonID::from(idx);
+
+        let inertia = if fluent_functions.contains(&id) {
+            Inertia::Fluent
+        } else if static_functions.contains(&id) {
+            Inertia::Positive
+        } else {
+            // Function is never initialized or modified (Undefined/Default).
+            Inertia::Negative
+        };
+        table.insert_function(id, inertia);
+    }
+
+    table
+}
+
+/// Traverses an effect expression to identify modified predicates and functions (Fluents).
+///
+/// This function performs a depth-first search through the effect tree. It specifically
+/// handles conditional effects (`When` nodes) by only traversing the effect branch,
+/// as the condition branch is considered a read-only context.
+///
+/// # Arguments
+///
+/// * `expr` - The effect expression to analyze.
+/// * `fluent_predicates` - A set to be populated with IDs of modified predicates.
+/// * `fluent_functions` - A set to be populated with IDs of modified numeric functions.
+///
+/// # Errors
+///
+/// Returns a [`LirError`] if the expression tree is malformed or if a node cannot be accessed.
+pub fn collect_fluents_from_effect(
+    expr: &Expr,
+    fluent_predicates: &mut HashSet<AtomSkeletonID>,
+    fluent_functions: &mut HashSet<FunctionSkeletonID>,
+) -> Result<(), LirError> {
+    // Early exit if the expression is empty
+    if expr.is_empty() {
+        return Ok(());
+    }
+
+    let mut stack = vec![expr.try_root_id()?];
 
     while let Some(node_id) = stack.pop() {
         let node = expr.try_node(node_id)?;
 
-        // 1. On regarde la résolution du nœud
-        match node.resolution() {
-            Resolution::Predicate(p_id) => {
-                fluent_predicates.insert(*p_id);
+        match node.content() {
+            // Predicates found in an effect context are marked as Fluent
+            ExprContent::AtomSkeleton(id) => {
+                fluent_predicates.insert(*id);
             }
-            Resolution::Function(f_id, _type_id) => {
-                fluent_functions.insert(*f_id);
-            }
-            _ => {
-                // Pas une feuille résolue (ou Paramètre/Constante), on continue le parcours
 
-                // Gestion spécifique du "When" (Conditionnelle)
-                // Dans un effet, on ne collecte les fluents que dans l'effet, pas la condition
+            // Functions found in an effect context (e.g., assignments) are marked as Fluent
+            ExprContent::FunctionSkeleton(id) => {
+                fluent_functions.insert(*id);
+            }
+
+            _ => {
+                // Special handling for Conditional Effects (When nodes)
+                // In PDDL/HTN, (when <condition> <effect>):
+                // - Child 0 (condition) is read-only (Static or Fluent, but not modified here).
+                // - Child 1 (effect) contains the actual modifications.
                 if node.kind() == ExprKind::When {
                     if let Some(&effect_id) = node.children().get(1) {
                         stack.push(effect_id);
                     }
                 } else {
-                    // Pour tout le reste (And, Not, Quantifiers, etc.), on descend dans les enfants
-                    for &child_id in node.children() {
+                    // Standard recursive traversal for structural nodes (And, Not, Forall, etc.)
+                    for &child_id in node.children().iter().rev() {
                         stack.push(child_id);
                     }
                 }
             }
         }
     }
-    Ok(())
-}*/
 
-/*pub fn collect_initial_facts(
+    Ok(())
+}
+
+/// Traverses the initial state expression to categorize predicates and functions based on their inertia.
+///
+/// It distinguishes between constant initial facts (Positive inertia) and
+/// Timed Initial Literals (TILs), which are treated as Fluents because they change over time.
+///
+/// # Arguments
+///
+/// * `init_expr` - The expression representing the problem's initial state.
+/// * `static_predicates` - A set to store IDs of predicates that remain constant.
+/// * `static_functions` - A set to store IDs of numeric functions that remain constant.
+/// * `fluent_predicates` - A set to store IDs of predicates modified by TILs or actions.
+/// * `fluent_functions` - A set to store IDs of functions modified by TILs or effects.
+///
+/// # Errors
+///
+/// Returns a [`LirError`] if the expression tree is malformed or if a node cannot be accessed.
+pub fn collect_initial_facts(
     init_expr: &Expr,
-    _problem: &LiftedProblem,
-    initial_predicates: &mut HashSet<PredicateID>,
-    initial_functions: &mut HashSet<FunctorID>,
-    fluent_predicates: &mut HashSet<PredicateID>,
-    fluent_functions: &mut HashSet<FunctorID>,
+    static_predicates: &mut HashSet<AtomSkeletonID>,
+    static_functions: &mut HashSet<FunctionSkeletonID>,
+    fluent_predicates: &mut HashSet<AtomSkeletonID>,
+    fluent_functions: &mut HashSet<FunctionSkeletonID>,
 ) -> Result<(), LirError> {
-    let Some(root_id) = init_expr.root_id() else { return Ok(()); };
-    let mut stack = vec![(root_id, false)];
+    // Early exit if the expression tree is empty
+    if init_expr.is_empty() {
+        return Ok(());
+    }
+
+    // Stack stores pairs of (NodeID, is_within_temporal_context)
+    let mut stack = vec![(init_expr.try_root_id()?, false)];
 
     while let Some((node_id, is_timed)) = stack.pop() {
         let node = init_expr.try_node(node_id)?;
 
-        // On détecte si on entre dans un "Timed Initial Literal" (TIL)
-        let current_is_timed = is_timed || node.kind() == ExprKind::TimedInitialLiteral;
+        // A node is considered "timed" if it is already inside a TIL block
+        // or if it specifically defines a Timed Initial Literal.
+        let within_til = is_timed || node.kind() == ExprKind::TimedInitialLiteral;
 
-        // On extrait la résolution sémantique
-        match node.resolution() {
-            Resolution::Predicate(p_id) => {
-                if current_is_timed {
-                    fluent_predicates.insert(*p_id);
-                } else {
-                    initial_predicates.insert(*p_id);
-                }
-            }
-            Resolution::Function(f_id, _type_id) => {
-                if current_is_timed {
-                    fluent_functions.insert(*f_id);
-                } else {
-                    initial_functions.insert(*f_id);
-                }
-            }
+        match node.content() {
+            // Predicates: categorized as Fluent if inside a TIL, otherwise Static (Positive).
+            ExprContent::AtomSkeleton(id) if within_til => { fluent_predicates.insert(*id); }
+            ExprContent::AtomSkeleton(id) => { static_predicates.insert(*id); }
+
+            // Functions: categorized as Fluent if inside a TIL, otherwise Static.
+            ExprContent::FunctionSkeleton(id) if within_til => { fluent_functions.insert(*id); }
+            ExprContent::FunctionSkeleton(id) => { static_functions.insert(*id); }
+
+            // For structural nodes (And, Not, etc.), propagate the temporal context to children.
             _ => {
-                // Ce n'est pas un symbole résolu (c'est peut-être un AND, NOT, =, AT START, etc.)
-                // On continue le parcours dans les enfants pour trouver les symboles.
-                // .rev() est utilisé pour maintenir l'ordre de parcours original si nécessaire.
                 for &child_id in node.children().iter().rev() {
-                    stack.push((child_id, current_is_timed));
+                    stack.push((child_id, within_til));
                 }
             }
         }
     }
+
     Ok(())
-}*/
+}

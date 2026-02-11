@@ -86,11 +86,11 @@ pub enum LirError {
     MissingType { ty: Type<TypeID> },
 
     #[error("Inertia missing for predicate: {id:?}")]
-    MissingPredicateInertia { id: PredicateID },
+    MissingPredicateInertia { id: AtomSkeletonID },
 
     /// L'inertie de la fonction est introuvable dans la table.
     #[error("Inertia missing for function: {id:?}")]
-    MissingFunctionInertia { id: FunctorID },
+    MissingFunctionInertia { id: FunctionSkeletonID },
 
     #[error("Failed to bind {symbol}")]
     SymbolBindingFailed { symbol: NodeId },
@@ -179,7 +179,7 @@ impl LirError {
     /// # Arguments
     ///
     /// * `id` - The unique identifier of the missing predicate.
-    pub fn missing_predicate_inertia(id: PredicateID) -> Self {
+    pub fn missing_predicate_inertia(id: AtomSkeletonID) -> Self {
         Self::MissingPredicateInertia { id }
     }
 
@@ -192,7 +192,7 @@ impl LirError {
     /// # Arguments
     ///
     /// * `id` - The unique identifier of the missing function.
-    pub fn missing_function_inertia(id: FunctorID) -> Self {
+    pub fn missing_function_inertia(id: FunctionSkeletonID) -> Self {
         Self::MissingFunctionInertia { id }
     }
 

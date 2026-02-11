@@ -58,7 +58,7 @@ pub mod method;
 pub mod task_network;
 pub mod encode;
 pub mod passes;
-mod analysis;
+pub(crate) mod analysis;
 
 pub use encoder::LirEncoder;
 pub use result::Result as LirBuilderResult;

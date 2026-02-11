@@ -60,6 +60,7 @@ pub enum AiplanError {
 }
 
 impl AiplanError {
+
     /// Crée une erreur interne avec un message donné.
     pub fn internal_error<S: Into<String>>(msg: S) -> Self {
         AiplanError::InternalError(msg.into())

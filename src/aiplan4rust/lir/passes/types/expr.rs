@@ -18,6 +18,9 @@ use crate::aiplan4rust::tree::NodeId;
 /// - `Ok(())` if the expression tree was successfully traversed and updated.
 /// - `Err(LirError)` if the root node or any child node is inaccessible.
 pub fn flatten(expr: &mut Expr, map: &HashMap<Type<TypeID>, TypeID>) -> Result<(), LirError> {
+    if expr.is_empty() {
+        return Ok(());
+    }
     let root_id = expr.try_root_id()?;
     flatten_from_node(expr, root_id, map)
 }

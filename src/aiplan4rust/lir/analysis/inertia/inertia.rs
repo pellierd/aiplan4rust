@@ -1,3 +1,16 @@
+//! Inertia Classification for Lifted Planning Symbols.
+//!
+//! This module defines the [`Inertia`] enumeration, which categorizes predicates and
+//! functions based on their stability across the state space. This analysis is inspired
+//! by Koehler's pruning rules and is essential for reducing the complexity of the
+//! grounding process.
+//!
+//! ### Pruning Logic
+//! By identifying static symbols, the planner can simplify complex logical expressions
+//! (conjunctions, disjunctions, and quantifiers) before the search begins.
+//! For example, a precondition containing a `Negative` static predicate can never
+//! be satisfied, allowing the immediate removal of the associated action instance.
+
 use std::fmt;
 
 /// Represents the static truth value of a LIR expression according to Koehler's Pruning rules.
