@@ -20,11 +20,13 @@
 //! enabling better error handling and easier testing.
 
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::SymbolTable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
+use crate::aiplan4rust::syntax::lexer::token::NUMBER_TYPE;
 use crate::aiplan4rust::tree::NodeRef;
 
 /// A builder for constructing a [`SymbolTable`] from an abstract syntax arena (AST).
@@ -764,9 +766,18 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-        types: Type<StringID>,
+        mut types: Type<StringID>,
     ) -> Result<(), SymbolTableError> {
         let node = node_ref.node();
+
+        // --- Default Type Injection ---
+        // In PDDL, if a function's return type is omitted, it is implicitly
+        // treated as a numeric function (standard 'number' type).
+        if types.is_empty() {
+            // Ensure the "number" identifier matches your internal StringID conventions.
+            types.add_type(ast.interner().try_lookup_ident(NUMBER_TYPE)?);
+        }
+        // ------------------------------
 
         // Retrieve and validate the first child as a FunctionSymbol
         let functor_id = node.try_child(0)?;

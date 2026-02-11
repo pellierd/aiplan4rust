@@ -45,6 +45,14 @@ pub enum InternerError {
     #[error("Missing remapping entry for literal {0:?}")]
     MissingLiteral(LiteralID),
 
+    /// The requested identifier string was not found.
+    #[error("Unknown identifier string: '{0}' is not registered")]
+    UnknownIdentString(String),
+
+    /// The requested literal string was not found.
+    #[error("Unknown literal string: '{0}' is not registered")]
+    UnknownLiteralString(String),
+
     /// Two identifiers would be remapped to the same target, causing a conflict.
     #[error("Remapped identifier conflict for {0:?}")]
     Conflict(StringID),
@@ -69,6 +77,16 @@ impl InternerError {
     /// Creates a new [`MissingIdent`] error.
     pub fn missing_ident(id: StringID) -> Self {
         Self::MissingIdent(id)
+    }
+
+    /// Creates a new [`UnknownIdentString`] error.
+    pub fn unknown_ident_string(s: impl Into<String>) -> Self {
+        Self::UnknownIdentString(s.into())
+    }
+
+    /// Creates a new [`UnknownLiteralString`] error.
+    pub fn unknown_literal_string(s: impl Into<String>) -> Self {
+        Self::UnknownLiteralString(s.into())
     }
 
     /// Creates a new [`Conflict`] error for an identifier.

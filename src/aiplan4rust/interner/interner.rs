@@ -332,6 +332,18 @@ impl StringInterner {
         self.ident_index_map.get(s).copied().map(StringID::new)
     }
 
+    // Look up an interned string and return its ID.
+    ///
+    /// # Errors
+    /// Returns a [`StringInternerError`] if the string has not been interned.
+    pub fn try_lookup_ident(&self, s: &str) -> Result<StringID, InternerError> {
+        self.ident_index_map
+            .get(s)
+            .copied()
+            .map(StringID::new)
+            .ok_or_else(|| InternerError::unknown_ident_string(s))
+    }
+
     /// Returns an iterator over the interned `Ident`s (the indices).
     /// Returns an iterator over all interned identifiers (`Ident`).
     pub fn ident_keys(&self) -> impl Iterator<Item =StringID> + '_ {
@@ -398,9 +410,37 @@ impl StringInterner {
         })
     }
 
-    /// Looks up a literal and returns its identifier if already interned.
+    /// Looks up a literal string in the interner and returns its identifier if it exists.
+    ///
+    /// This is a non-allocating operation that returns `None` if the string has
+    /// not been previously interned.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The string slice representing the literal to look up.
     pub fn lookup_literal(&self, s: &str) -> Option<LiteralID> {
         self.literal_index_map.get(s).copied().map(LiteralID::new)
+    }
+
+    /// Attempts to look up a literal identifier, returning an error if not found.
+    ///
+    /// This method is preferred during semantic analysis or linking when a literal
+    /// is expected to be already present in the interner.
+    ///
+    /// # Arguments
+    ///
+    /// * `s` - The string slice representing the literal to look up.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InternerError::UnknownLiteralString`] if the string is not
+    /// registered in the literal pool.
+    pub fn try_lookup_literal(&self, s: &str) -> Result<LiteralID, InternerError> {
+        self.literal_index_map
+            .get(s)
+            .copied()
+            .map(LiteralID::new)
+            .ok_or_else(|| InternerError::unknown_literal_string(s))
     }
 
     /// Returns an iterator over all literal `Literal`s.
