@@ -89,129 +89,220 @@ pub enum ExprError {
     /// Indicates that the expected content was a quantifier variables list, but it was not.
     #[error("Expected quantifier variables, but content was not QuantifierVariables")]
     NotQuantifierVariables,
+
+    /// Indicates that the expected content was an atomic skeleton (predicate), but it was not.
+    #[error("Expected atomic skeleton, but content was not AtomicSkeleton")]
+    NotAtomSkeleton,
+
+    /// Indicates that the expected content was a constant (object), but it was not.
+    #[error("Expected constant, but content was not Constant")]
+    NotConstant,
+
+    /// Indicates that the expected content was a variable, but it was not.
+    #[error("Expected variable, but content was not Variable")]
+    NotVariable,
+
+    /// Indicates that the expected content was a function skeleton, but it was not.
+    #[error("Expected function skeleton, but content was not FunctionSkeleton")]
+    NotFunctionSkeleton,
+
+    /// Indicates that the expected content was a predicate ID, but it was not.
+    #[error("Expected predicate, but content was not Predicate")]
+    NotPredicate,
+
+    /// Indicates that the expected content was a functor, but it was not.
+    #[error("Expected functor, but content was not Functor")]
+    NotFunctor,
+
+    /// Indicates that the expected content was a task symbol, but it was not.
+    #[error("Expected task symbol, but content was not TaskSymbol")]
+    NotTaskSymbol,
+
+    /// Indicates that the expected content was a task label, but it was not.
+    #[error("Expected task ID, but content was not TaskID")]
+    NotTaskId,
+
+    /// Indicates that the expected content was a task skeleton, but it was not.
+    #[error("Expected task skeleton, but content was not TaskSkeleton")]
+    NotTaskSkeleton,
+
+    /// Indicates that the expected content was a preference, but it was not.
+    #[error("Expected preference, but content was not Preference")]
+    NotPreference,
+
+    /// Indicates that the expected content was a float value, but it was not.
+    #[error("Expected float, but content was not Float")]
+    NotFloat,
+
+    /// Indicates that the expected content was a binary comparison operator, but it was not.
+    #[error("Expected binary comparison operator, but content was not BinaryComp")]
+    NotBinaryComp,
+
+    /// Indicates that the expected content was an assignment operator, but it was not.
+    #[error("Expected assignment operator, but content was not AssignOp")]
+    NotAssignOp,
+
+    /// Indicates that the expected content was an arithmetic operator, but it was not.
+    #[error("Expected arithmetic operator, but content was not ArithmeticOp")]
+    NotArithmeticOp,
+
+    /// Indicates that the expected content was an optimization directive, but it was not.
+    #[error("Expected optimization directive, but content was not Optimization")]
+    NotOptimization,
 }
 
 impl ExprError {
-    /// Creates an `UnsupportedContent` error variant for the given `AstContent`.
+    /// Captures the current call site and backtrace for debugging purposes.
     ///
-    /// # Arguments
-    ///
-    /// * `content` - The unsupported AST content variant encountered.
-    ///
-    /// # Returns
-    ///
-    /// A new `ExprError` representing the unsupported content error.
+    /// This function logs the error, the location where capture() was called,
+    /// and a full backtrace if the log level is set to Debug.
     #[track_caller]
-    pub fn unsupported_content(content: AstContent) -> Self {
-        let caller = std::panic::Location::caller();
-        let err = ExprError::UnsupportedContent { content };
-
+    pub fn capture(self) -> Self {
         if log::log_enabled!(log::Level::Debug) {
+            let caller = std::panic::Location::caller();
             let bt = std::backtrace::Backtrace::force_capture();
 
             log::debug!(
-            "\nExpression Error at {}:{}:{}\n{}\nStack trace:\n{}",
-            caller.file(),
-            caller.line(),
-            caller.column(),
-            err,
-            bt
-        );
+                "ExprError captured at {file}:{line}:{col}\n\
+                 [Error] {error:?}\n\
+                 [Stack Trace]\n{trace}",
+                file = caller.file(),
+                line = caller.line(),
+                col = caller.column(),
+                error = self,
+                trace = bt
+            );
         }
-
-        err
+        self
     }
 
-    /// Creates an `InvalidAstNode` error variant for a given `AstKind`.
-    ///
-    /// This error indicates that the AST node cannot be translated into the
-    /// intermediate representation (IR) because it is **unsupported** in the current pipeline.
-    ///
-    /// # Arguments
-    ///
-    /// * `kind` - The AST kind that is invalid or unsupported.
-    ///
-    /// # Returns
-    ///
-    /// A new `ExprError` representing that this AST node cannot be processed.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use your_crate::{ExprError, AstKind};
-    /// let err = ExprError::invalid_ast_node(AstKind::Task);
-    /// ```
+    /// Creates an `InvalidAstNode` error variant for a given `AstKind` and captures the call site.
+    #[track_caller]
     pub fn invalid_ast_node(kind: AstKind) -> Self {
-        ExprError::InvalidAstNode { kind }
+        ExprError::InvalidAstNode { kind }.capture()
     }
 
-    /// Creates an `ArithmeticEvaluationError` variant for a failed arithmetic operation.
-    ///
-    /// # Arguments
-    ///
-    /// * `op` – the arithmetic operation that caused the error.
-    /// * `values` – the operands involved in the operation.
-    ///
-    /// # Returns
-    ///
-    /// A new `ExprError` representing the arithmetic evaluation failure.
+    /// Creates an `ArithmeticEvaluationError` variant for a failed arithmetic operation and captures the call site.
+    #[track_caller]
     pub fn arithmetic_evaluation_error(
         op: ArithmeticOp,
         values: Vec<OrderedFloat<f64>>,
     ) -> Self {
-        ExprError::ArithmeticEvaluationError { op, values }
+        ExprError::ArithmeticEvaluationError { op, values }.capture()
     }
 
-    /// Creates an `InvalidExprNode` error variant for a node with an invalid kind
-    /// in the context of the current transformation.
-    ///
-    /// This error indicates that the expression node exists in the intermediate
-    /// representation (IR) but **cannot be processed** by the current operation
-    /// because it is either misplaced or of a type that is not supported
-    /// in this context.
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` – The ID of the node that triggered the error.
-    /// * `kind` – The kind of the expression node that is invalid.
-    ///
-    /// # Returns
-    ///
-    /// A new `ExprError` representing that this expression node cannot be processed.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use your_crate::{ExprError, ExprKind, NodeId};
-    /// let err = ExprError::invalid_expr_node(42, ExprKind::AtStart);
-    /// ```
+    /// Creates an `InvalidExprNode` error variant for a node with an invalid kind and captures the call site.
+    #[track_caller]
     pub fn invalid_expr_node(node_id: NodeId, kind: ExprKind) -> Self {
-        ExprError::InvalidExprNode { node_id, kind }
+        ExprError::InvalidExprNode { node_id, kind }.capture()
     }
 
-    /// Creates a `MissingTimeSpecifier` error variant for a literal node that is missing a temporal specifier.
-    ///
-    /// # Arguments
-    ///
-    /// * `node_id` – The ID of the literal node that is missing a temporal specifier.
-    ///
-    /// # Returns
-    ///
-    /// A new `ExprError` representing the missing time specifier error.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use your_crate::{ExprError, NodeId};
-    /// let err = ExprError::missing_time_specifier(101);
-    /// ```
+    /// Creates a `MissingTimeSpecifier` error variant for a literal node and captures the call site.
+    #[track_caller]
     pub fn missing_time_specifier(node_id: NodeId) -> Self {
-        ExprError::MissingTimeSpecifier { node_id }
+        ExprError::MissingTimeSpecifier { node_id }.capture()
     }
 
-    /// Constructs a `NotQuantifierVariables` error.
+    /// Indicates that an unsupported or unexpected `AstContent` variant was encountered.
+    /// Captures the call site for easier debugging of translation failures.
+    #[track_caller]
+    pub fn unsupported_content(content: AstContent) -> Self {
+        ExprError::UnsupportedContent { content }.capture()
+    }
+
+    /// Constructs a `NotQuantifierVariables` error and captures the call site.
+    #[track_caller]
     pub fn not_quantifier_variables() -> Self {
-        ExprError::NotQuantifierVariables
+        ExprError::NotQuantifierVariables.capture()
     }
 
+    /// Constructs a `NotAtomSkeleton` error and captures the call site.
+    #[track_caller]
+    pub fn not_atom_skeleton() -> Self {
+        ExprError::NotAtomSkeleton.capture()
+    }
+
+    /// Constructs a `NotConstant` error and captures the call site.
+    #[track_caller]
+    pub fn not_constant() -> Self {
+        ExprError::NotConstant.capture()
+    }
+
+    /// Constructs a `NotVariable` error and captures the call site.
+    #[track_caller]
+    pub fn not_variable() -> Self {
+        ExprError::NotVariable.capture()
+    }
+
+    /// Constructs a `NotFunctionSkeleton` error and captures the call site.
+    #[track_caller]
+    pub fn not_function_skeleton() -> Self {
+        ExprError::NotFunctionSkeleton.capture()
+    }
+
+    /// Constructs a `NotPredicate` error and captures the call site.
+    #[track_caller]
+    pub fn not_predicate() -> Self {
+        ExprError::NotPredicate.capture()
+    }
+
+    /// Constructs a `NotFunctor` error and captures the call site.
+    #[track_caller]
+    pub fn not_functor() -> Self {
+        ExprError::NotFunctor.capture()
+    }
+
+    /// Constructs a `NotTaskSymbol` error and captures the call site.
+    #[track_caller]
+    pub fn not_task_symbol() -> Self {
+        ExprError::NotTaskSymbol.capture()
+    }
+
+    /// Constructs a `NotTaskId` error and captures the call site.
+    #[track_caller]
+    pub fn not_task_id() -> Self {
+        ExprError::NotTaskId.capture()
+    }
+
+    /// Constructs a `NotTaskSkeleton` error and captures the call site.
+    #[track_caller]
+    pub fn not_task_skeleton() -> Self {
+        ExprError::NotTaskSkeleton.capture()
+    }
+
+    /// Constructs a `NotPreference` error and captures the call site.
+    #[track_caller]
+    pub fn not_preference() -> Self {
+        ExprError::NotPreference.capture()
+    }
+
+    /// Constructs a `NotFloat` error and captures the call site.
+    #[track_caller]
+    pub fn not_float() -> Self {
+        ExprError::NotFloat.capture()
+    }
+
+    /// Constructs a `NotBinaryComp` error and captures the call site.
+    #[track_caller]
+    pub fn not_binary_comp() -> Self {
+        ExprError::NotBinaryComp.capture()
+    }
+
+    /// Constructs a `NotAssignOp` error and captures the call site.
+    #[track_caller]
+    pub fn not_assign_op() -> Self {
+        ExprError::NotAssignOp.capture()
+    }
+
+    /// Constructs a `NotArithmeticOp` error and captures the call site.
+    #[track_caller]
+    pub fn not_arithmetic_op() -> Self {
+        ExprError::NotArithmeticOp.capture()
+    }
+
+    /// Constructs a `NotOptimization` error and captures the call site.
+    #[track_caller]
+    pub fn not_optimization() -> Self {
+        ExprError::NotOptimization.capture()
+    }
 }

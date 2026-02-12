@@ -117,6 +117,146 @@ pub enum Content {
 }
 
 impl Content {
+
+    /// Returns the object ID if the content is `Constant`.
+    pub fn as_constant(&self) -> Option<ObjectID> {
+        match self {
+            ExprContent::Constant(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the object ID or an error.
+    pub fn try_constant(&self) -> Result<ObjectID, ExprError> {
+        self.as_constant().ok_or_else(ExprError::not_constant)
+    }
+
+    /// Returns the variable ID if the content is `Variable`.
+    pub fn as_variable(&self) -> Option<VariableID> {
+        match self {
+            ExprContent::Variable(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the variable ID or an error.
+    pub fn try_variable(&self) -> Result<VariableID, ExprError> {
+        self.as_variable().ok_or_else(ExprError::not_variable)
+    }
+
+
+    /// Returns the predicate ID if the content is `Predicate`.
+    pub fn as_predicate(&self) -> Option<PredicateID> {
+        match self {
+            ExprContent::Predicate(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the predicate ID or an error.
+    pub fn try_predicate(&self) -> Result<PredicateID, ExprError> {
+        self.as_predicate().ok_or_else(ExprError::not_predicate)
+    }
+
+    /// Returns the functor ID if the content is `Functor`.
+    pub fn as_functor(&self) -> Option<FunctorID> {
+        match self {
+            ExprContent::Functor(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the functor ID or an error.
+    pub fn try_functor(&self) -> Result<FunctorID, ExprError> {
+        self.as_functor().ok_or_else(ExprError::not_functor)
+    }
+
+    /// Returns the task symbol ID if the content is `TaskSymbol`.
+    pub fn as_task_symbol(&self) -> Option<TaskSymbolID> {
+        match self {
+            ExprContent::TaskSymbol(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the task symbol ID or an error.
+    pub fn try_task_symbol(&self) -> Result<TaskSymbolID, ExprError> {
+        self.as_task_symbol().ok_or_else(ExprError::not_task_symbol)
+    }
+
+    // Returns the task label ID if the content is `TaskID`.
+    pub fn as_task_id(&self) -> Option<TaskLabelID> {
+        match self {
+            ExprContent::TaskID(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the task label ID or an error.
+    pub fn try_task_id(&self) -> Result<TaskLabelID, ExprError> {
+        self.as_task_id().ok_or_else(ExprError::not_task_id)
+    }
+
+    /// Returns the preference ID if the content is `Preference`.
+    pub fn as_preference(&self) -> Option<PreferenceID> {
+        match self {
+            ExprContent::Preference(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the preference ID or an error.
+    pub fn try_preference(&self) -> Result<PreferenceID, ExprError> {
+        self.as_preference().ok_or_else(ExprError::not_preference)
+    }
+
+    /// Returns the predicate ID if the content is `AtomicSkeleton`.
+    pub fn as_atom_skeleton(&self) -> Option<AtomSkeletonID> {
+        match self {
+            ExprContent::AtomSkeleton(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the predicate ID or an error.
+    pub fn try_atom_skeleton(&self) -> Result<AtomSkeletonID, ExprError> {
+        self.as_atom_skeleton().ok_or_else(ExprError::not_atom_skeleton)
+    }
+
+    /// Returns the function ID if the content is `FunctionSkeleton`.
+    pub fn as_function_skeleton(&self) -> Option<FunctionSkeletonID> {
+        match self {
+            ExprContent::FunctionSkeleton(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the function ID or an error.
+    ///
+    /// # Errors
+    /// Returns `ExprError::not_function_skeleton()` if the content is not a function.
+    pub fn try_function_skeleton(&self) -> Result<FunctionSkeletonID, ExprError> {
+        self.as_function_skeleton()
+            .ok_or_else(ExprError::not_function_skeleton)
+    }
+
+    /// Returns the task skeleton ID if the content is `TaskSkeleton`.
+    pub fn as_task_skeleton(&self) -> Option<TaskSkeletonID> {
+        match self {
+            ExprContent::TaskSkeleton(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Returns the task skeleton ID or an error.
+    ///
+    /// # Errors
+    /// Returns `ExprError::not_task_skeleton()` if the content is not a task skeleton.
+    pub fn try_task_skeleton(&self) -> Result<TaskSkeletonID, ExprError> {
+        self.as_task_skeleton()
+            .ok_or_else(ExprError::not_task_skeleton)
+    }
+
     /// Returns a reference to the quantifier’s bound variables if the content is `TypedVariables`.
     ///
     /// # Returns
@@ -139,6 +279,7 @@ impl Content {
             _ => Err(ExprError::not_quantifier_variables()),
         }
     }
+
 
     /// Returns a mutable reference to the quantifier’s bound variables if the content is `TypedVariables`.
     ///
@@ -170,62 +311,8 @@ impl fmt::Display for Content {
     }
 }
 
-/*impl InternerDisplay for Content {
-    /// Displays the content with context from a [`StringInterner`], resolving identifiers to strings.
-    ///
-    /// For non-identifier variants, falls back to the default [`Display`] implementation.
-    fn fmt_with_interner(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        match self {
-            /*Content::Ident(idx) => {
-                let resolved = interner.resolve_ident(*idx).unwrap_or("(unknown)");
-                write!(f, "Ident(\"{}\")", resolved)
-            }*/
-            //Content::QuantifierVariables(vars) => vars.fmt_with_interner(f, interner),
-            _ => fmt::Display::fmt(self, f),
-        }
-    }
-}
-
-impl SyntaxInternerDisplay for Content {
-    /// Formats the `Content` value using the provided formatter and string interner,
-    /// applying indentation according to `indent`.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - The formatter to write output to.
-    /// * `interner` - The interner used to resolve interned strings.
-    /// * `indent` - The indentation level (number of indent units).
-    ///
-    /// # Returns
-    ///
-    /// A `fmt::Result` indicating whether formatting succeeded.
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        // Write the indentation prefix
-        write_indent(f, indent)?;
-        match self {
-            //Content::Ident(idx) => idx.fmt_syntax_with_interner_and_indent(f, interner, indent),
-            Content::QuantifierVariables(vars) => vars.fmt_syntax_with_interner_and_indent(f, interner, indent),
-            _ => fmt::Display::fmt(self, f),
-        }
-    }
-}*/
 
 impl SyntaxContent for Content {
-    /*fn as_ident(&self) -> Option<StringID> {
-        match self {
-            Content::Ident(id) => Some(*id),
-            _ => None,
-        }
-    }*/
 
     fn as_float(&self) -> Option<OrderedFloat<f64>> {
         match self {

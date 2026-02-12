@@ -41,8 +41,8 @@ use crate::aiplan4rust::arena::{ArenaNode, ArenaTree, NodeId, NodeRef};
 // --- 1. MISE À JOUR DE LA STRUCT ---
 pub struct PreorderIter<'a, T: ArenaNode> {
     arena: &'a ArenaTree<T>,
-    // Il faut ajouter le bool ici pour que le compilateur accepte (NodeId, usize, bool)
     stack: Vec<(NodeId, usize, bool)>,
+    skip: bool,
 }
 
 impl<'a, T: ArenaNode> PreorderIter<'a, T> {
@@ -51,6 +51,7 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
             arena,
             // (ID, profondeur, is_last)
             stack: vec![(root, 0, true)],
+            skip: false
         }
     }
 
@@ -58,7 +59,12 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
         Self {
             arena,
             stack: Vec::new(),
+            skip: false
         }
+    }
+
+    pub fn skip_subtree(&mut self) {
+        self.skip = true;
     }
 
     // --- 2. MISE À JOUR DES ADAPTATEURS ---
@@ -76,8 +82,8 @@ impl<'a, T: ArenaNode> PreorderIter<'a, T> {
         self.map(|(id, _, _, node)| NodeRef::new(id, node))
     }
 
-    pub fn values(self) -> impl Iterator<Item = &'a T> {
-        self.map(|(_, _, _, node)| node)
+    pub fn values(self) -> ValuesIter<'a, T> {
+        ValuesIter { inner: self }
     }
 
     pub fn ids(self) -> impl Iterator<Item = (NodeId, &'a T)> {
@@ -90,19 +96,42 @@ impl<'a, T: ArenaNode> Iterator for PreorderIter<'a, T> {
     type Item = (NodeId, usize, bool, &'a T);
 
     fn next(&mut self) -> Option<Self::Item> {
-        // On récupère le tuple à 3 éléments
         let (id, depth, is_last) = self.stack.pop()?;
         let node = self.arena.get_node(id)?;
 
-        let children = node.children();
-        let len = children.len();
-
-        // On empile les enfants en sens inverse (reverse)
-        for (i, &child_id) in children.iter().enumerate().rev() {
-            // On pousse le tuple à 3 éléments : (ID, profondeur, est_le_dernier)
-            self.stack.push((child_id, depth + 1, i == len - 1));
+        // Si l'utilisateur n'a PAS demandé de skip, on empile les enfants
+        if !self.skip {
+            let children = node.children();
+            let len = children.len();
+            for (i, &child_id) in children.iter().enumerate().rev() {
+                self.stack.push((child_id, depth + 1, i == len - 1));
+            }
+        } else {
+            // Si on a skipé, on remet le flag à false pour les prochains nœuds frères
+            self.skip = false;
         }
 
         Some((id, depth, is_last, node))
+    }
+}
+
+
+pub struct ValuesIter<'a, T: ArenaNode> {
+    inner: PreorderIter<'a, T>,
+}
+
+impl<'a, T: ArenaNode> ValuesIter<'a, T> {
+    // On expose la méthode skip_subtree du parent
+    pub fn skip_subtree(&mut self) {
+        self.inner.skip_subtree();
+    }
+}
+
+impl<'a, T: ArenaNode> Iterator for ValuesIter<'a, T> {
+    type Item = &'a T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        // On ne renvoie que le 4ème élément du tuple
+        self.inner.next().map(|(_, _, _, node)| node)
     }
 }

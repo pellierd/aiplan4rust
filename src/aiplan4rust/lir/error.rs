@@ -118,6 +118,14 @@ pub enum LirError {
     // In your LirError enum
     #[error("Task definition requested for an unregistered ID: {id:?}")]
     TaskDefinitionOrphan { id: TaskSkeletonID },
+
+
+    // Indicates that a predicate has too many arguments for the static index (max 15).
+    #[error("Arity too high for indexing: predicate {pred_id:?} has {arity} arguments (max 15)")]
+    ArityTooHigh {
+        pred_id: AtomSkeletonID,
+        arity: usize,
+    },
 }
 
 
@@ -244,6 +252,12 @@ impl LirError {
     // In your impl LirError block
     pub fn task_definition_orphan(id: TaskSkeletonID) -> Self {
         Self::TaskDefinitionOrphan { id }
+    }
+
+
+    #[track_caller]
+    pub fn arity_too_high(pred_id: AtomSkeletonID, arity: usize) -> Self {
+        LirError::ArityTooHigh { pred_id, arity }
     }
 
     /// Helper privé pour uniformiser le logging et la stack trace sans polluer les fonctions publiques

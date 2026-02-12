@@ -36,12 +36,14 @@
 //! The symbol resolution method returns `Result` to handle cases where
 //! identification extraction fails or when the node kind does not correspond to a symbol.
 
-use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
-use crate::aiplan4rust::tree::NodeId;
+use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind};
+use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use ordered_float::OrderedFloat;
+use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, PreferenceID, TaskLabelID, TaskSkeletonID, TaskSymbolID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::tree::{SyntaxBaseNode, Node};
@@ -405,4 +407,127 @@ impl Node for ExprNode {
     {
         syntax::tree::renderers::syntax_rendering(self, f, arena, interner)
     }*/
+}
+
+impl ExprNode {
+    /// Returns the object ID if the content is `Constant`.
+    pub fn as_constant(&self) -> Option<ObjectID> {
+        self.content().as_constant()
+    }
+
+    /// Returns the object ID or an error.
+    pub fn try_constant(&self) -> Result<ObjectID, ExprError> {
+        self.content().try_constant()
+    }
+
+    /// Returns the variable ID if the content is `Variable`.
+    pub fn as_variable(&self) -> Option<VariableID> {
+        self.content().as_variable()
+    }
+
+    /// Returns the variable ID or an error.
+    pub fn try_variable(&self) -> Result<VariableID, ExprError> {
+        self.content().try_variable()
+    }
+
+    /// Returns the predicate ID if the content is `Predicate`.
+    pub fn as_predicate(&self) -> Option<PredicateID> {
+        self.content().as_predicate()
+    }
+
+    /// Returns the predicate ID or an error.
+    pub fn try_predicate(&self) -> Result<PredicateID, ExprError> {
+        self.content().try_predicate()
+    }
+
+    /// Returns the functor ID if the content is `Functor`.
+    pub fn as_functor(&self) -> Option<FunctorID> {
+        self.content().as_functor()
+    }
+
+    /// Returns the functor ID or an error.
+    pub fn try_functor(&self) -> Result<FunctorID, ExprError> {
+        self.content().try_functor()
+    }
+
+    /// Returns the task symbol ID if the content is `TaskSymbol`.
+    pub fn as_task_symbol(&self) -> Option<TaskSymbolID> {
+        self.content().as_task_symbol()
+    }
+
+    /// Returns the task symbol ID or an error.
+    pub fn try_task_symbol(&self) -> Result<TaskSymbolID, ExprError> {
+        self.content().try_task_symbol()
+    }
+
+    /// Returns the task label ID if the content is `TaskID`.
+    pub fn as_task_id(&self) -> Option<TaskLabelID> {
+        self.content().as_task_id()
+    }
+
+    /// Returns the task label ID or an error.
+    pub fn try_task_id(&self) -> Result<TaskLabelID, ExprError> {
+        self.content().try_task_id()
+    }
+
+    /// Returns the preference ID if the content is `Preference`.
+    pub fn as_preference(&self) -> Option<PreferenceID> {
+        self.content().as_preference()
+    }
+
+    /// Returns the preference ID or an error.
+    pub fn try_preference(&self) -> Result<PreferenceID, ExprError> {
+        self.content().try_preference()
+    }
+
+    /// Returns the predicate ID if the content is `AtomicSkeleton`.
+    pub fn as_atom_skeleton(&self) -> Option<AtomSkeletonID> {
+        self.content().as_atom_skeleton()
+    }
+
+    /// Returns the predicate ID or an error.
+    pub fn try_atom_skeleton(&self) -> Result<AtomSkeletonID, ExprError> {
+        self.content().try_atom_skeleton()
+    }
+
+    /// Returns the function ID if the content is `FunctionSkeleton`.
+    pub fn as_function_skeleton(&self) -> Option<FunctionSkeletonID> {
+        self.content().as_function_skeleton()
+    }
+
+    /// Returns the function ID or an error.
+    pub fn try_function_skeleton(&self) -> Result<FunctionSkeletonID, ExprError> {
+        self.content().try_function_skeleton()
+    }
+
+    /// Returns the task skeleton ID if the content is `TaskSkeleton`.
+    pub fn as_task_skeleton(&self) -> Option<TaskSkeletonID> {
+        self.content().as_task_skeleton()
+    }
+
+    /// Returns the task skeleton ID or an error.
+    pub fn try_task_skeleton(&self) -> Result<TaskSkeletonID, ExprError> {
+        self.content().try_task_skeleton()
+    }
+
+    /// Returns a reference to the quantifier’s bound variables.
+    pub fn as_quantifier_vars(&self) -> Option<&TypedList<VariableID, TypeID>> {
+        self.content().as_quantifier_vars()
+    }
+
+    /// Returns a reference to the quantifier’s bound variables or an error.
+    pub fn try_quantifier_vars(&self) -> Result<&TypedList<VariableID, TypeID>, ExprError> {
+        self.content().try_quantifier_vars()
+    }
+
+    /// Returns a mutable reference to the quantifier’s bound variables.
+    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList<VariableID, TypeID>> {
+        self.content_mut().as_quantifier_vars_mut()
+    }
+
+    /// Returns a mutable reference to the quantifier’s bound variables or an error.
+    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<VariableID, TypeID>, ExprError> {
+        self.content_mut().try_quantifier_vars_mut()
+    }
+
 }
