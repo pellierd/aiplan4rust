@@ -50,7 +50,7 @@
 //! The [`Content::remap_idents`] method allows in-place remapping of interned identifiers
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableID, ObjectID, ParameterID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID, TaskLabelID};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableID, ObjectID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID, TaskLabelID};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::tree::SyntaxContent;
@@ -74,7 +74,6 @@ pub enum Content {
     //Ident(StringID),
     Variable(VariableID),     // Variables liées (Forall/Exists)
     Constant(ObjectID),     // Objets/Constantes du domaine
-    Parameter(ParameterID),   // Paramètres d'action
 
     // --- Symboles de Définition ---
     Predicate(PredicateID),
@@ -349,25 +348,3 @@ impl SyntaxContent for Content {
         }
     }
 }
-
-/*impl RemapIdents for Content {
-    /// Remaps the identifier inside this content, if it is an `Ident` and exists in the mapping.
-    ///
-    /// # Parameters
-    /// - `map`: A mapping from old `Ident`s to new `Ident`s.
-    ///
-    /// # Behavior
-    /// - If the content is an `Ident` and a corresponding mapping exists, it is replaced.
-    /// - If the content is not an `Ident` or no mapping exists, it remains unchanged.
-    ///
-    /// # Notes
-    /// - The operation is performed in place and is panic-free.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
-        if let Content::Ident(id) = self {
-            if let Some(new_id) = map.get(id) {
-                *id = *new_id;
-            }
-        }
-        Ok(())
-    }
-}*/

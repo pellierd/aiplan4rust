@@ -270,10 +270,6 @@ fn render_exp_content(
         Content::Constant(id) => {
             write!(f, "{}", ctx.resolve_object(*id))
         },
-        Content::Parameter(id) => {
-            // Les paramètres sont souvent indexés, mais si tu as leur StringID :
-            write!(f, "?X{}", id.as_usize())
-        },
         Content::Predicate(id) => {
             write!(f, "{}", ctx.resolve_predicate(*id))
         },

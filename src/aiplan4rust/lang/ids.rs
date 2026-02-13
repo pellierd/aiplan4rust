@@ -68,7 +68,6 @@ impl_id_type!(StringID);
 impl_id_type!(LiteralID);
 impl_id_type!(TypeID);
 impl_id_type!(PredicateID);
-impl_id_type!(ParameterID);
 impl_id_type!(VariableID);
 impl_id_type!(FunctorID);
 impl_id_type!(TaskSymbolID);
@@ -116,7 +115,6 @@ impl_display_prefix!(StringID, "s");           // s42 (minuscule pour le disting
 impl_display_prefix!(LiteralID, "L");          // L10 (L pour Literal)
 impl_display_prefix!(TypeID, "T");             // T1  (T pour Type)
 impl_display_prefix!(PredicateID, "P");        // P5  (P pour Predicate)
-impl_display_prefix!(ParameterID, "p");        // p0  (p minuscule pour différencier des prédicats)
 impl_display_prefix!(VariableID, "v");         // v1  (v pour Variable)
 impl_display_prefix!(FunctorID, "f");          // f2  (f pour Functor)
 impl_display_prefix!(TaskSymbolID, "tk");      // tk3 (tk pour Task Symbol)

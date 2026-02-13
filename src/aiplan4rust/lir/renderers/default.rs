@@ -891,7 +891,6 @@ pub fn render_node_expr_content(
         // --- Identifiants (Délégation à tes impl_display_prefix) ---
         Content::Variable(id)   => write!(f, "{}", id), // Sortie ex: v#1
         Content::Constant(id)   => write!(f, "{}", id), // Sortie ex: o#12
-        Content::Parameter(id)  => write!(f, "{}", id), // Sortie ex: p#0
         Content::Predicate(id)  => write!(f, "{}", id), // Sortie ex: P#5
         Content::Functor(id)    => write!(f, "{}", id), // Sortie ex: f#2
         Content::TaskSymbol(id) => write!(f, "{}", id), // Sortie ex: tk#3
