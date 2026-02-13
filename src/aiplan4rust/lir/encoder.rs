@@ -179,9 +179,9 @@ pub fn encode_lifted_problem(
     passes::expr::problem::normalize(&mut problem)?;
 
     // Optional: print definitions for debugging
-    let domain_def = problem.domain_def();
+    /*let domain_def = problem.domain_def();
     println!("Domain: \n{}", domain_def.to_syntax_string());
-    println!("Problem : \n{}", problem.problem_def().to_syntax_string());
+    println!("Problem : \n{}", problem.problem_def().to_syntax_string());*/
 
     // 6. Return the fully constructed and normalized problem
     Ok(problem)
