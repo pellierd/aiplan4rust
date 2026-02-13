@@ -160,11 +160,11 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
     }
 
     // Functions
-    if !problem.functions_defs().is_empty() {
+    if !problem.function_defs().is_empty() {
         writeln_centered(f, " [ FUNCTIONS ] ", 80, '=')?;
         writeln!(f, "  {:<5} : {:<15} - {}", "ID", "NAME", "PARAMETERS")?;
         writeln!(f, "{:-<80}", "")?;
-        for (i, fct) in problem.functions_defs().iter().enumerate() {
+        for (i, fct) in problem.function_defs().iter().enumerate() {
             let id_str = format!("#{}", i);
             let name = format!("{}", fct.symbol()).trim().to_string();
             let params: Vec<String> = fct.parameters()

@@ -5,7 +5,7 @@
 //! to AST nodes that define nested scopes.
 //!
 //! Scopes can be nested by extending an existing scope's stack with additional nodes.
-//! This allows tracking the hierarchical context in which symbols or expressions occur.
+//! This allows tracking the hierarchical context in which symbols or expr occur.
 
 use crate::aiplan4rust::tree::NodeId;
 use serde::{Deserialize, Serialize};
@@ -56,13 +56,14 @@ impl Scope {
     /// let nested_scope = Scope::new(NodeId::new(2), Some(&root_scope));
     /// ```
     pub fn new(ast: NodeId, parent: Option<&Scope>) -> Self {
-        let mut scope = Scope { stack: Vec::new() };
-
         if let Some(parent_scope) = parent {
-            scope.stack.extend(parent_scope.stack.iter().cloned());
+            let mut stack = Vec::with_capacity(parent_scope.stack.len() + 1);
+            stack.extend_from_slice(&parent_scope.stack);
+            stack.push(ast);
+            Scope { stack }
+        } else {
+            Scope { stack: vec![ast] }
         }
-        scope.stack.push(ast);
-        scope
     }
 
     /// Checks whether this scope starts with the given `prefix` scope.
@@ -86,6 +87,29 @@ impl Scope {
     /// assert!(b.starts_with(&a));
     /// ```
     pub fn starts_with(&self, prefix: &Scope) -> bool {
+        // 1. Comparaison de pointeurs (Fastest path)
+        // Si c'est exactement le même objet en mémoire, c'est forcément vrai.
+        if std::ptr::eq(self, prefix) {
+            return true;
+        }
+
+        // 2. Comparaison des longueurs (O(1))
+        // Un scope ne peut pas être le préfixe d'un autre s'il est plus long.
+        let prefix_len = prefix.stack.len();
+        let self_len = self.stack.len();
+
+        if prefix_len > self_len {
+            return false;
+        }
+
+        // 3. Cas particulier : Root
+        // Si le préfixe est vide, il est techniquement le préfixe de tout.
+        if prefix_len == 0 {
+            return true;
+        }
+
+        // 4. Comparaison profonde (O(N))
+        // On ne fait cette boucle que si les tests rapides ci-dessus ont échoué.
         self.stack.starts_with(&prefix.stack)
     }
 
@@ -114,34 +138,6 @@ impl Scope {
 
     pub fn len(&self) -> usize {
         self.stack.len()
-    }
-}
-
-/// Implements the iterator trait for `Scope`.
-///
-/// This iterator consumes the scope by popping `NodeId`s from the end of the internal
-/// stack on each call to `next()`, returning them from innermost to outermost.
-///
-/// # Note
-///
-/// Iterating this way modifies the `Scope` by emptying its internal stack.
-/// After complete iteration, the scope will be empty.
-///
-/// # Example
-///
-/// ```rust
-/// let mut scope = Scope::new(NodeId::new(1), None);
-/// scope.stack.push(NodeId::new(2));
-/// while let Some(node_id) = scope.next() {
-///     println!("NodeId: {:?}", node_id);
-/// }
-/// // At this point, scope.stack is empty.
-/// ```
-impl Iterator for Scope {
-    type Item = NodeId;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.stack.pop()
     }
 }
 

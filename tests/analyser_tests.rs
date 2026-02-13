@@ -33,7 +33,7 @@ pub fn test_analyser_all_files(domain_dir: &Path) -> bool {
             None => {
                 eprintln!("Normalization failed for file {}", file_path.display());
                 success = false;
-                continue; // Skip to the next file if normalization failed
+                continue; // Skip to the next file if expr failed
             }
         };
 

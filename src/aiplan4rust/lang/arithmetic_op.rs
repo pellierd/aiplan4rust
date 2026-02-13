@@ -1,8 +1,8 @@
-//! Arithmetic operations used in PDDL and HDDL expressions and logical comparisons.
+//! Arithmetic operations used in PDDL and HDDL expr and logical comparisons.
 //!
 //! This module defines the `ArithmeticOp` enum representing basic arithmetic
 //! operators (addition, subtraction, multiplication, division) commonly used
-//! in numeric expressions within PDDL (Planning Domain Definition Language).
+//! in numeric expr within PDDL (Planning Domain Definition Language).
 //!
 //! # Features
 //!
@@ -25,7 +25,7 @@
 //!
 //! This module integrates with the lexer tokens for arithmetic operators
 //! and the syntax display system, allowing seamless formatting of PDDL numeric
-//! expressions in user-friendly syntax.
+//! expr in user-friendly syntax.
 
 use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
 use crate::aiplan4rust::syntax::lexer::token::ADD;
@@ -63,7 +63,7 @@ pub enum ArithmeticOp {
 /// This implementation enables `ArithmeticOp` values to be formatted as strings
 /// using Rust’s formatting macros (e.g., `println!`, `format!`). It provides
 /// a human-readable representation of the arithmetic operation symbols, which
-/// is useful for displaying and debugging arithmetic expressions.
+/// is useful for displaying and debugging arithmetic expr.
 ///
 /// # Example
 ///

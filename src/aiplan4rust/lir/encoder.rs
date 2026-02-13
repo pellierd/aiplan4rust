@@ -41,6 +41,7 @@ use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::{passes, LirBuilderResult, LirError};
 use crate::aiplan4rust::lir::encode::{domain, problem, EncodingRegistry};
+use crate::aiplan4rust::lir::logic::LogicEngine;
 use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
@@ -174,8 +175,8 @@ pub fn encode_lifted_problem(
     registry.set_symbol_table(problem_symbol_table);
     problem::encode(&problem_syntax_tree, &mut registry, &mut problem)?;
 
-    // 5. Normalize all expressions in the problem
-    passes::expressions::problem::normalize(&mut problem)?;
+    // 5. Normalize all expr in the problem
+    passes::expr::problem::normalize(&mut problem)?;
 
     // Optional: print definitions for debugging
     let domain_def = problem.domain_def();

@@ -28,7 +28,7 @@ use crate::aiplan4rust::grounding::{Grounder, GroundingResult};
 ///
 /// `Frontend` provides high-level methods to:
 /// - Parse raw domain and problem inputs,
-/// - Perform semantic analysis and normalization,
+/// - Perform semantic analysis and expr,
 /// - Link domain and problem contexts,
 /// - Build intermediate representations (LIR),
 /// - Serialize or return diagnostics if errors occur.
@@ -78,12 +78,12 @@ impl Frontend {
     /// # Returns
     /// - `Ok(AnalyzerResult)`: Contains the results of the semantic analysis, including a semantic context,
     ///   diagnostics, and symbol interning.
-    /// - `Err(AiplanError)`: Indicates an error occurred during parsing, normalization, or analysis.
+    /// - `Err(AiplanError)`: Indicates an error occurred during parsing, expr, or analysis.
     ///
     /// # Errors
     /// Returns an `AiplanError` if:
     /// - Reading the source file fails.
-    /// - Parsing or normalization fails.
+    /// - Parsing or expr fails.
     /// - Semantic analysis encounters a fatal error.
     ///
     /// # Example
@@ -123,7 +123,7 @@ impl Frontend {
     ///
     /// # Returns
     /// - `Ok(LirBuilderResult)`: On success, contains the built LIR or diagnostics if linking/analysis partially failed.
-    /// - `Err(AiplanError)`: If parsing, normalization, analysis, or linking fails catastrophically.
+    /// - `Err(AiplanError)`: If parsing, expr, analysis, or linking fails catastrophically.
     ///
     /// # Errors
     /// Returns an `AiplanError` if:

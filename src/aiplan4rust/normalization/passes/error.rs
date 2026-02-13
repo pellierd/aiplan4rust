@@ -1,4 +1,4 @@
-//! Defines errors that can occur during the normalization pass of the compiler.
+//! Defines errors that can occur during the expr pass of the compiler.
 //!
 //! The `NormalizationPassError` enum encapsulates errors that might be encountered
 //! during semantic analysis and transformation phases, including arena allocation issues,
@@ -11,7 +11,7 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::syntax::ast::AstError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
-/// Represents errors that may occur during the normalization pass of the compiler.
+/// Represents errors that may occur during the expr pass of the compiler.
 ///
 /// This error type wraps various underlying error types from different stages of the compiler pipeline,
 /// including arena allocation, syntax tree analysis, and symbol interning.
@@ -25,14 +25,14 @@ pub enum NormalizationPassError {
 
     /// An error arising from semantic analysis related to memory arena allocation.
     ///
-    /// Typically indicates a failure in allocating or managing memory in the arena during normalization.
+    /// Typically indicates a failure in allocating or managing memory in the arena during expr.
     #[error(transparent)]
     Arena(#[from] ArenaError),
 
     /// An error arising from the syntax tree structure or its semantic validation.
     ///
     /// May occur if the tree is malformed, contains invalid constructs,
-    /// or fails invariant checks during normalization.
+    /// or fails invariant checks during expr.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),
 

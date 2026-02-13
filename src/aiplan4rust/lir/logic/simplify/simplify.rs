@@ -1,6 +1,8 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
+use crate::aiplan4rust::lir::analysis::inertia::registry::InertiaRegistry;
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::expr::kind::Kind;
-use crate::aiplan4rust::lir::expr::simplify::{and_or, arithmetic, assign, comparison, not, quantifier, when};
+use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::logic::simplify::{and_or, arithmetic, assign, comparison, not, quantifier, when};
 use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a PDDL-like expression tree in a post-order traversal.
@@ -62,7 +64,11 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// simplify(root_id, &mut expr)?;
 /// ```
-pub fn simplify(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+pub fn simplify(
+    root_id: NodeId,
+    expr: &mut Expr,
+    index: Option<&InertiaRegistry>,
+) -> Result<(), LogicError> {
 
     // Stack pour DFS post-order: (node_id, visited)
     let mut stack = vec![(root_id, false)];
@@ -72,6 +78,16 @@ pub fn simplify(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
         if visited {
             postorder.push(node_id);
         } else {
+            let node = expr.try_node(node_id)?;
+            let children = node.children();
+
+            // OPTIMISATION : Si le nœud est une feuille ou un atome,
+            // on ne descend pas plus loin dans le DFS.
+            if children.is_empty()
+                || node.kind() == ExprKind::FunctionTerm {
+                postorder.push(node_id);
+                continue;
+            }
             stack.push((node_id, true));
             for &child_id in expr.try_node(node_id)?.children() {
                 stack.push((child_id, false));
@@ -80,7 +96,7 @@ pub fn simplify(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
     }
 
     for node_id in postorder {
-        simplify_node(node_id, expr)?;
+        simplify_node(node_id, expr, index)?;
     }
 
     Ok(())
@@ -105,7 +121,7 @@ pub fn simplify(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
 /// - This function is intended to be called from a post-order traversal of the
 ///   expression tree, so that children are simplified before their parent.
 /// - Extending this function to support additional node kinds (e.g., `NOT`,
-///   arithmetic expressions) is straightforward: simply add a match arm
+///   arithmetic expr) is straightforward: simply add a match arm
 ///   for the new kind.
 ///
 /// # Example
@@ -113,21 +129,35 @@ pub fn simplify(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
 /// let node_id = expr.root_id().unwrap();
 /// simplify_node(node_id, &mut expr)?;
 /// ```
-fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+fn simplify_node(
+    node_id: NodeId,
+    expr: &mut Expr,
+    registry: Option<&InertiaRegistry>,
+) -> Result<(), LogicError> {
     let kind = expr.try_node(node_id)?.kind();
 
     match kind {
         // Logical operators
-        ExprKind::And | ExprKind::Or => and_or::simplify(node_id, expr)?,
-        ExprKind::Not => not::simplify(node_id, expr)?,
-        ExprKind::Forall | ExprKind::Exists => quantifier::simplify(node_id, expr)?,
+        ExprKind::And | ExprKind::Or => and_or::simplify(node_id, expr, registry)?,
+        ExprKind::Not => not::simplify(node_id, expr, registry)?,
+        ExprKind::Forall | ExprKind::Exists => quantifier::simplify(node_id, expr, registry)?,
         ExprKind::Assign => assign::simplify(node_id, expr)?,
         ExprKind::FComp => comparison::simplify(node_id, expr)?,
         ExprKind::Operation => arithmetic::simplify(node_id, expr)?,
         ExprKind::When => when::simplify(node_id, expr)?,
 
         // Nodes that should not appear here
-        ExprKind::Imply => return Err(ExprError::invalid_expr_node(node_id, ExprKind::Imply)),
+        ExprKind::Imply => return Err(LogicError::invalid_expr_node(node_id, ExprKind::Imply)),
+
+        // AtomicFormula -> on utilise le registre ici
+        ExprKind::AtomicFormula => {
+            if let Some(registry) = registry {
+                if let Some(reduced_val) = registry.can_reduce_predicate(node_id, expr, kind)? {
+                    expr.set_to(node_id, reduced_val)?;
+                }
+            }
+        },
+
 
         // No simplification needed, post-order ensures children are already simplified
         Kind::AtStart | Kind::AtEnd | Kind::Overall
@@ -137,7 +167,7 @@ fn simplify_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
         | Kind::HoldDuring | Kind::HoldAfter => {}
 
         // Leaf nodes or nodes that don’t require simplification
-        Kind::FunctionTerm | Kind::AtomicFormula
+        Kind::FunctionTerm
         | Kind::Number | Kind::Preference | Kind::Constant | Kind::Variable | Kind::FunctionSymbol
         | Kind::Predicate | Kind::TaskSymbol | Kind::PrefName
         | Kind::TimedInitialLiteral | Kind::Metric | Kind::TotalTime | Kind::IsViolated

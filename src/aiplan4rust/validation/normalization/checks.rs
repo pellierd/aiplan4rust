@@ -1,7 +1,7 @@
 //! Provides validation checks for specific AST node kinds related to typing and parameters.
 //!
 //! This module implements structural validation rules for nodes like `TypedItem`, `TypesDef`,
-//! `ParametersDef`, and quantified expressions (`Forall`, `Exists`). It also provides recursive
+//! `ParametersDef`, and quantified expr (`Forall`, `Exists`). It also provides recursive
 //! checks for typed lists, ensuring proper child kinds and arities according to language rules.
 //!
 //! # Overview
@@ -15,7 +15,7 @@
 //! # Usage
 //!
 //! These functions typically operate on references to the AST and specific nodes,
-//! returning detailed errors if validation fails. They rely on common and normalization
+//! returning detailed errors if validation fails. They rely on common and expr
 //! helper functions for checking children count, kinds, and retrieving nodes.
 //!
 //! # Errors
@@ -26,7 +26,7 @@
 //! # Example
 //!
 //! ```rust
-//! use crate::aiplan4rust::validation::normalization::{check_typed_item, check_types_def};
+//! use crate::aiplan4rust::validation::expr::{check_typed_item, check_types_def};
 //! # let ast = ...; // Your AST instance
 //! # let node = ...; // Your AST node
 //! if let Err(e) = check_typed_item(&ast, &node) {

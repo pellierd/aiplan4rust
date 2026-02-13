@@ -1,20 +1,20 @@
 //! Module `expr`
 //!
 //! This module defines the [`Expr`] struct, a wrapper around an abstract syntax tree (AST)
-//! specialized to represent expressions in parsing and semantic analysis.
+//! specialized to represent expr in parsing and semantic analysis.
 //!
 //! The [`Expr`] struct encapsulates a generic [`Tree`] whose nodes are [`ExprNode`]s,
 //! each associating an expression kind (`ExprKind`) with semantic content (`ExprContent`).
 //!
-//! This module also provides utility methods to create common predefined expressions,
-//! such as empty expressions with logical `and` or `or` operators,
-//! or expressions specific to metrics or length specifications.
+//! This module also provides utility methods to create common predefined expr,
+//! such as empty expr with logical `and` or `or` operators,
+//! or expr specific to metrics or length specifications.
 //!
 //! # Key Features
-//! - Construction of empty expressions or with basic logical operators.
+//! - Construction of empty expr or with basic logical operators.
 //! - Conversion from a generic AST subtree into a fully typed expression tree.
 //! - Transparent access to the underlying tree via `Deref` and `DerefMut`.
-//! - Displaying expressions with or without resolving interned identifiers via a `StringInterner`.
+//! - Displaying expr with or without resolving interned identifiers via a `StringInterner`.
 //!
 //! # Examples
 //!
@@ -50,8 +50,8 @@ use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
-/// This struct enables manipulation of expressions as syntax trees with precise semantic content,
-/// facilitating construction, transformation, and display of expressions.
+/// This struct enables manipulation of expr as syntax trees with precise semantic content,
+/// facilitating construction, transformation, and display of expr.
 ///
 /// # Examples
 ///
@@ -127,6 +127,25 @@ impl Expr {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.root_id().is_none()
+    }
+
+    pub fn set_to(
+        &mut self,
+        node_id: NodeId,
+        value: bool,
+    ) -> Result<bool, ExprError> {
+        let node_mut = self.try_node_mut(node_id)?;
+
+        let kind = if value {
+            ExprKind::And
+        } else {
+            ExprKind::Or
+        };
+
+        node_mut.set_kind(kind);
+        node_mut.set_children(vec![]);
+
+        Ok(true)
     }
 
     /// Creates an expression with a single root node of kind `Or` and no content.
@@ -499,37 +518,6 @@ impl Expr {
     /// ```
     pub fn is_empty_or(&self, node_id: NodeId) -> Result<bool, ExprError> {
         Ok(self.try_node(node_id)?.is_empty_or())
-    }
-
-    /// Normalizes the expression in-place.
-    ///
-    /// This function applies the normalization process defined in the
-    /// [`normalize`](crate::normalize) module to `self`. Normalization
-    /// typically means transforming the expression into a standard or
-    /// canonical form, which can be useful for comparison, evaluation,
-    /// or optimization.
-    ///
-    /// # Errors
-    ///
-    /// Returns an [`ExprError`] if normalization fails.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use your_crate::{Expr, ExprError};
-    /// # fn example() -> Result<(), ExprError> {
-    /// let mut expr = Expr::new(...);
-    /// expr.normalize()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// # Note
-    ///
-    /// For more details on the normalization process and the rules applied,
-    /// see the [`normalize`](crate::normalize) module.
-    pub fn normalize(&mut self) -> Result<(), ExprError> {
-        normalize(self)
     }
 }
 

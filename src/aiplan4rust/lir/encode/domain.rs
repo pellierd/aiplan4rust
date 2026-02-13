@@ -5,7 +5,7 @@
 //!
 //! The transformation is designed as a two-pass compiler:
 //! 1. **Structural Collection**: Registering names and signatures to build a global symbol map.
-//! 2. **Logic Binding**: Encoding expressions and actions by resolving symbols
+//! 2. **Logic Binding**: Encoding expr and actions by resolving symbols
 //!    against the maps created in the first pass.
 //!
 use crate::aiplan4rust::lir::LirError;
@@ -69,7 +69,7 @@ pub(crate) fn encode(
 /// - Task skeletons for HTN (Hierarchical Task Network) planning.
 ///
 /// This phase must be completed before `encode_logic` to ensure all symbols are
-/// registered and available for resolution in expressions.
+/// registered and available for resolution in expr.
 ///
 /// # Arguments
 ///

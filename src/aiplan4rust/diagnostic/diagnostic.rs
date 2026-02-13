@@ -735,7 +735,7 @@ impl Diagnostic {
     /// Constructs a warning for duplicated types inside an `Either` construct.
     ///
     /// Only the identifiers of the duplicated types are provided, as full declarations
-    /// are unavailable during normalization.
+    /// are unavailable during expr.
     ///
     /// # Arguments
     /// - `duplicate_types`: List of duplicated type identifiers.
@@ -758,7 +758,7 @@ impl Diagnostic {
 
     /// Constructs an error for cycles detected in the type declaration hierarchy.
     ///
-    /// Indicates a circular type inheritance or extension preventing normalization.
+    /// Indicates a circular type inheritance or extension preventing expr.
     ///
     /// # Arguments
     /// - `cycle`: Vector of declarations forming the cycle.

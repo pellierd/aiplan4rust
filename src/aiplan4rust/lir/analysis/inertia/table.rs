@@ -9,7 +9,7 @@ use std::fmt;
 use serde::{Serialize, Deserialize};
 use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID};
 use crate::aiplan4rust::lir::analysis::inertia::inertia::Inertia;
-use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::analysis::inertia::InertiaError;
 
 /// A lookup table for inertia, covering both Predicates and Numeric Functions.
 ///
@@ -93,22 +93,22 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError::MissingPredicateInertia`] if the index is not in the table.
-    pub fn try_get_predicate(&self, index: AtomSkeletonID) -> Result<Inertia, LirError> {
+    pub fn try_get_predicate(&self, index: AtomSkeletonID) -> Result<Inertia, InertiaError> {
         self.predicates
             .get(&index)
             .copied()
-            .ok_or_else(|| LirError::missing_predicate_inertia(index))
+            .ok_or_else(|| InertiaError::missing_predicate_inertia(index))
     }
 
     /// Retrieves the inertia of a function or returns an error if the index is missing.
     ///
     /// # Errors
     /// Returns a [`LirError::MissingFunctionInertia`] if the index is not in the table.
-    pub fn try_get_function(&self, index: FunctionSkeletonID) -> Result<Inertia, LirError> {
+    pub fn try_get_function(&self, index: FunctionSkeletonID) -> Result<Inertia, InertiaError> {
         self.functions
             .get(&index)
             .copied()
-            .ok_or_else(|| LirError::missing_function_inertia(index))
+            .ok_or_else(|| InertiaError::missing_function_inertia(index))
     }
 
     // --- Validation Helpers (Predicates) ---
@@ -120,7 +120,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_positive(&self, index: AtomSkeletonID) -> Result<bool, LirError> {
+    pub fn is_predicate_positive(&self, index: AtomSkeletonID) -> Result<bool, InertiaError> {
         Ok(self.try_get_predicate(index)? == Inertia::Positive)
     }
 
@@ -131,7 +131,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_negative(&self, index: AtomSkeletonID) -> Result<bool, LirError> {
+    pub fn is_predicate_negative(&self, index: AtomSkeletonID) -> Result<bool, InertiaError> {
         Ok(self.try_get_predicate(index)? == Inertia::Negative)
     }
 
@@ -142,7 +142,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_static(&self, index: AtomSkeletonID) -> Result<bool, LirError> {
+    pub fn is_predicate_static(&self, index: AtomSkeletonID) -> Result<bool, InertiaError> {
         Ok(!matches!(self.try_get_predicate(index)?, Inertia::Fluent))
     }
 
@@ -155,7 +155,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError`] if the function index has not been analyzed.
-    pub fn is_function_positive(&self, index: FunctionSkeletonID) -> Result<bool, LirError> {
+    pub fn is_function_positive(&self, index: FunctionSkeletonID) -> Result<bool, InertiaError> {
         Ok(self.try_get_function(index)? == Inertia::Positive)
     }
 
@@ -166,19 +166,19 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError`] if the function index is unknown.
-    pub fn is_function_negative(&self, index: FunctionSkeletonID) -> Result<bool, LirError> {
+    pub fn is_function_negative(&self, index: FunctionSkeletonID) -> Result<bool, InertiaError> {
         Ok(self.try_get_function(index)? == Inertia::Negative)
     }
 
     /// Checks if a numeric function is static (either Positive or Negative).
     ///
     /// If a function is static, the grounder or evaluator can replace its
-    /// expressions with constant values, significantly reducing the overhead
+    /// expr with constant values, significantly reducing the overhead
     /// of state evaluations.
     ///
     /// # Errors
     /// Returns a [`LirError`] if the function has not been categorized.
-    pub fn is_function_static(&self, index: FunctionSkeletonID) -> Result<bool, LirError> {
+    pub fn is_function_static(&self, index: FunctionSkeletonID) -> Result<bool, InertiaError> {
         Ok(!matches!(self.try_get_function(index)?, Inertia::Fluent))
     }
 }

@@ -72,6 +72,10 @@ pub struct Table {
 
     /// Root node ID used to construct the root scope.
     root_id: NodeId,
+
+    // --- AJOUT ICI ---
+    // Permet de trouver instantanément le nom du symbole à partir d'un ID de nœud
+    pub usage_to_symbol: HashMap<NodeId, Usage>,
 }
 
 impl Default for Table {
@@ -94,6 +98,7 @@ impl Default for Table {
             symbols: LinkedHashMap::new(),
             origin: SymbolTableOrigin::default(),
             root_id: NodeId::default(),
+            usage_to_symbol: HashMap::new(),
         }
     }
 }
@@ -523,94 +528,80 @@ impl Table {
     ///     None => println!("No declaration found."),
     /// }
     /// ```
-    /*pub fn resolve_declaration_by_usage(
-        &self,
-        node_id: NodeId,
-    ) -> Result<Option<&Declaration>, SymbolTableError> {
-        // Iterate over all symbols in the symbol table
-        for symbol in self.symbols.values() {
-            let declarations = symbol.declarations();
-
-            // Check each usage for a match with the target node_id
-            for usage in symbol.usages() {
-                if usage.node_id() == node_id {
-                    // Filter to declarations whose scope encloses the usage's scope
-                    let matching: Vec<&Declaration> = declarations
-                        .iter()
-                        .filter(|decl| usage.scope().starts_with(decl.scope()))
-                        .collect();
-
-                    return match matching.len() {
-                        0 => Ok(None),
-                        1 => Ok(Some(matching[0])),
-                        _ => {
-                            // Convert Vec<&T> to Vec<T> for owned error variant
-                            //let candidates = matching.into_iter().cloned().collect();
-                            //Err(SymbolTableError::ambiguous_usage(node_id, candidates))
-                            let most_specific = matching
-                                .into_iter()
-                                .max_by_key(|decl| decl.scope().len());
-
-                            return Ok(most_specific);
-                        }
-                    };
-                }
-            }
-        }
-
-        Ok(None)
-    }*/
-
     pub fn resolve_declaration_by_usage(
         &self,
         node_id: NodeId,
         expected_kind: SymbolKind,
     ) -> Result<Option<&Declaration>, SymbolTableError> {
-        for symbol in self.symbols.values() {
-            let declarations = symbol.declarations();
+        // 1. Accès O(1) : On récupère le StringID et l'Usage via l'index de performance
+        let usage = match self.usage_to_symbol.get(&node_id) {
+            Some(data) => data,
+            None => return Ok(None),
+        };
 
-            for usage in symbol.usages() {
-                if usage.node_id() == node_id {
-                    let matching: Vec<&Declaration> = declarations
-                        .iter()
-                        .filter(|decl| {
-                            // On vérifie le scope ET le genre du symbole
-                            usage.scope().starts_with(decl.scope()) && decl.kind() == expected_kind
-                        })
-                        .collect();
+        // 2. Accès O(1) : On récupère l'entrée du symbole (SymbolEntry)
+        // On utilise ok_or pour éviter un unwrap() risqué
+        let symbol_entry = self.symbols.get(&usage.symbol_id()).unwrap();
 
-                    return match matching.len() {
-                        0 => Ok(None),
-                        1 => Ok(Some(matching[0])),
-                        _ => {
-                            // --- DEBUG LOG START ---
-                            println!("\n[!] AMBIGUITY DETECTED for NodeId: {:?}", node_id);
-                            println!("    Usage Scope: {:?}", usage.scope());
-                            println!("    Candidates found:");
-                            for (i, decl) in matching.iter().enumerate() {
-                                println!("      {}. [Kind: {:?}] Name: {:?} | Scope: {:?}",
-                                         i + 1,
-                                         decl.kind(), // Supposant que tu as une méthode kind() ou type
-                                         decl.symbol(),
-                                         decl.scope()
-                                );
-                            }
-                            // --- DEBUG LOG END ---
+        let declarations = symbol_entry.declarations();
+        let u_scope = usage.scope();
+        let u_len = u_scope.len();
 
-                            let candidates = matching.into_iter().cloned().collect();
-                            Err(SymbolTableError::ambiguous_usage(node_id, candidates))
-
-                            /*let most_specific = matching
-                                .into_iter()
-                                .max_by_key(|decl| decl.scope().len());
-
-                            Ok(most_specific)*/
-                        }
-                    };
+        // 3. OPTIMISATION : Fast Path pour le cas majoritaire (une seule déclaration)
+        // On évite de créer un itérateur et une closure.
+        if declarations.len() == 1 {
+            // On récupère l'unique élément sans créer de Filter
+            if let Some(decl) = declarations.iter().next() {
+                let d_scope = decl.scope();
+                if d_scope.len() <= u_len
+                    && decl.kind() == expected_kind
+                    && u_scope.starts_with(d_scope)
+                {
+                    return Ok(Some(decl));
                 }
             }
+            return Ok(None);
         }
-        Ok(None)
+
+        // 4. Cas des surcharges (D > 1) : Filtrage avec gestion de l'ambiguïté
+        let mut matching_iter = declarations.iter().filter(|decl| {
+            let d_scope = decl.scope();
+            // Le test de longueur ici aussi évite des comparaisons de vecteurs inutiles
+            d_scope.len() <= u_len
+                && decl.kind() == expected_kind
+                && u_scope.starts_with(d_scope)
+        });
+
+        // On récupère le premier match
+        let first_match = matching_iter.next();
+
+        // Gestion de l'ambiguïté : si un deuxième élément correspond dans le même contexte
+        if let Some(_second_match) = matching_iter.next() {
+            return Err(SymbolTableError::ambiguous_usage(node_id, vec![]));
+        }
+
+        Ok(first_match)
+    }
+
+    /// Reconstruit l'index de performance à partir des données de la table.
+    /// À appeler après un merge ou un remapping.
+    /// À appeler après un merge ou un remapping.
+    pub fn rebuild_usage_index(&mut self) {
+        // 1. On vide l'index actuel
+        self.usage_to_symbol.clear();
+
+        // 2. On parcourt toutes les entrées de symboles
+        // On n'a plus besoin du `ident` ici puisque l'Usage le contient déjà
+        for entry in self.symbols.values() {
+            // 3. Pour chaque symbole, on parcourt ses usages
+            for usage in entry.usages() {
+                // L'index ne contient plus que le NodeId vers l'Usage
+                self.usage_to_symbol.insert(
+                    usage.node_id(),
+                    usage.clone()
+                );
+            }
+        }
     }
 
     /// Resolves the unique declaration associated with a usage node ID, or returns an error if ambiguous or missing.

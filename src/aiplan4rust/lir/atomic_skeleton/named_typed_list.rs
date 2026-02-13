@@ -105,6 +105,10 @@ impl NamedTypedList {
     pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
         self.parameters = parameters;
     }
+
+    pub fn arity(&self) -> usize {
+        self.parameters.len()
+    }
 }
 
 impl Display for NamedTypedList {

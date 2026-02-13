@@ -358,7 +358,7 @@ impl Node for AstNode {
     /// - `AtEnd`
     /// - `Overall`
     ///
-    /// They indicate when the literal should hold in PDDL temporal expressions.
+    /// They indicate when the literal should hold in PDDL temporal expr.
     ///
     /// # Example
     /// ```
@@ -376,7 +376,7 @@ impl Node for AstNode {
     /// - `Not`
     /// - `Imply`
     ///
-    /// Useful for expression traversal, normalization, and propagation of temporal specifiers.
+    /// Useful for expression traversal, expr, and propagation of temporal specifiers.
     ///
     /// # Example
     /// ```

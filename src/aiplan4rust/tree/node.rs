@@ -264,19 +264,19 @@ pub trait Node: ArenaNode + Display {
     /// Returns `true` if the node represents an **atomic formula**.
     ///
     /// For `ExprNode`, this typically means `ExprKind::AtomicFormula` or `ExprKind::FComp`.
-    /// This is used to identify literals in logical expressions.
+    /// This is used to identify literals in logical expr.
     fn is_atomic_formula(&self) -> bool;
 
     /// Returns `true` if the node is a **temporal specifier**.
     ///
     /// Temporal specifiers are nodes like `AtStart`, `AtEnd`, or `Overall` in a PDDL expression.
-    /// This is used for consistency verification and normalization of temporal expressions.
+    /// This is used for consistency verification and expr of temporal expr.
     fn is_time_specifier(&self) -> bool;
 
     /// Returns `true` if the node represents a **logical operator**.
     ///
     /// Logical operators typically include `And`, `Or`, and `Not`. This is useful for
-    /// traversals, normalization, or propagation of temporal specifiers through logical nodes.
+    /// traversals, expr, or propagation of temporal specifiers through logical nodes.
     fn is_logic(&self) -> bool;
 
     /// Returns `true` if this node represents a logical negation (`Not`).

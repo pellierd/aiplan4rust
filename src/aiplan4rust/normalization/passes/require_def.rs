@@ -37,7 +37,7 @@
 //! This module assumes that the AST is valid and structurally sound.
 //! Any inconsistency in syntax structure may cause errors or panics.
 //!
-//! The normalization pass is standalone and can be run independently at any point.
+//! The expr pass is standalone and can be run independently at any point.
 
 use std::collections::HashSet;
 
@@ -59,13 +59,13 @@ use crate::aiplan4rust::tree::Tree;
 /// Specifically, if a `RequireDef` syntax is present, it should contain only well-formed
 /// `Requirement` nodes as children.
 ///
-/// The normalization process does not traverse the entire AST. Instead, it directly locates the
+/// The expr process does not traverse the entire AST. Instead, it directly locates the
 /// `RequireDef` syntax (if any), which is expected to hold all `:requirement` declarations. It
 /// removes duplicate requirements (i.e., those with identical keys) and emits a diagnostic warning
 /// for each duplicate found and removed.
 ///
 /// This pass is **self-contained** and **stateless**—it does not depend on or affect any other
-/// normalization passes, and can safely be run independently at any point, provided the AST is
+/// expr passes, and can safely be run independently at any point, provided the AST is
 /// valid.
 ///
 /// # Arguments
@@ -84,7 +84,7 @@ use crate::aiplan4rust::tree::Tree;
 ///
 /// * The AST must be valid and conform to the parser's grammar and invariants.
 /// * The `RequireDef` syntax—if present—must contain only `Requirement` children.
-/// * No other normalization passes are required before or after this one.
+/// * No other expr passes are required before or after this one.
 /// * This function is deterministic and has no side effects outside its scope.
 ///
 /// # Panics

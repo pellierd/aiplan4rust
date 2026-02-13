@@ -2,7 +2,9 @@ use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, LangError, ObjectID, StringID, TaskSkeletonID, Type, TypeID};
+use crate::aiplan4rust::lir::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::expr::ExprError;
+use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
@@ -28,6 +30,15 @@ use crate::aiplan4rust::tree::NodeId;
 #[derive(Debug, Error)]
 pub enum LirError {
 
+
+    /// An error originating from the expression system.
+    #[error(transparent)]
+    Logic(#[from] LogicError),
+
+    /// An error originating from the expression system.
+    #[error(transparent)]
+    Inertia(#[from] InertiaError),
+    
     #[error(transparent)]
     IndexTable(#[from] IndexTableError),
 
@@ -82,12 +93,6 @@ pub enum LirError {
     #[error("Missing type in flattened hierarchy: {ty:?}")] // Changed {types:?} to {ty:?}
     MissingType { ty: Type<TypeID> },
 
-    #[error("Inertia missing for predicate: {id:?}")]
-    MissingPredicateInertia { id: AtomSkeletonID },
-
-    /// L'inertie de la fonction est introuvable dans la table.
-    #[error("Inertia missing for function: {id:?}")]
-    MissingFunctionInertia { id: FunctionSkeletonID },
 
     #[error("Failed to bind {symbol}")]
     SymbolBindingFailed { symbol: NodeId },
@@ -119,13 +124,6 @@ pub enum LirError {
     #[error("Task definition requested for an unregistered ID: {id:?}")]
     TaskDefinitionOrphan { id: TaskSkeletonID },
 
-
-    // Indicates that a predicate has too many arguments for the static index (max 15).
-    #[error("Arity too high for indexing: predicate {pred_id:?} has {arity} arguments (max 15)")]
-    ArityTooHigh {
-        pred_id: AtomSkeletonID,
-        arity: usize,
-    },
 }
 
 
@@ -175,31 +173,7 @@ impl LirError {
         LirError::MissingType { ty }
     }
 
-    /// Creates a new error indicating that inertia information is missing for a predicate.
-    ///
-    /// This error occurs when a predicate is encountered during the encoding or
-    /// analysis phase but has no corresponding entry in the inertia table,
-    /// suggesting it was skipped during the initial state or effect scanning pass.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The unique identifier of the missing predicate.
-    pub fn missing_predicate_inertia(id: AtomSkeletonID) -> Self {
-        Self::MissingPredicateInertia { id }
-    }
 
-    /// Creates a new error indicating that inertia information is missing for a function.
-    ///
-    /// This error occurs when a numeric function is encountered but lacks
-    /// an entry in the inertia table, preventing the system from determining
-    /// if it is a constant or a fluent.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The unique identifier of the missing function.
-    pub fn missing_function_inertia(id: FunctionSkeletonID) -> Self {
-        Self::MissingFunctionInertia { id }
-    }
 
     /// Creates a new binding error.
     ///
@@ -255,10 +229,7 @@ impl LirError {
     }
 
 
-    #[track_caller]
-    pub fn arity_too_high(pred_id: AtomSkeletonID, arity: usize) -> Self {
-        LirError::ArityTooHigh { pred_id, arity }
-    }
+
 
     /// Helper privé pour uniformiser le logging et la stack trace sans polluer les fonctions publiques
     fn log_error(err: &Self, caller: &std::panic::Location) {

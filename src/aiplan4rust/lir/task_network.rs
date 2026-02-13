@@ -32,7 +32,7 @@
 //! Task networks are commonly used inside method definitions to describe how
 //! an abstract task is decomposed into a set of executable or further abstract tasks.
 //!
-//! The expressions used are built from the [`Expr`] representation, which supports
+//! The expr used are built from the [`Expr`] representation, which supports
 //! logical combinations, references to task calls, and symbolic constructs parsed from ASTs.
 
 use std::fmt::{Display, Formatter};
@@ -216,25 +216,6 @@ impl TaskNetwork {
         self.is_declared_total_ordered = value;
     }
 
-    /// Normalizes the task network in-place by normalizing its logical constraints.
-    ///
-    /// This ensures that the expressions within the task network are in canonical form.
-    /// Currently, only `logical_constraints` require normalization; `tasks` and
-    /// `ordering_constraints` are structurally fixed and do not need normalization.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `LirError` if normalization fails.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let mut network = TaskNetwork::default();
-    /// network.normalize()?;
-    /// ```
-    pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(passes::expressions::task_network::normalize(self)?)
-    }
 }
 
 impl Display for TaskNetwork {

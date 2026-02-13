@@ -83,7 +83,7 @@ fn collect_task_labels(
     Ok(())
 }
 
-/// PASS 2: Encodes tasks, ordering, and constraints into LIR expressions.
+/// PASS 2: Encodes tasks, ordering, and constraints into LIR expr.
 fn encode_task_network_content(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,

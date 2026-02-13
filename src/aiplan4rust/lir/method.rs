@@ -85,7 +85,7 @@ impl Method {
     /// This constructor is intended for **internal use only** within the crate.
     /// It allows creating a `Method` without rebuilding or cloning the
     /// [`NamedTypedList`] header, which is useful during transformations such as
-    /// grounding, normalization, or compilation to other representations.
+    /// grounding, expr, or compilation to other representations.
     ///
     /// # Arguments
     ///
@@ -195,43 +195,8 @@ impl Method {
         &mut self.task_network
     }
 
-    /// Normalizes the method in-place by normalizing its precondition
-    /// and task network.
-    ///
-    /// This ensures that both the `precondition` and the expressions
-    /// in the `task_network` are in canonical form.
-    ///
-    /// # Errors
-    ///
-    /// Returns a `LirError` if normalization fails.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let mut method = Method::default();
-    /// method.normalize()?;
-    /// ```
-    pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(passes::expressions::method::normalize(self)?)
-    }
-
 }
 
-/*impl RemapTypes for Method {
-    /// Remaps union types (`Type::Either`) in the method's header and precondition.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped.
-    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        self.header.remap_types(map)?;
-        self.precondition.remap_types(map)?;
-        Ok(())
-    }
-}*/
 
 impl fmt::Display for Method {
     /// Formats the `Method` for human-readable output.

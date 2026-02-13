@@ -7,7 +7,7 @@
 //!
 //! The module also defines type aliases:
 //! - [`WellFormedError`]: Alias for `ValidationError`, used to indicate errors during structural validation.
-//! - [`WellNormalizedError`]: Alias for `ValidationError`, used to indicate errors during normalization checks.
+//! - [`WellNormalizedError`]: Alias for `ValidationError`, used to indicate errors during expr checks.
 //!
 //! # Usage
 //!

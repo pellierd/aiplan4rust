@@ -67,34 +67,8 @@ impl InitialTaskNetwork {
     pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
         self.task_network = task_network;
     }
-
-    /// Normalizes the underlying `task_network` of this `InitialTaskNetwork`.
-    ///
-    /// Only the `logical_constraints` of the `task_network` are normalized,
-    /// since `tasks` and `ordering_constraints` are always in a fixed canonical form.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `ExprError` if normalization of the `logical_constraints` fails.
-    pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(passes::expressions::initial_task_network::normalize(self)?)
-    }
 }
 
-/*impl RemapTypes for InitialTaskNetwork {
-    /// Remaps union types (`Type::Either`) in the network's parameters.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped.
-    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        self.parameters.remap_types(map)?;
-        Ok(())
-    }
-}*/
 
 impl Display for InitialTaskNetwork {
     /// Formats the initial task network for display purposes.

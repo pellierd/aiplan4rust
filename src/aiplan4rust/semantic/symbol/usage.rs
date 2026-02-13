@@ -103,7 +103,7 @@ impl Usage {
     }
 
     /// Returns the identifier of the referenced symbol.
-    pub fn symbol_ident(&self) -> StringID {
+    pub fn symbol_id(&self) -> StringID {
         self.symbol.id()
     }
 
@@ -148,7 +148,7 @@ impl RemapIdents for Usage {
     ///
     /// Returns [`InternerError`] if remapping cannot be applied (propagated from nested remaps, if any).
     fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
-        if let Some(new_ident) = map.get(&self.symbol_ident()) {
+        if let Some(new_ident) = map.get(&self.symbol_id()) {
             self.symbol.set_ident(new_ident.clone());
         }
         Ok(())
@@ -165,7 +165,7 @@ impl fmt::Display for Usage {
             "[index: {}, kind: {}, ident: {}, scope: {}, usage: {}]",
             self.node_id.as_usize(),
             self.symbol_kind(),
-            self.symbol_ident(),
+            self.symbol_id(),
             self.scope,
             self.origin
         )
@@ -185,7 +185,7 @@ impl InternerDisplay for Usage {
         interner: &StringInterner,
     ) -> fmt::Result {
         let symbol_str = interner
-            .resolve_ident(self.symbol_ident())
+            .resolve_ident(self.symbol_id())
             .unwrap_or("<uninterned>");
         write!(
             f,

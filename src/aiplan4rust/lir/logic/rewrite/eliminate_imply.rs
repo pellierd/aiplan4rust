@@ -1,10 +1,11 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Removes all `Imply` nodes in the subtree rooted at `node_id` by transforming
 /// each `A -> B` into `(Or(Not(A), B))`.
 ///
-/// This function is the first step in the normalization pipeline. It ensures that
+/// This function is the first step in the expr pipeline. It ensures that
 /// implications are eliminated so that subsequent transformations (pushing negations,
 /// temporal factorization, simplification) can operate on a simpler logical structure.
 ///
@@ -18,7 +19,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Preconditions
 /// - None; this function can be called on any expression tree.
-/// - It should be the **first step** in the normalization pipeline, before `push_negation` and
+/// - It should be the **first step** in the expr pipeline, before `push_negation` and
 ///   `push_time_specifier`.
 ///
 /// # Dependencies
@@ -43,7 +44,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// - Further simplifications (like flattening `Or` or handling double negations) should
 ///   be applied separately if desired.
 /// - The function is safe to call independently, but in practice it is used as the first step
-///   of the normalization workflow orchestrated by the `normalize` module.
+///   of the expr workflow orchestrated by the `normalize` module.
 ///
 /// # Example
 /// ```ignore
@@ -51,7 +52,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// eliminate_imply(node_id, &mut expr)?;
 /// // All Imply nodes in that subtree are now replaced by Or(Not(premise), consequence)
 /// ```
-pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
     // Stack for DFS post-order: (node_id, visited_flag)
     let mut stack = vec![(node_id, false)];
 
@@ -108,7 +109,7 @@ mod tests {
     /// Input: (A -> B)
     /// Expected output: (or (B) (not (A)))
     #[test]
-    fn test_nested_imply() -> Result<(), ExprError> {
+    fn test_nested_imply() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Compact Setup: (imply (1) (imply (2) (3)))
@@ -148,7 +149,7 @@ mod tests {
     /// Input: (A -> (and B C))
     /// Expected output: (or (and (B) (C)) (not (A)))
     #[test]
-    fn test_imply_with_and_consequence() -> Result<(), ExprError> {
+    fn test_imply_with_and_consequence() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Compact Setup: (imply (1) (and (2) (3)))
@@ -190,7 +191,7 @@ mod tests {
     /// Input: (A -> (and))
     /// Expected output: (or (not (A)) (and))
     #[test]
-    fn test_imply_with_empty_and_consequence() -> Result<(), ExprError> {
+    fn test_imply_with_empty_and_consequence() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Compact Setup: (imply (1) (and))
@@ -223,7 +224,7 @@ mod tests {
     /// Input: ((forall ?X A) -> (exists ?Y B))
     /// Expected output: (or (not (forall (?X) (A))) (exists (?Y) (B)))
     #[test]
-    fn test_imply_with_quantifiers() -> Result<(), ExprError> {
+    fn test_imply_with_quantifiers() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: Create typed variables (?x:100, ?y:101)

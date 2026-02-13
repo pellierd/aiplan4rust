@@ -1,5 +1,5 @@
 //! Diagnostic kinds used to represent errors and warnings detected during
-//! parsing, normalization, and semantic analysis of PDDL domains and problems.
+//! parsing, expr, and semantic analysis of PDDL domains and problems.
 //!
 //! This module defines a comprehensive `Kind` enum that encodes various types of
 //! issues such as syntax errors, type mismatches, undeclared symbols, cyclic definitions,
@@ -24,7 +24,7 @@ use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
 
 /// Represents all possible diagnostic kinds that can be emitted during
-/// parsing, normalization, or semantic analysis of PDDL structures.
+/// parsing, expr, or semantic analysis of PDDL structures.
 ///
 /// Each variant of this enum corresponds to a specific class of diagnostic,
 /// such as parsing errors, type mismatches, undeclared symbols, requirement
@@ -308,7 +308,7 @@ pub enum Kind {
 
     /// Warning indicating the presence of duplicated types within an `Either` construct.
     ///
-    /// This warning is emitted during the normalization phase,
+    /// This warning is emitted during the expr phase,
     /// before the full symbol table is constructed.
     ///
     /// Therefore, only the identifiers (`Ident`) of the duplicated types
@@ -329,7 +329,7 @@ pub enum Kind {
     ///
     /// This diagnostic is triggered when user-defined types reference each other
     /// in a circular manner (directly or indirectly), forming a cycle that prevents
-    /// correct normalization or analysis of the type system.
+    /// correct expr or analysis of the type system.
     ///
     /// For example, if type `A` extends `B`, and `B` extends `A`, this creates a cycle
     /// that cannot be resolved.
@@ -342,7 +342,7 @@ pub enum Kind {
     ///
     /// # Context
     ///
-    /// This error is typically emitted during the domain normalization phase, when the
+    /// This error is typically emitted during the domain expr phase, when the
     /// hierarchy of type declarations is being validated.
     ///
     /// # Example

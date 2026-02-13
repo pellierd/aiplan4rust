@@ -1,5 +1,6 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Recursively pushes negations down the expression tree using De Morgan’s laws
@@ -19,9 +20,9 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Preconditions
 /// - Typically called after implications have been eliminated via `eliminate_imply`.
-/// - This function is part of the **normalization pipeline**, orchestrated by the
+/// - This function is part of the **expr pipeline**, orchestrated by the
 ///   `normalize` module. Users should not call this directly unless implementing
-///   a custom normalization sequence.
+///   a custom expr sequence.
 ///
 /// # Parameters
 /// - `root_id`: NodeId of the root of the subtree to process.
@@ -45,10 +46,10 @@ use crate::aiplan4rust::tree::NodeId;
 ///
 /// # Example usage
 /// ```rust
-/// // Part of the normalization pipeline managed by the `normalize` module
+/// // Part of the expr pipeline managed by the `normalize` module
 /// push_negation(root_id, &mut expr)?;
 /// ```
-pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
+pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
     let mut stack = vec![root_id];
 
     while let Some(node_id) = stack.pop() {
@@ -83,7 +84,7 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> 
                 continue;
             }
             _ => {
-                return Err(ExprError::invalid_expr_node(child_id, child.kind()));
+                return Err(LogicError::invalid_expr_node(child_id, child.kind()));
             }
         }
     }
@@ -119,7 +120,7 @@ pub fn push_negation(root_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> 
 /// # Panics / Errors
 /// - Returns `ExprError` if any node cannot be accessed or mutated.
 #[allow(dead_code)]
-fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, ExprError> {
+fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, LogicError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(
         node.kind() == ExprKind::Not,
@@ -173,7 +174,7 @@ fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, Expr
 ///
 /// This is part of the `push_negations` preprocessing: it pushes negations down
 /// the tree without simplifying double negations, allowing further processing
-/// or normalization later.
+/// or expr later.
 ///
 /// # Parameters
 /// - `node_id`: The `NodeId` of the `Not` node in the expression tree.
@@ -192,7 +193,7 @@ fn apply_de_morgan(node_id: NodeId, expr: &mut Expr) -> Result<Vec<NodeId>, Expr
 /// # Panics / Errors
 /// - Returns `ExprError` if the tree cannot be accessed or mutated correctly.
 #[allow(dead_code)]
-fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId, ExprError> {
+fn apply_quantifier_negation(node_id: NodeId, expr: &mut Expr) -> Result<NodeId, LogicError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::Not, "Node must be a Not");
 
@@ -240,7 +241,7 @@ mod tests {
     /// Test pushing negation through AND using De Morgan's law.
     /// Input: (not (and (A) (B))) -> (or (not (A)) (not (B)))
     #[test]
-    fn test_push_negation_and() -> Result<(), ExprError> {
+    fn test_push_negation_and() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: ¬(A ∧ B)
@@ -275,7 +276,7 @@ mod tests {
     /// Test pushing negation through OR using De Morgan's law.
     /// Input: (not (or (A) (B))) -> (and (not (A)) (not (B)))
     #[test]
-    fn test_push_negation_or() -> Result<(), ExprError> {
+    fn test_push_negation_or() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: ¬(A ∨ B)
@@ -310,7 +311,7 @@ mod tests {
     /// Test pushing negation through a Forall quantifier.
     /// Input: (not (forall x (A))) -> (exists x (not (A)))
     #[test]
-    fn test_push_negation_forall() -> Result<(), ExprError> {
+    fn test_push_negation_forall() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: ¬(forall (?X - T) (A))
@@ -344,7 +345,7 @@ mod tests {
     /// Test pushing negation through an Exists quantifier.
     /// Input: (not (exists x (A))) -> (forall x (not (A)))
     #[test]
-    fn test_push_negation_exists() -> Result<(), ExprError> {
+    fn test_push_negation_exists() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: ¬(exists (?X - T) (A))
@@ -378,7 +379,7 @@ mod tests {
     /// Test that no transformation occurs for a NOT whose child is neither AND/OR nor quantifier.
     /// Input: (not (A)) -> unchanged
     #[test]
-    fn test_push_negation_no_change() -> Result<(), ExprError> {
+    fn test_push_negation_no_change() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: ¬A (déjà sous forme normale négative)
@@ -407,7 +408,7 @@ mod tests {
     /// Expected output from push_negations alone:
     /// (or (not (A)) (not (not (B))) (forall (?X) (not (C))))
     #[test]
-    fn test_push_negation_nested() -> Result<(), ExprError> {
+    fn test_push_negation_nested() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: ¬(A ∧ ¬B ∧ ∃x.C)
@@ -457,7 +458,7 @@ mod tests {
     /// Expected (after push_negations only, no simplification):
     /// (or (not (A)) (not (not (or (B) (C)))) (exists (?X) (forall (?Y) (not (D)))))
     #[test]
-    fn test_push_negation_deep_nested() -> Result<(), ExprError> {
+    fn test_push_negation_deep_nested() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup : ¬(A ∧ ¬(B ∨ C) ∧ ∀x.∃y.D)

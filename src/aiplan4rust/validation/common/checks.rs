@@ -10,7 +10,7 @@
 //! meets basic well-formedness criteria.
 //!
 //! The constant `EXPRESSION` defines a set of `AstKind` variants
-//! considered valid expressions within the AST.
+//! considered valid expr within the AST.
 //!
 //! # Usage
 //! Use the provided functions to check specific properties of AST nodes,
@@ -22,7 +22,7 @@ use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::validation::common::WellFormedError;
 use crate::aiplan4rust::syntax::ast::{Ast, AstContent, AstKind, AstNode};
 
-/// Set of AST node kinds considered as valid expressions.
+/// Set of AST node kinds considered as valid expr.
 pub const EXPRESSION: &[AstKind] = &[
     AstKind::Or,
     AstKind::And,

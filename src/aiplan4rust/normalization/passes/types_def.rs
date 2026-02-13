@@ -10,7 +10,7 @@
 //!
 //! # Key Functions
 //!
-//! - [`normalize_type_def`]: The primary function that coordinates normalization by reporting
+//! - [`normalize_type_def`]: The primary function that coordinates expr by reporting
 //!   warnings and merging duplicates.
 //! - [`report_implicit_either_type_warning`]: Scans type_checker declarations to find implicit either types
 //!   and generates warnings.
@@ -34,14 +34,14 @@
 //! let mut ast: Ast = parse_source_code(source)?;
 //! let mut diagnostics = DiagnosticManager::new();
 //!
-//! // Perform type definition normalization with diagnostics collection.
+//! // Perform type definition expr with diagnostics collection.
 //! let changed = normalize_type_def(&mut ast, &mut diagnostics)?;
 //!
 //! if changed {
 //!     println!("Type declarations merged successfully.");
 //! }
 //!
-//! // Inspect diagnostics for warnings or errors generated during normalization.
+//! // Inspect diagnostics for warnings or errors generated during expr.
 //! for diagnostic in diagnostics.diagnostics() {
 //!     println!("Diagnostic: {}", diagnostic);
 //! }
@@ -104,7 +104,7 @@ use crate::aiplan4rust::syntax::Span;
 /// may result in unexpected errors or incorrect merging behavior.
 ///
 /// This pass can safely be combined with others (e.g., validation, inference), as long
-/// as the `TypedList` normalization is applied first.
+/// as the `TypedList` expr is applied first.
 ///
 /// # Example
 ///
@@ -286,7 +286,7 @@ fn emit_implicit_either_type_warnings(
 
 /// Merges duplicate type_checker declarations in the AST by combining their supertype children.
 ///
-/// This normalization pass traverses a list of type_checker declarations found under the provided
+/// This expr pass traverses a list of type_checker declarations found under the provided
 /// `types_def_id` node in the AST. If multiple type_checker declarations use the same primitive identifier
 /// (e.g., multiple `(type_checker robot ...)` blocks with the same name), their child nodes are merged
 /// into a single consolidated declaration.
@@ -318,8 +318,8 @@ fn emit_implicit_either_type_warnings(
 /// ```rust,no_run
 /// # use aiplan4rust::syntax::tree::NodeId;
 /// # use aiplan4rust::syntax::ast::{Ast, AstArena};
-/// # use aiplan4rust::normalization::passes::merge_duplicate_type_declarations;
-/// # use aiplan4rust::normalization::NormalizationPassError;
+/// # use aiplan4rust::expr::passes::merge_duplicate_type_declarations;
+/// # use aiplan4rust::expr::NormalizationPassError;
 /// # fn example() -> Result<(), NormalizationPassError> {
 /// let mut ast = AstArena::new();
 /// let types_def_id = NodeId::new(1); // ID pointing to the `(types ...)` declaration
@@ -351,8 +351,8 @@ fn emit_implicit_either_type_warnings(
 ///
 /// # See Also
 ///
-/// - [`normalize_type_def`] — Wrapper function that applies this merging as part of full normalization.
-/// - [`Normalizer`] — Interface that orchestrates multiple normalization passes.
+/// - [`normalize_type_def`] — Wrapper function that applies this merging as part of full expr.
+/// - [`Normalizer`] — Interface that orchestrates multiple expr passes.
 /// - [`Ast`] — The syntax tree structure being normalized.
 /// - [`NodeId`] — Unique identifier for nodes in the AST arena.
 ///
@@ -363,7 +363,7 @@ fn emit_implicit_either_type_warnings(
 ///
 /// # Stability
 ///
-/// This function is internal to normalization and may be refactored without notice.
+/// This function is internal to expr and may be refactored without notice.
 /// It is not intended to be called outside the `passes` module.
 
 pub fn merge_duplicate_type_declarations(

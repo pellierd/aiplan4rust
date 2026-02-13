@@ -160,6 +160,7 @@ impl Linker {
                     global_interner,
                 )?;
 
+                 // Adapte selon ton API
                 // Step 8: Return the result with the semantic context and diagnostics
                 Ok(LinkerResult::success(semantic_context, take(&mut self.diagnostic_manager)))
             }

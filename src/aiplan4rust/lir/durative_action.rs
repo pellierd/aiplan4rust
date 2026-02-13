@@ -3,7 +3,7 @@
 //! This module defines [`DurativeAction`], which extends a lifted action
 //! (`LiftedAction`) with a temporal duration and timed conditions.
 //! It provides methods to access and modify the action's components,
-//! normalize expressions, and render the action in human-readable or PDDL-like syntax.
+//! normalize expr, and render the action in human-readable or PDDL-like syntax.
 
 use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lang::StringID;
@@ -102,7 +102,7 @@ impl DurativeAction {
     /// This constructor is intended for **internal use only** within the crate.
     /// It allows creating a `DurativeAction` without rebuilding or cloning the
     /// `NamedTypedList` header, which is useful during transformations such as
-    /// grounding, normalization, or compilation to other representations.
+    /// grounding, expr, or compilation to other representations.
     ///
     /// # Arguments
     ///
@@ -222,18 +222,6 @@ impl DurativeAction {
         self.action.set_effect(eff);
     }
 
-    /// Normalizes all expressions of the durative action.
-    ///
-    /// This includes the duration, conditions, and effect expressions. Normalization
-    /// typically rewrites expressions into a canonical form for consistent processing
-    /// (e.g., grounding, simplification, or compilation).
-    ///
-    /// # Returns
-    ///
-    /// Returns a [`LirError`] if normalization of any of the expressions fails.
-    pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(passes::expressions::durative_action::normalize(self)?)
-    }
 }
 
 /// Implements [`std::fmt::Display`] for `DurativeAction`.

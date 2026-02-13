@@ -1,4 +1,4 @@
-//! Module for normalization pass to detect and remove duplicate `PrimitiveType` children within `Type` nodes in the AST.
+//! Module for expr pass to detect and remove duplicate `PrimitiveType` children within `Type` nodes in the AST.
 //!
 //! This module provides functionality to:
 //! - Traverse the abstract syntax arena (AST) and detect duplicate type_checker identifiers inside `Type` nodes.
@@ -32,7 +32,7 @@
 //! # Usage Example
 //!
 //! ```rust
-//! use crate::aiplan4rust::normalization::passes::either_type::normalize_either_type;
+//! use crate::aiplan4rust::expr::passes::either_type::normalize_either_type;
 //! use crate::aiplan4rust::syntax::ast::Ast;
 //! use crate::aiplan4rust::diagnostic::DiagnosticManager;
 //!
@@ -275,7 +275,7 @@ fn report_either_type_duplicate_warnings(
 ///
 /// # See also
 ///
-/// - `normalize_either_type` – calls this function as part of its normalization pipeline.
+/// - `normalize_either_type` – calls this function as part of its expr pipeline.
 fn remove_either_type_duplicates(
     syntax_tree: &mut Tree<AstNode>,
 ) -> Result<bool, NormalizationPassError> {

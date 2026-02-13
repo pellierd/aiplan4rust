@@ -14,7 +14,7 @@
 //! - The **lifted predicates** and **functions**, expressed as atomic formula skeletons.
 //! - The **lifted actions** and **methods**, representing parametrized operators and HTN methods.
 //! - The **lifted tasks**, forming the task skeletons for hierarchical syntax.
-//! - The **initial state** and **goal conditions** expressed as symbolic expressions (`Expr`).
+//! - The **initial state** and **goal conditions** expressed as symbolic expr (`Expr`).
 //! - The **global domain constraints** and **problem-specific constraints**.
 //! - The **metric and length specifications** for optimization and bounding.
 //! - The **initial task network**, describing the starting point of hierarchical tasks.
@@ -750,7 +750,7 @@ impl Problem {
     ///
     /// # Returns
     /// A slice of [`AtomicFunctionSkeleton`].
-    pub fn functions_defs(&self) -> &[AtomicFunctionSkeleton] {
+    pub fn function_defs(&self) -> &[AtomicFunctionSkeleton] {
         &self.function_defs
     }
 
@@ -887,7 +887,7 @@ impl Problem {
     /// Returns a mutable slice of all atomic task skeletons in the problem.
     ///
     /// This allows for batch modification of task structures, which is useful
-    /// for normalization or lifting passes.
+    /// for expr or lifting passes.
     ///
     /// # Returns
     /// A mutable slice of [`AtomicTaskSkeleton`].
@@ -1068,7 +1068,7 @@ impl Problem {
 
     /// Returns a mutable slice of all actions in the problem.
     ///
-    /// This is used during the flattening or normalization phases to modify
+    /// This is used during the flattening or expr phases to modify
     /// action signatures, preconditions, and effects in place without
     /// reallocating the underlying collection.
     ///
@@ -1345,7 +1345,7 @@ impl Problem {
 
     /// Returns a mutable reference to the initial task network.
     ///
-    /// This is used during the flattening or normalization process to remap
+    /// This is used during the flattening or expr process to remap
     /// parameter types, update task identifiers, or modify ordering constraints
     /// in the HTN problem's entry point.
     ///
@@ -1365,22 +1365,6 @@ impl Problem {
     ///   used as the planning starting point.
     pub fn set_initial_task_network(&mut self, initial_task_network: InitialTaskNetwork) {
         self.initial_task_network = initial_task_network;
-    }
-
-    /// Normalizes all expressions and normalizable components of this `Problem`.
-    ///
-    /// This includes:
-    /// - Problem-level expressions: `domain_constraints`, `init`, `goal`,
-    ///   `problem_constraints`, `metric_spec`, `length_spec`.
-    /// - All actions (`precondition` and `effect`).
-    /// - All methods (`precondition` and task network logical constraints).
-    /// - The initial task network (`logical_constraints` only).
-    ///
-    /// # Errors
-    ///
-    /// Returns a `LirError` if normalization of any expression fails.
-    pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(passes::expressions::problem::normalize(self)?)
     }
 
     /// Returns a wrapper around the domain view of this problem.

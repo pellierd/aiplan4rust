@@ -3,6 +3,7 @@ use thiserror::Error;
 use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{StringID, Type};
+use crate::aiplan4rust::lir::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::LirError;
 
 #[derive(Debug, Error)]
@@ -20,6 +21,9 @@ pub enum GroundingError {
     /// A type is not flattened: has more than one super-type
     #[error("Type {0}' is not flattened")]
     NonFlattenedType(Type<StringID>),
+
+    #[error(transparent)]
+    Inertia(#[from] InertiaError),
 }
 
 impl GroundingError {

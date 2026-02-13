@@ -2,6 +2,7 @@ use ordered_float::OrderedFloat;
 use thiserror::Error;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::expr::ExprKind;
+use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
@@ -9,7 +10,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// Errors specific to the `expr` module, primarily related to conversion failures.
 ///
 /// This enum represents the various error conditions that can occur during
-/// the parsing and conversion of syntax tree nodes into expressions.
+/// the parsing and conversion of syntax tree nodes into expr.
 ///
 /// # Variants
 ///
@@ -36,6 +37,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// ```
 #[derive(Error, Debug)]
 pub enum ExprError {
+
     /// An error originating from the syntax tree system.
     #[error(transparent)]
     SyntaxTree(#[from] SyntaxTreeError),

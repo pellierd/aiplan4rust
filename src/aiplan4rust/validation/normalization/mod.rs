@@ -1,4 +1,4 @@
-//! Provides utilities and checks for validating the correctness and normalization of AST nodes.
+//! Provides utilities and checks for validating the correctness and expr of AST nodes.
 //!
 //! This module exposes two submodules:
 //! - [`checks`]: Contains functions to perform various validation checks on AST nodes.
@@ -12,7 +12,7 @@
 //! # Usage
 //!
 //! Use the functions in [`checks`] to perform generic validation checks,
-//! and use those in [`validator`] to assert normalization properties of AST nodes.
+//! and use those in [`validator`] to assert expr properties of AST nodes.
 //!
 //! # Examples
 //!

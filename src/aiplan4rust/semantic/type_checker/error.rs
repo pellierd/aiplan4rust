@@ -4,7 +4,7 @@
 //! that can arise during the type checking process of an abstract syntax tree (AST).
 //!
 //! Type checking is a crucial part of semantic analysis, responsible for ensuring
-//! that operations, expressions, and declarations conform to the language’s typing rules.
+//! that operations, expr, and declarations conform to the language’s typing rules.
 //! During this process, a number of errors can occur — from internal logic inconsistencies
 //! to invalid or missing symbol declarations.
 //!

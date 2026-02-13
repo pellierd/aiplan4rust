@@ -1,70 +1,17 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprError};
-use crate::aiplan4rust::lir::expr::rewrite::eliminate_imply;
-use crate::aiplan4rust::lir::expr::rewrite::factorize_time_specifier;
-use crate::aiplan4rust::lir::expr::rewrite::push_negation;
-use crate::aiplan4rust::lir::expr::rewrite::push_time_specifier;
-use crate::aiplan4rust::lir::expr::simplify::simplify;
-
-/// Simplifies a PDDL-like expression tree in a post-order traversal.
-///
-/// This function performs a **full simplification pass** over the given expression tree.
-/// It traverses the tree in **post-order** (children before parent) and applies
-/// node-specific simplification functions (`simplify_node`) to each node.
-///
-/// # Parameters
-/// - `expr`: a mutable reference to the expression tree (`Expr`) to be simplified.
-///
-/// # Behavior
-/// 1. Retrieves the root of the expression tree. If the tree is empty (`root_id` is `None`), the function returns immediately.
-/// 2. Performs a **depth-first search (DFS)** in post-order using an explicit stack to avoid recursion:
-///     - Each stack entry is `(node_id, visited)` where `visited` indicates if children have already been processed.
-///     - Children are pushed first, then the parent is revisited to ensure post-order processing.
-/// 3. After constructing the post-order list of node IDs, each node is simplified by calling `simplify_node(node_id, expr)`.
-///
-/// # Returns
-/// - `Ok(())` if the simplification completes successfully.
-/// - `Err(ExprError)` if any node access or mutation fails during traversal or simplification.
-///
-/// # Notes
-/// - Post-order traversal ensures that child nodes are simplified before their parents, which
-///   is critical for transformations like flattening, deduplication, and reducing single-child AND/OR nodes.
-/// - This function does not modify the tree if it is empty.
-/// - Simplification logic for each node type is delegated to `simplify_node`.
-///
-/// # Example
-/// ```ignore
-/// let mut expr = build_expr_tree(); // some Expr tree
-pub fn normalize(expr: &mut Expr) -> Result<(), ExprError> {
-    let Some(root_id) = expr.root_id() else { return Ok(()); };
-
-    eliminate_imply(root_id, expr)?;
-    push_negation(root_id, expr)?;
-
-    if push_time_specifier(root_id, expr)? {
-        factorize_time_specifier(root_id, expr)?;
-    }
-
-    simplify(root_id, expr)?;
-    // TO ADD as post-processing afet simplify
-    // Factorization
-    // Example: `(A ∧ B) ∨ (A ∧ C) -> A ∧ (B ∨ C)`.
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use crate::aiplan4rust::lang::ArithmeticOp;
     use super::*;
     use crate::aiplan4rust::lir::expr::{ExprContent, ExprKind};
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
-    use crate::aiplan4rust::tree::Node;
+    use crate::aiplan4rust::tree::{Node, SyntaxContent};
 
     /// Complex nested AND flattening + structural deduplication.
     ///
     /// Input: (and (and A B) (and B C) (and (and A B) D))
     /// Expected: (and (A) (B) (C) (D))
     #[test]
-    fn test_complex_nested_and_deduplication() -> Result<(), ExprError> {
+    fn test_complex_nested_and_deduplication() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Using numeric IDs to represent predicates A, B, C, and D.
@@ -84,17 +31,17 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Run normalization (includes flattening and structural deduplication)
+        // Run expr (includes flattening and structural deduplication)
         normalize(&mut expr)?;
 
         // --- VALIDATION ---
 
         // 1. Root must be an AND node
-        let root_id = expr.root_id().expect("Root should exist after normalization");
+        let root_id = expr.root_id().expect("Root should exist after expr");
         assert_eq!(expr.get_node_kind(root_id), Some(ExprKind::And));
 
         // 2. Expected children count: 4 (predicates 1, 2, 3, and 4)
-        // The normalization must have:
+        // The expr must have:
         // - Flattened all nested ANDs
         // - Removed the duplicate of predicate '2'
         // - Removed the duplicate of the subtree '(and 1 2)'
@@ -118,7 +65,7 @@ mod tests {
     /// Input: (and A (and B C) (and B C))
     /// Expected: (and (A) (B) (C))
     #[test]
-    fn test_root_and_structural_simplification() -> Result<(), ExprError> {
+    fn test_root_and_structural_simplification() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2, C=3
@@ -135,7 +82,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // 1. Flattening: merges inner1 and inner2 into the root.
         // 2. Deduplication: removes the duplicate results of B and C.
         normalize(&mut expr)?;
@@ -171,7 +118,7 @@ mod tests {
     /// Input: (or A (or B C) (or B C))
     /// Expected: (or (A) (B) (C))
     #[test]
-    fn test_root_or_structural_simplification() -> Result<(), ExprError> {
+    fn test_root_or_structural_simplification() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2, C=3
@@ -188,7 +135,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // 1. Flattening: Merges nested OR nodes into the root OR.
         // 2. Deduplication: Removes identical child nodes (B and C).
         normalize(&mut expr)?;
@@ -201,7 +148,7 @@ mod tests {
         // The root must be an OR node
         assert_eq!(root_node.kind(), ExprKind::Or);
 
-        // After normalization, we expect exactly 3 unique children: A, B, and C.
+        // After expr, we expect exactly 3 unique children: A, B, and C.
         // Input: (or 1 (or 2 3) (or 2 3))
         // Processed: (or 1 2 3)
         assert_eq!(
@@ -223,7 +170,7 @@ mod tests {
     /// Input: (or (or (A) (B)) (or (B) (A)) (C))
     /// Expected: (or (A) (B) (C))
     #[test]
-    fn test_root_or_structural_duplicates_order_independent() -> Result<(), ExprError> {
+    fn test_root_or_structural_duplicates_order_independent() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2, C=3
@@ -242,7 +189,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // The pass should flatten both inner ORs and then realize
         // that the resulting sequence [1, 2, 2, 1, 3] contains duplicates.
         normalize(&mut expr)?;
@@ -275,7 +222,7 @@ mod tests {
     /// Input: (and (and A))
     /// Expected: (A)
     #[test]
-    fn test_and_single_child_reduction() -> Result<(), ExprError> {
+    fn test_and_single_child_reduction() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicate A to ID 1
@@ -288,7 +235,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // This should collapse both AND nodes since they only have one child,
         // leaving only the AtomicFormula (1).
         normalize(&mut expr)?;
@@ -324,7 +271,7 @@ mod tests {
     /// Input: (and)
     /// Expected: (and)
     #[test]
-    fn test_empty_and_node() -> Result<(), ExprError> {
+    fn test_empty_and_node() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Create an empty AND node: (and)
@@ -332,7 +279,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // An empty AND should remain an empty AND (representing logical TRUE).
         normalize(&mut expr)?;
 
@@ -359,7 +306,7 @@ mod tests {
     /// Input: (or)
     /// Expected: (or)
     #[test]
-    fn test_empty_or_node() -> Result<(), ExprError> {
+    fn test_empty_or_node() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Create an empty OR node: (or)
@@ -367,7 +314,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // An empty OR should remain an empty OR (representing logical FALSE).
         normalize(&mut expr)?;
 
@@ -394,7 +341,7 @@ mod tests {
     /// Input: (not (not A))
     /// Expected: (A)
     #[test]
-    fn test_simplify_node_double_negation() -> Result<(), ExprError> {
+    fn test_simplify_node_double_negation() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicate A to ID 1
@@ -407,14 +354,14 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // This should detect the double negation and strip both NOT nodes,
         // promoting the AtomicFormula to the root.
         normalize(&mut expr)?;
 
         // --- VALIDATION ---
 
-        let root_id = expr.root_id().expect("Root should exist after normalization");
+        let root_id = expr.root_id().expect("Root should exist after expr");
 
         // The root should no longer be a NOT node.
         // It should be the AtomicFormula directly.
@@ -443,7 +390,7 @@ mod tests {
     /// Input: (not (and))
     /// Expected: (or)
     #[test]
-    fn test_simplify_node_not_over_empty_and() -> Result<(), ExprError> {
+    fn test_simplify_node_not_over_empty_and() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Create an empty AND (Logical True)
@@ -455,7 +402,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // (not true) should be simplified to false.
         // In LIR: (not (and)) -> (or)
         normalize(&mut expr)?;
@@ -487,7 +434,7 @@ mod tests {
     /// Input: (not (not (and A B)))
     /// Expected: (and (A) (B))
     #[test]
-    fn test_simplify_node_double_negation_on_and() -> Result<(), ExprError> {
+    fn test_simplify_node_double_negation_on_and() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2
@@ -502,7 +449,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // Both NOT layers should be stripped, leaving the AND node as the root.
         normalize(&mut expr)?;
 
@@ -537,7 +484,7 @@ mod tests {
     /// Input: (A -> (B -> C))
     /// Expected output: (or (not (A)) (or (not (B)) (C)))
     #[test]
-    fn test_nested_imply_left_to_right() -> Result<(), ExprError> {
+    fn test_nested_imply_left_to_right() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2, C=3
@@ -552,7 +499,7 @@ mod tests {
         builder.set_root(outer_imply)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // 1. Convert outer imply: (or (not 1) (imply 2 3))
         // 2. Convert inner imply: (or (not 1) (or (not 2) 3))
         // 3. Flatten ORs: (or (not 1) (not 2) 3)
@@ -594,7 +541,7 @@ mod tests {
     /// Input: ((A -> B) -> C)
     /// Expected output: (or (not (or (not (A)) (B))) (C))
     #[test]
-    fn test_nested_imply_right_to_left() -> Result<(), ExprError> {
+    fn test_nested_imply_right_to_left() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Predicate IDs: A=1, B=2, C=3
@@ -644,7 +591,7 @@ mod tests {
     /// Input: (+ 1 (* 2 3) 4)
     /// Expected: 11
     #[test]
-    fn test_add_mul_nested() -> Result<(), ExprError> {
+    fn test_add_mul_nested() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Numeric constants
@@ -660,7 +607,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // 1. Evaluate (* 2 3) -> 6
         // 2. Evaluate (+ 1 6 4) -> 11
         normalize(&mut expr)?;
@@ -691,7 +638,7 @@ mod tests {
     /// Input: (- (/ 20 2) 3)
     /// Expected: 7
     #[test]
-    fn test_div_sub_nested() -> Result<(), ExprError> {
+    fn test_div_sub_nested() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Numeric constants
@@ -706,7 +653,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // 1. Evaluate (/ 20 2) -> 10.0
         // 2. Evaluate (- 10 3) -> 7.0
         normalize(&mut expr)?;
@@ -734,7 +681,7 @@ mod tests {
     /// Input: (+ (* 2 3) (- 10 4) (/ 20 5))
     /// Expected: 6 + 6 + 4 = 16
     #[test]
-    fn test_deeply_nested_operations() -> Result<(), ExprError> {
+    fn test_deeply_nested_operations() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Numeric constants
@@ -758,7 +705,7 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // Every arithmetic branch should be folded recursively.
         normalize(&mut expr)?;
 
@@ -789,7 +736,7 @@ mod tests {
     /// Input: (+ 2 (* A 3))
     /// Expected: (+ 2 (* A 3))  (cannot simplify because A is variable)
     #[test]
-    fn test_nested_with_variable_child() -> Result<(), ExprError> {
+    fn test_nested_with_variable_child() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Numeric constants
@@ -806,8 +753,8 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
-        // Because 'A' is symbolic, the folder should ideally leave it as is.
+        // Apply expr:
+        // "reduce" will now perform partial reduction on (+ 2 (...)) and (* A 3)
         normalize(&mut expr)?;
 
         // --- VALIDATION ---
@@ -816,23 +763,43 @@ mod tests {
         let root_node = expr.try_node(root_id)?;
 
         // 1. Verify the root is still an Addition operation
-        // Note: Adjust ExprKind and content() checks based on your specific Enum names
         assert_eq!(root_node.kind(), ExprKind::Operation);
-        assert!(matches!(root_node.content(), ExprContent::ArithmeticOp(ArithmeticOp::Add)));
+        assert!(matches!(root_node.content().as_arithmetic_op(), Some(ArithmeticOp::Add)));
 
-        // 2. Verify structure: (+ 2 (* A 3))
-        assert_eq!(root_node.children().len(), 2, "Addition should still have 2 children");
+        // 2. Verify structure: Addition should have the constant '2' and the 'Mul' node
+        let children = root_node.children();
+        assert_eq!(children.len(), 2, "Addition should still have 2 children");
 
-        // 3. Drill down to verify the multiplication branch still exists
-        let mul_child_id = root_node.children()[1];
-        let mul_node = expr.try_node(mul_child_id)?;
+        // Find the multiplication child (its ID might have changed or its position swapped)
+        let mul_child_id = children.iter()
+            .find(|&&id| expr.get_node_kind(id) == Some(ExprKind::Operation))
+            .expect("Multiplication node should still exist under the addition");
 
-        assert_eq!(mul_node.kind(), ExprKind::Operation);
-        assert!(matches!(mul_node.content(), ExprContent::ArithmeticOp(ArithmeticOp::Mul)));
+        let mul_node = expr.try_node(*mul_child_id)?;
+        assert!(matches!(mul_node.content().as_arithmetic_op(), Some(ArithmeticOp::Mul)));
 
-        // 4. Verify the multiplication still has the variable 'A' (ID 1)
-        let a_id = mul_node.children()[0];
-        assert_eq!(expr.get_node_kind(a_id), Some(ExprKind::AtomicFormula));
+        // 3. Verify the multiplication still contains 'A' and '3.0'
+        let mul_children = mul_node.children();
+        assert_eq!(mul_children.len(), 2, "Multiplication should still have 2 children");
+
+        let mut found_a = false;
+        let mut found_three = false;
+
+        for &c_id in mul_children {
+            let c_node = expr.try_node(c_id)?;
+            match c_node.kind() {
+                ExprKind::AtomicFormula => found_a = true,
+                ExprKind::Number => {
+                    if let Some(val) = c_node.content().as_float() {
+                        if val.0 == 3.0 { found_three = true; }
+                    }
+                }
+                _ => (),
+            }
+        }
+
+        assert!(found_a, "Variable 'A' not found in multiplication");
+        assert!(found_three, "Constant '3.0' not found in multiplication");
 
         Ok(())
     }
@@ -842,7 +809,7 @@ mod tests {
     /// Input: (imply A B)
     /// Expected: (or (not A) B)
     #[test]
-    fn test_normalize_simple_imply() -> Result<(), ExprError> {
+    fn test_normalize_simple_imply() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2
@@ -855,7 +822,7 @@ mod tests {
         builder.set_root(imply)?;
         let mut expr = builder.finish();
 
-        // Apply normalization:
+        // Apply expr:
         // The implication must be rewritten as a disjunction (OR).
         normalize(&mut expr)?;
 
@@ -900,7 +867,7 @@ mod tests {
     /// Process: (or (not (not (not A))) B) -> (or (not A) B)
     /// Expected: (or (not A) B)
     #[test]
-    fn test_normalize_with_double_negation() -> Result<(), ExprError> {
+    fn test_normalize_with_double_negation() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2
@@ -962,7 +929,7 @@ mod tests {
     /// Input: (imply A (and B C))
     /// Expected: (or (not A) (and B C))
     #[test]
-    fn test_normalize_with_and_or_nodes() -> Result<(), ExprError> {
+    fn test_normalize_with_and_or_nodes() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // Mapping predicates to IDs: A=1, B=2, C=3
@@ -1024,7 +991,7 @@ mod tests {
     /// Input: (imply (forall (?X - T1) (A)) (exists (?Y - T2) (B)))
     /// Expected Output: (or (not (forall (?X - T1) (A))) (exists (?Y - T2) (B)))
     #[test]
-    fn test_normalize_with_quantifiers() -> Result<(), ExprError> {
+    fn test_normalize_with_quantifiers() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Prepare variables and lists
@@ -1091,7 +1058,7 @@ mod tests {
     /// Process: (when True Effect) -> Effect
     /// Expected Output: (and A B C)
     #[test]
-    fn test_when_empty_and_complex_effect() -> Result<(), ExprError> {
+    fn test_when_empty_and_complex_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Prepare atomic formulas: A=1, B=2, C=3
@@ -1146,7 +1113,7 @@ mod tests {
     /// Process: (when False Effect) -> True (Empty And)
     /// Expected Output: (and)
     #[test]
-    fn test_when_empty_or_complex_effect() -> Result<(), ExprError> {
+    fn test_when_empty_or_complex_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Prepare atomic formulas: X=1, Y=2, Z=3
@@ -1199,7 +1166,7 @@ mod tests {
     ///          the effect is redundant.
     /// Expected Output: (and)
     #[test]
-    fn test_when_condition_equal_effect() -> Result<(), ExprError> {
+    fn test_when_condition_equal_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Prepare atomic formulas: A=1, B=2
@@ -1253,7 +1220,7 @@ mod tests {
     /// Process: A conditional effect that does nothing is itself a no-op.
     /// Expected Output: (and)
     #[test]
-    fn test_when_nontrivial_condition_empty_effect() -> Result<(), ExprError> {
+    fn test_when_nontrivial_condition_empty_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Prepare the complex condition: (and A B)

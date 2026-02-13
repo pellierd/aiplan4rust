@@ -129,30 +129,6 @@ impl DerivedPredicate {
         self.body = body;
     }
 
-    /// Normalizes the expressions of this `DerivedPredicate`.
-    ///
-    /// This method applies normalization to the predicate's `body` expression.
-    /// The `head` (name and parameters) is not modified. It is a thin wrapper
-    /// around the internal `normalize_derived_predicate` function.
-    ///
-    /// # Returns
-    ///
-    /// Returns [`Ok(())`] if the normalization succeeds, or a [`LirError`] if
-    /// the body expression cannot be normalized.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// # use aiplan4rust::lir::DerivedPredicate;
-    /// # use aiplan4rust::lir::error::LirError;
-    /// # fn example(derived: &mut DerivedPredicate) -> Result<(), LirError> {
-    /// derived.normalize()?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(passes::expressions::derived_predicate::normalize(self)?)
-    }
 }
 
 /// Implements [`fmt::Display`] for `DerivedPredicate`.

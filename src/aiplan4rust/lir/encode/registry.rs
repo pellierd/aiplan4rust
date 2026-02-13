@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
 
-/// Context used during the encoding of actions, methods, and expressions.
+/// Context used during the encoding of actions, methods, and expr.
 ///
 /// This structure acts as a bridge between the semantic analysis and the LIR.
 /// It carries the necessary mappings to resolve names into indices.

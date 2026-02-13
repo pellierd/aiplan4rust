@@ -212,7 +212,7 @@ impl SymbolTableBuilder {
     /// - `ActionDef`, `DurativeActionDef`: Initialize action-related symbols.
     /// - `AtomicFormulaSkeleton`: Special symbol table handling for formula skeletons.
     /// - `AtomicFormula`, `FunctionTerm`: Recursively initialize atomic formulas and function terms.
-    /// - `Forall`, `Exists`: Handle quantified expressions and logical scopes.
+    /// - `Forall`, `Exists`: Handle quantified expr and logical scopes.
     /// - `MethodDef`, `TaskDef`: Initialize HTN method and task definitions.
     /// - `Task`, `TaggedTask`: Handle HTN individual tasks and tagged tasks.
     /// - `TaskOrderingConstraint`: Initialize constraints between HTN tasks.
@@ -414,7 +414,7 @@ impl SymbolTableBuilder {
     /// This function processes AST nodes representing symbol usages, such as domain names,
     /// problem names, constants, variables, atomic formulas, function terms, and tasks.
     /// It first validates the AST syntax kind to ensure it is appropriate for symbol usage.
-    /// For certain syntax kinds that represent complex expressions (e.g., atomic formulas),
+    /// For certain syntax kinds that represent complex expr (e.g., atomic formulas),
     /// it extracts the first child node to retrieve the symbol reference.
     ///
     /// The symbol's identifier and kind are extracted, and the function updates
@@ -447,62 +447,47 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
-        // Determine the symbol reference based on the AST node kind.
-        // For complex kinds (AtomicFormula, FunctionTerm, Task), extract the first child node.
-        let mut target_id = node_ref.id();
-
-        let symbol_ref = if matches!(
-            node_ref.node().kind(),
-            AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
-        ) {
-            // 1. Retrieve the ID of the first child.
-            // In these specific kinds, the symbol identifier is located in the first child node.
+        // 1. Détermination du nœud cible et extraction du symbole
+        // On factorise l'accès pour éviter de chercher deux fois dans l'AST
+        let (target_id, symbol_ref) = if matches!(
+        node_ref.node().kind(),
+        AstKind::AtomicFormula | AstKind::FunctionTerm | AstKind::Task
+    ) {
             let first_child_id = node_ref.node().children()[0];
-            target_id = first_child_id;
-
-            // 2. Fetch the child node from the syntax tree.
-            // This returns an &AstNode, allowing access to AST-specific semantic methods.
-            let first_node = ast.syntax_tree().try_node(first_child_id)?;
-
-            // 3. Extract the symbol directly from the child node.
-            // Since try_symbol is now an AstNode method, we call it here.
-            first_node.try_symbol()?
+            (first_child_id, ast.syntax_tree().try_node(first_child_id)?.try_symbol()?)
         } else {
-            // For other kinds, the current node itself contains the symbol.
-            // node_ref.node() returns the underlying AstNode.
-            node_ref.node().try_symbol()?
+            (node_ref.id(), node_ref.node().try_symbol()?)
         };
 
-        // Extract the identifier (name) of the symbol
         let ident = symbol_ref.id();
-
-        // Retrieve the origin of the symbol (context/source of declaration)
         let origin = SymbolOrigin::from(self.table().origin());
+
+        // On récupère le span directement depuis l'AST via le target_id
         let span = ast.syntax_tree().try_node_ref(target_id)?.node().span().clone();
 
-        // If the symbol already exists in the symbol table, add a new usage record
-        if let Some(symbol) = self.table_mut().get_symbol_mut(ident) {
-            let usage = Usage::new(
-                symbol_ref,
-                scope,
-                origin,
-                span, // Source span for error reporting/tracking
-                target_id,                  // AST node ID
-            );
-            symbol.add_usage(usage);
+        // 2. Préparation de l'usage
+        let usage = Usage::new(
+            symbol_ref,
+            scope,
+            origin,
+            span,
+            target_id,
+        );
+
+        // 3. Mise à jour de la Table (via méthodes publiques)
+        let table = self.table_mut();
+
+        // Mise à jour de l'index de résolution rapide (NodeId -> Usage)
+        table.usage_to_symbol.insert(target_id, usage.clone());
+
+        // Ajout de l'usage dans l'entrée du symbole
+        // Comme on n'a pas accès à .entry(), on utilise tes méthodes get_mut / insert
+        if let Some(symbol_entry) = table.get_symbol_mut(ident) {
+            symbol_entry.add_usage(usage);
         } else {
-            // Otherwise, create a new symbol entry and record the first usage
-            let mut symbol = SymbolEntry::new(ident);
-            let usage = Usage::new(
-                symbol_ref,
-                scope,
-                origin,
-                span,
-                target_id,
-            );
-            symbol.add_usage(usage);
-            // Insert the new symbol entry into the symbol table
-            self.table_mut().insert_symbol(ident, symbol);
+            let mut new_entry = SymbolEntry::new(ident);
+            new_entry.add_usage(usage);
+            table.insert_symbol(ident, new_entry);
         }
 
         Ok(())

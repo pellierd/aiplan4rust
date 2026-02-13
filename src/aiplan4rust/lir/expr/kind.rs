@@ -3,7 +3,7 @@
 //!
 //! # Overview
 //!
-//! The `Kind` enum categorizes various syntactic and semantic entities used in expressions,
+//! The `Kind` enum categorizes various syntactic and semantic entities used in expr,
 //! including logical operators, terms, predicates, task symbols, and temporal constructs.
 //! It serves as an abstraction layer over raw AST kinds (`AstKind`) used during parsing,
 //! enabling a more domain-specific representation of expression nodes.

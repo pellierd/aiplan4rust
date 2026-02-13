@@ -2,7 +2,7 @@
 //!
 //! This module handles the translation of the PDDL `:init` section.
 //! It transforms the initial facts and assignments defined in the problem
-//! file into LIR expressions.
+//! file into LIR expr.
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;

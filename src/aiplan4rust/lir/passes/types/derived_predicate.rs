@@ -23,7 +23,7 @@ use crate::aiplan4rust::lir::passes::types::{atomic_formula_skeleton, expr};
 ///
 /// # Implementation Note
 /// Since derived predicates often bridge different parts of the domain, it is
-/// critical to types the body to ensure that any variables or sub-expressions
+/// critical to types the body to ensure that any variables or sub-expr
 /// remain type-consistent with the flattened objects.
 pub fn flatten(
     derived_predicate: &mut DerivedPredicate,

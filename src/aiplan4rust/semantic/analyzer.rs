@@ -12,7 +12,7 @@
 //! - Managing diagnostics (errors, warnings, and informational messages) during analysis.
 //!
 //! The analysis supports two primary root AST kinds:
-//! - `Domain`: checks related to domain specifications (e.g., symbol declarations, type hierarchies, expressions).
+//! - `Domain`: checks related to domain specifications (e.g., symbol declarations, type hierarchies, expr).
 //! - `Problem`: checks related to problem instances within a domain (e.g., symbol usage, task ordering).
 //!
 //! ## Main Types
@@ -140,7 +140,7 @@ impl Analyzer {
     /// diagnostic manager, interner) as needed for efficient semantic analysis.
     ///
     /// # Parameters
-    /// - `normalizer_result`: The result of normalization containing the AST and diagnostics.
+    /// - `normalizer_result`: The result of expr containing the AST and diagnostics.
     ///
     /// # Returns
     ///
@@ -157,7 +157,7 @@ impl Analyzer {
         // Match on the normalized AST to decide how to continue.
         match normalizer_result.take_ast() {
             Some(mut ast) => {
-                // Take diagnostics accumulated during normalization.
+                // Take diagnostics accumulated during expr.
                 let diagnostic_manager = normalizer_result.take_diagnostic_manager();
                 self.diagnostic_manager
                     .add_diagnostic_from(diagnostic_manager);
@@ -238,7 +238,7 @@ impl Analyzer {
     /// Checks the domain part of the syntax arena with domain-specific semantic validations.
     ///
     /// The checks include verifying symbol declarations, type hierarchies, atomic formulas,
-    /// typed expressions, task ordering, and requirement violations.
+    /// typed expr, task ordering, and requirement violations.
     ///
     /// # Parameters
     /// - `context`: The `CheckContext` derived from the semantic context.

@@ -138,7 +138,7 @@ impl<'a> DomainDef<'a> {
     /// These represent functions that map objects to numeric values,
     /// often used with the `:fluents` requirement.
     pub fn functions_defs(&self) -> &[AtomicFunctionSkeleton] {
-        self.problem.functions_defs()
+        self.problem.function_defs()
     }
 
     /// Checks if the problem contains any function definitions.

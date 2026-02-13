@@ -666,7 +666,7 @@ pub fn check_within_hold_after_expression(ast: &Ast, node: &AstNode) -> Result<(
 }
 
 /// Checks that an `AlwaysWithin` node has exactly three children:
-/// the first must be a `Number`, the second and third must be expressions.
+/// the first must be a `Number`, the second and third must be expr.
 ///
 /// # Arguments
 /// * `ast` - Reference to the AST containing the node.
@@ -989,7 +989,7 @@ pub fn check_durative_action_def(ast: &Ast, node: &AstNode) -> Result<(), WellFo
 }
 
 /// Checks that a `DADefBody` node has exactly three children,
-/// all of which must be valid expressions.
+/// all of which must be valid expr.
 ///
 /// # Arguments
 /// * `ast` - Reference to the AST containing the node.

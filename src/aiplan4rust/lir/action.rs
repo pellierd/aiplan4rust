@@ -52,7 +52,7 @@ use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents an instantaneous action with a name, parameters, precondition, and effect.
 ///
-/// The precondition and effect are always present and default to empty expressions (an `Or` syntax with no children).
+/// The precondition and effect are always present and default to empty expr (an `Or` syntax with no children).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Action {
     header: NamedTypedList,
@@ -107,7 +107,7 @@ impl Action {
     /// This constructor is intended for **internal use only** within the crate.
     /// It allows creating an `Action` without rebuilding or cloning the
     /// [`NamedTypedList`] header, which is useful during transformations such as
-    /// grounding, normalization, or compilation to other representations.
+    /// grounding, expr, or compilation to other representations.
     ///
     /// # Arguments
     ///
@@ -249,41 +249,7 @@ impl Action {
         self.effect = eff;
     }
 
-    /// Normalizes the action in-place by normalizing its precondition and effect.
-    ///
-    /// This ensures that both expressions are in canonical form.
-    ///
-    /// # Errors
-    ///
-    /// Returns an `LirError` if normalization fails.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let mut action = Action::default();
-    /// action.normalize()?;
-    /// ```
-    pub fn normalize(&mut self) -> Result<(), LirError> {
-        Ok(passes::expressions::action::normalize(self)?)
-    }
 }
-
-/*impl RemapTypes for Action {
-    /// Remaps union types (`Type::Either`) in the action's parameters, precondition, and effect.
-    ///
-    /// # Parameters
-    /// - `map`: A `HashMap<Type, Ident>` mapping union types to their corresponding primitive `Ident`s.
-    ///
-    /// # Returns
-    /// - `Ok(())` if all types were successfully remapped.
-    /// - `Err(LirError)` if an error occurs during remapping (e.g., a union type has no corresponding mapping).
-    fn remap_types(&mut self, map: &HashMap<Type<StringID>, StringID>) -> Result<(), LirError> {
-        self.header.remap_types(map)?;
-        self.precondition.remap_types(map)?;
-        self.effect.remap_types(map)?;
-        Ok(())
-    }
-}*/
 
 impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

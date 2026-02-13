@@ -27,7 +27,7 @@ pub fn flatten(expr: &mut Expr, map: &HashMap<Type<TypeID>, TypeID>) -> Result<(
 
 /// Internal DFS traversal that processes the expression tree starting from `node_id`.
 ///
-/// This function handles the recursive nature of expressions by using a stack-based
+/// This function handles the recursive nature of expr by using a stack-based
 /// depth-first search to avoid stack overflow on deep trees.
 ///
 /// # Specific Logic

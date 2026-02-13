@@ -2,7 +2,7 @@
 //!
 //! This module exposes the main components involved in the **type checking phase**
 //! of semantic analysis. It is responsible for validating types across the abstract syntax tree (AST),
-//! ensuring correct usage of symbols, expressions, and declarations according to the language's rules.
+//! ensuring correct usage of symbols, expr, and declarations according to the language's rules.
 //!
 //! # Modules
 //!

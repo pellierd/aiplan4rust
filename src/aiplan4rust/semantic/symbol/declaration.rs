@@ -17,7 +17,7 @@
 //!
 //! The `Declaration` struct:
 //! - Encapsulates all relevant data about a symbol declaration for semantic analysis.
-//! - Supports remapping of identifiers, useful in symbol transformations or normalization passes.
+//! - Supports remapping of identifiers, useful in symbol transformations or expr passes.
 //! - Provides formatting helpers to display symbol types and arguments, with or without resolving interned strings.
 //! - Implements `fmt::Display` for human-readable string representations of declarations.
 //! - Implements `InternerDisplay` to format declarations using a `StringInterner` for readable names.
@@ -466,7 +466,7 @@ impl RemapIdents for Declaration {
     ///
     /// Any `Ident` present in `map` is replaced with the corresponding new value.
     /// This is useful when symbol names are updated during transformations or
-    /// domain/problem normalization.
+    /// domain/problem expr.
     ///
     /// # Parameters
     ///

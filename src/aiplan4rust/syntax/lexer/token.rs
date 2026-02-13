@@ -4,7 +4,7 @@
 //! It provides:
 //! - A comprehensive set of PDDL and HDDL keyword string constants used throughout the parser.
 //! - The `Token` enum, representing all possible lexical tokens encountered in domain/problem files,
-//!   including keywords, identifiers, numbers, operators, logical expressions, requirements, and comments.
+//!   including keywords, identifiers, numbers, operators, logical expr, requirements, and comments.
 //! - Integration with the `logos` crate for efficient lexical analysis using regex-based token recognition.
 //! - Handling of lexical errors via the `LexicalError` type_checker.
 //!

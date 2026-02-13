@@ -52,7 +52,7 @@ pub fn encode(
     // 2. Get the body node of the action (typically Child 2)
     let def_body_node = ast.try_node(node.try_child(2)?)?;
 
-    // Initialize precondition and effect with neutral 'and' expressions by default
+    // Initialize precondition and effect with neutral 'and' expr by default
     let mut precondition = Expr::empty_or();
     let mut effect = Expr::empty_or();
 

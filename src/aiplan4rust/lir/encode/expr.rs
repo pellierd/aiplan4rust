@@ -14,7 +14,7 @@
 //!
 //! The encoder is built around three main pillars:
 //!
-//! 1.  **Iterative Traversal**: To handle potentially deep PDDL expressions without
+//! 1.  **Iterative Traversal**: To handle potentially deep PDDL expr without
 //!     risking stack overflows, the encoder uses an explicit [`Vec`]-based stack
 //!     instead of recursion.
 //! 2.  **Symbol Resolution**: During encoding, every identifier in the AST is
@@ -70,7 +70,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 /// 2. **Root Allocation**: Encodes and allocates the root AST node. This ID is set as the
 ///    entry point of the LIR expression.
 /// 3. **Iterative Traversal**: Uses a manual stack to visit every child node. This avoids
-///    stack overflow issues associated with deep recursion in complex expressions.
+///    stack overflow issues associated with deep recursion in complex expr.
 /// 4. **Incremental Building**: For each node popped from the stack:
 ///     - It is encoded and allocated via [`alloc_node`].
 ///     - Its valid children are pushed back onto the stack for subsequent processing.

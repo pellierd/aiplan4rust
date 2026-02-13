@@ -315,7 +315,7 @@ fn format_invalid_types_in_numeric_expression_suggestion(
     let ty2_str = renderer::formatting::type_to_string(ty2, interner);
 
     format!(
-        "Numeric expressions require operands of type 'number', but found '{}' and '{}'. \
+        "Numeric expr require operands of type 'number', but found '{}' and '{}'. \
         Ensure both operands are numeric types.",
         ty1_str,
         ty2_str

@@ -1,6 +1,6 @@
 //! # AST Normalization Passes
 //!
-//! This module defines and re-exports several normalization passes that operate
+//! This module defines and re-exports several expr passes that operate
 //! on the Abstract Syntax Tree (AST) of the language. Each pass is responsible for
 //! transforming or cleaning up specific structural aspects of the AST to ensure
 //! consistency, deduplication, and well-formedness before further
@@ -19,16 +19,16 @@
 //!
 //! ## Usage
 //!
-//! These normalization functions are intended to be invoked after parsing
+//! These expr functions are intended to be invoked after parsing
 //! and before type checking or interpretation. Each pass expects a valid AST
-//! and may rely on earlier normalization passes.
+//! and may rely on earlier expr passes.
 //!
 //! For example, [`normalize_type_def`] assumes that [`normalize_typed_list`] has already run.
 //!
 //! ```rust,ignore
 //! let mut ast = parse_source_code(source)?;
 //!
-//! // Apply normalization passes in the correct order
+//! // Apply expr passes in the correct order
 //! normalize_typed_list(&mut ast)?;
 //! normalize_type_def(&mut ast, &mut diagnostics)?;
 //! normalize_require_def(&mut ast, &mut diagnostics)?;
@@ -37,12 +37,12 @@
 //!
 //! ## Error Handling
 //!
-//! Each normalization function returns a `Result` and may produce a
+//! Each expr function returns a `Result` and may produce a
 //! [`NormalizationPassError`] if the AST structure deviates from the expected shape.
 //!
 //! ## Re-exports
 //!
-//! These normalization passes are publicly re-exported for use in other modules:
+//! These expr passes are publicly re-exported for use in other modules:
 //!
 //! - [`normalize_typed_list`]
 //! - [`normalize_type_def`]

@@ -6,7 +6,7 @@
 //! grounding process.
 //!
 //! ### Pruning Logic
-//! By identifying static symbols, the planner can simplify complex logical expressions
+//! By identifying static symbols, the planner can simplify complex logical expr
 //! (conjunctions, disjunctions, and quantifiers) before the search begins.
 //! For example, a precondition containing a `Negative` static predicate can never
 //! be satisfied, allowing the immediate removal of the associated action instance.

@@ -21,6 +21,7 @@
 use std::collections::HashSet;
 use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID};
 use crate::aiplan4rust::lir::analysis::inertia::inertia::Inertia;
+use crate::aiplan4rust::lir::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::LirError;
@@ -47,7 +48,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 ///
 /// Returns a [`LirError`] if any expression tree traversal (actions or initial state) fails,
 /// typically due to a malformed AST or an inaccessible node.
-pub fn analyze(problem: &LiftedProblem) -> Result<InertiaTable, LirError> {
+pub fn analyze(problem: &LiftedProblem) -> Result<InertiaTable, InertiaError> {
     let mut fluent_predicates = HashSet::new();
     let mut fluent_functions = HashSet::new();
     let mut static_predicates = HashSet::new();
@@ -94,7 +95,7 @@ fn collect_all_action_fluents(
     problem: &LiftedProblem,
     fluent_predicates: &mut HashSet<AtomSkeletonID>,
     fluent_functions: &mut HashSet<FunctionSkeletonID>,
-) -> Result<(), LirError> {
+) -> Result<(), InertiaError> {
     // Collect fluents from standard instantaneous actions
     for action in problem.action_defs() {
         collect_fluents_from_effect(
@@ -165,7 +166,7 @@ fn build_inertia_table(
     }
 
     // --- Categorize Functions (Numeric) ---
-    for (idx, _) in problem.functions_defs().iter().enumerate() {
+    for (idx, _) in problem.function_defs().iter().enumerate() {
         let id = FunctionSkeletonID::from(idx);
 
         let inertia = if fluent_functions.contains(&id) {
@@ -201,7 +202,7 @@ pub fn collect_fluents_from_effect(
     expr: &Expr,
     fluent_predicates: &mut HashSet<AtomSkeletonID>,
     fluent_functions: &mut HashSet<FunctionSkeletonID>,
-) -> Result<(), LirError> {
+) -> Result<(), InertiaError> {
     // Early exit if the expression is empty
     if expr.is_empty() {
         return Ok(());
@@ -267,7 +268,7 @@ pub fn collect_initial_facts(
     static_functions: &mut HashSet<FunctionSkeletonID>,
     fluent_predicates: &mut HashSet<AtomSkeletonID>,
     fluent_functions: &mut HashSet<FunctionSkeletonID>,
-) -> Result<(), LirError> {
+) -> Result<(), InertiaError> {
     // Early exit if the expression tree is empty
     if init_expr.is_empty() {
         return Ok(());

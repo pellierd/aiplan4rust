@@ -1,6 +1,6 @@
 /// Module `rewrite`
 ///
-/// Contains low-level expression transformations used in the normalization pipeline.
+/// Contains low-level expression transformations used in the expr pipeline.
 /// Each module here represents a single atomic transformation step. Dependencies
 /// between steps are explicit and must be respected by the orchestrating `normalize` module.
 ///

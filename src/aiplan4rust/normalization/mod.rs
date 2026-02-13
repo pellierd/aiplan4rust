@@ -10,7 +10,7 @@
 //! structural uniformity of AST nodes. This is crucial for downstream components such as
 //! the type_checker checker, lifted IR builder, and planner logic.
 //!
-//! Key goals of normalization include:
+//! Key goals of expr include:
 //!
 //! - Flattening or rewriting nested constructs (e.g., desugaring `TypedList` and `EitherType`).
 //! - Deduplicating or merging repeated entries (e.g., `:requirements`, type_checker definitions).
@@ -20,42 +20,42 @@
 //!
 //! This module is composed of several submodules and utilities:
 //!
-//! - [`passes`] — Contains the individual normalization passes:
+//! - [`passes`] — Contains the individual expr passes:
 //!   - [`typed_list`] — Expands and validates `TypedList` declarations.
-//!   - [`either_type`] — Rewrites `either` expressions into concrete disjunctions.
+//!   - [`either_type`] — Rewrites `either` expr into concrete disjunctions.
 //!   - [`require_def`] — Deduplicates and validates domain-level requirements.
 //!   - [`type_def`] — Consolidates type_checker hierarchies and removes redundancies.
 //!
-//! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all normalization passes.
+//! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all expr passes.
 //!
-//! - [`result`] — Defines [`NormalizerResult`], the output of normalization containing:
+//! - [`result`] — Defines [`NormalizerResult`], the output of expr containing:
 //!   - The possibly modified AST,
 //!   - A diagnostic log,
 //!   - And an indicator whether any structural change occurred.
 //!
-//! - [`error`] — Defines the [`NormalizationError`] enum for critical internal normalization failures.
+//! - [`error`] — Defines the [`NormalizationError`] enum for critical internal expr failures.
 //!
 //! ## Error Handling
 //!
-//! Errors during normalization are returned as a [`NormalizationError`], which can wrap:
+//! Errors during expr are returned as a [`NormalizationError`], which can wrap:
 //!
 //! - [`SyntaxTreeError`] — Errors in the tree's internal structure.
 //! - [`ArenaError`] — Memory arena allocation issues.
 //! - [`InternerError`] — Identifier resolution or interning issues.
 //!
 //! Non-fatal issues (e.g., unsupported types, naming warnings) are collected as diagnostics
-//! through the [`DiagnosticManager`] and can be reviewed post-normalization.
+//! through the [`DiagnosticManager`] and can be reviewed post-expr.
 //!
 //! ## Re-exports
 //!
-//! - [`Normalizer`] — Main entry point to apply normalization.
-//! - [`NormalizerResult`] — The resulting structure returned after normalization.
-//! - [`NormalizationError`] — The fatal error type_checker used when normalization cannot proceed.
+//! - [`Normalizer`] — Main entry point to apply expr.
+//! - [`NormalizerResult`] — The resulting structure returned after expr.
+//! - [`NormalizationError`] — The fatal error type_checker used when expr cannot proceed.
 //!
 //! ## Example
 //!
 //! ```rust
-//! use aiplan4rust::normalization::{Normalizer, NormalizerResult};
+//! use aiplan4rust::expr::{Normalizer, NormalizerResult};
 //! use aiplan4rust::syntax::ast::Ast;
 //!
 //! let ast: Ast = /* parsed AST */;
@@ -77,17 +77,17 @@
 //! ## Notes
 //!
 //! - **AST validity is a precondition**: the input [`Ast`] must be structurally sound.
-//!   Invalid ASTs may trigger internal normalization errors.
+//!   Invalid ASTs may trigger internal expr errors.
 //!
-//! - **Pass ordering is critical**: normalization passes are executed in a specific sequence,
+//! - **Pass ordering is critical**: expr passes are executed in a specific sequence,
 //!   and skipping or reordering them may result in inconsistent or incorrect ASTs.
 //!
-//! - Diagnostics allow partial recovery: even if normalization completes, collected diagnostics
+//! - Diagnostics allow partial recovery: even if expr completes, collected diagnostics
 //!   may indicate semantic issues that require user attention.
 //!
 //! ## See Also
 //!
-//! - [`DiagnosticManager`] — Responsible for logging all non-fatal issues during normalization.
+//! - [`DiagnosticManager`] — Responsible for logging all non-fatal issues during expr.
 //! - [`Ast`] — The syntax tree structure being normalized.
 
 pub mod result;

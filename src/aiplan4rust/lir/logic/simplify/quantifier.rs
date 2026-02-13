@@ -1,4 +1,6 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
+use crate::aiplan4rust::lir::analysis::inertia::registry::InertiaRegistry;
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
+use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Simplifies a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
@@ -10,14 +12,14 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 /// 4. Simplifies the quantifier if its body is trivially true or false (e.g., `(forall (x) (and))` → `(and)`).
 ///
 /// Each step is applied only if applicable. The first step that modifies the expression may
-/// terminate the normalization early if the node is replaced or simplified.
+/// terminate the expr early if the node is replaced or simplified.
 ///
 /// # Parameters
 /// - `node_id`: The `NodeId` of the quantifier node to normalize.
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
-/// - `Ok(())` if normalization completes successfully (even if no changes were made).
+/// - `Ok(())` if expr completes successfully (even if no changes were made).
 /// - `Err(ExprError)` if any step fails to access or modify nodes.
 ///
 /// # Panics (in debug mode)
@@ -39,23 +41,63 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 /// let node_id = expr.root_id().unwrap();
 /// normalize(node_id, &mut expr)?;
 /// ```
-pub(super) fn simplify(
+pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), ExprError> {
-    // Step 1: canonicalize the variables in the TypedList
+    registry: Option<&InertiaRegistry>,
+) -> Result<(), LogicError> {
+    // Étape 1 : Mise en forme canonique (tri des variables)
     canonicalize_quantifier_vars(node_id, expr)?;
-    // Step 2: remove empty quantifiers if the TypedList has no variables
+
+    // Étape 2 : Nettoyage structurel (si aucune variable, on remonte le corps)
+    // (forall () Body) -> Body
     if remove_empty_quantifier(node_id, expr)? {
         return Ok(());
     }
-    // Step 3: fuse nested quantifiers of the same type
+
+    // Étape 3 : Fusion (forall (x) (forall (y) B)) -> (forall (x y) B)
     fuse_nested_quantifiers(node_id, expr)?;
-    // Step 4: simplify trivial body (e.g., forall (x) (and) -> (and))
+
+    // Étape 4 : Constantes triviales (corps déjà réduit à True/False)
+    // (forall (x) true) -> true
     if simplify_quantifier_trivial_body(node_id, expr)? {
         return Ok(());
     }
+
+    // Étape 5 : SÉMANTIQUE (Le Registre)
+    // Si l'enfant est une AtomicFormula, on vérifie si elle est impossible
+    if let Some(reg) = registry {
+        if simplify_with_inertia_registry(node_id, expr, reg)? {
+            return Ok(());
+        }
+    }
+
     Ok(())
+}
+
+fn simplify_with_inertia_registry(
+    node_id: NodeId,
+    expr: &mut Expr,
+    registry: &InertiaRegistry,
+) -> Result<bool, LogicError> {
+    let node = expr.try_node(node_id)?;
+    let kind = node.kind();
+    let body_id = node.children()[0];
+
+    // On ne sollicite le registre que si l'enfant est resté une AtomicFormula
+    if expr.try_node(body_id)?.kind() == ExprKind::AtomicFormula {
+        // Si l'atome est impossible (Inertie négative ou Koehler count == 0)
+        if let Some(false) = registry.evaluate_predicate(body_id, expr).map_err(LogicError::from)? {
+
+            // En PDDL classique (Closed World Assumption & Non-empty domains) :
+            // (forall (?x) false) -> false
+            // (exists (?x) false) -> false
+            expr.set_to(node_id, false)?;
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// Canonicalizes the variables of a quantifier node.
@@ -86,18 +128,28 @@ pub(super) fn simplify(
 /// let node_id = expr.root_id().unwrap();
 /// canonicalize_quantifier_vars(node_id, &mut expr)?;
 /// ```
-pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    let node = expr.try_node_mut(node_id)?;
+pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
+    // 1. Vérification rapide en immuable
+    {
+        let node = expr.try_node(node_id)?;
 
-    debug_assert!(
-        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
-        "Node must be a quantifier (Forall or Exists)"
-    );
+        debug_assert!(
+            node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+            "Node must be a quantifier (Forall or Exists)"
+        );
 
-    // Borrow the QuantifierVariables or return an error
-    let vars = node.content_mut().try_quantifier_vars_mut()?;
+        let vars = node.content().try_quantifier_vars()?;
+        if vars.len() <= 1 {
+            return Ok(()); // Pas besoin de trier 0 ou 1 variable
+        }
+    }
 
-    // Sort the TypedSymbols by name for canonical order
+    // 2. Action : Tri des variables
+    let node_mut = expr.try_node_mut(node_id)?;
+    let vars = node_mut.content_mut().try_quantifier_vars_mut()?;
+
+    // On trie par symbole pour garantir que (forall (?a ?b) ...)
+    // soit identique à (forall (?b ?a) ...) après simplification.
     vars.sort_by_key(|ts| ts.symbol());
 
     Ok(())
@@ -126,20 +178,28 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
 /// The function contains `debug_assert!` checks that will panic if:
 /// - The node is not a quantifier (`Forall` or `Exists`).
 /// - The node content is not `QuantifierVariables`.
-fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
-    let node = expr.try_node_mut(node_id)?;
+pub fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+    // 1. Phase de lecture immuable (plus rapide et sécurisée pour les asserts)
+    let (is_empty, body_id) = {
+        let node = expr.try_node(node_id)?;
 
-    debug_assert!(
-        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
-        "Node must be a quantifier (Forall or Exists)"
-    );
+        debug_assert!(
+            node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+            "Node must be a quantifier (Forall or Exists)"
+        );
+        debug_assert!(
+            node.children().len() == 1,
+            "Quantifier must have exactly 1 child"
+        );
 
-    // Borrow the TypedList of quantifier variables or return an error
-    let vars = node.content_mut().try_quantifier_vars()?;
+        let vars = node.content().try_quantifier_vars()?;
+        (vars.is_empty(), node.children()[0])
+    };
 
-    if vars.is_empty() {
-        // Replace the quantifier with its body (assumes exactly one child: the body)
-        let body_id = node.children()[0];
+    // 2. Phase d'action : si aucune variable n'est quantifiée, le nœud est inutile
+    if is_empty {
+        // (forall () Body) -> Body
+        // (exists () Body) -> Body
         expr.move_to(body_id, node_id)?;
         return Ok(true);
     }
@@ -176,50 +236,52 @@ fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
 /// - The body of the inner quantifier replaces the body of the outer quantifier.
 /// - Inner quantifiers of a different kind are ignored.
 /// - Only immediate nested quantifiers are fused; deeper nesting is not handled recursively.
-
-pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    // Step 1: read outer node kind and children immutably
-    let outer_node = expr.try_node(node_id)?;
-    let outer_kind = outer_node.kind();
-    debug_assert!(
-        outer_kind == ExprKind::Forall || outer_kind == ExprKind::Exists,
-        "Outer node must be a quantifier (Forall or Exists)"
-    );
-    let outer_children = outer_node.children();
-    debug_assert!(outer_children.len() == 1, "Outer quantifier must have exactly one child");
-    let inner_id = outer_children[0];
-
-    // Step 2: read inner node kind immutably
-    let inner_kind = expr.try_node(inner_id)?.kind();
-    if inner_kind != outer_kind {
-        return Ok(()); // Different kinds, skip fusion
-    }
-
-    // Step 3: take inner variables mutably
-    let inner_vars = {
-        let inner_node = expr.try_node_mut(inner_id)?;
-        std::mem::take(inner_node.content_mut().try_quantifier_vars_mut()?)
+pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
+    // Étape 1 : Lecture immuable
+    let (outer_kind, inner_id) = {
+        let outer_node = expr.try_node(node_id)?;
+        let outer_kind = outer_node.kind();
+        debug_assert!(
+            outer_kind == ExprKind::Forall || outer_kind == ExprKind::Exists,
+            "Outer node must be a quantifier (Forall or Exists)"
+        );
+        let outer_children = outer_node.children();
+        debug_assert!(outer_children.len() == 1, "Outer quantifier must have exactly one child");
+        (outer_kind, outer_children[0])
     };
 
-    // Step 4: prepend inner vars to outer vars mutably
+    // Étape 2 : Vérification du nœud interne
+    let inner_node = expr.try_node(inner_id)?;
+    if inner_node.kind() != outer_kind {
+        return Ok(()); // Kind différent, pas de fusion possible
+    }
+    debug_assert!(inner_node.children().len() == 1, "Inner quantifier must have exactly one child");
+    let inner_body_id = inner_node.children()[0];
+
+    // Étape 3 : Fusion des variables (Optimisé avec extend)
+    let inner_vars = {
+        let inner_node_mut = expr.try_node_mut(inner_id)?;
+        std::mem::take(inner_node_mut.content_mut().try_quantifier_vars_mut()?)
+    };
+
     {
-        let outer_node = expr.try_node_mut(node_id)?;
-        let outer_vars = outer_node.content_mut().try_quantifier_vars_mut()?;
-        outer_vars.splice(0..0, inner_vars.into_iter());
+        let outer_node_mut = expr.try_node_mut(node_id)?;
+        let outer_vars = outer_node_mut.content_mut().try_quantifier_vars_mut()?;
+
+        outer_vars.extend(inner_vars);
         outer_vars.sort_by_key(|v| v.symbol());
         outer_vars.dedup_by_key(|v| v.symbol());
     }
 
-    // Step 5: replace outer body with inner body
-    let inner_body_id = expr.try_node(inner_id)?.children()[0];
+    // Étape 4 : Court-circuit (Le "Move" de structure)
+    // Au lieu de copier le contenu du corps dans inner_id,
+    // on dit simplement au parent (node_id) que son nouvel enfant est le petit-enfant.
     {
-        let inner_body_node = expr.try_node_mut(inner_body_id)?;
-        let kind_new = inner_body_node.kind();
-        let content_new = std::mem::take(inner_body_node.content_mut());
-        let children_new = std::mem::take(inner_body_node.children_mut());
-        expr.set(inner_id, kind_new, content_new, children_new)?;
+        let outer_node_mut = expr.try_node_mut(node_id)?;
+        outer_node_mut.set_children(vec![inner_body_id]);
     }
 
+    // Note : inner_id est maintenant orphelin, il sera ignoré par le reste du parcours.
     Ok(())
 }
 
@@ -263,45 +325,36 @@ pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), E
 fn simplify_quantifier_trivial_body(
     node_id: NodeId,
     expr: &mut Expr
-) -> Result<bool, ExprError> {
-    let node = expr.try_node(node_id)?;
-    let kind = node.kind();
-    debug_assert!(
-        node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
-        "Node must be a quantifier (Forall or Exists)"
-    );
+) -> Result<bool, LogicError> {
+    // 1. On récupère l'ID de l'enfant et on valide le parent
+    let body_id = {
+        let node = expr.try_node(node_id)?;
 
-    let children = node.children();
-    debug_assert!(
-        children.len() == 1,
-        "Quantifier must have exactly 1 child"
-    );
+        debug_assert!(
+            node.kind() == ExprKind::Forall || node.kind() == ExprKind::Exists,
+            "Node must be a quantifier (Forall or Exists)"
+        );
+        debug_assert!(
+            node.children().len() == 1,
+            "Quantifier must have exactly 1 child"
+        );
 
-    let body_id = children[0];
-    let body = expr.try_node(body_id)?;
+        node.children()[0]
+    };
 
-    // Check if the body is trivial (empty AND or OR)
-    let trivial = body.children().is_empty();
+    // 2. On vérifie si l'enfant est une constante vide (And/Or)
+    let is_trivial = {
+        let body = expr.try_node(body_id)?;
 
-    if trivial {
-        match (kind, body.kind()) {
-            (ExprKind::Forall, ExprKind::And)
-            | (ExprKind::Exists, ExprKind::And)
-            | (ExprKind::Forall, ExprKind::Or)
-            | (ExprKind::Exists, ExprKind::Or) => {
-                // Replace the quantifier by the trivial body
-                let body_mut = expr.try_node_mut(body_id)?;
-                let body_kind = body_mut.kind();
-                let body_content = std::mem::take(body_mut.content_mut());
-                let body_children = std::mem::take(body_mut.children_mut());
+        // Un corps est trivial s'il n'a pas d'enfants et que c'est un connecteur logique
+        body.children().is_empty() && (body.kind() == ExprKind::And || body.kind() == ExprKind::Or)
+    };
 
-                // Replace node_id with body
-                expr.set(node_id, body_kind, body_content, body_children)?;
-
-                return Ok(true);
-            }
-            _ => {}
-        }
+    if is_trivial {
+        // 3. LE MOVE_TO : On écrase le quantificateur par son corps constant.
+        // On déplace directement le contenu de body_id dans node_id.
+        expr.move_to(body_id, node_id)?;
+        return Ok(true);
     }
 
     Ok(false)
@@ -312,13 +365,14 @@ mod tests {
     use crate::aiplan4rust::lang::TypedList;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
-    use crate::aiplan4rust::lir::expr::simplify::quantifier;
+    use crate::aiplan4rust::lir::logic::LogicError;
+    use crate::aiplan4rust::lir::logic::simplify::quantifier;
 
     /// Test that an empty forall quantifier is replaced by its body.
     /// Input: (forall () (A))
     /// Expected: (A)
     #[test]
-    fn test_remove_empty_forall() -> Result<(), ExprError> {
+    fn test_remove_empty_forall() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (forall () (A))
@@ -331,7 +385,7 @@ mod tests {
 
         // 2. Transformation: simplify (quantifier::simplify)
         // Le quantificateur sans variables est élagué.
-        quantifier::simplify(root_id, &mut expr)?;
+        quantifier::simplify(root_id, &mut expr, None)?;
 
         // 3. Validation
         let root_node = expr.try_node(root_id)?;
@@ -346,7 +400,7 @@ mod tests {
        /// Input: (forall (?X - T2) (forall (?Y - T1) (A)))
        /// Expected: (forall (?X - T2 ?Y - T1) (A))
        #[test]
-       fn test_fuse_nested_forall_structured() -> Result<(), ExprError> {
+       fn test_fuse_nested_forall_structured() -> Result<(), LogicError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode recommandée)
@@ -366,7 +420,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 3. Transformation
-           quantifier::simplify(root_id, &mut expr)?;
+           quantifier::simplify(root_id, &mut expr, None)?;
 
            // 4. Validation
            let root_node = expr.try_node(root_id)?;
@@ -383,7 +437,7 @@ mod tests {
        /// Input: (forall (?X - T) (and))
        /// Expected: (and)
        #[test]
-       fn test_trivial_body_exists_false() -> Result<(), ExprError> {
+       fn test_trivial_body_exists_false() -> Result<(), LogicError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode propre)
@@ -401,7 +455,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification
-           quantifier::simplify(root_id, &mut expr)?;
+           quantifier::simplify(root_id, &mut expr, None)?;
 
            // 5. Validation : (exists (?x) (or)) -> (or)
            let root_node = expr.try_node(root_id)?;
@@ -415,7 +469,7 @@ mod tests {
        /// Input: (forall (?X - T) (A))
        /// Expected unchanged
        #[test]
-       fn test_no_simplification_forall() -> Result<(), ExprError> {
+       fn test_no_simplification_forall() -> Result<(), LogicError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Ta méthode propre)
@@ -433,7 +487,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification : ne devrait rien changer
-           quantifier::simplify(root_id, &mut expr)?;
+           quantifier::simplify(root_id, &mut expr, None)?;
 
            // 5. Validation
            let root_node = expr.try_node(root_id)?;
@@ -446,7 +500,7 @@ mod tests {
        /// Input: (exists () (A))
        /// Expected: (A)
        #[test]
-       fn test_remove_empty_exists() -> Result<(), ExprError> {
+       fn test_remove_empty_exists() -> Result<(), LogicError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation d'une liste de variables vide
@@ -461,7 +515,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 3. Transformation
-           quantifier::simplify(root_id, &mut expr)?;
+           quantifier::simplify(root_id, &mut expr, None)?;
 
            // 4. Validation
            let root_node = expr.try_node(root_id)?;
@@ -476,7 +530,7 @@ mod tests {
        /// Input: (exists (?X - T2) (exists (?Y - T1) (A)))
        /// Expected: (exists (?Y - T1 ?X - T2) (A))
        #[test]
-       fn test_fuse_nested_exists() -> Result<(), ExprError> {
+       fn test_fuse_nested_exists() -> Result<(), LogicError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables séparément (Méthode recommandée)
@@ -496,7 +550,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 3. Transformation : simplify
-           quantifier::simplify(root_id, &mut expr)?;
+           quantifier::simplify(root_id, &mut expr, None)?;
 
            // 4. Validation
            let root_node = expr.try_node(root_id)?;
@@ -514,7 +568,7 @@ mod tests {
        /// Input: (exists (?X - T) (and))
        /// Expected: (and)
        #[test]
-       fn test_trivial_body_exists() -> Result<(), ExprError> {
+       fn test_trivial_body_exists() -> Result<(), LogicError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode à plat)
@@ -532,7 +586,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification
-           quantifier::simplify(root_id, &mut expr)?;
+           quantifier::simplify(root_id, &mut expr, None)?;
 
            // 5. Validation : (exists (?x) (and)) -> (and)
            let root_node = expr.try_node(root_id)?;
@@ -546,7 +600,7 @@ mod tests {
        /// Input: (exists (?X - T) (A))
        /// Expected unchanged: (exists (?X - T) (A))
        #[test]
-       fn test_no_simplification_exists() -> Result<(), ExprError> {
+       fn test_no_simplification_exists() -> Result<(), LogicError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode à plat)
@@ -564,7 +618,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification : Ne doit rien changer
-           quantifier::simplify(root_id, &mut expr)?;
+           quantifier::simplify(root_id, &mut expr, None)?;
 
            // 5. Validation : (exists (?x) (A)) reste (exists (?x) (A))
            let root_node = expr.try_node(root_id)?;

@@ -1,7 +1,7 @@
 //! Expression module for the AI Plan Rust project.
 //!
 //! This module provides the common types and functionality to represent,
-//! manipulate, and analyze logical and syntax expressions within
+//! manipulate, and analyze logical and syntax expr within
 //! the system. It includes representations of expression nodes,
 //! kinds, contents, transformations, errors, and higher-level expression
 //! arenas.
@@ -15,7 +15,7 @@
 //! - [`kind`]: Defines the `Kind` enum representing the different
 //!   kinds of expression nodes (logical operators, symbols, predicates, etc.).
 //! - [`simplify`]: Contains utilities and functions for transforming
-//!   or rewriting expressions.
+//!   or rewriting expr.
 //! - [`expr`]: Defines the `Expr` type_checker, a wrapper around an expression
 //!   arena (syntax tree) that holds `ExprNode` instances and provides
 //!   expression-level operations.
@@ -34,7 +34,7 @@
 //!
 //! // Create a new expression node with kind and content
 //! let node = ExprNode::new(ExprKind::And, ExprContent::None, None);
-//! // Build or manipulate expressions...
+//! // Build or manipulate expr...
 //! ```
 //!
 //! This modular design promotes clear separation of concerns,
@@ -43,16 +43,14 @@
 pub mod content;
 pub mod node;
 pub mod kind;
-pub mod simplify;
 pub mod expr;
 pub mod error;
 pub mod builder;
-pub mod rewrite;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode;
 pub use kind::Kind as ExprKind;
 pub use expr::Expr;
 pub use error::ExprError;
-
-pub use crate::aiplan4rust::lir::passes::expressions::expr::normalize;
+use crate::aiplan4rust::lir::logic::simplify;
+pub use crate::aiplan4rust::lir::passes::expr::expr::normalize;

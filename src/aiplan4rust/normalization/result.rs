@@ -1,16 +1,16 @@
-//! Module for AST normalization results and diagnostics management.
+//! Module for AST expr results and diagnostics management.
 //!
 //! This module defines the [`NormalizerResult`] enum, which encapsulates
-//! the outcome of an AST normalization phase in the `aiplan4rust` pipeline.
+//! the outcome of an AST expr phase in the `aiplan4rust` pipeline.
 //!
 //! # Purpose
 //!
 //! `NormalizerResult` bundles together:
-//! - The normalized [`Ast`] if normalization was successful.
+//! - The normalized [`Ast`] if expr was successful.
 //! - A [`DiagnosticManager`] that collects warnings, errors, and info messages
-//!   generated during normalization.
+//!   generated during expr.
 //!
-//! This allows users to proceed with semantic analysis only if normalization
+//! This allows users to proceed with semantic analysis only if expr
 //! succeeded, while also accessing any diagnostics that arose.
 
 use std::fmt;
@@ -19,35 +19,35 @@ use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
 
-/// Represents the result of the AST normalization phase.
+/// Represents the result of the AST expr phase.
 ///
 /// This enum has two variants:
-/// - `Success` — normalization succeeded and produced a normalized AST.
-/// - `Failure` — normalization failed; diagnostics and the interner are preserved.
+/// - `Success` — expr succeeded and produced a normalized AST.
+/// - `Failure` — expr failed; diagnostics and the interner are preserved.
 #[derive(Debug, Clone)]
 pub enum Result {
     /// Normalization succeeded.
     Success {
         /// The normalized AST.
         ast: Ast,
-        /// Diagnostics collected during normalization.
+        /// Diagnostics collected during expr.
         diagnostic_manager: DiagnosticManager,
     },
     /// Normalization failed.
     Failure {
-        /// Diagnostics collected during normalization.
+        /// Diagnostics collected during expr.
         diagnostic_manager: DiagnosticManager,
-        /// The string interner used during normalization.
+        /// The string interner used during expr.
         interner: StringInterner,
     },
 }
 
 impl Result {
-    /// Creates a successful normalization result.
+    /// Creates a successful expr result.
     ///
     /// # Parameters
     /// - `ast` — The normalized AST.
-    /// - `diagnostic_manager` — Diagnostics collected during normalization.
+    /// - `diagnostic_manager` — Diagnostics collected during expr.
     ///
     /// # Returns
     /// A `NormalizerResult::Success` variant.
@@ -55,11 +55,11 @@ impl Result {
         Self::Success { ast, diagnostic_manager }
     }
 
-    /// Creates a failed normalization result.
+    /// Creates a failed expr result.
     ///
     /// # Parameters
     /// - `diagnostic_manager` — Diagnostics explaining the failure.
-    /// - `interner` — The interner used during normalization.
+    /// - `interner` — The interner used during expr.
     ///
     /// # Returns
     /// A `NormalizerResult::Failure` variant.
@@ -142,12 +142,12 @@ impl Result {
         }
     }
 
-    /// Returns `true` if normalization succeeded.
+    /// Returns `true` if expr succeeded.
     pub fn is_success(&self) -> bool {
         matches!(self, Self::Success { .. })
     }
 
-    /// Returns `true` if normalization failed.
+    /// Returns `true` if expr failed.
     pub fn is_failure(&self) -> bool {
         matches!(self, Self::Failure { .. })
     }

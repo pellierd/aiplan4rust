@@ -7,7 +7,7 @@ use crate::aiplan4rust::tree::builder::SyntaxTreeBuilder;
 
 /// Ergonomic builder for `Expr` (expression trees).
 ///
-/// Provides high-level helpers to construct expressions using `ExprKind` + `ExprContent`.
+/// Provides high-level helpers to construct expr using `ExprKind` + `ExprContent`.
 /// Requires a mutable reference to a `StringInterner` for identifiers.
 pub struct ExprBuilder {
     base: SyntaxTreeBuilder<ExprNode>,
@@ -75,7 +75,7 @@ impl ExprBuilder {
     ///
     /// A binary node is a node that has **exactly two children**.
     /// This function is useful for binary logical operators, implications,
-    /// functional comparisons, and other expressions that take two arguments.
+    /// functional comparisons, and other expr that take two arguments.
     ///
     /// # Arguments
     /// * `kind` - The type of node (`ExprKind`) to create.
@@ -186,7 +186,7 @@ impl ExprBuilder {
     /// Creates a task symbol node with the given identifier.
     ///
     /// This helper accepts any type that can be converted into a [`TaskSymbolID`],
-    /// which is useful for HTN (Hierarchical Task Network) expressions where
+    /// which is useful for HTN (Hierarchical Task Network) expr where
     /// task identifiers are already resolved.
     ///
     /// # Arguments
@@ -223,7 +223,7 @@ impl ExprBuilder {
     /// Creates a `FunctionTerm` node in the expression tree.
     ///
     /// A `FunctionTerm` represents the application of a function symbol to a list of arguments
-    /// (variables, constants, or other expressions).
+    /// (variables, constants, or other expr).
     ///
     /// # Arguments
     /// * `id` - The identifier of the function symbol (e.g., a [`FunctorID`] or `usize`).
@@ -275,7 +275,7 @@ impl ExprBuilder {
         self.nary(ExprKind::AtomicFormula, children)
     }
 
-    /// Creates a logical `AND` node with one or more child expressions.
+    /// Creates a logical `AND` node with one or more child expr.
     ///
     /// In PDDL/HDDL, this represents a conjunction. An empty vector of children
     /// is technically allowed and usually represents a "True" constant in logical contexts.
@@ -301,7 +301,7 @@ impl ExprBuilder {
         self.nary(ExprKind::And, vec![])
     }
 
-    /// Creates a logical `OR` node with one or more child expressions.
+    /// Creates a logical `OR` node with one or more child expr.
     ///
     /// In PDDL/HDDL, this represents a disjunction. If the vector of children
     /// is empty, the expression is technically "False" (the identity element for OR).
@@ -461,7 +461,7 @@ impl ExprBuilder {
 
     /// Creates a functional comparison (`FComp`) node: (op left right)
     ///
-    /// Functional comparisons are used to compare two numeric expressions
+    /// Functional comparisons are used to compare two numeric expr
     /// (terms, fluents, or literals) using a binary operator.
     ///
     /// # Arguments
@@ -660,11 +660,11 @@ impl ExprBuilder {
     /// Creates an arithmetic expression node: (op operands...)
     ///
     /// This node represents a functional operation (addition, multiplication, etc.)
-    /// applied to one or more numeric sub-expressions.
+    /// applied to one or more numeric sub-expr.
     ///
     /// # Arguments
     /// * `op` - The arithmetic operator to apply (e.g., [`ArithmeticOp::Add`], [`ArithmeticOp::Mul`]).
-    /// * `operands` - A [`Vec<NodeId>`] of the numeric expressions to be operated upon.
+    /// * `operands` - A [`Vec<NodeId>`] of the numeric expr to be operated upon.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Operation` node.
@@ -685,7 +685,7 @@ impl ExprBuilder {
     /// operator. It can take any number of operands, representing their cumulative sum.
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions to be added together.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expr to be added together.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created addition node.
@@ -703,7 +703,7 @@ impl ExprBuilder {
     ///   (- a b c) => (a - b - c).
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expr.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created subtraction node.
@@ -714,11 +714,11 @@ impl ExprBuilder {
     /// Creates a multiplication node: (* operands...)
     ///
     /// This constructs an [`ExprKind::Operation`] node using the [`ArithmeticOp::Mul`]
-    /// operator. It represents the product of all expressions contained in the
+    /// operator. It represents the product of all expr contained in the
     /// `operands` vector.
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions to be multiplied.
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expr to be multiplied.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created multiplication node.
@@ -732,7 +732,7 @@ impl ExprBuilder {
     /// operator.
     ///
     /// # Arguments
-    /// * `operands` - A [`Vec<NodeId>`] of numeric expressions. Usually, this contains
+    /// * `operands` - A [`Vec<NodeId>`] of numeric expr. Usually, this contains
     ///   two nodes representing the dividend and the divisor.
     ///
     /// # Returns
@@ -1001,7 +1001,7 @@ impl ExprBuilder {
     /// Creates an `IsViolated` node to check the status of a soft constraint.
     ///
     /// This node evaluates to true if the named preference has not been satisfied
-    /// in the current plan. It is typically used in metric expressions to penalize
+    /// in the current plan. It is typically used in metric expr to penalize
     /// the violation of specific soft goals.
     ///
     /// # Arguments

@@ -4,7 +4,7 @@
 //! # Overview
 //!
 //! `ExprNode` is a wrapper around a generic syntax tree node (`SyntaxBaseNode`) specialized
-//! for expressions, with `ExprKind` as the node kind and `ExprContent` as its content.
+//! for expr, with `ExprKind` as the node kind and `ExprContent` as its content.
 //! This struct supports parent-child relationships and integrates with the arena allocator model
 //! through the `ArenaNode` trait, enabling efficient tree manipulation.
 //!
@@ -325,7 +325,7 @@ impl Node for ExprNode {
     /// - `AtEnd`
     /// - `Overall`
     ///
-    /// They indicate when the literal should hold in PDDL temporal expressions.
+    /// They indicate when the literal should hold in PDDL temporal expr.
     ///
     /// # Example
     /// ```
@@ -343,7 +343,7 @@ impl Node for ExprNode {
     /// - `Not`
     /// - `Imply`
     ///
-    /// Useful for expression traversal, normalization, and propagation of temporal specifiers.
+    /// Useful for expression traversal, expr, and propagation of temporal specifiers.
     ///
     /// # Example
     /// ```

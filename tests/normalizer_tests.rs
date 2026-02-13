@@ -14,7 +14,7 @@ use crate::common::pipeline::{normalize_and_check_ast, parse_and_check_ast};
 /// 4. Validating the well-normalized AST.
 /// 5. Checking for diagnostics errors.
 ///
-/// Returns `true` if parsing and normalization succeed without critical errors for all files,
+/// Returns `true` if parsing and expr succeed without critical errors for all files,
 /// otherwise returns `false`.
 ///
 /// # Arguments
@@ -58,10 +58,10 @@ pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
         if normalize_and_check_ast(parser_result, &file_path).is_none() {
             eprintln!("Normalization failed for file {}", file_path.display());
             success = false;
-            continue; // Skip to the next file if normalization failed
+            continue; // Skip to the next file if expr failed
         }
 
-        // If we reach here, the file passed normalization test successfully
+        // If we reach here, the file passed expr test successfully
     }
 
     success
@@ -98,7 +98,7 @@ pub fn test_normalizer_all_files(domain_dir: &Path) -> bool {
 ///
 /// # Panics
 ///
-/// Panics if parsing or normalization fails for any file.
+/// Panics if parsing or expr fails for any file.
 #[test_case("tests/integration/hddl/ipc20/partial-order/barman-bdi"; "ipc20_partial_order_barman_bdi")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-fully-observable"; "ipc20_partial_order_monroe_fully_observable")]
 #[test_case("tests/integration/hddl/ipc20/partial-order/monroe-partially-observable"; "ipc20_partial_order_monroe_partially_observable")]

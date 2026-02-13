@@ -69,7 +69,7 @@ use crate::aiplan4rust::semantic::symbol::Declaration;
 ///
 /// This structure represents the full context of a parsed and analyzed PDDL file
 /// or module. It encapsulates all data needed for further processing stages such
-/// as normalization, validation, or code generation.
+/// as expr, validation, or code generation.
 ///
 /// # Fields
 ///
@@ -433,6 +433,7 @@ impl Context {
             .ok_or_else(|| InternerError::missing_literal(self.source_id))?;
         self.source_id = *new_source_id;
 
+        self.symbol_table.rebuild_usage_index();
         Ok(())
     }
 }

@@ -1,4 +1,5 @@
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind};
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
+use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a `When` expression node according to PDDL simplification rules.
@@ -24,10 +25,10 @@ use crate::aiplan4rust::tree::NodeId;
 /// // Result: E
 /// normalize(when_id, &mut expr)?;
 /// ```
-pub(super) fn simplify(
+pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), ExprError> {
+) -> Result<(), LogicError> {
     simplify_when_node(node_id, expr)?;
     Ok(())
 }
@@ -68,7 +69,7 @@ pub(super) fn simplify(
 /// This function should only be called on nodes whose kind is
 /// `ExprKind::When`. It directly modifies the expression tree to apply
 /// simplifications.
-fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::When, "Node must be a When");
 
@@ -112,7 +113,7 @@ mod tests {
 
     /// Test case 1: (when (and) E) -> E
     #[test]
-    fn test_when_empty_and_condition() -> Result<(), ExprError> {
+    fn test_when_empty_and_condition() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (and) (E))
@@ -138,7 +139,7 @@ mod tests {
 
     /// Test case 2: (when (or) E) -> (and)
     #[test]
-    fn test_when_empty_or_condition() -> Result<(), ExprError> {
+    fn test_when_empty_or_condition() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (or) (E)) -> condition toujours fausse
@@ -165,7 +166,7 @@ mod tests {
 
     /// Test case 3: (when E E) -> (and)
     #[test]
-    fn test_when_identical_condition_effect() -> Result<(), ExprError> {
+    fn test_when_identical_condition_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (E) (E))
@@ -192,7 +193,7 @@ mod tests {
 
     /// Test case 4: (when C (and)) -> (and)
     #[test]
-    fn test_when_empty_effect() -> Result<(), ExprError> {
+    fn test_when_empty_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (C) (and))
@@ -220,7 +221,7 @@ mod tests {
 
     /// Test case 5: No simplification applied (when (C) (E)) -> (when (C) (E))
     #[test]
-    fn test_when_no_simplification() -> Result<(), ExprError> {
+    fn test_when_no_simplification() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (C) (E))

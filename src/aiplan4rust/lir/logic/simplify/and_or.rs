@@ -1,9 +1,11 @@
 use std::collections::HashSet;
-use crate::aiplan4rust::lir::expr::{Expr, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::analysis::inertia::registry::InertiaRegistry;
+use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
+use crate::aiplan4rust::lir::logic::error::LogicError;
 use crate::aiplan4rust::tree::NodeId;
 
-/// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN expressions.
+/// Simplifies an AND or OR node in a PDDL expression tree, including merging WHEN expr.
 ///
 /// This function performs several simplifications on a node of type `AND` or `OR`,
 /// processing the node in place. It does nothing if the node is of another kind.
@@ -18,8 +20,8 @@ use crate::aiplan4rust::tree::NodeId;
 /// 3. **Structural deduplication**: Duplicate subtrees are removed using a
 ///    structural hash (`sub_expr_hash`). For example:
 ///    `(and (and A B) (and A B))` becomes `(and (and A B))`.
-/// 4. **Merge WHEN expressions**:
-///    - All `When` expressions among the children are grouped by their effect.
+/// 4. **Merge WHEN expr**:
+///    - All `When` expr among the children are grouped by their effect.
 ///    - Conditions with the same effect are merged; if multiple conditions exist,
 ///      they are combined under a new `Or` node.
 ///    - Non-`When` children remain unchanged.
@@ -56,10 +58,11 @@ use crate::aiplan4rust::tree::NodeId;
 /// normalize(node_id, &mut expr)?;
 /// // After simplification, the expression becomes: (and A B C (when (or X Z) Y))
 /// ```
-pub(super) fn simplify(
+pub fn simplify(
     node_id: NodeId,
-    expr: &mut Expr
-) -> Result<(), ExprError> {
+    expr: &mut Expr,
+    index: Option<&InertiaRegistry>,
+) -> Result<(), LogicError> {
 
     // Step 1: Flatten nested AND/OR nodes of the same kind
     flatten_and_or_node(node_id, expr)?;
@@ -70,11 +73,11 @@ pub(super) fn simplify(
     // Step 3: Deduplicate structurally
     deduplicate_and_or_node(node_id, expr)?;
 
-    // Step 4: Merge WHEN expressions
-    merge_when(node_id, expr)?; // merge WHEN expressions grouped by effect
+    // Step 4: Merge WHEN expr
+    merge_when(node_id, expr, index)?; // merge WHEN expr grouped by effect
 
     // Step 5: Simplify tautologies and contradictions
-    if simplify_tautologies_and_contradictions(node_id, expr)? {
+    if simplify_tautologies_and_contradictions(node_id, expr, index)? {
         return Ok(());
     }
 
@@ -116,48 +119,36 @@ pub(super) fn simplify(
 /// # Notes
 /// - Uses `std::mem::take` to temporarily take ownership of children vectors, avoiding
 ///   borrow checker conflicts.
-/// - Useful for simplifying logical expressions in PDDL-like ASTs by reducing unnecessary nesting.
-fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
-    // Borrow the node immutably to check its kind.
+/// - Useful for simplifying logical expr in PDDL-like ASTs by reducing unnecessary nesting.
+fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
     let kind = expr.try_node(node_id)?.kind();
-
-    // Only AND or OR nodes are flattened; skip other node types.
     debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
 
-    // Take ownership of the current children vector to avoid borrow conflicts.
-    let node = expr.try_node_mut(node_id)?;
-    let children_len = node.children().len(); // length before flattening
-    let children = std::mem::take(node.children_mut());
+    // 1. Vérification rapide : est-ce qu'un enfant est du même type ?
+    let needs_flattening = expr.try_node(node_id)?.children().iter().any(|&c| {
+        expr.try_node(c).map(|n| n.kind() == kind).unwrap_or(false)
+    });
 
-    // Prepare a new vector to hold the flattened children.
-    let mut flat = Vec::new();
-    let mut modified = false;
+    if !needs_flattening {
+        return Ok(false);
+    }
 
-    // Iterate over each child of the node.
-    for child_id in children {
-        // Borrow the child immutably to check its kind.
-        let child_kind = expr.try_node(child_id)?.kind();
+    // 2. Action : On reconstruit la liste
+    let old_children = std::mem::take(expr.try_node_mut(node_id)?.children_mut());
+    let mut flat = Vec::with_capacity(old_children.len());
 
-        // If the child is of the same kind as the parent (nested AND/OR),
-        // take ownership of the child's children and append them to `flat`.
-        if child_kind == kind {
-            flat.extend(std::mem::take(expr.try_node_mut(child_id)?.children_mut()));
-            modified = true;
+    for child_id in old_children {
+        if expr.try_node(child_id)?.kind() == kind {
+            // On "aspire" les petits-enfants
+            let mut grand_children = std::mem::take(expr.try_node_mut(child_id)?.children_mut());
+            flat.append(&mut grand_children);
         } else {
-            // Otherwise, keep the child as-is.
             flat.push(child_id);
         }
     }
 
-    // If the total number of children changed, mark as modified.
-    if flat.len() != children_len {
-        modified = true;
-    }
-
-    // Assign the new flattened vector back to the node.
     expr.try_node_mut(node_id)?.set_children(flat);
-
-    Ok(modified)
+    Ok(true)
 }
 
 /// Canonicalizes the children of an AND/OR node.
@@ -189,14 +180,20 @@ fn flatten_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprErr
 /// // After calling `canonicalize_and_or_children(node_id, &mut expr)`:
 /// // Children are [1, 2, 3]
 /// ```
-fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprError> {
-    let kind = expr.try_node(node_id)?.kind();
-    if kind != ExprKind::And && kind != ExprKind::Or {
+fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
+    // 1. Vérification rapide en lecture seule
+    let node = expr.try_node(node_id)?;
+    let kind = node.kind();
+
+    if (kind != ExprKind::And && kind != ExprKind::Or) || node.children().len() <= 1 {
         return Ok(());
     }
 
-    let node = expr.try_node_mut(node_id)?;
-    node.children_mut().sort();
+    // 2. Tri in-place
+    // On utilise sort_unstable car l'ordre relatif des NodeIds identiques n'importe pas,
+    // et c'est généralement plus rapide car cela n'alloue pas de mémoire temporaire.
+    let node_mut = expr.try_node_mut(node_id)?;
+    node_mut.children_mut().sort_unstable();
 
     Ok(())
 }
@@ -228,7 +225,7 @@ fn canonicalize_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<(), Expr
 /// // AND node with duplicate NodeIds: (and A A B)
 /// // After deduplication: (and A B)
 /// ```
-fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
     // Borrow the node immutably
     let node = expr.try_node(node_id)?;
 
@@ -259,83 +256,116 @@ fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, Exp
     Ok(true)
 }
 
-/// Checks for tautologies and contradictions in an AND/OR node.
+/// Checks for tautologies and contradictions in an AND/OR node using structural analysis
+/// and static fact evaluation.
 ///
-/// - For OR nodes: `(or φ (not φ))` → true (represented as an empty AND)
-/// - For AND nodes: `(and φ (not φ))` → false (represented as an empty OR)
+/// This pass performs two levels of simplification:
+/// 1. **Semantic**: Using the `FactRegistry` to identify facts that are statically impossible or mandatory.
+/// 2. **Structural**: Identifying pairs of $(\phi, \neg \phi)$ within the same node.
+///
+/// # Logic
+/// - For **OR** nodes: `(or φ (not φ) ...)` is a tautology $\equiv$ `true`.
+/// - For **AND** nodes: `(and φ (not φ) ...)` is a contradiction $\equiv$ `false`.
 ///
 /// # Parameters
-/// - `node_id`: NodeId of the AND/OR node to simplify
-/// - `expr`: Mutable reference to the expression tree
+/// - `node_id`: [`NodeId`] of the AND/OR node to simplify.
+/// - `expr`: Mutable reference to the expression arena.
+/// - `fact_registry`: Optional reference to the [`InertiaRegistry`] for static analysis (Koehler/Inertia).
 ///
 /// # Returns
-/// - `Ok(true)` if the node has been replaced with a neutral value (true/false)
-/// - `Ok(false)` if no simplification was performed
-/// - `Err(ExprError)` if any operation fails
+/// - `Ok(true)` if the node was successfully reduced to a constant (true/false).
+/// - `Ok(false)` if no simplification was performed.
+/// - `Err(LogicError)` if an arena access or reduction operation fails.
 ///
 /// # Steps
-/// 1. Verify that the node is an AND or OR. Skip otherwise.
-/// 2. Collect all direct children and track which ones are negated.
-/// 3. Check for intersection between the sets of positive and negated children:
-///    - For OR: if any φ and (not φ) exist, the OR is always true → replace with empty AND
-///    - For AND: if any φ and (not φ) exist, the AND is always false → replace with empty OR
-/// 4. Update the node kind and clear children if a tautology/contradiction is found.
-/// 5. Return whether the node was simplified.
-pub fn simplify_tautologies_and_contradictions(
+/// 1. **Early Exit**: Check if the node has children. Skip if empty.
+/// 2. **Static Reduction**: For each child, consult the `FactRegistry`. If a child
+///    short-circuits the parent (e.g., `false` found in `AND`), reduce immediately.
+/// 3. **Structural Collection**: Track "positive" and "negated" children IDs.
+/// 4. **Early Detection**: During collection, if the complement of the current child
+///    is already in the set, a tautology/contradiction is found.
+/// 5. **Finalize**: Update the node to a constant value using [`short_circuit_tautology`].
+fn simplify_tautologies_and_contradictions(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<bool, ExprError> {
-    // Borrow the node
-    let node = expr.try_node(node_id)?;
-    let kind = node.kind();
+    fact_registry: Option<&InertiaRegistry>,
+) -> Result<bool, LogicError> {
+    let kind = expr.try_node(node_id)?.kind();
 
-    // Only AND/OR nodes are relevant
-    debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
+    // On copie les IDs des enfants pour libérer l'emprunt sur 'expr'
+    // C'est très léger (Vec d'entiers) et bien plus performant que de re-fetch le parent à chaque tour
+    let children = expr.try_node(node_id)?.children().to_vec();
+    if children.is_empty() { return Ok(false); }
 
-    let children = node.children();
+    // Utilise le Hash structurel si possible, sinon NodeId
+    let mut positive_hashes = HashSet::with_capacity(children.len());
+    let mut negated_hashes = HashSet::with_capacity(children.len());
 
-    // Track regular and negated children
-    let mut child_set = HashSet::new();
-    let mut negated_set = HashSet::new();
-
-    for &child_id in children {
-        let child = expr.try_node(child_id)?;
-        match child.kind() {
-            ExprKind::Not => {
-                // Add the inner child of Not node
-                let not_child_id = child.children()[0];
-                negated_set.insert(not_child_id);
-            }
-            _ => {
-                child_set.insert(child_id);
-            }
-        }
-    }
-
-    let node_mut = expr.try_node_mut(node_id)?;
-
-    match kind {
-        ExprKind::Or => {
-            // If there exists a child φ and its negation, the OR is a tautology → true
-            if !child_set.is_disjoint(&negated_set) {
-                node_mut.set_kind(ExprKind::And); // represents true
-                node_mut.set_children(vec![]);
+    for child_id in children {
+        // --- 1. Réduction Statique (Priorité maximale) ---
+        if let Some(registry) = fact_registry {
+            if let Some(reduced_val) = registry.can_reduce_predicate(child_id, expr, kind)? {
+                expr.set_to(node_id, reduced_val)?;
                 return Ok(true);
             }
         }
-        ExprKind::And => {
-            // If there exists a child φ and its negation, the AND is a contradiction → false
-            if !child_set.is_disjoint(&negated_set) {
-                node_mut.set_kind(ExprKind::Or); // represents false
-                node_mut.set_children(vec![]);
-                return Ok(true);
+
+        // --- 2. Analyse Structurelle (Lois de non-contradiction / tiers exclu) ---
+        let child_kind = expr.try_node(child_id)?.kind();
+
+        if child_kind == ExprKind::Not {
+            // On récupère l'ID de ce qui est nié : (not ATOME) -> ATOME
+            let atom_id = expr.try_node(child_id)?.children()[0];
+
+            // On vérifie la structure (via hash ou ID selon ta stratégie)
+            // Si on a déjà vu 'atom_id' en positif, c'est fini.
+            if positive_hashes.contains(&atom_id) {
+                return short_circuit_tautology(node_id, expr, kind);
             }
+            negated_hashes.insert(atom_id);
+        } else {
+            // C'est un nœud positif. On regarde si on a déjà vu sa négation.
+            if negated_hashes.contains(&child_id) {
+                return short_circuit_tautology(node_id, expr, kind);
+            }
+            positive_hashes.insert(child_id);
         }
-        _ => {}
     }
 
-    // No simplification applied
     Ok(false)
+}
+
+/// Reduces a parent node to a constant value when a structural tautology or contradiction is detected.
+///
+/// This helper is invoked when the simplification pass identifies both a formula $\phi$
+/// and its negation $\neg \phi$ within the same collection of children.
+///
+/// # Logic
+/// - For an **OR** node: $(\phi \lor \neg \phi \lor \dots)$ is a **Tautology**, reducing the node to `true`.
+/// - For an **AND** node: $(\phi \land \neg \phi \land \dots)$ is a **Contradiction**, reducing the node to `false`.
+///
+/// # Arguments
+/// * `node_id` - The ID of the parent node to be reduced.
+/// * `expr` - A mutable reference to the expression arena.
+/// * `kind` - The kind of the parent node (must be `And` or `Or`).
+///
+/// # Errors
+/// Returns a [`LogicError`] if the node update fails in the underlying arena.
+///
+/// # Panics
+/// Panics in debug/release if `kind` is not `ExprKind::And` or `ExprKind::Or`.
+fn short_circuit_tautology(
+    node_id: NodeId,
+    expr: &mut Expr,
+    kind: ExprKind
+) -> Result<bool, LogicError> {
+    match kind {
+        // Law of excluded middle: (A ∨ ¬A) ≡ True
+        ExprKind::Or => Ok(expr.set_to(node_id, true)?),
+        // Law of non-contradiction: (A ∧ ¬A) ≡ False
+        ExprKind::And => Ok(expr.set_to(node_id, false)?),
+        _ => unreachable!("short_circuit_tautology called on non-logical gate: {:?}", kind),
+    }
 }
 
 /// Reduces an AND/OR node that has exactly one child.
@@ -361,34 +391,22 @@ pub fn simplify_tautologies_and_contradictions(
 fn reduce_single_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<bool, ExprError> {
-    // Borrow the node immutably to check its kind
-    let node = expr.try_node(node_id)?;
+) -> Result<bool, LogicError> {
+    // 1. On récupère l'ID de l'enfant unique sans bloquer l'emprunt mutable d'expr
+    let single_child = {
+        let node = expr.try_node(node_id)?;
+        debug_assert!(node.kind() == ExprKind::And || node.kind() == ExprKind::Or);
 
-    // Only AND/OR nodes are considered
-    let kind = node.kind();
-    debug_assert!(kind == ExprKind::And || kind == ExprKind::Or);
-
-    let children = node.children();
-    // Only reduce if there is exactly one child
-    if children.len() != 1 {
-        return Ok(false);
-    }
-
-    let single_child = children[0];
-
-    // Check if the node has a parent
-    if let Some(parent_id) = node.parent() {
-        // Mutably borrow the parent
-        let parent = expr.try_node_mut(parent_id)?;
-        // Find the position of node_id in parent's children and replace it
-        if let Some(pos) = parent.children().iter().position(|&id| id == node_id) {
-            parent.children_mut()[pos] = single_child;
+        if node.children().len() != 1 {
+            return Ok(false);
         }
-    } else {
-        // Node is root → update the root ID
-        expr.set_root_id(single_child)?;
-    }
+        node.children()[0]
+    };
+
+    // 2. Le nœud 'node_id' est écrasé par le contenu de 'single_child'.
+    // Puisque tous les parents pointent déjà vers 'node_id',
+    // l'enfant remonte automatiquement d'un niveau dans l'arène.
+    expr.move_to(single_child, node_id)?;
 
     Ok(true)
 }
@@ -428,65 +446,53 @@ fn reduce_single_and_or_node(
 fn simplify_empty_and_or_node(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<bool, ExprError> {
-    // 1. Access the node corresponding to node_id (immutable borrow)
-    let node = expr.try_node(node_id)?;
-    let node_kind = node.kind(); // get the node type: And / Or / other
+) -> Result<bool, LogicError> {
+    // 1. On récupère les infos nécessaires sans bloquer l'arène
+    let (node_kind, children) = {
+        let node = expr.try_node(node_id)?;
+        (node.kind(), node.children().to_vec())
+    };
 
-    // 2. Ensure this node is AND or OR
-    debug_assert!(node_kind == ExprKind::And || node_kind == ExprKind::Or);
+    let mut new_children = Vec::with_capacity(children.len());
+    let mut modified = false;
 
-    // 3. Prepare a new vector to store the children that will remain
-    //    Only copies NodeIds (integers), which is lightweight
-    let mut new_children = Vec::with_capacity(node.children().len());
-    let mut simplified = false;
+    for child_id in children {
+        let child = expr.try_node(child_id)?;
 
-    // 4. Iterate over all children of the node
-    for &child_id in node.children() {
-        let child = expr.try_node(child_id)?; // immutable borrow of the child
-        let child_kind = child.kind();        // child's type
-        let child_empty = child.children().is_empty(); // check if child is empty
+        // On ne s'intéresse qu'aux enfants "vides" (True/False potentiels)
+        if child.children().is_empty() {
+            let child_kind = child.kind();
 
-        // -------- Case 1: absorbing child --------
-        // If the child is empty and of the opposite type:
-        //   - (and (or)) → becomes (or) → false
-        //   - (or (and)) → becomes (and) → true
-        if (node_kind == ExprKind::And && child.is_empty_or())
-            || (node_kind == ExprKind::Or && child.is_empty_and())
-        {
-            // Mutably borrow the parent node only here
-            let node_mut = expr.try_node_mut(node_id)?;
-            node_mut.set_kind(child_kind);  // replace the node type
-            node_mut.set_children(vec![]);  // clear all children
-            return Ok(true);                  // simplification done
+            // CAS 1 : Élément Absorbant
+            // (and ... false) -> false  |  (or ... true) -> true
+            if (node_kind == ExprKind::And && child_kind == ExprKind::Or) ||
+                (node_kind == ExprKind::Or && child_kind == ExprKind::And)
+            {
+                // Le parent node_id prend l'identité de l'enfant absorbant
+                expr.move_to(child_id, node_id)?;
+                return Ok(true);
+            }
+
+            // CAS 2 : Élément Neutre
+            // (and ... true) -> (and ...) | (or ... false) -> (or ...)
+            if child_kind == node_kind {
+                modified = true;
+                continue; // On ignore ce child_id, il ne sera pas dans new_children
+            }
         }
 
-        // -------- Case 2: neutral child --------
-        // If the child is empty and of the same type:
-        //   - (and (and)) → ignore the child → remains (and) → true
-        //   - (or (or))   → ignore the child → remains (or)  → false
-        if child_kind == node_kind && child_empty {
-            simplified = true;
-            continue; // skip this child
-        }
-
-        // -------- Case 3: keep child --------
-        // All other children are preserved
         new_children.push(child_id);
     }
 
-    // -------- Case 3: update node children at the end --------
-    // Mutably borrow the parent node once
-    if new_children.len() != node.children().len() || simplified {
-        let node_mut = expr.try_node_mut(node_id)?;
-        node_mut.set_children(new_children);
-        simplified = true;
+    // 2. Mise à jour si des éléments neutres ont été supprimés
+    if modified {
+        expr.try_node_mut(node_id)?.set_children(new_children);
     }
 
-    Ok(simplified)
+    Ok(modified)
 }
 
-/// Main function that merges `When` expressions under an `And` or `Or` node
+/// Main function that merges `When` expr under an `And` or `Or` node
 /// and updates the node in-place.
 ///
 /// This function collects all `When` children, merges conditions that share
@@ -503,7 +509,7 @@ fn simplify_empty_and_or_node(
 ///
 /// * `Ok(true)` if any fusion occurred (an `Or` was created).
 /// * `Ok(false)` if no fusion occurred (all `When`s had a single condition).
-/// * `Err(ExprError)` if an error occurs during collection, allocation, or normalization.
+/// * `Err(ExprError)` if an error occurs during collection, allocation, or expr.
 ///
 /// # Behavior
 ///
@@ -519,22 +525,26 @@ fn simplify_empty_and_or_node(
 ///     println!("Some WHEN conditions were merged into OR nodes");
 /// }
 /// ```
-pub fn merge_when(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
+pub fn merge_when(
+    node_id: NodeId,
+    expr: &mut Expr,
+    index: Option<&InertiaRegistry>,
+) -> Result<bool, LogicError> {
     // Collect non-WHEN children and merged WHEN conditions
     let (non_when, merged_map) = collect_and_merge_when(node_id, expr)?;
 
     // Rebuild the node's children and get whether a fusion occurred
-    let fusion_occurred = rebuild_children_with_merged_when(node_id, non_when, merged_map, expr)?;
+    let fusion_occurred = rebuild_children_with_merged_when(node_id, non_when, merged_map, expr, index)?;
 
     // Return the fusion flag
     Ok(fusion_occurred)
 }
 
 /// Iterates over the children of a node, collects non-`When` children,
-/// and merges `When` expressions by their effect.
+/// and merges `When` expr by their effect.
 ///
 /// This function processes a logical `And` or `Or` node. It separates out the children
-/// that are **not** `When` expressions, and merges all `When` expressions that have
+/// that are **not** `When` expr, and merges all `When` expr that have
 /// the same effect. If multiple conditions share the same effect, they are grouped together.
 ///
 /// # Arguments
@@ -545,7 +555,7 @@ pub fn merge_when(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
 /// # Returns
 ///
 /// * `Ok((non_when, merged_when))` where:
-///     - `non_when` is a vector of NodeIds for children that are not `When` expressions.
+///     - `non_when` is a vector of NodeIds for children that are not `When` expr.
 ///     - `merged_when` is a vector of tuples `(effect_node, conditions)`:
 ///         - `effect_node` is the NodeId of the effect of the `When`.
 ///         - `conditions` is a vector of NodeIds representing all conditions associated with that effect.
@@ -575,7 +585,7 @@ pub fn merge_when(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
 /// # Example
 ///
 /// ```ignore
-/// // Suppose node_id is an AND node containing WHEN expressions
+/// // Suppose node_id is an AND node containing WHEN expr
 /// let (non_when, merged_when) = collect_and_merge_when(node_id, &expr)?;
 /// // non_when contains all non-WHEN children
 /// // merged_when groups WHEN conditions by effect
@@ -583,7 +593,7 @@ pub fn merge_when(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprError> {
 fn collect_and_merge_when(
     node_id: NodeId,
     expr: &Expr
-) -> Result<(Vec<NodeId>, Vec<(NodeId, Vec<NodeId>)>), ExprError> {
+) -> Result<(Vec<NodeId>, Vec<(NodeId, Vec<NodeId>)>), LogicError> {
     // Retrieve the node and ensure it is an AND or OR
     let node = expr.try_node(node_id)?;
     debug_assert!(
@@ -633,7 +643,7 @@ fn collect_and_merge_when(
     Ok((non_when, merged_map))
 }
 
-/// Rebuilds the children of a logical `And` or `Or` node by merging `When` expressions.
+/// Rebuilds the children of a logical `And` or `Or` node by merging `When` expr.
 /// Returns `true` if any fusion occurred (i.e., if multiple conditions were combined into an `Or`).
 ///
 /// This function replaces `When` nodes with merged versions, combining conditions
@@ -642,8 +652,8 @@ fn collect_and_merge_when(
 /// # Arguments
 ///
 /// * `node_id` - The ID of the parent node (`And` or `Or`) whose children will be updated.
-/// * `non_when` - A vector of NodeIds representing children that are **not** `When` expressions.
-/// * `merged_when` - A vector of tuples `(effect_node, conditions)` representing merged `When` expressions.
+/// * `non_when` - A vector of NodeIds representing children that are **not** `When` expr.
+/// * `merged_when` - A vector of tuples `(effect_node, conditions)` representing merged `When` expr.
 ///                   Each tuple contains the effect node ID and a vector of condition node IDs.
 /// * `expr` - Mutable reference to the `Expr` tree being updated.
 ///
@@ -651,7 +661,7 @@ fn collect_and_merge_when(
 ///
 /// * `Ok(true)` if a fusion occurred (an `Or` node was created for multiple conditions).
 /// * `Ok(false)` if no fusion occurred (all `When` nodes had a single condition).
-/// * `Err(ExprError)` if an error occurs during node allocation or normalization.
+/// * `Err(ExprError)` if an error occurs during node allocation or expr.
 ///
 /// # Behavior
 ///
@@ -684,7 +694,8 @@ fn rebuild_children_with_merged_when(
     non_when: Vec<NodeId>,
     merged_when: Vec<(NodeId, Vec<NodeId>)>,
     expr: &mut Expr,
-) -> Result<bool, ExprError> {
+    index: Option<&InertiaRegistry>,
+) -> Result<bool, LogicError> {
     // Retrieve the node and assert it is an AND or OR
     let node = expr.try_node(node_id)?;
     debug_assert!(
@@ -712,7 +723,7 @@ fn rebuild_children_with_merged_when(
                 ExprNode::new(ExprKind::Or, Content::None, None),
                 conds,
             );
-            simplify(or_node, expr)?; // Simplify OR node
+            simplify(or_node, expr, index)?; // Simplify OR node
             or_node
         };
 
@@ -743,7 +754,7 @@ mod realistic_tests {
     /// Input: (and (A) (and (B) (C) (B)) (or) (and (C)))
     /// Expected: (or) <- empty OR inside AND makes the root OR
     #[test]
-    fn test_realistic_and_flatten() -> Result<(), ExprError> {
+    fn test_realistic_and_flatten() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A (and B C B) (or) (and C))
@@ -762,7 +773,7 @@ mod realistic_tests {
 
         // 2. Transformation
         // Using try_root_id() to propagate potential errors
-        simplify(expr.try_root_id()?, &mut expr)?;
+        simplify(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         // According to your original assert, the expected result is an empty OR
@@ -779,7 +790,7 @@ mod realistic_tests {
     /// Input: (or (or (A)) (and) (B) (or))
     /// Expected: (and) <- empty AND absorbs the OR root
     #[test]
-    fn test_realistic_or_flatten() -> Result<(), ExprError> {
+    fn test_realistic_or_flatten() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or (or A) (and) B (or))
@@ -796,7 +807,7 @@ mod realistic_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation
-        simplify(expr.try_root_id()?, &mut expr)?;
+        simplify(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         // The expected result is an empty AND (logically "True")
@@ -821,7 +832,7 @@ mod flatten_and_or_node_tests {
     /// Input: (and (A) (and (B) (C)) (D))
     /// Expected: (and (A) (B) (C) (D))
     #[test]
-    fn test_flatten_root_and() -> Result<(), ExprError> {
+    fn test_flatten_root_and() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A (and B C) D)
@@ -859,7 +870,7 @@ mod flatten_and_or_node_tests {
     /// Input: (or (A) (or (B) (C)))
     /// Expected: (or (A) (B) (C))
     #[test]
-    fn test_flatten_root_or() -> Result<(), ExprError> {
+    fn test_flatten_root_or() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or A (or B C))
@@ -896,7 +907,7 @@ mod flatten_and_or_node_tests {
     /// Input: (and (A) (and (B) (C)) (D))
     /// Expected: (and (A) (B) (C) (D))
     #[test]
-    fn test_flatten_non_root_and() -> Result<(), ExprError> {
+    fn test_flatten_non_root_and() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A (and B C) D)
@@ -934,7 +945,7 @@ mod flatten_and_or_node_tests {
     /// Input: (and (A) (B))
     /// Expected: (and (A) (B))
     #[test]
-    fn test_no_nested_nodes() -> Result<(), ExprError> {
+    fn test_no_nested_nodes() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A B) - No nested ANDs
@@ -975,7 +986,7 @@ mod deduplicate_and_or_node_tests {
     /// Input: (and (A) (A) (B))
     /// Expected: (and (A) (B))
     #[test]
-    fn test_root_and_nodeid_duplicates() -> Result<(), ExprError> {
+    fn test_root_and_nodeid_duplicates() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A A B)
@@ -1010,7 +1021,7 @@ mod deduplicate_and_or_node_tests {
     /// Input: (or (A) (B) (B))
     /// Expected: (or (A) (B))
     #[test]
-    fn test_root_or_nodeid_duplicates() -> Result<(), ExprError> {
+    fn test_root_or_nodeid_duplicates() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or A B B)
@@ -1046,7 +1057,7 @@ mod deduplicate_and_or_node_tests {
     /// Input: (and (A) (B))
     /// Expected: (and (A) (B))
     #[test]
-    fn test_and_no_duplicates() -> Result<(), ExprError> {
+    fn test_and_no_duplicates() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A B) - No duplicates present
@@ -1079,7 +1090,7 @@ mod deduplicate_and_or_node_tests {
     /// Input: (and (and (A) (B)) (and (A) (B)) (C))
     /// Expected: (and (and (A) (B)) (C))
     #[test]
-    fn test_root_and_structural_duplicates() -> Result<(), ExprError> {
+    fn test_root_and_structural_duplicates() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (and A B) (and A B) C)
@@ -1122,7 +1133,7 @@ mod deduplicate_and_or_node_tests {
     /// Input: (or (or (A) (B)) (or (A) (B)) (C))
     /// Expected: (or (or (A) (B)) (C))
     #[test]
-    fn test_root_or_structural_duplicates() -> Result<(), ExprError> {
+    fn test_root_or_structural_duplicates() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or (or A B) (or A B) C)
@@ -1171,7 +1182,7 @@ mod simplify_tautologies_and_contradictions_tests {
     /// Input: (or A (not A))
     /// Expected output: (and)  // tautology in OR -> true
     #[test]
-    fn test_or_tautology() -> Result<(), ExprError> {
+    fn test_or_tautology() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or A (not A))
@@ -1183,7 +1194,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify tautologies
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         assert!(changed, "The expression should have been simplified");
@@ -1200,7 +1211,7 @@ mod simplify_tautologies_and_contradictions_tests {
     /// Input: (and A (not A))
     /// Expected output: (or)  // contradiction in AND -> false
     #[test]
-    fn test_and_contradiction() -> Result<(), ExprError> {
+    fn test_and_contradiction() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A (not A))
@@ -1212,7 +1223,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify contradictions
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         assert!(changed, "The contradiction should have been detected and simplified");
@@ -1229,7 +1240,7 @@ mod simplify_tautologies_and_contradictions_tests {
     /// Input: (or A B)  // no tautology
     /// Expected output: unchanged
     #[test]
-    fn test_or_no_tautology() -> Result<(), ExprError> {
+    fn test_or_no_tautology() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or A B) - No tautology here
@@ -1241,7 +1252,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: simplify (should result in no change)
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         assert!(!changed, "The expression should not have changed");
@@ -1258,7 +1269,7 @@ mod simplify_tautologies_and_contradictions_tests {
     /// Input: (and A B)  // no contradiction
     /// Expected output: unchanged
     #[test]
-    fn test_and_no_contradiction() -> Result<(), ExprError> {
+    fn test_and_no_contradiction() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A B) - No contradiction here
@@ -1270,7 +1281,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: simplify (should result in no change)
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         assert!(!changed, "The expression should not have been flagged as changed");
@@ -1294,7 +1305,7 @@ mod reduce_single_and_or_node_tests {
     /// Input: (and A)
     /// Expected: A
     #[test]
-    fn test_root_and_single_child() -> Result<(), ExprError> {
+    fn test_root_and_single_child() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A)
@@ -1324,7 +1335,7 @@ mod reduce_single_and_or_node_tests {
     /// Input: (and (and A))
     /// Expected: (and A)
     #[test]
-    fn test_and_single_child_non_root() -> Result<(), ExprError> {
+    fn test_and_single_child_non_root() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (and A))
@@ -1358,7 +1369,7 @@ mod reduce_single_and_or_node_tests {
     /// Input: (or A)
     /// Expected: A
     #[test]
-    fn test_root_or_single_child() -> Result<(), ExprError> {
+    fn test_root_or_single_child() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or A)
@@ -1385,7 +1396,7 @@ mod reduce_single_and_or_node_tests {
     /// Input: (or (or A))
     /// Expected: (or A)
     #[test]
-    fn test_or_single_child_non_root() -> Result<(), ExprError> {
+    fn test_or_single_child_non_root() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or (or A))
@@ -1417,7 +1428,7 @@ mod reduce_single_and_or_node_tests {
     /// Input: (and A B)
     /// Expected: (and A B)
     #[test]
-    fn test_and_multiple_children() -> Result<(), ExprError> {
+    fn test_and_multiple_children() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A B) - Multiple children
@@ -1453,7 +1464,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (and))
     /// Expected: (and)
     #[test]
-    fn test_and_with_empty_and_child() -> Result<(), ExprError> {
+    fn test_and_with_empty_and_child() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (and))
@@ -1482,7 +1493,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (or))
     /// Expected: (or)
     #[test]
-    fn test_and_absorbing_or() -> Result<(), ExprError> {
+    fn test_and_absorbing_or() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (or))
@@ -1511,7 +1522,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (A) (B))
     /// Expected: (and (A) (B))
     #[test]
-    fn test_and_keep_children() -> Result<(), ExprError> {
+    fn test_and_keep_children() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and A B)
@@ -1545,7 +1556,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (and) (or) (A))
     /// Expected: (or)
     #[test]
-    fn test_and_mixed_children_absorb() -> Result<(), ExprError> {
+    fn test_and_mixed_children_absorb() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (and) (or) A)
@@ -1577,7 +1588,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (or (or))
     /// Expected: (or)
     #[test]
-    fn test_or_with_empty_or_child() -> Result<(), ExprError> {
+    fn test_or_with_empty_or_child() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or (or))
@@ -1606,7 +1617,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (or (and))
     /// Expected: (and)
     #[test]
-    fn test_or_absorbing_and() -> Result<(), ExprError> {
+    fn test_or_absorbing_and() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or (and))
@@ -1635,7 +1646,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (or (A) (B))
     /// Expected: (or (A) (B))
     #[test]
-    fn test_or_keep_children() -> Result<(), ExprError> {
+    fn test_or_keep_children() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or A B)
@@ -1668,7 +1679,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (or (or) (and) (A))
     /// Expected: (and)
     #[test]
-    fn test_or_mixed_children_absorb() -> Result<(), ExprError> {
+    fn test_or_mixed_children_absorb() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (or (or) (and) A)
@@ -1699,7 +1710,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (when C1 E) (when C2 E))
     /// Expected: (when (or C1 C2) E)
     #[test]
-    fn test_when_merge_same_effect() -> Result<(), ExprError> {
+    fn test_when_merge_same_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (when C1 E) (when C2 E))
@@ -1715,7 +1726,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Factor out common effect E
-        simplify(expr.try_root_id()?, &mut expr)?;
+        simplify(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         // The root should now be a single WHEN node: (when (or C1 C2) E)
@@ -1741,7 +1752,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (when C1 E1) (when C2 E2))
     /// Expected: (and (when C1 E1) (when C2 E2))
     #[test]
-    fn test_when_not_merge_different_effect() -> Result<(), ExprError> {
+    fn test_when_not_merge_different_effect() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (when C1 E1) (when C2 E2))
@@ -1758,7 +1769,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Attempt to simplify
-        simplify(expr.try_root_id()?, &mut expr)?;
+        simplify(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         // The root must remain an AND node with two distinct WHEN children
@@ -1778,7 +1789,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (when C E))
     /// Expected: (when C E)
     #[test]
-    fn test_when_single_condition() -> Result<(), ExprError> {
+    fn test_when_single_condition() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (when C E))
@@ -1792,7 +1803,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify the expression
-        simplify(expr.try_root_id()?, &mut expr)?;
+        simplify(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         // The root AND should be reduced, making the WHEN node the new root
@@ -1815,7 +1826,7 @@ mod simplify_empty_and_or_node_tests {
     /// Input: (and (when C E) (when C E))
     /// Expected: (when C E) after OR simplification
     #[test]
-    fn test_when_merge_with_or_simplification() -> Result<(), ExprError> {
+    fn test_when_merge_with_or_simplification() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (and (when C E) (when C E))
@@ -1830,7 +1841,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Factorize and then Deduplicate
-        simplify(expr.try_root_id()?, &mut expr)?;
+        simplify(expr.try_root_id()?, &mut expr, None)?;
 
         // 3. Validation
         // The result should not be (when (or C C) E), but the fully reduced (when C E)

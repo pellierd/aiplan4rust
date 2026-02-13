@@ -171,8 +171,8 @@ impl LinkedSemanticContext {
         let problem_syntax_tree = problem.take_syntax_tree();
 
         // Take symbol tables
-        let domain_table = domain.take_symbol_table();
-        let problem_table = problem.take_symbol_table();
+        let mut domain_table = domain.take_symbol_table();
+        let mut problem_table = problem.take_symbol_table();
 
         // Merge declared and required requirements
         let declared_requirements = domain
