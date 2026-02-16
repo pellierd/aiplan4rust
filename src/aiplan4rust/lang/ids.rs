@@ -72,6 +72,8 @@ impl_id_type!(PredicateID);
 impl_id_type!(VariableID);
 impl_id_type!(FunctorID);
 impl_id_type!(TaskSymbolID);
+impl_id_type!(ActionSymbolID);
+impl_id_type!(MethodSymbolID);
 impl_id_type!(PreferenceID);
 impl_id_type!(TaskLabelID);
 impl_id_type!(NumericFluentID);
@@ -120,6 +122,8 @@ impl_display_prefix!(PredicateID, "P");        // P5  (P pour Predicate)
 impl_display_prefix!(VariableID, "v");         // v1  (v pour Variable)
 impl_display_prefix!(FunctorID, "f");          // f2  (f pour Functor)
 impl_display_prefix!(TaskSymbolID, "tk");      // tk3 (tk pour Task Symbol)
+impl_display_prefix!(ActionSymbolID, "a");
+impl_display_prefix!(MethodSymbolID, "m");
 impl_display_prefix!(PreferenceID, "pref");    // pref0
 impl_display_prefix!(TaskLabelID, "TK");            // TK1 (Majuscule pour l'instance de tâche vs le symbole)
 impl_display_prefix!(FluentID, "f");     // nf8 (Numeric Fluent)

@@ -18,7 +18,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{StringID, TaskSymbolID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 
 /// Represents a syntax task declaration in HDDL.
@@ -50,7 +50,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Task {
     /// Underlying signature containing the name and parameters.
-    header: NamedTypedList,
+    header: NamedTypedList<TaskSymbolID>,
 }
 
 impl Task {
@@ -60,8 +60,8 @@ impl Task {
     ///
     /// - `name`: The identifier for this task.
     /// - `parameters`: A typed list describing the task's parameters.
-    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>) -> Self {
-        let signature = NamedTypedList::new(name, parameters);
+    pub fn new(task_symbol: TaskSymbolID, parameters: TypedList<VariableID, TypeID>) -> Self {
+        let signature = NamedTypedList::new(task_symbol, parameters);
         Self { header: signature }
     }
 
@@ -84,17 +84,17 @@ impl Task {
     ///
     /// This function is marked `pub(crate)` as it is a specialized constructor
     /// for the LIR translation layer and should not be used by external consumers.
-    pub(crate) fn from_header(header: NamedTypedList) -> Self {
+    pub(crate) fn from_header(header: NamedTypedList<TaskSymbolID>) -> Self {
         Self { header }
     }
 
-    pub fn task_symbol(&self) -> StringID {
+    pub fn task_symbol(&self) -> TaskSymbolID {
         self.header.symbol()
     }
 }
 
 impl Deref for Task {
-    type Target = NamedTypedList;
+    type Target = NamedTypedList<TaskSymbolID>;
 
     fn deref(&self) -> &Self::Target {
         &self.header

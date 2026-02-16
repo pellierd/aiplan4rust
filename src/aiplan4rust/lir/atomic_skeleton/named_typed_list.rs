@@ -37,14 +37,14 @@ use crate::aiplan4rust::lang::{StringID, TypedList, TypeID, VariableID};
 /// println!("Name: {}", pred.name());
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct NamedTypedList {
-    /// Name of the predicate or function.
-    symbol: StringID,
-    /// Signature describing parameter types and optional return type_checker.
+pub struct NamedTypedList<ID> {
+    /// L'identifiant typé (ActionSymbolID, PredicateID, etc.)
+    symbol: ID,
+    /// La liste des paramètres (Variables et leurs Types)
     parameters: TypedList<VariableID, TypeID>,
 }
 
-impl NamedTypedList {
+impl<ID: Copy> NamedTypedList<ID> {
     /// Creates a new `NamedTypedList` with the given name and parameters.
     ///
     /// # Parameters
@@ -55,26 +55,25 @@ impl NamedTypedList {
     /// # Returns
     ///
     /// A new instance of `NamedTypedList`.
-    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>) -> Self {
-        Self { symbol: name, parameters }
+    pub fn new(symbol: ID, parameters: TypedList<VariableID, TypeID>) -> Self {
+        Self { symbol, parameters }
     }
-
     /// Returns the name of the predicate or function.
     ///
     /// # Returns
     ///
     /// The `Ident` representing the name.
-    pub fn symbol(&self) -> StringID {
+    pub fn symbol(&self) -> ID {
         self.symbol
     }
 
-    /// Sets the name of the predicate or function.
+    /// Sets the symbol identifier (ID) of the predicate, function, or action.
     ///
     /// # Parameters
     ///
-    /// - `name`: The new name to set.
-    pub fn set_name(&mut self, name: StringID) {
-        self.symbol = name;
+    /// - `symbol`: The new typed identifier to set.
+    pub fn set_symbol(&mut self, symbol: ID) {
+        self.symbol = symbol;
     }
 
     /// Returns a reference to the parameters (signature).
@@ -111,15 +110,11 @@ impl NamedTypedList {
     }
 }
 
-impl Display for NamedTypedList {
-    /// Formats the `NamedTypedList` as a string for display purposes.
-    ///
-    /// Output format: `[name: <name>, parameters: <parameters>]`
+impl<ID> fmt::Display for NamedTypedList<ID>
+where
+    ID: fmt::Display
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "[name: ")?;
-        self.symbol.fmt(f)?;
-        write!(f, ", parameters: ")?;
-        self.parameters.fmt(f)?;
-        write!(f, "]")
+        write!(f, "[symbol: {}, parameters: {}]", self.symbol, self.parameters)
     }
 }

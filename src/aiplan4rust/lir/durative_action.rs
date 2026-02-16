@@ -5,7 +5,7 @@
 //! It provides methods to access and modify the action's components,
 //! normalize expr, and render the action in human-readable or PDDL-like syntax.
 
-use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{ActionSymbolID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
@@ -85,7 +85,7 @@ impl DurativeAction {
     /// );
     /// ```
     pub fn new(
-        name: StringID,
+        name: ActionSymbolID,
         parameters: TypedList<VariableID, TypeID>,
         duration: Expr,
         condition: Expr,
@@ -114,7 +114,7 @@ impl DurativeAction {
     ///
     /// A new `DurativeAction` instance taking ownership of the provided header.
     pub(crate) fn from_header(
-        header: NamedTypedList,
+        header: NamedTypedList<ActionSymbolID>,
         duration: Expr,
         condition: Expr,
         effect: Expr,
@@ -126,12 +126,12 @@ impl DurativeAction {
     }
 
     /// Returns a reference to the action's signature (name + parameters).
-    pub fn signature(&self) -> &NamedTypedList {
+    pub fn signature(&self) -> &NamedTypedList<ActionSymbolID> {
         &self.action.signature()
     }
 
     /// Returns the name of the action.
-    pub fn name(&self) -> StringID {
+    pub fn name(&self) -> ActionSymbolID {
         self.action.name()
     }
 
@@ -139,7 +139,7 @@ impl DurativeAction {
     ///
     /// # Parameters
     /// - `name`: The new identifier for the action.
-    pub fn set_name(&mut self, name: StringID) {
+    pub fn set_name(&mut self, name: ActionSymbolID) {
         self.action.set_name(name);
     }
 

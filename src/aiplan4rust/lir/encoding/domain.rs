@@ -148,18 +148,12 @@ fn encode_logic(
                 ir.set_domain_constraints(constraints);
             }
             AstKind::ActionDef => action::encode(&subtree, registry, ir)?,
-            AstKind::DurativeActionDef => {
-                let action = durative_action::encode(&subtree, registry)?;
-                ir.add_durative_action_def(action);
-            }
+            AstKind::DurativeActionDef => durative_action::encode(&subtree, registry, ir)?,
             AstKind::DerivedDef => {
                 let derived_predicate = derived_predicate::encode(&subtree, registry)?;
                 ir.add_derived_predicate_def(derived_predicate);
             }
-            AstKind::MethodDef => {
-                let method = method::encode(&subtree, registry)?;
-                ir.add_method_def(method);
-            }
+            AstKind::MethodDef => method::encode(&subtree, registry, ir)?,
             _ => {} 
         }
     }

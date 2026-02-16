@@ -41,40 +41,41 @@ pub fn encode(
     let node = subtree.node();
     let ast = subtree.tree();
 
-    // 1. The Head is at index 0 (e.g., (reachable ?x ?y))
+    // 1. Le Head est à l'index 0 (ex: (reachable ?x ?y))
     let head_node_id = node.try_child(0)?;
     let head_node = ast.try_node(head_node_id)?;
 
-    // --- ID Resolution ---
-    // The first child of the head_node is the predicate identifier (the symbol name).
-    let predicate_symbol_id = head_node.children()[0];
+    // --- Résolution de l'ID ---
+    // On récupère le NodeId du symbole (le nom du prédicat)
+    let predicate_symbol_node_id = head_node.try_child(0)?;
 
-    // Resolve the declaration in the symbol table.
+    // On cherche la déclaration originale dans la table des symboles
     let declaration = registry.symbol_table()
-        .try_resolve_declaration_by_usage(predicate_symbol_id, SymbolKind::Predicate)?;
+        .try_resolve_declaration_by_usage(predicate_symbol_node_id, SymbolKind::Predicate)?;
 
-    // Retrieve the unique AtomSkeletonID for this predicate.
-    let head_id = registry.try_resolve_atom_skeleton(declaration.node_id())?;
+    // On récupère le PredicateID (L'identité sémantique)
+    let predicate_id = registry.try_resolve_predicate(declaration.node_id())?;
 
-    // Clear local variables before binding the head parameters.
-    registry.clear_variables();
+    // On récupère aussi l'AtomSkeletonID (L'ID structurel pour le DerivedPredicate final)
+    let head_skeleton_id = registry.try_resolve_atom_skeleton(declaration.node_id())?;
 
-    // 2. Encode the Head skeleton.
-    // This binds the parameters (e.g., ?x, ?y) in the registry for the body to use.
-    let head = atomic_formula_skeleton::encode(
+    // 2. Encode le Head skeleton.
+    // On passe le predicate_id qu'on vient de résoudre à ton nouvel encodeur.
+    let head_skeleton = atomic_formula_skeleton::encode(
         &SyntaxSubtree::new(head_node, head_node_id, ast),
-        registry
+        registry,
+        predicate_id // <--- C'est ici qu'on injecte l'ID résolu
     )?;
 
-    // 3. Encode the Body (the logical expression is at index 1).
+    // 3. Encode le Body (l'expression logique est à l'index 1).
     let body_node_id = node.try_child(1)?;
     let body_node = ast.try_node(body_node_id)?;
 
-    // expr::encoding can now resolve variables from the head since they are in the registry.
+    // Le registre contient maintenant les variables du head (ex: ?x, ?y)
     let body = expr::encode(
         &SyntaxSubtree::new(body_node, body_node_id, ast),
         registry
     )?;
 
-    Ok(DerivedPredicate::new(head_id, head, body))
+    Ok(DerivedPredicate::new(head_skeleton_id, head_skeleton, body))
 }

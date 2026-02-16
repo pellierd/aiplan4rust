@@ -8,7 +8,8 @@ use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::action::Action;
-use crate::aiplan4rust::lir::encoding::{expr, named_typed_list, EncodingRegistry};
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -44,44 +45,65 @@ pub fn encode(
     let node = subtree.node();
     let ast = subtree.tree();
 
-    registry.clear_variables();
-    // --- STEP 2: Header Encoding (Name + Parameters) ---
-    // Encode the signature using the registry, which now contains the variable mappings.
-    let header = named_typed_list::encode(subtree, registry)?;
+    // --- ÉTAPE 1 : Identité de l'Action ---
+    // On extrait le nom (premier fils) et on génère l'ID sémantique
+    let action_name_node_id = node.try_child(0)?;
+    let action_name_node = ast.try_node(action_name_node_id)?;
+    let action_name_str_id = action_name_node.try_ident()?;
 
-    // 2. Get the body node of the action (typically Child 2)
+    // Réservation de l'ID officiel dans le Problem
+    let action_symbol_id = ir.add_action_symbol(action_name_str_id);
+
+    // --- ÉTAPE 2 : Encodage de la Signature (Paramètres) ---
+    registry.clear_variables();
+
+    // Pour une action, le second fils (index 1) est obligatoirement un ParametersDef
+    let parameters_def_id = node.try_child(1)?;
+    let parameters_def_node = ast.try_node(parameters_def_id)?;
+    debug_assert!(parameters_def_node.kind() == AstKind::ParametersDef);
+
+    // On récupère la liste des variables (premier fils du ParametersDef)
+    let vars_node_id = parameters_def_node.try_child(0)?;
+    let vars_node = ast.try_node(vars_node_id)?;
+
+    let parameters = typed_list::encode_variable_list(
+        &SyntaxSubtree::new(vars_node, vars_node_id, ast),
+        registry
+    )?;
+
+    // Création du header utilisant l'ActionSymbolID
+    let header = NamedTypedList::new(action_symbol_id, parameters);
+
+    // --- ÉTAPE 3 : Encodage du Corps (Préconditions & Effets) ---
+    // Le corps est généralement le troisième fils (index 2)
     let def_body_node = ast.try_node(node.try_child(2)?)?;
 
-    // Initialize precondition and effect with neutral 'and' expr by default
-    let mut precondition = Expr::empty_or();
+    let mut precondition = Expr::empty_or(); // Note: 'and' est plus neutre pour les préconditions
     let mut effect = Expr::empty_or();
 
-    // 3. Iterate over the body components to extract logic blocks
     for &child_id in def_body_node.children() {
         let child_node = ast.try_node(child_id)?;
         match child_node.kind() {
             AstKind::PreconditionDef => {
                 let pre_node_id = child_node.try_child(0)?;
                 let pre_node = ast.try_node(pre_node_id)?;
-                let pre_subtree = SyntaxSubtree::new(pre_node, pre_node_id, ast);
-
-                // Encode the logical expression for preconditions
-                precondition = expr::encode(&pre_subtree, registry)?;
+                precondition = expr::encode(&SyntaxSubtree::new(pre_node, pre_node_id, ast), registry)?;
             }
             AstKind::EffectDef => {
                 let eff_node_id = child_node.try_child(0)?;
                 let eff_node = ast.try_node(eff_node_id)?;
-                let eff_subtree = SyntaxSubtree::new(eff_node, eff_node_id, ast);
-
-                // Encode the logical expression for effects
-                effect = expr::encode(&eff_subtree, registry)?;
+                effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), registry)?;
             }
             _ => {
-                // Return an error for unexpected AST nodes (e.g., :vars which is not supported here)
                 return Err(LirError::action_ast_kind_error(child_node.kind()));
             }
         }
     }
-    ir.add_action_def(Action::from_header(header, precondition, effect));
+
+    // --- ÉTAPE 4 : Stockage et Mapping ---
+    // On ajoute la définition complète au Problem
+    let action_skeleton = Action::from_header(header, precondition, effect);
+    ir.add_action_def(action_skeleton);
+
     Ok(())
 }

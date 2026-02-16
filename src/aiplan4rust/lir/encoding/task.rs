@@ -10,11 +10,13 @@
 //! skeleton, stores it in the LIR, and updates the registry to map the
 //! task's symbol node to its internal ID.
 
+use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::atomic_skeleton::task::Task;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::encoding::{named_typed_list, EncodingRegistry};
+use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Encodes an HTN abstract task signature and registers it within the LIR context.
@@ -43,20 +45,42 @@ pub fn encode(
     registry: &mut EncodingRegistry,
     ir: &mut LiftedProblem,
 ) -> Result<(), LirError> {
-    // 1. Reuse the generic signature encoder (Name + Parameters)
-    registry.clear_variables();
-    let signature = named_typed_list::encode(subtree, registry)?;
+    let node = subtree.node();
+    let tree = subtree.tree();
 
-    // 2. Specialized Task creation
+    // 1. IDENTITÉ : On extrait le nom et on crée l'ID sémantique immédiatement
+    let task_symbol_node_id = node.try_child(0)?;
+    let name_node = tree.try_node(task_symbol_node_id)?;
+    let name_str_id = name_node.try_ident()?;
+
+    // On demande au Problem de nous donner l'ID officiel pour ce nom
+    let task_symbol_id = ir.add_task_symbol(name_str_id);
+
+    // 2. STRUCTURE : Extraction des paramètres (Second fils, forcément ParametersDef)
+    registry.clear_variables();
+
+    let parameters_def_id = node.try_child(1)?;
+    let parameters_def_node = tree.try_node(parameters_def_id)?;
+    debug_assert!(parameters_def_node.kind() == AstKind::ParametersDef);
+
+    let parameters_id = parameters_def_node.try_child(0)?;
+    let parameters_node = tree.try_node(parameters_id)?;
+
+    let parameters = typed_list::encode_variable_list(
+        &SyntaxSubtree::new(parameters_node, parameters_id, tree),
+        registry
+    )?;
+
+    // 3. CONSTRUCTION : On utilise task_symbol_id au lieu de name_str_id
+    // La signature contient maintenant l'ID typé
+    let signature = NamedTypedList::new(task_symbol_id, parameters);
     let task_skeleton = Task::from_header(signature);
 
-    // 3. Identify the Task Name NodeId
-    // We bind the specific symbol node (e.g., 'transport') to the LIR ID to
-    // match how the symbol table resolves task references in methods.
-    let task_symbol_node_id = subtree.node().children()[0];
+    // 4. STOCKAGE : On enregistre le squelette
+    // Note: add_task_def ne renvoie plus que le skeleton_id puisque le symbol_id est déjà connu
+    let task_skeleton_id = ir.add_task_def(task_skeleton);
 
-    // 4. Dual registration: Physical storage and Node-based mapping
-    let (task_symbol_id, task_skeleton_id) = ir.add_task_def(task_skeleton);
+    // 5. MAPPING : On lie le nœud AST aux deux types d'IDs
     registry.register_task_skeleton(task_symbol_node_id, task_skeleton_id);
     registry.register_task_symbol(task_symbol_node_id, task_symbol_id);
 

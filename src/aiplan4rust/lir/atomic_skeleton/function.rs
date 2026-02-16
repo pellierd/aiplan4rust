@@ -18,7 +18,7 @@
 //! );
 //! ```
 
-use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypeID, VariableID};
+use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypeID, VariableID, FunctorID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -67,7 +67,7 @@ use std::ops::{Deref, DerefMut};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Function {
     /// The internal signature: name and parameters.
-    header: NamedTypedList,
+    header: NamedTypedList<FunctorID>,
 
     /// The return type_checker of the function.
     ty: Type<TypeID>,
@@ -80,8 +80,8 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `types`: The return type_checker of the function.
-    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>, ty: Type<TypeID>) -> Self {
-        let signature = NamedTypedList::new(name, parameters);
+    pub fn new(functor: FunctorID, parameters: TypedList<VariableID, TypeID>, ty: Type<TypeID>) -> Self {
+        let signature = NamedTypedList::new(functor, parameters);
         Self { header: signature, ty }
     }
 
@@ -100,7 +100,7 @@ impl Function {
     /// # Returns
     ///
     /// A new `Function` instance.
-    pub(crate) fn from_header(header: NamedTypedList, ty: Type<TypeID>) -> Self {
+    pub(crate) fn from_header(header: NamedTypedList<FunctorID>, ty: Type<TypeID>) -> Self {
         Self { header, ty }
     }
 
@@ -114,7 +114,7 @@ impl Function {
         &mut self.ty
     }
 
-    pub fn functor(&self) -> StringID {
+    pub fn functor(&self) -> FunctorID {
         self.header.symbol()
     }
 
@@ -122,7 +122,7 @@ impl Function {
 
 // Allow transparent access to the underlying NamedTypedList (e.g., name, parameters).
 impl Deref for Function {
-    type Target = NamedTypedList;
+    type Target = NamedTypedList<FunctorID>;
 
     fn deref(&self) -> &Self::Target {
         &self.header

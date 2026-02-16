@@ -41,7 +41,7 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{ActionSymbolID, AtomSkeletonID, FunctionSkeletonID, FunctorID, MethodSymbolID, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -77,6 +77,10 @@ pub struct Problem {
     function_symbols: SymbolTable<FunctorID>,
     /// Map between HTN task names and their internal IDs.
     task_symbols: SymbolTable<TaskSymbolID>,
+    // Map between Action names and their internal IDs.
+    action_symbols: SymbolTable<ActionSymbolID>,
+    /// Map between Method names and their internal IDs.
+    method_symbols: SymbolTable<MethodSymbolID>,
 
     // --- DEFINITIONS (Lifted Structure / Skeletons) ---
     /// List of type definitions, including hierarchy (parent-child relations).
@@ -162,14 +166,17 @@ impl Problem {
             domain_constraints: Expr::empty_or(),
             derived_predicate_defs: Vec::new(),
             action_defs: Vec::new(),
+            action_symbols: SymbolTable::new(),
             durative_action_defs: Vec::new(),
             method_defs: Vec::new(), // Add for HDDL
+            method_symbols: SymbolTable::new(),
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
             problem_constraints: Expr::empty_or(),
             metric_spec: Expr::metric_none(),
             length_spec: Expr::empty_length_spec(),
             initial_task_network: InitialTaskNetwork::default(), // Add for HDDL
+
         }
     }
 
@@ -649,6 +656,12 @@ impl Problem {
         &self.predicate_symbols
     }
 
+    /// Insère un nom de prédicat dans la table des symboles et retourne son ID.
+    /// Utile pour obtenir l'identité du prédicat avant de construire sa structure (squelette).
+    pub fn add_predicate_symbol(&mut self, symbol: StringID) -> PredicateID {
+        self.predicate_symbols.insert(symbol)
+    }
+
     /// Takes ownership of the predicate symbol table, leaving an empty one in its place.
     ///
     /// Use this when moving the problem representation to a grounder or exporter
@@ -679,11 +692,10 @@ impl Problem {
     ///
     /// This method performs a single-pass registration: it inserts the symbol
     /// and pushes the skeleton simultaneously.
-    pub fn add_predicate_def(&mut self, atom_skeleton: AtomicFormulaSkeleton) -> (PredicateID, AtomSkeletonID) {
-        let predicate_id = self.predicate_symbols.insert(atom_skeleton.symbol());
+    pub fn add_predicate_def(&mut self, atom_skeleton: AtomicFormulaSkeleton) -> AtomSkeletonID {
         let skeleton_id = AtomSkeletonID::from(self.predicate_defs.len());
         self.predicate_defs.push(atom_skeleton);
-        (predicate_id, skeleton_id)
+        skeleton_id
     }
 
     /// Takes ownership of the predicate definitions, leaving an empty vector in its place.
@@ -730,6 +742,10 @@ impl Problem {
     /// This table maps [`FunctorID`]s to their string identifiers.
     pub fn function_symbols(&self) -> &SymbolTable<FunctorID> {
         &self.function_symbols
+    }
+
+    pub fn add_function_symbol(&mut self, symbol: StringID) -> FunctorID {
+        self.function_symbols.insert(symbol)
     }
 
     /// Takes ownership of the function symbols table, leaving an empty one in its place.
@@ -786,11 +802,10 @@ impl Problem {
     /// A tuple consisting of:
     /// 1. [`FunctorID`]: The unique identifier for the function's symbol (name).
     /// 2. [`FunctionSkeletonID`]: The identifier for the structural definition in the function vector.
-    pub fn add_function_def(&mut self, function: AtomicFunctionSkeleton) -> (FunctorID, FunctionSkeletonID) {
-        let functor_id = self.function_symbols.insert(function.symbol());
+    pub fn add_function_def(&mut self, function: AtomicFunctionSkeleton) -> FunctionSkeletonID {
         let skeleton_id = FunctionSkeletonID::from(self.function_defs.len());
         self.function_defs.push(function);
-        (functor_id, skeleton_id)
+        skeleton_id
     }
 
     /// Takes ownership of the function definitions, leaving an empty vector in its place.
@@ -862,6 +877,10 @@ impl Problem {
         &self.task_symbols
     }
 
+    pub fn add_task_symbol(&mut self, symbol: StringID) -> TaskSymbolID {
+        self.task_symbols.insert(symbol)
+    }
+
     /// Takes ownership of the task symbol table, leaving an empty one in its place.
     ///
     /// This is used to move task identifiers to the next stage of the compilation
@@ -915,11 +934,10 @@ impl Problem {
     /// A tuple containing:
     /// 1. The [`TaskSymbolID`] associated with the task's name.
     /// 2. The [`TaskSkeletonID`] indexing the specific structural definition.
-    pub fn add_task_def(&mut self, task_skeleton: AtomicTaskSkeleton) -> (TaskSymbolID, TaskSkeletonID) {
-        let task_symbol_id = self.task_symbols.insert(task_skeleton.symbol());
+    pub fn add_task_def(&mut self, task_skeleton: AtomicTaskSkeleton) -> TaskSkeletonID {
         let task_skeleton_id = TaskSkeletonID::from(self.task_defs.len());
         self.task_defs.push(task_skeleton);
-        (task_symbol_id, task_skeleton_id)
+        task_skeleton_id
     }
 
     /// Takes ownership of the task definitions, leaving an empty vector in its place.
@@ -1054,6 +1072,16 @@ impl Problem {
         self.derived_predicate_defs.push(predicate);
     }
 
+    pub fn action_symbols(&self) -> &SymbolTable<ActionSymbolID> {
+        &self.action_symbols
+    }
+
+    /// Insère un nom d'action dans la table des symboles et retourne son ID.
+    /// Utile pour obtenir l'identité de l'action avant de construire sa structure (paramètres, préconditions, effets).
+    pub fn add_action_symbol(&mut self, symbol: StringID) -> ActionSymbolID {
+        self.action_symbols.insert(symbol)
+    }
+
     /// Returns a slice of all lifted actions in the problem.
     ///
     /// Lifted actions represent the operators defined in the domain.
@@ -1122,6 +1150,17 @@ impl Problem {
     /// * `action`: The [`LiftedDurativeAction`] definition to be added.
     pub fn add_durative_action_def(&mut self, action: LiftedDurativeAction) {
         self.durative_action_defs.push(action);
+    }
+
+    pub fn method_symbols(&self) -> &SymbolTable<MethodSymbolID> {
+        &self.method_symbols
+    }
+
+
+    /// Insère un nom de méthode dans la table des symboles et retourne son ID.
+    /// Utile pour obtenir l'identité de la méthode avant de construire sa structure (décomposition, contraintes).
+    pub fn add_method_symbol(&mut self, symbol: StringID) -> MethodSymbolID {
+        self.method_symbols.insert(symbol)
     }
 
     /// Returns a slice of all lifted methods in the problem.

@@ -137,6 +137,7 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::symbol_binding_failed(symbol))
     }
 
+
     pub fn resolve_atom_skeleton(&self, symbol: NodeId) -> Option<AtomSkeletonID> {
         self.atom_skeleton_to_id.get(&symbol).copied()
     }

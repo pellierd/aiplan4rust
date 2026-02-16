@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{FunctorID, ObjectID, PredicateID, StringID, TaskSymbolID, TypeID};
+use crate::aiplan4rust::lang::{ActionSymbolID, FunctorID, MethodSymbolID, ObjectID, PredicateID, StringID, TaskSymbolID, TypeID};
 use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolTable};
 
 pub struct RenderContext<'a> {
@@ -9,6 +9,8 @@ pub struct RenderContext<'a> {
     functor_symbols: &'a SymbolTable<FunctorID>,
     object_symbols: &'a SymbolTable<ObjectID>,
     task_symbols: &'a SymbolTable<TaskSymbolID>,
+    action_symbols: &'a SymbolTable<ActionSymbolID>,
+    method_symbols: &'a SymbolTable<MethodSymbolID>,
 }
 
 impl<'a> RenderContext<'a> {
@@ -20,6 +22,8 @@ impl<'a> RenderContext<'a> {
             functor_symbols: &problem.function_symbols(),
             object_symbols: &problem.object_symbol(),
             task_symbols: &problem.task_symbols(),
+            action_symbols: &problem.action_symbols(),
+            method_symbols: &problem.method_symbols(), // Aj
         }
     }
 
@@ -28,7 +32,12 @@ impl<'a> RenderContext<'a> {
     pub fn predicates(&self) -> &SymbolTable<PredicateID> { self.predicate_symbols }
     pub fn functors(&self) -> &SymbolTable<FunctorID> { self.functor_symbols }
     pub fn objects(&self) -> &SymbolTable<ObjectID> { self.object_symbols }
-    pub fn tasks_symbol(&self) -> &SymbolTable<TaskSymbolID> { self.task_symbols }
+    pub fn task_symbols(&self) -> &SymbolTable<TaskSymbolID> { self.task_symbols }
+
+    pub fn action_symbols(&self) -> &SymbolTable<ActionSymbolID> { self.action_symbols }
+
+    pub fn method_symbols(&self) -> &SymbolTable<MethodSymbolID> { self.method_symbols }
+
     pub fn interner(&self) -> &StringInterner { self.interner }
 
     // --- Résolution de noms via les SymbolTables ---
@@ -74,5 +83,18 @@ impl<'a> RenderContext<'a> {
             .unwrap_or("<unknown_task>")
     }
 
+    pub fn resolve_action_symbol(&self, id: ActionSymbolID) -> &str {
+        self.action_symbols
+            .get_ident(id)
+            .map(|&s_id| self.resolve_symbol(s_id))
+            .unwrap_or("<unknown_action>")
+    }
+
+    pub fn resolve_method_symbol(&self, id: MethodSymbolID) -> &str {
+        self.method_symbols
+            .get_ident(id)
+            .map(|&s_id| self.resolve_symbol(s_id))
+            .unwrap_or("<unknown_method>")
+    }
 
 }

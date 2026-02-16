@@ -15,7 +15,6 @@ mod ty;
 mod typed_symbol;
 pub mod typed_list;
 pub mod problem;
-mod named_typed_list;
 mod durative_action;
 mod method;
 mod derived_predicate;

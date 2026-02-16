@@ -11,7 +11,7 @@ pub fn render(
     ctx: &RenderContext
 ) -> fmt::Result {
     // 1. Début de la signature et nom de la fonction (functor)
-    write!(f, "({}", ctx.resolve_symbol(function.functor()))?;
+    write!(f, "({}", ctx.resolve_functor(function.functor()))?;
 
     // 2. Rendu des paramètres s'il y en a (ex: ?p1 - type1)
     if !function.parameters().is_empty() {

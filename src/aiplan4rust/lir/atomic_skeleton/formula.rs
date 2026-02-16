@@ -18,7 +18,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::lang::{StringID, TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{PredicateID, StringID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
@@ -56,7 +56,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Formula {
     /// Underlying skeleton holding the identifier and parameters.
-    header: NamedTypedList,
+    header: NamedTypedList<PredicateID>,
 }
 
 impl Formula {
@@ -70,8 +70,8 @@ impl Formula {
     /// # Returns
     ///
     /// A `Formula` instance whose return type_checker is always `None`.
-    pub fn new(name: StringID, parameters: TypedList<VariableID, TypeID>) -> Self {
-        let header = NamedTypedList::new(name, parameters);
+    pub fn new(predicate: PredicateID, parameters: TypedList<VariableID, TypeID>) -> Self {
+        let header = NamedTypedList::new(predicate, parameters);
         Self { header }
     }
 
@@ -88,11 +88,11 @@ impl Formula {
     /// # Returns
     ///
     /// A new `Formula` instance taking ownership of the provided header.
-    pub(crate) fn from_header(header: NamedTypedList) -> Self {
+    pub(crate) fn from_header(header: NamedTypedList<PredicateID>) -> Self {
         Self { header }
     }
 
-    pub fn predicate(&self) -> StringID {
+    pub fn predicate_id(&self) -> PredicateID {
         self.header.symbol()
     }
 
@@ -100,7 +100,7 @@ impl Formula {
 
 // Allow direct access to NamedTypedList methods.
 impl Deref for Formula {
-    type Target = NamedTypedList;
+    type Target = NamedTypedList<PredicateID>;
 
     fn deref(&self) -> &Self::Target {
         &self.header

@@ -4,11 +4,13 @@
 //! It specializes the generic `NamedTypedList` into an `AtomicFormulaSkeleton`,
 //! representing the declaration of a predicate and its parameter signature.
 
+use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lang::PredicateID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::encoding::{named_typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
+use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, NamedTypedList};
 
 /// Encodes an atomic formula skeleton from the syntax tree.
 ///
@@ -33,12 +35,23 @@ use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
+    predicate_id: PredicateID,
 ) -> Result<AtomicFormulaSkeleton, LirError> {
     registry.clear_variables();
-    // 1. Reuse the generic signature encoder (Name + Parameters)
-    let header = named_typed_list::encode(subtree, registry)?;
 
-    // 2. Wrap the generic NamedTypedList into the specific AtomicFormulaSkeleton
-    // Assuming AtomicFormulaSkeleton::new or from_header exists to take ownership.
+    let node = subtree.node();
+    let ast = subtree.tree();
+
+    // On encode directement les paramètres (second enfant)
+    let params_node_id = node.try_child(1)?;
+    let params_node = ast.try_node(params_node_id)?;
+    let parameters = typed_list::encode_variable_list(
+        &SyntaxSubtree::new(params_node, params_node_id, ast),
+        registry
+    )?;
+
+    // On construit avec l'ID déjà fourni
+    let header = NamedTypedList::new(predicate_id, parameters);
+
     Ok(AtomicFormulaSkeleton::from_header(header))
 }

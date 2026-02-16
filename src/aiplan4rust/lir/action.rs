@@ -41,7 +41,7 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::{StringID, TypeID, VariableID};
+use crate::aiplan4rust::lang::{ActionSymbolID, StringID, TypeID, VariableID};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
@@ -54,7 +54,7 @@ use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 /// The precondition and effect are always present and default to empty expr (an `Or` syntax with no children).
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Action {
-    header: NamedTypedList,
+    header: NamedTypedList<ActionSymbolID>,
 
     /// The precondition expression (never `None`; defaults to empty `Or`).
     precondition: Expr,
@@ -92,7 +92,7 @@ impl Action {
     /// );
     /// ```
     pub fn new(
-        name: StringID,
+        name: ActionSymbolID,
         parameters: TypedList<VariableID, TypeID>,
         precondition: Expr,
         effect: Expr,
@@ -123,7 +123,7 @@ impl Action {
     /// This function takes ownership of `header` to avoid unnecessary cloning
     /// and should not be exposed as part of the public API.
     pub(crate) fn from_header(
-        header: NamedTypedList,
+        header: NamedTypedList<ActionSymbolID>,
         precondition: Expr,
         effect: Expr,
     ) -> Self {
@@ -137,12 +137,12 @@ impl Action {
     /// Returns a reference to the full signature (name + parameters).
     ///
     /// This includes both the action's identifier and its typed parameters.
-    pub fn signature(&self) -> &NamedTypedList {
+    pub fn signature(&self) -> &NamedTypedList<ActionSymbolID> {
         &self.header
     }
 
     /// Returns the name (identifier) of the action.
-    pub fn name(&self) -> StringID {
+    pub fn name(&self) -> ActionSymbolID {
         self.header.symbol()
     }
 
@@ -151,8 +151,8 @@ impl Action {
     /// # Arguments
     ///
     /// * `name` - The new identifier to assign to the action.
-    pub fn set_name(&mut self, name: StringID) {
-        self.header.set_name(name);
+    pub fn set_name(&mut self, name: ActionSymbolID) {
+        self.header.set_symbol(name);
     }
 
     /// Returns a reference to the action's typed parameters.

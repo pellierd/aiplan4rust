@@ -11,6 +11,7 @@
 //! during the second encoding pass by looking up the declaration symbol's IDs
 //! to validate both the fluent's identity and its expected arguments.
 
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{atomic_function_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -38,38 +39,40 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut LiftedProblem, // Changé de LiftedProblem à Problem selon ton code précédent
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
 
-    // Iterate over each function definition (e.g., `(distance ?a ?b) - number`)
+    // On itère sur chaque définition de fonction (ex: (distance ?a ?b) - number)
     for &function_skeleton_node_id in subtree.node().children() {
         let function_skeleton_node = tree.try_node(function_skeleton_node_id)?;
+
+        // 1. Extraction du nom (StringID) pour l'identité
+        // Le nom est le premier enfant du nœud de la fonction
+        let functor_node_id = function_skeleton_node.try_child(0)?;
+        let functor_str_id = tree.try_node(functor_node_id)?.try_ident()?;
+
+        // 2. IDENTITÉ : On réserve le FunctorID dans le Problem
+        let functor_id = ir.add_function_symbol(functor_str_id);
+
+        // 3. ENCODE : On construit le squelette structurel
+        // On lui passe l'ID pour qu'il n'ait pas à manipuler de StringID
         let function_skeleton_subtree = SyntaxSubtree::new(
             function_skeleton_node,
             function_skeleton_node_id,
             tree
         );
-
-        // 1. Encode the function skeleton (Functor, Parameters, and Return Type)
-        // This validates types and builds the structural representation.
         let function_skeleton = atomic_function_skeleton::encode(
             &function_skeleton_subtree,
-            registry
+            registry,
+            functor_id // Passé ici
         )?;
 
-        // 2. Identify the Functor NodeId
-        // We register the ID of the symbol itself (e.g., 'distance') rather than
-        // the parent expression node to match the symbol table's declaration lookup.
-        let functor_node_id = function_skeleton_subtree.node().children()[0];
+        // 4. STOCKAGE : On enregistre la définition complète
+        // Utilise ta version mise à jour de add_function_def (qui ne prend plus de StringID)
+        let function_skeleton_id = ir.add_function_def(function_skeleton);
 
-        // 3. Physical storage in the LIR
-        // The LIR returns both the logical identity (StringID/FunctorID)
-        // and the structural ID (FunctionSkeletonID).
-        let (functor_id, function_skeleton_id) = ir.add_function_def(function_skeleton);
-
-        // 4. Node mapping in the registry
-        // Binds the functor's AST NodeId to both LIR identifiers.
+        // 5. MAPPING : On lie le NodeId de l'AST aux IDs du LIR
         registry.register_function_skeleton(functor_node_id, function_skeleton_id);
         registry.register_functor(functor_node_id, functor_id);
     }

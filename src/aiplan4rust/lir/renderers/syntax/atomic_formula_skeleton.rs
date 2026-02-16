@@ -11,7 +11,7 @@ pub fn render(
     ctx: &RenderContext
 ) -> fmt::Result {
     // 1. Début de la parenthèse et nom du symbole
-    write!(f, "({}", ctx.resolve_symbol(formula.symbol()))?;
+    write!(f, "({}", ctx.resolve_predicate(formula.symbol()))?;
 
     // 2. Rendu des paramètres s'il y en a
     let params = formula.parameters();

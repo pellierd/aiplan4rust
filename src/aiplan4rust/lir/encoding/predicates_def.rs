@@ -11,6 +11,8 @@
 //! atom occurrences back to their full LIR definition and unique identity during
 //! the second pass.
 
+use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lang::AtomSkeletonID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{atomic_formula_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -38,37 +40,38 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    ir: &mut LiftedProblem,
+    ir: &mut LiftedProblem, // On utilise le type Problem tel que défini dans ton fichier
 ) -> Result<(), LirError> {
     let tree = subtree.tree();
 
-    // Iterate over each predicate definition (e.g., `(at ?r - robot ?l - location)`)
-    for &atom_skeleton_node_id in subtree.node().children() {
-        let atom_skeleton_node = tree.try_node(atom_skeleton_node_id)?;
-        let atom_skeleton_subtree = SyntaxSubtree::new(
-            atom_skeleton_node,
-            atom_skeleton_node_id,
-            tree
-        );
+    // On itère sur chaque déclaration de prédicat (ex: (at ?r - robot ...))
+    for &atom_node_id in subtree.node().children() {
+        let atom_node = tree.try_node(atom_node_id)?;
 
-        // 1. Build the skeleton (Symbol + Typed Parameters)
-        // This delegates to atomic_formula_skeleton, which uses named_typed_list.
-        let atom_skeleton = atomic_formula_skeleton::encode(&atom_skeleton_subtree, registry)?;
+        // 1. On extrait le nom (StringID) depuis l'identifiant dans l'AST
+        let name_node_id = atom_node.try_child(0)?;
+        let name_str_id = tree.try_node(name_node_id)?.try_ident()?;
 
-        // 2. Identify the Predicate Name NodeId
-        // We register the ID of the symbol itself (the "at" in "(at ?r ?l)")
-        // to stay consistent with how the symbol table identifies declarations.
-        let predicate_node_id = atom_skeleton_subtree.node().children()[0];
+        // 2. IDENTITÉ : On réserve l'ID numérique du symbole
+        // Utilise la nouvelle méthode publique qu'on a ajoutée
+        let predicate_id = ir.add_predicate_symbol(name_str_id);
 
-        // 3. Physical storage in the LIR
-        // The LIR returns both the logical PredicateID and the structural AtomSkeletonID.
-        let (predicate_id, atom_skeleton_id) = ir.add_predicate_def(atom_skeleton);
+        // 3. ENCODE : On construit le squelette avec cet ID
+        // Le squelette contiendra le PredicateID et les types des paramètres
+        let atom_subtree = SyntaxSubtree::new(atom_node, atom_node_id, tree);
+        let atom_skeleton = atomic_formula_skeleton::encode(
+            &atom_subtree,
+            registry,
+            predicate_id
+        )?;
 
-        // 4. Node mapping in the registry.
-        // We link the declaration's NodeId to both LIR IDs. This allows the
-        // expression encoder to resolve an atom call to its full context.
-        registry.register_atom_skeleton(predicate_node_id, atom_skeleton_id);
-        registry.register_predicate(predicate_node_id, predicate_id);
+        // 4. STOCKAGE : On enregistre la structure complète
+        // Utilise la version simplifiée de add_predicate_def qui ne renvoie que l'AtomSkeletonID
+        let skeleton_id = ir.add_predicate_def(atom_skeleton);
+
+        // 5. MAPPING : On lie le NodeId de l'AST aux IDs du LIR pour la phase 2
+        registry.register_atom_skeleton(name_node_id, skeleton_id);
+        registry.register_predicate(name_node_id, predicate_id);
     }
 
     Ok(())

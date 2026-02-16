@@ -5,12 +5,14 @@
 //! temporal conditions, and temporal effects.
 
 use crate::aiplan4rust::arena::ArenaNode;
+use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::syntax::ast::AstNode;
+use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
-use crate::aiplan4rust::lir::encoding::{expr, named_typed_list};
+use crate::aiplan4rust::lir::encoding::{expr, typed_list};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::lir::durative_action::DurativeAction;
+use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Encodes a PDDL durative action from the syntax tree into the LIR.
 ///
@@ -38,33 +40,63 @@ use crate::aiplan4rust::lir::durative_action::DurativeAction;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-) -> Result<DurativeAction, LirError> {
+    ir: &mut LiftedProblem,
+) -> Result<(), LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 
+    // --- ÉTAPE 1 : Identité de l'Action Durative ---
+    // On extrait le nom et on génère l'ID sémantique (utilise la même table que les actions)
+    let action_name_node_id = node.try_child(0)?;
+    let action_name_node = ast.try_node(action_name_node_id)?;
+    let action_name_str_id = action_name_node.try_ident()?;
+
+    // Réservation de l'ID officiel dans le Problem
+    let action_symbol_id = ir.add_action_symbol(action_name_str_id);
+
+    // --- ÉTAPE 2 : Encodage de la Signature (Paramètres) ---
     registry.clear_variables();
 
-    // --- ÉTAPE 2 : Encodage du Header (Nom + Paramètres) ---
-    // On utilise maintenant le registre qui contient déjà les variables mappées.
-    let header = named_typed_list::encode(subtree, registry)?;
+    // Comme pour l'action, le second fils (index 1) est obligatoirement un ParametersDef
+    let parameters_def_id = node.try_child(1)?;
+    let parameters_def_node = ast.try_node(parameters_def_id)?;
+    debug_assert!(parameters_def_node.kind() == AstKind::ParametersDef);
 
-    // 2. Get the body node of the action (typically Child 2)
+    let vars_node_id = parameters_def_node.try_child(0)?;
+    let vars_node = ast.try_node(vars_node_id)?;
+
+    let parameters = typed_list::encode_variable_list(
+        &SyntaxSubtree::new(vars_node, vars_node_id, ast),
+        registry
+    )?;
+
+    // Création du header utilisant l'ActionSymbolID
+    let header = NamedTypedList::new(action_symbol_id, parameters);
+
+    // --- ÉTAPE 3 : Encodage du Corps (Duration, Condition, Effect) ---
+    // Le corps est le troisième fils (index 2)
     let def_body_node = ast.try_node(node.try_child(2)?)?;
 
-    // 3. Parse Duration constraints
+    // 1. Contraintes de durée (:duration ...)
     let duration_id = def_body_node.try_child(0)?;
     let duration_node = ast.try_node(duration_id)?;
     let duration = expr::encode(&SyntaxSubtree::new(duration_node, duration_id, ast), registry)?;
 
-    // 4. Parse Temporal Conditions
+    // 2. Conditions temporelles (:condition ...)
     let condition_id = def_body_node.try_child(1)?;
     let condition_node = ast.try_node(condition_id)?;
     let condition = expr::encode(&SyntaxSubtree::new(condition_node, condition_id, ast), registry)?;
 
-    // 5. Parse Temporal Effects
+    // 3. Effets temporels (:effect ...)
     let eff_node_id = def_body_node.try_child(2)?;
     let eff_node = ast.try_node(eff_node_id)?;
     let effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), registry)?;
 
-    Ok(DurativeAction::from_header(header, duration, condition, effect))
+    // --- ÉTAPE 4 : Stockage ---
+    // On construit l'action durative et on l'ajoute au problème
+    // Note: ir.add_durative_action_def doit être implémenté dans LiftedProblem
+    let durative_action = DurativeAction::from_header(header, duration, condition, effect);
+    ir.add_durative_action_def(durative_action);
+
+    Ok(())
 }

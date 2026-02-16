@@ -20,7 +20,7 @@ pub fn render(
     ctx: &RenderContext,
 ) -> fmt::Result {
     // 1. Method header and name
-    writeln!(f, "(:method {}", ctx.resolve_symbol(method.name()))?;
+    writeln!(f, "(:method {}", ctx.resolve_method_symbol(method.name()))?;
 
     // 2. Parameters
     write!(f, "  :parameters (")?;

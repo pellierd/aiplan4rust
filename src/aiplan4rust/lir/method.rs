@@ -26,7 +26,7 @@
 //! ```
 
 use crate::aiplan4rust::lang::typed_list::TypedList;
-use crate::aiplan4rust::lang::{StringID, TypeID, VariableID};
+use crate::aiplan4rust::lang::{MethodSymbolID, StringID, TypeID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use serde::{Deserialize, Serialize};
@@ -38,7 +38,7 @@ use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Method {
     /// The method's header, containing its name and parameters.
-    header: NamedTypedList,
+    header: NamedTypedList<MethodSymbolID>,
 
     /// The task expression this method decomposes.
     task: Expr,
@@ -65,7 +65,7 @@ impl Method {
     /// # Returns
     /// A new `Method` instance.
     pub fn new(
-        name: StringID,
+        name: MethodSymbolID,
         parameters: TypedList<VariableID, TypeID>,
         task: Expr,
         precondition: Expr,
@@ -102,7 +102,7 @@ impl Method {
     /// This function takes ownership of `header` to avoid unnecessary cloning
     /// and should not be exposed as part of the public API.
     pub(crate) fn from_header(
-        header: NamedTypedList,
+        header: NamedTypedList<MethodSymbolID>,
         task: Expr,
         precondition: Expr,
         task_network: LiftedTaskNetwork,
@@ -116,13 +116,13 @@ impl Method {
     }
 
     /// Returns the method's name as an identifier.
-    pub fn name(&self) -> StringID {
+    pub fn name(&self) -> MethodSymbolID {
         self.header.symbol()
     }
 
     /// Sets the method's name.
-    pub fn set_name(&mut self, name: StringID) {
-        self.header.set_name(name);
+    pub fn set_name(&mut self, name: MethodSymbolID) {
+        self.header.set_symbol(name);
     }
 
     /// Returns a reference to the action's typed parameters.

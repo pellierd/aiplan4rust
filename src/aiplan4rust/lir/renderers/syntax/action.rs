@@ -22,7 +22,7 @@ pub fn render(
     ctx: &RenderContext,
 ) -> std::fmt::Result  {
     // 1. Début de l'action et nom
-    writeln!(f, "  (:action {}", ctx.resolve_symbol(action.name()))?;
+    writeln!(f, "  (:action {}", ctx.resolve_action_symbol(action.name()))?;
 
     // 2. Paramètres : utilisation du helper du contexte pour le formatage PDDL
     write!(f, "    :parameters (")?;

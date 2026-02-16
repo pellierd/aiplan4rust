@@ -18,7 +18,7 @@ pub fn render(
 ) -> fmt::Result {
 
     // 1. Header: Notez le mot-clé spécifique ':durative-action'
-    write!(f, "(:durative-action {}", ctx.resolve_symbol(action.name()))?;
+    write!(f, "(:durative-action {}", ctx.resolve_action_symbol(action.name()))?;
 
     // 2. Parameters
     write!(f, "\n  :parameters (")?;

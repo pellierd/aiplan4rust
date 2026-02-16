@@ -10,7 +10,7 @@ pub fn render(
     ctx: &RenderContext
 ) -> fmt::Result {
     // 1. Résolution du nom (ex: 'at')
-    write!(f, "(:task {}", ctx.resolve_symbol(task.task_symbol()))?;
+    write!(f, "(:task {}", ctx.resolve_task_symbol(task.task_symbol()))?;
     write!(f, "\n    (:parameters")?;
     let parameters = task.parameters();
     if !parameters.is_empty() {
