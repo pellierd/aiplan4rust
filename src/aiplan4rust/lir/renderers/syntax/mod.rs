@@ -5,7 +5,6 @@ pub mod problem;
 pub mod ty;
 pub mod method;
 pub mod task_network;
-pub mod durative_action;
 pub mod derived_predicate;
 pub mod domain;
 pub mod typed_list;

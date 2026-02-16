@@ -105,15 +105,6 @@ fn collect_all_action_fluents(
         )?;
     }
 
-    // Collect fluents from durative (temporal) actions
-    for d_action in problem.durative_action_defs() {
-        collect_fluents_from_effect(
-            d_action.effect(),
-            fluent_predicates,
-            fluent_functions
-        )?;
-    }
-
     Ok(())
 }
 

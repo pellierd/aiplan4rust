@@ -51,8 +51,7 @@ pub mod error;
 pub mod problem;
 pub mod renderers;
 pub mod action;
-pub(crate) mod derived_predicate;
-mod durative_action;
+pub mod derived_predicate;
 pub mod initial_task_network;
 pub mod method;
 pub mod task_network;
@@ -66,7 +65,6 @@ pub use error::LirError;
 
 pub use crate::aiplan4rust::lir::action::Action as LiftedAction;
 pub use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate as LiftedDerivedPredicate;
-pub use crate::aiplan4rust::lir::durative_action::DurativeAction as LiftedDurativeAction;
 pub use crate::aiplan4rust::lir::method::Method as LiftedMethod;
 pub use crate::aiplan4rust::lir::task_network::TaskNetwork as LiftedTaskNetwork;
 pub use crate::aiplan4rust::lir::initial_task_network::InitialTaskNetwork;

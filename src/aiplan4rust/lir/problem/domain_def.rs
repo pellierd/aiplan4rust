@@ -24,7 +24,7 @@ use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod};
+use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedMethod};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Wrapper around the domain view of a lifted problem.
@@ -172,14 +172,6 @@ impl<'a> DomainDef<'a> {
     /// These are the primitive operators available to the planner.
     pub fn action_defs(&self) -> &[LiftedAction] {
         self.problem.action_defs()
-    }
-
-    /// Returns a slice of all lifted durative action definitions.
-    ///
-    /// These actions have a temporal component, including duration
-    /// and conditions/effects applied at different time points (start, end, over all).
-    pub fn durative_action_defs(&self) -> &[LiftedDurativeAction] {
-        self.problem.durative_action_defs()
     }
 
     /// Returns a slice of all lifted method definitions.

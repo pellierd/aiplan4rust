@@ -3,7 +3,7 @@ use crate::aiplan4rust::lang::{TypeID, TypedSymbol};
 use crate::aiplan4rust::lir::problem::DomainDef;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::RenderContext;
-use crate::aiplan4rust::lir::renderers::syntax::{action, atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, durative_action, expr, method, task, typed_list};
+use crate::aiplan4rust::lir::renderers::syntax::{action, atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, method, task, typed_list};
 
 /// Rendu complet d'une définition de domaine.
 pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext) -> fmt::Result {
@@ -79,11 +79,6 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
     for action in domain.action_defs() {
         write!(f, "\n")?;
         action::render(f, action, ctx)?;
-    }
-
-    for d_action in domain.durative_action_defs() {
-        write!(f, "\n")?;
-        durative_action::render(f, d_action, ctx)?;
     }
 
     // 10. Methods (HDDL)

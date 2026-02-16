@@ -1,7 +1,7 @@
 use std::fmt;
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode};
-use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::{InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedMethod, LiftedTaskNetwork};
 use crate::aiplan4rust::lir::renderers::common::{render_labeled_expr, render_labeled_typed_list, writeln_centered};
 use crate::aiplan4rust::lir::problem::{DomainDef, LiftedProblem, ProblemDef};
 
@@ -210,16 +210,6 @@ pub fn render_problem(f: &mut fmt::Formatter<'_>, problem: &LiftedProblem) -> st
         }
     }
 
-    // Durative Actions
-    if problem.durative_action_defs().is_empty() {
-        writeln!(f, "  - no durative actions\n")?;
-    } else {
-        for action in problem.durative_action_defs() {
-            render_durative_action(f, action)?;
-            writeln!(f)?;
-        }
-    }
-
     // Methods
     if problem.method_defs().is_empty() {
         writeln!(f, "  - no methods\n")?;
@@ -418,16 +408,6 @@ pub fn render_domain_def(f: &mut fmt::Formatter<'_>, domain: &DomainDef) -> std:
         }
     }
 
-    // Durative Actions
-    if domain.durative_action_defs().is_empty() {
-        writeln!(f, "  - no durative actions\n")?;
-    } else {
-        for action in domain.durative_action_defs() {
-            render_durative_action(f, action)?;
-            writeln!(f)?;
-        }
-    }
-
     // Methods
     if domain.method_defs().is_empty() {
         writeln!(f, "  - no methods\n")?;
@@ -568,101 +548,44 @@ pub fn render_problem_def(f: &mut fmt::Formatter<'_>, problem: &ProblemDef) -> s
     Ok(())
 }
 
-/// Renders a `LiftedAction` in a structured, human-readable format to a `Formatter`.
+/// Effectue le rendu d'une `Action` (simple ou durative) dans un format structuré et lisible.
 ///
-/// This function prints the action in a clear, indented style with a centered
-/// section title. The output includes:
-/// - **Name**: The action's name.
-/// - **Parameters**: A comma-separated list of parameters.
-/// - **Precondition**: The precondition expression, printed line by line.
-/// - **Effect**: The effect expression, printed line by line.
+/// Cette fonction adapte dynamiquement l'affichage selon que l'action est temporelle ou non :
+/// - Pour les actions simples : Affiche PARAMETERS, PRECONDITION, et EFFECT.
+/// - Pour les actions duratives : Affiche PARAMETERS, DURATION, CONDITION, et EFFECT.
 ///
-/// The section title is centered using `writeln_centered` with a fixed width
-/// (80 characters) and a custom fill character (`'-'`).
-///
-/// # Parameters
-/// - `f`: A mutable reference to a `std::fmt::Formatter` where the output will be written.
-/// - `action`: The `LiftedAction` instance to render.
-///
-/// # Returns
-/// Returns a `std::fmt::Result` indicating whether writing to the formatter succeeded.
-///
-/// # Example
-/// ```rust
-/// use std::fmt::Write;
-/// use crate::aiplan4rust::lir::problem::LiftedAction;
-///
-/// let action: LiftedAction = /* create or obtain an action */;
-/// let mut output = String::new();
-/// // If rendering via Formatter, use a wrapper:
-/// let _ = render_action(&mut std::fmt::Formatter::new(&mut output), &action);
-/// println!("{}", output);
-/// ```
+/// # Paramètres
+/// - `f`: Le formateur où écrire la sortie.
+/// - `action`: L'instance d'Action à rendre.
 pub fn render_action(f: &mut fmt::Formatter<'_>, action: &LiftedAction) -> std::fmt::Result {
-    writeln_centered(f, &format!(" ACTION: {} ", action.name()), 80, '=')?;
+    // Détermination du titre et du style de bordure
+    let is_durative = action.is_durative();
+    let title = if is_durative {
+        format!(" DURATIVE ACTION: {} ", action.name())
+    } else {
+        format!(" ACTION: {} ", action.name())
+    };
+    let border_char = if is_durative { '-' } else { '=' };
+
+    // En-tête centré
+    writeln_centered(f, &title, 80, border_char)?;
+
+    // Paramètres (Commun)
     render_labeled_typed_list(f, "PARAMETERS", action.parameters())?;
-    render_labeled_expr(f, "PRECONDITION", action.precondition())?;
+
+    // Durée (Uniquement pour les duratives)
+    if let Some(duration) = action.duration() {
+        render_labeled_expr(f, "DURATION", duration)?;
+    }
+
+    // Condition / Précondition
+    // On adapte le label selon le type d'action pour rester proche de la sémantique PDDL
+    let cond_label = if is_durative { "CONDITION" } else { "PRECONDITION" };
+    render_labeled_expr(f, cond_label, action.precondition())?;
+
+    // Effet (Commun)
     render_labeled_expr(f, "EFFECT", action.effect())?;
-    Ok(())
-}
 
-/// Renders a `LiftedDurativeAction` in a structured, human-readable format to a `Formatter`.
-///
-/// This function prints the durative action in a clear, indented style with a
-/// centered section title. The output includes:
-/// - **Name**: The action's name.
-/// - **Parameters**: A comma-separated list of parameters.
-/// - **Duration**: The duration expression, printed line by line.
-/// - **Conditions**: The timed conditions of the action, printed line by line.
-/// - **Effect**: The effect expression, printed line by line.
-///
-/// The section title is centered using `writeln_centered` with a fixed width
-/// (80 characters) and a custom fill character (`'-'`).
-///
-/// # Parameters
-///
-/// - `f`: A mutable reference to a `std::fmt::Formatter` where the output will be written.
-/// - `action`: The `LiftedDurativeAction` instance to render.
-///
-/// # Returns
-///
-/// Returns a `std::fmt::Result` indicating whether writing to the formatter succeeded.
-///
-/// # Example
-///
-/// ```rust
-/// use std::fmt::Write;
-/// use crate::aiplan4rust::lir::problem::LiftedDurativeAction;
-///
-/// let action: LiftedDurativeAction = /* create or obtain a durative action */;
-/// let mut output = String::new();
-/// // If rendering via Formatter, use a wrapper:
-/// let _ = render_durative_action(&mut std::fmt::Formatter::new(&mut output), &action);
-/// println!("{}", output);
-/// ```
-pub fn render_durative_action(f: &mut fmt::Formatter<'_>, action: &LiftedDurativeAction) -> std::fmt::Result {
-    let params = action
-        .parameters()
-        .iter()
-        .map(|p| p.to_string())
-        .collect::<Vec<_>>()
-        .join(", ");
-
-    writeln_centered(f, "DURATIVE ACTION", 80, '-')?;
-    writeln!(f, "NAME: {}", action.name())?;
-    writeln!(f, "PARAMETERS: {}", params)?;
-    writeln!(f, "DURATION:")?;
-    for line in format!("{}", action.duration()).lines() {
-        writeln!(f, "  {}", line)?;
-    }
-    writeln!(f, "CONDITIONS:")?;
-    for line in format!("{}", action.condition()).lines() {
-        writeln!(f, "  {}", line)?;
-    }
-    writeln!(f, "EFFECT:")?;
-    for line in format!("{}", action.effect()).lines() {
-        writeln!(f, "  {}", line)?;
-    }
     Ok(())
 }
 

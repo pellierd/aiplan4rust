@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::logic::{LogicError, LogicEngine};
 use crate::aiplan4rust::lir::normalization::{
-    action, derived_predicate, durative_action, initial_task_network, method,
+    action, derived_predicate, initial_task_network, method,
 };
 
 /// Normalizes all normalizable components of a `Problem` using the provided `LogicEngine`.
@@ -29,11 +29,6 @@ pub fn normalize(problem: &mut LiftedProblem) -> Result<(), LogicError> {
     // Normalize all actions
     for action in problem.action_defs_mut() {
         action::normalize(&engine, action)?;
-    }
-
-    // Normalize all durative actions
-    for action in problem.durative_action_def_mut() {
-        durative_action::normalize(&engine, action)?;
     }
 
     // Normalize all methods

@@ -17,7 +17,17 @@ use crate::aiplan4rust::lir::logic::{LogicError, LogicEngine};
 /// Returns a `LogicError` if expr of either the precondition or
 /// the effect fails.
 pub fn normalize(engine: &LogicEngine, action: &mut LiftedAction) -> Result<(), LogicError> {
+    // 1. Normalisation de la durée (uniquement si elle existe)
+    if let Some(duration_mut) = action.duration_mut() {
+        engine.normalize(duration_mut)?;
+    }
+
+    // 2. Normalisation de la précondition / condition
+    // L'accesseur precondition_mut() renvoie la condition correcte selon le type d'action
     engine.normalize(action.precondition_mut())?;
+
+    // 3. Normalisation de l'effet
     engine.normalize(action.effect_mut())?;
+
     Ok(())
 }

@@ -10,7 +10,7 @@
 //!
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::encoding::{action, predicates_def, functions_def, types_def, constants_def, expr, durative_action, method, derived_predicate, task};
+use crate::aiplan4rust::lir::encoding::{action, predicates_def, functions_def, types_def, constants_def, expr, method, derived_predicate, task};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
@@ -147,8 +147,8 @@ fn encode_logic(
                 let constraints = expr::encode(&subtree, registry)?;
                 ir.set_domain_constraints(constraints);
             }
-            AstKind::ActionDef => action::encode(&subtree, registry, ir)?,
-            AstKind::DurativeActionDef => durative_action::encode(&subtree, registry, ir)?,
+            AstKind::ActionDef
+            | AstKind::DurativeActionDef => action::encode(&subtree, registry, ir)?,
             AstKind::DerivedDef => {
                 let derived_predicate = derived_predicate::encode(&subtree, registry)?;
                 ir.add_derived_predicate_def(derived_predicate);

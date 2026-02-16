@@ -9,7 +9,6 @@ mod atomic_function_skeleton;
 mod derived_predicate;
 mod task;
 mod action;
-mod durative_action;
 mod method;
 mod initial_task_network;
 //pub use types::flatten_types;

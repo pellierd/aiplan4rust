@@ -47,7 +47,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{
 };
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LirError};
+use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedMethod, LirError};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -107,9 +107,6 @@ pub struct Problem {
     /// Operators that can change the state of the world.
     action_defs: Vec<LiftedAction>,
 
-    /// Actions with temporal extent and conditions at start/end/overall.
-    durative_action_defs: Vec<LiftedDurativeAction>,
-
     /// HTN Methods describing how to decompose abstract tasks into subtasks.
     method_defs: Vec<LiftedMethod>,
 
@@ -167,8 +164,7 @@ impl Problem {
             derived_predicate_defs: Vec::new(),
             action_defs: Vec::new(),
             action_symbols: SymbolTable::new(),
-            durative_action_defs: Vec::new(),
-            method_defs: Vec::new(), // Add for HDDL
+            method_defs: Vec::new(),
             method_symbols: SymbolTable::new(),
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
@@ -1115,41 +1111,6 @@ impl Problem {
     /// * `action`: The [`LiftedAction`] schema to be registered.
     pub fn add_action_def(&mut self, action: LiftedAction) {
         self.action_defs.push(action);
-    }
-
-    /// Returns a slice of all lifted durative actions in the problem.
-    ///
-    /// Durative actions are temporal operators that include a duration
-    /// constraint and conditions/effects categorized by time (e.g., `:at-start`,
-    /// `:at-end`, or `:over-all`).
-    ///
-    /// # Returns
-    /// A slice of [`LiftedDurativeAction`].
-    pub fn durative_action_defs(&self) -> &[LiftedDurativeAction] {
-        &self.durative_action_defs
-    }
-
-    /// Returns a mutable slice of all durative actions in the problem.
-    ///
-    /// This is essential for flattening or temporal-to-classical planning
-    /// transformations, where complex temporal conditions and effects
-    /// need to be modified in place.
-    ///
-    /// # Returns
-    /// A mutable slice of [`LiftedDurativeAction`].
-    pub fn durative_action_def_mut(&mut self) -> &mut [LiftedDurativeAction] {
-        &mut self.durative_action_defs
-    }
-
-    /// Adds a new lifted durative action to the problem.
-    ///
-    /// This appends a [`LiftedDurativeAction`] to the internal collection
-    /// of temporal operators.
-    ///
-    /// # Parameters
-    /// * `action`: The [`LiftedDurativeAction`] definition to be added.
-    pub fn add_durative_action_def(&mut self, action: LiftedDurativeAction) {
-        self.durative_action_defs.push(action);
     }
 
     pub fn method_symbols(&self) -> &SymbolTable<MethodSymbolID> {

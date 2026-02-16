@@ -1,47 +1,11 @@
-//! Module defining the `Action` struct, representing an instantaneous action in a lifted syntax domain.
+//! Module définissant la structure `Action`, représentant soit une action instantanée, soit durative.
 //!
-//! An `Action` includes a name, parameters, a precondition, and an effect expression.
-//! Both precondition and effect are always present, defaulting to an empty expression (an `Or` with no children) if unspecified.
-//!
-//! This module provides:
-//! - Construction of actions from parsed AST nodes.
-//! - Accessors and mutators for the action's signature, name, parameters, precondition, and effect.
-//! - Display implementations for debugging and formatted output, including interner-aware printing.
-//!
-//! # Structure
-//!
-//! - `Action` encapsulates the concept of an instantaneous action with:
-//!   - A header (`NamedTypedList`) holding the action name and typed parameters.
-//!   - A precondition expression that must hold before execution.
-//!   - An effect expression describing the outcome of the action.
-//!
-//! # Conversion from AST
-//!
-//! The module supports creating an `Action` from a syntax subtree of an AST, extracting the signature, precondition, and effect nodes,
-//! with sensible defaults if the precondition or effect are omitted.
-//!
-//! # Usage example
-//!
-//! ```rust
-//! # use aiplan4rust::lir::Action;
-//! # use aiplan4rust::lang::{Ident, TypedList};
-//! # use aiplan4rust::lir::expr::Expr;
-//! let action = Action::new(
-//!     Ident::new("move"),
-//!     TypedList::empty(),
-//!     Expr::empty_or(),
-//!     Expr::empty_or(),
-//! );
-//! println!("Action name: {}", action.name());
-//! ```
-//!
-//! # Error handling
-//!
-//! Parsing from AST may fail with `LirError` if the structure is invalid or missing expected parts.
+//! Cette structure unifiée simplifie le grounding tout en préservant la sémantique PDDL.
+//! L'interface est conçue pour ressembler à une structure à plat pour la facilité d'usage.
 
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::{ActionSymbolID, StringID, TypeID, VariableID};
+use crate::aiplan4rust::lang::{ActionSymbolID, TypeID, VariableID};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
@@ -49,205 +13,188 @@ use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
-/// Represents an instantaneous action with a name, parameters, precondition, and effect.
-///
-/// The precondition and effect are always present and default to empty expr (an `Or` syntax with no children).
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+/// Représente une action dans le LIR, qui peut être soit instantanée, soit durative.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Action {
+    /// L'en-tête de l'action (symbole et paramètres).
     header: NamedTypedList<ActionSymbolID>,
 
-    /// The precondition expression (never `None`; defaults to empty `Or`).
-    precondition: Expr,
+    /// Le corps spécifique de l'action.
+    body: ActionBody,
+}
 
-    /// The effect expression (never `None`; defaults to empty `Or`).
-    effect: Expr,
+/// Énumération interne pour distinguer les types d'actions tout en gardant un LIR unifié.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum ActionBody {
+    /// Action instantanée standard.
+    Snap {
+        precondition: Expr,
+        effect: Expr,
+    },
+    /// Action temporelle avec durée et conditions temporelles.
+    Durative {
+        duration: Expr,
+        condition: Expr,
+        effect: Expr,
+    },
+}
+
+impl Default for ActionBody {
+    fn default() -> Self {
+        Self::Snap {
+            precondition: Expr::default(),
+            effect: Expr::default(),
+        }
+    }
+}
+
+impl Default for Action {
+    fn default() -> Self {
+        Self {
+            header: NamedTypedList::default(),
+            body: ActionBody::default(),
+        }
+    }
 }
 
 #[allow(dead_code)]
 impl Action {
-    /// Creates a new `Action` with the given name, parameters, precondition, and effect.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The identifier/name of the action.
-    /// * `parameters` - Typed list of parameters for the action.
-    /// * `precondition` - Expression representing the precondition.
-    /// * `effect` - Expression representing the effect.
-    ///
-    /// # Returns
-    ///
-    /// A new `Action` instance.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use aiplan4rust::lir::Action;
-    /// # use aiplan4rust::lang::{Ident, TypedList};
-    /// # use aiplan4rust::lir::expr::Expr;
-    /// let a = Action::new(
-    ///     Ident::new("test_action"),
-    ///     TypedList::empty(),
-    ///     Expr::empty_or(),
-    ///     Expr::empty_or(),
-    /// );
-    /// ```
-    pub fn new(
+    /// Crée une nouvelle action instantanée.
+    pub fn new_snap(
         name: ActionSymbolID,
         parameters: TypedList<VariableID, TypeID>,
         precondition: Expr,
         effect: Expr,
     ) -> Self {
-        let header = NamedTypedList::new(name, parameters);
-        Self::from_header(header, precondition, effect)
-    }
-
-    /// Creates a new `Action` from an already constructed action header.
-    ///
-    /// This constructor is intended for **internal use only** within the crate.
-    /// It allows creating an `Action` without rebuilding or cloning the
-    /// [`NamedTypedList`] header, which is useful during transformations such as
-    /// grounding, expr, or compilation to other representations.
-    ///
-    /// # Arguments
-    ///
-    /// * `header` - A fully constructed action header (name and parameters).
-    /// * `precondition` - Expression representing the precondition.
-    /// * `effect` - Expression representing the effect.
-    ///
-    /// # Returns
-    ///
-    /// A new `Action` instance taking ownership of the provided header.
-    ///
-    /// # Notes
-    ///
-    /// This function takes ownership of `header` to avoid unnecessary cloning
-    /// and should not be exposed as part of the public API.
-    pub(crate) fn from_header(
-        header: NamedTypedList<ActionSymbolID>,
-        precondition: Expr,
-        effect: Expr,
-    ) -> Self {
         Self {
-            header,
-            precondition,
-            effect,
+            header: NamedTypedList::new(name, parameters),
+            body: ActionBody::Snap { precondition, effect },
         }
     }
 
-    /// Returns a reference to the full signature (name + parameters).
-    ///
-    /// This includes both the action's identifier and its typed parameters.
+    /// Crée une nouvelle action durative.
+    pub fn new_durative(
+        name: ActionSymbolID,
+        parameters: TypedList<VariableID, TypeID>,
+        duration: Expr,
+        condition: Expr,
+        effect: Expr,
+    ) -> Self {
+        Self {
+            header: NamedTypedList::new(name, parameters),
+            body: ActionBody::Durative { duration, condition, effect },
+        }
+    }
+
+    // --- Accesseurs Communs (Interface "à plat") ---
+
+    /// Retourne la signature complète (nom + paramètres).
     pub fn signature(&self) -> &NamedTypedList<ActionSymbolID> {
         &self.header
     }
 
-    /// Returns the name (identifier) of the action.
     pub fn name(&self) -> ActionSymbolID {
         self.header.symbol()
     }
 
-    /// Sets the name (identifier) of the action.
-    ///
-    /// # Arguments
-    ///
-    /// * `name` - The new identifier to assign to the action.
     pub fn set_name(&mut self, name: ActionSymbolID) {
         self.header.set_symbol(name);
     }
 
-    /// Returns a reference to the action's typed parameters.
-    ///
-    /// These represent the variables and their types used by the action,
-    /// encapsulated in a `TypedList`.
     pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
         self.header.parameters()
     }
 
-    /// Returns a mutable reference to the action's typed parameters.
-    ///
-    /// This allows for in-place modification of the parameters (such as type flattening)
-    /// while maintaining the integrity of the `TypedList` structure.
     pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
         self.header.parameters_mut()
     }
 
-    /// Sets the action's parameters to a new typed list.
-    ///
-    /// # Arguments
-    ///
-    /// * `parameters` - The new list of typed parameters.
     pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
         self.header.set_parameters(parameters);
     }
 
-    /// Returns a reference to the precondition expression of the action.
-    ///
-    /// The precondition must hold true for the action to be applicable.
+    pub fn is_durative(&self) -> bool {
+        matches!(self.body, ActionBody::Durative { .. })
+    }
+
+    // --- Interface Unifiée pour le Grounding ---
+
+    /// Retourne la condition logique de l'action.
+    /// Renvoie 'precondition' pour les actions simples et 'condition' pour les duratives.
     pub fn precondition(&self) -> &Expr {
-        &self.precondition
+        match &self.body {
+            ActionBody::Snap { precondition, .. } => precondition,
+            ActionBody::Durative { condition, .. } => condition,
+        }
     }
 
-    /// Returns a mutable reference to the precondition expression of the action.
-    ///
-    /// This allows in-place modifications of the precondition,
-    /// for example, to normalize or transform the expression.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use aiplan4rust::lir::Action;
-    /// # use aiplan4rust::lir::expr::Expr;
-    /// let mut action = Action::default();
-    /// let pre = action.precondition_mut();
-    /// // Modify `pre` directly, e.g., normalize(pre);
-    /// ```
     pub fn precondition_mut(&mut self) -> &mut Expr {
-        &mut self.precondition
+        match &mut self.body {
+            ActionBody::Snap { precondition, .. } => precondition,
+            ActionBody::Durative { condition, .. } => condition,
+        }
     }
 
-    /// Replaces the precondition expression.
-    ///
-    /// # Arguments
-    ///
-    /// * `pre` - The new precondition expression.
-    pub fn set_precondition(&mut self, pre: Expr) {
-        self.precondition = pre;
+    pub fn set_precondition(&mut self, expr: Expr) {
+        match &mut self.body {
+            ActionBody::Snap { precondition, .. } => *precondition = expr,
+            ActionBody::Durative { condition, .. } => *condition = expr,
+        }
     }
 
-    /// Returns a reference to the effect expression of the action.
-    ///
-    /// The effect describes how the world changes after executing the action.
+    /// Retourne l'expression de l'effet (commun aux deux types).
     pub fn effect(&self) -> &Expr {
-        &self.effect
+        match &self.body {
+            ActionBody::Snap { effect, .. } => effect,
+            ActionBody::Durative { effect, .. } => effect,
+        }
     }
 
-    /// Returns a mutable reference to the effect expression of the action.
-    ///
-    /// This allows in-place modifications of the effect,
-    /// for example, to normalize or transform the expression.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use aiplan4rust::lir::Action;
-    /// # use aiplan4rust::lir::expr::Expr;
-    /// let mut action = Action::default();
-    /// let eff = action.effect_mut();
-    /// // Modify `eff` directly, e.g., normalize(eff);
-    /// ```
     pub fn effect_mut(&mut self) -> &mut Expr {
-        &mut self.effect
+        match &mut self.body {
+            ActionBody::Snap { effect, .. } => effect,
+            ActionBody::Durative { effect, .. } => effect,
+        }
     }
 
-    /// Replaces the effect expression.
-    ///
-    /// # Arguments
-    ///
-    /// * `eff` - The new effect expression.
-    pub fn set_effect(&mut self, eff: Expr) {
-        self.effect = eff;
+    pub fn set_effect(&mut self, expr: Expr) {
+        match &mut self.body {
+            ActionBody::Snap { effect, .. } => *effect = expr,
+            ActionBody::Durative { effect, .. } => *effect = expr,
+        }
     }
 
+    /// Retourne la durée si l'action est durative, sinon None.
+    pub fn duration(&self) -> Option<&Expr> {
+        match &self.body {
+            ActionBody::Durative { duration, .. } => Some(duration),
+            ActionBody::Snap { .. } => None,
+        }
+    }
+
+    pub fn duration_mut(&mut self) -> Option<&mut Expr> {
+        match &mut self.body {
+            ActionBody::Durative { duration, .. } => Some(duration),
+            ActionBody::Snap { .. } => None,
+        }
+    }
+
+    pub fn set_duration(&mut self, expr: Expr) {
+        match &mut self.body {
+            ActionBody::Durative { duration, .. } => *duration = expr,
+            ActionBody::Snap { .. } => {
+                // Optionnel : on pourrait convertir l'action en durative ici,
+                // mais pour l'instant on ignore ou on pourrait paniquer selon ta préférence.
+            }
+        }
+    }
+
+    // --- Helpers Internes ---
+
+    pub(crate) fn body(&self) -> &ActionBody {
+        &self.body
+    }
 }
 
 impl fmt::Display for Action {

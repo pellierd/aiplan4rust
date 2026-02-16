@@ -31,7 +31,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::grounding::passes::types::{atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, typed_symbol, task, action, durative_action, method, initial_task_network};
+use crate::aiplan4rust::grounding::passes::types::{atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, typed_symbol, task, action, method, initial_task_network};
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 
 const EITHER_PREFIX: &str = "either";
@@ -172,10 +172,6 @@ fn apply_map_to_problem_components(
     // Update Action signatures and effects
     for action in problem.action_defs_mut() {
         action::flatten(action, map)?;
-    }
-
-    for durative_action in problem.durative_action_def_mut() {
-        durative_action::flatten(durative_action, map)?;
     }
 
     // Update HTN Methods

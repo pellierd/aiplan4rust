@@ -20,26 +20,41 @@ pub fn render(
     f: &mut fmt::Formatter<'_>,
     action: &LiftedAction,
     ctx: &RenderContext,
-) -> std::fmt::Result  {
-    // 1. Début de l'action et nom
-    writeln!(f, "  (:action {}", ctx.resolve_action_symbol(action.name()))?;
+) -> std::fmt::Result {
+    let is_durative = action.is_durative();
 
-    // 2. Paramètres : utilisation du helper du contexte pour le formatage PDDL
+    // 1. En-tête : (:action ...) ou (:durative-action ...)
+    let header_keyword = if is_durative { ":durative-action" } else { ":action" };
+    writeln!(f, "  ({} {}", header_keyword, ctx.resolve_action_symbol(action.name()))?;
+
+    // 2. Paramètres
     write!(f, "    :parameters (")?;
     typed_list::render_typed_variable_list(f, action.parameters(), ctx)?;
-    writeln!(f, "  )")?;
+    writeln!(f, ")")?;
 
-    // 3. Préconditions : appel de ton itérateur non-récursif
-    write!(f, "    :precondition ")?;
-    expr::render(f, action.precondition(), ctx)?;
-    writeln!(f)?;
+    // 3. Durée (Uniquement si durative)
+    if let Some(duration_expr) = action.duration() {
+        write!(f, "    :duration ")?;
+        expr::render(f, duration_expr, ctx)?;
+        writeln!(f)?;
+    }
 
-    // 4. Effets : appel de ton itérateur non-récursif
-    write!(f, "    :effect ")?;
-    expr::render(f, action.effect(), ctx)?;
-    writeln!(f)?;
+    // 4. Condition / Precondition
+    if !action.precondition().is_empty() {
+        let cond_label = if is_durative { ":condition" } else { ":precondition" };
+        write!(f, "    {} ", cond_label)?;
+        expr::render(f, action.precondition(), ctx)?;
+        writeln!(f)?;
+    }
 
-    // 5. Fermeture du bloc action
+    // 5. Effets
+    if !action.effect().is_empty() {
+        write!(f, "    :effect ")?;
+        expr::render(f, action.effect(), ctx)?;
+        writeln!(f)?;
+    }
+
+    // 6. Fermeture du bloc
     writeln!(f, "  )")?;
 
     Ok(())
