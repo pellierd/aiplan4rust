@@ -34,10 +34,11 @@
 //! is unsupported, returning an [`ExprError`].
 //!
 
+use std::collections::HashMap;
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::lang::Optimization;
+use crate::aiplan4rust::lang::{ObjectID, Optimization, VariableID};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::expr::{normalize, ExprContent, ExprError, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::{NodeId, Node, Tree};
 use serde::{Deserialize, Serialize};
@@ -45,6 +46,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
+use ordered_float::OrderedFloat;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
@@ -129,7 +131,7 @@ impl Expr {
         self.root_id().is_none()
     }
 
-    pub fn set_to(
+    pub fn set_to_bool(
         &mut self,
         node_id: NodeId,
         value: bool,
@@ -143,9 +145,68 @@ impl Expr {
         };
 
         node_mut.set_kind(kind);
-        node_mut.set_children(vec![]);
+        node_mut.children_mut().clear();
 
         Ok(true)
+    }
+
+    /// Remplace un nœud existant par une constante numérique (Number).
+    /// Utile pour le constant folding et la réduction d'inertie.
+    pub fn set_to_number(
+        &mut self,
+        node_id: NodeId,
+        val: OrderedFloat<f64>
+    ) -> Result<(), ExprError> {
+        let node_mut = self.try_node_mut(node_id)?;
+        node_mut.set_kind(ExprKind::Number);
+        node_mut.set_content(Content::Float(val));
+        node_mut.children_mut().clear();
+        Ok(())
+    }
+
+    /// Version pour les objets (Constant)
+    pub fn set_to_object(
+        &mut self,
+        node_id: NodeId,
+        obj_id: ObjectID
+    ) -> Result<(), ExprError> {
+        let node_mut = self.try_node_mut(node_id)?;
+        node_mut.set_kind(ExprKind::Constant);
+        node_mut.set_content(Content::Constant(obj_id));
+        node_mut.children_mut().clear();
+        Ok(())
+    }
+
+    pub fn substitute(&mut self, root_id: NodeId, env: &HashMap<VariableID, ObjectID>) -> Result<(), ExprError>{
+        // On utilise un parcours post-order ou un simple stack
+        let mut stack = vec![root_id];
+
+        while let Some(current_id) = stack.pop() {
+            let current_node = self.try_node(current_id)?;
+            let kind = current_node.kind();
+
+            match kind {
+                // C'EST ICI : tu interceptes le nœud Variable
+                ExprKind::Variable => {
+                    // On récupère l'ID de la variable (stocké dans le nœud)
+                    let var_node = self.try_node(current_id)?;
+                    let var_id = var_node.try_variable()?;
+
+                    // Si elle est dans notre dictionnaire de substitution
+                    if let Some(&obj_id) = env.get(&var_id) {
+                        // On transforme le nœud Variable en nœud Constant (ObjectID)
+                        // Tu as probablement une méthode comme set_to_object ou replace_with_constant
+                        self.set_to_object(current_id, obj_id)?;
+                    }
+                }
+
+                // Pour tous les autres nœuds, on continue de descendre vers les feuilles
+                _ => {
+                    stack.extend(current_node.children());
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Creates an expression with a single root node of kind `Or` and no content.

@@ -2,7 +2,6 @@ use ordered_float::OrderedFloat;
 use thiserror::Error;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::lir::expr::ExprKind;
-use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;

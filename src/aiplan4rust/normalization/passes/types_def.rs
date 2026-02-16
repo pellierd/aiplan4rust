@@ -318,7 +318,7 @@ fn emit_implicit_either_type_warnings(
 /// ```rust,no_run
 /// # use aiplan4rust::syntax::tree::NodeId;
 /// # use aiplan4rust::syntax::ast::{Ast, AstArena};
-/// # use aiplan4rust::expr::passes::merge_duplicate_type_declarations;
+/// # use aiplan4rust::expr::normalization::merge_duplicate_type_declarations;
 /// # use aiplan4rust::expr::NormalizationPassError;
 /// # fn example() -> Result<(), NormalizationPassError> {
 /// let mut ast = AstArena::new();
@@ -352,7 +352,7 @@ fn emit_implicit_either_type_warnings(
 /// # See Also
 ///
 /// - [`normalize_type_def`] — Wrapper function that applies this merging as part of full expr.
-/// - [`Normalizer`] — Interface that orchestrates multiple expr passes.
+/// - [`Normalizer`] — Interface that orchestrates multiple expr normalization.
 /// - [`Ast`] — The syntax tree structure being normalized.
 /// - [`NodeId`] — Unique identifier for nodes in the AST arena.
 ///
@@ -364,7 +364,7 @@ fn emit_implicit_either_type_warnings(
 /// # Stability
 ///
 /// This function is internal to expr and may be refactored without notice.
-/// It is not intended to be called outside the `passes` module.
+/// It is not intended to be called outside the `normalization` module.
 
 pub fn merge_duplicate_type_declarations(
     types_def_id: NodeId,

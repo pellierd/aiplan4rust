@@ -47,7 +47,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{
 };
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::problem::{DomainDef, ProblemDef};
-use crate::aiplan4rust::lir::{passes, renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LirError};
+use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork, LiftedAction, LiftedDerivedPredicate, LiftedDurativeAction, LiftedMethod, LirError};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -378,7 +378,7 @@ impl Problem {
 
     /// Returns a mutable slice of all type definitions.
     ///
-    /// This is particularly useful for transformation passes, such as
+    /// This is particularly useful for transformation normalization, such as
     /// flattening type hierarchies.
     ///
     /// # Returns
@@ -887,7 +887,7 @@ impl Problem {
     /// Returns a mutable slice of all atomic task skeletons in the problem.
     ///
     /// This allows for batch modification of task structures, which is useful
-    /// for expr or lifting passes.
+    /// for expr or lifting normalization.
     ///
     /// # Returns
     /// A mutable slice of [`AtomicTaskSkeleton`].
@@ -1002,7 +1002,7 @@ impl Problem {
     /// Returns a mutable reference to the global domain constraints.
     ///
     /// This allows for in-place modification of constraints during
-    /// simplification or transformation passes.
+    /// simplification or transformation normalization.
     ///
     /// # Returns
     /// A mutable reference to the [`Expr`] representing the constraints.

@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use crate::aiplan4rust::lir::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::logic::error::LogicError;
@@ -61,7 +60,6 @@ use crate::aiplan4rust::tree::NodeId;
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-    index: Option<&InertiaRegistry>,
 ) -> Result<(), LogicError> {
 
     // Step 1: Flatten nested AND/OR nodes of the same kind
@@ -74,10 +72,10 @@ pub fn simplify(
     deduplicate_and_or_node(node_id, expr)?;
 
     // Step 4: Merge WHEN expr
-    merge_when(node_id, expr, index)?; // merge WHEN expr grouped by effect
+    merge_when(node_id, expr)?; // merge WHEN expr grouped by effect
 
     // Step 5: Simplify tautologies and contradictions
-    if simplify_tautologies_and_contradictions(node_id, expr, index)? {
+    if simplify_tautologies_and_contradictions(node_id, expr)? {
         return Ok(());
     }
 
@@ -288,47 +286,45 @@ fn deduplicate_and_or_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, Log
 fn simplify_tautologies_and_contradictions(
     node_id: NodeId,
     expr: &mut Expr,
-    fact_registry: Option<&InertiaRegistry>,
 ) -> Result<bool, LogicError> {
     let kind = expr.try_node(node_id)?.kind();
-
-    // On copie les IDs des enfants pour libérer l'emprunt sur 'expr'
-    // C'est très léger (Vec d'entiers) et bien plus performant que de re-fetch le parent à chaque tour
     let children = expr.try_node(node_id)?.children().to_vec();
-    if children.is_empty() { return Ok(false); }
 
-    // Utilise le Hash structurel si possible, sinon NodeId
-    let mut positive_hashes = HashSet::with_capacity(children.len());
-    let mut negated_hashes = HashSet::with_capacity(children.len());
+    let mut positive_ids = HashSet::with_capacity(children.len());
+    let mut negated_ids = HashSet::with_capacity(children.len());
 
     for child_id in children {
-        // --- 1. Réduction Statique (Priorité maximale) ---
-        if let Some(registry) = fact_registry {
-            if let Some(reduced_val) = registry.can_reduce_predicate(child_id, expr, kind)? {
-                expr.set_to(node_id, reduced_val)?;
+        let child_node = expr.try_node(child_id)?;
+        let child_kind = child_node.kind();
+
+        // --- 1. Constantes (Post-ordre result) ---
+        // Si l'enfant est devenu True ou False via le registre au tour précédent
+        match (kind, child_kind) {
+            // Dans un AND, si un enfant est FALSE (Or vide), tout est FALSE
+            (ExprKind::And, ExprKind::Or) if child_node.children().is_empty() => {
+                expr.set_to_bool(node_id, false)?;
                 return Ok(true);
             }
+            // Dans un OR, si un enfant est TRUE (And vide), tout est TRUE
+            (ExprKind::Or, ExprKind::And) if child_node.children().is_empty() => {
+                expr.set_to_bool(node_id, true)?;
+                return Ok(true);
+            }
+            _ => {}
         }
 
-        // --- 2. Analyse Structurelle (Lois de non-contradiction / tiers exclu) ---
-        let child_kind = expr.try_node(child_id)?.kind();
-
+        // --- 2. Analyse Structurelle (A et non A) ---
         if child_kind == ExprKind::Not {
-            // On récupère l'ID de ce qui est nié : (not ATOME) -> ATOME
-            let atom_id = expr.try_node(child_id)?.children()[0];
-
-            // On vérifie la structure (via hash ou ID selon ta stratégie)
-            // Si on a déjà vu 'atom_id' en positif, c'est fini.
-            if positive_hashes.contains(&atom_id) {
+            let atom_id = child_node.children()[0];
+            if positive_ids.contains(&atom_id) {
                 return short_circuit_tautology(node_id, expr, kind);
             }
-            negated_hashes.insert(atom_id);
+            negated_ids.insert(atom_id);
         } else {
-            // C'est un nœud positif. On regarde si on a déjà vu sa négation.
-            if negated_hashes.contains(&child_id) {
+            if negated_ids.contains(&child_id) {
                 return short_circuit_tautology(node_id, expr, kind);
             }
-            positive_hashes.insert(child_id);
+            positive_ids.insert(child_id);
         }
     }
 
@@ -361,9 +357,9 @@ fn short_circuit_tautology(
 ) -> Result<bool, LogicError> {
     match kind {
         // Law of excluded middle: (A ∨ ¬A) ≡ True
-        ExprKind::Or => Ok(expr.set_to(node_id, true)?),
+        ExprKind::Or => Ok(expr.set_to_bool(node_id, true)?),
         // Law of non-contradiction: (A ∧ ¬A) ≡ False
-        ExprKind::And => Ok(expr.set_to(node_id, false)?),
+        ExprKind::And => Ok(expr.set_to_bool(node_id, false)?),
         _ => unreachable!("short_circuit_tautology called on non-logical gate: {:?}", kind),
     }
 }
@@ -528,13 +524,12 @@ fn simplify_empty_and_or_node(
 pub fn merge_when(
     node_id: NodeId,
     expr: &mut Expr,
-    index: Option<&InertiaRegistry>,
 ) -> Result<bool, LogicError> {
     // Collect non-WHEN children and merged WHEN conditions
     let (non_when, merged_map) = collect_and_merge_when(node_id, expr)?;
 
     // Rebuild the node's children and get whether a fusion occurred
-    let fusion_occurred = rebuild_children_with_merged_when(node_id, non_when, merged_map, expr, index)?;
+    let fusion_occurred = rebuild_children_with_merged_when(node_id, non_when, merged_map, expr)?;
 
     // Return the fusion flag
     Ok(fusion_occurred)
@@ -694,7 +689,6 @@ fn rebuild_children_with_merged_when(
     non_when: Vec<NodeId>,
     merged_when: Vec<(NodeId, Vec<NodeId>)>,
     expr: &mut Expr,
-    index: Option<&InertiaRegistry>,
 ) -> Result<bool, LogicError> {
     // Retrieve the node and assert it is an AND or OR
     let node = expr.try_node(node_id)?;
@@ -723,7 +717,7 @@ fn rebuild_children_with_merged_when(
                 ExprNode::new(ExprKind::Or, Content::None, None),
                 conds,
             );
-            simplify(or_node, expr, index)?; // Simplify OR node
+            simplify(or_node, expr)?; // Simplify OR node
             or_node
         };
 
@@ -773,7 +767,7 @@ mod realistic_tests {
 
         // 2. Transformation
         // Using try_root_id() to propagate potential errors
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         // According to your original assert, the expected result is an empty OR
@@ -807,7 +801,7 @@ mod realistic_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         // The expected result is an empty AND (logically "True")
@@ -1194,7 +1188,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify tautologies
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         assert!(changed, "The expression should have been simplified");
@@ -1223,7 +1217,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify contradictions
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         assert!(changed, "The contradiction should have been detected and simplified");
@@ -1252,7 +1246,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: simplify (should result in no change)
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         assert!(!changed, "The expression should not have changed");
@@ -1281,7 +1275,7 @@ mod simplify_tautologies_and_contradictions_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: simplify (should result in no change)
-        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr, None)?;
+        let changed = simplify_tautologies_and_contradictions(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         assert!(!changed, "The expression should not have been flagged as changed");
@@ -1726,7 +1720,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Factor out common effect E
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         // The root should now be a single WHEN node: (when (or C1 C2) E)
@@ -1769,7 +1763,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Attempt to simplify
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         // The root must remain an AND node with two distinct WHEN children
@@ -1803,7 +1797,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify the expression
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         // The root AND should be reduced, making the WHEN node the new root
@@ -1841,7 +1835,7 @@ mod simplify_empty_and_or_node_tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Factorize and then Deduplicate
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         // The result should not be (when (or C C) E), but the fully reduced (when C E)

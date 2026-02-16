@@ -1,4 +1,3 @@
-use crate::aiplan4rust::lir::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::tree::{NodeId, Node};
@@ -44,7 +43,6 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-    registry: Option<&InertiaRegistry>,
 ) -> Result<(), LogicError> {
     // Étape 1 : Mise en forme canonique (tri des variables)
     canonicalize_quantifier_vars(node_id, expr)?;
@@ -64,41 +62,13 @@ pub fn simplify(
         return Ok(());
     }
 
-    // Étape 5 : SÉMANTIQUE (Le Registre)
-    // Si l'enfant est une AtomicFormula, on vérifie si elle est impossible
-    if let Some(reg) = registry {
-        if simplify_with_inertia_registry(node_id, expr, reg)? {
-            return Ok(());
-        }
-    }
+    // Étape 5 : Vers l'Elimination (Le futur)
+    // Ici, on pourrait ajouter l'élimination des variables si le domaine
+    // d'un type est connu et statique.
 
     Ok(())
 }
 
-fn simplify_with_inertia_registry(
-    node_id: NodeId,
-    expr: &mut Expr,
-    registry: &InertiaRegistry,
-) -> Result<bool, LogicError> {
-    let node = expr.try_node(node_id)?;
-    let kind = node.kind();
-    let body_id = node.children()[0];
-
-    // On ne sollicite le registre que si l'enfant est resté une AtomicFormula
-    if expr.try_node(body_id)?.kind() == ExprKind::AtomicFormula {
-        // Si l'atome est impossible (Inertie négative ou Koehler count == 0)
-        if let Some(false) = registry.evaluate_predicate(body_id, expr).map_err(LogicError::from)? {
-
-            // En PDDL classique (Closed World Assumption & Non-empty domains) :
-            // (forall (?x) false) -> false
-            // (exists (?x) false) -> false
-            expr.set_to(node_id, false)?;
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
-}
 
 /// Canonicalizes the variables of a quantifier node.
 ///
@@ -385,7 +355,7 @@ mod tests {
 
         // 2. Transformation: simplify (quantifier::simplify)
         // Le quantificateur sans variables est élagué.
-        quantifier::simplify(root_id, &mut expr, None)?;
+        quantifier::simplify(root_id, &mut expr)?;
 
         // 3. Validation
         let root_node = expr.try_node(root_id)?;
@@ -420,7 +390,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 3. Transformation
-           quantifier::simplify(root_id, &mut expr, None)?;
+           quantifier::simplify(root_id, &mut expr)?;
 
            // 4. Validation
            let root_node = expr.try_node(root_id)?;
@@ -455,7 +425,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification
-           quantifier::simplify(root_id, &mut expr, None)?;
+           quantifier::simplify(root_id, &mut expr)?;
 
            // 5. Validation : (exists (?x) (or)) -> (or)
            let root_node = expr.try_node(root_id)?;
@@ -487,7 +457,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification : ne devrait rien changer
-           quantifier::simplify(root_id, &mut expr, None)?;
+           quantifier::simplify(root_id, &mut expr)?;
 
            // 5. Validation
            let root_node = expr.try_node(root_id)?;
@@ -515,7 +485,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 3. Transformation
-           quantifier::simplify(root_id, &mut expr, None)?;
+           quantifier::simplify(root_id, &mut expr)?;
 
            // 4. Validation
            let root_node = expr.try_node(root_id)?;
@@ -550,7 +520,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 3. Transformation : simplify
-           quantifier::simplify(root_id, &mut expr, None)?;
+           quantifier::simplify(root_id, &mut expr)?;
 
            // 4. Validation
            let root_node = expr.try_node(root_id)?;
@@ -586,7 +556,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification
-           quantifier::simplify(root_id, &mut expr, None)?;
+           quantifier::simplify(root_id, &mut expr)?;
 
            // 5. Validation : (exists (?x) (and)) -> (and)
            let root_node = expr.try_node(root_id)?;
@@ -618,7 +588,7 @@ mod tests {
            let root_id = expr.try_root_id()?;
 
            // 4. Simplification : Ne doit rien changer
-           quantifier::simplify(root_id, &mut expr, None)?;
+           quantifier::simplify(root_id, &mut expr)?;
 
            // 5. Validation : (exists (?x) (A)) reste (exists (?x) (A))
            let root_node = expr.try_node(root_id)?;

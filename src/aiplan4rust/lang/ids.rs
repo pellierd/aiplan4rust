@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 // Imports de ton projet
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::lang::LangError;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Trait pour tous les wrappers d'identifiants basés sur un index usize.
@@ -75,6 +76,7 @@ impl_id_type!(PreferenceID);
 impl_id_type!(TaskLabelID);
 impl_id_type!(NumericFluentID);
 impl_id_type!(ObjectID);
+impl_id_type!(FluentID);
 impl_id_type!(ObjectFluentID);
 impl_id_type!(AtomSkeletonID);
 impl_id_type!(FunctionSkeletonID);
@@ -120,6 +122,7 @@ impl_display_prefix!(FunctorID, "f");          // f2  (f pour Functor)
 impl_display_prefix!(TaskSymbolID, "tk");      // tk3 (tk pour Task Symbol)
 impl_display_prefix!(PreferenceID, "pref");    // pref0
 impl_display_prefix!(TaskLabelID, "TK");            // TK1 (Majuscule pour l'instance de tâche vs le symbole)
+impl_display_prefix!(FluentID, "f");     // nf8 (Numeric Fluent)
 impl_display_prefix!(NumericFluentID, "nf");     // nf8 (Numeric Fluent)
 impl_display_prefix!(ObjectID, "o");           // o12 (o pour Object)
 impl_display_prefix!(ObjectFluentID, "of");    // of4 (Object Fluent)
@@ -177,6 +180,59 @@ impl SyntaxInternerDisplay for LiteralID {
 pub enum ArgumentID {
     Object(ObjectID),
     ObjectFluent(ObjectFluentID),
+}
+
+impl Default for ArgumentID {
+    /// Retourne un ArgumentID pointant vers un objet invalide (index MAX).
+    fn default() -> Self {
+        ArgumentID::Object(ObjectID::default())
+    }
+}
+
+impl ArgumentID {
+    /// Tente de récupérer l'ObjectID
+    pub fn as_object(&self) -> Option<ObjectID> {
+        match self {
+            ArgumentID::Object(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Tente de récupérer l'ObjectFluentID
+    pub fn as_fluent(&self) -> Option<ObjectFluentID> {
+        match self {
+            ArgumentID::ObjectFluent(id) => Some(*id),
+            _ => None,
+        }
+    }
+
+    /// Tente d'extraire l'ObjectID.
+    /// Retourne une erreur LangError::UnexpectedFluent si c'est un fluent.
+    pub fn try_as_object(&self) -> Result<ObjectID, LangError> {
+        match self {
+            ArgumentID::Object(id) => Ok(*id),
+            ArgumentID::ObjectFluent(of_id) => Err(LangError::UnexpectedFluent(*of_id)),
+        }
+    }
+
+    /// Tente d'extraire l'ObjectFluentID.
+    /// Retourne une erreur LangError::UnexpectedObject si c'est un objet.
+    pub fn try_as_fluent(&self) -> Result<ObjectFluentID, LangError> {
+        match self {
+            ArgumentID::ObjectFluent(id) => Ok(*id),
+            ArgumentID::Object(obj_id) => Err(LangError::UnexpectedObject(*obj_id)),
+        }
+    }
+
+    /// Méthode de création rapide pour les objets.
+    pub fn from_object(id: ObjectID) -> Self {
+        ArgumentID::Object(id)
+    }
+
+    /// Méthode de création rapide pour les fluents.
+    pub fn from_fluent(id: ObjectFluentID) -> Self {
+        ArgumentID::ObjectFluent(id)
+    }
 }
 
 impl fmt::Display for ArgumentID {

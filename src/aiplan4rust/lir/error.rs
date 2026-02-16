@@ -2,7 +2,7 @@ use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, LangError, ObjectID, StringID, TaskSkeletonID, Type, TypeID};
-use crate::aiplan4rust::lir::analysis::inertia::InertiaError;
+use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};

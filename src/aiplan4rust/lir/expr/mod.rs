@@ -53,4 +53,3 @@ pub use kind::Kind as ExprKind;
 pub use expr::Expr;
 pub use error::ExprError;
 use crate::aiplan4rust::lir::logic::simplify;
-pub use crate::aiplan4rust::lir::passes::expr::expr::normalize;

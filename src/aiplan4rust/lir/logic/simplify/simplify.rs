@@ -1,7 +1,6 @@
-use crate::aiplan4rust::lir::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::expr::kind::Kind;
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::logic::{LogicError, StaticEvaluator, StaticValue};
 use crate::aiplan4rust::lir::logic::simplify::{and_or, arithmetic, assign, comparison, not, quantifier, when};
 use crate::aiplan4rust::tree::NodeId;
 
@@ -50,7 +49,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// # Notes
 /// - Post-order traversal ensures that children are simplified before their parents,
 ///   which is essential for flattening, deduplication, and factorization.
-/// - Nodes that do not require simplification (atomic formulas, types, constants, variables, etc.) are skipped.
+/// - Nodes that do not require simplification (types, constants, variables, etc.) are skipped.
 ///
 /// # Example
 /// ```ignore
@@ -67,7 +66,7 @@ use crate::aiplan4rust::tree::NodeId;
 pub fn simplify(
     root_id: NodeId,
     expr: &mut Expr,
-    index: Option<&InertiaRegistry>,
+    evaluator: Option<&dyn StaticEvaluator>, // Utilisation du Trait au lieu du Registre concret
 ) -> Result<(), LogicError> {
 
     // Stack pour DFS post-order: (node_id, visited)
@@ -81,22 +80,21 @@ pub fn simplify(
             let node = expr.try_node(node_id)?;
             let children = node.children();
 
-            // OPTIMISATION : Si le nœud est une feuille ou un atome,
-            // on ne descend pas plus loin dans le DFS.
-            if children.is_empty()
-                || node.kind() == ExprKind::FunctionTerm {
+            if children.is_empty() {
                 postorder.push(node_id);
-                continue;
-            }
-            stack.push((node_id, true));
-            for &child_id in expr.try_node(node_id)?.children() {
-                stack.push((child_id, false));
+            } else {
+                stack.push((node_id, true));
+                // Inverser pour traiter l'enfant de gauche en premier
+                for &child_id in children.iter().rev() {
+                    stack.push((child_id, false));
+                }
             }
         }
     }
 
+    // On applique la simplification sur chaque nœud
     for node_id in postorder {
-        simplify_node(node_id, expr, index)?;
+        simplify_node(node_id, expr, evaluator)?;
     }
 
     Ok(())
@@ -132,42 +130,44 @@ pub fn simplify(
 fn simplify_node(
     node_id: NodeId,
     expr: &mut Expr,
-    registry: Option<&InertiaRegistry>,
+    evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), LogicError> {
     let kind = expr.try_node(node_id)?.kind();
 
     match kind {
-        // Logical operators
-        ExprKind::And | ExprKind::Or => and_or::simplify(node_id, expr, registry)?,
-        ExprKind::Not => not::simplify(node_id, expr, registry)?,
-        ExprKind::Forall | ExprKind::Exists => quantifier::simplify(node_id, expr, registry)?,
+        // Opérateurs logiques et arithmétiques (inchangé)
+        ExprKind::And | ExprKind::Or => and_or::simplify(node_id, expr)?,
+        ExprKind::Not => not::simplify(node_id, expr)?,
+        ExprKind::Forall | ExprKind::Exists => quantifier::simplify(node_id, expr)?,
         ExprKind::Assign => assign::simplify(node_id, expr)?,
         ExprKind::FComp => comparison::simplify(node_id, expr)?,
         ExprKind::Operation => arithmetic::simplify(node_id, expr)?,
         ExprKind::When => when::simplify(node_id, expr)?,
 
-        // Nodes that should not appear here
         ExprKind::Imply => return Err(LogicError::invalid_expr_node(node_id, ExprKind::Imply)),
 
-        // AtomicFormula -> on utilise le registre ici
-        ExprKind::AtomicFormula => {
-            if let Some(registry) = registry {
-                if let Some(reduced_val) = registry.can_reduce_predicate(node_id, expr, kind)? {
-                    expr.set_to(node_id, reduced_val)?;
+        // Unification du traitement AtomicFormula (Prédicats) et FunctionTerm
+        ExprKind::AtomicFormula | ExprKind::FunctionTerm => {
+            if let Some(eval) = evaluator {
+                // On utilise la méthode unique du trait
+                if let Some(static_val) = eval.evaluate(node_id, expr) {
+                    match static_val {
+                        StaticValue::Boolean(is_true) => { expr.set_to_bool(node_id, is_true)?; },
+                        StaticValue::Number(num) => { expr.set_to_number(node_id, num)?; },
+                        StaticValue::Object(obj) => { expr.set_to_object(node_id, obj)?; },
+                    }
                 }
             }
         },
 
-
-        // No simplification needed, post-order ensures children are already simplified
+        // Spécificateurs temporels et contraintes (inchangé)
         Kind::AtStart | Kind::AtEnd | Kind::Overall
         | Kind::Always | Kind::Sometime | Kind::Within
         | Kind::AtMostOnce | Kind::SometimeAfter
         | Kind::SometimeBefore | Kind::AlwaysWithin
         | Kind::HoldDuring | Kind::HoldAfter => {}
 
-        // Leaf nodes or nodes that don’t require simplification
-        Kind::FunctionTerm
+        // Feuilles et terminaux (inchangé)
         | Kind::Number | Kind::Preference | Kind::Constant | Kind::Variable | Kind::FunctionSymbol
         | Kind::Predicate | Kind::TaskSymbol | Kind::PrefName
         | Kind::TimedInitialLiteral | Kind::Metric | Kind::TotalTime | Kind::IsViolated

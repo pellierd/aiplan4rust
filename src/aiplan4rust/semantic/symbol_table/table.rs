@@ -830,7 +830,7 @@ impl Table {
     /// - One other compatible kind may exist, but not more.
     ///
     /// # Returns
-    /// - `Ok(Some(&Declaration))`: If validation passes.
+    /// - `Ok(Some(&Declaration))`: If validation normalization.
     /// - `Ok(None)`: If no matching declaration exists.
     /// - `Err`: If validation fails due to ambiguity or incompatible kinds.
     fn validate_type_or_predicate_declarations<'a>(

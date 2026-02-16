@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, PredicateID, TypeID};
-use crate::aiplan4rust::grounding::problem::numeric_fluent::NumericFluent;
-use crate::aiplan4rust::grounding::problem::object_fluent::ObjectFluent;
-use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
+use crate::aiplan4rust::grounding::numeric_fluent::NumericFluent;
+use crate::aiplan4rust::grounding::object_fluent::ObjectFluent;
+use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolTable;
 use crate::aiplan4rust::interner::{InternerError, StringInterner};

@@ -125,7 +125,7 @@ fn check_well_formed_from(node: &AstNode, ast: &Ast) -> Result<(), WellFormedErr
 /// * `ast` - Reference to the entire AST, used when context or additional data is needed for validation.
 ///
 /// # Returns
-/// * `Ok(())` if the node passes all structural checks for its kind.
+/// * `Ok(())` if the node normalization all structural checks for its kind.
 /// * `Err(WellFormedError)` if the node violates expected structure or semantic rules.
 ///
 /// # Notes

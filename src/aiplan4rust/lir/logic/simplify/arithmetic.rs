@@ -55,6 +55,7 @@ pub fn simplify(
     Ok(())
 }
 
+
 /// Flattens nested arithmetic expr of the same operator.
 ///
 /// This function normalizes arithmetic expr by pulling up children from
@@ -163,7 +164,7 @@ fn reduce(
             // --- Logic: Absorbing Elements ---
             // x * 0 = 0
             if op == ArithmeticOp::Mul && val.0 == 0.0 {
-                return replace_with_constant(node_id, expr, OrderedFloat(0.0));
+                return Ok(expr.set_to_number(node_id, OrderedFloat(0.0))?);
             }
 
             // --- Logic: Neutral Elements ---
@@ -182,10 +183,10 @@ fn reduce(
     if non_constant_children.is_empty() {
         // ... (ton code actuel pour le cas full constant est parfait) ...
         if constant_values.is_empty() {
-            return replace_with_constant(node_id, expr, identity_element(op));
+            return Ok(expr.set_to_number(node_id, identity_element(op))?);
         }
         let result = evaluate_arithmetic_expression(op, &constant_values)?;
-        replace_with_constant(node_id, expr, result)
+        Ok(expr.set_to_number(node_id, result)?)
     } else if !constant_values.is_empty() && (op == ArithmeticOp::Add || op == ArithmeticOp::Mul) {
         // On ne fait de réduction PARTIELLE que pour + et *
         apply_partial_reduction(node_id, expr, op, constant_values, non_constant_children)
@@ -211,16 +212,6 @@ fn identity_element(op: ArithmeticOp) -> OrderedFloat<f64> {
         ArithmeticOp::Mul | ArithmeticOp::Div => OrderedFloat(1.0),
     }
 }
-
-/// Utility to replace a node with a single constant Number.
-fn replace_with_constant(node_id: NodeId, expr: &mut Expr, val: OrderedFloat<f64>) -> Result<(), LogicError> {
-    let node_mut = expr.try_node_mut(node_id)?;
-    node_mut.set_kind(ExprKind::Number);
-    node_mut.set_content(Content::Float(val));
-    node_mut.set_children(vec![]);
-    Ok(())
-}
-
 fn apply_partial_reduction(
     node_id: NodeId,
     expr: &mut Expr,
@@ -247,7 +238,7 @@ fn apply_partial_reduction(
     match non_constants.len() {
         0 => {
             // All children were neutral: reduce the parent to the identity element (e.g., 0 for +)
-            replace_with_constant(node_id, expr, identity_element(op))?;
+            expr.set_to_number(node_id, identity_element(op))?;
         }
         1 => {
             // Optimization: (+ x) -> x.

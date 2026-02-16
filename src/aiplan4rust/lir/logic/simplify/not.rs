@@ -1,6 +1,4 @@
-use crate::aiplan4rust::lir::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::tree::NodeId;
 
@@ -25,7 +23,6 @@ use crate::aiplan4rust::tree::NodeId;
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-    registry: Option<&InertiaRegistry>,
 ) -> Result<(), LogicError> {
     // ÉTAPE 1 : Double Négation (Structurelle)
     // (not (not X)) -> X
@@ -41,37 +38,7 @@ pub fn simplify(
         return Ok(());
     }
 
-    // ÉTAPE 3 : Registre (Sémantique / Coupe)
-    // Si l'enfant est une AtomicFormula, on vérifie si elle est "morte"
-    if let Some(reg) = registry {
-        if simplify_with_fact_registry(node_id, expr, reg)? {
-            return Ok(());
-        }
-    }
-
     Ok(())
-}
-fn simplify_with_fact_registry(
-    node_id: NodeId,
-    expr: &mut Expr,
-    registry: &InertiaRegistry,
-) -> Result<bool, LogicError> {
-    let node = expr.try_node(node_id)?;
-    let child_id = node.children()[0];
-
-    // On ne sollicite le registre que si l'enfant est une formule atomique.
-    // Si c'était une constante, l'étape 2 l'aurait déjà traité.
-    if expr.try_node(child_id)?.kind() == ExprKind::AtomicFormula {
-        // On convertit l'InertiaError en LogicError
-        if let Some(false) = registry.evaluate_predicate(child_id, expr).map_err(LogicError::from)? {
-            // L'atome est statiquement faux (Koehler ou Inertie négative)
-            // (not false) -> true
-            expr.set_to(node_id, true)?;
-            return Ok(true);
-        }
-    }
-
-    Ok(false)
 }
 
 /// Simplifies a double negation in a PDDL expression tree.
@@ -193,12 +160,12 @@ fn simplify_trivial_constant(node_id: NodeId, expr: &mut Expr) -> Result<bool, L
     match child.kind() {
         // (not true) -> false
         ExprKind::And => {
-            expr.set_to(node_id, false)?;
+            expr.set_to_bool(node_id, false)?;
             Ok(true)
         }
         // (not false) -> true
         ExprKind::Or => {
-            expr.set_to(node_id, true)?;
+            expr.set_to_bool(node_id, true)?;
             Ok(true)
         }
         _ => Ok(false),
@@ -225,7 +192,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify !!A -> A
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         let root_node = expr.try_root_node()?;
@@ -253,7 +220,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify !!Subtree -> Subtree
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         let root_node = expr.try_root_node()?;
@@ -282,7 +249,7 @@ mod tests {
 
         // 2. Transformation: Simplify
         // On vérifie qu'une simple négation sans double négation reste intacte.
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         let root_node = expr.try_root_node()?;
@@ -306,7 +273,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify ¬True -> False
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         let root_node = expr.try_root_node()?;
@@ -331,7 +298,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Transformation: Simplify ¬False -> True
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         let root_node = expr.try_root_node()?;
@@ -358,7 +325,7 @@ mod tests {
 
         // 2. Transformation: Simplify
         // On s'assure qu'un littéral négatif n'est pas touché.
-        simplify(expr.try_root_id()?, &mut expr, None)?;
+        simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
         let root_node = expr.try_root_node()?;

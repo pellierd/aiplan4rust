@@ -37,7 +37,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 /// * `Err(ExprError)` on structural access issues.
 pub fn simplify(
     node_id: NodeId,
-    expr: &mut Expr
+    expr: &mut Expr,
 ) -> Result<(), LogicError> {
     let node = expr.try_node(node_id)?;
 
@@ -63,7 +63,6 @@ pub fn simplify(
 
     Ok(())
 }
-
 
 /// Normalize asymmetric comparisons in FComp nodes:
 ///   (> a b)  → (< b a)
@@ -219,7 +218,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
     };
 
     // Replace the node using set_to
-    expr.set_to(node_id, result)?;
+    expr.set_to_bool(node_id, result)?;
 
     Ok(true)
 }

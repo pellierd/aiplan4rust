@@ -5,7 +5,7 @@
 //! (such as task networks, methods, and actions) into a more canonical or simplified form
 //! suitable for subsequent reasoning, compilation, or execution.
 //!
-//! This error type encapsulates failures originating from expr passes, such as:
+//! This error type encapsulates failures originating from expr normalization, such as:
 //!
 //! - [`SyntaxTreeError`]: Structural or semantic issues found in the syntax tree.
 //! - [`ArenaError`]: Memory allocation or referencing problems within arena-based storage.
@@ -22,7 +22,7 @@
 //! fn normalize_something() -> Result<(), NormalizationError> {
 //!     // ...
 //!     Err(NormalizationError::from(
-//!         aiplan4rust::expr::passes::NormalizationPassError::Interner(
+//!         aiplan4rust::expr::normalization::NormalizationPassError::Interner(
 //!             some_interner_error
 //!         )
 //!     ))
@@ -41,7 +41,7 @@ use crate::aiplan4rust::validation::common::WellNormalizedError;
 /// expr invariants.
 ///
 /// # Variants
-/// - `NormalizationPass`: Errors originating from specific expr passes,
+/// - `NormalizationPass`: Errors originating from specific expr normalization,
 ///   typically caused by invalid or unexpected nodes in the syntax tree.
 /// - `WellNormalized`: Errors detected during the verification that the AST
 ///   is well normalized after processing.

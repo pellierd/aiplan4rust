@@ -1,10 +1,8 @@
 pub mod problem;
-pub mod fluent;
 pub(super) mod builders;
-pub mod value_domain;
-mod object_fluent;
-mod numeric_fluent;
 
 pub use crate::aiplan4rust::lir::problem::symbol_table::SymbolTable;
-pub use fluent::Fluent;
+pub use crate::aiplan4rust::grounding::fluent::Fluent;
+pub use crate::aiplan4rust::grounding::object_fluent::ObjectFluent;
+pub use crate::aiplan4rust::grounding::numeric_fluent::NumericFluent;
 pub use problem::Problem;

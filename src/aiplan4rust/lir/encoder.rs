@@ -17,7 +17,7 @@
 //!
 //! # Purpose
 //! This IR is a crucial intermediate step for:
-//! - Subsequent compiler passes or transformations.
+//! - Subsequent compiler normalization or transformations.
 //! - Planning solvers that instantiate and search for plans.
 //! - Frontends for visualization or debugging.
 //!
@@ -39,10 +39,8 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::{passes, LirBuilderResult, LirError};
-use crate::aiplan4rust::lir::encode::{domain, problem, EncodingRegistry};
-use crate::aiplan4rust::lir::logic::LogicEngine;
-use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
+use crate::aiplan4rust::lir::{encoding, normalization, LirBuilderResult, LirError};
+use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
 /// syntax domain/problem into a *lifted intermediate representation* (LiftedProblem).
@@ -62,7 +60,7 @@ use crate::aiplan4rust::lir::renderers::LiftedSyntaxDisplay;
 ///
 /// # Why is this useful?
 /// - This lifted problem can then be used by:
-///   - Other compiler passes or transformations.
+///   - Other compiler normalization or transformations.
 ///   - A solver to instantiate and search for plans.
 ///   - A visualization frontend.
 ///
@@ -173,10 +171,10 @@ pub fn encode_lifted_problem(
     let problem_symbol_table = context.take_problem_table();
     let problem_syntax_tree = context.take_problem_syntax_tree();
     registry.set_symbol_table(problem_symbol_table);
-    problem::encode(&problem_syntax_tree, &mut registry, &mut problem)?;
+    encoding::encode_problem(&problem_syntax_tree, &mut registry, &mut problem)?;
 
     // 5. Normalize all expr in the problem
-    passes::expr::problem::normalize(&mut problem)?;
+    normalization::normalize_problem(&mut problem)?;
 
     // Optional: print definitions for debugging
     /*let domain_def = problem.domain_def();

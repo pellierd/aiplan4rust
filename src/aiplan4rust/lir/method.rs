@@ -28,12 +28,11 @@
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::{StringID, TypeID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
-use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::{passes, renderers, LiftedTaskNetwork};
+use crate::aiplan4rust::lir::{renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]

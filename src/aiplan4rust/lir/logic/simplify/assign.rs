@@ -30,7 +30,10 @@ const ONE: OrderedFloat<f64> = OrderedFloat(1.0);
 ///   and should be called as part of the assignment expr pipeline.
 /// - The function preserves the expression tree structure by replacing trivial
 ///   assignments rather than removing nodes from the parent.
-pub(in crate::aiplan4rust::lir) fn simplify(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
+pub fn simplify(
+    node_id: NodeId,
+    expr: &mut Expr,
+) -> Result<(), LogicError> {
     simplify_trivial_assignments(node_id, expr)?;
     Ok(())
 }

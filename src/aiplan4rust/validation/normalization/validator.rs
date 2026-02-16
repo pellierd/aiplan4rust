@@ -108,7 +108,7 @@ pub fn check_well_normalized_from(node: &AstNode, ast: &Ast) -> Result<(), WellN
 /// * `ast` - The whole AST context.
 ///
 /// # Returns
-/// * `Ok(())` if the node passes expr checks.
+/// * `Ok(())` if the node normalization expr checks.
 /// * `Err(WellNormalizedError)` if any check fails.
 pub fn check_well_normalized_node(node: &AstNode, ast: &Ast) -> Result<(), WellNormalizedError> {
     match node.kind() {

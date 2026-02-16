@@ -40,8 +40,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::lang::{StringID, TaskSkeletonID};
 use crate::aiplan4rust::lir::expr::Expr;
-use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::lir::{passes, renderers};
+use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::tree::NodeId;
 

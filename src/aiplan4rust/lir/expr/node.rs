@@ -37,12 +37,11 @@
 //! identification extraction fails or when the node kind does not correspond to a symbol.
 
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind};
-use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
+use crate::aiplan4rust::tree::NodeId;
 use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use ordered_float::OrderedFloat;
 use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, PreferenceID, TaskLabelID, TaskSkeletonID, TaskSymbolID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::renderers;

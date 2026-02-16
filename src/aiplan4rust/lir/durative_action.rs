@@ -8,12 +8,11 @@
 use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lang::StringID;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::lir::expr::Expr;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::{passes, renderers, LiftedAction};
+use crate::aiplan4rust::lir::{renderers, LiftedAction};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
 /// Represents a lifted PDDL durative action.

@@ -20,13 +20,13 @@
 //!
 //! This module is composed of several submodules and utilities:
 //!
-//! - [`passes`] — Contains the individual expr passes:
+//! - [`passes`] — Contains the individual expr normalization:
 //!   - [`typed_list`] — Expands and validates `TypedList` declarations.
 //!   - [`either_type`] — Rewrites `either` expr into concrete disjunctions.
 //!   - [`require_def`] — Deduplicates and validates domain-level requirements.
 //!   - [`type_def`] — Consolidates type_checker hierarchies and removes redundancies.
 //!
-//! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all expr passes.
+//! - [`normalizer`] — Provides the [`Normalizer`] struct, the main interface to apply all expr normalization.
 //!
 //! - [`result`] — Defines [`NormalizerResult`], the output of expr containing:
 //!   - The possibly modified AST,
@@ -79,7 +79,7 @@
 //! - **AST validity is a precondition**: the input [`Ast`] must be structurally sound.
 //!   Invalid ASTs may trigger internal expr errors.
 //!
-//! - **Pass ordering is critical**: expr passes are executed in a specific sequence,
+//! - **Pass ordering is critical**: expr normalization are executed in a specific sequence,
 //!   and skipping or reordering them may result in inconsistent or incorrect ASTs.
 //!
 //! - Diagnostics allow partial recovery: even if expr completes, collected diagnostics
