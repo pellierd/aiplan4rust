@@ -1383,7 +1383,7 @@ impl Problem {
     /// let domain = problem.domain_def();
     /// println!("Domain name: {}", domain.domain_name());
     /// ```
-    pub fn domain_def(&self) -> DomainDef<'_> {
+    pub fn domain_view(&self) -> DomainDef<'_> {
         DomainDef::new(self)
     }
 
@@ -1403,7 +1403,7 @@ impl Problem {
     /// let problem_def = problem.problem_def();
     /// println!("Problem name: {}", problem_def.problem_name());
     /// ```
-    pub fn problem_def(&self) -> ProblemDef<'_> {
+    pub fn problem_view(&self) -> ProblemDef<'_> {
         ProblemDef::new(self)
     }
 }
