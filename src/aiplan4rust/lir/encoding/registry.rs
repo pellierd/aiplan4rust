@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, FunctorID, ObjectID, PredicateID, TaskSymbolID, TaskSkeletonID, TypeID, VariableID, PreferenceID, StringID, TaskLabelID};
 use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
 use crate::aiplan4rust::tree::NodeId;
 
@@ -49,6 +50,7 @@ pub struct EncodingRegistry {
     /// to its local `VariableID` index (0, 1, 2...).
     /// This handles local scope (actions, forall, exists) without naming conflicts.
     variable_to_id: HashMap<NodeId, VariableID>,
+    variable_id_to_symbol: Vec<StringID>,
 
     preference_to_id: HashMap<NodeId, PreferenceID>,
 
@@ -87,6 +89,7 @@ impl EncodingRegistry {
             task_skeleton_to_id: HashMap::new(),
             task_symbol_to_id: HashMap::new(),
             variable_to_id : HashMap::new(),
+            variable_id_to_symbol: Vec::new(),
             preference_to_id: HashMap::new(),
             task_label_to_id: HashMap::new(),
             task_label_id_to_symbol: Vec::new(),
@@ -190,10 +193,24 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::object_not_found(name_id))
     }
 
-    pub fn register_variable(&mut self, variable: NodeId) -> VariableID{
-        let id = VariableID::new(self.variable_to_id.len());
-        self.variable_to_id.insert(variable, id);
+    /// Enregistre une variable liée à un nœud AST.
+    pub fn register_variable(&mut self, node_id: NodeId, symbol: StringID) -> VariableID {
+        if let Some(&id) = self.variable_to_id.get(&node_id) {
+            return id;
+        }
+        let id = VariableID::new(self.variable_id_to_symbol.len());
+        self.variable_to_id.insert(node_id, id);
+        self.variable_id_to_symbol.push(symbol);
         id
+    }
+
+    /// Extrait les symboles dans un `SymbolRegistry<VariableID>` tout propre.
+    pub fn get_variable_symbols(&mut self) -> SymbolRegistry<VariableID> {
+        let mut registry = SymbolRegistry::new();
+        for &symbol in self.variable_id_to_symbol.iter() {
+            registry.insert(symbol);
+        }
+        registry
     }
 
     pub fn resolve_variable(&self, decl_id: NodeId) -> Option<VariableID> {
@@ -209,6 +226,7 @@ impl EncodingRegistry {
 
     pub fn clear_variables(&mut self) {
         self.variable_to_id.clear();
+        self.variable_id_to_symbol.clear();
     }
 
     pub fn resolve_task_symbol(&self, symbol: NodeId) -> Option<TaskSymbolID> {
@@ -238,18 +256,6 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
 
-
-
-    /*pub fn register_type_symbol(&mut self, symbol: StringID, node_id: NodeId) -> TypeID {
-        let id = if let Some(&existing_id) = self.type_symbol_to_id.get(&symbol) {
-            existing_id
-        } else {
-            let new_id = TypeID::new(self.type_symbol_to_id.len());
-            self.type_symbol_to_id.insert(symbol, new_id);
-            new_id
-        };
-        id
-    }*/
 
     pub fn register_type_symbol(&mut self, symbol: StringID, node_id: NodeId) -> TypeID {
         // 1. Check if the type symbol is already registered
@@ -343,12 +349,20 @@ impl EncodingRegistry {
         self.task_label_id_to_symbol[id.as_usize()]
     }
 
-    pub fn clear_task_label(&mut self) {
+    pub fn get_task_label_symbols(&self) -> SymbolRegistry<TaskLabelID> {
+        let mut registry = SymbolRegistry::new();
+        for &symbol in self.task_label_id_to_symbol.iter() {
+            registry.insert(symbol);
+        }
+        registry
+    }
+
+    pub fn clear_task_labels(&mut self) {
         self.task_label_to_id.clear();
         self.task_label_id_to_symbol.clear();
     }
 
-    pub fn task_label_count(&self) -> usize {
+    pub fn task_label_symbols_count(&self) -> usize {
         self.task_label_to_id.len()
     }
 }

@@ -3,7 +3,7 @@ use crate::aiplan4rust::grounding::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
-use crate::aiplan4rust::grounding::problem::SymbolTable;
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::interner::{InternerError, StringInterner};
 use crate::aiplan4rust::lang::{Requirement, StringID, TaskSymbolID, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -26,11 +26,11 @@ pub struct Problem {
     problem_name: StringID,
     requirements: HashSet<Requirement>,
 
-    type_symbols: SymbolTable<TypeID>,
-    object_symbols: SymbolTable<ObjectID>,
-    predicate_symbols: SymbolTable<PredicateID>,
-    function_symbols: SymbolTable<FunctorID>,
-    task_symbols: SymbolTable<TaskSymbolID>,
+    type_symbols: SymbolRegistry<TypeID>,
+    object_symbols: SymbolRegistry<ObjectID>,
+    predicate_symbols: SymbolRegistry<PredicateID>,
+    function_symbols: SymbolRegistry<FunctorID>,
+    task_symbols: SymbolRegistry<TaskSymbolID>,
     
 
     type_defs: Vec<TypedSymbol<TypeID, TypeID>>,
@@ -112,13 +112,13 @@ impl Problem {
             domain_name: StringID::default(),
             problem_name: StringID::default(),
             requirements: HashSet::new(),
-            type_symbols: SymbolTable::new(),
-            predicate_symbols: SymbolTable::new(),
+            type_symbols: SymbolRegistry::new(),
+            predicate_symbols: SymbolRegistry::new(),
             predicate_defs: Vec::new(),
-            function_symbols: SymbolTable::new(),
+            function_symbols: SymbolRegistry::new(),
             functions_def: Vec::new(),
-            task_symbols: SymbolTable::new(),
-            object_symbols: SymbolTable::new(),
+            task_symbols: SymbolRegistry::new(),
+            object_symbols: SymbolRegistry::new(),
             type_objects: Vec::new(),
             object_defs: Vec::new(),
             fluents: Vec::new(),
@@ -181,17 +181,17 @@ impl Problem {
     // ---------- Type symbol table ----------
 
     /// Returns a reference to the type symbols table.
-    pub fn type_symbols(&self) -> &SymbolTable<TypeID> {
+    pub fn type_symbols(&self) -> &SymbolRegistry<TypeID> {
         &self.type_symbols
     }
 
     /// Returns a mutable reference to the type symbols table.
-    pub fn type_symbols_mut(&mut self) -> &mut SymbolTable<TypeID> {
+    pub fn type_symbols_mut(&mut self) -> &mut SymbolRegistry<TypeID> {
         &mut self.type_symbols
     }
 
     /// Replaces the current type symbols table with the provided one.
-    pub fn set_type_symbols(&mut self, table: SymbolTable<TypeID>) {
+    pub fn set_type_symbols(&mut self, table: SymbolRegistry<TypeID>) {
         self.type_symbols = table;
     }
 
@@ -232,17 +232,17 @@ impl Problem {
     // ------------------- PREDICATES -------------------
 
     /// Returns the symbol table mapping predicate identifiers to indices.
-    pub fn predicate_symbols(&self) -> &SymbolTable<PredicateID> {
+    pub fn predicate_symbols(&self) -> &SymbolRegistry<PredicateID> {
         &self.predicate_symbols
     }
 
     /// Returns the symbol table for predicates, mutable.
-    fn predicate_symbols_mut(&mut self) -> &mut SymbolTable<PredicateID> {
+    fn predicate_symbols_mut(&mut self) -> &mut SymbolRegistry<PredicateID> {
         &mut self.predicate_symbols
     }
 
     /// Replaces the predicates symbol table with the provided one.
-    fn set_predicate_symbols(&mut self, table: SymbolTable<PredicateID>) {
+    fn set_predicate_symbols(&mut self, table: SymbolRegistry<PredicateID>) {
         self.predicate_symbols = table;
     }
 
@@ -264,17 +264,17 @@ impl Problem {
     // ------------------- FUNCTIONS -------------------
 
     /// Returns the symbol table mapping numeric function identifiers to indices.
-    pub fn function_symbols(&self) -> &SymbolTable<FunctorID> {
+    pub fn function_symbols(&self) -> &SymbolRegistry<FunctorID> {
         &self.function_symbols
     }
 
     /// Returns a mutable reference to the functions symbol table.
-    fn function_symbols_mut(&mut self) -> &mut SymbolTable<FunctorID> {
+    fn function_symbols_mut(&mut self) -> &mut SymbolRegistry<FunctorID> {
         &mut self.function_symbols
     }
 
     /// Replaces the functions symbol table with the provided one.
-    fn set_function_symbols(&mut self, table: SymbolTable<FunctorID>) {
+    fn set_function_symbols(&mut self, table: SymbolRegistry<FunctorID>) {
         self.function_symbols = table;
     }
 
@@ -304,17 +304,17 @@ impl Problem {
     // ------------------- OBJECTS -------------------
 
     /// Returns the symbol table mapping object identifiers to indices.
-    pub fn object_symbols(&self) -> &SymbolTable<ObjectID> {
+    pub fn object_symbols(&self) -> &SymbolRegistry<ObjectID> {
         &self.object_symbols
     }
 
     /// Returns a mutable reference to the objects symbol table.
-    fn object_symbols_mut(&mut self) -> &mut SymbolTable<ObjectID> {
+    fn object_symbols_mut(&mut self) -> &mut SymbolRegistry<ObjectID> {
         &mut self.object_symbols
     }
 
     /// Replaces the objects symbol table with the provided one.
-    fn set_object_symbols(&mut self, table: SymbolTable<ObjectID>) {
+    fn set_object_symbols(&mut self, table: SymbolRegistry<ObjectID>) {
         self.object_symbols = table;
     }
 

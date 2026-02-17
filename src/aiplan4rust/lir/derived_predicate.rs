@@ -10,15 +10,16 @@ use crate::aiplan4rust::lir::renderers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::AtomSkeletonID;
+use crate::aiplan4rust::lang::{AtomSkeletonID, VariableID};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
 
 /// Represents a derived predicate in a PDDL problem.
 ///
 /// A `DerivedPredicate` consists of:
 /// - `head`: the predicate's name and parameters (`AtomicFormulaSkeleton`).
 /// - `body`: a logical expression (`Expr`) defining when the predicate holds.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct DerivedPredicate {
     /// Unique identifier of the skeleton associated with this predicate.
     /// Essential for inertia analysis and efficient grounding.
@@ -33,6 +34,8 @@ pub struct DerivedPredicate {
 
     /// The logical expression defining the derived predicate.
     body: Expr,
+
+    variable_symbols: SymbolRegistry<VariableID>,
 }
 
 impl DerivedPredicate {
@@ -64,8 +67,15 @@ impl DerivedPredicate {
         Self {
             head_id: header_id,
             head,
-            body
+            body,
+            variable_symbols: SymbolRegistry::new()
         }
+    }
+
+    /// Permet d'ajouter les symboles après la création de manière élégante.
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+        self.variable_symbols = symbols;
+        self
     }
 
     /// Returns the unique skeleton identifier for this derived predicate.
@@ -128,6 +138,13 @@ impl DerivedPredicate {
     pub fn set_body(&mut self, body: Expr) {
         self.body = body;
     }
+
+    /// Accès en lecture seule à la table des noms (symboles) des variables.
+    /// À utiliser pour le rendu ou les messages d'erreur.
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+
+    /// Accès mutable à la table des noms des variables.
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
 
 }
 

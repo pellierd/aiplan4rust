@@ -78,7 +78,9 @@ pub fn encode(
                 }
             }
 
-            let action = Action::new_snap(action_symbol_id, parameters, precondition, effect);
+            let variable_symbols = registry.get_variable_symbols();
+            let action = Action::new_snap(action_symbol_id, parameters, precondition, effect)
+                .with_variable_symbols(variable_symbols);
             ir.add_action_def(action);
         }
         AstKind::DurativeActionDef => {
@@ -100,7 +102,8 @@ pub fn encode(
             let eff_node = ast.try_node(eff_node_id)?;
             let effect = expr::encode(&SyntaxSubtree::new(eff_node, eff_node_id, ast), registry)?;
 
-            let action = Action::new_durative(action_symbol_id, parameters, duration, condition, effect);
+            let variable_symbols = registry.get_variable_symbols();
+            let action = Action::new_durative(action_symbol_id, parameters, duration, condition, effect).with_variable_symbols(variable_symbols);
             ir.add_action_def(action);
         }
         _ => return Err(LirError::action_ast_kind_error(kind)),

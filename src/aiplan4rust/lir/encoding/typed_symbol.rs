@@ -97,7 +97,10 @@ pub fn encode_typed_variable(
     let ast = subtree.tree();
     let children = typed_symbol_node.children();
 
-    let variable_id = registry.register_variable(children[0]);
+    let variable_node_id = typed_symbol_node.try_child(0)?;
+    let variable_node = ast.try_node(variable_node_id)?;
+    let variable_symbol = variable_node.try_ident()?;
+    let variable_id = registry.register_variable(variable_node_id, variable_symbol);
 
     // The second child contains the type definitions (e.g., 'type1' or an 'either' block)
     let ty = if children.len() > 1 {

@@ -17,7 +17,7 @@
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
-
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lang::{StringID, TaskSymbolID, TypeID, TypedList, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 
@@ -47,10 +47,11 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 /// - Implements [`Deref`] and [`DerefMut`] to expose the underlying [`NamedTypedList`] transparently.
 /// - Can be created from an AST syntax via [`FromAst`].
 /// - Supports pretty-printing and interner-based rendering.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Task {
     /// Underlying signature containing the name and parameters.
     header: NamedTypedList<TaskSymbolID>,
+    variable_symbols: SymbolRegistry<VariableID>,
 }
 
 impl Task {
@@ -61,36 +62,30 @@ impl Task {
     /// - `name`: The identifier for this task.
     /// - `parameters`: A typed list describing the task's parameters.
     pub fn new(task_symbol: TaskSymbolID, parameters: TypedList<VariableID, TypeID>) -> Self {
-        let signature = NamedTypedList::new(task_symbol, parameters);
-        Self { header: signature }
+        let header = NamedTypedList::new(task_symbol, parameters);
+        Self {
+            header,
+            variable_symbols: SymbolRegistry::new()
+        }
     }
 
-    /// Creates a new `Task` from an already constructed task header.
-    ///
-    /// This constructor is intended for **internal use only** within the crate.
-    /// It allows creating a `Task` by taking ownership of an existing
-    /// [`NamedTypedList`], avoiding the need to deconstruct and rebuild the
-    /// signature during the encoding process.
-    ///
-    /// # Arguments
-    ///
-    /// * `header` - A fully constructed task header (name and parameters).
-    ///
-    /// # Returns
-    ///
-    /// A new `Task` instance.
-    ///
-    /// # Notes
-    ///
-    /// This function is marked `pub(crate)` as it is a specialized constructor
-    /// for the LIR translation layer and should not be used by external consumers.
-    pub(crate) fn from_header(header: NamedTypedList<TaskSymbolID>) -> Self {
-        Self { header }
+    /// Permet d'ajouter les symboles après la création de manière élégante.
+    /// Usage : Action::new_simple(...).with_symbols(ma_table)
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+        self.variable_symbols = symbols;
+        self
     }
 
     pub fn task_symbol(&self) -> TaskSymbolID {
         self.header.symbol()
     }
+
+    /// Accès en lecture seule à la table des noms (symboles) des variables.
+    /// À utiliser pour le rendu ou les messages d'erreur.
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+
+    /// Accès mutable à la table des noms des variables.
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
 }
 
 impl Deref for Task {
@@ -115,30 +110,3 @@ impl fmt::Display for Task {
         self.header.fmt(f)
     }
 }
-
-/*impl InternerDisplay for Task {
-    /// Formats the task using the provided interner to resolve identifier names.
-    ///
-    /// This allows rendering identifiers as their original strings instead of numeric IDs.
-    fn fmt_with_interner(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        self.header.fmt_with_interner(f, interner)
-    }
-}
-
-impl SyntaxInternerDisplay for Task {
-    /// Formats the task in a syntax-oriented representation.
-    ///
-    /// This can be used to reconstruct or pretty-print the original declaration.
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)
-    }
-}*/

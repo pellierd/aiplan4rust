@@ -23,6 +23,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 
 /// Represents the signature of an atomic function in a PDDL-like domain.
 ///
@@ -64,13 +65,15 @@ use std::ops::{Deref, DerefMut};
 /// ```text
 /// (distance ?from - location ?to - location) -> number
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Function {
     /// The internal signature: name and parameters.
     header: NamedTypedList<FunctorID>,
 
     /// The return type_checker of the function.
     ty: Type<TypeID>,
+
+    variable_symbols: SymbolRegistry<VariableID>,
 }
 
 impl Function {
@@ -81,27 +84,19 @@ impl Function {
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `types`: The return type_checker of the function.
     pub fn new(functor: FunctorID, parameters: TypedList<VariableID, TypeID>, ty: Type<TypeID>) -> Self {
-        let signature = NamedTypedList::new(functor, parameters);
-        Self { header: signature, ty }
+        let header = NamedTypedList::new(functor, parameters);
+        Self {
+            header,
+            ty,
+            variable_symbols: SymbolRegistry::new()
+        }
     }
 
-    // Creates a new `Function` from an already constructed header and a return type.
-    ///
-    /// This constructor is intended for **internal use only** within the crate.
-    /// It allows creating a `Function` skeleton by taking ownership of an
-    /// existing [`NamedTypedList`], which is particularly useful when
-    /// encoding domain functions where the signature and type are parsed separately.
-    ///
-    /// # Arguments
-    ///
-    /// * `header` - A fully constructed header containing the function name and parameters.
-    /// * `types` - The return type of the function (usually a numeric type).
-    ///
-    /// # Returns
-    ///
-    /// A new `Function` instance.
-    pub(crate) fn from_header(header: NamedTypedList<FunctorID>, ty: Type<TypeID>) -> Self {
-        Self { header, ty }
+    /// Permet d'ajouter les symboles après la création de manière élégante.
+    /// Usage : Action::new_simple(...).with_symbols(ma_table)
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+        self.variable_symbols = symbols;
+        self
     }
 
     /// Returns a reference to the return type_checker.
@@ -117,6 +112,14 @@ impl Function {
     pub fn functor(&self) -> FunctorID {
         self.header.symbol()
     }
+
+    /// Accès en lecture seule à la table des noms (symboles) des variables.
+    /// À utiliser pour le rendu ou les messages d'erreur.
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+
+    /// Accès mutable à la table des noms des variables.
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
+
 
 }
 
@@ -141,41 +144,3 @@ impl fmt::Display for Function {
         write!(f, "{} -> {}", self.header, self.ty)
     }
 }
-
-/*impl InternerDisplay for Function {
-    /// Displays the function using interned identifiers.
-    fn fmt_with_interner(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-    ) -> fmt::Result {
-        write!(
-            f,
-            "{} -> {}",
-            self.header.to_string_with_interner(interner),
-            self.types.to_string_with_interner(interner)
-        )
-    }
-}
-
-impl SyntaxInternerDisplay for Function {
-    /// Displays the function in a syntax-oriented form (e.g., PDDL-style).
-    fn fmt_syntax_with_interner_and_indent(
-        &self,
-        f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
-        indent: usize,
-    ) -> fmt::Result {
-        // Write the header with indentation
-        self.header.fmt_syntax_with_interner_and_indent(f, interner, indent)?;
-
-        // Write the separator " - "
-        write!(f, " - ")?;
-
-        // Write the type_checker by converting it to string and then writing to formatter
-        let ty_str = self.types.to_syntax_string_with_interner(interner);
-        write!(f, "{}", ty_str)?;
-
-        Ok(())
-    }
-}*/

@@ -39,6 +39,9 @@ pub fn encode(
     let node = subtree.node();
     let ast = subtree.tree();
 
+    registry.clear_variables();
+    registry.clear_task_labels();
+
     // --- ÉTAPE 1 : Identité de la Méthode ---
     let method_name_node_id = node.try_child(0)?;
     let method_name_node = ast.try_node(method_name_node_id)?;
@@ -47,14 +50,9 @@ pub fn encode(
     // Réservation de l'ID sémantique dans le Problem
     let method_symbol_id = ir.add_method_symbol(method_name_str_id);
 
-    // --- ÉTAPE 2 : Encodage de la Signature (Paramètres) ---
-    registry.clear_variables();
-
-    // ParametersDef obligatoire à l'index 1
+    // --- ÉTAPE 2 : Encodage de la Signature ---
     let parameters_def_id = node.try_child(1)?;
     let parameters_def_node = ast.try_node(parameters_def_id)?;
-    debug_assert!(parameters_def_node.kind() == AstKind::ParametersDef);
-
     let vars_node_id = parameters_def_node.try_child(0)?;
     let vars_node = ast.try_node(vars_node_id)?;
 
@@ -62,9 +60,6 @@ pub fn encode(
         &SyntaxSubtree::new(vars_node, vars_node_id, ast),
         registry
     )?;
-
-    // Création du header utilisant le MethodSymbolID
-    let header = NamedTypedList::new(method_symbol_id, parameters);
 
     // --- ÉTAPE 3 : Encodage du Corps (Task, Precondition, Network) ---
     let def_body_node = ast.try_node(node.try_child(2)?)?;
@@ -98,7 +93,20 @@ pub fn encode(
     let task_network = task_network::encode(&SyntaxSubtree::new(tw_node_def, tw_node_def_id, ast), registry)?;
 
     // --- ÉTAPE 4 : Stockage ---
-    let method_skeleton = Method::from_header(header, achieved_task, precondition, task_network);
+    let variable_symbols = registry.get_variable_symbols();
+    let task_label_symbols = registry.get_task_label_symbols();
+
+    // On passe 'parameters' directement : il est déplacé (move) dans Method sans clone.
+    let method_skeleton = Method::new(
+        method_symbol_id,
+        parameters,
+        achieved_task,
+        precondition,
+        task_network
+    )
+        .with_variable_symbols(variable_symbols)
+        .with_task_label_symbols(task_label_symbols);
+
     ir.add_method_def(method_skeleton);
 
     Ok(())

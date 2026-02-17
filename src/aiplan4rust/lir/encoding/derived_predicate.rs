@@ -76,6 +76,12 @@ pub fn encode(
         &SyntaxSubtree::new(body_node, body_node_id, ast),
         registry
     )?;
-
-    Ok(DerivedPredicate::new(head_skeleton_id, head_skeleton, body))
+    let variable_symbols = registry.get_variable_symbols();
+    let derived_predicate = DerivedPredicate::new(
+        head_skeleton_id,
+        head_skeleton,
+        body
+    )
+        .with_variable_symbols(variable_symbols);
+    Ok(derived_predicate)
 }

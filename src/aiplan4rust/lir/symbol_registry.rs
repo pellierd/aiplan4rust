@@ -11,12 +11,12 @@ use crate::aiplan4rust::lang::StringID;
 /// Works for `TypeID`, `ObjectID`, `ObjectFluentID`, `NumericFluentID`, etc.
 /// Provides fast lookups in both directions.
 #[derive(Debug, Clone, Eq, PartialEq, Default, Serialize, Deserialize)]
-pub struct SymbolTable<ID: Id> {
+pub struct SymbolRegistry<ID: Id> {
     pub elements: Vec<StringID>,   // idx -> Ident
     pub map: HashMap<StringID, ID>, // Ident -> ID
 }
 
-impl<ID: Id> SymbolTable<ID> {
+impl<ID: Id> SymbolRegistry<ID> {
     pub fn new() -> Self {
         Self {
             elements: Vec::new(),
@@ -82,7 +82,7 @@ impl<ID: Id> SymbolTable<ID> {
     }
 }
 
-impl<ID: Id> fmt::Display for SymbolTable<ID> {
+impl<ID: Id> fmt::Display for SymbolRegistry<ID> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.elements.is_empty() {
             return writeln!(f, "<empty table>");
@@ -97,7 +97,7 @@ impl<ID: Id> fmt::Display for SymbolTable<ID> {
     }
 }
 
-impl<ID: Id> InternerDisplay for SymbolTable<ID> {
+impl<ID: Id> InternerDisplay for SymbolRegistry<ID> {
     fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,

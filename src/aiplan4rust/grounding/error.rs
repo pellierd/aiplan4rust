@@ -1,7 +1,7 @@
 use std::backtrace::Backtrace;
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
+use crate::aiplan4rust::lir::symbol_registry::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{StringID, Type};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;

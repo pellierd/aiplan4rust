@@ -38,6 +38,7 @@
 //! available for resolution by child nodes (the quantifier's body) during the
 //! traversal.
 
+use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
@@ -349,8 +350,10 @@ fn encode_content(
             // can resolve these variables even without a recursive call stack.
             for &typed_variable_node_id in typed_list_node.children() {
                 let typed_variable_node = subtree.tree().try_node(typed_variable_node_id)?;
-                let variable_node_id = typed_variable_node.children()[0];
-                registry.register_variable(variable_node_id);
+                let variable_node_id = typed_variable_node.try_child(0)?;
+                let variable_node = subtree.tree().try_node(variable_node_id)?;
+                let variable_symbol = variable_node.try_ident()?;
+                registry.register_variable(variable_node_id, variable_symbol);
             }
 
             Ok(ExprContent::QuantifierVariables(vars))

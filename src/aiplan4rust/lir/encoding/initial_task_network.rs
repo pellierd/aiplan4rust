@@ -32,6 +32,8 @@ pub fn encode(
     let ast = subtree.tree();
 
     registry.clear_variables();
+    registry.clear_task_labels();
+
 
     let mut child_index = 0;
 
@@ -63,6 +65,13 @@ pub fn encode(
     // Le task_network::encoding pourra maintenant utiliser registry.try_resolve_variable
     // pour lier les tâches aux paramètres définis ci-dessus.
     let tw = task_network::encode(&SyntaxSubtree::new(tw_node, tw_node_id, ast), registry)?;
-
-    Ok(InitialTaskNetwork::new(parameters, tw))
+    let variable_symbols = registry.get_variable_symbols();
+    let task_label_symbols = registry.get_task_label_symbols();
+    let init_tw = InitialTaskNetwork::new(
+        parameters,
+        tw
+    )
+        .with_variable_symbols(variable_symbols)
+        .with_task_label_symbols(task_label_symbols);
+    Ok(init_tw)
 }

@@ -26,16 +26,17 @@
 //! ```
 
 use crate::aiplan4rust::lang::typed_list::TypedList;
-use crate::aiplan4rust::lang::{MethodSymbolID, StringID, TypeID, VariableID};
+use crate::aiplan4rust::lang::{MethodSymbolID, TaskLabelID, TypeID, VariableID};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::{renderers, LiftedTaskNetwork};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Method {
     /// The method's header, containing its name and parameters.
     header: NamedTypedList<MethodSymbolID>,
@@ -49,6 +50,9 @@ pub struct Method {
 
     /// The lifted task network describing the subtasks for decomposition.
     task_network: LiftedTaskNetwork,
+
+    variable_symbols: SymbolRegistry<VariableID>,
+    task_label_symbols: SymbolRegistry<TaskLabelID>,
 }
 
 #[allow(dead_code)]
@@ -76,43 +80,21 @@ impl Method {
             task,
             precondition,
             task_network,
+            variable_symbols: SymbolRegistry::new(),
+            task_label_symbols: SymbolRegistry::new(),
         }
     }
 
-    /// Creates a new `Method` from an already constructed method header.
-    ///
-    /// This constructor is intended for **internal use only** within the crate.
-    /// It allows creating a `Method` without rebuilding or cloning the
-    /// [`NamedTypedList`] header, which is useful during transformations such as
-    /// grounding, expr, or compilation to other representations.
-    ///
-    /// # Arguments
-    ///
-    /// * `header` - A fully constructed method header (name and parameters).
-    /// * `task` - The task expression refined or decomposed by this method.
-    /// * `precondition` - Expression representing the precondition.
-    /// * `task_network` - The lifted task network describing the subtasks.
-    ///
-    /// # Returns
-    ///
-    /// A new `Method` instance taking ownership of the provided header.
-    ///
-    /// # Notes
-    ///
-    /// This function takes ownership of `header` to avoid unnecessary cloning
-    /// and should not be exposed as part of the public API.
-    pub(crate) fn from_header(
-        header: NamedTypedList<MethodSymbolID>,
-        task: Expr,
-        precondition: Expr,
-        task_network: LiftedTaskNetwork,
-    ) -> Self {
-        Self {
-            header,
-            task,
-            precondition,
-            task_network,
-        }
+    /// Injecte le registre des symboles de variables.
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+        self.variable_symbols = symbols;
+        self
+    }
+
+    /// Injecte le registre des étiquettes de tâches.
+    pub fn with_task_label_symbols(mut self, symbols: SymbolRegistry<TaskLabelID>) -> Self {
+        self.task_label_symbols = symbols;
+        self
     }
 
     /// Returns the method's name as an identifier.
@@ -192,6 +174,24 @@ impl Method {
     /// Returns a mutable reference to the task network.
     pub fn task_network_mut(&mut self) -> &mut LiftedTaskNetwork {
         &mut self.task_network
+    }
+
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> {
+        &self.variable_symbols
+    }
+
+    pub fn task_label_symbols(&self) -> &SymbolRegistry<TaskLabelID> {
+        &self.task_label_symbols
+    }
+
+    // --- Accesseurs Mutables (Mutators) ---
+
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> {
+        &mut self.variable_symbols
+    }
+
+    pub fn task_label_symbols_mut(&mut self) -> &mut SymbolRegistry<TaskLabelID> {
+        &mut self.task_label_symbols
     }
 
 }

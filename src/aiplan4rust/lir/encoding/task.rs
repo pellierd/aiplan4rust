@@ -73,8 +73,12 @@ pub fn encode(
 
     // 3. CONSTRUCTION : On utilise task_symbol_id au lieu de name_str_id
     // La signature contient maintenant l'ID typé
-    let signature = NamedTypedList::new(task_symbol_id, parameters);
-    let task_skeleton = Task::from_header(signature);
+    let variable_symbols = registry.get_variable_symbols();
+    let task_skeleton = Task::new(
+        task_symbol_id,
+        parameters
+    )
+        .with_variable_symbols(variable_symbols);
 
     // 4. STOCKAGE : On enregistre le squelette
     // Note: add_task_def ne renvoie plus que le skeleton_id puisque le symbol_id est déjà connu

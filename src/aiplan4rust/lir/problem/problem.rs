@@ -53,7 +53,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use crate::aiplan4rust::grounding::problem::SymbolTable;
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
@@ -68,19 +68,19 @@ pub struct Problem {
 
     // --- SYMBOL TABLES (Identity Management) ---
     /// Map between type names and their internal IDs.
-    type_symbols: SymbolTable<TypeID>,
+    type_symbols: SymbolRegistry<TypeID>,
     /// Map between object names and their internal IDs.
-    object_symbols: SymbolTable<ObjectID>,
+    object_symbols: SymbolRegistry<ObjectID>,
     /// Map between predicate names and their internal IDs.
-    predicate_symbols: SymbolTable<PredicateID>,
+    predicate_symbols: SymbolRegistry<PredicateID>,
     /// Map between function (functor) names and their internal IDs.
-    function_symbols: SymbolTable<FunctorID>,
+    function_symbols: SymbolRegistry<FunctorID>,
     /// Map between HTN task names and their internal IDs.
-    task_symbols: SymbolTable<TaskSymbolID>,
+    task_symbols: SymbolRegistry<TaskSymbolID>,
     // Map between Action names and their internal IDs.
-    action_symbols: SymbolTable<ActionSymbolID>,
+    action_symbols: SymbolRegistry<ActionSymbolID>,
     /// Map between Method names and their internal IDs.
-    method_symbols: SymbolTable<MethodSymbolID>,
+    method_symbols: SymbolRegistry<MethodSymbolID>,
 
     // --- DEFINITIONS (Lifted Structure / Skeletons) ---
     /// List of type definitions, including hierarchy (parent-child relations).
@@ -149,23 +149,23 @@ impl Problem {
             domain_name: StringID::default(),
             problem_name: StringID::default(),
             requirements,
-            type_symbols: SymbolTable::new(),
+            type_symbols: SymbolRegistry::new(),
             type_defs: Vec::new(),
-            object_symbols: SymbolTable::new(),
+            object_symbols: SymbolRegistry::new(),
             object_defs: Vec::new(),
             constant_offset: 0,
-            predicate_symbols: SymbolTable::new(),
+            predicate_symbols: SymbolRegistry::new(),
             predicate_defs: Vec::new(),
-            function_symbols: SymbolTable::new(),
+            function_symbols: SymbolRegistry::new(),
             function_defs: Vec::new(),
-            task_symbols: SymbolTable::new(),
+            task_symbols: SymbolRegistry::new(),
             task_defs: Vec::new(),
             domain_constraints: Expr::empty_or(),
             derived_predicate_defs: Vec::new(),
             action_defs: Vec::new(),
-            action_symbols: SymbolTable::new(),
+            action_symbols: SymbolRegistry::new(),
             method_defs: Vec::new(),
-            method_symbols: SymbolTable::new(),
+            method_symbols: SymbolRegistry::new(),
             init: Expr::empty_and(),
             goal: Expr::empty_or(),
             problem_constraints: Expr::empty_or(),
@@ -332,9 +332,9 @@ impl Problem {
     /// Returns a read-only reference to the type symbol table.
     ///
     /// # Returns
-    /// A reference to the [`SymbolTable<TypeID>`]. To add new symbols,
+    /// A reference to the [`SymbolRegistry<TypeID>`]. To add new symbols,
     /// use [`add_type_symbol`] to maintain internal consistency.
-    pub fn type_symbols(&self) -> &SymbolTable<TypeID> {
+    pub fn type_symbols(&self) -> &SymbolRegistry<TypeID> {
         &self.type_symbols
     }
 
@@ -366,8 +366,8 @@ impl Problem {
     /// without copying the underlying strings.
     ///
     /// # Returns
-    /// The [`SymbolTable<TypeID>`] previously owned by the problem.
-    pub fn take_type_symbols(&mut self) -> SymbolTable<TypeID> {
+    /// The [`SymbolRegistry<TypeID>`] previously owned by the problem.
+    pub fn take_type_symbols(&mut self) -> SymbolRegistry<TypeID> {
         std::mem::take(&mut self.type_symbols)
     }
 
@@ -483,7 +483,7 @@ impl Problem {
     }
 
     /// Returns a read-only reference to the object symbol table.
-    pub fn object_symbol(&self) -> &SymbolTable<ObjectID> {
+    pub fn object_symbol(&self) -> &SymbolRegistry<ObjectID> {
         &self.object_symbols
     }
 
@@ -504,8 +504,8 @@ impl Problem {
     /// Takes ownership of the object symbol table, leaving an empty one in its place.
     ///
     /// # Returns
-    /// The [`SymbolTable<ObjectID>`] previously owned by the problem.
-    pub fn take_object_symbols(&mut self) -> SymbolTable<ObjectID> {
+    /// The [`SymbolRegistry<ObjectID>`] previously owned by the problem.
+    pub fn take_object_symbols(&mut self) -> SymbolRegistry<ObjectID> {
         std::mem::take(&mut self.object_symbols)
     }
 
@@ -648,7 +648,7 @@ impl Problem {
     /// Returns a read-only reference to the predicate symbol table.
     ///
     /// This table maps [`PredicateID`]s to their string identifiers.
-    pub fn predicate_symbols(&self) -> &SymbolTable<PredicateID> {
+    pub fn predicate_symbols(&self) -> &SymbolRegistry<PredicateID> {
         &self.predicate_symbols
     }
 
@@ -664,8 +664,8 @@ impl Problem {
     /// that needs to own the symbol mapping.
     ///
     /// # Returns
-    /// The [`SymbolTable<PredicateID>`] previously owned by the problem.
-    pub fn take_predicate_symbols(&mut self) -> SymbolTable<PredicateID> {
+    /// The [`SymbolRegistry<PredicateID>`] previously owned by the problem.
+    pub fn take_predicate_symbols(&mut self) -> SymbolRegistry<PredicateID> {
         std::mem::take(&mut self.predicate_symbols)
     }
 
@@ -736,7 +736,7 @@ impl Problem {
     /// Returns a read-only reference to the function symbol table.
     ///
     /// This table maps [`FunctorID`]s to their string identifiers.
-    pub fn function_symbols(&self) -> &SymbolTable<FunctorID> {
+    pub fn function_symbols(&self) -> &SymbolRegistry<FunctorID> {
         &self.function_symbols
     }
 
@@ -750,8 +750,8 @@ impl Problem {
     /// (e.g., the Grounder) without cloning.
     ///
     /// # Returns
-    /// The [`SymbolTable<FunctorID>`] previously owned by the problem.
-    pub fn take_function_symbols(&mut self) -> SymbolTable<FunctorID> {
+    /// The [`SymbolRegistry<FunctorID>`] previously owned by the problem.
+    pub fn take_function_symbols(&mut self) -> SymbolRegistry<FunctorID> {
         std::mem::take(&mut self.function_symbols)
     }
 
@@ -869,7 +869,7 @@ impl Problem {
     ///
     /// This table maps [`TaskSymbolID`]s to their string identifiers,
     /// typically used for HTN (Hierarchical Task Network) tasks.
-    pub fn task_symbols(&self) -> &SymbolTable<TaskSymbolID> {
+    pub fn task_symbols(&self) -> &SymbolRegistry<TaskSymbolID> {
         &self.task_symbols
     }
 
@@ -883,8 +883,8 @@ impl Problem {
     /// or grounding process without cloning the underlying data.
     ///
     /// # Returns
-    /// The [`SymbolTable<TaskSymbolID>`] previously owned by the problem.
-    pub fn take_task_symbols(&mut self) -> SymbolTable<TaskSymbolID> {
+    /// The [`SymbolRegistry<TaskSymbolID>`] previously owned by the problem.
+    pub fn take_task_symbols(&mut self) -> SymbolRegistry<TaskSymbolID> {
         std::mem::take(&mut self.task_symbols)
     }
 
@@ -1068,7 +1068,7 @@ impl Problem {
         self.derived_predicate_defs.push(predicate);
     }
 
-    pub fn action_symbols(&self) -> &SymbolTable<ActionSymbolID> {
+    pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolID> {
         &self.action_symbols
     }
 
@@ -1113,7 +1113,7 @@ impl Problem {
         self.action_defs.push(action);
     }
 
-    pub fn method_symbols(&self) -> &SymbolTable<MethodSymbolID> {
+    pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolID> {
         &self.method_symbols
     }
 

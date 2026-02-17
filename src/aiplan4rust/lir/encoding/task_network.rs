@@ -42,8 +42,6 @@ pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
 ) -> Result<TaskNetwork, LirError> {
-    // 0. Reset local scope to prevent cross-method label leakage
-    registry.clear_task_label();
 
     // PASS 1: Scan for labels (t1:, t2:) and map them to indices
     collect_task_labels(subtree, registry)?;
@@ -135,7 +133,7 @@ fn finalize_task_network(
     total_ordered: bool,
     registry: &EncodingRegistry,
 ) -> Result<TaskNetwork, LirError> {
-    let num_tasks = registry.task_label_count();
+    let num_tasks = registry.task_label_symbols_count();
     let mut task_nodes = vec![NodeId::default(); num_tasks];
     let mut task_defs = vec![TaskSkeletonID::default(); num_tasks];
     let mut task_labels = vec![StringID::default(); num_tasks];
@@ -160,56 +158,5 @@ fn finalize_task_network(
             }
         }
     }
-    Ok(TaskNetwork::new(tasks, ordering, constraints, total_ordered, task_labels, task_defs, task_nodes))
+    Ok(TaskNetwork::new(tasks, ordering, constraints, total_ordered, task_defs, task_nodes))
 }
-
-/*pub fn encoding(
-    subtree: &SyntaxSubtree<AstNode>,
-    registry: &mut EncodingRegistry,
-) -> Result<TaskNetwork, LirError> {
-    let node = subtree.node();
-    let ast = subtree.tree();
-
-    let mut tasks = Expr::empty_and();
-    let mut ordering = Expr::empty_and();
-    let mut constraints = Expr::empty_and();
-    let mut is_declared_total_ordered = false;
-
-    for &child_id in node.children() {
-        let child_node = ast.try_node(child_id)?;
-
-        match child_node.kind() {
-            AstKind::PartiallyOrderedSubtaskDef => {
-                let tasks_node_id = child_node.try_child(0)?;
-                let tasks_node = ast.try_node(tasks_node_id)?;
-                tasks = expr::encoding(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), registry)?;
-            }
-            AstKind::OrderedSubtaskDef => {
-                let tasks_node_id = child_node.try_child(0)?;
-                let tasks_node = ast.try_node(tasks_node_id)?;
-                tasks = expr::encoding(&SyntaxSubtree::new(tasks_node, tasks_node_id, ast), registry)?;
-                is_declared_total_ordered = true;
-            }
-            AstKind::TaskOrderingConstraintDef => {
-                let ordering_node_id = child_node.try_child(0)?;
-                let ordering_node = ast.try_node(ordering_node_id)?;
-                ordering = expr::encoding(&SyntaxSubtree::new(ordering_node, ordering_node_id, ast), registry)?;
-            }
-            AstKind::TaskLogicalConstraintDef => {
-                let logical_node_id = child_node.try_child(0)?;
-                let logical_node = ast.try_node(logical_node_id)?;
-                constraints = expr::encoding(&SyntaxSubtree::new(logical_node, logical_node_id, ast), registry)?;
-            }
-            _ => {
-                return Err(LirError::task_network_ast_kind_error(child_node.kind()));
-            }
-        }
-    }
-
-    Ok(TaskNetwork::new(
-        tasks,
-        ordering,
-        constraints,
-        is_declared_total_ordered,
-    ))
-}*/

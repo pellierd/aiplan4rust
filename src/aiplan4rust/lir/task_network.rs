@@ -38,7 +38,7 @@
 use std::fmt::{Display, Formatter};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::lang::{StringID, TaskSkeletonID};
+use crate::aiplan4rust::lang::TaskSkeletonID;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
@@ -59,7 +59,6 @@ pub struct TaskNetwork {
     ordering_constraints: Expr,
     logical_constraints: Expr,
     is_declared_total_ordered: bool,
-    task_labels: Vec<StringID>,
     task_def: Vec<TaskSkeletonID>,
     task_nodes: Vec<NodeId>,
 }
@@ -94,7 +93,6 @@ impl TaskNetwork {
         ordering_constraints: Expr,
         logical_constraints: Expr,
         is_declared_total_ordered: bool,
-        task_labels: Vec<StringID>,
         task_def: Vec<TaskSkeletonID>,
         task_nodes: Vec<NodeId>,
     ) -> Self {
@@ -103,7 +101,6 @@ impl TaskNetwork {
             ordering_constraints,
             logical_constraints,
             is_declared_total_ordered,
-            task_labels,
             task_def,
             task_nodes
 

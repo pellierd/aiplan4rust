@@ -4,26 +4,29 @@
 //! The `InitialTaskNetwork` consists of a list of typed parameters and
 //! a lifted task network describing the tasks and their relationships.
 
-use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{TaskLabelID, TypeID, TypedList, VariableID};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 use crate::aiplan4rust::lir::{renderers, LiftedTaskNetwork};
 
 /// Represents the initial task network, containing parameters and a lifted task network.
 ///
 /// This struct encapsulates the starting point of a hierarchical task network
 /// with its parameters and the task network that specifies the initial tasks.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct InitialTaskNetwork {
     /// The typed parameters of the initial task network.
     parameters: TypedList<VariableID, TypeID>,
 
     /// The lifted task network describing the initial tasks.
     task_network: LiftedTaskNetwork,
+
+    variable_symbols: SymbolRegistry<VariableID>,
+    task_label_symbols: SymbolRegistry<TaskLabelID>,
 }
 
-#[allow(dead_code)]
 impl InitialTaskNetwork {
     /// Creates a new `InitialTaskNetwork` with given parameters and task network.
     ///
@@ -34,7 +37,24 @@ impl InitialTaskNetwork {
     /// # Returns
     /// A new instance of `InitialTaskNetwork`.
     pub fn new(parameters: TypedList<VariableID, TypeID>, task_network: LiftedTaskNetwork) -> Self {
-        Self { parameters, task_network }
+        Self {
+            parameters,
+            task_network,
+            variable_symbols: SymbolRegistry::new(),
+            task_label_symbols: SymbolRegistry::new(),
+        }
+    }
+
+    /// Injecte le registre des symboles de variables.
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+        self.variable_symbols = symbols;
+        self
+    }
+
+    /// Injecte le registre des étiquettes de tâches.
+    pub fn with_task_label_symbols(mut self, symbols: SymbolRegistry<TaskLabelID>) -> Self {
+        self.task_label_symbols = symbols;
+        self
     }
 
     /// Returns an immutable reference to the parameters.
@@ -65,6 +85,24 @@ impl InitialTaskNetwork {
     /// Sets the task network to a new `LiftedTaskNetwork`.
     pub fn set_task_network(&mut self, task_network: LiftedTaskNetwork) {
         self.task_network = task_network;
+    }
+
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> {
+        &self.variable_symbols
+    }
+
+    pub fn task_label_symbols(&self) -> &SymbolRegistry<TaskLabelID> {
+        &self.task_label_symbols
+    }
+
+    // --- Accesseurs Mutables (Mutators) ---
+
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> {
+        &mut self.variable_symbols
+    }
+
+    pub fn task_label_symbols_mut(&mut self) -> &mut SymbolRegistry<TaskLabelID> {
+        &mut self.task_label_symbols
     }
 }
 

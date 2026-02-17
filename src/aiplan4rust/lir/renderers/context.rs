@@ -1,16 +1,16 @@
 use crate::aiplan4rust::interner::StringInterner;
 use crate::aiplan4rust::lang::{ActionSymbolID, FunctorID, MethodSymbolID, ObjectID, PredicateID, StringID, TaskSymbolID, TypeID};
-use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolTable};
+use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
 
 pub struct RenderContext<'a> {
     interner: &'a StringInterner,
-    type_symbols: &'a SymbolTable<TypeID>,
-    predicate_symbols: &'a SymbolTable<PredicateID>,
-    functor_symbols: &'a SymbolTable<FunctorID>,
-    object_symbols: &'a SymbolTable<ObjectID>,
-    task_symbols: &'a SymbolTable<TaskSymbolID>,
-    action_symbols: &'a SymbolTable<ActionSymbolID>,
-    method_symbols: &'a SymbolTable<MethodSymbolID>,
+    type_symbols: &'a SymbolRegistry<TypeID>,
+    predicate_symbols: &'a SymbolRegistry<PredicateID>,
+    functor_symbols: &'a SymbolRegistry<FunctorID>,
+    object_symbols: &'a SymbolRegistry<ObjectID>,
+    task_symbols: &'a SymbolRegistry<TaskSymbolID>,
+    action_symbols: &'a SymbolRegistry<ActionSymbolID>,
+    method_symbols: &'a SymbolRegistry<MethodSymbolID>,
 }
 
 impl<'a> RenderContext<'a> {
@@ -28,15 +28,15 @@ impl<'a> RenderContext<'a> {
     }
 
     // --- Accesseurs directs aux tables ---
-    pub fn types(&self) -> &SymbolTable<TypeID> { self.type_symbols }
-    pub fn predicates(&self) -> &SymbolTable<PredicateID> { self.predicate_symbols }
-    pub fn functors(&self) -> &SymbolTable<FunctorID> { self.functor_symbols }
-    pub fn objects(&self) -> &SymbolTable<ObjectID> { self.object_symbols }
-    pub fn task_symbols(&self) -> &SymbolTable<TaskSymbolID> { self.task_symbols }
+    pub fn types(&self) -> &SymbolRegistry<TypeID> { self.type_symbols }
+    pub fn predicates(&self) -> &SymbolRegistry<PredicateID> { self.predicate_symbols }
+    pub fn functors(&self) -> &SymbolRegistry<FunctorID> { self.functor_symbols }
+    pub fn objects(&self) -> &SymbolRegistry<ObjectID> { self.object_symbols }
+    pub fn task_symbols(&self) -> &SymbolRegistry<TaskSymbolID> { self.task_symbols }
 
-    pub fn action_symbols(&self) -> &SymbolTable<ActionSymbolID> { self.action_symbols }
+    pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolID> { self.action_symbols }
 
-    pub fn method_symbols(&self) -> &SymbolTable<MethodSymbolID> { self.method_symbols }
+    pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolID> { self.method_symbols }
 
     pub fn interner(&self) -> &StringInterner { self.interner }
 

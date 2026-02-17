@@ -58,6 +58,7 @@ pub mod task_network;
 pub mod encoding;
 pub mod normalization;
 pub(crate) mod logic;
+pub mod symbol_registry;
 
 pub use encoder::LirEncoder;
 pub use result::Result as LirBuilderResult;

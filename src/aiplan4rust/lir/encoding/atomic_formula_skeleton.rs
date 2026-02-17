@@ -51,7 +51,12 @@ pub fn encode(
     )?;
 
     // On construit avec l'ID déjà fourni
-    let header = NamedTypedList::new(predicate_id, parameters);
+    let variable_symbols = registry.get_variable_symbols();
+    let formula = AtomicFormulaSkeleton::new(
+        predicate_id,
+        parameters
+    )
+        .with_variable_symbols(variable_symbols);
+    Ok(formula)
 
-    Ok(AtomicFormulaSkeleton::from_header(header))
 }

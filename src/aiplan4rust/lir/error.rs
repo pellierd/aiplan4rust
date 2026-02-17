@@ -7,7 +7,7 @@ use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
-use crate::aiplan4rust::lir::problem::symbol_table::IndexTableError;
+use crate::aiplan4rust::lir::symbol_registry::IndexTableError;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::tree::NodeId;
 

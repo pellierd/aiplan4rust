@@ -12,15 +12,19 @@ use crate::aiplan4rust::lir::expr::Expr;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
 
 /// Représente une action dans le LIR, qui peut être soit instantanée, soit durative.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Action {
     /// L'en-tête de l'action (symbole et paramètres).
     header: NamedTypedList<ActionSymbolID>,
 
     /// Le corps spécifique de l'action.
     body: ActionBody,
+
+    variable_symbols: SymbolRegistry<VariableID>,
+
 }
 
 /// Énumération interne pour distinguer les types d'actions tout en gardant un LIR unifié.
@@ -54,6 +58,7 @@ impl Default for Action {
         Self {
             header: NamedTypedList::default(),
             body: ActionBody::default(),
+            variable_symbols: SymbolRegistry::new(),
         }
     }
 }
@@ -70,6 +75,7 @@ impl Action {
         Self {
             header: NamedTypedList::new(name, parameters),
             body: ActionBody::Snap { precondition, effect },
+            variable_symbols: SymbolRegistry::new()
         }
     }
 
@@ -84,7 +90,15 @@ impl Action {
         Self {
             header: NamedTypedList::new(name, parameters),
             body: ActionBody::Durative { duration, condition, effect },
+            variable_symbols: SymbolRegistry::new()
         }
+    }
+
+    /// Permet d'ajouter les symboles après la création de manière élégante.
+    /// Usage : Action::new_simple(...).with_symbols(ma_table)
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+        self.variable_symbols = symbols;
+        self
     }
 
     // --- Accesseurs Communs (Interface "à plat") ---
@@ -189,6 +203,13 @@ impl Action {
             }
         }
     }
+
+    /// Accès en lecture seule à la table des noms (symboles) des variables.
+    /// À utiliser pour le rendu ou les messages d'erreur.
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+
+    /// Accès mutable à la table des noms des variables.
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
 
     // --- Helpers Internes ---
 

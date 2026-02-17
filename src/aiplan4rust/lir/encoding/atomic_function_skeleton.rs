@@ -63,7 +63,12 @@ pub fn encode(
 
     // 4. Construction du squelette final
     // On utilise NamedTypedList pour lier l'ID sémantique aux paramètres
-    let header = NamedTypedList::new(functor_id, parameters);
-
-    Ok(AtomicFunctionSkeleton::from_header(header, return_type))
+    let variables_symbols = registry.get_variable_symbols();
+    let function = AtomicFunctionSkeleton::new(
+        functor_id,
+        parameters,
+        return_type
+    )
+        .with_variable_symbols(variables_symbols);
+    Ok(function)
 }
