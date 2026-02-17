@@ -1,6 +1,6 @@
 use std::fmt;
 use crate::aiplan4rust::grounding::iterator::DomainIteratorError;
-use crate::aiplan4rust::lang::{ObjectID, ArgumentID};
+use crate::aiplan4rust::lang::ObjectId;
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 
 /// Un itérateur de combinaisons "lazy" conçu pour explorer des domaines de valeurs.
@@ -11,7 +11,7 @@ pub struct DomainIterator<'a> {
     /// Indices actuels dans chaque domaine (la position du curseur).
     indices: Vec<usize>,
     /// Buffer interne pour exposer la combinaison actuelle sans allocation.
-    current_combo: Vec<ArgumentID>,
+    current_combo: Vec<ObjectId>,
     /// Indique si toutes les combinaisons ont été parcourues.
     exhausted: bool,
     total_count: usize,
@@ -43,7 +43,7 @@ impl<'a> DomainIterator<'a> {
 
         // 3. Initialisation des buffers
         let indices = vec![0; arity];
-        let current_combo = vec![ArgumentID::default(); arity];
+        let current_combo = vec![ObjectId::default(); arity];
 
         // 4. Note : On ne pré-remplit plus current_combo ici !
         // C'est le premier appel à next() qui le fera grâce au flag `first`.
@@ -59,7 +59,7 @@ impl<'a> DomainIterator<'a> {
     }
     /// Retourne la combinaison actuelle et prépare la suivante.
     /// Version optimisée utilisant des itérateurs pour éviter les bounds checks.
-    pub fn next(&mut self) -> Option<&[ArgumentID]> {
+    pub fn next(&mut self) -> Option<&[ObjectId]> {
         if self.exhausted {
             return None;
         }
@@ -199,18 +199,18 @@ impl<'a> fmt::Display for DomainIterator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::ObjectFluentID;
+    use crate::aiplan4rust::lang::ObjectFluentId;
     use super::*;
 
     /// Helper pour créer un domaine de test rapidement
     fn create_test_domain(num_objs: usize, num_fluents: usize) -> ValueDomain {
         let mut objs = Vec::new();
         for i in 0..num_objs {
-            objs.push(ObjectID::from(i));
+            objs.push(ConstantId::from(i));
         }
         let mut fluents = Vec::new();
         for i in 0..num_fluents {
-            fluents.push(ObjectFluentID::from(i));
+            fluents.push(ObjectFluentId::from(i));
         }
         ValueDomain::new(objs, fluents)
     }
@@ -244,11 +244,11 @@ mod tests {
 
         // 1er : Object(0)
         let res1 = it.next().unwrap();
-        assert!(matches!(res1[0], ArgumentID::Object(_)));
+        assert!(matches!(res1[0], ObjectId::Constant(_)));
 
         // 2eme : ObjectFluent(0)
         let res2 = it.next().unwrap();
-        assert!(matches!(res2[0], ArgumentID::ObjectFluent(_)));
+        assert!(matches!(res2[0], ObjectId::Fluent(_)));
 
         assert!(it.next().is_none());
     }
@@ -269,8 +269,8 @@ mod tests {
 
         let res = it.next().unwrap();
         // Doit être [Obj1, Obj0]
-        if let ArgumentID::Object(id) = res[0] {
-            assert_eq!(id, ObjectID::from(1));
+        if let ObjectId::Constant(id) = res[0] {
+            assert_eq!(id, ConstantId::from(1));
         } else {
             panic!("Expected Object");
         }
@@ -288,8 +288,8 @@ mod tests {
         assert_eq!(it.remaining_count(), 3);
         let res = it.next().unwrap();
         // Après reset, on doit revenir à l'index 0
-        if let ArgumentID::Object(id) = res[0] {
-            assert_eq!(id, ObjectID::from(0));
+        if let ObjectId::Constant(id) = res[0] {
+            assert_eq!(id, ConstantId::from(0));
         }
     }
 

@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{ObjectFluentID, ObjectID, ArgumentID};
+use crate::aiplan4rust::lang::ids::{ObjectFluentId, ConstantId, ObjectId};
 
 /// Domaine de valeurs pour un type donné
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ValueDomain {
-    objects: Vec<ObjectID>,             // objets constants
-    object_fluents: Vec<ObjectFluentID>, // object-fluents générés a priori
+    objects: Vec<ConstantId>,             // objets constants
+    object_fluents: Vec<ObjectFluentId>, // object-fluents générés a priori
 }
 
 impl ValueDomain {
-    pub fn new(mut objects: Vec<ObjectID>, mut fluents: Vec<ObjectFluentID>) -> Self {
+    pub fn new(mut objects: Vec<ConstantId>, mut fluents: Vec<ObjectFluentId>) -> Self {
         objects.sort_unstable();
         objects.dedup();
 
@@ -29,30 +29,30 @@ impl ValueDomain {
         Self::new(Vec::new(), Vec::new())
     }*/
     /// Retourne une référence au vecteur d'objets constants
-    pub fn objects(&self) ->  &[ObjectID] {
+    pub fn objects(&self) ->  &[ConstantId] {
         &self.objects
     }
 
     /// Retourne une référence au vecteur d'object-fluents
-    pub fn object_fluents(&self) -> &[ObjectFluentID] {
+    pub fn object_fluents(&self) -> &[ObjectFluentId] {
         &self.object_fluents
     }
     
     /// Accès direct par index pour l'itérateur performant
-    pub fn get_argument(&self, index: usize) -> ArgumentID {
+    pub fn get_argument(&self, index: usize) -> ObjectId {
         let obj_len = self.objects.len();
         if index < obj_len {
-            ArgumentID::Object(self.objects[index])
+            ObjectId::Constant(self.objects[index])
         } else {
             // On suppose que l'index est valide par rapport à total_cardinality()
-            ArgumentID::ObjectFluent(self.object_fluents[index - obj_len])
+            ObjectId::Fluent(self.object_fluents[index - obj_len])
         }
     }
 
     /// Iterateur simple sur tous les ParameterID
-    pub fn iter(&self) -> impl Iterator<Item =ArgumentID> + '_ {
-        let objects_iter = self.objects.iter().copied().map(ArgumentID::Object);
-        let object_fluents_iter = self.object_fluents.iter().copied().map(ArgumentID::ObjectFluent);
+    pub fn iter(&self) -> impl Iterator<Item =ObjectId> + '_ {
+        let objects_iter = self.objects.iter().copied().map(ObjectId::Constant);
+        let object_fluents_iter = self.object_fluents.iter().copied().map(ObjectId::Fluent);
         objects_iter.chain(object_fluents_iter)
     }
 }

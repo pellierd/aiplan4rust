@@ -270,27 +270,27 @@ fn render_exp_content(
         Content::Constant(id) => {
             write!(f, "{}", ctx.resolve_object(*id))
         },
-        Content::Predicate(id) => {
+        Content::PredicateSymbol(id) => {
             write!(f, "{}", ctx.resolve_predicate(*id))
         },
-        Content::Functor(id) => {
+        Content::FunctionSymbol(id) => {
             write!(f, "{}", ctx.resolve_functor(*id))
         },
         Content::TaskSymbol(id) => {
             write!(f, "{}", ctx.resolve_task_symbol(*id))
         },
 
-        Content::TaskID(id) => {
+        Content::TaskLabelSymbol(id) => {
             write!(f, "t{}",  id.as_usize())
         },
 
-        Content::Preference(_id) => {
+        Content::PreferenceSymbol(_id) => {
             write!(f, "TO DO")
             //write!(f, "pref{}", ctx.resolve_preference(*id))
         }
 
         // --- Valeurs et Opérateurs (Inchangés car techniques) ---
-        Content::Float(val)        => write!(f, "{}", val),
+        Content::Number(val)        => write!(f, "{}", val),
         Content::BinaryComp(op)    => write!(f, "{}", op),
         Content::AssignOp(op)      => write!(f, "{}", op),
         Content::ArithmeticOp(op)  => write!(f, "{}", op),

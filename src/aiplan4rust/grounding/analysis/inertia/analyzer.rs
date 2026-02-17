@@ -19,12 +19,11 @@
 //! > a dependency graph analysis of axioms.
 
 use std::collections::HashSet;
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
-use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Analyzes a lifted planning problem to determine the inertia of all predicates and functions.
@@ -93,8 +92,8 @@ pub fn analyze(problem: &LiftedProblem) -> Result<InertiaTable, InertiaError> {
 /// Returns a [`LirError`] if an error occurs while traversing an action's effect expression.
 fn collect_all_action_fluents(
     problem: &LiftedProblem,
-    fluent_predicates: &mut HashSet<AtomSkeletonID>,
-    fluent_functions: &mut HashSet<FunctionSkeletonID>,
+    fluent_predicates: &mut HashSet<AtomSkeletonId>,
+    fluent_functions: &mut HashSet<FunctionSkeletonId>,
 ) -> Result<(), InertiaError> {
     // Collect fluents from standard instantaneous actions
     for action in problem.action_defs() {
@@ -127,10 +126,10 @@ fn collect_all_action_fluents(
 /// A populated [`InertiaTable`] representing the stability of all symbols.
 fn build_inertia_table(
     problem: &LiftedProblem,
-    fluent_predicates: HashSet<AtomSkeletonID>,
-    fluent_functions: HashSet<FunctionSkeletonID>,
-    static_predicates: HashSet<AtomSkeletonID>,
-    static_functions: HashSet<FunctionSkeletonID>,
+    fluent_predicates: HashSet<AtomSkeletonId>,
+    fluent_functions: HashSet<FunctionSkeletonId>,
+    static_predicates: HashSet<AtomSkeletonId>,
+    static_functions: HashSet<FunctionSkeletonId>,
 ) -> InertiaTable {
     let mut table = InertiaTable::new();
 
@@ -143,7 +142,7 @@ fn build_inertia_table(
 
     // --- Categorize Predicates ---
     for (idx, _) in problem.predicate_defs().iter().enumerate() {
-        let id = AtomSkeletonID::from(idx);
+        let id = AtomSkeletonId::from(idx);
 
         let inertia = if derived_ids.contains(&id) || fluent_predicates.contains(&id) {
             Inertia::Fluent
@@ -158,7 +157,7 @@ fn build_inertia_table(
 
     // --- Categorize Functions (Numeric) ---
     for (idx, _) in problem.function_defs().iter().enumerate() {
-        let id = FunctionSkeletonID::from(idx);
+        let id = FunctionSkeletonId::from(idx);
 
         let inertia = if fluent_functions.contains(&id) {
             Inertia::Fluent
@@ -191,8 +190,8 @@ fn build_inertia_table(
 /// Returns a [`LirError`] if the expression tree is malformed or if a node cannot be accessed.
 pub fn collect_fluents_from_effect(
     expr: &Expr,
-    fluent_predicates: &mut HashSet<AtomSkeletonID>,
-    fluent_functions: &mut HashSet<FunctionSkeletonID>,
+    fluent_predicates: &mut HashSet<AtomSkeletonId>,
+    fluent_functions: &mut HashSet<FunctionSkeletonId>,
 ) -> Result<(), InertiaError> {
     // Early exit if the expression is empty
     if expr.is_empty() {
@@ -255,10 +254,10 @@ pub fn collect_fluents_from_effect(
 /// Returns a [`LirError`] if the expression tree is malformed or if a node cannot be accessed.
 pub fn collect_initial_facts(
     init_expr: &Expr,
-    static_predicates: &mut HashSet<AtomSkeletonID>,
-    static_functions: &mut HashSet<FunctionSkeletonID>,
-    fluent_predicates: &mut HashSet<AtomSkeletonID>,
-    fluent_functions: &mut HashSet<FunctionSkeletonID>,
+    static_predicates: &mut HashSet<AtomSkeletonId>,
+    static_functions: &mut HashSet<FunctionSkeletonId>,
+    fluent_predicates: &mut HashSet<AtomSkeletonId>,
+    fluent_functions: &mut HashSet<FunctionSkeletonId>,
 ) -> Result<(), InertiaError> {
     // Early exit if the expression tree is empty
     if init_expr.is_empty() {

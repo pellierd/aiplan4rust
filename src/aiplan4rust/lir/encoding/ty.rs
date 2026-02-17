@@ -4,11 +4,11 @@
 //! It supports atomic types and compound types (using the `either` construct).
 //!
 //! The encoding process follows a strict two-pass architecture:
-//! 1. **Phase 1 (Collection)**: All type identifiers are collected and assigned a [`TypeID`].
+//! 1. **Phase 1 (Collection)**: All type identifiers are collected and assigned a [`TypeId`].
 //! 2. **Phase 2 (Resolution)**: This module resolves the actual type references and
 //!    inheritance hierarchies using the pre-populated [`EncodingRegistry`].
 
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::EncodingRegistry;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
@@ -17,11 +17,11 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 
 /// Encodes a PDDL Type from the syntax tree by resolving its identifiers.
 ///
-/// This function transforms a type-related AST node into a resolved [`Type<TypeID>`].
+/// This function transforms a type-related AST node into a resolved [`Type<TypeId>`].
 /// It is responsible for:
 /// - Resolving single parent types (e.g., in `:types` declarations).
 /// - Resolving complex types in typed lists (e.g., `?obj - (either type1 type2)`).
-/// - Linking AST symbols to their internal LIR [`TypeID`] via the registry.
+/// - Linking AST symbols to their internal LIR [`TypeId`] via the registry.
 ///
 /// # Arguments
 ///
@@ -41,7 +41,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &EncodingRegistry,
-) -> Result<Type<TypeID>, LirError> {
+) -> Result<Type<TypeId>, LirError> {
     let mut ty = Type::new();
     let tree = subtree.tree();
 

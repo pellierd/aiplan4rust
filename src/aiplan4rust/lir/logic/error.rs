@@ -3,7 +3,6 @@ use thiserror::Error;
 use crate::aiplan4rust::lang::{ArithmeticOp, LangError};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
-use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;

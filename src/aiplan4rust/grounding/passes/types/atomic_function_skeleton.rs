@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::types::{ty, typed_list};
@@ -26,7 +26,7 @@ use crate::aiplan4rust::grounding::passes::types::{ty, typed_list};
 /// return type to ensure the functional signature is fully ground-ready.
 pub fn flatten(
     atomic_function: &mut AtomicFunctionSkeleton,
-    map: &HashMap<Type<TypeID>, TypeID>,
+    map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     // Flatten input parameters
     typed_list::flatten_typed_variable_list(atomic_function.parameters_mut(), map)?;

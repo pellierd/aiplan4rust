@@ -33,7 +33,7 @@ use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::semantic::checks::CheckContext;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, SymbolOrigin};
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::checks::LinkingCheckError;
 
 /// Checks for conflicting symbol declarations between the problem and domain syntax trees.
@@ -118,7 +118,7 @@ pub fn check_cross_declared_symbols(
 /// `true` if at least one relevant domain declaration exists, `false` otherwise.
 fn has_relevant_domain_declarations(
     domain_symbol_table: &SymbolTable,
-    symbol_name: StringID,
+    symbol_name: SymbolId,
 ) -> bool {
     domain_symbol_table
         .collect_declarations(Some(&symbol_name), None, Some(&&domain_symbol_table.root_scope()))
@@ -153,7 +153,7 @@ fn has_relevant_domain_declarations(
 /// ```
 fn get_relevant_domain_declarations(
     domain_symbol_table: &SymbolTable,
-    symbol_name: StringID,
+    symbol_name: SymbolId,
 ) -> Vec<Declaration> {
     domain_symbol_table
         .collect_declarations(Some(&symbol_name), None, Some(&domain_symbol_table.root_scope()))

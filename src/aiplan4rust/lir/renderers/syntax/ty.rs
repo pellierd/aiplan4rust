@@ -1,13 +1,13 @@
 use std::fmt;
 // type
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::renderers::RenderContext; // Importe ton contexte
 
 
 
 pub fn render(
     f: &mut fmt::Formatter<'_>,
-    ty: &Type<TypeID>,
+    ty: &Type<TypeId>,
     ctx: &RenderContext,
 ) -> fmt::Result {
     let members = ty.members();

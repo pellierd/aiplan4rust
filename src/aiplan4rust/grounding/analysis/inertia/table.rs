@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use serde::{Serialize, Deserialize};
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId};
 use crate::aiplan4rust::grounding::analysis::inertia::inertia::Inertia;
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 
@@ -21,10 +21,10 @@ use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 /// - **The Evaluator**: To optimize state transitions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct InertiaTable {
-    /// Inertia of predicates, indexed by their unique [`AtomSkeletonID`].
-    predicates: HashMap<AtomSkeletonID, Inertia>,
-    /// Inertia of functions, indexed by their unique [`FunctionSkeletonID`].
-    functions: HashMap<FunctionSkeletonID, Inertia>,
+    /// Inertia of predicates, indexed by their unique [`AtomSkeletonId`].
+    predicates: HashMap<AtomSkeletonId, Inertia>,
+    /// Inertia of functions, indexed by their unique [`FunctionSkeletonId`].
+    functions: HashMap<FunctionSkeletonId, Inertia>,
 }
 
 impl InertiaTable {
@@ -46,7 +46,7 @@ impl InertiaTable {
     /// # Returns
     /// Returns `Some(Inertia)` if analyzed, or `None` if the predicate
     /// index is unknown to this table.
-    pub fn get_predicate(&self, index: AtomSkeletonID) -> Option<Inertia> {
+    pub fn get_predicate(&self, index: AtomSkeletonId) -> Option<Inertia> {
         self.predicates.get(&index).copied()
     }
 
@@ -55,7 +55,7 @@ impl InertiaTable {
     /// # Arguments
     /// * `index` - The identifier of the predicate skeleton.
     /// * `inertia` - The inertia category to assign.
-    pub fn insert_predicate(&mut self, index: AtomSkeletonID, inertia: Inertia) {
+    pub fn insert_predicate(&mut self, index: AtomSkeletonId, inertia: Inertia) {
         self.predicates.insert(index, inertia);
     }
 
@@ -69,7 +69,7 @@ impl InertiaTable {
     /// # Returns
     /// Returns `Some(Inertia)` if analyzed, or `None` if the function
     /// index is unknown.
-    pub fn get_function(&self, index: FunctionSkeletonID) -> Option<Inertia> {
+    pub fn get_function(&self, index: FunctionSkeletonId) -> Option<Inertia> {
         self.functions.get(&index).copied()
     }
 
@@ -78,7 +78,7 @@ impl InertiaTable {
     /// # Arguments
     /// * `index` - The identifier of the function skeleton.
     /// * `inertia` - The inertia category to assign.
-    pub fn insert_function(&mut self, index: FunctionSkeletonID, inertia: Inertia) {
+    pub fn insert_function(&mut self, index: FunctionSkeletonId, inertia: Inertia) {
         self.functions.insert(index, inertia);
     }
 
@@ -93,7 +93,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError::MissingPredicateInertia`] if the index is not in the table.
-    pub fn try_get_predicate(&self, index: AtomSkeletonID) -> Result<Inertia, InertiaError> {
+    pub fn try_get_predicate(&self, index: AtomSkeletonId) -> Result<Inertia, InertiaError> {
         self.predicates
             .get(&index)
             .copied()
@@ -104,7 +104,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError::MissingFunctionInertia`] if the index is not in the table.
-    pub fn try_get_function(&self, index: FunctionSkeletonID) -> Result<Inertia, InertiaError> {
+    pub fn try_get_function(&self, index: FunctionSkeletonId) -> Result<Inertia, InertiaError> {
         self.functions
             .get(&index)
             .copied()
@@ -120,7 +120,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_positive(&self, index: AtomSkeletonID) -> Result<bool, InertiaError> {
+    pub fn is_predicate_positive(&self, index: AtomSkeletonId) -> Result<bool, InertiaError> {
         Ok(self.try_get_predicate(index)? == Inertia::Positive)
     }
 
@@ -131,7 +131,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_negative(&self, index: AtomSkeletonID) -> Result<bool, InertiaError> {
+    pub fn is_predicate_negative(&self, index: AtomSkeletonId) -> Result<bool, InertiaError> {
         Ok(self.try_get_predicate(index)? == Inertia::Negative)
     }
 
@@ -142,7 +142,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns an error if the predicate has not been analyzed.
-    pub fn is_predicate_static(&self, index: AtomSkeletonID) -> Result<bool, InertiaError> {
+    pub fn is_predicate_static(&self, index: AtomSkeletonId) -> Result<bool, InertiaError> {
         Ok(!matches!(self.try_get_predicate(index)?, Inertia::Fluent))
     }
 
@@ -155,7 +155,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError`] if the function index has not been analyzed.
-    pub fn is_function_positive(&self, index: FunctionSkeletonID) -> Result<bool, InertiaError> {
+    pub fn is_function_positive(&self, index: FunctionSkeletonId) -> Result<bool, InertiaError> {
         Ok(self.try_get_function(index)? == Inertia::Positive)
     }
 
@@ -166,7 +166,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError`] if the function index is unknown.
-    pub fn is_function_negative(&self, index: FunctionSkeletonID) -> Result<bool, InertiaError> {
+    pub fn is_function_negative(&self, index: FunctionSkeletonId) -> Result<bool, InertiaError> {
         Ok(self.try_get_function(index)? == Inertia::Negative)
     }
 
@@ -178,7 +178,7 @@ impl InertiaTable {
     ///
     /// # Errors
     /// Returns a [`LirError`] if the function has not been categorized.
-    pub fn is_function_static(&self, index: FunctionSkeletonID) -> Result<bool, InertiaError> {
+    pub fn is_function_static(&self, index: FunctionSkeletonId) -> Result<bool, InertiaError> {
         Ok(!matches!(self.try_get_function(index)?, Inertia::Fluent))
     }
 }

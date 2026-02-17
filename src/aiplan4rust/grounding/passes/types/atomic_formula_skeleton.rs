@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::types::typed_list;
@@ -23,7 +23,7 @@ use crate::aiplan4rust::grounding::passes::types::typed_list;
 /// match the flattened types of the objects that will be used as arguments.
 pub fn flatten(
     atomic_formula: &mut AtomicFormulaSkeleton,
-    map: &HashMap<Type<TypeID>, TypeID>,
+    map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     typed_list::flatten_typed_variable_list(atomic_formula.parameters_mut(), map)
 }

@@ -22,7 +22,7 @@
 //! }
 //! ```
 use thiserror::Error;
-use crate::aiplan4rust::lang::{ObjectFluentID, ObjectID};
+use crate::aiplan4rust::lang::{ObjectFluentId, ConstantId};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 /// Represents errors specific to the `lang` module.
@@ -42,8 +42,8 @@ pub enum LangError {
     SyntaxTree(#[from] SyntaxTreeError),
 
     #[error("Unexpected Fluent: expected an Object but found ObjectFluentID {0}")]
-    UnexpectedFluent(ObjectFluentID),
+    UnexpectedFluent(ObjectFluentId),
 
     #[error("Unexpected Object: expected an ObjectFluent but found ObjectID {0}")]
-    UnexpectedObject(ObjectID),
+    UnexpectedObject(ConstantId),
 }

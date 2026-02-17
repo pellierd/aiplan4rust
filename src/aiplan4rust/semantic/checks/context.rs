@@ -10,8 +10,8 @@
 //! The module also includes convenient conversions from the full `SemanticContext`,
 //! allowing flexible and modular semantic analysis workflows.
 
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{LiteralID, Requirement};
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use std::collections::HashSet;
 use crate::aiplan4rust::syntax::ast::AstNode;
@@ -63,8 +63,8 @@ use crate::aiplan4rust::tree::Tree;
 pub struct Context<'a> {
     syntax_tree: &'a Tree<AstNode>,
     symbols: &'a SymbolTable,
-    interner: &'a StringInterner,
-    source_id: LiteralID,
+    interner: &'a SymbolInterner,
+    source_id: LiteralId,
     requirements: &'a HashSet<Requirement>,
 }
 
@@ -110,8 +110,8 @@ impl<'a> Context<'a> {
     pub fn new(
         syntax_tree: &'a Tree<AstNode>,
         symbols: &'a SymbolTable,
-        interner: &'a StringInterner,
-        source_id: LiteralID,
+        interner: &'a SymbolInterner,
+        source_id: LiteralId,
         requirements: &'a HashSet<Requirement>,
     ) -> Self {
         Self {
@@ -134,12 +134,12 @@ impl<'a> Context<'a> {
     }
 
     /// Returns the string interner.
-    pub fn interner(&self) -> &'a StringInterner {
+    pub fn interner(&self) -> &'a SymbolInterner {
         self.interner
     }
 
-    /// Returns the interned [`LiteralID`] representing the source file associated with this context.
-    pub fn source_id(&self) -> LiteralID {
+    /// Returns the interned [`LiteralId`] representing the source file associated with this context.
+    pub fn source_id(&self) -> LiteralId {
         self.source_id
     }
 

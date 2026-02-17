@@ -46,18 +46,18 @@
 //!
 //! - [`SymbolTable`](crate::aiplan4rust::semantic::symbol_table::SymbolTable)
 //! - [`SymbolKind`](crate::aiplan4rust::semantic::symbol::SymbolKind)
-//! - [`Ident`](crate::aiplan4rust::lang::StringID)
+//! - [`Ident`](crate::aiplan4rust::lang::SymbolId)
 //! - [`Type`](crate::aiplan4rust::lang::Type)
 //!
 //! # Notes
 //!
 //! This module assumes that the symbol table has been fully populated before type checking.
 
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::Type;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
 
 use std::collections::{HashMap, HashSet};
@@ -65,7 +65,7 @@ use std::cell::{Ref, RefCell};
 
 
 /// PDDL Built-in symbols.
-const PDDL_BUILTIN_TYPES: [StringID; 2] = [StringInterner::IDENT_OBJECT, StringInterner::IDENT_NUMBER];
+const PDDL_BUILTIN_TYPES: [SymbolId; 2] = [SymbolInterner::OBJECT_SYMBOL_ID, SymbolInterner::NUMBER_SYMBOL_ID];
 
 /// A struct for performing type checking within a given domain.
 ///
@@ -100,7 +100,7 @@ const PDDL_BUILTIN_TYPES: [StringID; 2] = [StringInterner::IDENT_OBJECT, StringI
 #[derive(Debug, Clone)]
 pub struct TypeChecker<'a> {
     domain_symbol_table: &'a SymbolTable,
-    type_closure_cache: RefCell<HashMap<StringID, HashSet<StringID>>>,
+    type_closure_cache: RefCell<HashMap<SymbolId, HashSet<SymbolId>>>,
 }
 
 impl<'a> TypeChecker<'a> {
@@ -140,8 +140,8 @@ impl<'a> TypeChecker<'a> {
     /// * `Err(TypeCheckError)` if an internal resolution error occurs.
     pub fn is_any_subtype_of(
         &self,
-        ty1: &Type<StringID>,
-        ty2: &Type<StringID>,
+        ty1: &Type<SymbolId>,
+        ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
         let ty1_set: HashSet<_> = ty1.iter().collect();
 
@@ -169,8 +169,8 @@ impl<'a> TypeChecker<'a> {
     /// Same as [`is_any_subtype_of`] but with arguments reversed.
     pub fn is_any_supertype_of(
         &self,
-        ty1: &Type<StringID>,
-        ty2: &Type<StringID>,
+        ty1: &Type<SymbolId>,
+        ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
         self.is_any_subtype_of(ty2, ty1)
     }
@@ -186,8 +186,8 @@ impl<'a> TypeChecker<'a> {
     /// * `Err(TypeCheckError)` if an error occurs in type resolution.
     pub fn is_any_sub_or_supertype_of(
         &self,
-        ty1: &Type<StringID>,
-        ty2: &Type<StringID>,
+        ty1: &Type<SymbolId>,
+        ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
         Ok(self.is_any_subtype_of(ty1, ty2)? || self.is_any_supertype_of(ty1, ty2)?)
     }
@@ -204,8 +204,8 @@ impl<'a> TypeChecker<'a> {
     /// * `Err(TypeCheckError)` on resolution failure.
     pub fn have_common_supertype(
         &self,
-        ty1: &Type<StringID>,
-        ty2: &Type<StringID>,
+        ty1: &Type<SymbolId>,
+        ty2: &Type<SymbolId>,
     ) -> Result<bool, TypeCheckError> {
         let mut supertypes1 = HashSet::new();
         for t1 in ty1.iter() {
@@ -243,8 +243,8 @@ impl<'a> TypeChecker<'a> {
     /// If the closure for the type has already been computed, the cached result is reused.
     pub fn ascending_type_closure(
         &self,
-        primitive_type: StringID,
-    ) -> Result<Ref<HashSet<StringID>>, TypeCheckError> {
+        primitive_type: SymbolId,
+    ) -> Result<Ref<HashSet<SymbolId>>, TypeCheckError> {
         {
             let cache_ref = self.type_closure_cache.borrow();
             if cache_ref.contains_key(&primitive_type) {
@@ -298,7 +298,7 @@ impl<'a> TypeChecker<'a> {
     ///
     /// * `true` if the type is built-in.
     /// * `false` otherwise.
-    pub fn is_pddl_builtin_types(ty: StringID) -> bool {
+    pub fn is_pddl_builtin_types(ty: SymbolId) -> bool {
         PDDL_BUILTIN_TYPES.contains(&ty)
     }
 }

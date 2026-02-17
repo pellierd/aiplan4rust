@@ -18,7 +18,7 @@
 //! );
 //! ```
 
-use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypeID, VariableID, FunctorID};
+use crate::aiplan4rust::lang::{Type, TypedList, TypeId, VariableId, FunctionSymbolId};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -68,12 +68,12 @@ use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Function {
     /// The internal signature: name and parameters.
-    header: NamedTypedList<FunctorID>,
+    header: NamedTypedList<FunctionSymbolId>,
 
     /// The return type_checker of the function.
-    ty: Type<TypeID>,
+    ty: Type<TypeId>,
 
-    variable_symbols: SymbolRegistry<VariableID>,
+    variable_symbols: SymbolRegistry<VariableId>,
 }
 
 impl Function {
@@ -83,7 +83,7 @@ impl Function {
     /// - `name`: The function identifier.
     /// - `parameters`: A typed list of the function’s parameters.
     /// - `types`: The return type_checker of the function.
-    pub fn new(functor: FunctorID, parameters: TypedList<VariableID, TypeID>, ty: Type<TypeID>) -> Self {
+    pub fn new(functor: FunctionSymbolId, parameters: TypedList<VariableId, TypeId>, ty: Type<TypeId>) -> Self {
         let header = NamedTypedList::new(functor, parameters);
         Self {
             header,
@@ -94,38 +94,38 @@ impl Function {
 
     /// Permet d'ajouter les symboles après la création de manière élégante.
     /// Usage : Action::new_simple(...).with_symbols(ma_table)
-    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableId>) -> Self {
         self.variable_symbols = symbols;
         self
     }
 
     /// Returns a reference to the return type_checker.
-    pub fn ty(&self) -> &Type<TypeID> {
+    pub fn ty(&self) -> &Type<TypeId> {
         &self.ty
     }
 
     /// Returns a mutable reference to the return type.
-    pub fn ty_mut(&mut self) -> &mut Type<TypeID> {
+    pub fn ty_mut(&mut self) -> &mut Type<TypeId> {
         &mut self.ty
     }
 
-    pub fn functor(&self) -> FunctorID {
+    pub fn functor(&self) -> FunctionSymbolId {
         self.header.symbol()
     }
 
     /// Accès en lecture seule à la table des noms (symboles) des variables.
     /// À utiliser pour le rendu ou les messages d'erreur.
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> { &self.variable_symbols }
 
     /// Accès mutable à la table des noms des variables.
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> { &mut self.variable_symbols }
 
 
 }
 
 // Allow transparent access to the underlying NamedTypedList (e.g., name, parameters).
 impl Deref for Function {
-    type Target = NamedTypedList<FunctorID>;
+    type Target = NamedTypedList<FunctionSymbolId>;
 
     fn deref(&self) -> &Self::Target {
         &self.header

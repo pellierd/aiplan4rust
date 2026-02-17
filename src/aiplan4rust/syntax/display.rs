@@ -57,7 +57,7 @@
 
 use std::fmt;
 use std::fmt::{Formatter, Write};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 
 /// Default number of characters used per indentation level.
 ///
@@ -127,7 +127,7 @@ pub trait SyntaxInternerDisplay {
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         indent: usize,
     ) -> fmt::Result;
 
@@ -137,7 +137,7 @@ pub trait SyntaxInternerDisplay {
     fn fmt_syntax_with_interner(
         &self,
         f: &mut Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result {
         self.fmt_syntax_with_interner_and_indent(f, interner, 0)
     }
@@ -156,7 +156,7 @@ pub trait SyntaxInternerDisplay {
     /// A `Result` containing the formatted `String` or a formatting error.
     fn try_to_syntax_string_with_interner_and_indent(
         &self,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         indent: usize,
     ) -> Result<String, fmt::Error>
     where
@@ -189,7 +189,7 @@ pub trait SyntaxInternerDisplay {
     /// The formatted `String`.
     fn to_syntax_string_with_interner_and_indent(
         &self,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         indent: usize,
     ) -> String
     where
@@ -212,7 +212,7 @@ pub trait SyntaxInternerDisplay {
     /// A `Result` containing the formatted `String` or a formatting error.
     fn try_to_syntax_string_with_interner(
         &self,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> Result<String, std::fmt::Error>
     where
         Self: Sized,
@@ -233,7 +233,7 @@ pub trait SyntaxInternerDisplay {
     /// The formatted `String`.
     fn to_syntax_string_with_interner(
         &self,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> String
     where
         Self: Sized,
@@ -250,7 +250,7 @@ pub(crate) struct DisplaySyntaxWrapper<'a, T: ?Sized> {
     pub value: &'a T,
 
     /// Reference to the interner used to resolve identifiers.
-    pub interner: &'a StringInterner,
+    pub interner: &'a SymbolInterner,
 
     /// Indentation level to apply.
     pub indent: usize,

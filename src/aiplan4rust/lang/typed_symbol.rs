@@ -1,5 +1,5 @@
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{StringID, Id, Type, RemapIdents};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{SymbolId, Id, Type, RemapSymbol};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -39,10 +39,10 @@ where
     }
 }
 
-impl RemapIdents for TypedSymbol<StringID, StringID> {
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+impl RemapSymbol for TypedSymbol<SymbolId, SymbolId> {
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         self.symbol.remap_idents(map)?;
-        self.ty.remap_idents(map)?;
+        self.ty.remap_symbol(map)?;
         Ok(())
     }
 }
@@ -64,8 +64,8 @@ where
     }
 }*/
 
-impl InternerDisplay for TypedSymbol<StringID, StringID> {
-    fn fmt_with_interner(&self, w: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+impl InternerDisplay for TypedSymbol<SymbolId, SymbolId> {
+    fn fmt_with_interner(&self, w: &mut fmt::Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
         // Comme self.symbol est un StringID, il implémente InternerDisplay
         self.symbol.fmt_with_interner(w, interner)?;
 
@@ -78,11 +78,11 @@ impl InternerDisplay for TypedSymbol<StringID, StringID> {
     }
 }
 
-impl SyntaxInternerDisplay for TypedSymbol<StringID, StringID> {
+impl SyntaxInternerDisplay for TypedSymbol<SymbolId, SymbolId> {
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         indent: usize
     ) -> fmt::Result {
         write_indent(f, indent)?;

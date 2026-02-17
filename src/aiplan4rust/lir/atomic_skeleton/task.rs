@@ -18,7 +18,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::grounding::problem::SymbolRegistry;
-use crate::aiplan4rust::lang::{StringID, TaskSymbolID, TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{TaskSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 
 /// Represents a syntax task declaration in HDDL.
@@ -50,8 +50,8 @@ use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Task {
     /// Underlying signature containing the name and parameters.
-    header: NamedTypedList<TaskSymbolID>,
-    variable_symbols: SymbolRegistry<VariableID>,
+    header: NamedTypedList<TaskSymbolId>,
+    variable_symbols: SymbolRegistry<VariableId>,
 }
 
 impl Task {
@@ -61,7 +61,7 @@ impl Task {
     ///
     /// - `name`: The identifier for this task.
     /// - `parameters`: A typed list describing the task's parameters.
-    pub fn new(task_symbol: TaskSymbolID, parameters: TypedList<VariableID, TypeID>) -> Self {
+    pub fn new(task_symbol: TaskSymbolId, parameters: TypedList<VariableId, TypeId>) -> Self {
         let header = NamedTypedList::new(task_symbol, parameters);
         Self {
             header,
@@ -71,25 +71,25 @@ impl Task {
 
     /// Permet d'ajouter les symboles après la création de manière élégante.
     /// Usage : Action::new_simple(...).with_symbols(ma_table)
-    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableId>) -> Self {
         self.variable_symbols = symbols;
         self
     }
 
-    pub fn task_symbol(&self) -> TaskSymbolID {
+    pub fn task_symbol(&self) -> TaskSymbolId {
         self.header.symbol()
     }
 
     /// Accès en lecture seule à la table des noms (symboles) des variables.
     /// À utiliser pour le rendu ou les messages d'erreur.
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> { &self.variable_symbols }
 
     /// Accès mutable à la table des noms des variables.
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> { &mut self.variable_symbols }
 }
 
 impl Deref for Task {
-    type Target = NamedTypedList<TaskSymbolID>;
+    type Target = NamedTypedList<TaskSymbolId>;
 
     fn deref(&self) -> &Self::Target {
         &self.header

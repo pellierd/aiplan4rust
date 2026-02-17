@@ -22,8 +22,8 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::time::SystemTime;
 use chrono::{DateTime, Local};
-use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{LiteralID, Requirement};
+use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{LiteralId, Requirement};
 use crate::aiplan4rust::linking::LinkingError;
 use crate::aiplan4rust::semantic::{SemanticContext, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
@@ -73,9 +73,9 @@ pub struct LinkedSemanticContext {
     problem_table: SymbolTable,
     declared_requirements: HashSet<Requirement>,
     required_requirements: HashSet<Requirement>,
-    interner: StringInterner,
-    domain_source_id: LiteralID,
-    problem_source_id: LiteralID,
+    interner: SymbolInterner,
+    domain_source_id: LiteralId,
+    problem_source_id: LiteralId,
     generated_at: std::time::SystemTime,
 }
 
@@ -160,7 +160,7 @@ impl LinkedSemanticContext {
     pub fn new(
         mut domain: SemanticContext,
         mut problem: SemanticContext,
-        interner: StringInterner,
+        interner: SymbolInterner,
     ) -> Result<Self, LinkingError> {
 
         // Verify invariants before constructing
@@ -171,8 +171,8 @@ impl LinkedSemanticContext {
         let problem_syntax_tree = problem.take_syntax_tree();
 
         // Take symbol tables
-        let mut domain_table = domain.take_symbol_table();
-        let mut problem_table = problem.take_symbol_table();
+        let domain_table = domain.take_symbol_table();
+        let problem_table = problem.take_symbol_table();
 
         // Merge declared and required requirements
         let declared_requirements = domain
@@ -404,7 +404,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// A reference to the `StringInterner` used for identifier management.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         &self.interner
     }
 
@@ -413,7 +413,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// The previously held `StringInterner`.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         std::mem::take(&mut self.interner)
     }
 
@@ -425,7 +425,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// The `Literal` corresponding to the domain source.
-    pub fn domain_source_id(&self) -> LiteralID {
+    pub fn domain_source_id(&self) -> LiteralId {
         self.domain_source_id
     }
 
@@ -437,7 +437,7 @@ impl LinkedSemanticContext {
     /// # Returns
     ///
     /// The `Literal` corresponding to the problem source.
-    pub fn problem_source_id(&self) -> LiteralID {
+    pub fn problem_source_id(&self) -> LiteralId {
         self.problem_source_id
     }
 
@@ -461,7 +461,7 @@ impl LinkedSemanticContext {
     ///     println!("Resolved name: {}", name);
     /// }
     /// ```
-    fn source_name(&self, lit: LiteralID) -> Option<&str> {
+    fn source_name(&self, lit: LiteralId) -> Option<&str> {
         self.interner.resolve_literal(lit)
     }
 
@@ -483,7 +483,7 @@ impl LinkedSemanticContext {
     /// let name = ctx.source_name_string(literal);
     /// println!("Source name: {}", name);
     /// ```
-    fn source_name_string(&self, lit: LiteralID) -> String {
+    fn source_name_string(&self, lit: LiteralId) -> String {
         self.source_name(lit)
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("unknown<{}>", lit))

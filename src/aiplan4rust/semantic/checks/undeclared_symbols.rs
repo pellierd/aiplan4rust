@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::diagnostic::Provider;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::lang::Requirement::Adl;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
@@ -247,7 +247,7 @@ fn is_pddl_builtin_symbol(
 ) -> bool {
     match symbol.ident() {
         // 'object_type' is a predefined symbol when 'Typing' or 'Adl' requirements are present.
-        StringInterner::IDENT_OBJECT
+        SymbolInterner::OBJECT_SYMBOL_ID
             if context.requirements().contains(&Typing)
                 || context.requirements().contains(&Adl) =>
         {
@@ -256,12 +256,12 @@ fn is_pddl_builtin_symbol(
 
         // 'number_type' or 'total_time' are predefined when the 'NumericFluents' requirement is
         // present.
-        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if context.requirements().contains(&NumericFluents) => {
+        SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID if context.requirements().contains(&NumericFluents) => {
             true
         }
 
         // 'duration_variable' is predefined when the 'DurativeActions' requirement is present.
-        StringInterner::IDENT_DURATION_VARIABLE if context.requirements().contains(&DurativeActions) => true,
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if context.requirements().contains(&DurativeActions) => true,
 
         // Default case for any other symbols.
         _ => false,

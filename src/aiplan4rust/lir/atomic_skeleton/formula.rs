@@ -18,7 +18,7 @@ use std::fmt;
 use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
-use crate::aiplan4rust::lang::{PredicateID, TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{PredicateSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
 
@@ -57,8 +57,8 @@ use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Formula {
     /// Underlying skeleton holding the identifier and parameters.
-    header: NamedTypedList<PredicateID>,
-    variable_symbols: SymbolRegistry<VariableID>,
+    header: NamedTypedList<PredicateSymbolId>,
+    variable_symbols: SymbolRegistry<VariableId>,
 }
 
 impl Formula {
@@ -72,7 +72,7 @@ impl Formula {
     /// # Returns
     ///
     /// A `Formula` instance whose return type_checker is always `None`.
-    pub fn new(predicate: PredicateID, parameters: TypedList<VariableID, TypeID>) -> Self {
+    pub fn new(predicate: PredicateSymbolId, parameters: TypedList<VariableId, TypeId>) -> Self {
         let header = NamedTypedList::new(predicate, parameters);
         Self {
             header,
@@ -82,27 +82,27 @@ impl Formula {
 
     /// Permet d'ajouter les symboles après la création de manière élégante.
     /// Usage : Action::new_simple(...).with_symbols(ma_table)
-    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableId>) -> Self {
         self.variable_symbols = symbols;
         self
     }
 
-    pub fn predicate_id(&self) -> PredicateID {
+    pub fn predicate_id(&self) -> PredicateSymbolId {
         self.header.symbol()
     }
 
     /// Accès en lecture seule à la table des noms (symboles) des variables.
     /// À utiliser pour le rendu ou les messages d'erreur.
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> { &self.variable_symbols }
 
     /// Accès mutable à la table des noms des variables.
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> { &mut self.variable_symbols }
 
 }
 
 // Allow direct access to NamedTypedList methods.
 impl Deref for Formula {
-    type Target = NamedTypedList<PredicateID>;
+    type Target = NamedTypedList<PredicateSymbolId>;
 
     fn deref(&self) -> &Self::Target {
         &self.header

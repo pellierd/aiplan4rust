@@ -1,5 +1,5 @@
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctorID, ObjectID, Optimization, PredicateID, PreferenceID, TaskLabelID, TaskSymbolID, Type, TypeID, TypedList, TypedSymbol, VariableID};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctionSymbolId, ConstantId, Optimization, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::tree::NodeId;
@@ -110,7 +110,7 @@ impl ExprBuilder {
 
     /// Creates a constant (object) node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into an [`ObjectID`],
+    /// This helper accepts any type that can be converted into an [`ConstantId`],
     /// making it easy to use either a typed ID or a raw `usize` (especially in tests).
     ///
     /// # Arguments
@@ -118,7 +118,7 @@ impl ExprBuilder {
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created leaf node in the expression tree.
-    pub fn constant<I: Into<ObjectID>>(&mut self, id: I) -> NodeId {
+    pub fn constant<I: Into<ConstantId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Constant,
             ExprContent::Constant(id.into()),
@@ -128,7 +128,7 @@ impl ExprBuilder {
 
     /// Creates a variable node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`VariableID`],
+    /// This helper accepts any type that can be converted into a [`VariableId`],
     /// allowing the use of typed IDs or raw `usize`.
     ///
     /// Note: PDDL-specific naming (like the `?` prefix) should be handled
@@ -139,7 +139,7 @@ impl ExprBuilder {
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Variable` leaf node.
-    pub fn variable<I: Into<VariableID>>(&mut self, id: I) -> NodeId {
+    pub fn variable<I: Into<VariableId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Variable,
             ExprContent::Variable(id.into()),
@@ -149,7 +149,7 @@ impl ExprBuilder {
 
     /// Creates a function symbol (functor) node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`FunctorID`],
+    /// This helper accepts any type that can be converted into a [`FunctionSymbolId`],
     /// making it easy to use either a pre-resolved ID or a raw `usize`.
     ///
     /// # Arguments
@@ -157,44 +157,44 @@ impl ExprBuilder {
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `FunctionSymbol` leaf node.
-    pub fn function_symbol<I: Into<FunctorID>>(&mut self, id: I) -> NodeId {
+    pub fn function_symbol<I: Into<FunctionSymbolId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::FunctionSymbol,
-            ExprContent::Functor(id.into()),
+            ExprContent::FunctionSymbol(id.into()),
             None
         ))
     }
 
     /// Creates a predicate node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`PredicateID`],
+    /// This helper accepts any type that can be converted into a [`PredicateSymbolId`],
     /// allowing for the use of typed identifiers or raw `usize` for quick prototyping.
     ///
     /// # Arguments
-    /// * `id` - The identifier of the predicate (e.g., a [`PredicateID`] or `usize`).
+    /// * `id` - The identifier of the predicate (e.g., a [`PredicateSymbolId`] or `usize`).
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Predicate` leaf node.
-    pub fn predicate<I: Into<PredicateID>>(&mut self, id: I) -> NodeId {
+    pub fn predicate<I: Into<PredicateSymbolId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Predicate,
-            ExprContent::Predicate(id.into()),
+            ExprContent::PredicateSymbol(id.into()),
             None,
         ))
     }
 
     /// Creates a task symbol node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`TaskSymbolID`],
+    /// This helper accepts any type that can be converted into a [`TaskSymbolId`],
     /// which is useful for HTN (Hierarchical Task Network) expr where
     /// task identifiers are already resolved.
     ///
     /// # Arguments
-    /// * `id` - The identifier of the task symbol (e.g., a [`TaskSymbolID`] or `usize`).
+    /// * `id` - The identifier of the task symbol (e.g., a [`TaskSymbolId`] or `usize`).
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `TaskSymbol` leaf node.
-    pub fn task_symbol<I: Into<TaskSymbolID>>(&mut self, id: I) -> NodeId {
+    pub fn task_symbol<I: Into<TaskSymbolId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::TaskSymbol,
             ExprContent::TaskSymbol(id.into()),
@@ -204,18 +204,18 @@ impl ExprBuilder {
 
     /// Creates a preference name node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into a [`PreferenceID`].
+    /// This helper accepts any type that can be converted into a [`PreferenceSymbolId`].
     /// It is typically used for preference constraints in PDDL or HTN problems.
     ///
     /// # Arguments
-    /// * `id` - The identifier of the preference (e.g., a [`PreferenceID`] or `usize`).
+    /// * `id` - The identifier of the preference (e.g., a [`PreferenceSymbolId`] or `usize`).
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `PrefName` leaf node.
-    pub fn pref_name<I: Into<PreferenceID>>(&mut self, id: I) -> NodeId {
+    pub fn pref_name<I: Into<PreferenceSymbolId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::PrefName,
-            ExprContent::Preference(id.into()),
+            ExprContent::PreferenceSymbol(id.into()),
             None,
         ))
     }
@@ -226,12 +226,12 @@ impl ExprBuilder {
     /// (variables, constants, or other expr).
     ///
     /// # Arguments
-    /// * `id` - The identifier of the function symbol (e.g., a [`FunctorID`] or `usize`).
+    /// * `id` - The identifier of the function symbol (e.g., a [`FunctionSymbolId`] or `usize`).
     /// * `args` - A vector of [`NodeId`] representing the argument nodes.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `FunctionTerm` node.
-    pub fn function_term<I: Into<FunctorID>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
+    pub fn function_term<I: Into<FunctionSymbolId>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
         let func_symbol = self.function_symbol(id);
         let mut children = vec![func_symbol];
         children.extend(args);
@@ -252,7 +252,7 @@ impl ExprBuilder {
     pub fn number(&mut self, value: f64) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Number,
-            ExprContent::Float(OrderedFloat::from(value)),
+            ExprContent::Number(OrderedFloat::from(value)),
             None,
         ))
     }
@@ -263,12 +263,12 @@ impl ExprBuilder {
     /// The first child of the resulting node is always the predicate symbol.
     ///
     /// # Arguments
-    /// * `id` - The identifier of the predicate (e.g., a [`PredicateID`] or `usize`).
+    /// * `id` - The identifier of the predicate (e.g., a [`PredicateSymbolId`] or `usize`).
     /// * `args` - A vector of [`NodeId`] representing the terms/arguments of the formula.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `AtomicFormula` node.
-    pub fn atomic_formula<I: Into<PredicateID>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
+    pub fn atomic_formula<I: Into<PredicateSymbolId>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
         let predicate_node = self.predicate(id);
         let mut children = vec![predicate_node];
         children.extend(args);
@@ -364,12 +364,12 @@ impl ExprBuilder {
     /// formula is attached as a child node.
     ///
     /// # Arguments
-    /// * `vars` - A [`TypedList`] mapping [`VariableID`]s to their respective [`TypeID`]s.
+    /// * `vars` - A [`TypedList`] mapping [`VariableId`]s to their respective [`TypeId`]s.
     /// * `body` - The [`NodeId`] of the sub-expression within the scope of this quantifier.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Forall` node.
-    pub fn forall(&mut self, vars: TypedList<VariableID, TypeID>, body: NodeId) -> NodeId {
+    pub fn forall(&mut self, vars: TypedList<VariableId, TypeId>, body: NodeId) -> NodeId {
         self.node(
             ExprNode::new(
                 ExprKind::Forall,
@@ -387,12 +387,12 @@ impl ExprBuilder {
     /// formula is attached as a single child node.
     ///
     /// # Arguments
-    /// * `vars` - A [`TypedList`] mapping [`VariableID`]s to their respective [`TypeID`]s.
+    /// * `vars` - A [`TypedList`] mapping [`VariableId`]s to their respective [`TypeId`]s.
     /// * `body` - The [`NodeId`] of the sub-expression within the scope of this quantifier.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Exists` node.
-    pub fn exists(&mut self, vars: TypedList<VariableID, TypeID>, body: NodeId) -> NodeId {
+    pub fn exists(&mut self, vars: TypedList<VariableId, TypeId>, body: NodeId) -> NodeId {
         self.node(
             ExprNode::new(
                 ExprKind::Exists,
@@ -404,7 +404,7 @@ impl ExprBuilder {
     }
 
     /// Helper to convert a vector of TypedSymbols into a TypedList
-    pub fn typed_variable_list(&mut self, vars: Vec<TypedSymbol<VariableID, TypeID>>) -> TypedList<VariableID, TypeID> {
+    pub fn typed_variable_list(&mut self, vars: Vec<TypedSymbol<VariableId, TypeId>>) -> TypedList<VariableId, TypeId> {
         let mut list = TypedList::new();
         for typed_var in vars {
             list.push(typed_var);
@@ -413,17 +413,17 @@ impl ExprBuilder {
     }
 
     /// Helper for a single typed symbol: (SymbolID, [TypeIDs])
-    pub fn typed_variable(&mut self, id: usize, type_ids: &[usize]) -> TypedSymbol<VariableID, TypeID> {
+    pub fn typed_variable(&mut self, id: usize, type_ids: &[usize]) -> TypedSymbol<VariableId, TypeId> {
         let ty = self.ty(type_ids);
         TypedSymbol::new(
-            VariableID::from(id),
+            VariableId::from(id),
             ty,
         )
     }
 
     /// Helper to create a list of TypeIDs from a slice of integers
-    pub fn ty(&mut self, ids: &[usize]) -> Type<TypeID> {
-        Type::either(ids.iter().map(|&id| TypeID::from(id)).collect())
+    pub fn ty(&mut self, ids: &[usize]) -> Type<TypeId> {
+        Type::either(ids.iter().map(|&id| TypeId::from(id)).collect())
     }
 
     /// Creates a `Preference` node: (preference name body)
@@ -433,12 +433,12 @@ impl ExprBuilder {
     /// (the goal or constraint) being preferred.
     ///
     /// # Arguments
-    /// * `id` - The identifier of the preference (e.g., a [`PreferenceID`] or `usize`).
+    /// * `id` - The identifier of the preference (e.g., a [`PreferenceSymbolId`] or `usize`).
     /// * `body` - The [`NodeId`] of the expression that forms the body of the preference.
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created `Preference` node.
-    pub fn preference<I: Into<PreferenceID>>(&mut self, id: I, body: NodeId) -> NodeId {
+    pub fn preference<I: Into<PreferenceSymbolId>>(&mut self, id: I, body: NodeId) -> NodeId {
         let pref_symbol_node = self.pref_name(id);
         self.binary(ExprKind::Preference, pref_symbol_node, body)
     }
@@ -1006,8 +1006,8 @@ impl ExprBuilder {
     ///
     /// # Arguments
     ///
-    /// * `id` - The identifier of the preference to check (e.g., a [`PreferenceID`] or `usize`).
-    pub fn is_violated<I: Into<PreferenceID>>(&mut self, id: I) -> NodeId {
+    /// * `id` - The identifier of the preference to check (e.g., a [`PreferenceSymbolId`] or `usize`).
+    pub fn is_violated<I: Into<PreferenceSymbolId>>(&mut self, id: I) -> NodeId {
         let pref_node = self.pref_name(id);
         self.unary(ExprKind::IsViolated, pref_node)
     }
@@ -1065,9 +1065,9 @@ impl ExprBuilder {
     ///
     /// # Arguments
     ///
-    /// * `id` - The identifier of the task symbol (e.g., a [`TaskSymbolID`] or `usize`).
+    /// * `id` - The identifier of the task symbol (e.g., a [`TaskSymbolId`] or `usize`).
     /// * `arguments` - A vector of `NodeId`s representing the arguments passed to the task.
-    pub fn task<I: Into<TaskSymbolID>>(&mut self, id: I, arguments: Vec<NodeId>) -> NodeId {
+    pub fn task<I: Into<TaskSymbolId>>(&mut self, id: I, arguments: Vec<NodeId>) -> NodeId {
         let task_symbol = self.task_symbol(id);
         let mut children = vec![task_symbol];
         children.extend(arguments);
@@ -1081,11 +1081,11 @@ impl ExprBuilder {
     ///
     /// # Arguments
     ///
-    /// * `id` - The identifier of the task label (e.g., a [`TaskLabelID`] or `usize`).
-    pub fn task_id<I: Into<TaskLabelID>>(&mut self, id: I) -> NodeId {
+    /// * `id` - The identifier of the task label (e.g., a [`TaskLabelSymbolId`] or `usize`).
+    pub fn task_id<I: Into<TaskLabelSymbolId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::TaskID,
-            ExprContent::TaskID(id.into()),
+            ExprContent::TaskLabelSymbol(id.into()),
             None,
         ))
     }
@@ -1097,9 +1097,9 @@ impl ExprBuilder {
     ///
     /// # Arguments
     ///
-    /// * `id` - The identifier to be used as the task's tag (e.g., a [`TaskLabelID`] or `usize`).
+    /// * `id` - The identifier to be used as the task's tag (e.g., a [`TaskLabelSymbolId`] or `usize`).
     /// * `task` - The `NodeId` of the task expression being tagged.
-    pub fn tagged_task<I: Into<TaskLabelID>>(&mut self, id: I, task: NodeId) -> NodeId {
+    pub fn tagged_task<I: Into<TaskLabelSymbolId>>(&mut self, id: I, task: NodeId) -> NodeId {
         let task_id_node = self.task_id(id);
         self.binary(ExprKind::TaggedTask, task_id_node, task)
     }

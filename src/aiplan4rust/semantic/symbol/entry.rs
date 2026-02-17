@@ -8,8 +8,8 @@
 
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::Usage;
-use crate::aiplan4rust::lang::{StringID, RemapIdents};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
@@ -40,7 +40,7 @@ use std::hash::{Hash, Hasher};
 #[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SymbolEntry {
     /// The unique identifier of the symbol.
-    ident: StringID,
+    ident: SymbolId,
 
     /// The set of declarations where this symbol is introduced.
     declarations: HashSet<Declaration>,
@@ -69,7 +69,7 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// A new `SymbolEntry` instance with empty declarations and usages.
-    pub fn new(ident: StringID) -> Self {
+    pub fn new(ident: SymbolId) -> Self {
         SymbolEntry {
             ident,
             declarations: HashSet::new(),
@@ -82,7 +82,7 @@ impl SymbolEntry {
     /// # Returns
     ///
     /// The unique identifier of the symbol.
-    pub fn ident(&self) -> StringID {
+    pub fn ident(&self) -> SymbolId {
         self.ident
     }
 
@@ -148,7 +148,7 @@ impl SymbolEntry {
     }
 }
 
-impl RemapIdents for SymbolEntry {
+impl RemapSymbol for SymbolEntry {
     /// Remaps identifiers in this symbol entry, including the main symbol, its
     /// declarations, and all usages, according to the provided mapping.
     ///
@@ -164,7 +164,7 @@ impl RemapIdents for SymbolEntry {
     ///
     /// Returns [`InternerError`] if any declaration or usage cannot be remapped
     /// according to the given map.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         // Remap main symbol identifier
         if let Some(new_ident) = map.get(&self.ident) {
             self.ident = *new_ident;
@@ -173,7 +173,7 @@ impl RemapIdents for SymbolEntry {
         // Remap identifiers in declarations
         let mut new_declarations = HashSet::with_capacity(self.declarations.len());
         for mut decl in self.declarations.drain() {
-            decl.remap_idents(map)?;
+            decl.remap_symbol(map)?;
             new_declarations.insert(decl);
         }
         self.declarations = new_declarations;
@@ -181,7 +181,7 @@ impl RemapIdents for SymbolEntry {
         // Remap identifiers in usages
         let mut new_usages = HashSet::with_capacity(self.usages.len());
         for mut usage in self.usages.drain() {
-            usage.remap_idents(map)?;
+            usage.remap_symbol(map)?;
             new_usages.insert(usage);
         }
         self.usages = new_usages;
@@ -235,9 +235,9 @@ impl InternerDisplay for SymbolEntry {
     fn fmt_with_interner(
         &self,
         w: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result {
-        match interner.resolve_ident(self.ident) {
+        match interner.resolve_symbol(self.ident) {
             Some(name) => writeln!(w, "[Symbol: '{}']", name)?,
             None => writeln!(w, "[Symbol: <uninterned:{}>]", self.ident)?,
         }

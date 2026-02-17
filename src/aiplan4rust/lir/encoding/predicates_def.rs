@@ -5,14 +5,13 @@
 //!
 //! It ensures a dual mapping in the registry:
 //! 1. **Logical Identity**: The predicate's name node is mapped to a [`PredicateID`].
-//! 2. **Structural Signature**: The same node is mapped to an [`AtomSkeletonID`].
+//! 2. **Structural Signature**: The same node is mapped to an [`AtomSkeletonId`].
 //!
 //! This precise binding allows formulas (preconditions, effects, etc.) to resolve
 //! atom occurrences back to their full LIR definition and unique identity during
 //! the second pass.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::AtomSkeletonID;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{atomic_formula_skeleton, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
@@ -24,7 +23,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// This function iterates through each predicate declaration (e.g., `(at ?r - robot)`).
 /// It extracts the formal signature and performs a triple operation:
 /// 1. **Storage**: Adds the signature to the [`LiftedProblem`].
-/// 2. **ID Retrieval**: Obtains the newly generated [`PredicateID`] and [`AtomSkeletonID`].
+/// 2. **ID Retrieval**: Obtains the newly generated [`PredicateID`] and [`AtomSkeletonId`].
 /// 3. **Registration**: Binds the AST `NodeId` of the predicate symbol to these LIR IDs.
 ///
 /// # Arguments

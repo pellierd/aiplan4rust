@@ -365,12 +365,12 @@ fn encode_content(
         AstKind::Predicate => {
             let predicate_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Predicate)?;
             let predicate_id = registry.try_resolve_predicate(predicate_declaration.node_id())?;
-            Ok(ExprContent::Predicate(predicate_id))
+            Ok(ExprContent::PredicateSymbol(predicate_id))
         },
         AstKind::FunctionSymbol => {
             let functor_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Function)?;
             let functor_id = registry.try_resolve_functor(functor_declaration.node_id())?;
-            Ok(ExprContent::Functor(functor_id))
+            Ok(ExprContent::FunctionSymbol(functor_id))
         },
         AstKind::Constant => {
             let constant_declaration = registry.symbol_table().try_resolve_declaration_by_usage(ast_node_id, SymbolKind::Constant)?;
@@ -402,14 +402,14 @@ fn encode_content(
         AstKind::TaskID => {
             let label_symbol_id = ast_node.try_ident()?;
             let task_label_id = registry.try_resolve_task_label(label_symbol_id)?;
-            Ok(ExprContent::TaskID(task_label_id))
+            Ok(ExprContent::TaskLabelSymbol(task_label_id))
         }
 
         // --- Leaf Nodes and Operators ---
         // If the Kind is not a complex symbol, we extract the raw primitive
         // value or the operator stored within the AST content.
         _ => match ast_node.content() {
-            AstContent::Float(f) => Ok(ExprContent::Float(*f)),
+            AstContent::Float(f) => Ok(ExprContent::Number(*f)),
             AstContent::BinaryComp(op) => Ok(ExprContent::BinaryComp(*op)),
             AstContent::AssignOp(op) => Ok(ExprContent::AssignOp(*op)),
             AstContent::ArithmeticOp(op) => Ok(ExprContent::ArithmeticOp(*op)),

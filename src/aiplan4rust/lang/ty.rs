@@ -1,5 +1,5 @@
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{StringID, TypeID, Id, RemapIdents};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{SymbolId, TypeId, Id, RemapSymbol};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
@@ -71,17 +71,17 @@ impl<'a, ID: Id> IntoIterator for &'a Type<ID> {
 
 // --- Spécialisation pour StringID (Parsing / Syntaxe) ---
 
-impl Type<StringID> {
+impl Type<SymbolId> {
     pub fn object() -> &'static Self {
-        static OBJECT_TYPE: Lazy<Type<StringID>> = Lazy::new(|| {
-            Type::primitive(StringInterner::IDENT_OBJECT)
+        static OBJECT_TYPE: Lazy<Type<SymbolId>> = Lazy::new(|| {
+            Type::primitive(SymbolInterner::OBJECT_SYMBOL_ID)
         });
         &OBJECT_TYPE
     }
 
     pub fn number() -> &'static Self {
-        static NUMBER_TYPE: Lazy<Type<StringID>> = Lazy::new(|| {
-            Type::primitive(StringInterner::IDENT_NUMBER)
+        static NUMBER_TYPE: Lazy<Type<SymbolId>> = Lazy::new(|| {
+            Type::primitive(SymbolInterner::NUMBER_SYMBOL_ID)
         });
         &NUMBER_TYPE
     }
@@ -90,8 +90,8 @@ impl Type<StringID> {
     pub fn is_number(&self) -> bool { self == Self::number() }
 }
 
-impl RemapIdents for Type<StringID> {
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+impl RemapSymbol for Type<SymbolId> {
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         for ident in &mut self.members {
             ident.remap_idents(map)?;
         }
@@ -117,12 +117,12 @@ impl<ID: Id> fmt::Display for Type<ID> {
 }
 
 // Spécialisation pour l'affichage via Interner pour StringID
-impl InternerDisplay for Type<StringID> {
-    fn fmt_with_interner(&self, w: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+impl InternerDisplay for Type<SymbolId> {
+    fn fmt_with_interner(&self, w: &mut Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
         if self.members.is_empty() { return write!(w, "<empty>"); }
         for (i, ty) in self.members.iter().enumerate() {
             if i > 0 { write!(w, " ")?; }
-            match interner.resolve_ident(*ty) {
+            match interner.resolve_symbol(*ty) {
                 Some(name) => write!(w, "{}", name)?,
                 None => write!(w, "{}", ty)?,
             }
@@ -132,8 +132,8 @@ impl InternerDisplay for Type<StringID> {
 }
 
 // Spécialisation pour TypeID : On affiche l'ID technique (T#1) car l'interner ident ne le connaît pas
-impl InternerDisplay for Type<TypeID> {
-    fn fmt_with_interner(&self, w: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+impl InternerDisplay for Type<TypeId> {
+    fn fmt_with_interner(&self, w: &mut Formatter<'_>, _interner: &SymbolInterner) -> fmt::Result {
         if self.members.is_empty() { return write!(w, "<empty>"); }
         for (i, ty) in self.members.iter().enumerate() {
             if i > 0 { write!(w, " ")?; }
@@ -145,14 +145,14 @@ impl InternerDisplay for Type<TypeID> {
 
 // --- Affichage Syntaxique Spécialisé ---
 
-impl SyntaxInternerDisplay for Type<StringID> {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+impl SyntaxInternerDisplay for Type<SymbolId> {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
         write_indent(f, indent)?;
         match self.members.len() {
             0 => write!(f, "object"),
             1 => {
                 let ty = self.members[0];
-                match interner.resolve_ident(ty) {
+                match interner.resolve_symbol(ty) {
                     Some(name) => write!(f, "{}", name),
                     None => write!(f, "{}", ty),
                 }
@@ -161,7 +161,7 @@ impl SyntaxInternerDisplay for Type<StringID> {
                 write!(f, "(either")?;
                 for ty in &self.members {
                     write!(f, " ")?;
-                    match interner.resolve_ident(*ty) {
+                    match interner.resolve_symbol(*ty) {
                         Some(name) => write!(f, "{}", name)?,
                         None => write!(f, "{}", ty)?,
                     }
@@ -174,8 +174,8 @@ impl SyntaxInternerDisplay for Type<StringID> {
 
 // Pour TypeID, la syntaxe PDDL n'est généralement plus requise (déjà compilé), 
 // mais on fournit un fallback cohérent.
-impl SyntaxInternerDisplay for Type<TypeID> {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &StringInterner, indent: usize) -> fmt::Result {
+impl SyntaxInternerDisplay for Type<TypeId> {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, _interner: &SymbolInterner, indent: usize) -> fmt::Result {
         write_indent(f, indent)?;
         write!(f, "{}", self)
     }

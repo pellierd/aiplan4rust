@@ -160,7 +160,7 @@ fn reduce(
     for &child_id in &children {
         let child = expr.try_node(child_id)?;
 
-        if let Some(val) = child.content().as_float() {
+        if let Some(val) = child.content().as_number() {
             // --- Logic: Absorbing Elements ---
             // x * 0 = 0
             if op == ArithmeticOp::Mul && val.0 == 0.0 {
@@ -227,7 +227,7 @@ fn apply_partial_reduction(
         // Direct allocation of the Number node
         let const_node = ExprNode::new(
             ExprKind::Number,
-            Content::Float(final_constant),
+            Content::Number(final_constant),
             None,
         );
         let const_node_id = expr.alloc(const_node);
@@ -365,7 +365,7 @@ mod simplify_arithmetic_operation_tests {
         assert_eq!(expr.kind(), Some(ExprKind::Number));
 
         let root_node = expr.try_root_node()?;
-        assert_eq!(root_node.content().as_float(), Some(OrderedFloat(5.0)));
+        assert_eq!(root_node.content().as_number(), Some(OrderedFloat(5.0)));
 
         Ok(())
     }
@@ -394,7 +394,7 @@ mod simplify_arithmetic_operation_tests {
 
         let root_node = expr.try_root_node()?;
         // 10.0 - 3.0 - 2.0 = 5.0
-        assert_eq!(root_node.content().as_float(), Some(OrderedFloat(5.0)));
+        assert_eq!(root_node.content().as_number(), Some(OrderedFloat(5.0)));
 
         Ok(())
     }
@@ -422,7 +422,7 @@ mod simplify_arithmetic_operation_tests {
 
         let root_node = expr.try_root_node()?;
         // Verification: 2.0 * 3.0 * 4.0 = 24.0
-        assert_eq!(root_node.content().as_float(), Some(OrderedFloat(24.0)));
+        assert_eq!(root_node.content().as_number(), Some(OrderedFloat(24.0)));
 
         Ok(())
     }
@@ -450,7 +450,7 @@ mod simplify_arithmetic_operation_tests {
 
         let root_node = expr.try_root_node()?;
         // Calculation: (20 / 2) / 2 = 5.0
-        assert_eq!(root_node.content().as_float(), Some(OrderedFloat(5.0)));
+        assert_eq!(root_node.content().as_number(), Some(OrderedFloat(5.0)));
 
         Ok(())
     }

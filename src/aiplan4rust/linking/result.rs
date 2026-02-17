@@ -17,7 +17,7 @@
 //! - Allows access to the symbol interner regardless of linking success.
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use std::fmt;
 
@@ -32,7 +32,7 @@ pub enum Result {
     /// Linking failed; diagnostics and interner are preserved.
     Failure {
         diagnostic_manager: DiagnosticManager,
-        interner: StringInterner,
+        interner: SymbolInterner,
     },
 }
 
@@ -60,7 +60,7 @@ impl Result {
     ///
     /// # Returns
     /// A `LinkerResult::Failure` variant.
-    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
         Self::Failure {
             diagnostic_manager,
             interner,
@@ -141,7 +141,7 @@ impl Result {
     ///
     /// For `Success`, the interner is retrieved from the context.
     /// For `Failure`, it is returned directly.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         match self {
             Self::Success { context, .. } => context.interner(),
             Self::Failure { interner, .. } => interner,
@@ -152,7 +152,7 @@ impl Result {
     ///
     /// For `Success`, takes it from the context.
     /// For `Failure`, takes it from the variant.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         match self {
             Self::Success { context, .. } => context.take_interner(),
             Self::Failure { interner, .. } => std::mem::take(interner),

@@ -5,7 +5,7 @@
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::syntax::ast::Ast;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use std::fmt;
 
 /// Represents the outcome of a PDDL syntax parsing operation.
@@ -30,7 +30,7 @@ pub enum Result {
     /// Parsing failed; diagnostics and the interner are preserved.
     Failure {
         diagnostic_manager: DiagnosticManager,
-        interner: StringInterner,
+        interner: SymbolInterner,
     },
 }
 
@@ -55,7 +55,7 @@ impl Result {
     ///
     /// # Returns
     /// A `ParserResult::Failure` variant.
-    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
         Self::Failure { diagnostic_manager, interner }
     }
 
@@ -121,7 +121,7 @@ impl Result {
     ///
     /// For `Success`, the interner can be retrieved from the AST.
     /// For `Failure`, it is returned from the variant.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         match self {
             Self::Success { ast, .. } => ast.interner(),
             Self::Failure { interner, .. } => interner,
@@ -129,7 +129,7 @@ impl Result {
     }
 
     /// Returns a mutable reference to the string interner.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         match self {
             Self::Success { ast, .. } => ast.interner_mut(),
             Self::Failure { interner, .. } => interner,
@@ -137,7 +137,7 @@ impl Result {
     }
 
     /// Consumes and returns the string interner.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         match self {
             Self::Success { ast, .. } => std::mem::take(ast.interner_mut()),
             Self::Failure { interner, .. } => std::mem::take(interner),

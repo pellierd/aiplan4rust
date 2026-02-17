@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::LiftedMethod;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::grounding::passes::types::{expr, typed_list};
@@ -19,7 +19,7 @@ use crate::aiplan4rust::grounding::passes::types::{expr, typed_list};
 /// - `Err(LirError)` if a union type is encountered that is not in the mapping.
 pub fn flatten(
     method: &mut LiftedMethod,
-    map: &HashMap<Type<TypeID>, TypeID>,
+    map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     // 1. Flatten method parameters
     // Remaps types in the method's signature (NamedTypedList).

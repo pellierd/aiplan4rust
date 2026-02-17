@@ -5,7 +5,7 @@
 
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::{ActionSymbolID, TypeID, VariableID};
+use crate::aiplan4rust::lang::{ActionSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
@@ -18,12 +18,12 @@ use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Action {
     /// L'en-tête de l'action (symbole et paramètres).
-    header: NamedTypedList<ActionSymbolID>,
+    header: NamedTypedList<ActionSymbolId>,
 
     /// Le corps spécifique de l'action.
     body: ActionBody,
 
-    variable_symbols: SymbolRegistry<VariableID>,
+    variable_symbols: SymbolRegistry<VariableId>,
 
 }
 
@@ -67,8 +67,8 @@ impl Default for Action {
 impl Action {
     /// Crée une nouvelle action instantanée.
     pub fn new_snap(
-        name: ActionSymbolID,
-        parameters: TypedList<VariableID, TypeID>,
+        name: ActionSymbolId,
+        parameters: TypedList<VariableId, TypeId>,
         precondition: Expr,
         effect: Expr,
     ) -> Self {
@@ -81,8 +81,8 @@ impl Action {
 
     /// Crée une nouvelle action durative.
     pub fn new_durative(
-        name: ActionSymbolID,
-        parameters: TypedList<VariableID, TypeID>,
+        name: ActionSymbolId,
+        parameters: TypedList<VariableId, TypeId>,
         duration: Expr,
         condition: Expr,
         effect: Expr,
@@ -96,7 +96,7 @@ impl Action {
 
     /// Permet d'ajouter les symboles après la création de manière élégante.
     /// Usage : Action::new_simple(...).with_symbols(ma_table)
-    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableId>) -> Self {
         self.variable_symbols = symbols;
         self
     }
@@ -104,27 +104,27 @@ impl Action {
     // --- Accesseurs Communs (Interface "à plat") ---
 
     /// Retourne la signature complète (nom + paramètres).
-    pub fn signature(&self) -> &NamedTypedList<ActionSymbolID> {
+    pub fn signature(&self) -> &NamedTypedList<ActionSymbolId> {
         &self.header
     }
 
-    pub fn name(&self) -> ActionSymbolID {
+    pub fn name(&self) -> ActionSymbolId {
         self.header.symbol()
     }
 
-    pub fn set_name(&mut self, name: ActionSymbolID) {
+    pub fn set_name(&mut self, name: ActionSymbolId) {
         self.header.set_symbol(name);
     }
 
-    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
+    pub fn parameters(&self) -> &TypedList<VariableId, TypeId> {
         self.header.parameters()
     }
 
-    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
         self.header.parameters_mut()
     }
 
-    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableId, TypeId>) {
         self.header.set_parameters(parameters);
     }
 
@@ -206,10 +206,10 @@ impl Action {
 
     /// Accès en lecture seule à la table des noms (symboles) des variables.
     /// À utiliser pour le rendu ou les messages d'erreur.
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> { &self.variable_symbols }
 
     /// Accès mutable à la table des noms des variables.
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> { &mut self.variable_symbols }
 
     // --- Helpers Internes ---
 

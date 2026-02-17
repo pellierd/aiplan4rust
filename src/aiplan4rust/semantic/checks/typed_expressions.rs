@@ -1,9 +1,9 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lang::BinaryComp;
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
 use crate::aiplan4rust::lang::Requirement::NumericFluents;
 use crate::aiplan4rust::lang::Type;
@@ -152,8 +152,8 @@ fn check_equal_and_assignment_expression(
     context: &CheckContext,
     type_checker: &TypeChecker,
     node: &AstNode,
-    ty1: &Type<StringID>,
-    ty2: &Type<StringID>,
+    ty1: &Type<SymbolId>,
+    ty2: &Type<SymbolId>,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<bool, SemanticCheckError> {
@@ -215,8 +215,8 @@ fn check_equal_and_assignment_expression(
 fn check_numeric_expression(
     context: &CheckContext,
     node: &AstNode,
-    ty1: &Type<StringID>,
-    ty2: &Type<StringID>,
+    ty1: &Type<SymbolId>,
+    ty2: &Type<SymbolId>,
     provider: Provider,
     diagnostic_manager:&mut DiagnosticManager
 ) -> bool {
@@ -267,7 +267,7 @@ fn check_numeric_expression(
 fn get_binary_operation_types(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<(Type<StringID>, Type<StringID>), SemanticCheckError> {
+) -> Result<(Type<SymbolId>, Type<SymbolId>), SemanticCheckError> {
 
     let ast = context.syntax_tree();
 
@@ -324,7 +324,7 @@ pub fn get_type(
     index: NodeId,
     node: &AstNode,
     context: &CheckContext,
-) -> Result<Option<Type<StringID>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
     match node.kind() {
         // Case 1: Directly a number -> Type is NUMBER_TYPE
         AstKind::Number => get_number_type(),
@@ -365,7 +365,7 @@ pub fn get_type(
 /// ```rust
 /// let ty = get_number_type()?; // Returns Some(["number".to_string()])
 /// ```
-fn get_number_type() -> Result<Option<Type<StringID>>, SemanticCheckError> {
+fn get_number_type() -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
     Ok(Some(Type::number().clone()))
 }
 
@@ -399,10 +399,10 @@ fn get_number_type() -> Result<Option<Type<StringID>>, SemanticCheckError> {
 /// ```
 fn get_variable_type(
     index: NodeId,
-    symbol: StringID,
+    symbol: SymbolId,
     context: &CheckContext,
-) -> Result<Option<Type<StringID>>, SemanticCheckError> {
-    if symbol == StringInterner::IDENT_DURATION_VARIABLE && context.requirements().contains(&DurativeActions) {
+) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
+    if symbol == SymbolInterner::DURATION_VARIABLE_SYMBOL_ID && context.requirements().contains(&DurativeActions) {
         return get_number_type();
     }
     get_declaration_type(index, context, SymbolKind::Variable)
@@ -432,9 +432,9 @@ fn get_variable_type(
 /// ```
 fn get_constant_type(
     index: NodeId,
-    _symbol: StringID,
+    _symbol: SymbolId,
     context: &CheckContext,
-) -> Result<Option<Type<StringID>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
     get_declaration_type(index, context, SymbolKind::Constant)
 }
 
@@ -469,7 +469,7 @@ fn get_declaration_type(
     node_id: NodeId,
     context: &CheckContext,
     kind: SymbolKind
-) -> Result<Option<Type<StringID>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
     match context.symbol_table().resolve_declaration_by_usage(node_id, kind)? {
         Some(decl) => Ok(decl.types().cloned()),
         None => Ok(None),
@@ -504,12 +504,12 @@ fn get_declaration_type(
 fn get_function_term_type(
     node: &AstNode,
     context: &CheckContext,
-) -> Result<Option<Type<StringID>>, SemanticCheckError> {
+) -> Result<Option<Type<SymbolId>>, SemanticCheckError> {
     let functor_index = node.try_child(0)?;
     let functor_entry = context.syntax_tree().try_node(functor_index)?;
 
     if let AstKind::FunctionSymbol = functor_entry.kind() {
-        if functor_entry.try_ident()? == StringInterner::IDENT_TOTAL_TIME
+        if functor_entry.try_ident()? == SymbolInterner::TOTAL_TIME_SYMBOL_ID
             && context.requirements().contains(&NumericFluents)
         {
             return get_number_type();

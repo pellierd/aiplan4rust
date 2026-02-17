@@ -16,7 +16,7 @@
 use std::fmt;
 
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::Ast;
 
 /// Represents the result of the AST expr phase.
@@ -38,7 +38,7 @@ pub enum Result {
         /// Diagnostics collected during expr.
         diagnostic_manager: DiagnosticManager,
         /// The string interner used during expr.
-        interner: StringInterner,
+        interner: SymbolInterner,
     },
 }
 
@@ -63,7 +63,7 @@ impl Result {
     ///
     /// # Returns
     /// A `NormalizerResult::Failure` variant.
-    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
         Self::Failure { diagnostic_manager, interner }
     }
 
@@ -119,7 +119,7 @@ impl Result {
     ///
     /// For `Success`, the interner is retrieved from the AST.
     /// For `Failure`, it is returned directly.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         match self {
             Self::Success { ast, .. } => ast.interner(),
             Self::Failure { interner, .. } => interner,
@@ -127,7 +127,7 @@ impl Result {
     }
 
     /// Returns a mutable reference to the interner.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         match self {
             Self::Success { ast, .. } => ast.interner_mut(),
             Self::Failure { interner, .. } => interner,
@@ -135,7 +135,7 @@ impl Result {
     }
 
     /// Consumes and returns the interner.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         match self {
             Self::Success { ast, .. } => std::mem::take(ast.interner_mut()),
             Self::Failure { interner, .. } => std::mem::take(interner),

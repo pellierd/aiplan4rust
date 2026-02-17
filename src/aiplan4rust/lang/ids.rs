@@ -5,7 +5,7 @@ use std::ops::{Index, IndexMut};
 use serde::{Deserialize, Serialize};
 
 // Imports de ton projet
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::LangError;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
@@ -65,29 +65,32 @@ macro_rules! impl_id_type {
 
 // --- DÉFINITIONS DES TYPES ---
 
-impl_id_type!(StringID);
-impl_id_type!(LiteralID);
-impl_id_type!(TypeID);
-impl_id_type!(PredicateID);
-impl_id_type!(VariableID);
-impl_id_type!(FunctorID);
-impl_id_type!(TaskSymbolID);
-impl_id_type!(ActionSymbolID);
-impl_id_type!(MethodSymbolID);
-impl_id_type!(PreferenceID);
-impl_id_type!(TaskLabelID);
-impl_id_type!(NumericFluentID);
-impl_id_type!(ObjectID);
-impl_id_type!(FluentID);
-impl_id_type!(ObjectFluentID);
-impl_id_type!(AtomSkeletonID);
-impl_id_type!(FunctionSkeletonID);
-impl_id_type!(TaskSkeletonID);
+impl_id_type!(SymbolId);
+impl_id_type!(LiteralId);
+
+impl_id_type!(TypeId);
+impl_id_type!(VariableId);
+impl_id_type!(ConstantId);
+impl_id_type!(FluentId);
+impl_id_type!(ObjectFluentId);
+impl_id_type!(NumericFluentId);
+
+impl_id_type!(PredicateSymbolId);
+impl_id_type!(FunctionSymbolId);
+impl_id_type!(PreferenceSymbolId);
+impl_id_type!(TaskSymbolId);
+impl_id_type!(ActionSymbolId);
+impl_id_type!(MethodSymbolId);
+impl_id_type!(TaskLabelSymbolId);
+
+impl_id_type!(AtomSkeletonId);
+impl_id_type!(FunctionSkeletonId);
+impl_id_type!(TaskSkeletonId);
 
 // --- LOGIQUE SPÉCIFIQUE (REMAP) ---
 
-impl StringID {
-    pub fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+impl SymbolId {
+    pub fn remap_idents(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         if let Some(new) = map.get(self) {
             *self = *new;
         }
@@ -95,8 +98,8 @@ impl StringID {
     }
 }
 
-impl LiteralID {
-    pub fn remap_literal(&mut self, map: &HashMap<LiteralID, LiteralID>) {
+impl LiteralId {
+    pub fn remap_literal(&mut self, map: &HashMap<LiteralId, LiteralId>) {
         if let Some(new) = map.get(self) {
             *self = *new;
         }
@@ -115,51 +118,77 @@ macro_rules! impl_display_prefix {
     };
 }
 
-impl_display_prefix!(StringID, "s");           // s42 (minuscule pour le distinguer des types)
-impl_display_prefix!(LiteralID, "L");          // L10 (L pour Literal)
-impl_display_prefix!(TypeID, "T");             // T1  (T pour Type)
-impl_display_prefix!(PredicateID, "P");        // P5  (P pour Predicate)
-impl_display_prefix!(VariableID, "v");         // v1  (v pour Variable)
-impl_display_prefix!(FunctorID, "f");          // f2  (f pour Functor)
-impl_display_prefix!(TaskSymbolID, "tk");      // tk3 (tk pour Task Symbol)
-impl_display_prefix!(ActionSymbolID, "a");
-impl_display_prefix!(MethodSymbolID, "m");
-impl_display_prefix!(PreferenceID, "pref");    // pref0
-impl_display_prefix!(TaskLabelID, "TK");            // TK1 (Majuscule pour l'instance de tâche vs le symbole)
-impl_display_prefix!(FluentID, "f");     // nf8 (Numeric Fluent)
-impl_display_prefix!(NumericFluentID, "nf");     // nf8 (Numeric Fluent)
-impl_display_prefix!(ObjectID, "o");           // o12 (o pour Object)
-impl_display_prefix!(ObjectFluentID, "of");    // of4 (Object Fluent)
-impl_display_prefix!(AtomSkeletonID, "as");    // as9 (Atom Skeleton)
-impl_display_prefix!(FunctionSkeletonID, "fs"); // fs2 (Function Skeleton)
-impl_display_prefix!(TaskSkeletonID, "ts");     // ts7 (Task Skeleton)
+// --- Symbols & Interning ---
+// s1, s42 (Generic internal symbol)
+impl_display_prefix!(SymbolId, "s");
+// L10 (Literal value, usually a constant or a boolean)
+impl_display_prefix!(LiteralId, "L");
 
+// --- Domain & Typing ---
+// T1, T_robot (Type identifier)
+impl_display_prefix!(TypeId, "T");
+// v0, v1 (Variable identifier)
+impl_display_prefix!(VariableId, "v");
+// o12 (Instance of an object/constant)
+impl_display_prefix!(ConstantId, "o");
+
+// --- Domain Model Symbols (Names) ---
+// p5 (Predicate name/symbol)
+impl_display_prefix!(PredicateSymbolId, "p");
+// f2 (Function name/symbol - lower case to distinguish from skeleton)
+impl_display_prefix!(FunctionSymbolId, "f");
+// tk4 (Task symbol - specific to HTN/Planning)
+impl_display_prefix!(TaskSymbolId, "tk");
+// a3 (Action symbol/operator name)
+impl_display_prefix!(ActionSymbolId, "a");
+// m7 (Method symbol in HTN planning)
+impl_display_prefix!(MethodSymbolId, "m");
+// pr1 (Preference symbol for soft constraints)
+impl_display_prefix!(PreferenceSymbolId, "pr");
+// TL9 (Task Label instance - Upper case to distinguish from Task Symbol)
+impl_display_prefix!(TaskLabelSymbolId, "TL");
+
+// --- Fluents (State Variables) ---
+// fl8 (Generic fluent - used for state tracking)
+impl_display_prefix!(FluentId, "fl");
+// nf4 (Numeric fluent - e.g., battery levels, distances)
+impl_display_prefix!(NumericFluentId, "nf");
+// of2 (Object fluent - a state variable returning an ObjectId)
+impl_display_prefix!(ObjectFluentId, "of");
+
+// --- Skeletons (Structural Instances) ---
+// AS9 (Atom Skeleton: Predicate + Arguments)
+impl_display_prefix!(AtomSkeletonId, "AS");
+// FS2 (Function Skeleton: Function + Arguments)
+impl_display_prefix!(FunctionSkeletonId, "FS");
+// TS7 (Task Skeleton: Task + Arguments)
+impl_display_prefix!(TaskSkeletonId, "TS");
 // --- TRAITS INTERNER (RESOLUTION) ---
 
-impl InternerDisplay for StringID {
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        if let Some(name) = interner.resolve_ident(*self) {
+impl InternerDisplay for SymbolId {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
+        if let Some(name) = interner.resolve_symbol(*self) {
             write!(f, "{}", name)
         } else {
-            write!(f, "{}", StringInterner::UNKNOWN_INTERNED_STRING)
+            write!(f, "{}", SymbolInterner::UNKNOWN_INTERNED_STRING)
         }
     }
 }
 
-impl InternerDisplay for LiteralID {
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+impl InternerDisplay for LiteralId {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
         if let Some(val) = interner.resolve_literal(*self) {
             write!(f, "{}", val)
         } else {
-            write!(f, "{}", StringInterner::UNKNOWN_INTERNED_STRING)
+            write!(f, "{}", SymbolInterner::UNKNOWN_INTERNED_STRING)
         }
     }
 }
 
-impl SyntaxInternerDisplay for StringID {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+impl SyntaxInternerDisplay for SymbolId {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
         write_indent(f, indent)?;
-        if let Some(name) = interner.resolve_ident(*self) {
+        if let Some(name) = interner.resolve_symbol(*self) {
             write!(f, "{}", name)
         } else {
             write!(f, "<uninterned_sym:{}>", self.value)
@@ -167,8 +196,8 @@ impl SyntaxInternerDisplay for StringID {
     }
 }
 
-impl SyntaxInternerDisplay for LiteralID {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+impl SyntaxInternerDisplay for LiteralId {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
         write_indent(f, indent)?;
         if let Some(val) = interner.resolve_literal(*self) {
             write!(f, "{}", val)
@@ -181,69 +210,69 @@ impl SyntaxInternerDisplay for LiteralID {
 // --- GROUNDING ---
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ArgumentID {
-    Object(ObjectID),
-    ObjectFluent(ObjectFluentID),
+pub enum ObjectId {
+    Constant(ConstantId),
+    Fluent(ObjectFluentId),
 }
 
-impl Default for ArgumentID {
+impl Default for ObjectId {
     /// Retourne un ArgumentID pointant vers un objet invalide (index MAX).
     fn default() -> Self {
-        ArgumentID::Object(ObjectID::default())
+        ObjectId::Constant(ConstantId::default())
     }
 }
 
-impl ArgumentID {
+impl ObjectId {
     /// Tente de récupérer l'ObjectID
-    pub fn as_object(&self) -> Option<ObjectID> {
+    pub fn as_object(&self) -> Option<ConstantId> {
         match self {
-            ArgumentID::Object(id) => Some(*id),
+            ObjectId::Constant(id) => Some(*id),
             _ => None,
         }
     }
 
     /// Tente de récupérer l'ObjectFluentID
-    pub fn as_fluent(&self) -> Option<ObjectFluentID> {
+    pub fn as_fluent(&self) -> Option<ObjectFluentId> {
         match self {
-            ArgumentID::ObjectFluent(id) => Some(*id),
+            ObjectId::Fluent(id) => Some(*id),
             _ => None,
         }
     }
 
     /// Tente d'extraire l'ObjectID.
     /// Retourne une erreur LangError::UnexpectedFluent si c'est un fluent.
-    pub fn try_as_object(&self) -> Result<ObjectID, LangError> {
+    pub fn try_object(&self) -> Result<ConstantId, LangError> {
         match self {
-            ArgumentID::Object(id) => Ok(*id),
-            ArgumentID::ObjectFluent(of_id) => Err(LangError::UnexpectedFluent(*of_id)),
+            ObjectId::Constant(id) => Ok(*id),
+            ObjectId::Fluent(of_id) => Err(LangError::UnexpectedFluent(*of_id)),
         }
     }
 
     /// Tente d'extraire l'ObjectFluentID.
     /// Retourne une erreur LangError::UnexpectedObject si c'est un objet.
-    pub fn try_as_fluent(&self) -> Result<ObjectFluentID, LangError> {
+    pub fn try_fluent(&self) -> Result<ObjectFluentId, LangError> {
         match self {
-            ArgumentID::ObjectFluent(id) => Ok(*id),
-            ArgumentID::Object(obj_id) => Err(LangError::UnexpectedObject(*obj_id)),
+            ObjectId::Fluent(id) => Ok(*id),
+            ObjectId::Constant(obj_id) => Err(LangError::UnexpectedObject(*obj_id)),
         }
     }
 
     /// Méthode de création rapide pour les objets.
-    pub fn from_object(id: ObjectID) -> Self {
-        ArgumentID::Object(id)
+    pub fn from_object(id: ConstantId) -> Self {
+        ObjectId::Constant(id)
     }
 
     /// Méthode de création rapide pour les fluents.
-    pub fn from_fluent(id: ObjectFluentID) -> Self {
-        ArgumentID::ObjectFluent(id)
+    pub fn from_fluent(id: ObjectFluentId) -> Self {
+        ObjectId::Fluent(id)
     }
 }
 
-impl fmt::Display for ArgumentID {
+impl fmt::Display for ObjectId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ArgumentID::Object(id) => write!(f, "{}", id),
-            ArgumentID::ObjectFluent(id) => write!(f, "{}", id),
+            ObjectId::Constant(id) => write!(f, "{}", id),
+            ObjectId::Fluent(id) => write!(f, "{}", id),
         }
     }
 }

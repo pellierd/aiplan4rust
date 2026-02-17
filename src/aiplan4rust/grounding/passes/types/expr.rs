@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::tree::NodeId;
@@ -17,7 +17,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// # Returns
 /// - `Ok(())` if the expression tree was successfully traversed and updated.
 /// - `Err(LirError)` if the root node or any child node is inaccessible.
-pub fn flatten(expr: &mut Expr, map: &HashMap<Type<TypeID>, TypeID>) -> Result<(), LirError> {
+pub fn flatten(expr: &mut Expr, map: &HashMap<Type<TypeId>, TypeId>) -> Result<(), LirError> {
     if expr.is_empty() {
         return Ok(());
     }
@@ -33,7 +33,7 @@ pub fn flatten(expr: &mut Expr, map: &HashMap<Type<TypeID>, TypeID>) -> Result<(
 /// # Specific Logic
 /// For nodes of kind `ExprKind::Forall` or `ExprKind::Exists`, the function updates
 /// the type of each bound variable to ensure type consistency during grounding.
-fn flatten_from_node(expr: &mut Expr, node_id: NodeId, map: &HashMap<Type<TypeID>, TypeID>) -> Result<(), LirError> {
+fn flatten_from_node(expr: &mut Expr, node_id: NodeId, map: &HashMap<Type<TypeId>, TypeId>) -> Result<(), LirError> {
     let mut stack = vec![node_id];
 
     while let Some(current_id) = stack.pop() {

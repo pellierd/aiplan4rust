@@ -106,7 +106,7 @@ fn is_trivial_assign_value(
     if node.kind() != ExprKind::Number {
         return Ok(false);
     }
-    let number = node.content().try_float()?;
+    let number = node.content().try_number()?;
 
     match assign_op {
         AssignOp::Increase | AssignOp::Decrease => Ok(number == ZERO),
@@ -223,7 +223,7 @@ mod tests {
 
         // Ensure the value child is still 0.0
         let value_node = expr.try_node(root_node.children()[1])?;
-        assert_eq!(value_node.content().as_float(), Some(OrderedFloat(0.0)));
+        assert_eq!(value_node.content().as_number(), Some(OrderedFloat(0.0)));
 
         Ok(())
     }

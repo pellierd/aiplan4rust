@@ -41,7 +41,7 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::syntax;
@@ -64,7 +64,7 @@ pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
     arena: &Tree<AstNode>,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     with_prefix: bool,
     indent: usize,
 ) -> fmt::Result {

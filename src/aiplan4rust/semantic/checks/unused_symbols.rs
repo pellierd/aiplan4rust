@@ -1,7 +1,7 @@
 use crate::aiplan4rust::diagnostic::Diagnostic;
 use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::lang::Requirement::{Adl, Fluents};
 use crate::aiplan4rust::lang::Requirement::DurativeActions;
@@ -148,16 +148,16 @@ fn skip_unused_symbol_declaration(
 
     let requirements = context.requirements();
     match declaration.symbol_ident() {
-        StringInterner::IDENT_OBJECT
+        SymbolInterner::OBJECT_SYMBOL_ID
             if requirements.contains(&Typing)
                 || requirements.contains(&Adl) =>
         {
             return Ok(true)
         }
-        StringInterner::IDENT_NUMBER | StringInterner::IDENT_TOTAL_TIME if requirements.contains(&NumericFluents) => {
+        SymbolInterner::NUMBER_SYMBOL_ID | SymbolInterner::TOTAL_TIME_SYMBOL_ID if requirements.contains(&NumericFluents) => {
             return Ok(true)
         }
-        StringInterner::IDENT_DURATION_VARIABLE if requirements.contains(&DurativeActions) => {
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => {
             return Ok(true)
         }
         _ => {}
@@ -233,19 +233,19 @@ fn check_pddl_builtin_symbol_declaration(
 ) -> bool {
     let requirements = context.requirements();
     let (expected_kind, requirements) = match declaration.symbol_ident() {
-        StringInterner::IDENT_OBJECT
+        SymbolInterner::OBJECT_SYMBOL_ID
         if requirements.contains(&Typing) || requirements.contains(&Adl) =>
             {
                 (SymbolKind::PrimitiveType, vec![Typing, Adl])
             }
-        StringInterner::IDENT_NUMBER if requirements.contains(&NumericFluents) => (
+        SymbolInterner::NUMBER_SYMBOL_ID if requirements.contains(&NumericFluents) => (
             SymbolKind::PrimitiveType,
             vec![NumericFluents, Fluents],
         ),
-        StringInterner::IDENT_TOTAL_TIME if requirements.contains(&NumericFluents) => {
+        SymbolInterner::TOTAL_TIME_SYMBOL_ID if requirements.contains(&NumericFluents) => {
             (SymbolKind::Function, vec![NumericFluents, Fluents])
         }
-        StringInterner::IDENT_DURATION_VARIABLE if requirements.contains(&DurativeActions) => (
+        SymbolInterner::DURATION_VARIABLE_SYMBOL_ID if requirements.contains(&DurativeActions) => (
             SymbolKind::Variable,
             vec![DurativeActions],
         ),

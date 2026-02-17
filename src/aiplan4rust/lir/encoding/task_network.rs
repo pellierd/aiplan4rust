@@ -5,7 +5,7 @@
 //! subtasks, ordering dependencies, and logical constraints against the LIR context.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{StringID, TaskSkeletonID};
+use crate::aiplan4rust::lang::{SymbolId, TaskSkeletonId};
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{expr, EncodingRegistry};
@@ -135,8 +135,8 @@ fn finalize_task_network(
 ) -> Result<TaskNetwork, LirError> {
     let num_tasks = registry.task_label_symbols_count();
     let mut task_nodes = vec![NodeId::default(); num_tasks];
-    let mut task_defs = vec![TaskSkeletonID::default(); num_tasks];
-    let mut task_labels = vec![StringID::default(); num_tasks];
+    let mut task_defs = vec![TaskSkeletonId::default(); num_tasks];
+    let mut task_labels = vec![SymbolId::default(); num_tasks];
 
     // On parcourt tous les nœuds de l'expression LIR
     for node in tasks.preorder().values() {
@@ -144,7 +144,7 @@ fn finalize_task_network(
             let task_label_node_id = node.try_child(0)?;
             let task_label_node = tasks.try_node(task_label_node_id)?;
 
-            if let ExprContent::TaskID(label_id) = task_label_node.content() {
+            if let ExprContent::TaskLabelSymbol(label_id) = task_label_node.content() {
                 let index = label_id.as_usize();
                 task_labels[index] = registry.resolve_task_label_symbol(*label_id);
 

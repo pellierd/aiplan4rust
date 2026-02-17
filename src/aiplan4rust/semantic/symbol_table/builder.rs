@@ -20,7 +20,7 @@
 //! enabling better error handling and easier testing.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{StringID, Type, TypedList, TypedSymbol};
+use crate::aiplan4rust::lang::{SymbolId, Type, TypedList, TypedSymbol};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolEntry, SymbolOrigin, Usage};
 use crate::aiplan4rust::semantic::symbol_table::{SymbolTableError, SymbolTableOrigin};
 use crate::aiplan4rust::semantic::SymbolTable;
@@ -351,8 +351,8 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-        types: Option<Type<StringID>>,
-        arguments: Option<TypedList<StringID, StringID>>,
+        types: Option<Type<SymbolId>>,
+        arguments: Option<TypedList<SymbolId, SymbolId>>,
     ) -> Result<(), SymbolTableError> {
         // Extract the symbol reference from the AST node ID.
         // This retrieves symbol metadata such as the identifier name and kind.
@@ -655,7 +655,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-        types: Type<StringID>,
+        types: Type<SymbolId>,
     ) -> Result<(), SymbolTableError> {
         // Match on the AST node kind to determine processing logic
         match node_ref.node().kind() {
@@ -750,7 +750,7 @@ impl SymbolTableBuilder {
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-        mut types: Type<StringID>,
+        mut types: Type<SymbolId>,
     ) -> Result<(), SymbolTableError> {
         let node = node_ref.node();
 
@@ -759,7 +759,7 @@ impl SymbolTableBuilder {
         // treated as a numeric function (standard 'number' type).
         if types.is_empty() {
             // Ensure the "number" identifier matches your internal StringID conventions.
-            types.add_type(ast.interner().try_lookup_ident(NUMBER_TYPE)?);
+            types.add_type(ast.interner().try_lookup_symbol(NUMBER_TYPE)?);
         }
         // ------------------------------
 
@@ -1268,7 +1268,7 @@ impl SymbolTableBuilder {
         &mut self,
         node_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList<StringID, StringID>, SymbolTableError> {
+    ) -> Result<TypedList<SymbolId, SymbolId>, SymbolTableError> {
         let mut typed_arguments = TypedList::new();
         for typed_item_id in node_ref.node().children() {
             let typed_item_ref = &ast.syntax_tree().try_node_ref(*typed_item_id)?;
@@ -1314,7 +1314,7 @@ impl SymbolTableBuilder {
         &mut self,
         typed_item_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<TypedList<StringID, StringID>, SymbolTableError> {
+    ) -> Result<TypedList<SymbolId, SymbolId>, SymbolTableError> {
         let syntax_tree = ast.syntax_tree();
         let node = typed_item_ref.node();
 
@@ -1393,7 +1393,7 @@ impl SymbolTableBuilder {
         &mut self,
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
-    ) -> Result<Type<StringID>, SymbolTableError> {
+    ) -> Result<Type<SymbolId>, SymbolTableError> {
         let arena = ast.syntax_tree();
         let mut super_types = Type::new();
 
@@ -1448,7 +1448,7 @@ impl SymbolTableBuilder {
         type_ref: &NodeRef<AstNode>,
         ast: &Ast,
         scope: Scope,
-    ) -> Result<Type<StringID>, SymbolTableError> {
+    ) -> Result<Type<SymbolId>, SymbolTableError> {
         // --- Extract the type identifiers using existing logic ---
         let super_types = self.extract_type(type_ref, ast)?; // Handles structure & kind checking internally
 

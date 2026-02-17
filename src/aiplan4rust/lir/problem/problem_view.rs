@@ -35,8 +35,8 @@
 
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{ConstantId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
@@ -78,28 +78,28 @@ impl<'a> ProblemDef<'a> {
     /// Returns the problem name.
     ///
     /// # Returns
-    /// An [`StringID`] representing the problem name.
-    pub fn problem_name(&self) -> StringID {
+    /// An [`SymbolId`] representing the problem name.
+    pub fn problem_name(&self) -> SymbolId {
         self.problem.problem_name()
     }
 
     /// Returns the domain name associated with this problem.
     ///
     /// # Returns
-    /// An [`StringID`] representing the domain name.
-    pub fn domain_name(&self) -> StringID {
+    /// An [`SymbolId`] representing the domain name.
+    pub fn domain_name(&self) -> SymbolId {
         self.problem.domain_name()
     }
 
     /// Returns the string interner associated with this problem.
     ///
     /// # Returns
-    /// Reference to the [`StringInterner`] used by the problem.
-    pub fn interner(&self) -> &StringInterner {
+    /// Reference to the [`SymbolInterner`] used by the problem.
+    pub fn interner(&self) -> &SymbolInterner {
         self.problem.interner()
     }
 
-    pub fn object_defs(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
+    pub fn object_defs(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
         self.problem.problem_object_def()
     }
 

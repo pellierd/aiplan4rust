@@ -13,8 +13,8 @@
 //! - Friendly formatting for expected parser tokens (`format_expected_message`)
 
 use colored::Colorize;
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{Requirement, StringID, Type};
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{Requirement, SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol};
 use crate::aiplan4rust::syntax::{Span, SyntaxInternerDisplay};
 use crate::Severity;
@@ -46,10 +46,10 @@ const VERTICAL_BAR: &str = "|";
 /// - If the `interner` is provided and the identifier is found, returns the resolved string.
 /// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
 /// - If the `interner` is not provided, returns the raw identifier as a string.
-pub(crate) fn ident_to_string(ident: StringID, interner: Option<&StringInterner>) -> String {
+pub(crate) fn ident_to_string(ident: SymbolId, interner: Option<&SymbolInterner>) -> String {
     if let Some(interner) = interner {
         interner
-            .resolve_ident(ident)
+            .resolve_symbol(ident)
             .map(|s| s.to_string())
             .unwrap_or_else(|| format!("unknown({})", ident))
     } else {
@@ -69,7 +69,7 @@ pub(crate) fn ident_to_string(ident: StringID, interner: Option<&StringInterner>
 /// - If the `interner` is provided and the identifier is found, returns the resolved string.
 /// - If the `interner` is provided but the identifier is not found, returns `"unknown(<ident>)"`.
 /// - If the `interner` is not provided, returns the raw identifier as a string.
-pub(crate) fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner>) -> String {
+pub(crate) fn symbol_to_string(symbol: &Symbol, interner: Option<&SymbolInterner>) -> String {
     ident_to_string(symbol.id(), interner)
 }
 
@@ -82,7 +82,7 @@ pub(crate) fn symbol_to_string(symbol: &Symbol, interner: Option<&StringInterner
 /// # Returns
 /// A `String` representation of the `Type`. If `interner` is provided, the identifiers
 /// inside the `Type` are resolved using it; otherwise, the default string representation is used.
-pub(crate) fn type_to_string(ty: &Type<StringID>, interner: Option<&StringInterner>) -> String {
+pub(crate) fn type_to_string(ty: &Type<SymbolId>, interner: Option<&SymbolInterner>) -> String {
     if let Some(interner) = interner {
         ty.to_syntax_string_with_interner(interner)
     } else {
@@ -99,7 +99,7 @@ pub(crate) fn type_to_string(ty: &Type<StringID>, interner: Option<&StringIntern
 ///
 /// # Returns
 /// A string of comma-separated identifiers, each converted to string via `ident_to_string`.
-pub(crate) fn format_ident_list(idents: &[StringID], interner: Option<&StringInterner>) -> String {
+pub(crate) fn format_ident_list(idents: &[SymbolId], interner: Option<&SymbolInterner>) -> String {
     idents
         .iter()
         .map(|&ident| ident_to_string(ident, interner))
@@ -149,9 +149,9 @@ pub(crate) fn span_to_string(span: &Span) -> String {
 /// A string of comma-separated symbols (idents) of the declarations, resolved via `format_ident_list`.
 pub(crate) fn format_declaration_list(
     declarations: &[Declaration],
-    interner: Option<&StringInterner>
+    interner: Option<&SymbolInterner>
 ) -> String {
-    let idents: Vec<StringID> = declarations.iter().map(|decl| decl.symbol_ident()).collect();
+    let idents: Vec<SymbolId> = declarations.iter().map(|decl| decl.symbol_ident()).collect();
     format_ident_list(&idents, interner)
 }
 

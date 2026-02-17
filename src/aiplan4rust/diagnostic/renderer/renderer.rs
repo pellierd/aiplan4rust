@@ -22,7 +22,7 @@
 //! then invoke its methods to write formatted diagnostics to your desired output.
 
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticError, DiagnosticManager};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::diagnostic::renderer::{formatting, message, suggestion};
 
 use std::io::{self, Write};
@@ -41,7 +41,7 @@ use crate::Severity;
 /// - `output`: A boxed writer implementing `Write` where formatted diagnostics are sent.
 pub struct Renderer<'a> {
     diagnostic_manager: &'a DiagnosticManager,
-    interner: &'a StringInterner,
+    interner: &'a SymbolInterner,
     output: Box<dyn Write>,
 }
 
@@ -58,7 +58,7 @@ impl<'a> Renderer<'a> {
     /// # Returns
     ///
     /// A new instance of `Renderer`.
-    pub fn new(diagnostic_manager: &'a DiagnosticManager, interner: &'a StringInterner) -> Self {
+    pub fn new(diagnostic_manager: &'a DiagnosticManager, interner: &'a SymbolInterner) -> Self {
         Renderer {
             diagnostic_manager,
             interner,
@@ -156,7 +156,7 @@ impl<'a> Renderer<'a> {
     /// ```
     pub fn write_to<W: Write>(
         diagnostic_manager: &DiagnosticManager,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         writer: &mut W,
         color: bool,
     ) -> Result<(), DiagnosticError> {
@@ -220,7 +220,7 @@ impl<'a> Renderer<'a> {
 /// ```
 fn format_header_line(
     diagnostic: &Diagnostic,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     color: bool,
 ) -> String {
     let kind = diagnostic.kind();
@@ -260,7 +260,7 @@ fn format_header_line(
 /// ```
 fn format_location(
     diagnostic: &Diagnostic,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     color: bool,
 ) -> String {
     let filename = interner
@@ -364,7 +364,7 @@ fn format_source_snippet(
 /// ```
 fn format_suggestion(
     diagnostic: &Diagnostic,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     color: bool,
 ) -> Option<String> {
     suggestion::format_suggestion(diagnostic.kind(), interner).map(|suggestion| {

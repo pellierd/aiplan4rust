@@ -10,7 +10,7 @@
 //! with convenient methods to obtain a `String` directly or via `Result`.
 
 use std::fmt::{self, Write};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 
 /// A trait for displaying a value with the help of an external `StringInterner`.
 ///
@@ -27,14 +27,14 @@ use crate::aiplan4rust::interner::StringInterner;
 /// }
 /// ```
 pub trait InternerDisplay {
-    /// Formats the value using the given [`StringInterner`] and the provided formatter.
+    /// Formats the value using the given [`SymbolInterner`] and the provided formatter.
     fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result;
 
-    /// Attempts to format the value into a [`String`] using the given [`StringInterner`].
+    /// Attempts to format the value into a [`String`] using the given [`SymbolInterner`].
     ///
     /// This version returns a `Result` and does not panic.
     ///
@@ -45,7 +45,7 @@ pub trait InternerDisplay {
     /// ```
     fn try_to_string_with_interner(
         &self,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> Result<String, fmt::Error>
     where
         Self: Sized,
@@ -63,7 +63,7 @@ pub trait InternerDisplay {
     }
 
     /// Convenience method that formats the value into a [`String`] using the given
-    /// [`StringInterner`].
+    /// [`SymbolInterner`].
     ///
     /// This method panics if formatting fails. Prefer [`try_to_string_with_interner`] if you want
     /// to handle errors explicitly.
@@ -79,7 +79,7 @@ pub trait InternerDisplay {
     /// ```
     fn to_string_with_interner(
         &self,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> String
     where
         Self: Sized,
@@ -92,7 +92,7 @@ pub trait InternerDisplay {
 /// Wrapper used to implement [`std::fmt::Display`] by delegating to [`InternerDisplay`].
 pub struct InternerDisplayWrapper<'a, T: ?Sized> {
     pub value: &'a T,
-    pub interner: &'a StringInterner,
+    pub interner: &'a SymbolInterner,
 }
 
 impl<'a, T: InternerDisplay + ?Sized> fmt::Display

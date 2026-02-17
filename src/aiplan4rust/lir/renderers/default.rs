@@ -814,11 +814,11 @@ pub fn render_node_expr_content(
         // --- Identifiants (Délégation à tes impl_display_prefix) ---
         Content::Variable(id)   => write!(f, "{}", id), // Sortie ex: v#1
         Content::Constant(id)   => write!(f, "{}", id), // Sortie ex: o#12
-        Content::Predicate(id)  => write!(f, "{}", id), // Sortie ex: P#5
-        Content::Functor(id)    => write!(f, "{}", id), // Sortie ex: f#2
+        Content::PredicateSymbol(id)  => write!(f, "{}", id), // Sortie ex: P#5
+        Content::FunctionSymbol(id)    => write!(f, "{}", id), // Sortie ex: f#2
         Content::TaskSymbol(id) => write!(f, "{}", id), // Sortie ex: tk#3
-        Content::TaskID(id)     => write!(f, "{}", id), // Sortie ex: TK#1
-        Content::Preference(id) => write!(f, "{}", id), // Sortie ex: pref#0
+        Content::TaskLabelSymbol(id)     => write!(f, "{}", id), // Sortie ex: TK#1
+        Content::PreferenceSymbol(id) => write!(f, "{}", id), // Sortie ex: pref#0
 
         // --- Skeletons ---
         Content::AtomSkeleton(id)     => write!(f, "{}", id), // Sortie ex: as#9
@@ -826,7 +826,7 @@ pub fn render_node_expr_content(
         Content::TaskSkeleton(id)     => write!(f, "{}", id), // Sortie ex: ts#7
 
         // --- Valeurs et Opérateurs ---
-        Content::Float(val)        => write!(f, "Float({})", val),
+        Content::Number(val)        => write!(f, "Float({})", val),
         Content::BinaryComp(op)    => write!(f, "BinaryComp({:?})", op),
         Content::AssignOp(op)      => write!(f, "AssignOp({:?})", op),
         Content::ArithmeticOp(op)  => write!(f, "ArithmeticOp({:?})", op),

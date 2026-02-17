@@ -14,12 +14,12 @@
 //! (see [`InternerDisplay`]) and supports identifier remapping, which is useful
 //! for name rewriting or alpha-renaming in transformations.
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::lang::{StringID, RemapIdents};
+use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
 use crate::aiplan4rust::syntax::Span;
 use std::collections::HashMap;
 use serde::Deserialize;
@@ -103,7 +103,7 @@ impl Usage {
     }
 
     /// Returns the identifier of the referenced symbol.
-    pub fn symbol_id(&self) -> StringID {
+    pub fn symbol_id(&self) -> SymbolId {
         self.symbol.id()
     }
 
@@ -134,7 +134,7 @@ impl Usage {
 
 }
 
-impl RemapIdents for Usage {
+impl RemapSymbol for Usage {
     /// Remaps the identifier of this usage according to the provided mapping.
     ///
     /// If the usage's symbol identifier exists in `map`, it is replaced with the
@@ -147,7 +147,7 @@ impl RemapIdents for Usage {
     /// # Errors
     ///
     /// Returns [`InternerError`] if remapping cannot be applied (propagated from nested remaps, if any).
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
         if let Some(new_ident) = map.get(&self.symbol_id()) {
             self.symbol.set_ident(new_ident.clone());
         }
@@ -182,10 +182,10 @@ impl InternerDisplay for Usage {
     fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result {
         let symbol_str = interner
-            .resolve_ident(self.symbol_id())
+            .resolve_symbol(self.symbol_id())
             .unwrap_or("<uninterned>");
         write!(
             f,

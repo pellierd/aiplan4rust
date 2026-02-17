@@ -4,7 +4,7 @@
 //! which can help users understand how to fix or improve their code based on compiler or analyzer feedback.
 //!
 //! Suggestions are returned as optional strings, since not all diagnostics include fix-it hints.
-//! Internally, suggestions may use a [`StringInterner`] to produce readable symbol and type names.
+//! Internally, suggestions may use a [`SymbolInterner`] to produce readable symbol and type names.
 //!
 //! # Public API
 //! - [`format_suggestion`]: Formats a suggestion using a provided interner (for end users).
@@ -26,8 +26,8 @@
 
 use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind};
 use crate::aiplan4rust::diagnostic::kind::Kind;
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{StringID, Requirement, Type};
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{SymbolId, Requirement, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::Span;
@@ -45,7 +45,7 @@ use crate::aiplan4rust::syntax::Span;
 /// # Returns
 ///
 /// An `Option<String>` containing the suggestion, if one exists.
-pub fn format_suggestion(kind: &DiagnosticKind, interner: &StringInterner) -> Option<String> {
+pub fn format_suggestion(kind: &DiagnosticKind, interner: &SymbolInterner) -> Option<String> {
     format_suggestion_internal(kind, Some(interner))
 }
 
@@ -96,10 +96,10 @@ pub fn format_suggestion_debug(kind: &DiagnosticKind) -> Option<String> {
 /// This function does not emit any diagnostics; it only generates suggestion strings.
 ///
 /// [`DiagnosticKind`]: crate::aiplan4rust::diagnostics::DiagnosticKind
-/// [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
+/// [`StringInterner`]: crate::aiplan4rust::interner::SymbolInterner
 /// [`format_suggestion`]: crate::aiplan4rust::renderer::formatting::format_suggestion
 /// [`format_suggestion_debug`]: crate::aiplan4rust::renderer::formatting::format_suggestion_debug
-fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&StringInterner>) -> Option<String> {
+fn format_suggestion_internal(kind: &DiagnosticKind, interner: Option<&SymbolInterner>) -> Option<String> {
     match kind {
         Kind::UnexpectedToken { expected, .. }
         | Kind::UnexpectedEof { expected } => {
@@ -240,7 +240,7 @@ fn format_invalid_token_suggestion() -> String {
 /// A formatted suggestion message as a `String`.
 fn format_invalid_symbol_signature_suggestion(
     declaration: &Declaration,
-    interner: Option<&StringInterner>
+    interner: Option<&SymbolInterner>
 ) -> String {
     let symbol = declaration.symbol();
     let name = renderer::formatting::symbol_to_string(symbol, interner);
@@ -278,9 +278,9 @@ fn format_invalid_symbol_signature_suggestion(
 ///
 /// A formatted suggestion message as a `String`.
 fn format_type_mismatch_in_expression_suggestion(
-    ty1: &Type<StringID>,
-    ty2: &Type<StringID>,
-    interner: Option<&StringInterner>
+    ty1: &Type<SymbolId>,
+    ty2: &Type<SymbolId>,
+    interner: Option<&SymbolInterner>
 ) -> String {
     let ty1_str = renderer::formatting::type_to_string(ty1, interner);
     let ty2_str = renderer::formatting::type_to_string(ty2, interner);
@@ -307,9 +307,9 @@ fn format_type_mismatch_in_expression_suggestion(
 ///
 /// A formatted suggestion message as a `String`.
 fn format_invalid_types_in_numeric_expression_suggestion(
-    ty1: &Type<StringID>,
-    ty2: &Type<StringID>,
-    interner: Option<&StringInterner>,
+    ty1: &Type<SymbolId>,
+    ty2: &Type<SymbolId>,
+    interner: Option<&SymbolInterner>,
 ) -> String {
     let ty1_str = renderer::formatting::type_to_string(ty1, interner);
     let ty2_str = renderer::formatting::type_to_string(ty2, interner);
@@ -366,7 +366,7 @@ fn format_duplicated_symbol_declaration_suggestion(
     declaration1: &Declaration,
     declaration2: &Declaration,
     scope: &AstKind,
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> String {
     let symbol_name = renderer::formatting::symbol_to_string(symbol, interner);
     format!(
@@ -406,7 +406,7 @@ fn format_cyclic_task_ordering_suggestion() -> String {
 /// An optional suggestion string explaining where and how to declare the missing symbol.
 fn format_undeclared_symbol_suggestion(
     usage: &Usage,
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let name = renderer::formatting::symbol_to_string(&usage.symbol(), interner);
     match usage.symbol_kind() {
@@ -484,7 +484,7 @@ fn format_symbol_conflicts_with_keyword_suggestion(
     declaration: &Declaration,
     expected_kind: &SymbolKind,
     requirements: &[Requirement],
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let name = renderer::formatting::symbol_to_string(declaration.symbol(), interner);
     let reqs = renderer::formatting::format_requirement_list(requirements);
@@ -514,7 +514,7 @@ fn format_symbol_conflicts_with_keyword_suggestion(
 fn format_symbol_declared_ambiguously_as_keyword_suggestion(
     declaration: &Declaration,
     requirements: &[Requirement],
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let name = renderer::formatting::symbol_to_string(declaration.symbol(), interner);
     let reqs = renderer::formatting::format_requirement_list(requirements);
@@ -541,7 +541,7 @@ fn format_symbol_declared_ambiguously_as_keyword_suggestion(
 /// An optional suggestion string indicating the symbol is unused.
 fn format_unused_symbol_suggestion(
     declaration: &Declaration,
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let name = renderer::formatting::symbol_to_string(declaration.symbol(), interner);
     Some(format!(
@@ -567,7 +567,7 @@ fn format_unused_symbol_suggestion(
 /// An optional suggestion string indicating the domain name mismatch.
 fn format_domain_problem_name_mismatch_suggestion(
     domain_name: &Declaration,
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let domain_str = renderer::formatting::symbol_to_string(domain_name.symbol(), interner);
     Some(format!(
@@ -592,7 +592,7 @@ fn format_domain_problem_name_mismatch_suggestion(
 /// An optional suggestion string indicating the ambiguity.
 fn format_ambiguous_type_predicate_symbol_suggestion(
     ty: &Declaration,
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let symbol = renderer::formatting::symbol_to_string(ty.symbol(), interner);
     Some(format!(
@@ -619,9 +619,9 @@ fn format_ambiguous_type_predicate_symbol_suggestion(
 /// An optional suggestion string explaining the supertype mismatch.
 fn format_task_argument_supertype_suggestion(
     argument: &Declaration,
-    type_declared: &Type<StringID>,
-    type_used: &Type<StringID>,
-    interner: Option<&StringInterner>,
+    type_declared: &Type<SymbolId>,
+    type_used: &Type<SymbolId>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     Some(format!(
         "The argument '{}' uses type '{}' which is a supertype of the declared type '{}'. \
@@ -647,8 +647,8 @@ fn format_task_argument_supertype_suggestion(
 ///
 /// An optional suggestion string describing the duplicate types found.
 fn format_duplicate_either_type_suggestion(
-    duplicate_types: &[StringID],
-    interner: Option<&StringInterner>,
+    duplicate_types: &[SymbolId],
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let listed_types = if duplicate_types.len() == 1 {
         format!("type '{}'", renderer::formatting::format_ident_list(duplicate_types, interner))
@@ -677,7 +677,7 @@ fn format_duplicate_either_type_suggestion(
 /// An optional suggestion string describing the detected cycle.
 fn format_cyclic_type_declaration_suggestion(
     cycle: &[Declaration],  // Replace `TypeDeclaration` with the actual type used in your code
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     Some(format!(
         "Cycle detected in type hierarchy involving types: {}. \
@@ -703,7 +703,7 @@ fn format_cyclic_type_declaration_suggestion(
 fn format_cross_conflict_symbol_declaration_suggestion(
     problem_declaration: &Declaration,
     conflicting_domain_declarations: &[Declaration],
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let domain_spans: Vec<String> = conflicting_domain_declarations
         .iter()
@@ -743,9 +743,9 @@ fn format_cross_conflict_symbol_declaration_suggestion(
 ///
 /// An optional suggestion string describing the implicit merge and guidance.
 fn format_implicit_either_type_declaration_suggestion(
-    ty: StringID,
+    ty: SymbolId,
     duplicate_spans: &[Span],
-    interner: Option<&StringInterner>,
+    interner: Option<&SymbolInterner>,
 ) -> Option<String> {
     let duplicate_locations: Vec<String> = duplicate_spans
         .iter()

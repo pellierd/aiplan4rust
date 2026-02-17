@@ -5,7 +5,7 @@ use thiserror::Error;
 
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 use crate::aiplan4rust::semantic::type_checker::TypeCheckError;
@@ -46,7 +46,7 @@ pub enum SemanticCheckError {
 
     #[error("No declaration found for symbol '{symbol}' in scope {scope}.")]
     MissingDeclaration {
-        symbol: StringID,
+        symbol: SymbolId,
         scope: Scope,
     },
 
@@ -63,7 +63,7 @@ pub enum SemanticCheckError {
 
     #[error("Failed to retrieve types for symbol '{symbol}' in scope {scope}.")]
     MissingSymbolTypes {
-        symbol: StringID,
+        symbol: SymbolId,
         scope: Scope,
     },
 
@@ -73,14 +73,14 @@ pub enum SemanticCheckError {
     #[error("Type index {index} for type '{type_name}' is out of bounds (max {max})")]
     TypeIndexOutOfBounds {
         index: usize,
-        type_name: StringID,
+        type_name: SymbolId,
         max: usize,
     },
 
     #[error("Parent index {index} for parent type '{parent_name}' is out of bounds (max {max})")]
     ParentIndexOutOfBounds {
         index: usize,
-        parent_name: StringID,
+        parent_name: SymbolId,
         max: usize,
     },
 
@@ -125,7 +125,7 @@ impl SemanticCheckError {
         }
     }
 
-    pub fn missing_declaration(symbol: StringID, scope: Scope) -> Self {
+    pub fn missing_declaration(symbol: SymbolId, scope: Scope) -> Self {
         SemanticCheckError::MissingDeclaration { symbol, scope }
     }
 
@@ -137,7 +137,7 @@ impl SemanticCheckError {
         SemanticCheckError::ArgumentIndexOutOfBounds { index, scope }
     }
 
-    pub fn missing_symbol_types(symbol: StringID, scope: Scope) -> Self {
+    pub fn missing_symbol_types(symbol: SymbolId, scope: Scope) -> Self {
         SemanticCheckError::MissingSymbolTypes { symbol, scope }
     }
 
@@ -145,11 +145,11 @@ impl SemanticCheckError {
         SemanticCheckError::EmptyCycleDetail
     }
 
-    pub fn type_index_out_of_bounds(index: usize, type_name: StringID, max: usize) -> Self {
+    pub fn type_index_out_of_bounds(index: usize, type_name: SymbolId, max: usize) -> Self {
         SemanticCheckError::TypeIndexOutOfBounds { index, type_name, max }
     }
 
-    pub fn parent_index_out_of_bounds(index: usize, parent_name: StringID, max: usize) -> Self {
+    pub fn parent_index_out_of_bounds(index: usize, parent_name: SymbolId, max: usize) -> Self {
         SemanticCheckError::ParentIndexOutOfBounds { index, parent_name, max }
     }
 

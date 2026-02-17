@@ -1,5 +1,5 @@
 use std::fmt::{self, Formatter};
-use crate::aiplan4rust::lang::{TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::problem::DomainDef;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::RenderContext;
@@ -95,7 +95,7 @@ pub fn render(f: &mut Formatter<'_>, domain: &DomainDef<'_>, ctx: &RenderContext
 
 fn render_type_def(
     f: &mut fmt::Formatter<'_>,
-    types: &[TypedSymbol<TypeID, TypeID>],
+    types: &[TypedSymbol<TypeId, TypeId>],
     ctx: &RenderContext
 ) -> fmt::Result {
     for (i, ty_symbol) in types.iter().enumerate() {

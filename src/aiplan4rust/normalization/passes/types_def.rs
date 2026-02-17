@@ -52,7 +52,7 @@ use std::collections::HashSet;
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::normalization::passes::NormalizationPassError;
 use crate::aiplan4rust::syntax::ast::Ast;
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -186,13 +186,13 @@ fn report_implicit_either_type_warning(
 fn collect_implicit_either_type_declarations(
     types_def_id: NodeId,
     ast: &Ast,
-) -> Result<HashMap<StringID, (HashSet<StringID>, Span, Vec<(HashSet<StringID>, Span)>)>, NormalizationPassError> {
+) -> Result<HashMap<SymbolId, (HashSet<SymbolId>, Span, Vec<(HashSet<SymbolId>, Span)>)>, NormalizationPassError> {
     let syntax_tree = ast.syntax_tree();
     let typed_def_node = syntax_tree.try_node(types_def_id)?;
     let typed_list_id = typed_def_node.try_child(0)?;
     let typed_list = syntax_tree.try_node(typed_list_id)?;
 
-    let mut seen: HashMap<StringID, (HashSet<StringID>, Span, Vec<(HashSet<StringID>, Span)>)> = HashMap::new();
+    let mut seen: HashMap<SymbolId, (HashSet<SymbolId>, Span, Vec<(HashSet<SymbolId>, Span)>)> = HashMap::new();
 
     for typed_item_id in typed_list.children() {
         let type_item = syntax_tree.try_node(*typed_item_id)?;
@@ -252,7 +252,7 @@ fn collect_implicit_either_type_declarations(
 /// * `Ok(())` if all diagnostics were emitted successfully.
 /// * `Err(NormalizationPassError)` if any issue occurs during diagnostic creation.
 fn emit_implicit_either_type_warnings(
-    seen: HashMap<StringID, (HashSet<StringID>, Span, Vec<(HashSet<StringID>, Span)>)>,
+    seen: HashMap<SymbolId, (HashSet<SymbolId>, Span, Vec<(HashSet<SymbolId>, Span)>)>,
     ast: &Ast,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), NormalizationPassError> {
@@ -384,7 +384,7 @@ pub fn merge_duplicate_type_declarations(
     let mut modified = false;
 
     // Map primitive type_checker identifiers to their first encountered declaration NodeId
-    let mut seen: HashMap<StringID, NodeId> = HashMap::new();
+    let mut seen: HashMap<SymbolId, NodeId> = HashMap::new();
 
     // Collect IDs of duplicate declarations that need to be removed later
     let mut duplicates_to_remove: HashSet<NodeId> = HashSet::new();

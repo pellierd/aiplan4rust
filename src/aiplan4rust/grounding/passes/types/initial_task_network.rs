@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::InitialTaskNetwork;
 use crate::aiplan4rust::lir::error::LirError;
 use crate::aiplan4rust::grounding::passes::types::{typed_list};
@@ -18,7 +18,7 @@ use crate::aiplan4rust::grounding::passes::types::{typed_list};
 /// - `Err(LirError)` if a union type is missing from the mapping.
 pub fn flatten(
     itn: &mut InitialTaskNetwork,
-    map: &HashMap<Type<TypeID>, TypeID>,
+    map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     // 1. Flatten the Initial Task Network parameters
     // This ensures that variables declared in the problem header are correctly typed.

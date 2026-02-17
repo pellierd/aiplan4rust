@@ -46,12 +46,12 @@
 //! This module depends on serde for serialization and deserialization of declarations.
 
 use crate::aiplan4rust::syntax::Span;
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::semantic::symbol::{SymbolOrigin, Symbol};
 use crate::aiplan4rust::semantic::symbol::Scope;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::lang::{StringID, RemapIdents};
+use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
 use crate::aiplan4rust::lang::TypedList;
 use crate::aiplan4rust::lang::Type;
 use std::collections::HashMap;
@@ -102,10 +102,10 @@ pub struct Declaration {
     origin: SymbolOrigin,
 
     /// Optional list of types associated with the symbol.
-    types: Option<Type<StringID>>,
+    types: Option<Type<SymbolId>>,
 
     /// Optional list of argument types, grouped in parameter lists.
-    arguments: Option<TypedList<StringID, StringID>>,
+    arguments: Option<TypedList<SymbolId, SymbolId>>,
 
     /// The span in source code where the declaration is located.
     span: Span,
@@ -156,8 +156,8 @@ impl Declaration {
         symbol: Symbol,
         scope: Scope,
         origin: SymbolOrigin,
-        types: Option<Type<StringID>>,
-        arguments: Option<TypedList<StringID, StringID>>,
+        types: Option<Type<SymbolId>>,
+        arguments: Option<TypedList<SymbolId, SymbolId>>,
         span: Span,
         node_id: NodeId,
         imported_scope: Option<Scope>,
@@ -180,8 +180,8 @@ impl Declaration {
         &self.symbol
     }
 
-    /// Returns the [`StringID`] of the referenced symbol.
-    pub fn symbol_ident(&self) -> StringID {
+    /// Returns the [`SymbolId`] of the referenced symbol.
+    pub fn symbol_ident(&self) -> SymbolId {
         self.symbol.id()
     }
 
@@ -205,12 +205,12 @@ impl Declaration {
     }
 
     /// Returns an optional reference to the list of types associated with the symbol.
-    pub fn types(&self) -> Option<&Type<StringID>> {
+    pub fn types(&self) -> Option<&Type<SymbolId>> {
         self.types.as_ref()
     }
 
     /// Returns an optional reference to the list of arguments associated with the symbol.
-    pub fn arguments(&self) -> Option<&TypedList<StringID, StringID>> {
+    pub fn arguments(&self) -> Option<&TypedList<SymbolId, SymbolId>> {
         self.arguments.as_ref()
     }
 
@@ -345,7 +345,7 @@ impl Declaration {
     fn fmt_types_with(
         &self,
         w: &mut std::fmt::Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result {
         if let Some(types) = &self.types {
             write!(w, ", types: (")?;
@@ -353,7 +353,7 @@ impl Declaration {
             match types.members() {
                 [] => { /* no types */ }
                 [single] => {
-                    match interner.resolve_ident(*single) {
+                    match interner.resolve_symbol(*single) {
                         Some(name) => write!(w, "{}", name)?,
                         None => write!(w, "<uninterned:{}>", single)?,
                     }
@@ -361,7 +361,7 @@ impl Declaration {
                 _ => {
                     write!(w, "either")?;
                     for ty in types.iter() {
-                        match interner.resolve_ident(*ty) {
+                        match interner.resolve_symbol(*ty) {
                             Some(name) => write!(w, " {}", name)?,
                             None => write!(w, " <uninterned:{}>", ty)?,
                         }
@@ -398,7 +398,7 @@ impl Declaration {
     fn fmt_arguments_with(
         &self,
         w: &mut std::fmt::Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result {
         if let Some(arguments) = &self.arguments {
             write!(w, ", arguments: (")?;
@@ -460,7 +460,7 @@ impl fmt::Display for Declaration {
     }
 }
 
-impl RemapIdents for Declaration {
+impl RemapSymbol for Declaration {
     /// Remaps all identifiers in this `Declaration`, including its main symbol,
     /// associated types, and argument identifiers, according to the provided mapping.
     ///
@@ -475,7 +475,7 @@ impl RemapIdents for Declaration {
     /// # Errors
     ///
     /// Returns [`InternerError`] if any argument identifier cannot be remapped according to `map`.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
         // Remap the main symbol name
         if let Some(new_ident) = map.get(&self.symbol_ident()) {
             self.symbol.set_ident(new_ident.clone());
@@ -493,7 +493,7 @@ impl RemapIdents for Declaration {
         // Remap argument identifiers
         if let Some(ref mut args) = self.arguments {
             for arg in args.iter_mut() {
-                arg.remap_idents(map)?;
+                arg.remap_symbol(map)?;
             }
         }
         Ok(())
@@ -503,9 +503,9 @@ impl InternerDisplay for Declaration {
     fn fmt_with_interner(
         &self,
         f: &mut fmt::Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result {
-        let name_str = match interner.resolve_ident(self.symbol_ident()) {
+        let name_str = match interner.resolve_symbol(self.symbol_ident()) {
             Some(name) => name,
             None => "<uninterned>",
         };

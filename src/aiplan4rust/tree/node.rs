@@ -150,7 +150,7 @@ pub trait Node: ArenaNode + Display {
     ///
     /// An `Option<OrderedFloat<f64>>` containing the float literal if it exists, or `None` otherwise.
     fn as_float(&self) -> Option<OrderedFloat<f64>> {
-        self.content().as_float()
+        self.content().as_number()
     }
 
     /// Returns the binary comparison operator if present in the syntax’s content.
@@ -196,7 +196,7 @@ pub trait Node: ArenaNode + Display {
     /// A `Result<OrderedFloat<f64>, SyntaxTreeError>` containing the float if successful,
     /// or an error if extraction failed.
     fn try_float(&self) -> Result<OrderedFloat<f64>, SyntaxTreeError> {
-        self.content().try_float()
+        self.content().try_number()
     }
 
     /// Attempts to extract a binary comparison operator from the syntax’s content.

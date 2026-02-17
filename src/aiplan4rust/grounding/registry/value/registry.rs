@@ -1,12 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::iterator::DomainIterator;
 use crate::aiplan4rust::grounding::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::registry::fluent::FluentRegistry;
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
-use crate::aiplan4rust::lang::{ArgumentID, ObjectFluentID, ObjectID, Type, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{ObjectId, ObjectFluentId, ConstantId, Type, TypeId};
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::tree::NodeId;
@@ -16,7 +14,7 @@ pub struct ValueRegistry {
     pub type_domains: Vec<ValueDomain>,
 
     /// Vue par HashMap pour la flexibilité lors de l'analyse ou du debug.
-    pub discovered_by_type: HashMap<TypeID, HashSet<ArgumentID>>,
+    pub discovered_by_type: HashMap<TypeId, HashSet<ObjectId>>,
 }
 
 impl ValueRegistry {
@@ -41,12 +39,12 @@ impl ValueRegistry {
         let mut discovered_by_type = HashMap::with_capacity(n);
 
         for (i, (objs, flus)) in tmp_objects.into_iter().zip(tmp_fluents.into_iter()).enumerate() {
-            let ty_id = TypeID::from(i);
+            let ty_id = TypeId::from(i);
 
             // 1. On remplit le set de découverte (Source de vérité)
             let mut set = HashSet::with_capacity(objs.len() + flus.len());
-            set.extend(objs.iter().map(|&id| ArgumentID::Object(id)));
-            set.extend(flus.iter().map(|&id| ArgumentID::ObjectFluent(id)));
+            set.extend(objs.iter().map(|&id| ObjectId::Constant(id)));
+            set.extend(flus.iter().map(|&id| ObjectId::Fluent(id)));
 
             discovered_by_type.insert(ty_id, set);
 
@@ -59,14 +57,14 @@ impl ValueRegistry {
     }
 
     /// Enregistre un argument pour un type complexe (contenant potentiellement plusieurs types primitifs).
-    pub fn register_to_type(&mut self, arg: ArgumentID, ty: &Type<TypeID>) -> bool {
+    pub fn register_to_type(&mut self, arg: ObjectId, ty: &Type<TypeId>) -> bool {
         // Un Type<TypeID> possède une liste de membres (IDs de types primitifs après flattening)
         self.register(arg, ty.members())
     }
 
     /// Enregistre un argument dans une liste de types primitifs.
     /// Retourne `true` si l'argument a été ajouté à au moins un domaine où il n'était pas présent.
-    fn register(&mut self, arg: ArgumentID, types: &[TypeID]) -> bool {
+    fn register(&mut self, arg: ObjectId, types: &[TypeId]) -> bool {
         let mut changed = false;
 
         for &ty_id in types {
@@ -85,7 +83,7 @@ impl ValueRegistry {
     }
 
     /// Récupère le domaine pour un type riche (ex: un paramètre d'action).
-    pub fn get_domain_of_type(&self, ty: &Type<TypeID>) -> &ValueDomain {
+    pub fn get_domain_of_type(&self, ty: &Type<TypeId>) -> &ValueDomain {
         // On délègue à la méthode primitive en utilisant l'ID du type
         self.get_domain_of_primitive_type(ty.members()[0])
     }
@@ -94,7 +92,7 @@ impl ValueRegistry {
     /// On l'appelle "primitive" car elle accède directement au stockage indexé.
     /// Récupère le domaine pour un TypeID brut.
     /// Accès ultra-rapide par référence.
-    pub fn get_domain_of_primitive_type(&self, type_id: TypeID) -> &ValueDomain {
+    pub fn get_domain_of_primitive_type(&self, type_id: TypeId) -> &ValueDomain {
         // On accède directement au vecteur.
         // On suppose que from_problem a bien dimensionné le vecteur.
         &self.type_domains[type_id.as_usize()]
@@ -115,8 +113,8 @@ impl ValueRegistry {
 
             for arg in set {
                 match arg {
-                    ArgumentID::Object(id) => objs.push(*id),
-                    ArgumentID::ObjectFluent(id) => flus.push(*id),
+                    ObjectId::Constant(id) => objs.push(*id),
+                    ObjectId::Fluent(id) => flus.push(*id),
                 }
             }
 
@@ -134,7 +132,7 @@ impl ValueRegistry {
 
     /// Collecte tous les objets définis dans le problème et les classe par TypeID.
     /// Retourne un vecteur où l'index correspond au TypeID.as_usize().
-    fn collect_objects(problem: &LiftedProblem) -> Vec<Vec<ObjectID>> {
+    fn collect_objects(problem: &LiftedProblem) -> Vec<Vec<ConstantId>> {
         // On pré-alloue un vecteur de vecteurs pour chaque type existant dans le problème.
         let num_types = problem.type_defs().len();
         let mut tmp_objects = vec![Vec::new(); num_types];
@@ -163,7 +161,7 @@ impl ValueRegistry {
     fn collect_initial_fluents(
         problem: &LiftedProblem,
         fluent_reg: &mut FluentRegistry,
-    ) -> Result<Vec<Vec<ObjectFluentID>>, GroundingError> {
+    ) -> Result<Vec<Vec<ObjectFluentId>>, GroundingError> {
         let mut tmp_fluents = vec![Vec::new(); problem.type_defs().len()];
         let init_expr = problem.init();
 
@@ -202,7 +200,7 @@ impl ValueRegistry {
         expr: &Expr,
         problem: &LiftedProblem,
         fluent_reg: &mut FluentRegistry
-    ) -> Result<ObjectFluentID, GroundingError> {
+    ) -> Result<ObjectFluentId, GroundingError> {
         let function_node = expr.try_node(node_id)?;
 
         // 1. On récupère les enfants du FunctionTerm.

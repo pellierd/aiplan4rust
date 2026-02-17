@@ -12,7 +12,7 @@
 //!
 //! # Exposed types
 //!
-//! - [`StringInterner`]: The main string interner implementation.
+//! - [`SymbolInterner`]: The main string interner implementation.
 //! - [`InternerMergeResult`]: Result type_checker for interner merge operations.
 //! - [`InternerDisplay`]: Utilities for displaying/formatting interners.
 //! - [`InternerError`]: Enum representing errors related to interning.
@@ -30,9 +30,9 @@ pub mod interner;
 pub mod merge_result;
 pub mod display;
 pub mod error;
-pub mod remap_idents;
+pub mod remap_symbol;
 
-pub use interner::StringInterner;
+pub use interner::SymbolInterner;
 pub use merge_result::InternerMergeResult;
 pub use display::InternerDisplay;
 pub use display::SelfInternerDisplay;

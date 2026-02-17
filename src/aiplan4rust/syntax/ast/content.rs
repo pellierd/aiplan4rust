@@ -19,7 +19,7 @@
 //! # Display with Context
 //!
 //! Identifiers are interned during parsing. To resolve them to human-readable strings,
-//! use [`Content::display_with_context`] with a [`StringInterner`].
+//! use [`Content::display_with_context`] with a [`SymbolInterner`].
 //!
 //! ```rust
 //! use aiplan4rust::syntax::{Content, StringInterner};
@@ -31,8 +31,8 @@
 //! assert_eq!(content.display_with_context(&interner), "move");
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, StringID, Optimization, RemapIdents, Requirement};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, SymbolId, Optimization, RemapSymbol, Requirement};
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use ordered_float::OrderedFloat;
@@ -50,8 +50,8 @@ pub enum Content {
     #[default]
     None,
 
-    /// Interned identifier (references a string in the [`StringInterner`]).
-    Ident(StringID),
+    /// Interned identifier (references a string in the [`SymbolInterner`]).
+    Ident(SymbolId),
 
     /// Floating-point literal (wrapped in [`OrderedFloat`] for total ordering).
     #[serde(
@@ -103,7 +103,7 @@ impl Content {
     }
 
     /// Returns the content as an identifier if available.
-    pub fn as_ident(&self) -> Option<StringID> {
+    pub fn as_ident(&self) -> Option<SymbolId> {
         match self {
             Content::Ident(id) => Some(*id),
             _ => None,
@@ -114,7 +114,7 @@ impl Content {
     ///
     /// Returns `Ok(Ident)` if successful or
     /// `Err(SyntaxTreeError::NotAnIdent)` if the content is not an identifier.
-    pub fn try_ident(&self) -> Result<StringID, AstError> {
+    pub fn try_ident(&self) -> Result<SymbolId, AstError> {
         self.as_ident()
             .ok_or_else(|| AstError::not_a_symbol_id())
     }
@@ -192,7 +192,7 @@ impl InternerDisplay for Content {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
         match self {
             Content::Ident(idx) => {
                 // Resolve the interned string or fallback to a placeholder.
@@ -200,8 +200,8 @@ impl InternerDisplay for Content {
                     f,
                     "\"{}\"",
                     interner
-                        .resolve_ident(*idx)
-                        .unwrap_or(StringInterner::UNKNOWN_INTERNED_STRING)
+                        .resolve_symbol(*idx)
+                        .unwrap_or(SymbolInterner::UNKNOWN_INTERNED_STRING)
                 )
             }
             _ => fmt::Display::fmt(self, f),
@@ -241,7 +241,7 @@ impl SyntaxInternerDisplay for Content {
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         indent: usize,
     ) -> fmt::Result {
         write_indent(f, indent)?;
@@ -260,7 +260,7 @@ impl SyntaxContent for Content {
     ///
     /// - `Some(OrderedFloat<f64>)` if the content is a floating-point literal.
     /// - `None` otherwise.
-    fn as_float(&self) -> Option<OrderedFloat<f64>> {
+    fn as_number(&self) -> Option<OrderedFloat<f64>> {
         match self {
             Content::Float(f) => Some(*f),
             _ => None,
@@ -331,7 +331,7 @@ impl SyntaxContent for Content {
 
 }
 
-impl RemapIdents for Content {
+impl RemapSymbol for Content {
     /// Remaps the identifier inside this content if it is an `Ident` using the provided mapping.
     ///
     /// # Parameters
@@ -346,7 +346,7 @@ impl RemapIdents for Content {
     /// - The operation is performed **in place** and is panic-free.
     /// - No error is returned in this implementation; stricter remapping behavior
     ///   can return [`InternerError::MissingIdent`] if desired.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         if let Content::Ident(id) = self {
             id.remap_idents(map)?;
         }

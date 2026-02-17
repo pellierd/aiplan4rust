@@ -10,7 +10,7 @@
 //! The [`Ast`] holds the following components:
 //!
 //! - A [`Tree<AstNode>`] representing the complete AST structure.
-//! - A [`StringInterner`] used during parsing for deduplicating string content such as symbols.
+//! - A [`SymbolInterner`] used during parsing for deduplicating string content such as symbols.
 //! - A human-readable [`source_name`] (e.g., a filename or label).
 //! - A [`SystemTime`] timestamp recording when the AST was created.
 //!
@@ -51,11 +51,11 @@
 //!
 //! - [`AstNode`] for details about individual syntax nodes.
 //! - [`AstKind`] for syntax classification.
-//! - [`StringInterner`] for efficient symbol management.
+//! - [`SymbolInterner`] for efficient symbol management.
 //! - [`PreorderIter`] and [`PostorderIter`] for custom traversal.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerError, SelfInternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::ast::AstKind;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::{FastLineTable, SyntaxDisplay};
@@ -66,7 +66,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::time::SystemTime;
-use crate::aiplan4rust::lang::{LiteralID, RemapIdents, StringID};
+use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, SymbolId};
 use crate::aiplan4rust::serialization::SerializationError;
 use crate::aiplan4rust::serialization::syntax::SyntaxSerializable;
 
@@ -89,10 +89,10 @@ pub struct Ast {
     syntax_tree: Tree<AstNode>,
 
     /// String interner used during parsing.
-    interner: StringInterner,
+    interner: SymbolInterner,
 
     /// Interned identifier representing the source of this AST.
-    source_id: LiteralID,
+    source_id: LiteralId,
 
     /// Timestamp when the AST was generated.
     generated_at: SystemTime,
@@ -109,8 +109,8 @@ impl Default for Ast {
     fn default() -> Self {
         Ast {
             syntax_tree: Tree::<AstNode>::new(),
-            interner: StringInterner::new(),
-            source_id: LiteralID::default(),
+            interner: SymbolInterner::new(),
+            source_id: LiteralId::default(),
             generated_at: SystemTime::now(),
         }
     }
@@ -122,7 +122,7 @@ impl Ast {
     /// # Arguments
     ///
     /// * `syntax_tree` - The root syntax tree containing the AST nodes.
-    /// * `interner` - A [`StringInterner`] for managing interned strings within the AST.
+    /// * `interner` - A [`SymbolInterner`] for managing interned strings within the AST.
     /// * `source_id` - A identifier for the source of the AST (e.g., filename). This will be interned.
     /// * `generated_at` - A [`SystemTime`] timestamp marking when the AST was generated.
     ///
@@ -145,8 +145,8 @@ impl Ast {
     /// ```
     pub fn new(
         syntax_tree: Tree<AstNode>,
-        interner: StringInterner,
-        source_id: LiteralID,
+        interner: SymbolInterner,
+        source_id: LiteralId,
         generated_at: SystemTime,
     ) -> Self {
         Self {
@@ -199,8 +199,8 @@ impl Ast {
     ///
     /// # Returns
     ///
-    /// A shared reference to the [`StringInterner`] used in the AST.
-    pub fn interner(&self) -> &StringInterner {
+    /// A shared reference to the [`SymbolInterner`] used in the AST.
+    pub fn interner(&self) -> &SymbolInterner {
         &self.interner
     }
 
@@ -208,8 +208,8 @@ impl Ast {
     ///
     /// # Returns
     ///
-    /// A mutable reference to the [`StringInterner`] used in the AST or local storage.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    /// A mutable reference to the [`SymbolInterner`] used in the AST or local storage.
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         &mut self.interner
     }
 
@@ -217,8 +217,8 @@ impl Ast {
     ///
     /// # Returns
     ///
-    /// The owned [`StringInterner`] that was contained in the `Ast`.
-    pub fn take_interner(&mut self) -> StringInterner {
+    /// The owned [`SymbolInterner`] that was contained in the `Ast`.
+    pub fn take_interner(&mut self) -> SymbolInterner {
         std::mem::take(&mut self.interner)
     }
 
@@ -227,11 +227,11 @@ impl Ast {
     /// This `Literal` refers to a string stored in the interner, typically representing
     /// the filename or origin label of the AST (e.g., `"domain.pddl"` or `"stdin"`).
     ///
-    /// If this method returns [`LiteralID::default()`], it typically means the source
+    /// If this method returns [`LiteralId::default()`], it typically means the source
     /// name is undefined or not set (e.g., in an empty or default AST).
     ///
-    /// To retrieve the actual string, use [`StringInterner::resolve_literal`] or
-    /// [`StringInterner::try_resolve_literal`] with this value.
+    /// To retrieve the actual string, use [`SymbolInterner::resolve_literal`] or
+    /// [`SymbolInterner::try_resolve_literal`] with this value.
     ///
     /// # Returns
     ///
@@ -247,7 +247,7 @@ impl Ast {
     ///     println!("Unknown source");
     /// }
     /// ```
-    pub fn source_id(&self) -> LiteralID {
+    pub fn source_id(&self) -> LiteralId {
         self.source_id
     }
 
@@ -467,7 +467,7 @@ impl SyntaxDisplay for Ast {
 }
 
 impl SelfInternerDisplay for Ast {
-    /// Formats the `Ast` using its internal [`StringInterner`].
+    /// Formats the `Ast` using its internal [`SymbolInterner`].
     ///
     /// This implementation delegates to the AST's syntax tree and resolves all
     /// interned identifiers using the AST's interner, producing a human-readable string.
@@ -540,7 +540,7 @@ impl SyntaxSerializable for Ast {
 impl Tree<AstNode> {
 
     /// Remaps identifiers starting only from the root.
-    pub fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+    pub fn remap_idents(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         // We retrieve the root ID. If it exists, we start the recursive remapping.
         if let Some(root_id) = self.root_id() {
             self.remap_idents_from(root_id, map)?;
@@ -562,7 +562,7 @@ impl Tree<AstNode> {
     pub fn remap_idents_from(
         &mut self,
         id: NodeId,
-        map: &HashMap<StringID, StringID>
+        map: &HashMap<SymbolId, SymbolId>
     ) -> Result<(), InternerError> {
         let mut stack = vec![id];
         while let Some(current_id) = stack.pop() {
@@ -570,7 +570,7 @@ impl Tree<AstNode> {
             // the compiler knows that 'node' is an AstNode.
             if let Some(node) = self.get_node_mut(current_id) {
                 // AstNode implements RemapIdents, so this call is valid.
-                node.remap_idents(map)?;
+                node.remap_symbol(map)?;
 
                 for &child_id in node.children() {
                     stack.push(child_id);

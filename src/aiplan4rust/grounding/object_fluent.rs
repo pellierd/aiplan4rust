@@ -1,51 +1,51 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ConstantId, TypeId};
 
 /// Représente un object-fluent (fonction non-numérique)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ObjectFluent {
     /// Symbol index dans la table des symboles des object-fluents
-    symbol: FunctorID,
+    symbol: FunctionSymbolId,
     /// Paramètres du fluent, tous des ObjectID (pas d'object-fluent pour éviter récursion)
-    arguments: Vec<ObjectID>,
+    arguments: Vec<ConstantId>,
     /// Type de retour du fluent
-    ty: TypeID,
+    ty: TypeId,
 }
 
 impl ObjectFluent {
     /// Constructeur pour créer un ObjectFluent
-    pub fn new(symbol: FunctorID, parameters: Vec<ObjectID>, ty: TypeID) -> Self {
+    pub fn new(symbol: FunctionSymbolId, parameters: Vec<ConstantId>, ty: TypeId) -> Self {
         Self { symbol, arguments: parameters, ty }
     }
 
     /// Returns the symbol (FunctionID) of the object-fluent.
-    pub fn symbol(&self) -> FunctorID {
+    pub fn symbol(&self) -> FunctionSymbolId {
         self.symbol
     }
 
     /// Returns a reference to the list of parameters (ObjectID) of the object-fluent.
-    pub fn arguments(&self) -> &Vec<ObjectID> {
+    pub fn arguments(&self) -> &Vec<ConstantId> {
         &self.arguments
     }
 
     /// Returns a mutable reference to the parameters of the object-fluent.
-    pub fn arguments_mut(&mut self) -> &mut Vec<ObjectID> {
+    pub fn arguments_mut(&mut self) -> &mut Vec<ConstantId> {
         &mut self.arguments
     }
 
     /// Replaces the current list of parameters with the provided one.
-    pub fn set_arguments(&mut self, params: Vec<ObjectID>) {
+    pub fn set_arguments(&mut self, params: Vec<ConstantId>) {
         self.arguments = params;
     }
 
     /// Returns the return type (TypeID) of the object-fluent.
-    pub fn ty(&self) -> TypeID {
+    pub fn ty(&self) -> TypeId {
         self.ty
     }
 
     /// Sets the return type of the object-fluent.
-    pub fn set_ty(&mut self, ty: TypeID) {
+    pub fn set_ty(&mut self, ty: TypeId) {
         self.ty = ty;
     }
 

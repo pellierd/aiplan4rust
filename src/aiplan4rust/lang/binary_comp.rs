@@ -28,7 +28,7 @@
 //! assert_eq!(op.to_string(), ">=");
 //! ```
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::EQUAL;
 use crate::aiplan4rust::syntax::lexer::token::GREATER;
 use crate::aiplan4rust::syntax::lexer::token::GREATER_EQ;
@@ -130,7 +130,7 @@ impl InternerDisplay for BinaryComp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating success or failure.
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &SymbolInterner) -> fmt::Result {
         fmt::Display::fmt(self, f)
     }
 }
@@ -162,7 +162,7 @@ impl SyntaxInternerDisplay for BinaryComp {
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
-        _interner: &StringInterner,
+        _interner: &SymbolInterner,
         indent: usize,
     ) -> fmt::Result {
         write_indent(f, indent)?;

@@ -16,7 +16,7 @@
 //! All methods return a [`SerializationError`] wrapped in a `Result`.
 //! File-related errors (read/write) and unsupported formats/extensions are handled explicitly.
 //!
-//! [`StringInterner`]: crate::aiplan4rust::interner::StringInterner
+//! [`StringInterner`]: crate::aiplan4rust::interner::SymbolInterner
 //! [`SerializationError`]: crate::aiplan4rust::serialization::SerializationError
 //!
 //! # Examples

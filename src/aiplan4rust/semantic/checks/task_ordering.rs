@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::diagnostic::{Diagnostic, DiagnosticManager, Provider};
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 use crate::aiplan4rust::syntax::ast::{AstNode, AstKind};
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::tree::{Node, Tree};
 
 /// Checks the task ordering constraints in the provided annotated syntax arena and detects any
@@ -138,7 +138,7 @@ pub fn check_task_ordering(
 fn extract_task_ids(
     node: &AstNode,
     tree: &Tree<AstNode>,
-) -> Result<Vec<StringID>, SemanticCheckError> {
+) -> Result<Vec<SymbolId>, SemanticCheckError> {
     let mut vec_task_id = Vec::new();
     for child_index in node.children() {
         let child_node = tree.try_node(*child_index)?;
@@ -213,7 +213,7 @@ fn extract_task_ids(
 ///
 /// - Each consecutive pair of task IDs in the input slice represents an ordering constraint where
 ///   the first task must precede the second.
-fn build_task_order_matrix(task_ids: &Vec<StringID>) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
+fn build_task_order_matrix(task_ids: &Vec<SymbolId>) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
 
     // Build a map from task IDs to unique indices
     let map = build_task_index_map(task_ids);
@@ -276,7 +276,7 @@ fn build_task_order_matrix(task_ids: &Vec<StringID>) -> Result<Vec<Vec<bool>>, S
 /// - The returned map will have only unique task IDs as keys, with no duplicates.
 /// - The function iterates over the slice once, and assigns indices sequentially based on the
 ///   order in which task IDs appear.
-fn build_task_index_map(task_ids: &[StringID]) -> HashMap<&StringID, usize> {
+fn build_task_index_map(task_ids: &[SymbolId]) -> HashMap<&SymbolId, usize> {
     let mut map = HashMap::new();
     let mut index = 0;
     for task_id in task_ids {

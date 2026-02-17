@@ -21,9 +21,9 @@
 
 
 use std::fmt;
-use std::fmt::{Display, Formatter};
+use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::{StringID, TypedList, TypeID, VariableID};
+use crate::aiplan4rust::lang::{TypedList, TypeId, VariableId};
 
 /// Abstract skeleton common to both predicates and functions in PDDL.
 ///
@@ -41,7 +41,7 @@ pub struct NamedTypedList<ID> {
     /// L'identifiant typé (ActionSymbolID, PredicateID, etc.)
     symbol: ID,
     /// La liste des paramètres (Variables et leurs Types)
-    parameters: TypedList<VariableID, TypeID>,
+    parameters: TypedList<VariableId, TypeId>,
 }
 
 impl<ID: Copy> NamedTypedList<ID> {
@@ -55,7 +55,7 @@ impl<ID: Copy> NamedTypedList<ID> {
     /// # Returns
     ///
     /// A new instance of `NamedTypedList`.
-    pub fn new(symbol: ID, parameters: TypedList<VariableID, TypeID>) -> Self {
+    pub fn new(symbol: ID, parameters: TypedList<VariableId, TypeId>) -> Self {
         Self { symbol, parameters }
     }
     /// Returns the name of the predicate or function.
@@ -81,7 +81,7 @@ impl<ID: Copy> NamedTypedList<ID> {
     /// # Returns
     ///
     /// A reference to the `TypedList` representing the parameters.
-    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
+    pub fn parameters(&self) -> &TypedList<VariableId, TypeId> {
         &self.parameters
     }
 
@@ -92,7 +92,7 @@ impl<ID: Copy> NamedTypedList<ID> {
     /// # Returns
     ///
     /// A mutable reference to the `TypedList`.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
         &mut self.parameters
     }
 
@@ -101,7 +101,7 @@ impl<ID: Copy> NamedTypedList<ID> {
     /// # Parameters
     ///
     /// - `parameters`: The new `TypedList` to set as the parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableId, TypeId>) {
         self.parameters = parameters;
     }
 

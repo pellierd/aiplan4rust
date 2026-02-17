@@ -26,7 +26,7 @@
 //! ```
 
 use crate::aiplan4rust::lang::typed_list::TypedList;
-use crate::aiplan4rust::lang::{MethodSymbolID, TaskLabelID, TypeID, VariableID};
+use crate::aiplan4rust::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use serde::{Deserialize, Serialize};
@@ -39,7 +39,7 @@ use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Method {
     /// The method's header, containing its name and parameters.
-    header: NamedTypedList<MethodSymbolID>,
+    header: NamedTypedList<MethodSymbolId>,
 
     /// The task expression this method decomposes.
     task: Expr,
@@ -51,8 +51,8 @@ pub struct Method {
     /// The lifted task network describing the subtasks for decomposition.
     task_network: LiftedTaskNetwork,
 
-    variable_symbols: SymbolRegistry<VariableID>,
-    task_label_symbols: SymbolRegistry<TaskLabelID>,
+    variable_symbols: SymbolRegistry<VariableId>,
+    task_label_symbols: SymbolRegistry<TaskLabelSymbolId>,
 }
 
 #[allow(dead_code)]
@@ -69,8 +69,8 @@ impl Method {
     /// # Returns
     /// A new `Method` instance.
     pub fn new(
-        name: MethodSymbolID,
-        parameters: TypedList<VariableID, TypeID>,
+        name: MethodSymbolId,
+        parameters: TypedList<VariableId, TypeId>,
         task: Expr,
         precondition: Expr,
         task_network: LiftedTaskNetwork,
@@ -86,24 +86,24 @@ impl Method {
     }
 
     /// Injecte le registre des symboles de variables.
-    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableId>) -> Self {
         self.variable_symbols = symbols;
         self
     }
 
     /// Injecte le registre des étiquettes de tâches.
-    pub fn with_task_label_symbols(mut self, symbols: SymbolRegistry<TaskLabelID>) -> Self {
+    pub fn with_task_label_symbols(mut self, symbols: SymbolRegistry<TaskLabelSymbolId>) -> Self {
         self.task_label_symbols = symbols;
         self
     }
 
     /// Returns the method's name as an identifier.
-    pub fn name(&self) -> MethodSymbolID {
+    pub fn name(&self) -> MethodSymbolId {
         self.header.symbol()
     }
 
     /// Sets the method's name.
-    pub fn set_name(&mut self, name: MethodSymbolID) {
+    pub fn set_name(&mut self, name: MethodSymbolId) {
         self.header.set_symbol(name);
     }
 
@@ -111,7 +111,7 @@ impl Method {
     ///
     /// These represent the variables and their types used by the action,
     /// encapsulated in a `TypedList`.
-    pub fn parameters(&self) -> &TypedList<VariableID, TypeID> {
+    pub fn parameters(&self) -> &TypedList<VariableId, TypeId> {
         self.header.parameters()
     }
 
@@ -119,12 +119,12 @@ impl Method {
     ///
     /// This allows for in-place modification of the parameters (such as type flattening)
     /// while maintaining the integrity of the `TypedList` structure.
-    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableID, TypeID> {
+    pub fn parameters_mut(&mut self) -> &mut TypedList<VariableId, TypeId> {
         self.header.parameters_mut()
     }
 
     /// Sets the method's parameters.
-    pub fn set_parameters(&mut self, parameters: TypedList<VariableID, TypeID>) {
+    pub fn set_parameters(&mut self, parameters: TypedList<VariableId, TypeId>) {
         self.header.set_parameters(parameters);
     }
 
@@ -176,21 +176,21 @@ impl Method {
         &mut self.task_network
     }
 
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> {
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> {
         &self.variable_symbols
     }
 
-    pub fn task_label_symbols(&self) -> &SymbolRegistry<TaskLabelID> {
+    pub fn task_label_symbols(&self) -> &SymbolRegistry<TaskLabelSymbolId> {
         &self.task_label_symbols
     }
 
     // --- Accesseurs Mutables (Mutators) ---
 
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> {
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> {
         &mut self.variable_symbols
     }
 
-    pub fn task_label_symbols_mut(&mut self) -> &mut SymbolRegistry<TaskLabelID> {
+    pub fn task_label_symbols_mut(&mut self) -> &mut SymbolRegistry<TaskLabelSymbolId> {
         &mut self.task_label_symbols
     }
 

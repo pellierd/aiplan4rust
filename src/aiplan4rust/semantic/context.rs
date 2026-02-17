@@ -51,8 +51,8 @@
 //! This design enables streamlined error propagation and reporting during
 //! semantic analysis.
 
-use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{LiteralID, RemapIdents, Requirement, StringID};
+use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::{requirements, SemanticError, SymbolTable};
 use crate::aiplan4rust::serialization::serde::SerdeSerializable;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
@@ -96,11 +96,11 @@ pub struct Context {
     symbol_table: SymbolTable,
 
     /// String interner used for efficient symbol resolution.
-    interner: StringInterner,
+    interner: SymbolInterner,
 
     /// The interned identifier of the source file or input from which the AST was parsed.
     /// Use the interner to resolve this `Literal` into the actual source name string.
-    source_id: LiteralID,
+    source_id: LiteralId,
 
     /// Timestamp marking when semantic analysis was completed.
     generated_at: SystemTime,
@@ -140,9 +140,9 @@ impl Context {
     /// or a `SemanticError` if any invariant is violated.
     fn new(
         syntax_tree: Tree<AstNode>,
-        source_id: LiteralID,
+        source_id: LiteralId,
         symbol_table: SymbolTable,
-        interner: StringInterner,
+        interner: SymbolInterner,
         generated_at: SystemTime,
     ) -> Result<Self, SemanticError> {
         // Validate that the syntax tree is not empty and the root is domain/problem
@@ -298,7 +298,7 @@ impl Context {
     /// underlying symbol table.
     pub fn add_declaration(
         &mut self,
-        symbol_name: StringID,
+        symbol_name: SymbolId,
         declaration: Declaration,
     ) -> bool {
         let Some(symbol) = self.symbol_table.get_symbol_mut(symbol_name) else {
@@ -326,7 +326,7 @@ impl Context {
     /// # Returns
     ///
     /// The `Literal` representing the interned source name.
-    pub fn source_id(&self) -> LiteralID {
+    pub fn source_id(&self) -> LiteralId {
         self.source_id
     }
 
@@ -380,12 +380,12 @@ impl Context {
     }
 
     /// Returns a reference to the string interner.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         &self.interner
     }
 
     /// Returns a mutable reference to the string interner.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         &mut self.interner
     }
 
@@ -393,8 +393,8 @@ impl Context {
     ///
     /// # Returns
     ///
-    /// The taken [`StringInterner`].
-    pub fn take_interner(&mut self) -> StringInterner {
+    /// The taken [`SymbolInterner`].
+    pub fn take_interner(&mut self) -> SymbolInterner {
         std::mem::take(&mut self.interner)
     }
 
@@ -418,14 +418,14 @@ impl Context {
     /// a `SymbolTableError` or `InternerError`.
     pub fn remap(
         &mut self,
-        ident_map: &HashMap<StringID, StringID>,
-        literal_map: &HashMap<LiteralID, LiteralID>,
+        ident_map: &HashMap<SymbolId, SymbolId>,
+        literal_map: &HashMap<LiteralId, LiteralId>,
     ) -> Result<(), SemanticError> {
         // Step 1: remap identifiers in AST directly
         self.syntax_tree.remap_idents(ident_map)?;
 
         // Step 2: remap identifiers in the symbol table directly
-        self.symbol_table.remap_idents(ident_map)?;
+        self.symbol_table.remap_symbol(ident_map)?;
 
         // Step 3: remap the source literal
         let new_source_id = literal_map

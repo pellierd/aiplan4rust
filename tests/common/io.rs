@@ -9,7 +9,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 use walkdir::WalkDir;
-use aiplan4rust::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use aiplan4rust::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use aiplan4rust::aiplan4rust::semantic::SymbolTable;
 
 /// Supported file extensions (case-insensitive).
@@ -193,7 +193,7 @@ pub fn delete_all_files_with_extension(root_dir: &Path, extension: &str) {
 /// Panics if the `.diag` file cannot be created or written.
 pub fn write_diagnostics_to_file(
     diagnostic_manager: &DiagnosticManager,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     file_path: &Path,
     context: &str,
 ) {
@@ -407,7 +407,7 @@ pub fn write_symbol_table_to_file(
     symbol_table: &SymbolTable,
     file_path: &Path,
     context: &str,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
 ) {
     let symtab_path = file_path.with_extension("symtab");
 
@@ -485,7 +485,7 @@ pub fn write_symbol_table_to_file(
 /// [`StringInterner`]: crate::symbols::StringInterner
 pub fn write_linking_diag_to_file(
     diagnostic_manager: &DiagnosticManager,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     domain_path: &Path,
     problem_path: &Path,
     context: &str,

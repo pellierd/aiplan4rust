@@ -1,51 +1,51 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ConstantId, TypeId};
 
 /// Représente un numeric-fluent (fonction numérique)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NumericFluent {
     /// Symbol index dans la table des symboles des numeric-fluents
-    symbol: FunctorID,
+    symbol: FunctionSymbolId,
     /// Paramètres de la fonction (toujours ObjectID)
-    arguments: Vec<ObjectID>,
+    arguments: Vec<ConstantId>,
     /// Type de retour de la fonction
-    ty: TypeID,
+    ty: TypeId,
 }
 
 impl NumericFluent {
     /// Constructeur
-    pub fn new(symbol: FunctorID, parameters: Vec<ObjectID>, ty: TypeID) -> Self {
+    pub fn new(symbol: FunctionSymbolId, parameters: Vec<ConstantId>, ty: TypeId) -> Self {
         Self { symbol, arguments: parameters, ty }
     }
 
     /// Accès au symbole (FunctionID)
-    pub fn symbol(&self) -> FunctorID {
+    pub fn symbol(&self) -> FunctionSymbolId {
         self.symbol
     }
 
     /// Accès aux paramètres
-    pub fn arguments(&self) -> &Vec<ObjectID> {
+    pub fn arguments(&self) -> &Vec<ConstantId> {
         &self.arguments
     }
 
     /// Accès mutable aux paramètres
-    pub fn arguments_mut(&mut self) -> &mut Vec<ObjectID> {
+    pub fn arguments_mut(&mut self) -> &mut Vec<ConstantId> {
         &mut self.arguments
     }
 
     /// Remplace les paramètres
-    pub fn set_arguments(&mut self, params: Vec<ObjectID>) {
+    pub fn set_arguments(&mut self, params: Vec<ConstantId>) {
         self.arguments = params;
     }
 
     /// Accès au type de retour
-    pub fn ty(&self) -> TypeID {
+    pub fn ty(&self) -> TypeId {
         self.ty
     }
 
     /// Modifie le type de retour
-    pub fn set_ty(&mut self, ty: TypeID) {
+    pub fn set_ty(&mut self, ty: TypeId) {
         self.ty = ty;
     }
 

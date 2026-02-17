@@ -16,8 +16,8 @@ use std::fmt;
 
 use crate::aiplan4rust::diagnostic::{renderer, DiagnosticKind, Severity};
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{RemapIdents, Requirement};
-use crate::aiplan4rust::lang::{StringID, Type};
+use crate::aiplan4rust::lang::{RemapSymbol, Requirement};
+use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::symbol::Symbol;
 use crate::aiplan4rust::semantic::symbol::{Declaration, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
@@ -104,13 +104,13 @@ pub enum Kind {
     ///
     /// This error is raised when the expression involves incompatible types that
     /// cannot be reconciled, indicating a type mismatch.
-    TypeMismatchInExpression { ty1: Type<StringID>, ty2: Type<StringID> },
+    TypeMismatchInExpression { ty1: Type<SymbolId>, ty2: Type<SymbolId> },
 
     /// Represents an error where two types used in a numeric expression are incompatible.
     ///
     /// This error occurs when an operation expecting numeric types receives types
     /// that are not valid for numeric computations (e.g., mixing incompatible or non-numeric types).
-    InvalidTypesInNumericExpression { ty1: Type<StringID>, ty2: Type<StringID> },
+    InvalidTypesInNumericExpression { ty1: Type<SymbolId>, ty2: Type<SymbolId> },
 
     /// Indicates that an expression node uses a feature or construct that violates
     /// the PDDL requirements currently active in the context.
@@ -302,8 +302,8 @@ pub enum Kind {
     /// - `type_used`: The actual type used in the task invocation, which is a supertype of the declared type.
     TaskArgumentIsSupertypeOfDeclaration {
         argument: Declaration,
-        type_declared: Type<StringID>,
-        type_used: Type<StringID>,
+        type_declared: Type<SymbolId>,
+        type_used: Type<SymbolId>,
     },
 
     /// Warning indicating the presence of duplicated types within an `Either` construct.
@@ -323,7 +323,7 @@ pub enum Kind {
     /// For richer diagnostics (including precise declaration locations),
     /// this information should be enhanced later once the symbol table
     /// is available in subsequent analysis phases.
-    DuplicateEitherType { duplicate_types: Vec<StringID> },
+    DuplicateEitherType { duplicate_types: Vec<SymbolId> },
 
     /// Represents an error indicating a cycle in the type hierarchy defined in the domain.
     ///
@@ -396,8 +396,8 @@ pub enum Kind {
     /// To avoid ambiguity, it is recommended to declare the type explicitly using the `(either ...)`
     /// syntax, listing all parent types.
     ImplicitEitherTypeDeclaration {
-        ty: StringID,
-        duplicate_types: Vec<StringID>,
+        ty: SymbolId,
+        duplicate_types: Vec<SymbolId>,
         duplicate_spans: Vec<Span>,
     },
     /// A warning emitted when a requirement is declared multiple times.
@@ -571,7 +571,7 @@ impl Kind {
     }
 }
 
-impl RemapIdents for DiagnosticKind {
+impl RemapSymbol for DiagnosticKind {
     /// Remaps all `Ident` instances contained within this diagnostic according to the provided map.
     ///
     /// This function traverses the diagnostic's internal data and replaces each `Ident`
@@ -607,16 +607,16 @@ impl RemapIdents for DiagnosticKind {
     ///
     /// diagnostic.remap_idents(&map)?;
     /// ```
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
         match self {
             Kind::InvalidSymbolSignature { declaration, usage } => {
-                declaration.remap_idents(map)?;
-                usage.remap_idents(map)?;
+                declaration.remap_symbol(map)?;
+                usage.remap_symbol(map)?;
             }
             Kind::TypeMismatchInExpression { ty1, ty2 }
             | Kind::InvalidTypesInNumericExpression { ty1, ty2 } => {
-                ty1.remap_idents(map)?;
-                ty2.remap_idents(map)?;
+                ty1.remap_symbol(map)?;
+                ty2.remap_symbol(map)?;
             }
 
             Kind::DuplicatedSymbolDeclarationInScope {
@@ -624,39 +624,39 @@ impl RemapIdents for DiagnosticKind {
                 conflicting_declaration: declaration2,
                 ..
             } => {
-                declaration1.remap_idents(map)?;
-                declaration2.remap_idents(map)?;
+                declaration1.remap_symbol(map)?;
+                declaration2.remap_symbol(map)?;
             }
 
             Kind::UndeclaredSymbol { usage } => {
-                usage.remap_idents(map)?;
+                usage.remap_symbol(map)?;
             }
 
             Kind::SymbolConflictsWithKeyword { declaration, .. }
             | Kind::SymbolDeclaredAmbiguouslyAsKeyword { declaration, .. }
             | Kind::UnusedSymbol { declaration } => {
-                declaration.remap_idents(map)?;
+                declaration.remap_symbol(map)?;
             }
 
             Kind::DomainProblemNameMismatch {
                 domain_name,
                 problem_name,
             } => {
-                domain_name.remap_idents(map)?;
-                problem_name.remap_idents(map)?;
+                domain_name.remap_symbol(map)?;
+                problem_name.remap_symbol(map)?;
             }
             Kind::AmbiguousTypePredicateSymbol { ty, predicate } => {
-                ty.remap_idents(map)?;
-                predicate.remap_idents(map)?;
+                ty.remap_symbol(map)?;
+                predicate.remap_symbol(map)?;
             }
             Kind::TaskArgumentIsSupertypeOfDeclaration {
                 argument,
                 type_declared,
                 type_used,
             } => {
-                argument.remap_idents(map)?;
-                type_declared.remap_idents(map)?;
-                type_used.remap_idents(map)?;
+                argument.remap_symbol(map)?;
+                type_declared.remap_symbol(map)?;
+                type_used.remap_symbol(map)?;
             }
             Kind::DuplicateEitherType { duplicate_types } => {
                 for ident in duplicate_types {
@@ -665,16 +665,16 @@ impl RemapIdents for DiagnosticKind {
             }
             Kind::CyclicTypeDeclaration { cycle } => {
                 for decl in cycle {
-                    decl.remap_idents(map)?;
+                    decl.remap_symbol(map)?;
                 }
             }
             Kind::CrossConflictSymbolDeclaration {
                 problem_declaration,
                 conflicting_domain_declarations,
             } => {
-                problem_declaration.remap_idents(map)?;
+                problem_declaration.remap_symbol(map)?;
                 for decl in conflicting_domain_declarations {
-                    decl.remap_idents(map)?;
+                    decl.remap_symbol(map)?;
                 }
             }
             Kind::ImplicitEitherTypeDeclaration {

@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{Type, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::types::typed_symbol;
 
@@ -13,8 +13,8 @@ use crate::aiplan4rust::grounding::passes::types::typed_symbol;
 /// - `Ok(())` if all types were successfully flattened or already primitive.
 /// - `Err(LirError)` if any type is an `Either` not present in the mapping.
 pub fn flatten_typed_variable_list(
-    typed_list: &mut TypedList<VariableID, TypeID>,
-    map: &HashMap<Type<TypeID>, TypeID>,
+    typed_list: &mut TypedList<VariableId, TypeId>,
+    map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     for ts in typed_list.iter_mut() {
         typed_symbol::flatten_typed_variable(ts, map)?;

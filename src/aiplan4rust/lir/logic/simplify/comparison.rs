@@ -199,11 +199,11 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
     }
 
     // Try to get constant values from both children
-    let left_val = match expr.try_node(children[0])?.content().as_float() {
+    let left_val = match expr.try_node(children[0])?.content().as_number() {
         Some(v) => v,
         None => return Ok(false),
     };
-    let right_val = match expr.try_node(children[1])?.content().as_float() {
+    let right_val = match expr.try_node(children[1])?.content().as_number() {
         Some(v) => v,
         None => return Ok(false),
     };

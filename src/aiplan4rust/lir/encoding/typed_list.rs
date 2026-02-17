@@ -4,7 +4,7 @@
 //! It is a core utility used to process parameters (in predicates and actions),
 //! as well as global constants and objects.
 
-use crate::aiplan4rust::lang::{TypeID, TypedList, VariableID};
+use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -35,7 +35,7 @@ use crate::aiplan4rust::lir::encoding::{typed_symbol, EncodingRegistry};
 pub fn encode_variable_list(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry, // Mutable pour enregistrer les variables
-) -> Result<TypedList<VariableID, TypeID>, LirError> {
+) -> Result<TypedList<VariableId, TypeId>, LirError> {
     let node = subtree.node();
     let ast = subtree.tree();
 

@@ -1,7 +1,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{AtomSkeletonID, FunctionSkeletonID, LangError, ObjectID, StringID, TaskSkeletonID, Type, TypeID};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, LangError, ConstantId, SymbolId, TaskSkeletonId, Type, TypeId};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::logic::LogicError;
@@ -79,26 +79,26 @@ pub enum LirError {
 
     /// Type not found for a given Ident.
     #[error("Type with id {0:?} not found")]
-    TypeNotFound(StringID),
+    TypeNotFound(SymbolId),
 
     /// Constant not found for a given Ident.
     #[error("Constant with id {0:?} not found")]
-    ConstantNotFound(StringID),
+    ConstantNotFound(SymbolId),
 
     /// Object not found for a given Ident.
     #[error("Object with id {0:?} not found")]
-    ObjectNotFound(StringID),
+    ObjectNotFound(SymbolId),
 
     /// Missing type when remap types
     #[error("Missing type in flattened hierarchy: {ty:?}")] // Changed {types:?} to {ty:?}
-    MissingType { ty: Type<TypeID> },
+    MissingType { ty: Type<TypeId> },
 
 
     #[error("Failed to bind {symbol}")]
     SymbolBindingFailed { symbol: NodeId },
 
     #[error("Failed to bind type: {ty:?}")] // Changed {types:?} to {ty:?}
-    TypeBindingFailed { ty: Type<StringID> },
+    TypeBindingFailed { ty: Type<SymbolId> },
 
     #[error("Failed to find variable with node id: {node_id:?})")]
     VariableNotFound { node_id: NodeId },
@@ -108,21 +108,21 @@ pub enum LirError {
 
     // A definition was provided for a type that was never registered in the symbol table.
     #[error("Type definition provided for an unregistered ID: {id:?}")]
-    TypeDefinitionOrphan { id: TypeID },
+    TypeDefinitionOrphan { id: TypeId },
 
     // In the LirError enum
     #[error("Object definition provided for an unregistered ID: {id:?}")]
-    ObjectDefinitionOrphan { id: ObjectID },
+    ObjectDefinitionOrphan { id: ConstantId },
 
     #[error("Predicate definition requested for an unregistered ID: {id:?}")]
-    PredicateDefinitionOrphan { id: AtomSkeletonID },
+    PredicateDefinitionOrphan { id: AtomSkeletonId },
 
     #[error("Function definition requested for an unregistered ID: {id:?}")]
-    FunctionDefinitionOrphan { id: FunctionSkeletonID },
+    FunctionDefinitionOrphan { id: FunctionSkeletonId },
 
     // In your LirError enum
     #[error("Task definition requested for an unregistered ID: {id:?}")]
-    TaskDefinitionOrphan { id: TaskSkeletonID },
+    TaskDefinitionOrphan { id: TaskSkeletonId },
 
 }
 
@@ -154,22 +154,22 @@ impl LirError {
     }
 
     /// Creates a `TypeNotFound` error for the given `Ident`.
-    pub fn type_not_found(id: StringID) -> Self {
+    pub fn type_not_found(id: SymbolId) -> Self {
         LirError::TypeNotFound(id)
     }
 
     /// Creates a `ConstantNotFound` error for the given `Ident`.
-    pub fn constant_not_found(id: StringID) -> Self {
+    pub fn constant_not_found(id: SymbolId) -> Self {
         LirError::ConstantNotFound(id)
     }
 
     /// Creates an `ObjectNotFound` error for the given `Ident`.
-    pub fn object_not_found(id: StringID) -> Self {
+    pub fn object_not_found(id: SymbolId) -> Self {
         LirError::ObjectNotFound(id)
     }
 
     /// Creates a new `MissingType` error for the given type.
-    pub fn missing_type(ty: Type<TypeID>) -> Self {
+    pub fn missing_type(ty: Type<TypeId>) -> Self {
         LirError::MissingType { ty }
     }
 
@@ -188,7 +188,7 @@ impl LirError {
     }
 
     #[track_caller]
-    pub fn type_binding_failed(ty: Type<StringID>) -> Self {
+    pub fn type_binding_failed(ty: Type<SymbolId>) -> Self {
         let err = Self::TypeBindingFailed { ty };
         Self::log_error(&err, std::panic::Location::caller());
         err
@@ -205,26 +205,26 @@ impl LirError {
         Self::IndexOutOfBound { id }
     }
 
-    pub fn type_definition_orphan(id: TypeID) -> Self {
+    pub fn type_definition_orphan(id: TypeId) -> Self {
         Self::TypeDefinitionOrphan { id }
     }
 
     // In the LirError impl block
-    pub fn object_definition_orphan(id: ObjectID) -> Self {
+    pub fn object_definition_orphan(id: ConstantId) -> Self {
         Self::ObjectDefinitionOrphan { id }
     }
 
-    pub fn predicate_definition_orphan(id: AtomSkeletonID) -> Self {
+    pub fn predicate_definition_orphan(id: AtomSkeletonId) -> Self {
         Self::PredicateDefinitionOrphan { id }
     }
 
     /// Constructeur pour l'erreur de fonction
-    pub fn function_definition_orphan(id: FunctionSkeletonID) -> Self {
+    pub fn function_definition_orphan(id: FunctionSkeletonId) -> Self {
         Self::FunctionDefinitionOrphan { id }
     }
 
     // In your impl LirError block
-    pub fn task_definition_orphan(id: TaskSkeletonID) -> Self {
+    pub fn task_definition_orphan(id: TaskSkeletonId) -> Self {
         Self::TaskDefinitionOrphan { id }
     }
 

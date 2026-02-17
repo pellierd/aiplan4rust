@@ -1,5 +1,5 @@
 use thiserror::Error;
-use crate::aiplan4rust::lang::ids::{FluentID, ObjectFluentID, NumericFluentID};
+use crate::aiplan4rust::lang::ids::{FluentId, ObjectFluentId, NumericFluentId};
 
 #[derive(Error, Debug)]
 pub enum FluentRegistryError {
@@ -7,21 +7,21 @@ pub enum FluentRegistryError {
     /// Erreur lorsqu'un FluentID ne correspond à aucune entrée dans le pool des prédicats.
     #[error("Invalid FluentID: {id:?} (pool size: {pool_size})")]
     InvalidFluentID {
-        id: FluentID,
+        id: FluentId,
         pool_size: usize,
     },
 
     /// Erreur lorsqu'un ObjectFluentID est introuvable.
     #[error("Invalid ObjectFluentID: {id:?} (pool size: {pool_size})")]
     InvalidObjectFluentID {
-        id: ObjectFluentID,
+        id: ObjectFluentId,
         pool_size: usize,
     },
 
     /// Erreur lorsqu'un NumericFluentID est introuvable.
     #[error("Invalid NumericFluentID: {id:?} (pool size: {pool_size})")]
     InvalidNumericFluentID {
-        id: NumericFluentID,
+        id: NumericFluentId,
         pool_size: usize,
     },
 
@@ -29,17 +29,17 @@ pub enum FluentRegistryError {
 
 impl FluentRegistryError {
     /// Crée une erreur pour un FluentID (Prédicat) invalide.
-    pub fn invalid_fluent_id(id: FluentID, pool_size: usize) -> Self {
+    pub fn invalid_fluent_id(id: FluentId, pool_size: usize) -> Self {
         Self::InvalidFluentID { id, pool_size }
     }
 
     /// Crée une erreur pour un ObjectFluentID invalide.
-    pub fn invalid_object_fluent_id(id: ObjectFluentID, pool_size: usize) -> Self {
+    pub fn invalid_object_fluent_id(id: ObjectFluentId, pool_size: usize) -> Self {
         Self::InvalidObjectFluentID { id, pool_size }
     }
 
     /// Crée une erreur pour un NumericFluentID invalide.
-    pub fn invalid_numeric_fluent_id(id: NumericFluentID, pool_size: usize) -> Self {
+    pub fn invalid_numeric_fluent_id(id: NumericFluentId, pool_size: usize) -> Self {
         Self::InvalidNumericFluentID { id, pool_size }
     }
 

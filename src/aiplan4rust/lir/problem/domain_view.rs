@@ -20,8 +20,8 @@
 use core::fmt::Display;
 use std::fmt::{self, Formatter};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{ObjectID, Requirement, StringID, TypeID, TypedSymbol};
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{ConstantId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedMethod};
@@ -59,8 +59,8 @@ impl<'a> DomainDef<'a> {
     ///
     /// # Returns
     ///
-    /// The [`StringID`] representing the domain's name.
-    pub fn domain_name(&self) -> StringID {
+    /// The [`SymbolId`] representing the domain's name.
+    pub fn domain_name(&self) -> SymbolId {
         self.problem.domain_name()
     }
 
@@ -68,8 +68,8 @@ impl<'a> DomainDef<'a> {
     ///
     /// # Returns
     ///
-    /// A reference to the [`StringInterner`] used by the lifted problem.
-    pub fn interner(&self) -> &StringInterner {
+    /// A reference to the [`SymbolInterner`] used by the lifted problem.
+    pub fn interner(&self) -> &SymbolInterner {
         self.problem.interner()
     }
 
@@ -96,7 +96,7 @@ impl<'a> DomainDef<'a> {
     ///     println!("Type: {:?}", ty);
     /// }
     /// ```
-    pub fn type_defs(&self) -> &[TypedSymbol<TypeID, TypeID>] {
+    pub fn type_defs(&self) -> &[TypedSymbol<TypeId, TypeId>] {
         self.problem.type_defs()
     }
 
@@ -111,7 +111,7 @@ impl<'a> DomainDef<'a> {
     ///
     /// Constants are "global" objects available across all problems
     /// associated with this domain.
-    pub fn constant_defs(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
+    pub fn constant_defs(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
         self.problem.domain_constant_def()
     }
 

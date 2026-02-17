@@ -1,6 +1,6 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{ArgumentID, PredicateID};
+use crate::aiplan4rust::lang::ids::{ObjectId, PredicateSymbolId};
 
 /// Represents a fluent in a PDDL domain.
 ///
@@ -10,10 +10,10 @@ use crate::aiplan4rust::lang::ids::{ArgumentID, PredicateID};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Fluent {
     /// Symbolic identifier of the fluent.
-    symbol: PredicateID,
+    symbol: PredicateSymbolId,
 
     /// Types of the parameters (arguments), represented as indices.
-    parameters: Vec<ArgumentID>,
+    parameters: Vec<ObjectId>,
 }
 
 impl Fluent {
@@ -30,7 +30,7 @@ impl Fluent {
     /// ```
     /// let f = Fluent::new(1, vec![2, 3]);
     /// ```
-    pub fn new(symbol: PredicateID, arguments: Vec<ArgumentID>) -> Self {
+    pub fn new(symbol: PredicateSymbolId, arguments: Vec<ObjectId>) -> Self {
         Self { symbol, parameters: arguments }
     }
 
@@ -38,7 +38,7 @@ impl Fluent {
     ///
     /// # Returns
     /// The `symbol` of type `usize`.
-    pub fn symbol(&self) -> PredicateID {
+    pub fn symbol(&self) -> PredicateSymbolId {
         self.symbol
     }
 
@@ -46,7 +46,7 @@ impl Fluent {
     ///
     /// # Parameters
     /// - `symbol`: The new symbolic identifier to assign.
-    pub fn set_symbol(&mut self, symbol: PredicateID) {
+    pub fn set_symbol(&mut self, symbol: PredicateSymbolId) {
         self.symbol = symbol;
     }
 
@@ -54,7 +54,7 @@ impl Fluent {
     ///
     /// # Returns
     /// Reference to a `Vec<usize>` containing the argument type indices.
-    pub fn parameters(&self) -> &Vec<ArgumentID> {
+    pub fn parameters(&self) -> &Vec<ObjectId> {
         &self.parameters
     }
 
@@ -62,7 +62,7 @@ impl Fluent {
     ///
     /// # Returns
     /// Mutable reference to a `Vec<usize>` containing the argument type indices.
-    pub fn parameters_mut(&mut self) -> &mut Vec<ArgumentID> {
+    pub fn parameters_mut(&mut self) -> &mut Vec<ObjectId> {
         &mut self.parameters
     }
 
@@ -70,7 +70,7 @@ impl Fluent {
     ///
     /// # Parameters
     /// - `arguments`: A vector of indices representing the new argument types.
-    pub fn set_parameters(&mut self, arguments: Vec<ArgumentID>) {
+    pub fn set_parameters(&mut self, arguments: Vec<ObjectId>) {
         self.parameters = arguments;
     }
 }

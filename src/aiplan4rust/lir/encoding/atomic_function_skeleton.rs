@@ -5,12 +5,12 @@
 //! representing the declaration of a predicate and its parameter signature.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::FunctorID;
+use crate::aiplan4rust::lang::FunctionSymbolId;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::encoding::{ty, typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFunctionSkeleton, NamedTypedList};
+use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
 
 /// Encodes an atomic formula skeleton from the syntax tree.
 ///
@@ -35,7 +35,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFunctionSkeleton, NamedType
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    functor_id: FunctorID, // Reçu du parent (déjà résolu)
+    functor_id: FunctionSymbolId, // Reçu du parent (déjà résolu)
 ) -> Result<AtomicFunctionSkeleton, LirError> {
     // 1. Assertions de sécurité pour le développement
     debug_assert!(functor_id.as_usize() != usize::MAX, "L'ID du functor passé est invalide.");

@@ -1,12 +1,12 @@
 use std::fmt;
-use crate::aiplan4rust::lang::{ObjectID, TypeID, VariableID};
+use crate::aiplan4rust::lang::{ConstantId, TypeId, VariableId};
 use crate::aiplan4rust::lang::TypedSymbol;
 use crate::aiplan4rust::lir::renderers::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::ty;
 
 pub fn render_typed_variable_list(
     f: &mut fmt::Formatter<'_>,
-    parameters: &[TypedSymbol<VariableID, TypeID>],
+    parameters: &[TypedSymbol<VariableId, TypeId>],
     ctx: &RenderContext
 ) -> fmt::Result {
     for (i, param) in parameters.iter().enumerate() {
@@ -27,7 +27,7 @@ pub fn render_typed_variable_list(
 
 pub fn render_typed_object_list(
     f: &mut fmt::Formatter<'_>,
-    objects: &[TypedSymbol<ObjectID, TypeID>],
+    objects: &[TypedSymbol<ConstantId, TypeId>],
     ctx: &RenderContext
 ) -> fmt::Result {
     for (i, obj) in objects.iter().enumerate() {

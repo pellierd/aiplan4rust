@@ -11,7 +11,6 @@
 //! task's symbol node to its internal ID.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::atomic_skeleton::task::Task;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};

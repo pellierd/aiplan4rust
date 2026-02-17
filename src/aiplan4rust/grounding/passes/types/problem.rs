@@ -26,13 +26,12 @@
 //! `{EITHER_PREFIX}{EITHER_SEP}{type1}{EITHER_SEP}{type2}...`
 //! (e.g., `either_truck_airplane`).
 
-use crate::aiplan4rust::lang::{Type, TypeID, TypedSymbol};
+use crate::aiplan4rust::lang::{Type, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::collections::hash_map::Entry;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::types::{atomic_formula_skeleton, atomic_function_skeleton, derived_predicate, expr, typed_symbol, task, action, method, initial_task_network};
-use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 
 const EITHER_PREFIX: &str = "either";
 const EITHER_SEP: &str = "_";
@@ -136,7 +135,7 @@ pub fn build_value_domains(problem: &LiftedProblem) -> Vec<ValueDomain> {
 /// * `map` - The pre-calculated mapping from `Either` structures to Pivot `TypeID`s.
 fn apply_map_to_problem_components(
     problem: &mut LiftedProblem,
-    map: &HashMap<Type<TypeID>, TypeID>
+    map: &HashMap<Type<TypeId>, TypeId>
 ) -> Result<(), LirError> {
     // Note: We use the 'map' passed as an argument to maintain consistency
     // with the changes already applied to the type definitions.
@@ -232,14 +231,14 @@ fn apply_map_to_problem_components(
 /// ```
 fn flatten_types_def(
     problem: &mut LiftedProblem,
-) -> Result<HashMap<Type<TypeID>, TypeID>, LirError> {
+) -> Result<HashMap<Type<TypeId>, TypeId>, LirError> {
     // 1. Initialization
     let mut to_process = either_types(problem);
-    let mut either_to_primitive: HashMap<Type<TypeID>, TypeID> = HashMap::new();
-    let mut to_update: HashMap<TypeID, TypeID> = HashMap::new();
+    let mut either_to_primitive: HashMap<Type<TypeId>, TypeId> = HashMap::new();
+    let mut to_update: HashMap<TypeId, TypeId> = HashMap::new();
 
     // Map to merge types sharing identical root parents (Canonicalization)
-    let mut parents_to_pivot: HashMap<Vec<TypeID>, TypeID> = HashMap::new();
+    let mut parents_to_pivot: HashMap<Vec<TypeId>, TypeId> = HashMap::new();
 
     // Reusable buffers for DFS traversal to avoid repeated heap allocations
     let mut stack_buffer = Vec::with_capacity(32);
@@ -272,7 +271,7 @@ fn flatten_types_def(
             Entry::Vacant(entry) => {
                 // We only generate the name and intern it if we are actually creating a new pivot
                 let new_name = make_either_type_name(problem, &flattened_parents_ty)?;
-                let name_id = problem.interner_mut().intern_ident(new_name);
+                let name_id = problem.interner_mut().intern_symbol(new_name);
 
                 let symbol_id = problem.add_type_symbol(name_id);
                 let new_type_id = problem.add_type_defs(TypedSymbol::new(symbol_id, flattened_parents_ty))?;
@@ -305,7 +304,7 @@ fn flatten_types_def(
 ///
 /// # Returns
 /// A VecDeque of Idents representing types that are unions (either types).
-fn either_types(problem: &LiftedProblem) -> VecDeque<TypeID> {
+fn either_types(problem: &LiftedProblem) -> VecDeque<TypeId> {
     // We don't pre-allocate the full length because either types are usually
     // a small subset of the total types. VecDeque will grow as needed.
     problem
@@ -334,11 +333,11 @@ fn either_types(problem: &LiftedProblem) -> VecDeque<TypeID> {
 /// - `Ok(Type::either(ids))` if multiple roots are found (sorted).
 /// - `Err(LirError)` if a `TypeID` cannot be resolved in the problem.
 fn get_parents(
-    ty: &Type<TypeID>,
+    ty: &Type<TypeId>,
     problem: &LiftedProblem,
-    stack: &mut Vec<TypeID>,      // Buffer for the DFS traversal
-    parent_set: &mut HashSet<TypeID>, // Buffer for duplicate removal
-) -> Result<Type<TypeID>, LirError> {
+    stack: &mut Vec<TypeId>,      // Buffer for the DFS traversal
+    parent_set: &mut HashSet<TypeId>, // Buffer for duplicate removal
+) -> Result<Type<TypeId>, LirError> {
     // 1. Reset buffers without deallocating their capacity
     stack.clear();
     parent_set.clear();
@@ -362,7 +361,7 @@ fn get_parents(
     }
 
     // 4. Final collection and sorting
-    let mut parent_idents: Vec<TypeID> = parent_set.drain().collect();
+    let mut parent_idents: Vec<TypeId> = parent_set.drain().collect();
 
     // Unstable sort is faster and sufficient for Copy types like TypeID
     parent_idents.sort_unstable();
@@ -394,14 +393,14 @@ fn get_parents(
 /// # Returns
 /// - `Ok(String)` representing the canonical name, e.g., `"either_parent1_parent2"`.
 /// - `Err(LirError)` if any member identifier or string resolution fails.
-fn make_either_type_name(problem: &LiftedProblem, ty: &Type<TypeID>) -> Result<String, LirError> {
+fn make_either_type_name(problem: &LiftedProblem, ty: &Type<TypeId>) -> Result<String, LirError> {
     // 1. Pre-allocate a vector for references, not owned Strings
     let mut parent_names: Vec<&str> = Vec::with_capacity(ty.len());
 
     // 2. Resolve all identifiers to their string slices
     for id in ty.iter() {
         let string_id = problem.type_symbols().try_get_ident(*id)?;
-        let name = problem.interner().try_resolve_ident(*string_id)?;
+        let name = problem.interner().try_resolve_symbol(*string_id)?;
         parent_names.push(name);
     }
 
@@ -437,18 +436,18 @@ mod tests {
 
     #[test]
     fn test_flatten_types_def_simple() -> Result<(), LirError> {
-        use crate::aiplan4rust::interner::StringInterner;
-        use crate::aiplan4rust::lang::{Type, TypedSymbol, TypeID};
+        use crate::aiplan4rust::interner::SymbolInterner;
+        use crate::aiplan4rust::lang::{Type, TypedSymbol, TypeId};
         use crate::aiplan4rust::lir::problem::LiftedProblem;
         use std::collections::HashSet;
 
-        let mut interner = StringInterner::new();
+        let mut interner = SymbolInterner::new();
 
         // 1. Prepare Identifiers
-        let name_a = interner.intern_ident("a");
-        let name_b = interner.intern_ident("b");
-        let name_c = interner.intern_ident("c");
-        let name_d = interner.intern_ident("d");
+        let name_a = interner.intern_symbol("a");
+        let name_b = interner.intern_symbol("b");
+        let name_c = interner.intern_symbol("c");
+        let name_d = interner.intern_symbol("d");
 
         // 2. Initialize the problem
         let mut problem = LiftedProblem::new(interner, HashSet::new());
@@ -474,11 +473,11 @@ mod tests {
         // --- BEFORE Flattening Output ---
         println!("\nTypes before flattening:");
         for (idx, ts) in problem.type_defs().iter().enumerate() {
-            let type_id = TypeID::from(idx);
+            let type_id = TypeId::from(idx);
             let string_id = problem.type_symbols().get_ident(type_id)
                 .expect("TypeID must have an associated name");
 
-            let name = problem.interner().try_resolve_ident(*string_id)?;
+            let name = problem.interner().try_resolve_symbol(*string_id)?;
             println!("{}: {:?}", name, ts.ty().members());
         }
 
@@ -488,9 +487,9 @@ mod tests {
         // --- AFTER Flattening Output ---
         println!("\nTypes after flattening:");
         for (idx, ts) in problem.type_defs().iter().enumerate() {
-            let type_id = TypeID::from(idx);
+            let type_id = TypeId::from(idx);
             let string_id = problem.type_symbols().try_get_ident(type_id)?;
-            let name = problem.interner().try_resolve_ident(*string_id)?;
+            let name = problem.interner().try_resolve_symbol(*string_id)?;
             println!("{}: {:?}", name, ts.ty().members());
         }
 
@@ -517,7 +516,7 @@ mod tests {
         let pivot_string_id = problem.type_symbols().get_ident(pivot_type_id)
             .expect("Pivot type must be registered in the symbol table");
 
-        let pivot_name = problem.interner().try_resolve_ident(*pivot_string_id)?;
+        let pivot_name = problem.interner().try_resolve_symbol(*pivot_string_id)?;
         println!("New pivot created: {}", pivot_name);
 
         assert!(pivot_name.starts_with("either_"), "Pivot name should start with 'either_'");
@@ -530,20 +529,20 @@ mod tests {
 
     #[test]
     fn test_flatten_types_def_complex() -> Result<(), LirError> {
-        use crate::aiplan4rust::interner::StringInterner;
+        use crate::aiplan4rust::interner::SymbolInterner;
         use crate::aiplan4rust::lang::{Type, TypedSymbol};
         use crate::aiplan4rust::lir::problem::LiftedProblem;
         use std::collections::HashSet;
 
-        let mut interner = StringInterner::new();
+        let mut interner = SymbolInterner::new();
 
         // 1. Prepare Identifiers
-        let name_a = interner.intern_ident("a");
-        let name_b = interner.intern_ident("b");
-        let name_c = interner.intern_ident("c");
-        let name_d = interner.intern_ident("d");
-        let name_e = interner.intern_ident("e");
-        let name_f = interner.intern_ident("f");
+        let name_a = interner.intern_symbol("a");
+        let name_b = interner.intern_symbol("b");
+        let name_c = interner.intern_symbol("c");
+        let name_d = interner.intern_symbol("d");
+        let name_e = interner.intern_symbol("e");
+        let name_f = interner.intern_symbol("f");
 
         // 2. Initialize the problem
         let mut problem = LiftedProblem::new(interner, HashSet::new());
@@ -582,7 +581,7 @@ mod tests {
             let ts = problem.try_get_type(id)?;
 
             // A. Verify type is now a Primitive (Single pointer)
-            let type_name = problem.interner().try_resolve_ident(
+            let type_name = problem.interner().try_resolve_symbol(
                 *problem.type_symbols().try_get_ident(id)?
             )?;
 
@@ -630,7 +629,7 @@ mod tests {
         // G. Verify pivot naming convention
         let final_pivot_id = *pivot_ids.iter().next().unwrap();
         let pivot_string_id = problem.type_symbols().try_get_ident(final_pivot_id)?;
-        let pivot_name = problem.interner().try_resolve_ident(*pivot_string_id)?;
+        let pivot_name = problem.interner().try_resolve_symbol(*pivot_string_id)?;
 
         assert!(
             pivot_name.starts_with("either_"),
@@ -642,20 +641,20 @@ mod tests {
 
     #[test]
     fn test_flatten_diamond_dependency() -> Result<(), LirError> {
-        use crate::aiplan4rust::interner::StringInterner;
+        use crate::aiplan4rust::interner::SymbolInterner;
         use crate::aiplan4rust::lang::{Type, TypedSymbol};
         use crate::aiplan4rust::lir::problem::LiftedProblem;
         use std::collections::HashSet;
 
-        let interner = StringInterner::new();
+        let interner = SymbolInterner::new();
         let mut problem = LiftedProblem::new(interner, HashSet::new());
 
         // 1. Create roots
-        let a = problem.interner_mut().intern_ident("a");
+        let a = problem.interner_mut().intern_symbol("a");
         let id_a = problem.add_type_symbol(a);
-        let b = problem.interner_mut().intern_ident("b");
+        let b = problem.interner_mut().intern_symbol("b");
         let id_b = problem.add_type_symbol(b);
-        let e = problem.interner_mut().intern_ident("e");
+        let e = problem.interner_mut().intern_symbol("e");
         let id_e = problem.add_type_symbol(e);
 
         problem.add_type_defs(TypedSymbol::new(id_a, Type::new()))?;
@@ -663,17 +662,17 @@ mod tests {
         problem.add_type_defs(TypedSymbol::new(id_e, Type::new()))?;
 
         // 2. Intermediate types
-        let c = problem.interner_mut().intern_ident("c");
+        let c = problem.interner_mut().intern_symbol("c");
         let id_c = problem.add_type_symbol(c);
-        let d = problem.interner_mut().intern_ident("d");
+        let d = problem.interner_mut().intern_symbol("d");
         let id_d = problem.add_type_symbol(d);
         problem.add_type_defs(TypedSymbol::new(id_c, Type::either(vec![id_a, id_b])))?;
         problem.add_type_defs(TypedSymbol::new(id_d, Type::either(vec![id_b, id_e])))?;
 
         // 3. Diamond types: both resolve to {a, b, e}
-        let f = problem.interner_mut().intern_ident("f");
+        let f = problem.interner_mut().intern_symbol("f");
         let id_f = problem.add_type_symbol(f);
-        let g = problem.interner_mut().intern_ident("g");
+        let g = problem.interner_mut().intern_symbol("g");
         let id_g = problem.add_type_symbol(g);
         problem.add_type_defs(TypedSymbol::new(id_f, Type::either(vec![id_c, id_d])))?; // {a, b} + {b, e}
         problem.add_type_defs(TypedSymbol::new(id_g, Type::either(vec![id_a, id_d])))?; // {a} + {b, e}

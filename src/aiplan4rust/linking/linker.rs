@@ -32,7 +32,7 @@
 
 use crate::aiplan4rust::diagnostic::{DiagnosticManager, Provider, Severity};
 use crate::aiplan4rust::interner::InternerMergeResult;
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::linking::error::LinkingError;
 use crate::aiplan4rust::linking::{LinkedSemanticContext, LinkerResult};
 use crate::aiplan4rust::semantic::checks::CheckContext;
@@ -124,7 +124,7 @@ impl Linker {
                 let global_interner = result.take_interner();
 
                 // Step 2: Remap identifiers in the problem's AST and symbol table to the global interner space
-                let ident_map = result.take_ident_map();
+                let ident_map = result.take_symbol_map();
                 let literal_map = result.take_literal_map();
                 problem_ctx.remap(&ident_map, &literal_map)?;
 
@@ -171,7 +171,7 @@ impl Linker {
                 let global_interner = result.take_interner();
                 self.diagnostic_manager.add_diagnostic_from(domain.take_diagnostic_manager());
                 let mut problem_diag_mgr = problem.take_diagnostic_manager();
-                problem_diag_mgr.remap(result.ident_map(), result.literal_map())?;
+                problem_diag_mgr.remap(result.symbol_map(), result.literal_map())?;
                 Ok(LinkerResult::failure(take(&mut self.diagnostic_manager), global_interner))
             }
         }
@@ -383,8 +383,8 @@ fn resolve_external_references(
 fn collect_declared_and_undeclared_symbols<'a>(
     problem: &'a SemanticContext,
     domain_symbol_table: &'a SymbolTable,
-    declared: &mut Vec<(StringID, Declaration)>,
-    undeclared: &mut Vec<(StringID, &'a Usage)>,
+    declared: &mut Vec<(SymbolId, Declaration)>,
+    undeclared: &mut Vec<(SymbolId, &'a Usage)>,
 ) -> Result<bool, LinkingError> {
     let problem_symbol_table = problem.symbol_table();
     let mut all_resolved = true;

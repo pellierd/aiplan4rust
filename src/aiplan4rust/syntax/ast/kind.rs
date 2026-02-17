@@ -7,7 +7,7 @@
 //! including indentation and keywords.
 //!
 
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::lexer::token::{
     ACTION, ALWAYS, ALWAYS_WITHIN, AND, ASSIGN, AT_END, AT_MOST_ONCE, AT_START, CONSTANTS,
     CONSTRAINTS, DERIVED, DOMAIN_DEF, DURATIVE_ACTION, EFFECT, EXISTS, FORALL, FUNCTIONS, GOAL,
@@ -528,7 +528,7 @@ impl SyntaxInternerDisplay for Kind {
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut fmt::Formatter<'_>,
-        _interner: &StringInterner,
+        _interner: &SymbolInterner,
         indent: usize,
     ) -> fmt::Result {
         write_indent(f, indent)?;

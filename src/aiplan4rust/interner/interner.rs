@@ -1,6 +1,6 @@
 //! String interning implementation using a pool and an index map.
 //!
-//! This module defines the [`StringInterner`] struct, which efficiently stores
+//! This module defines the [`SymbolInterner`] struct, which efficiently stores
 //! unique strings by assigning each a unique numeric index. It is designed to
 //! reduce memory usage and speed up string equality checks by avoiding repeated
 //! string allocations and using fast numeric lookups instead.
@@ -46,7 +46,7 @@
 use std::collections::HashMap;
 use serde::{Serialize, Serializer, Deserialize, Deserializer};
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{LiteralID, StringID};
+use crate::aiplan4rust::lang::{LiteralId, SymbolId};
 use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, OBJECT_TYPE, TOTAL_TIME};
 
 /// A `StringInterner` is a data structure that stores unique strings efficiently
@@ -91,21 +91,21 @@ use crate::aiplan4rust::syntax::lexer::token::{DURATION_VARIABLE, NUMBER_TYPE, O
 /// This is suitable for long-lived interners or contexts where leaking is acceptable.
 ///
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct StringInterner {
+pub struct SymbolInterner {
     /// Pool holding all interned identifier strings as owned boxed strings.
-    ident_string_pool: Vec<Box<str>>,
+    symbol_string_pool: Vec<Box<str>>,
 
     /// Map from interned identifier `'static` string slices to their unique indices.
-    ident_index_map: HashMap<&'static str, usize>,
+    symbol_id_map: HashMap<&'static str, usize>,
 
     /// Pool holding all interned literal strings as owned boxed strings.
     literal_string_pool: Vec<Box<str>>,
 
     /// Map from interned literal `'static` string slices to their unique indices.
-    literal_index_map: HashMap<&'static str, usize>,
+    literal_id_map: HashMap<&'static str, usize>,
 }
 
-impl StringInterner {
+impl SymbolInterner {
 
     /// A placeholder string returned when an interned index cannot be resolved.
     /// This string is guaranteed not to conflict with any valid PDDL identifiers.
@@ -114,71 +114,71 @@ impl StringInterner {
     /// The interned identifier for the reserved string `"object"`.
     ///
     /// This constant assumes that the string `"object"` is interned at index `0`
-    /// during the initialization of the [`StringInterner`] via [`intern_reserved`].
-    /// It must match the insertion order used in [`StringInterner::new()`].
+    /// during the initialization of the [`SymbolInterner`] via [`intern_reserved`].
+    /// It must match the insertion order used in [`SymbolInterner::new()`].
     ///
     /// # Example
     /// ```rust
     /// let interner = StringInterner::new();
-    /// assert_eq!(interner.expect_str(StringInterner::IDENT_OBJECT).unwrap(), "object");
+    /// assert_eq!(interner.expect_str(StringInterner::OBJECT_SYMBOL_ID).unwrap(), "object");
     /// ```
-    pub const IDENT_OBJECT: StringID = StringID::new(0);
+    pub const OBJECT_SYMBOL_ID: SymbolId = SymbolId::new(0);
 
     /// The interned identifier for the reserved string `"number"`.
     ///
     /// This constant assumes that the string `"number"` is interned at index `1`
-    /// during the initialization of the [`StringInterner`] via [`intern_reserved`].
-    /// It must match the insertion order used in [`StringInterner::new()`].
+    /// during the initialization of the [`SymbolInterner`] via [`intern_reserved`].
+    /// It must match the insertion order used in [`SymbolInterner::new()`].
     ///
     /// # Example
     /// ```rust
     /// let interner = StringInterner::new();
-    /// assert_eq!(interner.expect_str(StringInterner::IDENT_NUMBER).unwrap(), "number");
+    /// assert_eq!(interner.expect_str(StringInterner::NUMBER_SYMBOL_ID).unwrap(), "number");
     /// ```
-    pub const IDENT_NUMBER: StringID = StringID::new(1);
+    pub const NUMBER_SYMBOL_ID: SymbolId = SymbolId::new(1);
 
     /// The interned identifier for the reserved string `"duration_variable"`.
     ///
     /// This constant assumes that the string `"duration_variable"` is interned at index `2`
-    /// during the initialization of the [`StringInterner`] using [`intern_reserved`].
+    /// during the initialization of the [`SymbolInterner`] using [`intern_reserved`].
     ///
-    /// Ensure this index matches the insertion order defined in [`StringInterner::new()`].
+    /// Ensure this index matches the insertion order defined in [`SymbolInterner::new()`].
     ///
     /// # Example
     /// ```rust
     /// let interner = StringInterner::new();
     /// assert_eq!(
-    ///     interner.expect_str(StringInterner::IDENT_DURATION_VARIABLE).unwrap(),
+    ///     interner.expect_str(StringInterner::DURATION_VARIABLE_SYMBOL_ID).unwrap(),
     ///     "duration_variable"
     /// );
     /// ```
-    pub const IDENT_DURATION_VARIABLE: StringID = StringID::new(2);
+    pub const DURATION_VARIABLE_SYMBOL_ID: SymbolId = SymbolId::new(2);
 
     /// The interned identifier for the reserved string `"total_time"`.
     ///
     /// This constant assumes that the string `"total_time"` is interned at index `3`
-    /// during the initialization of the [`StringInterner`] using [`intern_reserved`].
+    /// during the initialization of the [`SymbolInterner`] using [`intern_reserved`].
     ///
     /// It is important that this constant's value matches the insertion order
-    /// of reserved strings in [`StringInterner::new()`]. Changing that order without
+    /// of reserved strings in [`SymbolInterner::new()`]. Changing that order without
     /// updating this constant will result in incorrect behavior.
     ///
     /// # Example
     /// ```rust
     /// let interner = StringInterner::new();
     /// assert_eq!(
-    ///     interner.expect_str(StringInterner::IDENT_TOTAL_TIME).unwrap(),
+    ///     interner.expect_str(StringInterner::TOTAL_TIME_SYMBOL_ID).unwrap(),
     ///     "total_time"
     /// );
     /// ```
-    pub const IDENT_TOTAL_TIME: StringID = StringID::new(3);
+    pub const TOTAL_TIME_SYMBOL_ID: SymbolId = SymbolId::new(3);
 
     /// Creates a new `StringInterner` with reserved strings pre-interned.
     ///
     /// This constructor initializes an empty string pool and inserts a predefined set
     /// of reserved strings (`"object"`, `"number"`, `"total_time"`) at fixed indices.
     /// These strings are interned using [`intern_reserved`] in a specific order that must
-    /// match the declaration of their corresponding [`StringID`] constants:
+    /// match the declaration of their corresponding [`SymbolId`] constants:
     ///
     /// - `IDENT_OBJECT` → `"object"` → index 0
     /// - `IDENT_NUMBER` → `"number"` → index 1
@@ -189,7 +189,7 @@ impl StringInterner {
     /// the lifetime of the interner.
     ///
     /// # Returns
-    /// A new [`StringInterner`] instance with reserved strings already interned.
+    /// A new [`SymbolInterner`] instance with reserved strings already interned.
     ///
     /// # Example
     /// ```rust
@@ -199,18 +199,18 @@ impl StringInterner {
     /// assert_eq!(interner.expect_str(StringInterner::IDENT_TOTAL_TIME).unwrap(), "total_time");
     /// ```
     pub fn new() -> Self {
-        let mut interner = StringInterner {
-            ident_string_pool: Vec::new(),
-            ident_index_map: HashMap::new(),
+        let mut interner = SymbolInterner {
+            symbol_string_pool: Vec::new(),
+            symbol_id_map: HashMap::new(),
             literal_string_pool: Vec::new(),
-            literal_index_map: HashMap::new(),
+            literal_id_map: HashMap::new(),
         };
 
         // Always intern these in the same order as their constant Ident declarations
-        interner.intern_reserved_ident(OBJECT_TYPE);       // index 0
-        interner.intern_reserved_ident(NUMBER_TYPE);       // index 1
-        interner.intern_reserved_ident(DURATION_VARIABLE); // index 2
-        interner.intern_reserved_ident(TOTAL_TIME);        // index 3
+        interner.intern_reserved_symbol(OBJECT_TYPE);       // index 0
+        interner.intern_reserved_symbol(NUMBER_TYPE);       // index 1
+        interner.intern_reserved_symbol(DURATION_VARIABLE); // index 2
+        interner.intern_reserved_symbol(TOTAL_TIME);        // index 3
 
         interner
     }
@@ -249,28 +249,28 @@ impl StringInterner {
     /// let ident = interner.intern_reserved(TYPE_OBJECT);
     /// assert_eq!(ident.as_usize(), 0);
     /// ```
-    fn intern_reserved_ident(&mut self, s: &'static str) -> StringID {
-        let idx = self.ident_string_pool.len();
-        self.ident_string_pool.push(Box::from(s));
-        self.ident_index_map.insert(s, idx);
-        StringID::new(idx)
+    fn intern_reserved_symbol(&mut self, s: &'static str) -> SymbolId {
+        let idx = self.symbol_string_pool.len();
+        self.symbol_string_pool.push(Box::from(s));
+        self.symbol_id_map.insert(s, idx);
+        SymbolId::new(idx)
     }
 
     /// Interns the given string and returns an `Ident` representing it.
     ///
     /// If the string is already interned, returns its existing `Ident`.
     /// Otherwise, adds the string to the pool and returns a new `Ident`.
-    pub fn intern_ident<S: AsRef<str>>(&mut self, s: S) -> StringID {
+    pub fn intern_symbol<S: AsRef<str>>(&mut self, s: S) -> SymbolId {
         let s = s.as_ref();
-        if let Some(&idx) = self.ident_index_map.get(s) {
-            return StringID::new(idx);
+        if let Some(&idx) = self.symbol_id_map.get(s) {
+            return SymbolId::new(idx);
         }
         let boxed: Box<str> = s.to_string().into_boxed_str();
         let static_str: &'static str = Box::leak(boxed);
-        let idx = self.ident_string_pool.len();
-        self.ident_string_pool.push(static_str.into());
-        self.ident_index_map.insert(static_str, idx);
-        StringID::new(idx)
+        let idx = self.symbol_string_pool.len();
+        self.symbol_string_pool.push(static_str.into());
+        self.symbol_id_map.insert(static_str, idx);
+        SymbolId::new(idx)
     }
 
     /// Retrieves the interned string by its `Ident`.
@@ -289,8 +289,8 @@ impl StringInterner {
     /// assert_eq!(interner.get_str(ident), Some("hello"));
     /// assert_eq!(interner.get_str(Ident::new(9999)), None);
     /// ```
-    pub fn resolve_ident(&self, ident: StringID) -> Option<&str> {
-        self.ident_string_pool.get(ident.as_usize()).map(|s| s.as_ref())
+    pub fn resolve_symbol(&self, ident: SymbolId) -> Option<&str> {
+        self.symbol_string_pool.get(ident.as_usize()).map(|s| s.as_ref())
     }
 
     /// Returns the interned string associated with the given `Ident`.
@@ -321,46 +321,46 @@ impl StringInterner {
     /// assert!(interner.try_resolve(invalid_id).is_err());
     /// ```
     ///
-    pub fn try_resolve_ident(&self, ident: StringID) -> Result<&str, InternerError> {
-        self.resolve_ident(ident).ok_or_else(|| {
-            InternerError::invalid_ident(ident.as_usize(), self.ident_string_pool.len())
+    pub fn try_resolve_symbol(&self, ident: SymbolId) -> Result<&str, InternerError> {
+        self.resolve_symbol(ident).ok_or_else(|| {
+            InternerError::invalid_ident(ident.as_usize(), self.symbol_string_pool.len())
         })
     }
 
     /// Lookup an interned string and get its Ident if it exists (no insertion).
-    pub fn lookup_ident(&self, s: &str) -> Option<StringID> {
-        self.ident_index_map.get(s).copied().map(StringID::new)
+    pub fn lookup_symbol(&self, s: &str) -> Option<SymbolId> {
+        self.symbol_id_map.get(s).copied().map(SymbolId::new)
     }
 
     // Look up an interned string and return its ID.
     ///
     /// # Errors
     /// Returns a [`StringInternerError`] if the string has not been interned.
-    pub fn try_lookup_ident(&self, s: &str) -> Result<StringID, InternerError> {
-        self.ident_index_map
+    pub fn try_lookup_symbol(&self, s: &str) -> Result<SymbolId, InternerError> {
+        self.symbol_id_map
             .get(s)
             .copied()
-            .map(StringID::new)
+            .map(SymbolId::new)
             .ok_or_else(|| InternerError::unknown_ident_string(s))
     }
 
     /// Returns an iterator over the interned `Ident`s (the indices).
     /// Returns an iterator over all interned identifiers (`Ident`).
-    pub fn ident_keys(&self) -> impl Iterator<Item =StringID> + '_ {
-        (0..self.ident_string_pool.len()).map(StringID::new)
+    pub fn symbol_keys(&self) -> impl Iterator<Item =SymbolId> + '_ {
+        (0..self.symbol_string_pool.len()).map(SymbolId::new)
     }
 
     /// Returns an iterator over interned strings (`&str`).
-    pub fn ident_values(&self) -> impl Iterator<Item = &str> + '_ {
-        self.ident_string_pool.iter().map(|s| s.as_ref())
+    pub fn symbol_values(&self) -> impl Iterator<Item = &str> + '_ {
+        self.symbol_string_pool.iter().map(|s| s.as_ref())
     }
 
     /// Returns an iterator over `(Ident, &str)` pairs.
-    pub fn iter_ident_entries(&self) -> impl Iterator<Item = (StringID, &str)> + '_ {
-        self.ident_string_pool
+    pub fn iter_symbol_entries(&self) -> impl Iterator<Item = (SymbolId, &str)> + '_ {
+        self.symbol_string_pool
             .iter()
             .enumerate()
-            .map(|(i, s)| (StringID::new(i), s.as_ref()))
+            .map(|(i, s)| (SymbolId::new(i), s.as_ref()))
     }
 
     /// Interns a literal string (e.g., numbers, constants) and returns a `Literal`.
@@ -374,11 +374,11 @@ impl StringInterner {
     /// let lit = interner.intern_literal("42");
     /// assert_eq!(interner.get_literal(lit), Some("42"));
     /// ```
-    pub fn intern_literal<S: AsRef<str>>(&mut self, s: S) -> LiteralID {
+    pub fn intern_literal<S: AsRef<str>>(&mut self, s: S) -> LiteralId {
         let s_ref = s.as_ref();
 
-        if let Some(&idx) = self.literal_index_map.get(s_ref) {
-            return LiteralID::new(idx);
+        if let Some(&idx) = self.literal_id_map.get(s_ref) {
+            return LiteralId::new(idx);
         }
 
         let boxed: Box<str> = s_ref.to_string().into_boxed_str();
@@ -386,9 +386,9 @@ impl StringInterner {
 
         let idx = self.literal_string_pool.len();
         self.literal_string_pool.push(static_str.into());
-        self.literal_index_map.insert(static_str, idx);
+        self.literal_id_map.insert(static_str, idx);
 
-        LiteralID::new(idx)
+        LiteralId::new(idx)
     }
 
     /// Resolves a literal `Literal` into its string value.
@@ -396,7 +396,7 @@ impl StringInterner {
     /// # Returns
     /// - `Some(&str)` if the index is valid
     /// - `None` otherwise
-    pub fn resolve_literal(&self, lit: LiteralID) -> Option<&str> {
+    pub fn resolve_literal(&self, lit: LiteralId) -> Option<&str> {
         self.literal_string_pool.get(lit.as_usize()).map(|s| s.as_ref())
     }
 
@@ -404,7 +404,7 @@ impl StringInterner {
     ///
     /// # Errors
     /// Returns `Err(InternerError)` if the literal is invalid or out of bounds.
-    pub fn try_resolve_literal(&self, literal: LiteralID) -> Result<&str, InternerError> {
+    pub fn try_resolve_literal(&self, literal: LiteralId) -> Result<&str, InternerError> {
         self.resolve_literal(literal).ok_or_else(|| {
             InternerError::invalid_literal(literal.as_usize(), self.literal_string_pool.len())
         })
@@ -418,8 +418,8 @@ impl StringInterner {
     /// # Arguments
     ///
     /// * `s` - The string slice representing the literal to look up.
-    pub fn lookup_literal(&self, s: &str) -> Option<LiteralID> {
-        self.literal_index_map.get(s).copied().map(LiteralID::new)
+    pub fn lookup_literal(&self, s: &str) -> Option<LiteralId> {
+        self.literal_id_map.get(s).copied().map(LiteralId::new)
     }
 
     /// Attempts to look up a literal identifier, returning an error if not found.
@@ -435,17 +435,17 @@ impl StringInterner {
     ///
     /// Returns [`InternerError::UnknownLiteralString`] if the string is not
     /// registered in the literal pool.
-    pub fn try_lookup_literal(&self, s: &str) -> Result<LiteralID, InternerError> {
-        self.literal_index_map
+    pub fn try_lookup_literal(&self, s: &str) -> Result<LiteralId, InternerError> {
+        self.literal_id_map
             .get(s)
             .copied()
-            .map(LiteralID::new)
+            .map(LiteralId::new)
             .ok_or_else(|| InternerError::unknown_literal_string(s))
     }
 
     /// Returns an iterator over all literal `Literal`s.
-    pub fn literal_keys(&self) -> impl Iterator<Item =LiteralID> + '_ {
-        (0..self.literal_string_pool.len()).map(LiteralID::new)
+    pub fn literal_keys(&self) -> impl Iterator<Item =LiteralId> + '_ {
+        (0..self.literal_string_pool.len()).map(LiteralId::new)
     }
 
     /// Returns an iterator over all interned literals (`&str`).
@@ -454,16 +454,16 @@ impl StringInterner {
     }
 
     /// Returns an iterator over `(Literal, &str)` pairs for literals.
-    pub fn iter_literal_entries(&self) -> impl Iterator<Item = (LiteralID, &str)> + '_ {
+    pub fn iter_literal_entries(&self) -> impl Iterator<Item = (LiteralId, &str)> + '_ {
         self.literal_string_pool
             .iter()
             .enumerate()
-            .map(|(i, s)| (LiteralID::new(i), s.as_ref()))
+            .map(|(i, s)| (LiteralId::new(i), s.as_ref()))
     }
 
 }
 
-impl Serialize for StringInterner {
+impl Serialize for SymbolInterner {
     /// Serializes only the interned string pools of the `StringInterner`.
     ///
     /// This implementation serializes the `ident_string_pool` and the
@@ -484,11 +484,11 @@ impl Serialize for StringInterner {
         S: Serializer,
     {
         // Serialize both string pools as a tuple
-        (&self.ident_string_pool, &self.literal_string_pool).serialize(serializer)
+        (&self.symbol_string_pool, &self.literal_string_pool).serialize(serializer)
     }
 }
 
-impl<'de> Deserialize<'de> for StringInterner {
+impl<'de> Deserialize<'de> for SymbolInterner {
     /// Deserializes the two string pools (`ident_string_pool` and `literal_string_pool`)
     /// from a tuple `(Vec<String>, Vec<String>)` and reconstructs their corresponding
     /// index maps (`ident_index_map` and `literal_index_map`).
@@ -526,15 +526,15 @@ impl<'de> Deserialize<'de> for StringInterner {
         let (literal_string_pool, literal_index_map) = build_pool_and_map(literal_vec);
 
         Ok(Self {
-            ident_string_pool,
-            ident_index_map,
+            symbol_string_pool: ident_string_pool,
+            symbol_id_map: ident_index_map,
             literal_string_pool,
-            literal_index_map,
+            literal_id_map: literal_index_map,
         })
     }
 }
 
-impl std::fmt::Display for StringInterner {
+impl std::fmt::Display for SymbolInterner {
     /// Formats the `StringInterner` by displaying both the `ident_string_pool` and the `literal_string_pool`.
     ///
     /// # Arguments
@@ -552,8 +552,8 @@ impl std::fmt::Display for StringInterner {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "StringInterner {{")?;
 
-        writeln!(f, "  Ident String Pool:")?;
-        for (idx, s) in self.ident_string_pool.iter().enumerate() {
+        writeln!(f, "Symbol String Pool:")?;
+        for (idx, s) in self.symbol_string_pool.iter().enumerate() {
             writeln!(f, "    [{}]: {}", idx, s)?;
         }
 

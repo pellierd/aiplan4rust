@@ -50,7 +50,7 @@
 //! The [`Content::remap_idents`] method allows in-place remapping of interned identifiers
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableID, ObjectID, PredicateID, FunctorID, FunctionSkeletonID, AtomSkeletonID, TaskSkeletonID, TypeID, TaskSymbolID, PreferenceID, TaskLabelID};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableId, ConstantId, PredicateSymbolId, FunctionSymbolId, FunctionSkeletonId, AtomSkeletonId, TaskSkeletonId, TypeId, TaskSymbolId, PreferenceSymbolId, TaskLabelSymbolId};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::tree::SyntaxContent;
@@ -72,31 +72,29 @@ pub enum Content {
     #[default]
     None,
     //Ident(StringID),
-    Variable(VariableID),     // Variables liées (Forall/Exists)
-    Constant(ObjectID),     // Objets/Constantes du domaine
+    Variable(VariableId),     // Variables liées (Forall/Exists)
+    Constant(ConstantId),     // Objets/Constantes du domaine
 
     // --- Symboles de Définition ---
-    Predicate(PredicateID),
-    Functor(FunctorID),
-    TaskSymbol(TaskSymbolID),
-    TaskID(TaskLabelID),
-    Preference(PreferenceID),
+    PredicateSymbol(PredicateSymbolId),
+    FunctionSymbol(FunctionSymbolId),
+    TaskSymbol(TaskSymbolId),
+    TaskLabelSymbol(TaskLabelSymbolId),
+    PreferenceSymbol(PreferenceSymbolId),
 
     // --- Skeletons (Liaison aux formules atomiques) ---
     /// Référence à ATOMIC_FORMULA_SKELETON_ID
-    AtomSkeleton(AtomSkeletonID),
+    AtomSkeleton(AtomSkeletonId),
     /// Référence à ATOMIC_FUNCTION_SKELETON_ID
-    FunctionSkeleton(FunctionSkeletonID),
-    TaskSkeleton(TaskSkeletonID),
-
-
+    FunctionSkeleton(FunctionSkeletonId),
+    TaskSkeleton(TaskSkeletonId),
 
     /// Floating-point literal wrapped in [`OrderedFloat`] to ensure total ordering.
     #[serde(
         serialize_with = "serialize_ordered_float",
         deserialize_with = "deserialize_ordered_float"
     )]
-    Float(OrderedFloat<f64>),
+    Number(OrderedFloat<f64>),
 
     /// Binary comparison operator (e.g. `=`, `<`, `>`, etc.).
     BinaryComp(BinaryComp),
@@ -111,14 +109,14 @@ pub enum Content {
     Optimization(Optimization),
 
     /// The bound variables for a quantifier (Forall or Exists) stored as a `TypedList`.
-    QuantifierVariables(TypedList<VariableID, TypeID>),
+    QuantifierVariables(TypedList<VariableId, TypeId>),
 
 }
 
 impl Content {
 
     /// Returns the object ID if the content is `Constant`.
-    pub fn as_constant(&self) -> Option<ObjectID> {
+    pub fn as_constant(&self) -> Option<ConstantId> {
         match self {
             ExprContent::Constant(id) => Some(*id),
             _ => None,
@@ -126,12 +124,12 @@ impl Content {
     }
 
     /// Returns the object ID or an error.
-    pub fn try_constant(&self) -> Result<ObjectID, ExprError> {
+    pub fn try_constant(&self) -> Result<ConstantId, ExprError> {
         self.as_constant().ok_or_else(ExprError::not_constant)
     }
 
     /// Returns the variable ID if the content is `Variable`.
-    pub fn as_variable(&self) -> Option<VariableID> {
+    pub fn as_variable(&self) -> Option<VariableId> {
         match self {
             ExprContent::Variable(id) => Some(*id),
             _ => None,
@@ -139,39 +137,39 @@ impl Content {
     }
 
     /// Returns the variable ID or an error.
-    pub fn try_variable(&self) -> Result<VariableID, ExprError> {
+    pub fn try_variable(&self) -> Result<VariableId, ExprError> {
         self.as_variable().ok_or_else(ExprError::not_variable)
     }
 
 
     /// Returns the predicate ID if the content is `Predicate`.
-    pub fn as_predicate(&self) -> Option<PredicateID> {
+    pub fn as_predicate_symbol(&self) -> Option<PredicateSymbolId> {
         match self {
-            ExprContent::Predicate(id) => Some(*id),
+            ExprContent::PredicateSymbol(id) => Some(*id),
             _ => None,
         }
     }
 
     /// Returns the predicate ID or an error.
-    pub fn try_predicate(&self) -> Result<PredicateID, ExprError> {
-        self.as_predicate().ok_or_else(ExprError::not_predicate)
+    pub fn try_predicate_symbol(&self) -> Result<PredicateSymbolId, ExprError> {
+        self.as_predicate_symbol().ok_or_else(ExprError::not_predicate)
     }
 
     /// Returns the functor ID if the content is `Functor`.
-    pub fn as_functor(&self) -> Option<FunctorID> {
+    pub fn as_function_symbol(&self) -> Option<FunctionSymbolId> {
         match self {
-            ExprContent::Functor(id) => Some(*id),
+            ExprContent::FunctionSymbol(id) => Some(*id),
             _ => None,
         }
     }
 
     /// Returns the functor ID or an error.
-    pub fn try_functor(&self) -> Result<FunctorID, ExprError> {
-        self.as_functor().ok_or_else(ExprError::not_functor)
+    pub fn try_function_symbol(&self) -> Result<FunctionSymbolId, ExprError> {
+        self.as_function_symbol().ok_or_else(ExprError::not_functor)
     }
 
     /// Returns the task symbol ID if the content is `TaskSymbol`.
-    pub fn as_task_symbol(&self) -> Option<TaskSymbolID> {
+    pub fn as_task_symbol(&self) -> Option<TaskSymbolId> {
         match self {
             ExprContent::TaskSymbol(id) => Some(*id),
             _ => None,
@@ -179,38 +177,38 @@ impl Content {
     }
 
     /// Returns the task symbol ID or an error.
-    pub fn try_task_symbol(&self) -> Result<TaskSymbolID, ExprError> {
+    pub fn try_task_symbol(&self) -> Result<TaskSymbolId, ExprError> {
         self.as_task_symbol().ok_or_else(ExprError::not_task_symbol)
     }
 
     // Returns the task label ID if the content is `TaskID`.
-    pub fn as_task_id(&self) -> Option<TaskLabelID> {
+    pub fn as_task_label_symbol(&self) -> Option<TaskLabelSymbolId> {
         match self {
-            ExprContent::TaskID(id) => Some(*id),
+            ExprContent::TaskLabelSymbol(id) => Some(*id),
             _ => None,
         }
     }
 
     /// Returns the task label ID or an error.
-    pub fn try_task_id(&self) -> Result<TaskLabelID, ExprError> {
-        self.as_task_id().ok_or_else(ExprError::not_task_id)
+    pub fn try_task_label_symbol(&self) -> Result<TaskLabelSymbolId, ExprError> {
+        self.as_task_label_symbol().ok_or_else(ExprError::not_task_id)
     }
 
     /// Returns the preference ID if the content is `Preference`.
-    pub fn as_preference(&self) -> Option<PreferenceID> {
+    pub fn as_preference_symbol(&self) -> Option<PreferenceSymbolId> {
         match self {
-            ExprContent::Preference(id) => Some(*id),
+            ExprContent::PreferenceSymbol(id) => Some(*id),
             _ => None,
         }
     }
 
     /// Returns the preference ID or an error.
-    pub fn try_preference(&self) -> Result<PreferenceID, ExprError> {
-        self.as_preference().ok_or_else(ExprError::not_preference)
+    pub fn try_preference_symbol(&self) -> Result<PreferenceSymbolId, ExprError> {
+        self.as_preference_symbol().ok_or_else(ExprError::not_preference)
     }
 
     /// Returns the predicate ID if the content is `AtomicSkeleton`.
-    pub fn as_atom_skeleton(&self) -> Option<AtomSkeletonID> {
+    pub fn as_atom_skeleton(&self) -> Option<AtomSkeletonId> {
         match self {
             ExprContent::AtomSkeleton(id) => Some(*id),
             _ => None,
@@ -218,12 +216,12 @@ impl Content {
     }
 
     /// Returns the predicate ID or an error.
-    pub fn try_atom_skeleton(&self) -> Result<AtomSkeletonID, ExprError> {
+    pub fn try_atom_skeleton(&self) -> Result<AtomSkeletonId, ExprError> {
         self.as_atom_skeleton().ok_or_else(ExprError::not_atom_skeleton)
     }
 
     /// Returns the function ID if the content is `FunctionSkeleton`.
-    pub fn as_function_skeleton(&self) -> Option<FunctionSkeletonID> {
+    pub fn as_function_skeleton(&self) -> Option<FunctionSkeletonId> {
         match self {
             ExprContent::FunctionSkeleton(id) => Some(*id),
             _ => None,
@@ -234,13 +232,13 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::not_function_skeleton()` if the content is not a function.
-    pub fn try_function_skeleton(&self) -> Result<FunctionSkeletonID, ExprError> {
+    pub fn try_function_skeleton(&self) -> Result<FunctionSkeletonId, ExprError> {
         self.as_function_skeleton()
             .ok_or_else(ExprError::not_function_skeleton)
     }
 
     /// Returns the task skeleton ID if the content is `TaskSkeleton`.
-    pub fn as_task_skeleton(&self) -> Option<TaskSkeletonID> {
+    pub fn as_task_skeleton(&self) -> Option<TaskSkeletonId> {
         match self {
             ExprContent::TaskSkeleton(id) => Some(*id),
             _ => None,
@@ -251,7 +249,7 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::not_task_skeleton()` if the content is not a task skeleton.
-    pub fn try_task_skeleton(&self) -> Result<TaskSkeletonID, ExprError> {
+    pub fn try_task_skeleton(&self) -> Result<TaskSkeletonId, ExprError> {
         self.as_task_skeleton()
             .ok_or_else(ExprError::not_task_skeleton)
     }
@@ -261,7 +259,7 @@ impl Content {
     /// # Returns
     /// * `Some(&TypedList)` if the content holds bound variables
     /// * `None` otherwise
-    pub fn as_quantifier_vars(&self) -> Option<&TypedList<VariableID, TypeID>> {
+    pub fn as_quantifier_vars(&self) -> Option<&TypedList<VariableId, TypeId>> {
         match self {
             ExprContent::QuantifierVariables(list) => Some(list),
             _ => None,
@@ -272,7 +270,7 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::unsupported_content` if the content is not `TypedVariables`.
-    pub fn try_quantifier_vars(&self) -> Result<&TypedList<VariableID, TypeID>, ExprError> {
+    pub fn try_quantifier_vars(&self) -> Result<&TypedList<VariableId, TypeId>, ExprError> {
         match self {
             ExprContent::QuantifierVariables(list) => Ok(list),
             _ => Err(ExprError::not_quantifier_variables()),
@@ -285,7 +283,7 @@ impl Content {
     /// # Returns
     /// * `Some(&mut TypedList)` if the content holds bound variables
     /// * `None` otherwise
-    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList<VariableID, TypeID>> {
+    pub fn as_quantifier_vars_mut(&mut self) -> Option<&mut TypedList<VariableId, TypeId>> {
         match self {
             ExprContent::QuantifierVariables(list) => Some(list),
             _ => None,
@@ -296,7 +294,7 @@ impl Content {
     ///
     /// # Errors
     /// Returns `ExprError::not_quantifier_variables()` if the content is not `TypedVariables`.
-    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<VariableID, TypeID>, ExprError> {
+    pub fn try_quantifier_vars_mut(&mut self) -> Result<&mut TypedList<VariableId, TypeId>, ExprError> {
         match self {
             ExprContent::QuantifierVariables(list) => Ok(list),
             _ => Err(ExprError::not_quantifier_variables()),
@@ -313,9 +311,9 @@ impl fmt::Display for Content {
 
 impl SyntaxContent for Content {
 
-    fn as_float(&self) -> Option<OrderedFloat<f64>> {
+    fn as_number(&self) -> Option<OrderedFloat<f64>> {
         match self {
-            Content::Float(f) => Some(*f),
+            Content::Number(f) => Some(*f),
             _ => None,
         }
     }

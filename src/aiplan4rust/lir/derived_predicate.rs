@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::renderers;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lang::{AtomSkeletonID, VariableID};
+use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
 use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
 
@@ -23,7 +23,7 @@ use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
 pub struct DerivedPredicate {
     /// Unique identifier of the skeleton associated with this predicate.
     /// Essential for inertia analysis and efficient grounding.
-    head_id: AtomSkeletonID,
+    head_id: AtomSkeletonId,
 
     /// The predicate's head, containing name and parameter details.
     /// While the `skeleton_id` is technically sufficient to retrieve this
@@ -35,7 +35,7 @@ pub struct DerivedPredicate {
     /// The logical expression defining the derived predicate.
     body: Expr,
 
-    variable_symbols: SymbolRegistry<VariableID>,
+    variable_symbols: SymbolRegistry<VariableId>,
 }
 
 impl DerivedPredicate {
@@ -63,7 +63,7 @@ impl DerivedPredicate {
     /// let body = Expr::empty_or();
     /// let dp = DerivedPredicate::new(id, head, body);
     /// ```
-    pub fn new(header_id: AtomSkeletonID, head: AtomicFormulaSkeleton, body: Expr) -> Self {
+    pub fn new(header_id: AtomSkeletonId, head: AtomicFormulaSkeleton, body: Expr) -> Self {
         Self {
             head_id: header_id,
             head,
@@ -73,7 +73,7 @@ impl DerivedPredicate {
     }
 
     /// Permet d'ajouter les symboles après la création de manière élégante.
-    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableID>) -> Self {
+    pub fn with_variable_symbols(mut self, symbols: SymbolRegistry<VariableId>) -> Self {
         self.variable_symbols = symbols;
         self
     }
@@ -81,7 +81,7 @@ impl DerivedPredicate {
     /// Returns the unique skeleton identifier for this derived predicate.
     ///
     /// This ID corresponds to the predicate's index in the problem's global definitions.
-    pub fn header_id(&self) -> AtomSkeletonID {
+    pub fn header_id(&self) -> AtomSkeletonId {
         self.head_id
     }
 
@@ -141,10 +141,10 @@ impl DerivedPredicate {
 
     /// Accès en lecture seule à la table des noms (symboles) des variables.
     /// À utiliser pour le rendu ou les messages d'erreur.
-    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableID> { &self.variable_symbols }
+    pub fn variable_symbols(&self) -> &SymbolRegistry<VariableId> { &self.variable_symbols }
 
     /// Accès mutable à la table des noms des variables.
-    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableID> { &mut self.variable_symbols }
+    pub fn variable_symbols_mut(&mut self) -> &mut SymbolRegistry<VariableId> { &mut self.variable_symbols }
 
 }
 

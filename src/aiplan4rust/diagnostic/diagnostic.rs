@@ -50,7 +50,7 @@ use crate::aiplan4rust::syntax::{FastLineTable, Span};
 use std::collections::HashMap;
 use std::fmt;
 use lalrpop_util::ParseError;
-use crate::aiplan4rust::lang::{LiteralID, RemapIdents, Requirement, StringID, Type};
+use crate::aiplan4rust::lang::{LiteralId, RemapSymbol, Requirement, SymbolId, Type};
 use crate::aiplan4rust::semantic::symbol::{Declaration, Symbol, SymbolKind, Usage};
 use crate::aiplan4rust::syntax::ast::AstKind;
 
@@ -74,7 +74,7 @@ pub struct Diagnostic {
     /// An interned identifier representing the source file where the issue occurred.
     ///
     /// This is typically obtained via a `StringInterner` and refers to a file path or logical source name.
-    pub source: LiteralID,
+    pub source: LiteralId,
 
     /// The span within the source file that pinpoints the location of the issue.
     ///
@@ -98,7 +98,7 @@ impl Diagnostic {
     fn new(
         kind: Kind,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Diagnostic {
@@ -128,7 +128,7 @@ impl Diagnostic {
     /// Returns the identifier of the source file where this diagnostic occurred.
     ///
     /// The identifier is a `Literal`, typically interned to reduce duplication.
-    pub fn source(&self) -> LiteralID {
+    pub fn source(&self) -> LiteralId {
         self.source
     }
 
@@ -155,7 +155,7 @@ impl Diagnostic {
     /// Updates the source file associated with this diagnostic.
     ///
     /// The new value must be a valid `Literal` reference to an interned filename.
-    pub fn set_source(&mut self, source: LiteralID) {
+    pub fn set_source(&mut self, source: LiteralId) {
         self.source = source;
     }
 
@@ -199,10 +199,10 @@ impl Diagnostic {
     /// [`Literal::remap_literal`]: crate::interner::Literal::remap_literal
     pub fn remap(
         &mut self,
-        idents: &HashMap<StringID, StringID>,
-        literals: &HashMap<LiteralID, LiteralID>
+        idents: &HashMap<SymbolId, SymbolId>,
+        literals: &HashMap<LiteralId, LiteralId>
     ) -> Result<(), InternerError> {
-        self.kind.remap_idents(idents)?;
+        self.kind.remap_symbol(idents)?;
         self.source.remap_literal(literals);
         Ok(())
     }
@@ -241,7 +241,7 @@ impl Diagnostic {
         token: impl Into<String>,
         expected: Vec<impl Into<String>>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         let token = token.into();
@@ -265,7 +265,7 @@ impl Diagnostic {
     pub fn error_unexpected_eof(
         expected: Vec<impl Into<String>>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         let expected: Vec<String> = expected.into_iter().map(|s| s.into()).collect();
@@ -286,7 +286,7 @@ impl Diagnostic {
     /// - `span`: The location in the source of the invalid token.
     pub fn error_invalid_token(
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -305,7 +305,7 @@ impl Diagnostic {
     /// * `provider` - The source of this diagnostic.
     /// * `source` - The interned identifier of the source file.
     /// * `span` - The span where the extra token was found.
-    pub fn error_extra_token(token: impl Into<String>, provider: Provider, source: LiteralID, span: Span) -> Self {
+    pub fn error_extra_token(token: impl Into<String>, provider: Provider, source: LiteralId, span: Span) -> Self {
         Self {
             kind: Kind::ExtraToken { token: token.into() },
             provider,
@@ -325,7 +325,7 @@ impl Diagnostic {
     pub fn error_invalid_number(
         number: impl Into<String>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -349,7 +349,7 @@ impl Diagnostic {
     pub fn error_duplicate_definition_block(
         block: AstKind,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -373,7 +373,7 @@ impl Diagnostic {
         block: AstKind,
         order: &[AstKind],
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -400,7 +400,7 @@ impl Diagnostic {
         declaration: Declaration,
         usage: Usage,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -420,10 +420,10 @@ impl Diagnostic {
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source of the mismatch.
     pub fn error_type_mismatch_in_expression(
-        ty1: Type<StringID>,
-        ty2: Type<StringID>,
+        ty1: Type<SymbolId>,
+        ty2: Type<SymbolId>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -443,10 +443,10 @@ impl Diagnostic {
     /// - `source`: Interned identifier for the source.
     /// - `span`: The location in the source of the invalid types.
     pub fn error_invalid_types_in_numeric_expression(
-        ty1: Type<StringID>,
-        ty2: Type<StringID>,
+        ty1: Type<SymbolId>,
+        ty2: Type<SymbolId>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -469,7 +469,7 @@ impl Diagnostic {
         node_kind: AstKind,
         required: Vec<Requirement>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -496,7 +496,7 @@ impl Diagnostic {
         conflicting_declaration: Declaration,
         scope: AstKind,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -526,7 +526,7 @@ impl Diagnostic {
     /// - `span`: The location in the source related to the cycle error.
     pub fn error_cyclic_task_ordering(
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -549,7 +549,7 @@ impl Diagnostic {
     pub fn error_undeclared_symbol(
         usage: Usage,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -577,7 +577,7 @@ impl Diagnostic {
         expected_kind: SymbolKind,
         requirements: Vec<Requirement>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -609,7 +609,7 @@ impl Diagnostic {
         expected_kind: SymbolKind,
         requirements: Vec<Requirement>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -636,7 +636,7 @@ impl Diagnostic {
     pub fn warning_unused_symbol(
         declaration: Declaration,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -661,7 +661,7 @@ impl Diagnostic {
         domain_name: Declaration,
         problem_name: Declaration,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -689,7 +689,7 @@ impl Diagnostic {
         ty: Declaration,
         predicate: Declaration,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -714,10 +714,10 @@ impl Diagnostic {
     /// - `span`: Location in source related to the argument usage.
     pub fn warning_task_argument_is_supertype_of_declaration(
         argument: Declaration,
-        type_declared: Type<StringID>,
-        type_used: Type<StringID>,
+        type_declared: Type<SymbolId>,
+        type_used: Type<SymbolId>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -743,9 +743,9 @@ impl Diagnostic {
     /// - `source`: Interned source identifier.
     /// - `span`: Location in source related to the `Either` construct.
     pub fn warning_duplicate_either_type(
-        duplicate_types: Vec<StringID>,
+        duplicate_types: Vec<SymbolId>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -768,7 +768,7 @@ impl Diagnostic {
     pub fn error_cyclic_type_declaration(
         cycle: Vec<Declaration>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -793,7 +793,7 @@ impl Diagnostic {
         problem_declaration: Declaration,
         conflicting_domain_declarations: Vec<Declaration>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -817,11 +817,11 @@ impl Diagnostic {
     /// - `source`: Interned source identifier.
     /// - `span`: Location in source related to the implicit either type declaration.
     pub fn warning_implicit_either_type_declaration(
-        ty: StringID,
-        duplicate_types: Vec<StringID>,
+        ty: SymbolId,
+        duplicate_types: Vec<SymbolId>,
         duplicate_spans: Vec<Span>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -846,7 +846,7 @@ impl Diagnostic {
     pub fn warning_duplicate_requirement(
         duplicate_requirements: Vec<Requirement>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -869,7 +869,7 @@ impl Diagnostic {
         message: String,
         suggestion: Option<String>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -892,7 +892,7 @@ impl Diagnostic {
         message: String,
         suggestion: Option<String>,
         provider: Provider,
-        source: LiteralID,
+        source: LiteralId,
         span: Span,
     ) -> Self {
         Self {
@@ -922,7 +922,7 @@ impl fmt::Display for Diagnostic {
     }
 }
 
-impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, LiteralID, &'a FastLineTable)> for Diagnostic {
+impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, LiteralId, &'a FastLineTable)> for Diagnostic {
     /// Converts a LALRPOP `ParseError` into a structured `Diagnostic`, enriched with
     /// source span and interner-based file context.
     ///
@@ -956,7 +956,7 @@ impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, LiteralID, &'a Fa
     /// - For `User`-defined errors, a fallback empty span is used (position 0).
     /// - Expected token names are cleaned before being included in the message.
     fn from(
-        value: (&'a ParseError<usize, Token, CustomParseError>, LiteralID, &'a FastLineTable),
+        value: (&'a ParseError<usize, Token, CustomParseError>, LiteralId, &'a FastLineTable),
     ) -> Self {
         let (error, source, fast_line_table) = value;
 
@@ -1032,7 +1032,7 @@ impl<'a> From<(&'a ParseError<usize, Token, CustomParseError>, LiteralID, &'a Fa
 /// A `Diagnostic` representing the given custom parse error.
 fn custom_parse_error_to_diagnostic(
     error: &CustomParseError,
-    source: LiteralID,
+    source: LiteralId,
     fast_line_table: &FastLineTable,
 ) -> Diagnostic {
     match error {

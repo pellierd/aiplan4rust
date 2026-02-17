@@ -3,8 +3,8 @@ use crate::aiplan4rust::diagnostic::Provider;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::semantic::symbol::Declaration;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::{LiteralID, StringID};
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::lang::{LiteralId, SymbolId};
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::checks::{CheckContext, SemanticCheckError};
 
 use std::collections::HashMap;
@@ -144,15 +144,15 @@ pub fn check_type_hierarchy(
 /// ```
 fn report_cyclic_type_declaration_error(
     cycles: &[Vec<usize>],
-    type_bimap: &BiMap<StringID, usize>,
+    type_bimap: &BiMap<SymbolId, usize>,
     types: &Vec<&Declaration>,
-    source: LiteralID,
+    source: LiteralId,
     provider: Provider,
     diagnostic_manager: &mut DiagnosticManager,
 ) -> Result<(), SemanticCheckError> {
 
     // Build a fast lookup map from symbol names to declarations
-    let type_map: HashMap<StringID, &Declaration> = types
+    let type_map: HashMap<SymbolId, &Declaration> = types
         .iter()
         .map(|&decl| (decl.symbol_ident(), decl))
         .collect();
@@ -509,7 +509,7 @@ fn compute_transitive_closure(matrix: &mut Vec<Vec<bool>>) {
 /// let adj_matrix = build_type_adjacency_matrix(&index_map, &declarations)?;
 /// ```
 fn build_type_adjacency_matrix(
-    type_bimap: &BiMap<StringID, usize>,
+    type_bimap: &BiMap<SymbolId, usize>,
     declarations: &Vec<&Declaration>,
 ) -> Result<Vec<Vec<bool>>, SemanticCheckError> {
     let n = type_bimap.len();
@@ -518,7 +518,7 @@ fn build_type_adjacency_matrix(
     let mut matrix = vec![vec![false; n]; n];
 
     // Get index of the special "object" type once
-    let object_index = type_bimap.get_by_left(&StringInterner::IDENT_OBJECT).copied();
+    let object_index = type_bimap.get_by_left(&SymbolInterner::OBJECT_SYMBOL_ID).copied();
 
     for declaration in declarations {
         let Some(&type_idx) = type_bimap.get_by_left(&declaration.symbol_ident()) else {
@@ -594,9 +594,9 @@ fn build_type_adjacency_matrix(
 /// ```
 fn build_type_bimap(
     declarations: &Vec<&Declaration>,
-) -> BiMap<StringID, usize> {
+) -> BiMap<SymbolId, usize> {
     // Create an empty BiMap to store type_checker names (String) and their unique indices (usize)
-    let mut temp_map: BiMap<StringID, usize> = BiMap::new();
+    let mut temp_map: BiMap<SymbolId, usize> = BiMap::new();
 
     // Iterate over each type_checker declaration in the input map
     for declaration in declarations {
@@ -620,9 +620,9 @@ fn build_type_bimap(
     }
 
     // Ensure the special OBJECT_TYPE is present in the map; add if missing
-    if !temp_map.contains_left(&StringInterner::IDENT_OBJECT) {
+    if !temp_map.contains_left(&SymbolInterner::OBJECT_SYMBOL_ID) {
         let len = temp_map.len();                    // Next index for insertion
-        temp_map.insert(StringInterner::IDENT_OBJECT, len); // Insert OBJECT_TYPE as a key
+        temp_map.insert(SymbolInterner::OBJECT_SYMBOL_ID, len); // Insert OBJECT_TYPE as a key
     }
 
     // Return the completed BiMap mapping type_checker names to unique indices

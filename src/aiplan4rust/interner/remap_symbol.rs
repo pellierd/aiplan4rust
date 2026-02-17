@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 
 /// Trait for remapping identifiers (`Ident`) within a structure.
 ///
@@ -11,7 +11,7 @@ use crate::aiplan4rust::lang::StringID;
 /// Implementors of this trait should traverse their structure and replace
 /// any `Ident` according to the provided map. Conflicts or missing entries
 /// should be reported via [`InternerError`].
-pub trait RemapIdents {
+pub trait RemapSymbol {
     /// Apply a remapping of identifiers according to the provided map.
     ///
     /// # Parameters
@@ -33,5 +33,5 @@ pub trait RemapIdents {
     ///
     /// my_struct.remap_idents(&map)?;
     /// ```
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>;
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>;
 }

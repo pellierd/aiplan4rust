@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::semantic::error::InvalidNodeArityError;
 use crate::aiplan4rust::semantic::symbol::{Declaration, Scope, SymbolKind};
 use crate::aiplan4rust::semantic::UnexpectedNodeKindError;
@@ -60,7 +60,7 @@ pub enum SymbolTableError {
     #[error("Symbol '{ident}' of kind '{usage_kind:?}' has {count} duplicate declarations.")]
     DuplicateDeclarations {
         /// The conflicting symbol identifier.
-        ident: StringID,
+        ident: SymbolId,
 
         /// The kind of the symbol.
         usage_kind: SymbolKind,
@@ -88,7 +88,7 @@ pub enum SymbolTableError {
     #[error("No declaration found for symbol '{symbol}' of kind '{kind:?}' in scope '{scope}'")]
     DeclarationNotFound {
         /// The identifier of the symbol.
-        symbol: StringID,
+        symbol: SymbolId,
 
         /// The kind of the symbol.
         kind: SymbolKind,
@@ -234,7 +234,7 @@ impl SymbolTableError {
     /// # Returns
     ///
     /// A new `SymbolTableError::DeclarationNotFound` instance.
-    pub fn declaration_not_found(symbol: StringID, kind: SymbolKind, scope: Scope) -> Self {
+    pub fn declaration_not_found(symbol: SymbolId, kind: SymbolKind, scope: Scope) -> Self {
         SymbolTableError::DeclarationNotFound { symbol, kind, scope }
     }
 
@@ -264,7 +264,7 @@ impl SymbolTableError {
     ///
     /// A new `SymbolTableError::DuplicateDeclarations` instance.
     pub fn duplicate_declaration(
-        ident: StringID,
+        ident: SymbolId,
         usage_kind: SymbolKind,
         count: usize,
     ) -> Self {

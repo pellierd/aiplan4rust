@@ -27,8 +27,8 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{RemapIdents, Requirement, StringID};
+use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{RemapSymbol, Requirement, SymbolId};
 use crate::aiplan4rust::semantic::symbol::{Symbol, SymbolKind};
 use crate::aiplan4rust::syntax::ast::{renderer, AstContent, AstError, AstKind};
 use crate::aiplan4rust::tree::{SyntaxBaseNode, Node, Tree, NodeId};
@@ -109,11 +109,11 @@ impl AstNode {
         self.content().try_requirement()
     }
 
-    pub fn as_ident(&self) -> Option<StringID> {
+    pub fn as_ident(&self) -> Option<SymbolId> {
         self.content().as_ident()
     }
 
-    pub fn try_ident(&self) -> Result<StringID, AstError> {
+    pub fn try_ident(&self) -> Result<SymbolId, AstError> {
         self.content().try_ident()
     }
 
@@ -395,19 +395,19 @@ impl Node for AstNode {
     }
 }
 
-impl RemapIdents for AstNode {
+impl RemapSymbol for AstNode {
     /// Remaps identifiers in this syntax node's content using the provided map.
     ///
     /// This default implementation works for any type implementing [`Node`],
     /// delegating the remapping to `content_mut()`.
     ///
     /// # Parameters
-    /// - `map`: A `HashMap` mapping old [`StringID`]s to new ones.
+    /// - `map`: A `HashMap` mapping old [`SymbolId`]s to new ones.
     ///
     /// # Errors
     /// Returns a [`InternerError`] if remapping fails.
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
-        self.content_mut().remap_idents(map)?;
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
+        self.content_mut().remap_symbol(map)?;
         Ok(())
     }
 }
@@ -419,13 +419,13 @@ impl AstNode {
         &self,
         f: &mut Formatter<'_>,
         syntax_tree: &Tree<AstNode>,
-        interner: &StringInterner
+        interner: &SymbolInterner
     ) -> fmt::Result {
         renderer::tree::render(self, f, syntax_tree, interner)
     }
 
-    pub fn to_string_with_interner(&self, tree: &Tree<AstNode>, interner: &StringInterner) -> String {
-        struct Wrapper<'a>(&'a AstNode, &'a Tree<AstNode>, &'a StringInterner);
+    pub fn to_string_with_interner(&self, tree: &Tree<AstNode>, interner: &SymbolInterner) -> String {
+        struct Wrapper<'a>(&'a AstNode, &'a Tree<AstNode>, &'a SymbolInterner);
         impl fmt::Display for Wrapper<'_> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 self.0.fmt_with_interner(f, self.1, self.2)
@@ -440,7 +440,7 @@ impl AstNode {
         &self,
         f: &mut Formatter<'_>,
         syntax_tree: &Tree<AstNode>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
     ) -> fmt::Result {
         // Elle délègue simplement à la version avec indent 0
         self.fmt_syntax_with_indent(f, syntax_tree, interner, 0)
@@ -450,15 +450,15 @@ impl AstNode {
         &self,
         f: &mut Formatter<'_>,
         syntax_tree: &Tree<AstNode>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         _indent: usize,
     ) -> fmt::Result {
         // Appelle ton renderer PDDL spécialisé
         renderer::syntax::render(self, f, syntax_tree, interner)
     }
 
-    pub fn to_syntax_string(&self, tree: &Tree<AstNode>, interner: &StringInterner) -> String {
-        struct Wrapper<'a>(&'a AstNode, &'a Tree<AstNode>, &'a StringInterner);
+    pub fn to_syntax_string(&self, tree: &Tree<AstNode>, interner: &SymbolInterner) -> String {
+        struct Wrapper<'a>(&'a AstNode, &'a Tree<AstNode>, &'a SymbolInterner);
         impl fmt::Display for Wrapper<'_> {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 self.0.fmt_syntax_with_indent(f, self.1, self.2, 0)

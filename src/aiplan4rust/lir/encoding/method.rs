@@ -1,5 +1,4 @@
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};

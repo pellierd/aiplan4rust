@@ -1,11 +1,11 @@
-use crate::aiplan4rust::lang::ids::{FunctorID, ObjectID, PredicateID, TypeID};
+use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ConstantId, PredicateSymbolId, TypeId};
 use crate::aiplan4rust::grounding::numeric_fluent::NumericFluent;
 use crate::aiplan4rust::grounding::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolRegistry;
-use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{Requirement, StringID, TaskSymbolID, TypedSymbol};
+use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{Requirement, SymbolId, TaskSymbolId, TypedSymbol};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::serialization::SerdeSerializable;
 use serde::{Deserialize, Serialize};
@@ -21,20 +21,20 @@ use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunc
 /// efficient string management.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
-    interner: StringInterner,
-    domain_name: StringID,
-    problem_name: StringID,
+    interner: SymbolInterner,
+    domain_name: SymbolId,
+    problem_name: SymbolId,
     requirements: HashSet<Requirement>,
 
-    type_symbols: SymbolRegistry<TypeID>,
-    object_symbols: SymbolRegistry<ObjectID>,
-    predicate_symbols: SymbolRegistry<PredicateID>,
-    function_symbols: SymbolRegistry<FunctorID>,
-    task_symbols: SymbolRegistry<TaskSymbolID>,
+    type_symbols: SymbolRegistry<TypeId>,
+    object_symbols: SymbolRegistry<ConstantId>,
+    predicate_symbols: SymbolRegistry<PredicateSymbolId>,
+    function_symbols: SymbolRegistry<FunctionSymbolId>,
+    task_symbols: SymbolRegistry<TaskSymbolId>,
     
 
-    type_defs: Vec<TypedSymbol<TypeID, TypeID>>,
-    object_defs: Vec<TypedSymbol<ObjectID, TypeID>>,
+    type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
+    object_defs: Vec<TypedSymbol<ConstantId, TypeId>>,
     predicate_defs: Vec<AtomicFormulaSkeleton>,
     functions_def: Vec<AtomicFunctionSkeleton>,
     task_defs: Vec<AtomicTaskSkeleton>,
@@ -108,9 +108,9 @@ impl Problem {
     /// A new `Problem` instance ready for incremental construction.
     pub fn new() -> Self {
         Self {
-            interner: StringInterner::new(),
-            domain_name: StringID::default(),
-            problem_name: StringID::default(),
+            interner: SymbolInterner::new(),
+            domain_name: SymbolId::default(),
+            problem_name: SymbolId::default(),
             requirements: HashSet::new(),
             type_symbols: SymbolRegistry::new(),
             predicate_symbols: SymbolRegistry::new(),
@@ -135,7 +135,7 @@ impl Problem {
     /// # Returns
     /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
     pub fn domain_name(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.domain_name)
+        self.interner.try_resolve_symbol(self.domain_name)
     }
 
     /// Returns the problem name as a string slice.
@@ -143,29 +143,29 @@ impl Problem {
     /// # Returns
     /// `Ok(&str)` if the identifier exists in the interner, otherwise `Err(InternerError)`.
     pub fn problem_name(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.problem_name)
+        self.interner.try_resolve_symbol(self.problem_name)
     }
 
     /// Returns the domain identifier.
-    pub fn domain_id(&self) -> StringID {
+    pub fn domain_id(&self) -> SymbolId {
         self.domain_name
     }
 
     /// Returns the problem identifier.
-    pub fn problem_id(&self) -> StringID {
+    pub fn problem_id(&self) -> SymbolId {
         self.problem_name
     }
 
     // Sets the domain identifier, validating it exists in the interner.
-    pub fn set_domain_id(&mut self, id: StringID) -> Result<(), InternerError> {
-        self.interner.try_resolve_ident(id)?;
+    pub fn set_domain_id(&mut self, id: SymbolId) -> Result<(), InternerError> {
+        self.interner.try_resolve_symbol(id)?;
         self.domain_name = id;
         Ok(())
     }
 
     /// Sets the problem identifier, validating it exists in the interner.
-    pub fn set_problem_id(&mut self, id: StringID) -> Result<(), InternerError> {
-        self.interner.try_resolve_ident(id)?;
+    pub fn set_problem_id(&mut self, id: SymbolId) -> Result<(), InternerError> {
+        self.interner.try_resolve_symbol(id)?;
         self.problem_name = id;
         Ok(())
     }
@@ -181,34 +181,34 @@ impl Problem {
     // ---------- Type symbol table ----------
 
     /// Returns a reference to the type symbols table.
-    pub fn type_symbols(&self) -> &SymbolRegistry<TypeID> {
+    pub fn type_symbols(&self) -> &SymbolRegistry<TypeId> {
         &self.type_symbols
     }
 
     /// Returns a mutable reference to the type symbols table.
-    pub fn type_symbols_mut(&mut self) -> &mut SymbolRegistry<TypeID> {
+    pub fn type_symbols_mut(&mut self) -> &mut SymbolRegistry<TypeId> {
         &mut self.type_symbols
     }
 
     /// Replaces the current type symbols table with the provided one.
-    pub fn set_type_symbols(&mut self, table: SymbolRegistry<TypeID>) {
+    pub fn set_type_symbols(&mut self, table: SymbolRegistry<TypeId>) {
         self.type_symbols = table;
     }
 
     // ---------- Type parents ----------
 
     /// Returns a reference to the list of parent types (as `Option<TypeID>`).
-    pub fn type_defs(&self) -> &Vec<TypedSymbol<TypeID, TypeID>> {
+    pub fn type_defs(&self) -> &Vec<TypedSymbol<TypeId, TypeId>> {
         &self.type_defs
     }
 
     /// Returns a mutable reference to the list of parent types (as `Option<TypeID>`).
-    pub fn type_def_mut(&mut self) -> &mut Vec<TypedSymbol<TypeID, TypeID>> {
+    pub fn type_def_mut(&mut self) -> &mut Vec<TypedSymbol<TypeId, TypeId>> {
         &mut self.type_defs
     }
 
     /// Replaces the current type parents list with the provided one.
-    pub fn set_type_defs(&mut self, types: Vec<TypedSymbol<TypeID, TypeID>>) {
+    pub fn set_type_defs(&mut self, types: Vec<TypedSymbol<TypeId, TypeId>>) {
         self.type_defs = types;
     }
 
@@ -232,17 +232,17 @@ impl Problem {
     // ------------------- PREDICATES -------------------
 
     /// Returns the symbol table mapping predicate identifiers to indices.
-    pub fn predicate_symbols(&self) -> &SymbolRegistry<PredicateID> {
+    pub fn predicate_symbols(&self) -> &SymbolRegistry<PredicateSymbolId> {
         &self.predicate_symbols
     }
 
     /// Returns the symbol table for predicates, mutable.
-    fn predicate_symbols_mut(&mut self) -> &mut SymbolRegistry<PredicateID> {
+    fn predicate_symbols_mut(&mut self) -> &mut SymbolRegistry<PredicateSymbolId> {
         &mut self.predicate_symbols
     }
 
     /// Replaces the predicates symbol table with the provided one.
-    fn set_predicate_symbols(&mut self, table: SymbolRegistry<PredicateID>) {
+    fn set_predicate_symbols(&mut self, table: SymbolRegistry<PredicateSymbolId>) {
         self.predicate_symbols = table;
     }
 
@@ -264,17 +264,17 @@ impl Problem {
     // ------------------- FUNCTIONS -------------------
 
     /// Returns the symbol table mapping numeric function identifiers to indices.
-    pub fn function_symbols(&self) -> &SymbolRegistry<FunctorID> {
+    pub fn function_symbols(&self) -> &SymbolRegistry<FunctionSymbolId> {
         &self.function_symbols
     }
 
     /// Returns a mutable reference to the functions symbol table.
-    fn function_symbols_mut(&mut self) -> &mut SymbolRegistry<FunctorID> {
+    fn function_symbols_mut(&mut self) -> &mut SymbolRegistry<FunctionSymbolId> {
         &mut self.function_symbols
     }
 
     /// Replaces the functions symbol table with the provided one.
-    fn set_function_symbols(&mut self, table: SymbolRegistry<FunctorID>) {
+    fn set_function_symbols(&mut self, table: SymbolRegistry<FunctionSymbolId>) {
         self.function_symbols = table;
     }
 
@@ -304,32 +304,32 @@ impl Problem {
     // ------------------- OBJECTS -------------------
 
     /// Returns the symbol table mapping object identifiers to indices.
-    pub fn object_symbols(&self) -> &SymbolRegistry<ObjectID> {
+    pub fn object_symbols(&self) -> &SymbolRegistry<ConstantId> {
         &self.object_symbols
     }
 
     /// Returns a mutable reference to the objects symbol table.
-    fn object_symbols_mut(&mut self) -> &mut SymbolRegistry<ObjectID> {
+    fn object_symbols_mut(&mut self) -> &mut SymbolRegistry<ConstantId> {
         &mut self.object_symbols
     }
 
     /// Replaces the objects symbol table with the provided one.
-    fn set_object_symbols(&mut self, table: SymbolRegistry<ObjectID>) {
+    fn set_object_symbols(&mut self, table: SymbolRegistry<ConstantId>) {
         self.object_symbols = table;
     }
 
     /// Returns a reference to the list of all objects.
-    pub fn object_defs(&self) -> &Vec<TypedSymbol<ObjectID, TypeID>> {
+    pub fn object_defs(&self) -> &Vec<TypedSymbol<ConstantId, TypeId>> {
         &self.object_defs
     }
 
     /// Returns a mutable reference to the list of objects.
-    fn object_defs_mut(&mut self) -> &mut Vec<TypedSymbol<ObjectID, TypeID>> {
+    fn object_defs_mut(&mut self) -> &mut Vec<TypedSymbol<ConstantId, TypeId>> {
         &mut self.object_defs
     }
 
     /// Replaces the current list of objects with the provided one.
-    fn set_object_defs(&mut self, objects: Vec<TypedSymbol<ObjectID, TypeID>>) {
+    fn set_object_defs(&mut self, objects: Vec<TypedSymbol<ConstantId, TypeId>>) {
         self.object_defs = objects;
     }
 
@@ -352,7 +352,7 @@ impl Problem {
     ///
     /// # Returns
     /// Reference to `StringInterner`.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         &self.interner
     }
 
@@ -360,7 +360,7 @@ impl Problem {
     ///
     /// # Returns
     /// Mutable reference to `StringInterner`.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         &mut self.interner
     }
 }

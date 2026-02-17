@@ -11,11 +11,11 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::semantic::symbol::SymbolKind;
-use crate::aiplan4rust::lang::{StringID, RemapIdents};
+use crate::aiplan4rust::lang::{SymbolId, RemapSymbol};
 use std::fmt;
 use std::fmt::Formatter;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Represents a reference to a declared symbol, consisting of its identifier and kind.
@@ -35,7 +35,7 @@ use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Symbol {
-    ident: StringID,
+    ident: SymbolId,
     kind: SymbolKind,
 }
 
@@ -50,12 +50,12 @@ impl Symbol {
     /// # Returns
     ///
     /// A new [`Symbol`] instance.
-    pub fn new(ident: StringID, kind: SymbolKind) -> Self {
+    pub fn new(ident: SymbolId, kind: SymbolKind) -> Self {
         Self { ident, kind }
     }
 
     /// Returns the identifier (`Ident`) of the symbol.
-    pub fn id(&self) -> StringID {
+    pub fn id(&self) -> SymbolId {
         self.ident
     }
 
@@ -64,7 +64,7 @@ impl Symbol {
     /// # Arguments
     ///
     /// * `ident` — The new identifier to assign.
-    pub fn set_ident(&mut self, ident: StringID) {
+    pub fn set_ident(&mut self, ident: SymbolId) {
         self.ident = ident;
     }
 
@@ -84,7 +84,7 @@ impl Symbol {
 
 }
 
-impl RemapIdents for Symbol {
+impl RemapSymbol for Symbol {
     /// Remaps the symbol's identifier according to the provided mapping.
     ///
     /// If the symbol's current `Ident` is a key in `map`, it is replaced by
@@ -97,7 +97,7 @@ impl RemapIdents for Symbol {
     /// # Errors
     ///
     /// Returns `InternerError` if the remapping fails (propagated from inner calls).
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError>{
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError>{
         self.id().remap_idents(map)?;
         Ok(())
     }
@@ -126,8 +126,8 @@ impl InternerDisplay for Symbol {
     /// # Returns
     ///
     /// Returns `fmt::Result` indicating success or failure of the write operation.
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &StringInterner) -> fmt::Result {
-        match interner.resolve_ident(self.id()) {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
+        match interner.resolve_symbol(self.id()) {
             Some(resolved) => write!(f, "{}", resolved),
             None => write!(f, "unknown({})", self.id()),
         }
@@ -153,7 +153,7 @@ impl SyntaxInternerDisplay for Symbol {
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
-        interner: &StringInterner,
+        interner: &SymbolInterner,
         indent: usize,
     ) -> fmt::Result {
         // Write indentation spaces

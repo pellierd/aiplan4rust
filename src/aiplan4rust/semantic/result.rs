@@ -1,5 +1,5 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::semantic::SemanticContext;
 use std::fmt;
 
@@ -17,7 +17,7 @@ pub enum Result {
     /// Analysis failed, contains diagnostics and the interner.
     Failure {
         diagnostic_manager: DiagnosticManager,
-        interner: StringInterner,
+        interner: SymbolInterner,
     },
 }
 
@@ -31,7 +31,7 @@ impl Result {
     }
 
     /// Creates a failure `AnalyzerResult` with diagnostics and interner.
-    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
         Result::Failure {
             diagnostic_manager,
             interner,
@@ -101,7 +101,7 @@ impl Result {
     /// Returns a reference to the interner used during analysis.
     ///
     /// Always available, even in case of failure.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         match self {
             Result::Success { context, .. } => context.interner(),
             Result::Failure { interner, .. } => interner,
@@ -111,7 +111,7 @@ impl Result {
     /// Returns a mutable reference to the interner used during analysis.
     ///
     /// Always available, even in case of failure.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         match self {
             Result::Success { context, .. } => context.interner_mut(),
             Result::Failure { interner, .. } => interner,
@@ -121,7 +121,7 @@ impl Result {
     /// Consumes and returns the interner used during analysis.
     ///
     /// Always available, even in case of failure.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         match self {
             Result::Success { context, .. } => std::mem::take(context.interner_mut()),
             Result::Failure { interner, .. } => std::mem::take(interner),

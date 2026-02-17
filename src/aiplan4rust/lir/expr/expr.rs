@@ -36,7 +36,7 @@
 
 use std::collections::HashMap;
 use crate::aiplan4rust::arena::iter::{PostorderIter, PreorderIter};
-use crate::aiplan4rust::lang::{ObjectID, Optimization, VariableID};
+use crate::aiplan4rust::lang::{ConstantId, Optimization, VariableId};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::expr::{ExprContent, ExprError, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
@@ -47,8 +47,10 @@ use std::fmt::Formatter;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::ops::{Deref, DerefMut};
 use ordered_float::OrderedFloat;
+
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
+
 
 /// Represents an expression tree, a wrapper around a [`Tree`] containing [`ExprNode`]s.
 ///
@@ -159,7 +161,7 @@ impl Expr {
     ) -> Result<(), ExprError> {
         let node_mut = self.try_node_mut(node_id)?;
         node_mut.set_kind(ExprKind::Number);
-        node_mut.set_content(Content::Float(val));
+        node_mut.set_content(Content::Number(val));
         node_mut.children_mut().clear();
         Ok(())
     }
@@ -168,7 +170,7 @@ impl Expr {
     pub fn set_to_object(
         &mut self,
         node_id: NodeId,
-        obj_id: ObjectID
+        obj_id: ConstantId
     ) -> Result<(), ExprError> {
         let node_mut = self.try_node_mut(node_id)?;
         node_mut.set_kind(ExprKind::Constant);
@@ -177,7 +179,7 @@ impl Expr {
         Ok(())
     }
 
-    pub fn substitute(&mut self, root_id: NodeId, env: &HashMap<VariableID, ObjectID>) -> Result<(), ExprError>{
+    pub fn substitute(&mut self, root_id: NodeId, env: &HashMap<VariableId, ConstantId>) -> Result<(), ExprError>{
         // On utilise un parcours post-order ou un simple stack
         let mut stack = vec![root_id];
 

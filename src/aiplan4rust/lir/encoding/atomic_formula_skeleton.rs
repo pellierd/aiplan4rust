@@ -5,12 +5,12 @@
 //! representing the declaration of a predicate and its parameter signature.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::PredicateID;
+use crate::aiplan4rust::lang::PredicateSymbolId;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::encoding::{typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, NamedTypedList};
+use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton};
 
 /// Encodes an atomic formula skeleton from the syntax tree.
 ///
@@ -35,7 +35,7 @@ use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, NamedTyped
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &mut EncodingRegistry,
-    predicate_id: PredicateID,
+    predicate_id: PredicateSymbolId,
 ) -> Result<AtomicFormulaSkeleton, LirError> {
     registry.clear_variables();
 

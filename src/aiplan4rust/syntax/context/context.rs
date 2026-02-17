@@ -4,13 +4,13 @@
 //! context object during parsing. It is responsible for managing:
 //!
 //! - A [`Tree`] of arena-allocated AST nodes,
-//! - A [`StringInterner`] for deduplicating string identifiers,
+//! - A [`SymbolInterner`] for deduplicating string identifiers,
 //! - A list of recoverable lexical or syntactic errors.
 //!
 //! ## Components
 //! - [`ParseContext`]: Owns and coordinates syntax tree, interner, and error list.
 //! - [`Tree`]: Arena-based tree used to allocate and structure [`AstNode`]s.
-//! - [`StringInterner`]: Deduplicates and manages unique string identifiers.
+//! - [`SymbolInterner`]: Deduplicates and manages unique string identifiers.
 //!
 //! ## Responsibilities
 //! `ParseContext` is passed throughout the parsing pipeline and serves to:
@@ -40,8 +40,8 @@
 use std::cell::RefCell;
 use lalrpop_util::{ErrorRecovery, ParseError};
 
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::StringID;
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::SymbolId;
 use crate::aiplan4rust::syntax::ast::{AstContent, AstKind, AstNode};
 use crate::aiplan4rust::syntax::context::error::ParseContextError;
 use crate::aiplan4rust::syntax::lexer::Token;
@@ -53,14 +53,14 @@ use crate::aiplan4rust::syntax::Span;
 ///
 /// The `ParseContext` owns and manages:
 /// - A [`Tree`] of AST nodes, used to construct the program structure.
-/// - A [`StringInterner`] to deduplicate and reference strings used in identifiers.
+/// - A [`SymbolInterner`] to deduplicate and reference strings used in identifiers.
 /// - A list of recoverable [`CustomParseError`]s and parse errors.
 ///
 /// It is passed into the parser and incrementally filled during parsing.
 /// Afterward, it provides access to the root node, interned strings,
 /// and all collected errors.
 pub struct ParseContext {
-    interner: RefCell<StringInterner>,
+    interner: RefCell<SymbolInterner>,
     syntax_tree: RefCell<Tree<AstNode>>,
     errors: RefCell<Vec<ErrorRecovery<usize, Token, CustomParseError>>>,
 }
@@ -82,7 +82,7 @@ impl ParseContext {
     /// ```
     pub fn new() -> Self {
         Self {
-            interner: RefCell::new(StringInterner::new()),
+            interner: RefCell::new(SymbolInterner::new()),
             syntax_tree: RefCell::new(Tree::new()),
             errors: RefCell::new(Vec::new()),
         }
@@ -250,8 +250,8 @@ impl ParseContext {
     /// let id2 = ctx.intern("var".to_string());
     /// assert_eq!(id1, id2);
     /// ```
-    pub fn intern(&self, s: String) -> StringID {
-        self.interner.borrow_mut().intern_ident(s)
+    pub fn intern(&self, s: String) -> SymbolId {
+        self.interner.borrow_mut().intern_symbol(s)
     }
 
     /// Provides shared access to the underlying string interner.
@@ -263,7 +263,7 @@ impl ParseContext {
     /// # Errors
     ///
     /// This function may panic if the `RefCell` is currently mutably borrowed.
-    pub fn borrow_interner(&self) -> std::cell::Ref<'_, StringInterner> {
+    pub fn borrow_interner(&self) -> std::cell::Ref<'_, SymbolInterner> {
         self.interner.borrow()
     }
 
@@ -276,7 +276,7 @@ impl ParseContext {
     /// # Errors
     ///
     /// This function may panic if the `RefCell` is currently borrowed.
-    pub fn borrow_interner_mut(&self) -> std::cell::RefMut<'_, StringInterner> {
+    pub fn borrow_interner_mut(&self) -> std::cell::RefMut<'_, SymbolInterner> {
         self.interner.borrow_mut()
     }
 
@@ -289,7 +289,7 @@ impl ParseContext {
     /// # Notes
     ///
     /// After this operation, the internal interner is reset to an empty state.
-    pub fn take_interner(&self) -> StringInterner {
+    pub fn take_interner(&self) -> SymbolInterner {
         std::mem::take(&mut *self.interner.borrow_mut())
     }
 

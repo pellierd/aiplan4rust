@@ -53,7 +53,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 pub trait SyntaxContent: Display + Clone + Debug  + Default {
 
     /// Returns the content as a floating-point number if available.
-    fn as_float(&self) -> Option<OrderedFloat<f64>>;
+    fn as_number(&self) -> Option<OrderedFloat<f64>>;
 
     /// Returns the content as a binary comparison operator if available.
     fn as_binary_comp(&self) -> Option<BinaryComp>;
@@ -76,8 +76,8 @@ pub trait SyntaxContent: Display + Clone + Debug  + Default {
     ///
     /// Returns `Ok(OrderedFloat<f64>)` if successful or
     /// `Err(SyntaxTreeError::NotAFloat)` if the content is not a float.
-    fn try_float(&self) -> Result<OrderedFloat<f64>, SyntaxTreeError> {
-        self.as_float()
+    fn try_number(&self) -> Result<OrderedFloat<f64>, SyntaxTreeError> {
+        self.as_number()
             .ok_or_else(|| SyntaxTreeError::not_a_float())
     }
 

@@ -40,8 +40,8 @@
 //! This module is essential for representing lifted HTN and classical syntax problems
 //! before grounding and solving.
 
-use crate::aiplan4rust::interner::{InternerError, StringInterner};
-use crate::aiplan4rust::lang::{ActionSymbolID, AtomSkeletonID, FunctionSkeletonID, FunctorID, MethodSymbolID, ObjectID, PredicateID, Requirement, StringID, TaskSkeletonID, TaskSymbolID, Type, TypeID, TypedSymbol};
+use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{ActionSymbolId, AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, MethodSymbolId, ConstantId, PredicateSymbolId, Requirement, SymbolId, TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -58,35 +58,35 @@ use crate::aiplan4rust::grounding::problem::SymbolRegistry;
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Problem {
     /// Interner for efficient string storage and deduplication.
-    interner: StringInterner,
+    interner: SymbolInterner,
     /// The symbolic name of the planning domain.
-    domain_name: StringID,
+    domain_name: SymbolId,
     /// The symbolic name of the planning problem instance.
-    problem_name: StringID,
+    problem_name: SymbolId,
     /// Set of PDDL/HDDL requirements (e.g., :strips, :typing, :htn).
     requirements: HashSet<Requirement>,
 
     // --- SYMBOL TABLES (Identity Management) ---
     /// Map between type names and their internal IDs.
-    type_symbols: SymbolRegistry<TypeID>,
+    type_symbols: SymbolRegistry<TypeId>,
     /// Map between object names and their internal IDs.
-    object_symbols: SymbolRegistry<ObjectID>,
+    object_symbols: SymbolRegistry<ConstantId>,
     /// Map between predicate names and their internal IDs.
-    predicate_symbols: SymbolRegistry<PredicateID>,
+    predicate_symbols: SymbolRegistry<PredicateSymbolId>,
     /// Map between function (functor) names and their internal IDs.
-    function_symbols: SymbolRegistry<FunctorID>,
+    function_symbols: SymbolRegistry<FunctionSymbolId>,
     /// Map between HTN task names and their internal IDs.
-    task_symbols: SymbolRegistry<TaskSymbolID>,
+    task_symbols: SymbolRegistry<TaskSymbolId>,
     // Map between Action names and their internal IDs.
-    action_symbols: SymbolRegistry<ActionSymbolID>,
+    action_symbols: SymbolRegistry<ActionSymbolId>,
     /// Map between Method names and their internal IDs.
-    method_symbols: SymbolRegistry<MethodSymbolID>,
+    method_symbols: SymbolRegistry<MethodSymbolId>,
 
     // --- DEFINITIONS (Lifted Structure / Skeletons) ---
     /// List of type definitions, including hierarchy (parent-child relations).
-    type_defs: Vec<TypedSymbol<TypeID, TypeID>>,
+    type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
     /// List of objects defined in the domain or problem, associated with their types.
-    object_defs: Vec<TypedSymbol<ObjectID, TypeID>>,
+    object_defs: Vec<TypedSymbol<ConstantId, TypeId>>,
     /// Signatures of all predicates (name and typed parameters).
     predicate_defs: Vec<AtomicFormulaSkeleton>,
     /// Signatures of all functions (name, typed parameters, and return type).
@@ -143,11 +143,11 @@ impl Problem {
     /// assert!(problem.action_defs().is_empty());
     /// assert!(problem.type_symbols().is_empty());
     /// ```
-    pub(crate) fn new(interner : StringInterner, requirements: HashSet<Requirement>) -> Self {
+    pub(crate) fn new(interner : SymbolInterner, requirements: HashSet<Requirement>) -> Self {
         Self {
             interner,
-            domain_name: StringID::default(),
-            problem_name: StringID::default(),
+            domain_name: SymbolId::default(),
+            problem_name: SymbolId::default(),
             requirements,
             type_symbols: SymbolRegistry::new(),
             type_defs: Vec::new(),
@@ -177,12 +177,12 @@ impl Problem {
     }
 
     /// Returns a reference to the string interner used by the problem.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         &self.interner
     }
 
     /// Returns a mutable reference to the string interner.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         &mut self.interner
     }
 
@@ -190,7 +190,7 @@ impl Problem {
     ///
     /// # Arguments
     /// * `interner` - The new `StringInterner` to use.
-    pub fn set_interner(&mut self, interner: StringInterner) {
+    pub fn set_interner(&mut self, interner: SymbolInterner) {
         self.interner = interner;
     }
 
@@ -198,28 +198,28 @@ impl Problem {
     ///
     /// This is particularly useful for transferring resources from a lifted
     /// problem to a grounded one without cloning.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         std::mem::take(&mut self.interner)
     }
 
     /// Returns the ID of the domain name.
     ///
     /// # Returns
-    /// A [`StringID`] representing the unique identifier of the domain name.
-    pub fn domain_name(&self) -> StringID {
+    /// A [`SymbolId`] representing the unique identifier of the domain name.
+    pub fn domain_name(&self) -> SymbolId {
         self.domain_name
     }
 
     /// Sets the domain name ID after verifying its existence.
     ///
     /// # Arguments
-    /// * `id` - The [`StringID`] to be assigned as the new domain name.
+    /// * `id` - The [`SymbolId`] to be assigned as the new domain name.
     ///
     /// # Returns
     /// * `Ok(())` if the ID is valid and exists within the interner.
     /// * `Err(InternerError)` if the ID cannot be resolved.
-    pub fn set_domain_name(&mut self, id: StringID) -> Result<(), InternerError> {
-        self.interner.try_resolve_ident(id)?;
+    pub fn set_domain_name(&mut self, id: SymbolId) -> Result<(), InternerError> {
+        self.interner.try_resolve_symbol(id)?;
         self.domain_name = id;
         Ok(())
     }
@@ -230,27 +230,27 @@ impl Problem {
     /// * `Ok(&str)` containing the human-readable name of the domain.
     /// * `Err(InternerError)` if the stored ID is invalid or cannot be resolved.
     pub fn domain_name_str(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.domain_name)
+        self.interner.try_resolve_symbol(self.domain_name)
     }
 
     /// Returns the ID of the problem name.
     ///
     /// # Returns
-    /// A [`StringID`] representing the unique identifier of the problem instance.
-    pub fn problem_name(&self) -> StringID {
+    /// A [`SymbolId`] representing the unique identifier of the problem instance.
+    pub fn problem_name(&self) -> SymbolId {
         self.problem_name
     }
 
     /// Sets the problem name ID after verifying its existence.
     ///
     /// # Arguments
-    /// * `id` - The [`StringID`] to be assigned as the new problem name.
+    /// * `id` - The [`SymbolId`] to be assigned as the new problem name.
     ///
     /// # Returns
     /// * `Ok(())` if the ID is valid.
     /// * `Err(InternerError)` if the ID is not recognized by the interner.
-    pub fn set_problem_name(&mut self, id: StringID) -> Result<(), InternerError> {
-        self.interner.try_resolve_ident(id)?;
+    pub fn set_problem_name(&mut self, id: SymbolId) -> Result<(), InternerError> {
+        self.interner.try_resolve_symbol(id)?;
         self.problem_name = id;
         Ok(())
     }
@@ -261,7 +261,7 @@ impl Problem {
     /// * `Ok(&str)` containing the human-readable name of the problem.
     /// * `Err(InternerError)` if the stored ID cannot be resolved.
     pub fn problem_name_str(&self) -> Result<&str, InternerError> {
-        self.interner.try_resolve_ident(self.problem_name)
+        self.interner.try_resolve_symbol(self.problem_name)
     }
 
     /// Returns a reference to the set of requirements defined for this problem.
@@ -332,23 +332,23 @@ impl Problem {
     /// Returns a read-only reference to the type symbol table.
     ///
     /// # Returns
-    /// A reference to the [`SymbolRegistry<TypeID>`]. To add new symbols,
+    /// A reference to the [`SymbolRegistry<TypeId>`]. To add new symbols,
     /// use [`add_type_symbol`] to maintain internal consistency.
-    pub fn type_symbols(&self) -> &SymbolRegistry<TypeID> {
+    pub fn type_symbols(&self) -> &SymbolRegistry<TypeId> {
         &self.type_symbols
     }
 
     /// Adds a new type symbol and ensures its definition exists.
     ///
     /// This method preserves the invariant that the index of the type in `type_defs`
-    /// matches its [`TypeID`].
+    /// matches its [`TypeId`].
     ///
     /// # Arguments
-    /// * `symbol` - The [`StringID`] representing the type name.
+    /// * `symbol` - The [`SymbolId`] representing the type name.
     ///
     /// # Returns
-    /// The unique [`TypeID`] assigned to this type.
-    pub fn add_type_symbol(&mut self, symbol: StringID) -> TypeID {
+    /// The unique [`TypeId`] assigned to this type.
+    pub fn add_type_symbol(&mut self, symbol: SymbolId) -> TypeId {
         let id = self.type_symbols.insert(symbol);
         let idx = id.as_usize();
 
@@ -366,16 +366,16 @@ impl Problem {
     /// without copying the underlying strings.
     ///
     /// # Returns
-    /// The [`SymbolRegistry<TypeID>`] previously owned by the problem.
-    pub fn take_type_symbols(&mut self) -> SymbolRegistry<TypeID> {
+    /// The [`SymbolRegistry<TypeId>`] previously owned by the problem.
+    pub fn take_type_symbols(&mut self) -> SymbolRegistry<TypeId> {
         std::mem::take(&mut self.type_symbols)
     }
 
     /// Returns a slice of all type definitions.
     ///
     /// # Returns
-    /// A slice of [`TypedSymbol<TypeID, TypeID>`].
-    pub fn type_defs(&self) -> &[TypedSymbol<TypeID, TypeID>] {
+    /// A slice of [`TypedSymbol<TypeId, TypeId>`].
+    pub fn type_defs(&self) -> &[TypedSymbol<TypeId, TypeId>] {
         &self.type_defs
     }
 
@@ -385,8 +385,8 @@ impl Problem {
     /// flattening type hierarchies.
     ///
     /// # Returns
-    /// A mutable slice of [`TypedSymbol<TypeID, TypeID>`].
-    pub fn type_defs_mut(&mut self) -> &mut [TypedSymbol<TypeID, TypeID>] {
+    /// A mutable slice of [`TypedSymbol<TypeId, TypeId>`].
+    pub fn type_defs_mut(&mut self) -> &mut [TypedSymbol<TypeId, TypeId>] {
         &mut self.type_defs
     }
 
@@ -411,7 +411,7 @@ impl Problem {
     /// * `Ok(TypeID)` - The ID of the successfully updated type.
     /// * `Err(LirError::TypeDefinitionOrphan)` - If the ID's index exceeds the
     ///   allocated definitions, indicating the symbol was never registered via `add_type_symbol`.
-    pub fn add_type_defs(&mut self, ty: TypedSymbol<TypeID, TypeID>) -> Result<TypeID, LirError> {
+    pub fn add_type_defs(&mut self, ty: TypedSymbol<TypeId, TypeId>) -> Result<TypeId, LirError> {
         let id = ty.symbol();
         let idx = id.as_usize();
 
@@ -429,42 +429,42 @@ impl Problem {
     /// Takes ownership of the type definitions, leaving an empty vector in its place.
     ///
     /// # Returns
-    /// The [`Vec<TypedSymbol<TypeID, TypeID>>`] previously owned by the problem.
-    pub fn take_type_defs(&mut self) -> Vec<TypedSymbol<TypeID, TypeID>> {
+    /// The [`Vec<TypedSymbol<TypeId, TypeId>>`] previously owned by the problem.
+    pub fn take_type_defs(&mut self) -> Vec<TypedSymbol<TypeId, TypeId>> {
         std::mem::take(&mut self.type_defs)
     }
 
     /// Returns a reference to a type definition if it exists.
     ///
     /// # Arguments
-    /// * `id` - The [`TypeID`] of the definition to retrieve.
+    /// * `id` - The [`TypeId`] of the definition to retrieve.
     ///
     /// # Returns
     /// An `Option<&TypedSymbol>` which is `None` if the ID is out of bounds.
-    pub fn get_type_def(&self, id: TypeID) -> Option<&TypedSymbol<TypeID, TypeID>> {
+    pub fn get_type_def(&self, id: TypeId) -> Option<&TypedSymbol<TypeId, TypeId>> {
         self.type_defs.get(id.as_usize())
     }
 
     /// Returns a mutable reference to a type definition if it exists.
     ///
     /// # Arguments
-    /// * `id` - The [`TypeID`] of the definition to retrieve.
+    /// * `id` - The [`TypeId`] of the definition to retrieve.
     ///
     /// # Returns
     /// An `Option<&mut TypedSymbol>` which is `None` if the ID is out of bounds.
-    pub fn get_type_def_mut(&mut self, id: TypeID) -> Option<&mut TypedSymbol<TypeID, TypeID>> {
+    pub fn get_type_def_mut(&mut self, id: TypeId) -> Option<&mut TypedSymbol<TypeId, TypeId>> {
         self.type_defs.get_mut(id.as_usize())
     }
 
     /// Attempts to retrieve a type definition or returns an error.
     ///
     /// # Arguments
-    /// * `id` - The [`TypeID`] of the definition to retrieve.
+    /// * `id` - The [`TypeId`] of the definition to retrieve.
     ///
     /// # Returns
     /// * `Ok(&TypedSymbol)` on success.
     /// * `Err(LirError::TypeDefinitionOrphan)` if the definition does not exist.
-    pub fn try_get_type(&self, id: TypeID) -> Result<&TypedSymbol<TypeID, TypeID>, LirError> {
+    pub fn try_get_type(&self, id: TypeId) -> Result<&TypedSymbol<TypeId, TypeId>, LirError> {
         self.get_type_def(id)
             .ok_or_else(|| LirError::type_definition_orphan(id))
     }
@@ -472,18 +472,18 @@ impl Problem {
     /// Attempts to retrieve a mutable type definition or returns an error.
     ///
     /// # Arguments
-    /// * `id` - The [`TypeID`] of the definition to retrieve.
+    /// * `id` - The [`TypeId`] of the definition to retrieve.
     ///
     /// # Returns
     /// * `Ok(&mut TypedSymbol)` on success.
     /// * `Err(LirError::TypeDefinitionOrphan)` if the definition does not exist.
-    pub fn try_get_type_mut(&mut self, id: TypeID) -> Result<&mut TypedSymbol<TypeID, TypeID>, LirError> {
+    pub fn try_get_type_mut(&mut self, id: TypeId) -> Result<&mut TypedSymbol<TypeId, TypeId>, LirError> {
         self.get_type_def_mut(id)
             .ok_or_else(|| LirError::type_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the object symbol table.
-    pub fn object_symbol(&self) -> &SymbolRegistry<ObjectID> {
+    pub fn object_symbol(&self) -> &SymbolRegistry<ConstantId> {
         &self.object_symbols
     }
 
@@ -491,7 +491,7 @@ impl Problem {
     ///
     /// If the object is new, a [`TypedSymbol`] with `Type::default()` is added to
     /// `object_defs` to keep the table and definitions synchronized.
-    pub fn add_object_symbol(&mut self, symbol: StringID) -> ObjectID {
+    pub fn add_object_symbol(&mut self, symbol: SymbolId) -> ConstantId {
         let id = self.object_symbols.insert(symbol);
         let idx = id.as_usize();
         if idx >= self.object_defs.len() {
@@ -504,24 +504,24 @@ impl Problem {
     /// Takes ownership of the object symbol table, leaving an empty one in its place.
     ///
     /// # Returns
-    /// The [`SymbolRegistry<ObjectID>`] previously owned by the problem.
-    pub fn take_object_symbols(&mut self) -> SymbolRegistry<ObjectID> {
+    /// The [`SymbolRegistry<ConstantId>`] previously owned by the problem.
+    pub fn take_object_symbols(&mut self) -> SymbolRegistry<ConstantId> {
         std::mem::take(&mut self.object_symbols)
     }
 
     /// Returns a slice of all object definitions.
     ///
     /// # Returns
-    /// A slice of [`TypedSymbol<ObjectID, TypeID>`].
-    pub fn object_defs(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
+    /// A slice of [`TypedSymbol<ConstantId, TypeId>`].
+    pub fn object_defs(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
         &self.object_defs
     }
 
     /// Returns a mutable slice of all object definitions.
     ///
     /// # Returns
-    /// A mutable slice of [`TypedSymbol<ObjectID, TypeID>`].
-    pub fn object_defs_mut(&mut self) -> &mut [TypedSymbol<ObjectID, TypeID>] {
+    /// A mutable slice of [`TypedSymbol<ConstantId, TypeId>`].
+    pub fn object_defs_mut(&mut self) -> &mut [TypedSymbol<ConstantId, TypeId>] {
         &mut self.object_defs
     }
 
@@ -546,7 +546,7 @@ impl Problem {
     /// * `Ok(ObjectID)` - The ID of the successfully updated object.
     /// * `Err(LirError::ObjectDefinitionOrphan)` - If the ID's index exceeds the
     ///   allocated definitions, indicating the symbol was never registered.
-    pub fn add_object_def(&mut self, obj: TypedSymbol<ObjectID, TypeID>) -> Result<ObjectID, LirError> {
+    pub fn add_object_def(&mut self, obj: TypedSymbol<ConstantId, TypeId>) -> Result<ConstantId, LirError> {
         let id = obj.symbol();
         let idx = id.as_usize();
 
@@ -564,18 +564,18 @@ impl Problem {
     /// Takes ownership of the object definitions, leaving an empty vector in its place.
     ///
     /// # Returns
-    /// The [`Vec<TypedSymbol<ObjectID, TypeID>>`] previously owned by the problem.
-    pub fn take_object_defs(&mut self) -> Vec<TypedSymbol<ObjectID, TypeID>> {
+    /// The [`Vec<TypedSymbol<ConstantId, TypeId>>`] previously owned by the problem.
+    pub fn take_object_defs(&mut self) -> Vec<TypedSymbol<ConstantId, TypeId>> {
         std::mem::take(&mut self.object_defs)
     }
 
     /// Returns a reference to an object definition if it exists.
-    pub fn get_object_def(&self, id: ObjectID) -> Option<&TypedSymbol<ObjectID, TypeID>> {
+    pub fn get_object_def(&self, id: ConstantId) -> Option<&TypedSymbol<ConstantId, TypeId>> {
         self.object_defs.get(id.as_usize())
     }
 
     /// Returns a mutable reference to an object definition if it exists.
-    pub fn get_object_def_mut(&mut self, id: ObjectID) -> Option<&mut TypedSymbol<ObjectID, TypeID>> {
+    pub fn get_object_def_mut(&mut self, id: ConstantId) -> Option<&mut TypedSymbol<ConstantId, TypeId>> {
         self.object_defs.get_mut(id.as_usize())
     }
 
@@ -583,7 +583,7 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::ObjectDefinitionOrphan` if the ID is not registered.
-    pub fn try_get_object(&self, id: ObjectID) -> Result<&TypedSymbol<ObjectID, TypeID>, LirError> {
+    pub fn try_get_object(&self, id: ConstantId) -> Result<&TypedSymbol<ConstantId, TypeId>, LirError> {
         self.get_object_def(id)
             .ok_or_else(|| LirError::object_definition_orphan(id))
     }
@@ -592,7 +592,7 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::ObjectDefinitionOrphan` if the ID is not registered.
-    pub fn try_get_object_mut(&mut self, id: ObjectID) -> Result<&mut TypedSymbol<ObjectID, TypeID>, LirError> {
+    pub fn try_get_object_mut(&mut self, id: ConstantId) -> Result<&mut TypedSymbol<ConstantId, TypeId>, LirError> {
         self.get_object_def_mut(id)
             .ok_or_else(|| LirError::object_definition_orphan(id))
     }
@@ -604,7 +604,7 @@ impl Problem {
     }
 
     /// Returns a slice of the definitions that are considered Domain Constants.
-    pub fn domain_constant_def(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
+    pub fn domain_constant_def(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
         &self.object_defs[..self.constant_offset]
     }
 
@@ -614,7 +614,7 @@ impl Problem {
     }
 
     /// Returns a slice of the definitions that are considered Problem Objects.
-    pub fn problem_object_def(&self) -> &[TypedSymbol<ObjectID, TypeID>] {
+    pub fn problem_object_def(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
         &self.object_defs[self.constant_offset..]
     }
 
@@ -635,26 +635,26 @@ impl Problem {
     }
 
     /// Returns true if the given ID refers to a Domain Constant.
-    pub fn is_constant(&self, id: ObjectID) -> bool {
+    pub fn is_constant(&self, id: ConstantId) -> bool {
         id.as_usize() < self.constant_offset
     }
 
     /// Returns true if the given ID refers to a Problem Object.
-    pub fn is_object(&self, id: ObjectID) -> bool {
+    pub fn is_object(&self, id: ConstantId) -> bool {
         let idx = id.as_usize();
         idx >= self.constant_offset && idx < self.object_defs.len()
     }
 
     /// Returns a read-only reference to the predicate symbol table.
     ///
-    /// This table maps [`PredicateID`]s to their string identifiers.
-    pub fn predicate_symbols(&self) -> &SymbolRegistry<PredicateID> {
+    /// This table maps [`PredicateSymbolId`]s to their string identifiers.
+    pub fn predicate_symbols(&self) -> &SymbolRegistry<PredicateSymbolId> {
         &self.predicate_symbols
     }
 
     /// Insère un nom de prédicat dans la table des symboles et retourne son ID.
     /// Utile pour obtenir l'identité du prédicat avant de construire sa structure (squelette).
-    pub fn add_predicate_symbol(&mut self, symbol: StringID) -> PredicateID {
+    pub fn add_predicate_symbol(&mut self, symbol: SymbolId) -> PredicateSymbolId {
         self.predicate_symbols.insert(symbol)
     }
 
@@ -664,8 +664,8 @@ impl Problem {
     /// that needs to own the symbol mapping.
     ///
     /// # Returns
-    /// The [`SymbolRegistry<PredicateID>`] previously owned by the problem.
-    pub fn take_predicate_symbols(&mut self) -> SymbolRegistry<PredicateID> {
+    /// The [`SymbolRegistry<PredicateSymbolId>`] previously owned by the problem.
+    pub fn take_predicate_symbols(&mut self) -> SymbolRegistry<PredicateSymbolId> {
         std::mem::take(&mut self.predicate_symbols)
     }
 
@@ -688,8 +688,8 @@ impl Problem {
     ///
     /// This method performs a single-pass registration: it inserts the symbol
     /// and pushes the skeleton simultaneously.
-    pub fn add_predicate_def(&mut self, atom_skeleton: AtomicFormulaSkeleton) -> AtomSkeletonID {
-        let skeleton_id = AtomSkeletonID::from(self.predicate_defs.len());
+    pub fn add_predicate_def(&mut self, atom_skeleton: AtomicFormulaSkeleton) -> AtomSkeletonId {
+        let skeleton_id = AtomSkeletonId::from(self.predicate_defs.len());
         self.predicate_defs.push(atom_skeleton);
         skeleton_id
     }
@@ -702,16 +702,16 @@ impl Problem {
     /// Returns a reference to a predicate definition if it exists.
     ///
     /// # Arguments
-    /// * `id` - The [`AtomSkeletonID`] of the predicate to retrieve.
-    pub fn get_predicate_def(&self, id: AtomSkeletonID) -> Option<&AtomicFormulaSkeleton> {
+    /// * `id` - The [`AtomSkeletonId`] of the predicate to retrieve.
+    pub fn get_predicate_def(&self, id: AtomSkeletonId) -> Option<&AtomicFormulaSkeleton> {
         self.predicate_defs.get(id.as_usize())
     }
 
     /// Returns a mutable reference to a predicate definition if it exists.
     ///
     /// # Arguments
-    /// * `id` - The [`AtomSkeletonID`] of the predicate to retrieve.
-    pub fn get_predicate_def_mut(&mut self, id: AtomSkeletonID) -> Option<&mut AtomicFormulaSkeleton> {
+    /// * `id` - The [`AtomSkeletonId`] of the predicate to retrieve.
+    pub fn get_predicate_def_mut(&mut self, id: AtomSkeletonId) -> Option<&mut AtomicFormulaSkeleton> {
         self.predicate_defs.get_mut(id.as_usize())
     }
 
@@ -719,7 +719,7 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::PredicateDefinitionOrphan` if the skeleton ID is invalid.
-    pub fn try_get_predicate(&self, id: AtomSkeletonID) -> Result<&AtomicFormulaSkeleton, LirError> {
+    pub fn try_get_predicate(&self, id: AtomSkeletonId) -> Result<&AtomicFormulaSkeleton, LirError> {
         self.get_predicate_def(id)
             .ok_or_else(|| LirError::predicate_definition_orphan(id))
     }
@@ -728,19 +728,19 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::PredicateDefinitionOrphan` if the skeleton ID is invalid.
-    pub fn try_get_predicate_mut(&mut self, id: AtomSkeletonID) -> Result<&mut AtomicFormulaSkeleton, LirError> {
+    pub fn try_get_predicate_mut(&mut self, id: AtomSkeletonId) -> Result<&mut AtomicFormulaSkeleton, LirError> {
         self.get_predicate_def_mut(id)
             .ok_or_else(|| LirError::predicate_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the function symbol table.
     ///
-    /// This table maps [`FunctorID`]s to their string identifiers.
-    pub fn function_symbols(&self) -> &SymbolRegistry<FunctorID> {
+    /// This table maps [`FunctionSymbolId`]s to their string identifiers.
+    pub fn function_symbols(&self) -> &SymbolRegistry<FunctionSymbolId> {
         &self.function_symbols
     }
 
-    pub fn add_function_symbol(&mut self, symbol: StringID) -> FunctorID {
+    pub fn add_function_symbol(&mut self, symbol: SymbolId) -> FunctionSymbolId {
         self.function_symbols.insert(symbol)
     }
 
@@ -750,8 +750,8 @@ impl Problem {
     /// (e.g., the Grounder) without cloning.
     ///
     /// # Returns
-    /// The [`SymbolRegistry<FunctorID>`] previously owned by the problem.
-    pub fn take_function_symbols(&mut self) -> SymbolRegistry<FunctorID> {
+    /// The [`SymbolRegistry<FunctionSymbolId>`] previously owned by the problem.
+    pub fn take_function_symbols(&mut self) -> SymbolRegistry<FunctionSymbolId> {
         std::mem::take(&mut self.function_symbols)
     }
 
@@ -796,10 +796,10 @@ impl Problem {
     ///
     /// # Returns
     /// A tuple consisting of:
-    /// 1. [`FunctorID`]: The unique identifier for the function's symbol (name).
-    /// 2. [`FunctionSkeletonID`]: The identifier for the structural definition in the function vector.
-    pub fn add_function_def(&mut self, function: AtomicFunctionSkeleton) -> FunctionSkeletonID {
-        let skeleton_id = FunctionSkeletonID::from(self.function_defs.len());
+    /// 1. [`FunctionSymbolId`]: The unique identifier for the function's symbol (name).
+    /// 2. [`FunctionSkeletonId`]: The identifier for the structural definition in the function vector.
+    pub fn add_function_def(&mut self, function: AtomicFunctionSkeleton) -> FunctionSkeletonId {
+        let skeleton_id = FunctionSkeletonId::from(self.function_defs.len());
         self.function_defs.push(function);
         skeleton_id
     }
@@ -818,36 +818,36 @@ impl Problem {
     /// Returns a reference to a function definition if it exists.
     ///
     /// # Parameters
-    /// * `id`: The [`FunctionSkeletonID`] uniquely identifying the function skeleton.
+    /// * `id`: The [`FunctionSkeletonId`] uniquely identifying the function skeleton.
     ///
     /// # Returns
     /// * `Some(&AtomicFunctionSkeleton)`: An immutable reference to the definition if the ID is valid.
     /// * `None`: If the ID does not correspond to any registered definition.
-    pub fn get_function_def(&self, id: FunctionSkeletonID) -> Option<&AtomicFunctionSkeleton> {
+    pub fn get_function_def(&self, id: FunctionSkeletonId) -> Option<&AtomicFunctionSkeleton> {
         self.function_defs.get(id.as_usize())
     }
 
     /// Returns a mutable reference to a function definition if it exists.
     ///
     /// # Parameters
-    /// * `id`: The [`FunctionSkeletonID`] of the function to retrieve.
+    /// * `id`: The [`FunctionSkeletonId`] of the function to retrieve.
     ///
     /// # Returns
     /// * `Some(&mut AtomicFunctionSkeleton)`: A mutable reference allowing in-place modification.
     /// * `None`: If the ID is out of bounds.
-    pub fn get_function_def_mut(&mut self, id: FunctionSkeletonID) -> Option<&mut AtomicFunctionSkeleton> {
+    pub fn get_function_def_mut(&mut self, id: FunctionSkeletonId) -> Option<&mut AtomicFunctionSkeleton> {
         self.function_defs.get_mut(id.as_usize())
     }
 
     /// Attempts to retrieve a function definition or returns a specialized error.
     ///
     /// # Parameters
-    /// * `id`: The target [`FunctionSkeletonID`].
+    /// * `id`: The target [`FunctionSkeletonId`].
     ///
     /// # Returns
     /// * `Ok(&AtomicFunctionSkeleton)`: The reference to the requested definition.
     /// * `Err(LirError::FunctionDefinitionOrphan)`: If the ID has no associated definition.
-    pub fn try_get_function(&self, id: FunctionSkeletonID) -> Result<&AtomicFunctionSkeleton, LirError> {
+    pub fn try_get_function(&self, id: FunctionSkeletonId) -> Result<&AtomicFunctionSkeleton, LirError> {
         self.get_function_def(id)
             .ok_or_else(|| LirError::function_definition_orphan(id))
     }
@@ -855,25 +855,25 @@ impl Problem {
     /// Attempts to retrieve a mutable definition or returns a specialized error.
     ///
     /// # Parameters
-    /// * `id`: The target [`FunctionSkeletonID`].
+    /// * `id`: The target [`FunctionSkeletonId`].
     ///
     /// # Returns
     /// * `Ok(&mut AtomicFunctionSkeleton)`: The requested mutable reference.
     /// * `Err(LirError::FunctionDefinitionOrphan)`: If the ID is invalid, allowing for clean error handling.
-    pub fn try_get_function_mut(&mut self, id: FunctionSkeletonID) -> Result<&mut AtomicFunctionSkeleton, LirError> {
+    pub fn try_get_function_mut(&mut self, id: FunctionSkeletonId) -> Result<&mut AtomicFunctionSkeleton, LirError> {
         self.get_function_def_mut(id)
             .ok_or_else(|| LirError::function_definition_orphan(id))
     }
 
     /// Returns a read-only reference to the task symbol table.
     ///
-    /// This table maps [`TaskSymbolID`]s to their string identifiers,
+    /// This table maps [`TaskSymbolId`]s to their string identifiers,
     /// typically used for HTN (Hierarchical Task Network) tasks.
-    pub fn task_symbols(&self) -> &SymbolRegistry<TaskSymbolID> {
+    pub fn task_symbols(&self) -> &SymbolRegistry<TaskSymbolId> {
         &self.task_symbols
     }
 
-    pub fn add_task_symbol(&mut self, symbol: StringID) -> TaskSymbolID {
+    pub fn add_task_symbol(&mut self, symbol: SymbolId) -> TaskSymbolId {
         self.task_symbols.insert(symbol)
     }
 
@@ -883,8 +883,8 @@ impl Problem {
     /// or grounding process without cloning the underlying data.
     ///
     /// # Returns
-    /// The [`SymbolRegistry<TaskSymbolID>`] previously owned by the problem.
-    pub fn take_task_symbols(&mut self) -> SymbolRegistry<TaskSymbolID> {
+    /// The [`SymbolRegistry<TaskSymbolId>`] previously owned by the problem.
+    pub fn take_task_symbols(&mut self) -> SymbolRegistry<TaskSymbolId> {
         std::mem::take(&mut self.task_symbols)
     }
 
@@ -928,10 +928,10 @@ impl Problem {
     ///
     /// # Returns
     /// A tuple containing:
-    /// 1. The [`TaskSymbolID`] associated with the task's name.
-    /// 2. The [`TaskSkeletonID`] indexing the specific structural definition.
-    pub fn add_task_def(&mut self, task_skeleton: AtomicTaskSkeleton) -> TaskSkeletonID {
-        let task_skeleton_id = TaskSkeletonID::from(self.task_defs.len());
+    /// 1. The [`TaskSymbolId`] associated with the task's name.
+    /// 2. The [`TaskSkeletonId`] indexing the specific structural definition.
+    pub fn add_task_def(&mut self, task_skeleton: AtomicTaskSkeleton) -> TaskSkeletonId {
+        let task_skeleton_id = TaskSkeletonId::from(self.task_defs.len());
         self.task_defs.push(task_skeleton);
         task_skeleton_id
     }
@@ -950,38 +950,38 @@ impl Problem {
     /// Returns a reference to a task definition if it exists.
     ///
     /// # Parameters
-    /// * `id`: The [`TaskSkeletonID`] to look up.
+    /// * `id`: The [`TaskSkeletonId`] to look up.
     ///
     /// # Returns
     /// * `Some(&AtomicTaskSkeleton)`: If the ID is valid.
     /// * `None`: If the ID is out of bounds.
-    pub fn get_task_def(&self, id: TaskSkeletonID) -> Option<&AtomicTaskSkeleton> {
+    pub fn get_task_def(&self, id: TaskSkeletonId) -> Option<&AtomicTaskSkeleton> {
         self.task_defs.get(id.as_usize())
     }
 
     /// Returns a mutable reference to a task definition if it exists.
     ///
     /// # Parameters
-    /// * `id`: The [`TaskSkeletonID`] to look up.
+    /// * `id`: The [`TaskSkeletonId`] to look up.
     ///
     /// # Returns
     /// * `Some(&mut AtomicTaskSkeleton)`: A mutable reference if the ID is valid.
     /// * `None`: If the ID is out of bounds.
-    pub fn get_task_def_mut(&mut self, id: TaskSkeletonID) -> Option<&mut AtomicTaskSkeleton> {
+    pub fn get_task_def_mut(&mut self, id: TaskSkeletonId) -> Option<&mut AtomicTaskSkeleton> {
         self.task_defs.get_mut(id.as_usize())
     }
 
     /// Attempts to retrieve a task definition or returns a specialized error.
     ///
     /// # Parameters
-    /// * `id`: The [`TaskSkeletonID`] to retrieve.
+    /// * `id`: The [`TaskSkeletonId`] to retrieve.
     ///
     /// # Returns
     /// * `Ok(&AtomicTaskSkeleton)`: The requested task definition.
     ///
     /// # Errors
     /// Returns [`LirError::TaskDefinitionOrphan`] if the skeleton ID is invalid.
-    pub fn try_get_task(&self, id: TaskSkeletonID) -> Result<&AtomicTaskSkeleton, LirError> {
+    pub fn try_get_task(&self, id: TaskSkeletonId) -> Result<&AtomicTaskSkeleton, LirError> {
         self.get_task_def(id)
             .ok_or_else(|| LirError::task_definition_orphan(id))
     }
@@ -989,14 +989,14 @@ impl Problem {
     /// Attempts to retrieve a mutable task definition or returns a specialized error.
     ///
     /// # Parameters
-    /// * `id`: The [`TaskSkeletonID`] to retrieve.
+    /// * `id`: The [`TaskSkeletonId`] to retrieve.
     ///
     /// # Returns
     /// * `Ok(&mut AtomicTaskSkeleton)`: The requested mutable task definition.
     ///
     /// # Errors
     /// Returns [`LirError::TaskDefinitionOrphan`] if the skeleton ID is invalid.
-    pub fn try_get_task_mut(&mut self, id: TaskSkeletonID) -> Result<&mut AtomicTaskSkeleton, LirError> {
+    pub fn try_get_task_mut(&mut self, id: TaskSkeletonId) -> Result<&mut AtomicTaskSkeleton, LirError> {
         self.get_task_def_mut(id)
             .ok_or_else(|| LirError::task_definition_orphan(id))
     }
@@ -1068,13 +1068,13 @@ impl Problem {
         self.derived_predicate_defs.push(predicate);
     }
 
-    pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolID> {
+    pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolId> {
         &self.action_symbols
     }
 
     /// Insère un nom d'action dans la table des symboles et retourne son ID.
     /// Utile pour obtenir l'identité de l'action avant de construire sa structure (paramètres, préconditions, effets).
-    pub fn add_action_symbol(&mut self, symbol: StringID) -> ActionSymbolID {
+    pub fn add_action_symbol(&mut self, symbol: SymbolId) -> ActionSymbolId {
         self.action_symbols.insert(symbol)
     }
 
@@ -1113,14 +1113,14 @@ impl Problem {
         self.action_defs.push(action);
     }
 
-    pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolID> {
+    pub fn method_symbols(&self) -> &SymbolRegistry<MethodSymbolId> {
         &self.method_symbols
     }
 
 
     /// Insère un nom de méthode dans la table des symboles et retourne son ID.
     /// Utile pour obtenir l'identité de la méthode avant de construire sa structure (décomposition, contraintes).
-    pub fn add_method_symbol(&mut self, symbol: StringID) -> MethodSymbolID {
+    pub fn add_method_symbol(&mut self, symbol: SymbolId) -> MethodSymbolId {
         self.method_symbols.insert(symbol)
     }
 

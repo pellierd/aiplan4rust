@@ -1,6 +1,6 @@
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use std::fmt;
 
 /// Represents the outcome of grounding a lifted planning problem.
@@ -29,7 +29,7 @@ pub enum Result {
         /// Diagnostics explaining why grounding failed.
         diagnostic_manager: DiagnosticManager,
         /// Interner preserved for consistent symbol reporting.
-        interner: StringInterner,
+        interner: SymbolInterner,
     },
 }
 
@@ -43,7 +43,7 @@ impl Result {
     }
 
     /// Creates a failed grounding result with diagnostics and interner.
-    pub fn failure(diagnostic_manager: DiagnosticManager, interner: StringInterner) -> Self {
+    pub fn failure(diagnostic_manager: DiagnosticManager, interner: SymbolInterner) -> Self {
         Self::Failure {
             diagnostic_manager,
             interner,
@@ -102,7 +102,7 @@ impl Result {
     ///
     /// - If grounding succeeded, retrieves the interner from the problem.
     /// - If grounding failed, retrieves the preserved interner.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         match self {
             Self::Success { problem, .. } => problem.interner(),
             Self::Failure { interner, .. } => interner,
@@ -110,7 +110,7 @@ impl Result {
     }
 
     /// Returns a mutable reference to the interner.
-    pub fn interner_mut(&mut self) -> &mut StringInterner {
+    pub fn interner_mut(&mut self) -> &mut SymbolInterner {
         match self {
             Self::Success { problem, .. } => problem.interner_mut(),
             Self::Failure { interner, .. } => interner,
@@ -118,7 +118,7 @@ impl Result {
     }
 
     /// Consumes and returns the interner.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         match self {
             Self::Success { problem, .. } => std::mem::take(problem.interner_mut()),
             Self::Failure { interner, .. } => std::mem::take(interner),

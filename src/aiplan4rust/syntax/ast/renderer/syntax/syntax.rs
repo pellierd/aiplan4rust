@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 
 use crate::aiplan4rust::tree::{SyntaxContent, Node, Tree};
 use crate::aiplan4rust::syntax::lexer::token::{ORDER, TOTAL_TIME};
@@ -13,7 +13,7 @@ pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
     arena: &Tree<AstNode>,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
 ) -> fmt::Result {
     render_with_indent(node, f, arena, interner, 0)?;
     Ok(())
@@ -23,7 +23,7 @@ pub fn render_with_indent(
     node: &AstNode,
     f: &mut Formatter<'_>,
     arena: &Tree<AstNode>,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     indent: usize,
 ) -> fmt::Result {
 

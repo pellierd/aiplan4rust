@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{Type, TypeID};
+use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::types::{atomic_formula_skeleton, expr};
@@ -27,7 +27,7 @@ use crate::aiplan4rust::grounding::passes::types::{atomic_formula_skeleton, expr
 /// remain type-consistent with the flattened objects.
 pub fn flatten(
     derived_predicate: &mut DerivedPredicate,
-    map: &HashMap<Type<TypeID>, TypeID>,
+    map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     // 1. Flatten the signature (head)
     atomic_formula_skeleton::flatten(derived_predicate.head_mut(), map)?;

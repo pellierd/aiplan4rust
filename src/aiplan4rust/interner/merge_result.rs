@@ -1,7 +1,7 @@
-//! Utilities for merging [`StringInterner`] instances and managing identifier mappings.
+//! Utilities for merging [`SymbolInterner`] instances and managing identifier mappings.
 //!
 //! This module provides the [`InternerMergeResult`] type_checker, which encapsulates
-//! the result of merging two [`StringInterner`]s — typically a domain and a problem interner.
+//! the result of merging two [`SymbolInterner`]s — typically a domain and a problem interner.
 //!
 //! # Purpose
 //!
@@ -12,8 +12,8 @@
 //!
 //! # Main type_checker
 //!
-//! - [`InternerMergeResult`]: Holds the merged interner and a mapping from problem [`StringID`]
-//!   to global [`StringID`], enabling translation between the two contexts.
+//! - [`InternerMergeResult`]: Holds the merged interner and a mapping from problem [`SymbolId`]
+//!   to global [`SymbolId`], enabling translation between the two contexts.
 //!
 //! # Example
 //!
@@ -25,14 +25,14 @@
 //! }
 //! ```
 
-use crate::aiplan4rust::interner::StringInterner;
-use crate::aiplan4rust::lang::{LiteralID, StringID};
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{LiteralId, SymbolId};
 
 use std::collections::HashMap;
 use std::fmt;
 use std::mem::take;
 
-/// Result of merging two [`StringInterner`] instances.
+/// Result of merging two [`SymbolInterner`] instances.
 ///
 /// This structure contains the merged `interner` which holds the combined strings,
 /// and a mapping from identifiers in the original "problem" interner to their corresponding
@@ -43,9 +43,9 @@ use std::mem::take;
 ///
 /// # Fields
 ///
-/// - `interner`: The merged [`StringInterner`] containing all strings from both inputs.
-/// - `ident_map`: A [`HashMap`] mapping original problem [`StringID`] values
-///   to their corresponding global [`StringID`] in the merged interner.
+/// - `interner`: The merged [`SymbolInterner`] containing all strings from both inputs.
+/// - `ident_map`: A [`HashMap`] mapping original problem [`SymbolId`] values
+///   to their corresponding global [`SymbolId`] in the merged interner.
 ///
 /// # Example
 ///
@@ -58,9 +58,9 @@ use std::mem::take;
 /// ```
 #[derive(Debug, Clone)]
 pub struct InternerMergeResult {
-    interner: StringInterner,
-    ident_map: HashMap<StringID, StringID>,
-    literal_map: HashMap<LiteralID, LiteralID>,
+    interner: SymbolInterner,
+    symbol_map: HashMap<SymbolId, SymbolId>,
+    literal_map: HashMap<LiteralId, LiteralId>,
 }
 
 impl InternerMergeResult {
@@ -68,28 +68,28 @@ impl InternerMergeResult {
     ///
     /// # Parameters
     ///
-    /// - `interner`: The merged [`StringInterner`] instance.
+    /// - `interner`: The merged [`SymbolInterner`] instance.
     /// - `ident_map`: A mapping from problem identifiers to merged global identifiers.
     ///
     /// # Returns
     ///
     /// A new instance of `InternerMergeResult`.
     pub fn new(
-        interner: StringInterner,
-        ident_map: HashMap<StringID, StringID>,
-        literal_map: HashMap<LiteralID, LiteralID>,
+        interner: SymbolInterner,
+        ident_map: HashMap<SymbolId, SymbolId>,
+        literal_map: HashMap<LiteralId, LiteralId>,
     ) -> Self {
         Self {
             interner,
-            ident_map,
+            symbol_map: ident_map,
             literal_map,
         }
     }
 
-    /// Returns a reference to the merged [`StringInterner`].
+    /// Returns a reference to the merged [`SymbolInterner`].
     ///
     /// This interner contains all strings from both merged interners.
-    pub fn interner(&self) -> &StringInterner {
+    pub fn interner(&self) -> &SymbolInterner {
         &self.interner
     }
 
@@ -97,26 +97,26 @@ impl InternerMergeResult {
     /// leaving an empty/default `StringInterner` in its place.
     ///
     /// Requires `&mut self`.
-    pub fn take_interner(&mut self) -> StringInterner {
+    pub fn take_interner(&mut self) -> SymbolInterner {
         take(&mut self.interner)
     }
 
-    /// Returns a reference to the mapping from problem [`StringID`] to global [`StringID`].
+    /// Returns a reference to the mapping from problem [`SymbolId`] to global [`SymbolId`].
     ///
     /// This map is used to translate identifiers from the problem interner
     /// into their equivalent in the merged global interner.
-    pub fn ident_map(&self) -> &HashMap<StringID, StringID> {
-        &self.ident_map
+    pub fn symbol_map(&self) -> &HashMap<SymbolId, SymbolId> {
+        &self.symbol_map
     }
 
-    /// Takes (extracts) the mapping from problem [`StringID`] to global [`StringID`],
+    /// Takes (extracts) the mapping from problem [`SymbolId`] to global [`SymbolId`],
     /// leaving an empty map in its place.
     ///
     /// This allows consuming the map without cloning it.
     ///
     /// Requires a mutable reference to `self`.
-    pub fn take_ident_map(&mut self) -> HashMap<StringID, StringID> {
-        take(&mut self.ident_map)
+    pub fn take_symbol_map(&mut self) -> HashMap<SymbolId, SymbolId> {
+        take(&mut self.symbol_map)
     }
 
     /// Returns an immutable reference to the mapping from problem [`Literal`]s to global [`Literal`]s.
@@ -135,7 +135,7 @@ impl InternerMergeResult {
     /// A reference to a [`HashMap`] that maps problem-local [`Literal`]s to their global equivalents.
     ///
     /// [`Literal`]: crate::interner::Literal
-    pub fn literal_map(&self) -> &HashMap<LiteralID, LiteralID> {
+    pub fn literal_map(&self) -> &HashMap<LiteralId, LiteralId> {
         &self.literal_map
     }
 
@@ -162,11 +162,11 @@ impl InternerMergeResult {
     /// ```
     ///
     /// [`Literal`]: crate::interner::Literal
-    pub fn take_literal_map(&mut self) -> HashMap<LiteralID, LiteralID> {
+    pub fn take_literal_map(&mut self) -> HashMap<LiteralId, LiteralId> {
         take(&mut self.literal_map)
     }
 
-    /// Merges a domain and problem [`StringInterner`] into a unified [`InternerMergeResult`].
+    /// Merges a domain and problem [`SymbolInterner`] into a unified [`InternerMergeResult`].
     ///
     /// This function clones the domain interner and extends it with all strings from the
     /// problem interner. It also creates a mapping from each identifier in the problem
@@ -174,8 +174,8 @@ impl InternerMergeResult {
     ///
     /// # Parameters
     ///
-    /// - `domain_interner`: A reference to the domain's [`StringInterner`].
-    /// - `problem_interner`: A reference to the problem's [`StringInterner`].
+    /// - `domain_interner`: A reference to the domain's [`SymbolInterner`].
+    /// - `problem_interner`: A reference to the problem's [`SymbolInterner`].
     ///
     /// # Returns
     ///
@@ -183,15 +183,15 @@ impl InternerMergeResult {
     /// - the merged `StringInterner`
     /// - a `HashMap<Ident, Ident>` mapping problem identifiers to merged identifiers
     pub fn from_domain_and_problem(
-        domain_interner: &StringInterner,
-        problem_interner: &StringInterner,
+        domain_interner: &SymbolInterner,
+        problem_interner: &SymbolInterner,
     ) -> Self {
         let mut interner = domain_interner.clone();
         let mut problem_ident_map = HashMap::new();
         let mut problem_literal_map = HashMap::new();
 
-        for (old_id, s) in problem_interner.iter_ident_entries() {
-            let new_id = interner.intern_ident(s.to_string());
+        for (old_id, s) in problem_interner.iter_symbol_entries() {
+            let new_id = interner.intern_symbol(s.to_string());
             problem_ident_map.insert(old_id, new_id);
         }
 
@@ -211,7 +211,7 @@ impl fmt::Display for InternerMergeResult {
         writeln!(f, "InternerMergeResult {{")?;
         writeln!(f, "  interner: {}", self.interner)?;
         writeln!(f, "  Ident map: [")?;
-        for (problem_id, global_id) in &self.ident_map {
+        for (problem_id, global_id) in &self.symbol_map {
             writeln!(f, "    {:?} -> {:?}", problem_id, global_id)?;
         }
         writeln!(f, "  ]")?;

@@ -33,7 +33,7 @@
 //!
 //! Works seamlessly with lexer tokens and syntax display for syntax languages.
 
-use crate::aiplan4rust::interner::{InternerDisplay, StringInterner};
+use crate::aiplan4rust::interner::{InternerDisplay, SymbolInterner};
 use crate::aiplan4rust::syntax::lexer::token::ASSIGN;
 use crate::aiplan4rust::syntax::lexer::token::DECREASE;
 use crate::aiplan4rust::syntax::lexer::token::INCREASE;
@@ -131,7 +131,7 @@ impl InternerDisplay for AssignOp {
     /// # Returns
     ///
     /// A `fmt::Result` indicating the result of the formatting operation.
-    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut Formatter<'_>, _interner: &SymbolInterner) -> fmt::Result {
         // Delegate to the standard Display implementation.
         fmt::Display::fmt(self, f)
     }
@@ -167,7 +167,7 @@ impl SyntaxInternerDisplay for AssignOp {
     fn fmt_syntax_with_interner_and_indent(
         &self,
         f: &mut Formatter<'_>,
-        _interner: &StringInterner,
+        _interner: &SymbolInterner,
         indent: usize,
     ) -> fmt::Result {
         write_indent(f, indent)?;

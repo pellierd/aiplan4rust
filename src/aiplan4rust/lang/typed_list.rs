@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::interner::{InternerDisplay, InternerError, StringInterner};
-use crate::aiplan4rust::lang::{RemapIdents, StringID, Id, TypedSymbol};
+use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
+use crate::aiplan4rust::lang::{RemapSymbol, SymbolId, Id, TypedSymbol};
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -31,10 +31,10 @@ impl<SID: Id, TID: Id> TypedList<SID, TID> {
 
 // --- Implémentation de Remap (uniquement pour la phase StringID complète) ---
 
-impl RemapIdents for TypedList<StringID, StringID> {
-    fn remap_idents(&mut self, map: &HashMap<StringID, StringID>) -> Result<(), InternerError> {
+impl RemapSymbol for TypedList<SymbolId, SymbolId> {
+    fn remap_symbol(&mut self, map: &HashMap<SymbolId, SymbolId>) -> Result<(), InternerError> {
         for ts in &mut self.symbols {
-            ts.remap_idents(map)?;
+            ts.remap_symbol(map)?;
         }
         Ok(())
     }
@@ -81,7 +81,7 @@ impl<SID: Id, TID: Id> fmt::Display for TypedList<SID, TID> {
 impl<SID: Id, TID: Id> InternerDisplay for TypedList<SID, TID>
 where TypedSymbol<SID, TID>: InternerDisplay
 {
-    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner) -> fmt::Result {
+    fn fmt_with_interner(&self, f: &mut fmt::Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {
         write!(f, "(")?;
         for (i, sym) in self.symbols.iter().enumerate() {
             if i > 0 { write!(f, " ")?; }
@@ -94,7 +94,7 @@ where TypedSymbol<SID, TID>: InternerDisplay
 impl<SID: Id, TID: Id> SyntaxInternerDisplay for TypedList<SID, TID>
 where TypedSymbol<SID, TID>: SyntaxInternerDisplay
 {
-    fn fmt_syntax_with_interner_and_indent(&self, f: &mut fmt::Formatter<'_>, interner: &StringInterner, indent: usize) -> fmt::Result {
+    fn fmt_syntax_with_interner_and_indent(&self, f: &mut fmt::Formatter<'_>, interner: &SymbolInterner, indent: usize) -> fmt::Result {
         write_indent(f, indent)?;
         for (i, sym) in self.symbols.iter().enumerate() {
             if i > 0 { write!(f, " ")?; }

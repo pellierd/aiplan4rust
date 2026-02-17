@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::interner::StringInterner;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::syntax::SyntaxInternerDisplay;
 use crate::aiplan4rust::tree::{Node, Tree};
@@ -9,7 +9,7 @@ pub fn render(
     node: &AstNode,
     f: &mut Formatter<'_>,
     arena: &Tree<AstNode>,
-    interner: &StringInterner,
+    interner: &SymbolInterner,
     indent: usize, // pas de multiline ici
 ) -> fmt::Result {
     let indent_str = "    ".repeat(indent);
