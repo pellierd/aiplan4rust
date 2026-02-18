@@ -8,7 +8,6 @@ mod iterator;
 mod registry;
 pub mod fluent;
 mod numeric_fluent;
-mod object_fluent;
 pub mod value_domain;
 
 pub use result::Result as GroundingResult;

@@ -41,7 +41,7 @@
 //! before grounding and solving.
 
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::{ActionSymbolId, AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, MethodSymbolId, ConstantId, PredicateSymbolId, Requirement, SymbolId, TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedSymbol};
+use crate::aiplan4rust::lang::{ActionSymbolId, AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, Requirement, SymbolId, TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
@@ -70,7 +70,7 @@ pub struct Problem {
     /// Map between type names and their internal IDs.
     type_symbols: SymbolRegistry<TypeId>,
     /// Map between object names and their internal IDs.
-    object_symbols: SymbolRegistry<ConstantId>,
+    object_symbols: SymbolRegistry<ObjectId>,
     /// Map between predicate names and their internal IDs.
     predicate_symbols: SymbolRegistry<PredicateSymbolId>,
     /// Map between function (functor) names and their internal IDs.
@@ -86,7 +86,7 @@ pub struct Problem {
     /// List of type definitions, including hierarchy (parent-child relations).
     type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
     /// List of objects defined in the domain or problem, associated with their types.
-    object_defs: Vec<TypedSymbol<ConstantId, TypeId>>,
+    object_defs: Vec<TypedSymbol<ObjectId, TypeId>>,
     /// Signatures of all predicates (name and typed parameters).
     predicate_defs: Vec<AtomicFormulaSkeleton>,
     /// Signatures of all functions (name, typed parameters, and return type).
@@ -483,7 +483,7 @@ impl Problem {
     }
 
     /// Returns a read-only reference to the object symbol table.
-    pub fn object_symbol(&self) -> &SymbolRegistry<ConstantId> {
+    pub fn object_symbol(&self) -> &SymbolRegistry<ObjectId> {
         &self.object_symbols
     }
 
@@ -491,7 +491,7 @@ impl Problem {
     ///
     /// If the object is new, a [`TypedSymbol`] with `Type::default()` is added to
     /// `object_defs` to keep the table and definitions synchronized.
-    pub fn add_object_symbol(&mut self, symbol: SymbolId) -> ConstantId {
+    pub fn add_object_symbol(&mut self, symbol: SymbolId) -> ObjectId {
         let id = self.object_symbols.insert(symbol);
         let idx = id.as_usize();
         if idx >= self.object_defs.len() {
@@ -504,24 +504,24 @@ impl Problem {
     /// Takes ownership of the object symbol table, leaving an empty one in its place.
     ///
     /// # Returns
-    /// The [`SymbolRegistry<ConstantId>`] previously owned by the problem.
-    pub fn take_object_symbols(&mut self) -> SymbolRegistry<ConstantId> {
+    /// The [`SymbolRegistry<ObjectId>`] previously owned by the problem.
+    pub fn take_object_symbols(&mut self) -> SymbolRegistry<ObjectId> {
         std::mem::take(&mut self.object_symbols)
     }
 
     /// Returns a slice of all object definitions.
     ///
     /// # Returns
-    /// A slice of [`TypedSymbol<ConstantId, TypeId>`].
-    pub fn object_defs(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
+    /// A slice of [`TypedSymbol<ObjectId, TypeId>`].
+    pub fn object_defs(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
         &self.object_defs
     }
 
     /// Returns a mutable slice of all object definitions.
     ///
     /// # Returns
-    /// A mutable slice of [`TypedSymbol<ConstantId, TypeId>`].
-    pub fn object_defs_mut(&mut self) -> &mut [TypedSymbol<ConstantId, TypeId>] {
+    /// A mutable slice of [`TypedSymbol<ObjectId, TypeId>`].
+    pub fn object_defs_mut(&mut self) -> &mut [TypedSymbol<ObjectId, TypeId>] {
         &mut self.object_defs
     }
 
@@ -546,7 +546,7 @@ impl Problem {
     /// * `Ok(ObjectID)` - The ID of the successfully updated object.
     /// * `Err(LirError::ObjectDefinitionOrphan)` - If the ID's index exceeds the
     ///   allocated definitions, indicating the symbol was never registered.
-    pub fn add_object_def(&mut self, obj: TypedSymbol<ConstantId, TypeId>) -> Result<ConstantId, LirError> {
+    pub fn add_object_def(&mut self, obj: TypedSymbol<ObjectId, TypeId>) -> Result<ObjectId, LirError> {
         let id = obj.symbol();
         let idx = id.as_usize();
 
@@ -564,18 +564,18 @@ impl Problem {
     /// Takes ownership of the object definitions, leaving an empty vector in its place.
     ///
     /// # Returns
-    /// The [`Vec<TypedSymbol<ConstantId, TypeId>>`] previously owned by the problem.
-    pub fn take_object_defs(&mut self) -> Vec<TypedSymbol<ConstantId, TypeId>> {
+    /// The [`Vec<TypedSymbol<ObjectId, TypeId>>`] previously owned by the problem.
+    pub fn take_object_defs(&mut self) -> Vec<TypedSymbol<ObjectId, TypeId>> {
         std::mem::take(&mut self.object_defs)
     }
 
     /// Returns a reference to an object definition if it exists.
-    pub fn get_object_def(&self, id: ConstantId) -> Option<&TypedSymbol<ConstantId, TypeId>> {
+    pub fn get_object_def(&self, id: ObjectId) -> Option<&TypedSymbol<ObjectId, TypeId>> {
         self.object_defs.get(id.as_usize())
     }
 
     /// Returns a mutable reference to an object definition if it exists.
-    pub fn get_object_def_mut(&mut self, id: ConstantId) -> Option<&mut TypedSymbol<ConstantId, TypeId>> {
+    pub fn get_object_def_mut(&mut self, id: ObjectId) -> Option<&mut TypedSymbol<ObjectId, TypeId>> {
         self.object_defs.get_mut(id.as_usize())
     }
 
@@ -583,7 +583,7 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::ObjectDefinitionOrphan` if the ID is not registered.
-    pub fn try_get_object(&self, id: ConstantId) -> Result<&TypedSymbol<ConstantId, TypeId>, LirError> {
+    pub fn try_get_object(&self, id: ObjectId) -> Result<&TypedSymbol<ObjectId, TypeId>, LirError> {
         self.get_object_def(id)
             .ok_or_else(|| LirError::object_definition_orphan(id))
     }
@@ -592,7 +592,7 @@ impl Problem {
     ///
     /// # Errors
     /// Returns `LirError::ObjectDefinitionOrphan` if the ID is not registered.
-    pub fn try_get_object_mut(&mut self, id: ConstantId) -> Result<&mut TypedSymbol<ConstantId, TypeId>, LirError> {
+    pub fn try_get_object_mut(&mut self, id: ObjectId) -> Result<&mut TypedSymbol<ObjectId, TypeId>, LirError> {
         self.get_object_def_mut(id)
             .ok_or_else(|| LirError::object_definition_orphan(id))
     }
@@ -604,7 +604,7 @@ impl Problem {
     }
 
     /// Returns a slice of the definitions that are considered Domain Constants.
-    pub fn domain_constant_def(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
+    pub fn domain_constant_def(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
         &self.object_defs[..self.constant_offset]
     }
 
@@ -614,7 +614,7 @@ impl Problem {
     }
 
     /// Returns a slice of the definitions that are considered Problem Objects.
-    pub fn problem_object_def(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
+    pub fn problem_object_def(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
         &self.object_defs[self.constant_offset..]
     }
 
@@ -635,12 +635,12 @@ impl Problem {
     }
 
     /// Returns true if the given ID refers to a Domain Constant.
-    pub fn is_constant(&self, id: ConstantId) -> bool {
+    pub fn is_constant(&self, id: ObjectId) -> bool {
         id.as_usize() < self.constant_offset
     }
 
     /// Returns true if the given ID refers to a Problem Object.
-    pub fn is_object(&self, id: ConstantId) -> bool {
+    pub fn is_object(&self, id: ObjectId) -> bool {
         let idx = id.as_usize();
         idx >= self.constant_offset && idx < self.object_defs.len()
     }

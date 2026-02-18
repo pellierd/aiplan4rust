@@ -7,7 +7,7 @@
 //! that types are resolved against the provided `EncodingContext`.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::{TypedSymbol, Type, TypeId, VariableId, ConstantId};
+use crate::aiplan4rust::lang::{TypedSymbol, Type, TypeId, VariableId, ObjectId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -66,7 +66,7 @@ pub fn encode_typed_type(
 pub fn encode_typed_object(
     subtree: &SyntaxSubtree<AstNode>,
     registry: &EncodingRegistry,
-) -> Result<TypedSymbol<ConstantId, TypeId>, LirError> {
+) -> Result<TypedSymbol<ObjectId, TypeId>, LirError> {
     let typed_symbol_node = subtree.node();
     let ast = subtree.tree();
 

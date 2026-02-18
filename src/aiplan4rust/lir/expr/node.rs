@@ -42,7 +42,7 @@ use crate::aiplan4rust::arena::ArenaNode;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ConstantId, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId, TypedList, VariableId};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSkeletonId, TaskSymbolId, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::tree::{SyntaxBaseNode, Node};
@@ -410,12 +410,12 @@ impl Node for ExprNode {
 
 impl ExprNode {
     /// Returns the object ID if the content is `Constant`.
-    pub fn as_constant(&self) -> Option<ConstantId> {
+    pub fn as_constant(&self) -> Option<ObjectId> {
         self.content().as_constant()
     }
 
     /// Returns the object ID or an error.
-    pub fn try_constant(&self) -> Result<ConstantId, ExprError> {
+    pub fn try_constant(&self) -> Result<ObjectId, ExprError> {
         self.content().try_constant()
     }
 

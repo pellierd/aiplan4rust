@@ -1,6 +1,7 @@
 use std::fmt;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{ObjectId, PredicateSymbolId};
+use crate::aiplan4rust::lang::ObjectId;
+use crate::aiplan4rust::lang::ids::PredicateSymbolId;
 
 /// Represents a fluent in a PDDL domain.
 ///

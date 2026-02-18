@@ -1,7 +1,7 @@
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
 use crate::aiplan4rust::interner::InternerError;
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, LangError, ConstantId, SymbolId, TaskSkeletonId, Type, TypeId};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, SymbolId, TaskSkeletonId, Type, TypeId};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::logic::LogicError;
@@ -112,7 +112,7 @@ pub enum LirError {
 
     // In the LirError enum
     #[error("Object definition provided for an unregistered ID: {id:?}")]
-    ObjectDefinitionOrphan { id: ConstantId },
+    ObjectDefinitionOrphan { id: ObjectId },
 
     #[error("Predicate definition requested for an unregistered ID: {id:?}")]
     PredicateDefinitionOrphan { id: AtomSkeletonId },
@@ -210,7 +210,7 @@ impl LirError {
     }
 
     // In the LirError impl block
-    pub fn object_definition_orphan(id: ConstantId) -> Self {
+    pub fn object_definition_orphan(id: ObjectId) -> Self {
         Self::ObjectDefinitionOrphan { id }
     }
 

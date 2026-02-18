@@ -1,6 +1,6 @@
 use ordered_float::OrderedFloat;
 use crate::aiplan4rust::arena::NodeId;
-use crate::aiplan4rust::lang::ConstantId;
+use crate::aiplan4rust::lang::ObjectId;
 use crate::aiplan4rust::lir::expr::Expr;
 
 /// Représente une valeur constante extraite par une analyse statique (ex: Inertie).
@@ -12,7 +12,7 @@ pub enum StaticValue {
     /// Valeur numérique (pour une fonction inerte)
     Number(OrderedFloat<f64>),
     /// Référence à un objet constant (pour une fonction inerte retournant un objet)
-    Object(ConstantId),
+    Object(ObjectId),
 }
 
 /// Interface permettant à la logique du LIR d'interroger des informations

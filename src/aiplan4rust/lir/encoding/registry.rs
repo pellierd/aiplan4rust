@@ -5,7 +5,7 @@
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ConstantId, PredicateSymbolId, TaskSymbolId, TaskSkeletonId, TypeId, VariableId, PreferenceSymbolId, SymbolId, TaskLabelSymbolId};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId, TaskSymbolId, TaskSkeletonId, TypeId, VariableId, PreferenceSymbolId, SymbolId, TaskLabelSymbolId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
 use crate::aiplan4rust::semantic::symbol_table::SymbolTable;
@@ -40,8 +40,8 @@ pub struct EncodingRegistry {
 
     /// **Object Mapping**: Links a logical `Symbol` (either a global Constant
     /// from the domain or an Object from the problem) to its unique index.
-    object_to_id: HashMap<NodeId, ConstantId>,
-    object_symbol_to_id: HashMap<SymbolId, ConstantId>,
+    object_to_id: HashMap<NodeId, ObjectId>,
+    object_symbol_to_id: HashMap<SymbolId, ObjectId>,
 
     task_symbol_to_id: HashMap<NodeId, TaskSymbolId>,
     task_skeleton_to_id: HashMap<NodeId, TaskSkeletonId>,
@@ -168,11 +168,11 @@ impl EncodingRegistry {
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
 
-    pub fn resolve_object(&self, symbol: NodeId) -> Option<ConstantId> {
+    pub fn resolve_object(&self, symbol: NodeId) -> Option<ObjectId> {
         self.object_to_id.get(&symbol).copied()
     }
 
-    pub fn try_resolve_object(&self, symbol: NodeId) -> Result<ConstantId, LirError> {
+    pub fn try_resolve_object(&self, symbol: NodeId) -> Result<ObjectId, LirError> {
         self.resolve_object(symbol)
             .ok_or_else(|| LirError::symbol_binding_failed(symbol.clone()))
     }
@@ -180,7 +180,7 @@ impl EncodingRegistry {
 
     /// Résout un ObjectID à partir de son nom (StringID).
     /// Retourne None si l'objet n'a pas été enregistré en Phase 1.
-    pub fn resolve_object_symbol_by_name(&self, name_id: SymbolId) -> Option<ConstantId> {
+    pub fn resolve_object_symbol_by_name(&self, name_id: SymbolId) -> Option<ObjectId> {
         self.object_symbol_to_id.get(&name_id).copied()
     }
 
@@ -188,7 +188,7 @@ impl EncodingRegistry {
     ///
     /// # Errors
     /// Retourne une erreur `LirError::ObjectNotFound` si le symbole est inconnu.
-    pub fn try_resolve_object_symbol_by_name(&self, name_id: SymbolId) -> Result<ConstantId, LirError> {
+    pub fn try_resolve_object_symbol_by_name(&self, name_id: SymbolId) -> Result<ObjectId, LirError> {
         self.resolve_object_symbol_by_name(name_id)
             .ok_or_else(|| LirError::object_not_found(name_id))
     }
@@ -275,17 +275,17 @@ impl EncodingRegistry {
         new_id
     }
 
-    pub fn register_object(&mut self, symbol: NodeId, id: ConstantId) {
+    pub fn register_object(&mut self, symbol: NodeId, id: ObjectId) {
         self.object_to_id.insert(symbol, id);
     }
 
-    pub fn register_object_symbol(&mut self, symbol: SymbolId, node_id: NodeId) -> ConstantId {
+    pub fn register_object_symbol(&mut self, symbol: SymbolId, node_id: NodeId) -> ObjectId {
         // 1. On vérifie si l'objet existe déjà (ex: c'est une constante du domaine)
         let id = if let Some(&existing_id) = self.object_symbol_to_id.get(&symbol) {
             existing_id
         } else {
             // 2. Sinon, on crée un nouvel ID basé sur le nombre total d'objets enregistrés
-            let new_id = ConstantId::new(self.object_symbol_to_id.len());
+            let new_id = ObjectId::new(self.object_symbol_to_id.len());
             self.object_symbol_to_id.insert(symbol, new_id);
             new_id
         };

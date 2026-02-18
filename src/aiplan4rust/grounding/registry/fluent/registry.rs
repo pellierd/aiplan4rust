@@ -1,20 +1,16 @@
 use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
-use crate::aiplan4rust::lang::ids::{FluentId, ObjectFluentId, NumericFluentId};
-use crate::aiplan4rust::grounding::problem::{Fluent, ObjectFluent, NumericFluent};
+use crate::aiplan4rust::lang::ids::{FluentId, NumericFluentId};
+use crate::aiplan4rust::grounding::problem::{Fluent, NumericFluent};
 use crate::aiplan4rust::grounding::registry::fluent::error::FluentRegistryError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FluentRegistry {
-    // Fluents
+    // Fluents (Prédicats Ground)
     fluent_lookup: HashMap<Fluent, FluentId>,
     fluents: Vec<Fluent>,
 
-    // Object Fluents
-    object_fluents_lookup: HashMap<ObjectFluent, ObjectFluentId>,
-    object_fluents: Vec<ObjectFluent>,
-
-    // Numeric Fluents
+    // Numeric Fluents (Fonctions numériques Ground)
     numeric_fluents_lookup: HashMap<NumericFluent, NumericFluentId>,
     numeric_fluents: Vec<NumericFluent>,
 }
@@ -22,14 +18,7 @@ pub struct FluentRegistry {
 impl FluentRegistry {
     /// Crée un nouveau registre vide.
     pub fn new() -> Self {
-        Self {
-            fluent_lookup: HashMap::new(),
-            fluents: Vec::new(),
-            object_fluents_lookup: HashMap::new(),
-            object_fluents: Vec::new(),
-            numeric_fluents_lookup: HashMap::new(),
-            numeric_fluents: Vec::new(),
-        }
+        Self::default()
     }
 
     /// Interne un Fluent (Prédicat Ground) et retourne son ID unique.
@@ -41,18 +30,6 @@ impl FluentRegistry {
         let id = FluentId::from(self.fluents.len());
         self.fluent_lookup.insert(fluent.clone(), id);
         self.fluents.push(fluent);
-        id
-    }
-
-    /// Interne un ObjectFluent (Fonction d'objet Ground) et retourne son ID unique.
-    pub fn intern_object_fluent(&mut self, object_fluent: ObjectFluent) -> ObjectFluentId {
-        if let Some(&id) = self.object_fluents_lookup.get(&object_fluent) {
-            return id;
-        }
-
-        let id = ObjectFluentId::from(self.object_fluents.len());
-        self.object_fluents_lookup.insert(object_fluent.clone(), id);
-        self.object_fluents.push(object_fluent);
         id
     }
 
@@ -81,19 +58,6 @@ impl FluentRegistry {
             .ok_or_else(|| FluentRegistryError::invalid_fluent_id(id, self.fluents.len()))
     }
 
-    // --- Résolution des Object Fluents ---
-
-    /// Résout un `ObjectFluentID` pour obtenir sa définition groundée.
-    pub fn resolve_object_fluent(&self, id: ObjectFluentId) -> Option<&ObjectFluent> {
-        self.object_fluents.get(id.as_usize())
-    }
-
-    /// Tente de résoudre un `ObjectFluentID` ou retourne une erreur `FluentRegistryError`.
-    pub fn try_resolve_object_fluent(&self, id: ObjectFluentId) -> Result<&ObjectFluent, FluentRegistryError> {
-        self.resolve_object_fluent(id)
-            .ok_or_else(|| FluentRegistryError::invalid_object_fluent_id(id, self.object_fluents.len()))
-    }
-
     // --- Résolution des Numeric Fluents ---
 
     /// Résout un `NumericFluentID` pour obtenir sa définition groundée.
@@ -109,12 +73,12 @@ impl FluentRegistry {
 
     /// Consomme le registre pour ne retourner que les vecteurs de données.
     /// Utile pour libérer la mémoire des HashMaps après la phase de grounding.
-    pub fn freeze(self) -> (Vec<Fluent>, Vec<ObjectFluent>, Vec<NumericFluent>) {
-        (self.fluents, self.object_fluents, self.numeric_fluents)
+    pub fn freeze(self) -> (Vec<Fluent>, Vec<NumericFluent>) {
+        (self.fluents, self.numeric_fluents)
     }
 
     /// Retourne le nombre total de fluents enregistrés (tous types confondus).
     pub fn total_count(&self) -> usize {
-        self.fluents.len() + self.object_fluents.len() + self.numeric_fluents.len()
+        self.fluents.len() + self.numeric_fluents.len()
     }
 }

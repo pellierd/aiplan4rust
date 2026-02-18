@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lang::{ConstantId, Type, TypeId, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedSymbol, VariableId};
 use crate::aiplan4rust::lir::LirError;
 
 /// Flattens the type of a `TypedSymbol<ObjectID, TypeID>` in place according to the provided mapping.
@@ -12,7 +12,7 @@ use crate::aiplan4rust::lir::LirError;
 /// - `Ok(())` if the type was successfully updated or did not need flattening.
 /// - `Err(LirError)` if the type is an `Either` type that is not present in the mapping.
 pub fn flatten_typed_object(
-    symbol: &mut TypedSymbol<ConstantId, TypeId>,
+    symbol: &mut TypedSymbol<ObjectId, TypeId>,
     map: &HashMap<Type<TypeId>, TypeId>,
 ) -> Result<(), LirError> {
     // Only types if it's an "either" type and exists in the map

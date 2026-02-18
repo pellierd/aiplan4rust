@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::InitialTaskNetwork;
 use crate::aiplan4rust::lir::error::LirError;
-use crate::aiplan4rust::grounding::passes::types::{typed_list};
+use crate::aiplan4rust::grounding::passes::type_flattening::{typed_list};
 
 /// Flattens all union types (`Type::Either`) within an `InitialTaskNetwork` in place.
 ///

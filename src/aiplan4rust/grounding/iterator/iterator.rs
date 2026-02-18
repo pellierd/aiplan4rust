@@ -69,13 +69,13 @@ impl<'a> DomainIterator<'a> {
             // Mais on doit remplir le buffer initial
             self.is_first = false;
             for i in 0..self.indices.len() {
-                self.current_combo[i] = self.domains[i].get_argument(0);
+                self.current_combo[i] = self.domains[i].get_value_at(0);
             }
         } else {
             // Aux passages suivants, on avance et on fait l'update partiel
             let changed_idx = self.prepare_next()?;
             for i in changed_idx..self.indices.len() {
-                self.current_combo[i] = self.domains[i].get_argument(self.indices[i]);
+                self.current_combo[i] = self.domains[i].get_value_at(self.indices[i]);
             }
         }
 
@@ -199,27 +199,23 @@ impl<'a> fmt::Display for DomainIterator<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::aiplan4rust::lang::ObjectFluentId;
     use super::*;
+    use crate::aiplan4rust::lang::ids::ObjectId;
 
-    /// Helper pour créer un domaine de test rapidement
-    fn create_test_domain(num_objs: usize, num_fluents: usize) -> ValueDomain {
+    /// Helper mis à jour : crée un domaine de constantes
+    fn create_test_domain(num_objs: usize) -> ValueDomain {
         let mut objs = Vec::new();
         for i in 0..num_objs {
-            objs.push(ConstantId::from(i));
+            objs.push(ObjectId::from(i));
         }
-        let mut fluents = Vec::new();
-        for i in 0..num_fluents {
-            fluents.push(ObjectFluentId::from(i));
-        }
-        ValueDomain::new(objs, fluents)
+        ValueDomain::new(objs)
     }
 
     #[test]
     fn test_iterator_basic_product() {
         // D1: 2 objets, D2: 2 objets = 4 combinaisons
-        let d1 = create_test_domain(2, 0);
-        let d2 = create_test_domain(2, 0);
+        let d1 = create_test_domain(2);
+        let d2 = create_test_domain(2);
         let domains = vec![&d1, &d2];
 
         let mut it = DomainIterator::new(domains).expect("Should not overflow");
@@ -229,7 +225,7 @@ mod tests {
         let mut count = 0;
         while let Some(combo) = it.next() {
             count += 1;
-            // Vérification de l'arité du résultat
+            // Chaque élément de combo est maintenant directement un ConstantId
             assert_eq!(combo.len(), 2);
         }
         assert_eq!(count, 4);
@@ -237,48 +233,40 @@ mod tests {
     }
 
     #[test]
-    fn test_iterator_mixed_types() {
-        // D1: 1 objet, 1 fluent = 2 éléments
-        let d1 = create_test_domain(1, 1);
+    fn test_iterator_direct_constants() {
+        let d1 = create_test_domain(2);
         let mut it = DomainIterator::new(vec![&d1]).unwrap();
 
-        // 1er : Object(0)
+        // 1er : ConstantId(0)
         let res1 = it.next().unwrap();
-        assert!(matches!(res1[0], ObjectId::Constant(_)));
+        assert_eq!(res1[0], ObjectId::from(0));
 
-        // 2eme : ObjectFluent(0)
+        // 2eme : ConstantId(1)
         let res2 = it.next().unwrap();
-        assert!(matches!(res2[0], ObjectId::Fluent(_)));
+        assert_eq!(res2[0], ObjectId::from(1));
 
         assert!(it.next().is_none());
     }
 
     #[test]
     fn test_skip_at_logic() {
-        // D1: {Obj0, Obj1}, D2: {Obj0, Obj1}
-        let d1 = create_test_domain(2, 0);
-        let d2 = create_test_domain(2, 0);
+        let d1 = create_test_domain(2);
+        let d2 = create_test_domain(2);
         let mut it = DomainIterator::new(vec![&d1, &d2]).unwrap();
 
-        // On prend le premier : [Obj0, Obj0]
-        it.next();
+        it.next(); // [0, 0]
 
-        // On skip à l'index 0.
-        // L'itérateur doit passer à l'objet suivant de D1 et ignorer le reste de D2 pour Obj0.
+        // On skip à l'index 0 (la première colonne)
         it.skip_at(0);
 
         let res = it.next().unwrap();
-        // Doit être [Obj1, Obj0]
-        if let ObjectId::Constant(id) = res[0] {
-            assert_eq!(id, ConstantId::from(1));
-        } else {
-            panic!("Expected Object");
-        }
+        // Doit être [1, 0] directement en ConstantId
+        assert_eq!(res[0], ObjectId::from(1));
     }
 
     #[test]
     fn test_reset_and_consistency() {
-        let d = create_test_domain(3, 0);
+        let d = create_test_domain(3);
         let mut it = DomainIterator::new(vec![&d]).unwrap();
 
         it.next();
@@ -287,18 +275,12 @@ mod tests {
 
         assert_eq!(it.remaining_count(), 3);
         let res = it.next().unwrap();
-        // Après reset, on doit revenir à l'index 0
-        if let ObjectId::Constant(id) = res[0] {
-            assert_eq!(id, ConstantId::from(0));
-        }
+        assert_eq!(res[0], ObjectId::from(0));
     }
 
     #[test]
     fn test_overflow_protection() {
-        // Simulation d'un domaine qui ferait exploser le produit
-        // On crée un domaine de taille 1000
-        let d = create_test_domain(1000, 0);
-        // 1000^10 dépasse largement usize sur 64 bits
+        let d = create_test_domain(1000);
         let domains = vec![&d; 10];
 
         let result = DomainIterator::new(domains);

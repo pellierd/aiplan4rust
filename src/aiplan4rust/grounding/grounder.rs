@@ -1,7 +1,7 @@
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::{analysis, GroundingResult};
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::grounding::passes::types;
+use crate::aiplan4rust::grounding::passes::type_flattening;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::DiagnosticManager;
 
@@ -54,7 +54,7 @@ impl Grounder {
     ) -> Result<GroundingResult, GroundingError> {
 
         // Perform type inference and flatten the lifted problem.
-        types::problem::flatten(&mut lifted_problem)?;
+        type_flattening::problem::flatten(&mut lifted_problem)?;
 
 
         let table = analysis::inertia::analyzer::analyze(&lifted_problem)?;

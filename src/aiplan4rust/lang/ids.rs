@@ -70,9 +70,8 @@ impl_id_type!(LiteralId);
 
 impl_id_type!(TypeId);
 impl_id_type!(VariableId);
-impl_id_type!(ConstantId);
+impl_id_type!(ObjectId);
 impl_id_type!(FluentId);
-impl_id_type!(ObjectFluentId);
 impl_id_type!(NumericFluentId);
 
 impl_id_type!(PredicateSymbolId);
@@ -130,7 +129,7 @@ impl_display_prefix!(TypeId, "T");
 // v0, v1 (Variable identifier)
 impl_display_prefix!(VariableId, "v");
 // o12 (Instance of an object/constant)
-impl_display_prefix!(ConstantId, "o");
+impl_display_prefix!(ObjectId, "o");
 
 // --- Domain Model Symbols (Names) ---
 // p5 (Predicate name/symbol)
@@ -154,7 +153,6 @@ impl_display_prefix!(FluentId, "fl");
 // nf4 (Numeric fluent - e.g., battery levels, distances)
 impl_display_prefix!(NumericFluentId, "nf");
 // of2 (Object fluent - a state variable returning an ObjectId)
-impl_display_prefix!(ObjectFluentId, "of");
 
 // --- Skeletons (Structural Instances) ---
 // AS9 (Atom Skeleton: Predicate + Arguments)
@@ -203,76 +201,6 @@ impl SyntaxInternerDisplay for LiteralId {
             write!(f, "{}", val)
         } else {
             write!(f, "<uninterned_lit:{}>", self.value)
-        }
-    }
-}
-
-// --- GROUNDING ---
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ObjectId {
-    Constant(ConstantId),
-    Fluent(ObjectFluentId),
-}
-
-impl Default for ObjectId {
-    /// Retourne un ArgumentID pointant vers un objet invalide (index MAX).
-    fn default() -> Self {
-        ObjectId::Constant(ConstantId::default())
-    }
-}
-
-impl ObjectId {
-    /// Tente de récupérer l'ObjectID
-    pub fn as_object(&self) -> Option<ConstantId> {
-        match self {
-            ObjectId::Constant(id) => Some(*id),
-            _ => None,
-        }
-    }
-
-    /// Tente de récupérer l'ObjectFluentID
-    pub fn as_fluent(&self) -> Option<ObjectFluentId> {
-        match self {
-            ObjectId::Fluent(id) => Some(*id),
-            _ => None,
-        }
-    }
-
-    /// Tente d'extraire l'ObjectID.
-    /// Retourne une erreur LangError::UnexpectedFluent si c'est un fluent.
-    pub fn try_object(&self) -> Result<ConstantId, LangError> {
-        match self {
-            ObjectId::Constant(id) => Ok(*id),
-            ObjectId::Fluent(of_id) => Err(LangError::UnexpectedFluent(*of_id)),
-        }
-    }
-
-    /// Tente d'extraire l'ObjectFluentID.
-    /// Retourne une erreur LangError::UnexpectedObject si c'est un objet.
-    pub fn try_fluent(&self) -> Result<ObjectFluentId, LangError> {
-        match self {
-            ObjectId::Fluent(id) => Ok(*id),
-            ObjectId::Constant(obj_id) => Err(LangError::UnexpectedObject(*obj_id)),
-        }
-    }
-
-    /// Méthode de création rapide pour les objets.
-    pub fn from_object(id: ConstantId) -> Self {
-        ObjectId::Constant(id)
-    }
-
-    /// Méthode de création rapide pour les fluents.
-    pub fn from_fluent(id: ObjectFluentId) -> Self {
-        ObjectId::Fluent(id)
-    }
-}
-
-impl fmt::Display for ObjectId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ObjectId::Constant(id) => write!(f, "{}", id),
-            ObjectId::Fluent(id) => write!(f, "{}", id),
         }
     }
 }

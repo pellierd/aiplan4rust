@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::derived_predicate::DerivedPredicate;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::grounding::passes::types::{atomic_formula_skeleton, expr};
+use crate::aiplan4rust::grounding::passes::type_flattening::{atomic_formula_skeleton, expr};
 
 /// Flattens all union types (`Type::Either`) within a `DerivedPredicate` in place.
 ///

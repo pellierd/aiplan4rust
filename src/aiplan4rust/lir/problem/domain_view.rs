@@ -21,7 +21,7 @@ use core::fmt::Display;
 use std::fmt::{self, Formatter};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{ConstantId, Requirement, SymbolId, TypeId, TypedSymbol};
+use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedMethod};
@@ -111,7 +111,7 @@ impl<'a> DomainDef<'a> {
     ///
     /// Constants are "global" objects available across all problems
     /// associated with this domain.
-    pub fn constant_defs(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
+    pub fn constant_defs(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
         self.problem.domain_constant_def()
     }
 

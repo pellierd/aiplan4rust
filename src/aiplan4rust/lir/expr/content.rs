@@ -50,7 +50,7 @@
 //! The [`Content::remap_idents`] method allows in-place remapping of interned identifiers
 //! according to a provided mapping. This is useful during transformations or renaming phases.
 
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableId, ConstantId, PredicateSymbolId, FunctionSymbolId, FunctionSkeletonId, AtomSkeletonId, TaskSkeletonId, TypeId, TaskSymbolId, PreferenceSymbolId, TaskLabelSymbolId};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, Optimization, TypedList, VariableId, ObjectId, PredicateSymbolId, FunctionSymbolId, FunctionSkeletonId, AtomSkeletonId, TaskSkeletonId, TypeId, TaskSymbolId, PreferenceSymbolId, TaskLabelSymbolId};
 use crate::aiplan4rust::lir::expr::error::ExprError;
 use crate::aiplan4rust::serialization::{deserialize_ordered_float, serialize_ordered_float};
 use crate::aiplan4rust::tree::SyntaxContent;
@@ -73,7 +73,7 @@ pub enum Content {
     None,
     //Ident(StringID),
     Variable(VariableId),     // Variables liées (Forall/Exists)
-    Constant(ConstantId),     // Objets/Constantes du domaine
+    Constant(ObjectId),     // Objets/Constantes du domaine
 
     // --- Symboles de Définition ---
     PredicateSymbol(PredicateSymbolId),
@@ -116,7 +116,7 @@ pub enum Content {
 impl Content {
 
     /// Returns the object ID if the content is `Constant`.
-    pub fn as_constant(&self) -> Option<ConstantId> {
+    pub fn as_constant(&self) -> Option<ObjectId> {
         match self {
             ExprContent::Constant(id) => Some(*id),
             _ => None,
@@ -124,7 +124,7 @@ impl Content {
     }
 
     /// Returns the object ID or an error.
-    pub fn try_constant(&self) -> Result<ConstantId, ExprError> {
+    pub fn try_constant(&self) -> Result<ObjectId, ExprError> {
         self.as_constant().ok_or_else(ExprError::not_constant)
     }
 

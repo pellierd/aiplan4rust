@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeId};
 use crate::aiplan4rust::lir::atomic_skeleton::task::Task;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::grounding::passes::types::typed_list;
+use crate::aiplan4rust::grounding::passes::type_flattening::typed_list;
 
 /// Flattens all types within a `Task` parameters list in place according to the provided mapping.
 ///

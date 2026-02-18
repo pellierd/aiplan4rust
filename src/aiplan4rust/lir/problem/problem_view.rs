@@ -36,7 +36,7 @@
 use std::fmt::{self, Display, Formatter};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{ConstantId, Requirement, SymbolId, TypeId, TypedSymbol};
+use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{renderers, InitialTaskNetwork};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
@@ -99,7 +99,7 @@ impl<'a> ProblemDef<'a> {
         self.problem.interner()
     }
 
-    pub fn object_defs(&self) -> &[TypedSymbol<ConstantId, TypeId>] {
+    pub fn object_defs(&self) -> &[TypedSymbol<ObjectId, TypeId>] {
         self.problem.problem_object_def()
     }
 

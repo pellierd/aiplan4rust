@@ -1,6 +1,6 @@
 use std::collections::{HashMap};
 use crate::aiplan4rust::arena::{ArenaNode, NodeId};
-use crate::aiplan4rust::lang::{ObjectId, AtomSkeletonId, FunctionSkeletonId, ConstantId, VariableId};
+use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId, VariableId};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
@@ -17,8 +17,8 @@ const MAX_PROJ: usize = 3;
 pub struct InertiaRegistry<'a> {
     /// Mapping: PredicateID -> (Bitmask -> (Tuple de constantes -> Nombre d'occurrences))
     /// Le bitmask est un u8 (max 8 arguments, ce qui est énorme pour du PDDL).
-    counting_predicates: HashMap<AtomSkeletonId, HashMap<u16, HashMap<[ConstantId; MAX_PROJ], usize>>>,
-    static_functions: HashMap<FunctionSkeletonId, HashMap<u16, HashMap<[ConstantId; MAX_PROJ], StaticValue>>>,
+    counting_predicates: HashMap<AtomSkeletonId, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], usize>>>,
+    static_functions: HashMap<FunctionSkeletonId, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], StaticValue>>>,
     inertia: &'a InertiaTable,
 }
 
@@ -73,7 +73,7 @@ impl<'a> InertiaRegistry<'a> {
                         if arity == 0 { return Ok(()); }
 
                         let n_proj = num_proj.min(MAX_PROJ).min(arity);
-                        let mut args_buffer = [ConstantId::default(); MAX_PROJ];
+                        let mut args_buffer = [ObjectId::default(); MAX_PROJ];
                         for (i, &arg_id) in children[1..].iter().enumerate().take(n_proj) {
                             args_buffer[i] = init.try_node(arg_id)?.try_constant()?;
                         }
@@ -99,7 +99,7 @@ impl<'a> InertiaRegistry<'a> {
                         let arity = func_children.len().saturating_sub(1);
 
                         let n_proj = num_proj.min(MAX_PROJ).min(arity);
-                        let mut args_buffer = [ConstantId::default(); MAX_PROJ];
+                        let mut args_buffer = [ObjectId::default(); MAX_PROJ];
                         for (i, &arg_id) in func_children[1..].iter().enumerate().take(n_proj) {
                             args_buffer[i] = init.try_node(arg_id)?.try_constant()?;
                         }
@@ -141,7 +141,7 @@ impl<'a> InertiaRegistry<'a> {
         if !self.inertia.is_predicate_positive(pred_id)? { return Ok(None); }
 
         // Buffer sur pile pour éviter allocations
-        let mut constants_buffer = [ConstantId::default(); MAX_ARITY];
+        let mut constants_buffer = [ObjectId::default(); MAX_ARITY];
         let (mask, num_constants) = extract_mask(node, expr, &mut constants_buffer);
 
         let count = count_predicate_occurrences(
@@ -166,14 +166,14 @@ impl<'a> InertiaRegistry<'a> {
         // Si la fonction n'est pas statique, on ne peut rien prédire
         if !self.inertia.is_function_positive(func_id)? { return Ok(None); }
 
-        let mut constants_buffer = [ConstantId::default(); MAX_ARITY];
+        let mut constants_buffer = [ObjectId::default(); MAX_ARITY];
         let (mask, num_constants) = extract_mask(node, expr, &mut constants_buffer);
 
         // On cherche la valeur stockée
         let value = self.static_functions.get(&func_id)
             .and_then(|masks| masks.get(&mask))
             .and_then(|entries| {
-                let mut key = [ConstantId::default(); MAX_PROJ];
+                let mut key = [ObjectId::default(); MAX_PROJ];
                 for (i, &obj) in constants_buffer[..num_constants.min(MAX_PROJ)].iter().enumerate() {
                     key[i] = obj;
                 }
@@ -207,7 +207,7 @@ impl<'a> InertiaRegistry<'a> {
         }
 
         // --- FILTRAGE NIVEAU 2 : MASQUE DE KOEHLER ---
-        let mut constants_buffer = [ConstantId::default(); MAX_ARITY];
+        let mut constants_buffer = [ObjectId::default(); MAX_ARITY];
         let (mask, num_constants) = extract_mask_with_env(node, expr, env, &mut constants_buffer);
 
         // Si le masque est 0 (que des fluents ou variables inconnues),
@@ -234,7 +234,7 @@ fn extract_mask_with_env(
     node: &ExprNode,
     expr: &Expr,
     env: &HashMap<VariableId, ObjectId>, // Changé de ObjectID à ArgumentID
-    out_constants: &mut [ConstantId; MAX_ARITY],
+    out_constants: &mut [ObjectId; MAX_ARITY],
 ) -> (u16, usize) {
     let children = node.children();
     if children.len() <= 1 { return (0, 0); }
@@ -254,7 +254,7 @@ fn extract_mask_with_env(
                 if let Ok(var_id) = arg_node.content().try_variable() {
                     // Si la variable est dans l'env, on ne prend l'ID que si c'est un Object
                     match env.get(&var_id) {
-                        Some(ObjectId::Constant(obj_id)) => Some(*obj_id),
+                        Some(obj_id) => Some(*obj_id),
                         _ => None, // C'est un ObjectFluentID ou Variable inconnue
                     }
                 } else {
@@ -331,16 +331,16 @@ where
 
 /// Génère les combinaisons de projections pour l’inertie, sur pile
 fn generate_masks_limited<K: std::hash::Hash + Eq + Copy>(
-    table: &mut HashMap<K, HashMap<u16, HashMap<[ConstantId; MAX_PROJ], usize>>>,
+    table: &mut HashMap<K, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], usize>>>,
     key: K,
     arity: usize,
-    args: &[ConstantId; MAX_PROJ],
+    args: &[ObjectId; MAX_PROJ],
     num_proj: usize,
 ) {
     if num_proj == 0 || arity == 0 { return; }
 
     let num_proj = num_proj.min(arity); // sécurité supplémentaire
-    let mut buffer: [ConstantId; MAX_PROJ] = [ConstantId::default(); MAX_PROJ];
+    let mut buffer: [ObjectId; MAX_PROJ] = [ObjectId::default(); MAX_PROJ];
 
     // indices initiaux : 0..num_proj-1
     let mut indices: [usize; MAX_PROJ] = [0; MAX_PROJ];
@@ -384,7 +384,7 @@ fn generate_masks_limited<K: std::hash::Hash + Eq + Copy>(
 pub fn extract_mask(
     node: &ExprNode,
     expr: &Expr,
-    out_constants: &mut [ConstantId; MAX_ARITY],
+    out_constants: &mut [ObjectId; MAX_ARITY],
 ) -> (u16, usize) {
     let children = node.children();
     if children.len() <= 1 {
@@ -418,13 +418,13 @@ pub fn extract_mask(
 /// Compte le nombre d'occurrences d'un prédicat dans la table d'inertie.
 #[inline(always)]
 fn count_predicate_occurrences(
-    table: &HashMap<AtomSkeletonId, HashMap<u16, HashMap<[ConstantId; MAX_PROJ], usize>>>,
+    table: &HashMap<AtomSkeletonId, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], usize>>>,
     key: AtomSkeletonId,
     mask: u16,
-    constants: &[ConstantId],
+    constants: &[ObjectId],
 ) -> usize {
     // 1. On prépare la clé fixe pour le lookup
-    let mut lookup_key = [ConstantId::default(); MAX_PROJ];
+    let mut lookup_key = [ObjectId::default(); MAX_PROJ];
     let to_copy = constants.len().min(MAX_PROJ);
     lookup_key[..to_copy].copy_from_slice(&constants[..to_copy]);
 
@@ -438,14 +438,14 @@ fn count_predicate_occurrences(
 
 // Génère les masques pour les PRÉDICATS (Incrémente un compteur usize)
 fn generate_predicate_masks(
-    table: &mut HashMap<AtomSkeletonId, HashMap<u16, HashMap<[ConstantId; MAX_PROJ], usize>>>,
+    table: &mut HashMap<AtomSkeletonId, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], usize>>>,
     key: AtomSkeletonId,
     arity: usize,
-    args: &[ConstantId; MAX_PROJ],
+    args: &[ObjectId; MAX_PROJ],
     num_proj: usize,
 ) {
     if num_proj == 0 || arity == 0 { return; }
-    let mut buffer = [ConstantId::default(); MAX_PROJ];
+    let mut buffer = [ObjectId::default(); MAX_PROJ];
     let mut indices = [0; MAX_PROJ];
     for i in 0..num_proj { indices[i] = i; }
 
@@ -473,15 +473,15 @@ fn generate_predicate_masks(
 
 /// Génère les masques pour les FONCTIONS (Insère une InertiaValue)
 fn generate_function_masks(
-    table: &mut HashMap<FunctionSkeletonId, HashMap<u16, HashMap<[ConstantId; MAX_PROJ], StaticValue>>>,
+    table: &mut HashMap<FunctionSkeletonId, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], StaticValue>>>,
     key: FunctionSkeletonId,
     arity: usize,
-    args: &[ConstantId; MAX_PROJ],
+    args: &[ObjectId; MAX_PROJ],
     num_proj: usize,
     value: StaticValue,
 ) {
     if num_proj == 0 || arity == 0 { return; }
-    let mut buffer = [ConstantId::default(); MAX_PROJ];
+    let mut buffer = [ObjectId::default(); MAX_PROJ];
     let mut indices = [0; MAX_PROJ];
     for i in 0..num_proj { indices[i] = i; }
 

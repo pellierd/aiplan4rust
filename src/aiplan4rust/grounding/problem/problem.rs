@@ -1,6 +1,5 @@
-use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ConstantId, PredicateSymbolId, TypeId};
+use crate::aiplan4rust::lang::ids::{FunctionSymbolId, ObjectId, PredicateSymbolId, TypeId};
 use crate::aiplan4rust::grounding::numeric_fluent::NumericFluent;
-use crate::aiplan4rust::grounding::object_fluent::ObjectFluent;
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 use crate::aiplan4rust::grounding::problem::Fluent;
 use crate::aiplan4rust::grounding::problem::SymbolRegistry;
@@ -27,14 +26,14 @@ pub struct Problem {
     requirements: HashSet<Requirement>,
 
     type_symbols: SymbolRegistry<TypeId>,
-    object_symbols: SymbolRegistry<ConstantId>,
+    object_symbols: SymbolRegistry<ObjectId>,
     predicate_symbols: SymbolRegistry<PredicateSymbolId>,
     function_symbols: SymbolRegistry<FunctionSymbolId>,
     task_symbols: SymbolRegistry<TaskSymbolId>,
     
 
     type_defs: Vec<TypedSymbol<TypeId, TypeId>>,
-    object_defs: Vec<TypedSymbol<ConstantId, TypeId>>,
+    object_defs: Vec<TypedSymbol<ObjectId, TypeId>>,
     predicate_defs: Vec<AtomicFormulaSkeleton>,
     functions_def: Vec<AtomicFunctionSkeleton>,
     task_defs: Vec<AtomicTaskSkeleton>,
@@ -45,9 +44,6 @@ pub struct Problem {
 
     /// List of fluents (predicates grounded)
     fluents: Vec<Fluent>,
-
-    /// List of object-fluents
-    objects_fluents: Vec<ObjectFluent>,
 
     /// List of numeric-fluents
     numeric_fluents: Vec<NumericFluent>,
@@ -91,7 +87,6 @@ impl Problem {
             // They serve as placeholders for the subsequent grounding phase.
             type_objects: Vec::new(),
             fluents: Vec::new(),
-            objects_fluents: Vec::new(),
             numeric_fluents: Vec::new(),
         }
     }
@@ -122,7 +117,6 @@ impl Problem {
             type_objects: Vec::new(),
             object_defs: Vec::new(),
             fluents: Vec::new(),
-            objects_fluents: Vec::new(),
             numeric_fluents: Vec::new(),
             type_defs: Vec::new(),
             task_defs: Vec::new(),
@@ -304,48 +298,33 @@ impl Problem {
     // ------------------- OBJECTS -------------------
 
     /// Returns the symbol table mapping object identifiers to indices.
-    pub fn object_symbols(&self) -> &SymbolRegistry<ConstantId> {
+    pub fn object_symbols(&self) -> &SymbolRegistry<ObjectId> {
         &self.object_symbols
     }
 
     /// Returns a mutable reference to the objects symbol table.
-    fn object_symbols_mut(&mut self) -> &mut SymbolRegistry<ConstantId> {
+    fn object_symbols_mut(&mut self) -> &mut SymbolRegistry<ObjectId> {
         &mut self.object_symbols
     }
 
     /// Replaces the objects symbol table with the provided one.
-    fn set_object_symbols(&mut self, table: SymbolRegistry<ConstantId>) {
+    fn set_object_symbols(&mut self, table: SymbolRegistry<ObjectId>) {
         self.object_symbols = table;
     }
 
     /// Returns a reference to the list of all objects.
-    pub fn object_defs(&self) -> &Vec<TypedSymbol<ConstantId, TypeId>> {
+    pub fn object_defs(&self) -> &Vec<TypedSymbol<ObjectId, TypeId>> {
         &self.object_defs
     }
 
     /// Returns a mutable reference to the list of objects.
-    fn object_defs_mut(&mut self) -> &mut Vec<TypedSymbol<ConstantId, TypeId>> {
+    fn object_defs_mut(&mut self) -> &mut Vec<TypedSymbol<ObjectId, TypeId>> {
         &mut self.object_defs
     }
 
     /// Replaces the current list of objects with the provided one.
-    fn set_object_defs(&mut self, objects: Vec<TypedSymbol<ConstantId, TypeId>>) {
+    fn set_object_defs(&mut self, objects: Vec<TypedSymbol<ObjectId, TypeId>>) {
         self.object_defs = objects;
-    }
-
-    /// Returns a reference to the list of all object-fluents.
-    pub fn objects_fluents(&self) -> &Vec<ObjectFluent> {
-        &self.objects_fluents
-    }
-
-    /// Returns a mutable reference to the list of object-fluents.
-    pub fn objects_fluents_mut(&mut self) -> &mut Vec<ObjectFluent> {
-        &mut self.objects_fluents
-    }
-
-    /// Replaces the current list of object-fluents with the provided one.
-    pub fn set_objects_fluents(&mut self, object_fluents: Vec<ObjectFluent>) {
-        self.objects_fluents = object_fluents;
     }
 
     /// Returns a reference to the interner.
@@ -417,19 +396,6 @@ impl fmt::Display for Problem {
             }
         }
 
-
-        // ---------- Object Fluents ----------
-        writeln!(f, "\nObject Fluents Table:")?;
-        if self.objects_fluents().is_empty() {
-            writeln!(f, "<None>")?;
-        } else {
-            for (idx, _object_fluent) in self.objects_fluents().iter().enumerate() {
-                write!(f, "{}: ", idx)?;
-                // Utilise fmt_object_fluent_with_interner pour afficher proprement
-                //self.fmt_object_fluent_with_interner(f, object_fluent)?;
-                writeln!(f)?;
-            }
-        }
 
         // ---------- Fluents ----------
         writeln!(f, "\nFluents Table:")?;

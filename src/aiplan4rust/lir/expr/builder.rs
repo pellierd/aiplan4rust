@@ -1,5 +1,5 @@
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctionSymbolId, ConstantId, Optimization, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctionSymbolId, ObjectId, Optimization, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::tree::NodeId;
@@ -110,7 +110,7 @@ impl ExprBuilder {
 
     /// Creates a constant (object) node with the given identifier.
     ///
-    /// This helper accepts any type that can be converted into an [`ConstantId`],
+    /// This helper accepts any type that can be converted into an [`ObjectId`],
     /// making it easy to use either a typed ID or a raw `usize` (especially in tests).
     ///
     /// # Arguments
@@ -118,7 +118,7 @@ impl ExprBuilder {
     ///
     /// # Returns
     /// The [`NodeId`] of the newly created leaf node in the expression tree.
-    pub fn constant<I: Into<ConstantId>>(&mut self, id: I) -> NodeId {
+    pub fn constant<I: Into<ObjectId>>(&mut self, id: I) -> NodeId {
         self.leaf(ExprNode::new(
             ExprKind::Constant,
             ExprContent::Constant(id.into()),

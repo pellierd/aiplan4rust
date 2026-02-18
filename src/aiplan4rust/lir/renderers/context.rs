@@ -1,5 +1,5 @@
 use crate::aiplan4rust::interner::SymbolInterner;
-use crate::aiplan4rust::lang::{ActionSymbolId, FunctionSymbolId, MethodSymbolId, ConstantId, PredicateSymbolId, SymbolId, TaskSymbolId, TypeId};
+use crate::aiplan4rust::lang::{ActionSymbolId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, SymbolId, TaskSymbolId, TypeId};
 use crate::aiplan4rust::lir::problem::{LiftedProblem, SymbolRegistry};
 
 pub struct RenderContext<'a> {
@@ -7,7 +7,7 @@ pub struct RenderContext<'a> {
     type_symbols: &'a SymbolRegistry<TypeId>,
     predicate_symbols: &'a SymbolRegistry<PredicateSymbolId>,
     functor_symbols: &'a SymbolRegistry<FunctionSymbolId>,
-    object_symbols: &'a SymbolRegistry<ConstantId>,
+    object_symbols: &'a SymbolRegistry<ObjectId>,
     task_symbols: &'a SymbolRegistry<TaskSymbolId>,
     action_symbols: &'a SymbolRegistry<ActionSymbolId>,
     method_symbols: &'a SymbolRegistry<MethodSymbolId>,
@@ -31,7 +31,7 @@ impl<'a> RenderContext<'a> {
     pub fn types(&self) -> &SymbolRegistry<TypeId> { self.type_symbols }
     pub fn predicates(&self) -> &SymbolRegistry<PredicateSymbolId> { self.predicate_symbols }
     pub fn functors(&self) -> &SymbolRegistry<FunctionSymbolId> { self.functor_symbols }
-    pub fn objects(&self) -> &SymbolRegistry<ConstantId> { self.object_symbols }
+    pub fn objects(&self) -> &SymbolRegistry<ObjectId> { self.object_symbols }
     pub fn task_symbols(&self) -> &SymbolRegistry<TaskSymbolId> { self.task_symbols }
 
     pub fn action_symbols(&self) -> &SymbolRegistry<ActionSymbolId> { self.action_symbols }
@@ -62,7 +62,7 @@ impl<'a> RenderContext<'a> {
             .unwrap_or("<unknown_pred>")
     }
 
-    pub fn resolve_object(&self, id: ConstantId) -> &str {
+    pub fn resolve_object(&self, id: ObjectId) -> &str {
         self.object_symbols
             .get_ident(id)
             .map(|&s_id| self.resolve_symbol(s_id))
