@@ -3,31 +3,26 @@ name: Rust
 on:
   push:
     branches: [ "main" ]
-  pull_request:    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
-  # Réduit l'usage de la RAM pendant la compilation
   CARGO_INCREMENTAL: false
-  # Supprime les infos de debug lourdes pour économiser la mémoire
   RUSTFLAGS: "-C debuginfo=0"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # 1. Checkout le dépôt
       - uses: actions/checkout@v4
 
-      # 2. Installer Rust 1.88
       - name: Install Rust
         uses: dtolnay/rust-toolchain@1.88.0
 
-      # 3. Installer cargo-nextest (meilleur pour les timeouts et la gestion mémoire)
       - name: Install nextest
         uses: taiki-e/install-action@nextest
 
-      # 4. Cache Cargo
       - name: Cache Cargo registry and build
         uses: actions/cache@v3
         with:
@@ -39,26 +34,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      # 5. Build (limité à 2 jobs pour éviter le crash mémoire au build)
       - name: Build
         run: cargo build --verbose --jobs 2
 
-      # 6. Run tests avec limites strictes
       - name: Run tests
         run: |
           LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
           echo "Saving test output to $LOG_FILE"
-          
-          # --run-timeout 60s : tue un test s'il dépasse 1 min
-          # --test-threads 2 : évite de lancer trop de benchmarks IPC en même temps (RAM)
-          # --status-level fail : n'affiche les détails que si ça plante pour alléger le log
           cargo nextest run \
             --run-timeout 60s \
             --test-threads 2 \
             --verbose 2>&1 | tee "$LOG_FILE"
         continue-on-error: true
 
-      # 7. Upload du log
       - name: Upload test log
         if: always()
         uses: actions/upload-artifact@v4
