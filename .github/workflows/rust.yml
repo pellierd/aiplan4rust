@@ -45,7 +45,6 @@ jobs:
             --run-timeout 60s \
             --test-threads 2 \
             --verbose 2>&1 | tee "$LOG_FILE"
-        continue-on-error: true
 
       - name: Upload test log
         if: always()
