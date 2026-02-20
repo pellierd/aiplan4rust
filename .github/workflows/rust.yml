@@ -38,11 +38,17 @@ jobs:
         run: cargo build --verbose --jobs 2
 
       - name: Run tests
+        shell: bash
         run: |
+          # set -o pipefail garantit que si nextest échoue, l'étape échoue aussi
+          set -o pipefail
+          
           LOG_FILE="test-$(date +'%Y-%m-%d_%H-%M-%S').log"
           echo "Saving test output to $LOG_FILE"
+          
+          # Correction : on retire --run-timeout qui n'existe pas en CLI direct
+          # Si tu veux un timeout par test, utilise --timeout-multiplier ou le config file
           cargo nextest run \
-            --run-timeout 60s \
             --test-threads 2 \
             --verbose 2>&1 | tee "$LOG_FILE"
 
