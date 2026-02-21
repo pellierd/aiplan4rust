@@ -5,6 +5,8 @@ use crate::aiplan4rust::lir::logic::rewrite::{
     eliminate_imply, factorize_time_specifier, push_negation, push_time_specifier
 };
 use crate::aiplan4rust::lir::logic::simplify::simplify;
+use crate::aiplan4rust::lir::logic::simplify::simplify::simplify_from;
+use crate::aiplan4rust::tree::NodeId;
 
 pub struct LogicEngine<'a> {
     /// L'évaluateur est optionnel : Some pour la réduction (avec inertie),
@@ -37,14 +39,18 @@ impl<'a> LogicEngine<'a> {
         }
 
         // 3. Simplification Post-Order (utilise le trait)
-        simplify(root_id, expr, self.evaluator)?;
+        simplify(expr, self.evaluator)?;
 
         Ok(())
     }
 
-    pub fn reduce(&self, expr: &mut Expr) -> Result<(), LogicError> {
-        // La logique est identique à normalize, mais l'intention diffère
-        // (souvent appelé après des substitutions de variables).
-        self.normalize(expr)
+    /// Simplification complète de l'arbre.
+    pub fn simplify(&self, expr: &mut Expr) -> Result<(), LogicError> {
+        simplify(expr, self.evaluator)
+    }
+
+    /// Simplification ciblée à partir d'un nœud (très efficace après expansion).
+    pub fn simplify_from(&self, expr: &mut Expr, node_id: NodeId) -> Result<(), LogicError> {
+        simplify_from(expr, node_id, self.evaluator)
     }
 }

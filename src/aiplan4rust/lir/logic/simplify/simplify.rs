@@ -64,40 +64,59 @@ use crate::aiplan4rust::tree::NodeId;
 /// simplify(root_id, &mut expr)?;
 /// ```
 pub fn simplify(
-    root_id: NodeId,
     expr: &mut Expr,
-    evaluator: Option<&dyn StaticEvaluator>, // Utilisation du Trait au lieu du Registre concret
+    evaluator: Option<&dyn StaticEvaluator>,
 ) -> Result<(), LogicError> {
-
-    // Stack pour DFS post-order: (node_id, visited)
-    let mut stack = vec![(root_id, false)];
-    let mut postorder = Vec::new();
-
-    while let Some((node_id, visited)) = stack.pop() {
-        if visited {
-            postorder.push(node_id);
-        } else {
-            let node = expr.try_node(node_id)?;
-            let children = node.children();
-
-            if children.is_empty() {
-                postorder.push(node_id);
-            } else {
-                stack.push((node_id, true));
-                // Inverser pour traiter l'enfant de gauche en premier
-                for &child_id in children.iter().rev() {
-                    stack.push((child_id, false));
-                }
-            }
-        }
+    if let Some(root_id) = expr.root_id() {
+        simplify_from(expr, root_id, evaluator)?;
     }
+    Ok(())
+}
 
-    // On applique la simplification sur chaque nœud
-    for node_id in postorder {
-        simplify_node(node_id, expr, evaluator)?;
+
+/// Réduit uniquement un sous-arbre à partir d'un noeud spécifique.
+/// C'est cette variante que tu appelles dans ta boucle d'expansion.
+pub fn simplify_from(
+    expr: &mut Expr,
+    node_id: NodeId,
+    evaluator: Option<&dyn StaticEvaluator>
+) -> Result<(), LogicError> {
+    let has_eval = evaluator.is_some();
+
+    // 1. Collecte et filtrage (O(N))
+    let ids: Vec<NodeId> = expr.postorder_from(node_id)
+        .ids()
+        .filter(|(_, node)| is_simplifiable(node.kind(), has_eval))
+        .map(|(id, _)| id)
+        .collect();
+
+    // 2. Transformation directe (O(K))
+    // On traite chaque nœud. Pas de check has_node car la simplification est locale.
+    for id in ids {
+        simplify_node(id, expr, evaluator)?;
     }
 
     Ok(())
+}
+
+/// Détermine si un nœud nécessite un traitement par `simplify_node`.
+/// Cette fonction est interne au module de simplification.
+/// Détermine si un nœud mérite d'être visité par le moteur de simplification.
+/// On filtre ici pour ne pas charger le Vec d'IDs avec des feuilles inertes.
+fn is_simplifiable(kind: ExprKind, has_evaluator: bool) -> bool {
+    match kind {
+        // Nœuds avec une logique de réduction active
+        ExprKind::And | ExprKind::Or | ExprKind::Not |
+        ExprKind::Forall | ExprKind::Exists | ExprKind::When |
+        ExprKind::Assign | ExprKind::FComp | ExprKind::Operation |
+        ExprKind::Imply => true, // Most
+
+        // Atomes (Prédicats/Fonctions) : seulement si on a un évaluateur
+        ExprKind::AtomicFormula | ExprKind::FunctionTerm => has_evaluator,
+
+        // Feuilles inertes (Number, Constant, Variable, etc.)
+        _ => false,
+    }
 }
 
 /// Simplifies a node in a PDDL expression tree based on its kind.
@@ -160,19 +179,7 @@ fn simplify_node(
             }
         },
 
-        // Spécificateurs temporels et contraintes (inchangé)
-        Kind::AtStart | Kind::AtEnd | Kind::Overall
-        | Kind::Always | Kind::Sometime | Kind::Within
-        | Kind::AtMostOnce | Kind::SometimeAfter
-        | Kind::SometimeBefore | Kind::AlwaysWithin
-        | Kind::HoldDuring | Kind::HoldAfter => {}
-
-        // Feuilles et terminaux (inchangé)
-        | Kind::Number | Kind::Preference | Kind::Constant | Kind::Variable | Kind::FunctionSymbol
-        | Kind::Predicate | Kind::TaskSymbol | Kind::PrefName
-        | Kind::TimedInitialLiteral | Kind::Metric | Kind::TotalTime | Kind::IsViolated
-        | Kind::Length | Kind::Serial | Kind::Parallel | Kind::Task | Kind::TaskID
-        | Kind::TaggedTask | Kind::TaskOrderingConstraint => { },
+        _ => {}
     }
 
     Ok(())

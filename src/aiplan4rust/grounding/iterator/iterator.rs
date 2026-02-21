@@ -109,15 +109,16 @@ impl<'a> DomainIterator<'a> {
     pub fn skip_at(&mut self, pos: usize) {
         let arity = self.indices.len();
         if pos < arity {
-            // 1. On sature les positions à droite pour forcer le saut au prochain tour.
-            // On met card - 1 pour que le prochain prepare_next() incrémente l'index à 'pos'.
-            for i in (pos + 1)..arity {
-                self.indices[i] = self.domains[i].cardinality().saturating_sub(1);
+            // Optimisation : On ne boucle que sur le suffixe à droite de pos.
+            // On évite de recalculer l'index complet à chaque itération.
+            let suffix_start = pos + 1;
+            if suffix_start < arity {
+                for i in suffix_start..arity {
+                    // SAFETY: On accède directement aux domaines
+                    // Le saturating_sub(1) prépare la retenue pour le prochain next()
+                    self.indices[i] = self.domains[i].cardinality().saturating_sub(1);
+                }
             }
-
-            // Note : On n'a pas besoin de modifier current_combo ici.
-            // Le prochain appel à next() appellera prepare_next(), qui renverra Some(pos),
-            // et la boucle de mise à jour partielle rafraîchira tout le nécessaire.
         }
     }
 

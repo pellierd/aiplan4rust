@@ -5,13 +5,21 @@ use crate::aiplan4rust::lir::symbol_registry::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
+use crate::aiplan4rust::grounding::engine::GroundingEngineError;
 use crate::aiplan4rust::grounding::iterator::DomainIteratorError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::LirError;
+use crate::aiplan4rust::lir::logic::LogicError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 #[derive(Debug, Error)]
 pub enum GroundingError {
+
+    #[error(transparent)]
+    GroundingEngine(#[from] GroundingEngineError),
+
+    #[error(transparent)]
+    Logic(#[from] LogicError),
 
     #[error(transparent)]
     Arena(#[from] ArenaError),

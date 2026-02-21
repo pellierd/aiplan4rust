@@ -1,120 +1,139 @@
-use std::collections::{HashMap, HashSet};
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
-use crate::aiplan4rust::lang::{ObjectId, Type, TypeId};
+use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
+/// A central registry managing value domains for every type within a planning problem.
+///
+/// The `ValueRegistry` handles the collection, deduplication, and sorting of objects
+/// from a [`LiftedProblem`]. It is optimized for the grounding phase, providing
+/// $O(1)$ access to type domains via [`TypeId`].
+///
+/// # Internal Structure
+/// Domains are stored contiguously in a vector to maximize CPU cache locality during
+/// the intensive iterations required for quantifier expansion and action grounding.
 pub struct ValueRegistry {
-    /// Accès O(1) par index (TypeID). Stockage principal pour le grounding.
-    pub type_domains: Vec<ValueDomain>,
-
-    /// Vue par HashMap pour la flexibilité (Set de découverte pour éviter les doublons).
-    pub discovered_by_type: HashMap<TypeId, HashSet<ObjectId>>,
+    /// Main storage indexed by `TypeId`. Each [`ValueDomain`] contains a sorted 
+    /// and unique list of [`ObjectId`]s.
+    type_domains: Vec<ValueDomain>,
+    /// The initial capacity allocated for each type bucket during object collection.
+    init_size: usize,
 }
 
 impl ValueRegistry {
+    /// Default pre-allocation size (16) for each type's object list.
+    const DEFAULT_INIT_SIZE: usize = 16;
+
+    /// Creates a new, empty `ValueRegistry` with default configuration.
+    ///
+    /// The registry must be populated using [`Self::from_problem`] before use.
     pub fn new() -> Self {
         Self {
             type_domains: Vec::new(),
-            discovered_by_type: HashMap::new(),
+            init_size: Self::DEFAULT_INIT_SIZE,
         }
     }
 
-    /// Construit le registre initial à partir des objets définis dans le problème.
-    pub fn from_problem(problem: &LiftedProblem) -> Result<Self, GroundingError> {
-        let n = problem.type_defs().len();
-        let tmp_objects = Self::collect_objects(problem);
+    /// Sets the initial capacity for object collection (Builder Pattern).
+    ///
+    /// If the problem is known to have a high number of objects per type, 
+    /// increasing this value can significantly reduce the number of memory 
+    /// reallocations during the initialization phase.
+    ///
+    /// # Example
+    /// ```rust
+    /// let registry = ValueRegistry::new()
+    ///     .with_init_size(128)
+    ///     .from_problem(&problem)?;
+    /// ```
+    pub fn with_init_size(mut self, size: usize) -> Self {
+        self.init_size = size;
+        self
+    }
 
-        let mut type_domains = Vec::with_capacity(n);
-        let mut discovered_by_type = HashMap::with_capacity(n);
+    /// Builds and finalizes the registry from a [`LiftedProblem`].
+    ///
+    /// This process involves:
+    /// 1. Collecting all objects defined in the problem.
+    /// 2. Organizing them by type (handling type hierarchies).
+    /// 3. **Sorting** and **deduplicating** each domain to ensure deterministic grounding.
+    ///
+    /// This method consumes `self` to take ownership of the configuration.
+    ///
+    /// # Errors
+    /// Returns a [`GroundingError`] if the problem structure is inconsistent or 
+    /// if type definitions are missing.
+    pub fn from_problem(self, problem: &LiftedProblem) -> Result<Self, GroundingError> {
+        // 1. Raw data collection
+        let raw_objects = self.collect_objects(problem);
 
-        for (i, objs) in tmp_objects.into_iter().enumerate() {
-            let ty_id = TypeId::from(i);
-
-            // 1. On remplit le set de découverte (Source de vérité pour les futurs ajouts)
-            let mut set = HashSet::with_capacity(objs.len());
-            set.extend(objs.iter().copied());
-            discovered_by_type.insert(ty_id, set);
-
-            // 2. On crée le domaine immuable (Trié et Dédupliqué par le constructeur)
-            type_domains.push(ValueDomain::new(objs));
-        }
+        // 2. Transformation into optimized domains (Sort + Dedup)
+        // We use into_iter to move the raw vectors without deep-copying data.
+        let type_domains = raw_objects
+            .into_iter()
+            .map(|mut objs| {
+                objs.sort_unstable(); // Fast sorting for primitive IDs
+                objs.dedup();         // Linear deduplication on sorted vector
+                ValueDomain::new(objs)
+            })
+            .collect();
 
         Ok(Self {
             type_domains,
-            discovered_by_type,
+            init_size: self.init_size
         })
     }
 
-    /// Enregistre une constante pour un type complexe (multiples types primitifs).
-    pub fn register_to_type(&mut self, arg: ObjectId, ty: &Type<TypeId>) -> bool {
-        self.register(arg, ty.members())
-    }
-
-    /// Enregistre une constante dans une liste de types primitifs.
-    /// Retourne `true` si la constante a été ajoutée à au moins un domaine.
-    pub(crate) fn register(&mut self, arg: ObjectId, types: &[TypeId]) -> bool {
-        let mut changed = false;
-
-        for &ty_id in types {
-            if self
-                .discovered_by_type
-                .entry(ty_id)
-                .or_default()
-                .insert(arg)
-            {
-                changed = true;
-            }
-        }
-
-        changed
-    }
-
-    /// Récupère le domaine pour un type riche (ex: un paramètre d'action).
-    pub fn get_domain_of_type(&self, ty: &Type<TypeId>) -> &ValueDomain {
-        self.get_domain_of_primitive_type(ty.members()[0])
-    }
-
-    /// Accès direct au stockage indexé par TypeID.
-    pub fn get_domain_of_primitive_type(&self, type_id: TypeId) -> &ValueDomain {
-        &self.type_domains[type_id.as_usize()]
-    }
-
-    /// Synchronise les domaines vectoriels (`type_domains`) avec les sets (`discovered_by_type`).
-    /// À appeler si `register` a renvoyé `true` pour reconstruire les domaines triés.
-    pub fn sync(&mut self) {
-        for (ty_id, set) in &self.discovered_by_type {
-            let idx = ty_id.as_usize();
-
-            // On reconstruit le vecteur à partir du set
-            let objs: Vec<ObjectId> = set.iter().copied().collect();
-            let new_domain = ValueDomain::new(objs);
-
-            if idx < self.type_domains.len() {
-                self.type_domains[idx] = new_domain;
-            } else {
-                // Cas de types créés dynamiquement (si applicable)
-                self.type_domains.push(new_domain);
-            }
-        }
-    }
-
-    /// Collecte tous les objets statiques du problème classés par TypeID.
-    fn collect_objects(problem: &LiftedProblem) -> Vec<Vec<ObjectId>> {
+    /// Scans the problem to extract raw objects categorized by type.
+    ///
+    /// Uses `init_size` to pre-allocate internal buckets, minimizing the 
+    /// memory management overhead.
+    fn collect_objects(&self, problem: &LiftedProblem) -> Vec<Vec<ObjectId>> {
         let num_types = problem.type_defs().len();
-        let mut tmp_objects = vec![Vec::new(); num_types];
+
+        // repeat_with ensures each inner Vec is initialized with its own capacity.
+        let mut tmp_objects: Vec<Vec<ObjectId>> = std::iter::repeat_with(|| Vec::with_capacity(self.init_size))
+            .take(num_types)
+            .collect();
 
         for typed_object in problem.object_defs() {
             let obj_id = typed_object.symbol();
-
+            // An object can belong to multiple types in a hierarchy.
             for &ty_id in typed_object.ty().members() {
-                let idx = ty_id.as_usize();
-                if idx < tmp_objects.len() {
-                    tmp_objects[idx].push(obj_id);
+                if let Some(bucket) = tmp_objects.get_mut(ty_id.as_usize()) {
+                    bucket.push(obj_id);
                 }
             }
         }
-
         tmp_objects
+    }
+
+    /// Retrieves the domains corresponding to a list of typed variables.
+    ///
+    /// This is typically used to initialize iterators for quantifier expansion 
+    /// or action instantiation. Returns a vector of references to the internal 
+    /// [`ValueDomain`]s.
+    pub fn get_variable_domains(&self, variables: &TypedList<VariableId, TypeId>) -> Vec<&ValueDomain> {
+        variables
+            .iter()
+            .map(|var| self.get_type_domain(var.ty()))
+            .collect()
+    }
+
+    /// Retrieves the value domain for a specific [`Type`].
+    ///
+    /// # Panics
+    /// Panics if the provided type contains no primitive members or if the
+    /// internal hierarchy is malformed.
+    pub fn get_type_domain(&self, ty: &Type<TypeId>) -> &ValueDomain {
+        self.get_primitive_type_domain(ty.members()[0])
+    }
+
+    /// Direct $O(1)$ access to a type domain via its [`TypeId`].
+    ///
+    /// # Panics
+    /// Panics if the `type_id` is out of bounds for this registry.
+    pub fn get_primitive_type_domain(&self, type_id: TypeId) -> &ValueDomain {
+        &self.type_domains[type_id.as_usize()]
     }
 }

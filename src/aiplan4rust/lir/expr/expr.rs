@@ -179,7 +179,7 @@ impl Expr {
         Ok(())
     }
 
-    pub fn substitute(&mut self, root_id: NodeId, env: &HashMap<VariableId, ObjectId>) -> Result<(), ExprError>{
+    /*pub fn substitute(&mut self, root_id: NodeId, env: &HashMap<VariableId, ObjectId>) -> Result<(), ExprError>{
         // On utilise un parcours post-order ou un simple stack
         let mut stack = vec![root_id];
 
@@ -209,7 +209,7 @@ impl Expr {
             }
         }
         Ok(())
-    }
+    }*/
 
     /// Creates an expression with a single root node of kind `Or` and no content.
     ///
