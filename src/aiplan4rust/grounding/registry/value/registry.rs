@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::value_domain::ValueDomain;
 use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, VariableId};
@@ -26,7 +27,7 @@ impl ValueRegistry {
 
     /// Creates a new, empty `ValueRegistry` with default configuration.
     ///
-    /// The registry must be populated using [`Self::from_problem`] before use.
+    /// The registry must be populated using [`Self::with_problem`] before use.
     pub fn new() -> Self {
         Self {
             type_domains: Vec::new(),
@@ -63,7 +64,7 @@ impl ValueRegistry {
     /// # Errors
     /// Returns a [`GroundingError`] if the problem structure is inconsistent or 
     /// if type definitions are missing.
-    pub fn from_problem(self, problem: &LiftedProblem) -> Result<Self, GroundingError> {
+    pub fn with_problem(self, problem: &LiftedProblem) -> Result<Self, GroundingError> {
         // 1. Raw data collection
         let raw_objects = self.collect_objects(problem);
 
@@ -84,6 +85,55 @@ impl ValueRegistry {
         })
     }
 
+    /// Initializes the registry directly from a `TypedList`.
+    ///
+    /// # Note
+    /// This is a convenience method primarily intended for **unit testing**.
+    /// In a standard workflow, the registry should be initialized via `with_problem`
+    /// to ensure consistency with the global problem definition.
+    ///
+    /// This method handles cases where `ts.ty()` returns a union type (multiple `TypeId`).
+    /// Each object is added to the domain of every type present in its type union.
+    pub fn with_typed_list(mut self, objects: TypedList<ObjectId, TypeId>) -> Self {
+        // 1. Group objects by individual TypeId
+        let mut grouped: HashMap<TypeId, Vec<ObjectId>> = HashMap::new();
+
+        for ts in objects {
+            // ts.ty().members() provides an iterator or slice of TypeId
+            for tid in ts.ty().members() {
+                grouped.entry(*tid)
+                    .or_default()
+                    .push(ts.symbol());
+            }
+        }
+
+        if grouped.is_empty() {
+            return self;
+        }
+
+        // 2. Determine the maximum ID for vector sizing
+        let max_id = grouped.keys()
+            .map(|&tid| usize::from(tid))
+            .max()
+            .unwrap_or(0);
+
+        // 3. Initialize the domain vector with padding for non-contiguous IDs
+        // We ensure the vector is large enough to be indexed by any valid TypeId
+        self.type_domains = vec![ValueDomain::new(Vec::new()); max_id + 1];
+
+        // 4. Fill the domains
+        for (tid, mut objs) in grouped {
+            // Sort and dedup is mandatory: an object might belong to multiple
+            // types in the hierarchy or be declared redundantly.
+            objs.sort_unstable();
+            objs.dedup();
+
+            self.type_domains[usize::from(tid)] = ValueDomain::new(objs);
+        }
+
+        self
+    }
+    
     /// Scans the problem to extract raw objects categorized by type.
     ///
     /// Uses `init_size` to pre-allocate internal buckets, minimizing the 

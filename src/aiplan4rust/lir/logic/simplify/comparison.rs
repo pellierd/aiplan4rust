@@ -198,29 +198,38 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
         return Ok(false);
     }
 
-    // Try to get constant values from both children
-    let left_val = match expr.try_node(children[0])?.content().as_number() {
-        Some(v) => v,
-        None => return Ok(false),
-    };
-    let right_val = match expr.try_node(children[1])?.content().as_number() {
-        Some(v) => v,
-        None => return Ok(false),
-    };
+    let left_id = children[0];
+    let right_id = children[1];
 
-    // Evaluate the comparison directly on OrderedFloat
-    let result = match op {
-        BinaryComp::Equal => left_val == right_val,
-        BinaryComp::Greater => left_val > right_val,
-        BinaryComp::Less => left_val < right_val,
-        BinaryComp::GreaterEq => left_val >= right_val,
-        BinaryComp::LessEq => left_val <= right_val,
-    };
+    let left_node = expr.try_node(left_id)?;
+    let right_node = expr.try_node(right_id)?;
 
-    // Replace the node using set_to
-    expr.set_to_bool(node_id, result)?;
+    // 1. Tenter l'évaluation sur des nombres (Flottants / Ints)
+    if let (Some(left_val), Some(right_val)) = (left_node.content().as_number(), right_node.content().as_number()) {
+        let result = match op {
+            BinaryComp::Equal => left_val == right_val,
+            BinaryComp::Greater => left_val > right_val,
+            BinaryComp::Less => left_val < right_val,
+            BinaryComp::GreaterEq => left_val >= right_val,
+            BinaryComp::LessEq => left_val <= right_val,
+        };
+        // Replace the node using set_to_bool
+        expr.set_to_bool(node_id, result)?;
+        return Ok(true);
+    }
 
-    Ok(true)
+    // 2. Tenter l'évaluation sur des objets (ExprKind::Constant)
+    if left_node.kind() == ExprKind::Constant && right_node.kind() == ExprKind::Constant {
+        // La seule comparaison valide sur des objets est l'égalité
+        if op == BinaryComp::Equal {
+            // Si les sous-expressions sont identiques structurellement, c'est vrai, sinon faux.
+            let is_eq = expr.deep_sub_expr_eq(left_id, right_id)?;
+            expr.set_to_bool(node_id, is_eq)?;
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 /// Simplifies an FComp node when both children are trivially identical.
@@ -287,11 +296,7 @@ fn simplify_comparison_trivial_identity(
                 | Some(BinaryComp::GreaterEq)
                 | Some(BinaryComp::LessEq)
         );
-
-        let node_mut = expr.try_node_mut(node_id)?;
-        node_mut.set_kind(if is_true { ExprKind::And } else { ExprKind::Or });
-        node_mut.set_content(Content::None);
-        node_mut.set_children(vec![]);
+        expr.set_to_bool(node_id, is_true)?;
         return Ok(true);
     }
 
@@ -300,9 +305,194 @@ fn simplify_comparison_trivial_identity(
 
 #[cfg(test)]
 mod tests {
+    use crate::aiplan4rust::lang::{FunctionSymbolId, ObjectId, VariableId};
     use super::*;
     use crate::aiplan4rust::lir::expr::ExprKind;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
+    use crate::aiplan4rust::lir::expr::ExprKind::FunctionSymbol;
+
+    /// Test que l'égalité entre deux objets identiques est simplifiée en `and` (True).
+    /// Entrée : (= a a) où 'a' est une constante symbolique (objet).
+    /// Attendu : (and)
+    #[test]
+    fn test_simplify_object_constant_equal() -> Result<(), LogicError> {
+        let mut builder = ExprBuilder::new();
+
+        // 1. Setup: (= a a)
+        // On crée deux nœuds distincts, mais représentant le même objet "a"
+        let  a = ObjectId::from(1);
+        let left = builder.constant(a);
+        let right = builder.constant(a);
+        let eq_node = builder.equal(left, right);
+
+        builder.set_root(eq_node)?;
+        let mut expr = builder.finish();
+        let root_id = expr.try_root_id()?;
+
+        // 2. Transformation: Simplify (= "a" "a") -> True
+        simplify(root_id, &mut expr)?;
+
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
+
+        // L'égalité disparait au profit d'un (and) vide (True)
+        assert_eq!(
+            root_node.kind(),
+            ExprKind::And,
+            "L'égalité d'objets identiques doit devenir un 'and' vide"
+        );
+        assert!(root_node.children().is_empty());
+
+        Ok(())
+    }
+
+    /// Test que l'égalité entre deux constantes d'objets différents est simplifiée en `or` (False).
+    /// Entrée : (= c1 c2)
+    /// Attendu : (or)
+    #[test]
+    fn test_simplify_object_constant_not_equal() -> Result<(), LogicError> {
+        let mut builder = ExprBuilder::new();
+
+        // 1. Setup: (= obj_1 obj_2)
+        let left = builder.constant(ObjectId::from(1));
+        let right = builder.constant(ObjectId::from(2));
+        let eq_node = builder.equal(left, right);
+
+        builder.set_root(eq_node)?;
+        let mut expr = builder.finish();
+        let root_id = expr.try_root_id()?;
+
+        // 2. Transformation
+        simplify(root_id, &mut expr)?;
+
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
+
+        // L'égalité de valeurs différentes devient False (or vide)
+        assert_eq!(
+            root_node.kind(),
+            ExprKind::Or,
+            "L'égalité d'objets différents doit être simplifiée en False"
+        );
+        assert!(root_node.children().is_empty());
+
+        Ok(())
+    }
+
+    /// Test que l'égalité entre une variable et elle-même est simplifiée en `and` (True).
+    /// Entrée : (= ?v1 ?v1)
+    /// Attendu : (and)
+    #[test]
+    fn test_simplify_variable_self_equal() -> Result<(), LogicError> {
+        let mut builder = ExprBuilder::new();
+
+        // 1. Setup: (= ?var_x ?var_x)
+        // On utilise le même VariableId pour simuler la même variable
+        let var_id = VariableId::from(42);
+        let left = builder.variable(var_id);
+        let right = builder.variable(var_id);
+        let eq_node = builder.equal(left, right);
+
+        builder.set_root(eq_node)?;
+        let mut expr = builder.finish();
+        let root_id = expr.try_root_id()?;
+
+        // 2. Transformation: Simplify (= ?x ?x) -> True
+        simplify(root_id, &mut expr)?;
+
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
+
+        // Une variable est toujours égale à elle-même
+        assert_eq!(
+            root_node.kind(),
+            ExprKind::And,
+            "L'égalité d'une variable avec elle-même doit devenir un 'and' vide (True)"
+        );
+        assert!(root_node.children().is_empty());
+
+        Ok(())
+    }
+
+    /// Test que l'égalité entre deux variables différentes n'est PAS simplifiée.
+    /// Entrée : (= ?v1 ?v2)
+    /// Attendu : (= ?v1 ?v2) (inchangé car elles pourraient être égales ou non à l'exécution)
+    #[test]
+    fn test_simplify_different_variables_no_change() -> Result<(), LogicError> {
+        let mut builder = ExprBuilder::new();
+
+        // 1. Setup: (= ?var_1 ?var_2)
+        let v1 = builder.variable(VariableId::from(1));
+        let v2 = builder.variable(VariableId::from(2));
+        let eq_node = builder.equal(v1, v2);
+
+        builder.set_root(eq_node)?;
+        let mut expr = builder.finish();
+        let root_id = expr.try_root_id()?;
+
+        // 2. Transformation
+        simplify(root_id, &mut expr)?;
+
+        // 3. Validation
+        let root_node = expr.try_root_node()?;
+
+        // On ne peut pas simplifier car on ne connaît pas les valeurs futures des variables
+        assert_eq!(
+            root_node.kind(),
+            ExprKind::FComp,
+            "L'égalité entre deux variables distinctes ne doit pas être simplifiée"
+        );
+        // Vérification du contenu (l'opérateur doit être Equal)
+        assert_eq!(
+            root_node.content().try_binary_comp()?,
+            BinaryComp::Equal,
+                "L'opérateur de comparaison doit toujours être 'Equal'"
+        );
+        assert_eq!(root_node.children().len(), 2);
+
+        Ok(())
+    }
+    /// Teste si le moteur de simplification reconnaît que f(?x, ?y) = f(?x, ?y) est vrai.
+    #[test]
+    fn test_simplify_function_equality() -> Result<(), LogicError> {
+        let mut builder = ExprBuilder::new();
+
+        // 1. Définition des IDs pour les variables et la fonction
+        let var_x_id = VariableId::from(1);
+        let var_y_id = VariableId::from(2);
+        let func_symbol_id = FunctionSymbolId::from(10);
+
+        // 2. Construction du premier terme : f(?x, ?y)
+        let x1 = builder.variable(var_x_id);
+        let y1 = builder.variable(var_y_id);
+        let f1 = builder.function_term(func_symbol_id, vec![x1, y1]);
+
+        // 3. Construction du second terme : f(?x, ?y)
+        let x2 = builder.variable(var_x_id);
+        let y2 = builder.variable(var_y_id);
+        let f2 = builder.function_term(func_symbol_id, vec![x2, y2]);
+
+        // 4. Création du prédicat d'égalité : f(?x, ?y) == f(?x, ?y)
+        let equality_node = builder.fcomp(BinaryComp::Equal, f1, f2);
+
+        // Définition de la racine de l'expression
+        builder.set_root(equality_node)?;
+        let mut expr = builder.finish();
+
+        // 5. Exécution de la simplification
+        // La méthode simplify() doit réduire l'égalité de deux termes identiques à "True"
+        simplify(equality_node, &mut expr)?;
+
+        // 6. Vérification du résultat
+        let root_node =expr.try_root_node()?;
+
+        // Une égalité tautologique doit devenir un 'and' vide (représentant 'True')
+        assert!(
+            root_node.is_empty_and(),
+            "L'égalité d'une expression avec elle-même doit devenir un 'and' vide (True)"
+        );
+        Ok(())
+    }
 
     /// Test that a constant equality comparison is simplified to `and`.
     /// Input: (= 3 3)

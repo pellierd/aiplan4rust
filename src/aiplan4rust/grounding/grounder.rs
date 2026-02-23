@@ -59,7 +59,7 @@ impl Grounder {
         type_flattening::problem::flatten(&mut lifted_problem)?;
         let table = analysis::inertia::analyzer::analyze(&lifted_problem)?;
         let inertia_registry = InertiaRegistry::build(&lifted_problem, &table)?;
-        let mut registry = ValueRegistry::new().from_problem(&lifted_problem)?;
+        let mut registry = ValueRegistry::new().with_problem(&lifted_problem)?;
 
 
         println!("{}", table);
