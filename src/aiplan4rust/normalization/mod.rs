@@ -8,7 +8,7 @@
 //!
 //! Normalization eliminates syntactic ambiguities, resolves implicit constructs, and ensures
 //! structural uniformity of AST nodes. This is crucial for downstream components such as
-//! the type_checker checker, lifted IR builder, and planner logic.
+//! the type_checker checker, lifted IR builder, and planner ops.
 //!
 //! Key goals of expr include:
 //!

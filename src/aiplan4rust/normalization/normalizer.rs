@@ -39,7 +39,7 @@
 //! - Syntax tree violations ([`SyntaxTreeError`])
 //! - Arena allocation failures ([`ArenaError`])
 //! - Interning resolution errors ([`InternerError`])
-//! - Internal logic bugs or malformed AST states
+//! - Internal ops bugs or malformed AST states
 //!
 //! Even in failure, collected diagnostics can provide useful context for recovery or debugging.
 
@@ -115,7 +115,7 @@ impl Normalizer {
 
     /// Internal method: orchestrates the expr pipeline.
     ///
-    /// Applies a fixed sequence of normalization that simplify the AST in place.
+    /// Applies a fixed sequence of normalization that simplification the AST in place.
     /// Any diagnostics encountered during the process are accumulated internally.
     ///
     /// # Arguments

@@ -189,7 +189,7 @@ pub fn normalize_typed_list(ast: &mut Ast) -> Result<(), NormalizationPassError>
 ///
 /// # Notes
 ///
-/// This expr step is important to simplify downstream processing,
+/// This expr step is important to simplification downstream processing,
 /// ensuring that each `TypedItem` corresponds to a single element, which simplifies
 /// type_checker checking and code generation phases.
 fn normalize_typed_list_node(ast: &mut Ast) -> Result<(), NormalizationPassError> {

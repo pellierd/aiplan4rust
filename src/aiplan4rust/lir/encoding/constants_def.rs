@@ -1,7 +1,7 @@
 //! Domain Constants Encoding
 //!
 //! This module handles the extraction of constants from the domain file.
-//! It reuses the generic object encoding logic and marks the constant boundary
+//! It reuses the generic object encoding ops and marks the constant boundary
 //! in the LIR to ensure global symbol resolution consistency.
 
 use crate::aiplan4rust::lir::LirError;

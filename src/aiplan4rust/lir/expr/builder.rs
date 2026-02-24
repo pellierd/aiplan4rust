@@ -242,7 +242,7 @@ impl ExprBuilder {
     ///
     /// This node stores a floating-point value as an [`ExprNode`] with the kind [`ExprKind::Number`].
     /// The value is internally converted to an [`OrderedFloat`] to ensure compatibility
-    /// with the rest of the expression tree logic.
+    /// with the rest of the expression tree ops.
     ///
     /// # Arguments
     /// * `value` - The numeric value (f64) to store in the node.
@@ -317,7 +317,7 @@ impl ExprBuilder {
 
     /// Creates an empty logical `OR` node, representing a "False" constant.
     ///
-    /// In logic and planning languages like PDDL, a disjunction with no operands
+    /// In ops and planning languages like PDDL, a disjunction with no operands
     /// is vacuously false. This is often used to represent an unsatisfiable
     /// condition or an initial state for an accumulator.
     ///
@@ -344,7 +344,7 @@ impl ExprBuilder {
 
     /// Creates an `Imply` node: (imply A B)
     ///
-    /// In logic, this represents the material implication (A → B). It is a binary
+    /// In ops, this represents the material implication (A → B). It is a binary
     /// operator where the first child is the antecedent and the second is the consequent.
     ///
     /// # Arguments

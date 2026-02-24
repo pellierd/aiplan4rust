@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a `When` expression node according to PDDL simplification rules.
@@ -28,7 +28,7 @@ use crate::aiplan4rust::tree::NodeId;
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     simplify_when_node(node_id, expr)?;
     Ok(())
 }
@@ -54,7 +54,7 @@ pub fn simplify(
 /// rewritten in-place.
 ///
 /// # Parameters
-/// - `node_id`: The ID of the `When` node to simplify.
+/// - `node_id`: The ID of the `When` node to simplification.
 /// - `expr`: Mutable reference to the expression tree.
 ///
 /// # Returns
@@ -69,7 +69,7 @@ pub fn simplify(
 /// This function should only be called on nodes whose kind is
 /// `ExprKind::When`. It directly modifies the expression tree to apply
 /// simplifications.
-fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+fn simplify_when_node(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::When, "Node must be a When");
 
@@ -113,7 +113,7 @@ mod tests {
 
     /// Test case 1: (when (and) E) -> E
     #[test]
-    fn test_when_empty_and_condition() -> Result<(), LogicError> {
+    fn test_when_empty_and_condition() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (and) (E))
@@ -139,7 +139,7 @@ mod tests {
 
     /// Test case 2: (when (or) E) -> (and)
     #[test]
-    fn test_when_empty_or_condition() -> Result<(), LogicError> {
+    fn test_when_empty_or_condition() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (or) (E)) -> condition toujours fausse
@@ -151,7 +151,7 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.try_root_id()?;
 
-        // 2. Transformation: simplify (condition fausse -> l'effet disparaît)
+        // 2. Transformation: simplification (condition fausse -> l'effet disparaît)
         simplify(root_id, &mut expr)?;
 
         // 3. Validation
@@ -166,7 +166,7 @@ mod tests {
 
     /// Test case 3: (when E E) -> (and)
     #[test]
-    fn test_when_identical_condition_effect() -> Result<(), LogicError> {
+    fn test_when_identical_condition_effect() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (E) (E))
@@ -177,7 +177,7 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.try_root_id()?;
 
-        // 2. Transformation: simplify
+        // 2. Transformation: simplification
         // Un effet qui ne change pas l'état est inutile.
         simplify(root_id, &mut expr)?;
 
@@ -193,7 +193,7 @@ mod tests {
 
     /// Test case 4: (when C (and)) -> (and)
     #[test]
-    fn test_when_empty_effect() -> Result<(), LogicError> {
+    fn test_when_empty_effect() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (C) (and))
@@ -205,7 +205,7 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.try_root_id()?;
 
-        // 2. Transformation: simplify
+        // 2. Transformation: simplification
         // Si l'effet est vide, le 'when' est inutile.
         simplify(root_id, &mut expr)?;
 
@@ -221,7 +221,7 @@ mod tests {
 
     /// Test case 5: No simplification applied (when (C) (E)) -> (when (C) (E))
     #[test]
-    fn test_when_no_simplification() -> Result<(), LogicError> {
+    fn test_when_no_simplification() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (when (C) (E))
@@ -233,7 +233,7 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.try_root_id()?;
 
-        // 2. Transformation: simplify (no change)
+        // 2. Transformation: simplification (no change)
         simplify(root_id, &mut expr)?;
 
         // 3. Validation

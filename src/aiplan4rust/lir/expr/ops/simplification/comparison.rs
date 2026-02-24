@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::expr::content::Content;
 use crate::aiplan4rust::lang::BinaryComp;
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
 /// Simplifies an FComp node by applying all relevant normalizations and simplifications.
@@ -38,7 +38,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::FComp {
@@ -69,7 +69,7 @@ pub fn simplify(
 ///   (>= a b) → (<= b a)
 ///
 /// Returns Ok(true) if modified.
-fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     // We only handle FComp nodes
@@ -115,7 +115,7 @@ fn normalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicE
 ///   (= b a) → (= a b)
 ///
 /// Returns Ok(true) if reordered.
-fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::FComp {
@@ -161,7 +161,7 @@ fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, Log
 ///
 /// # Parameters
 ///
-/// * `node_id` - The ID of the comparison node to simplify.
+/// * `node_id` - The ID of the comparison node to simplification.
 /// * `expr` - A mutable reference to the expression tree (`Expr`) containing the node.
 ///
 /// # Returns
@@ -176,7 +176,7 @@ fn canonicalize_comparison(node_id: NodeId, expr: &mut Expr) -> Result<bool, Log
 /// - This function only operates on nodes of kind `ExprKind::FComp`.
 /// - The simplification is safe and deterministic because it only evaluates constant values.
 /// - After simplification, the node has no children and its content is set to `Content::None`.
-fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     // Ensure the node is of type FComp
@@ -241,7 +241,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
 ///
 /// # Arguments
 ///
-/// * `node_id` - The ID of the FComp node to simplify.
+/// * `node_id` - The ID of the FComp node to simplification.
 /// * `expr` - Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -259,7 +259,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
 ///
 /// # Arguments
 ///
-/// * `node_id` - The ID of the FComp node to simplify.
+/// * `node_id` - The ID of the FComp node to simplification.
 /// * `expr` - Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -270,7 +270,7 @@ fn simplify_comparison_constants(node_id: NodeId, expr: &mut Expr) -> Result<boo
 fn simplify_comparison_trivial_identity(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<bool, LogicError> {
+) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     // Only operate on FComp nodes
@@ -315,7 +315,7 @@ mod tests {
     /// Entrée : (= a a) où 'a' est une constante symbolique (objet).
     /// Attendu : (and)
     #[test]
-    fn test_simplify_object_constant_equal() -> Result<(), LogicError> {
+    fn test_simplify_object_constant_equal() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= a a)
@@ -350,7 +350,7 @@ mod tests {
     /// Entrée : (= c1 c2)
     /// Attendu : (or)
     #[test]
-    fn test_simplify_object_constant_not_equal() -> Result<(), LogicError> {
+    fn test_simplify_object_constant_not_equal() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= obj_1 obj_2)
@@ -383,7 +383,7 @@ mod tests {
     /// Entrée : (= ?v1 ?v1)
     /// Attendu : (and)
     #[test]
-    fn test_simplify_variable_self_equal() -> Result<(), LogicError> {
+    fn test_simplify_variable_self_equal() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= ?var_x ?var_x)
@@ -418,7 +418,7 @@ mod tests {
     /// Entrée : (= ?v1 ?v2)
     /// Attendu : (= ?v1 ?v2) (inchangé car elles pourraient être égales ou non à l'exécution)
     #[test]
-    fn test_simplify_different_variables_no_change() -> Result<(), LogicError> {
+    fn test_simplify_different_variables_no_change() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= ?var_1 ?var_2)
@@ -454,7 +454,7 @@ mod tests {
     }
     /// Teste si le moteur de simplification reconnaît que f(?x, ?y) = f(?x, ?y) est vrai.
     #[test]
-    fn test_simplify_function_equality() -> Result<(), LogicError> {
+    fn test_simplify_function_equality() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Définition des IDs pour les variables et la fonction
@@ -480,7 +480,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 5. Exécution de la simplification
-        // La méthode simplify() doit réduire l'égalité de deux termes identiques à "True"
+        // La méthode simplification() doit réduire l'égalité de deux termes identiques à "True"
         simplify(equality_node, &mut expr)?;
 
         // 6. Vérification du résultat
@@ -498,7 +498,7 @@ mod tests {
     /// Input: (= 3 3)
     /// Expected: (and)
     #[test]
-    fn test_simplify_constant_equal() -> Result<(), LogicError> {
+    fn test_simplify_constant_equal() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= 3.0 3.0)
@@ -527,7 +527,7 @@ mod tests {
     /// Input: (= 2 3)
     /// Expected: (or)
     #[test]
-    fn test_simplify_constant_not_equal() -> Result<(), LogicError> {
+    fn test_simplify_constant_not_equal() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= 2.0 3.0)
@@ -556,7 +556,7 @@ mod tests {
     /// Input: (= ?x ?x)
     /// Expected: (and)
     #[test]
-    fn test_simplify_identical_variables() -> Result<(), LogicError> {
+    fn test_simplify_identical_variables() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= ?x ?x)
@@ -585,7 +585,7 @@ mod tests {
     /// Input: (= (f a b) (f a b))
     /// Expected: (and)
     #[test]
-    fn test_simplify_structural_identity() -> Result<(), LogicError> {
+    fn test_simplify_structural_identity() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= (f ?a ?b) (f ?a ?b))
@@ -618,7 +618,7 @@ mod tests {
     /// Input: (= ?x ?y)
     /// Expected: (= ?x ?y)
     #[test]
-    fn test_no_simplification_different_variables() -> Result<(), LogicError> {
+    fn test_no_simplification_different_variables() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (= ?x ?y)
@@ -648,7 +648,7 @@ mod tests {
     /// Input: (>= ?x ?x)
     /// Expected: (and)
     #[test]
-    fn test_simplify_greater_eq_identity() -> Result<(), LogicError> {
+    fn test_simplify_greater_eq_identity() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (>= ?x ?x)
@@ -676,7 +676,7 @@ mod tests {
     /// Input: (> ?x ?x)
     /// Expected: (or)
     #[test]
-    fn test_simplify_greater_identity() -> Result<(), LogicError> {
+    fn test_simplify_greater_identity() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (> ?x ?x)

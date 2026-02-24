@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Removes all `Imply` nodes in the subtree rooted at `node_id` by transforming
@@ -52,7 +52,7 @@ use crate::aiplan4rust::tree::NodeId;
 /// eliminate_imply(node_id, &mut expr)?;
 /// // All Imply nodes in that subtree are now replaced by Or(Not(premise), consequence)
 /// ```
-pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
+pub fn eliminate_imply(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     // Stack for DFS post-order: (node_id, visited_flag)
     let mut stack = vec![(node_id, false)];
 
@@ -109,7 +109,7 @@ mod tests {
     /// Input: (A -> B)
     /// Expected output: (or (B) (not (A)))
     #[test]
-    fn test_nested_imply() -> Result<(), LogicError> {
+    fn test_nested_imply() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Compact Setup: (imply (1) (imply (2) (3)))
@@ -149,7 +149,7 @@ mod tests {
     /// Input: (A -> (and B C))
     /// Expected output: (or (and (B) (C)) (not (A)))
     #[test]
-    fn test_imply_with_and_consequence() -> Result<(), LogicError> {
+    fn test_imply_with_and_consequence() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Compact Setup: (imply (1) (and (2) (3)))
@@ -191,7 +191,7 @@ mod tests {
     /// Input: (A -> (and))
     /// Expected output: (or (not (A)) (and))
     #[test]
-    fn test_imply_with_empty_and_consequence() -> Result<(), LogicError> {
+    fn test_imply_with_empty_and_consequence() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Compact Setup: (imply (1) (and))
@@ -224,7 +224,7 @@ mod tests {
     /// Input: ((forall ?X A) -> (exists ?Y B))
     /// Expected output: (or (not (forall (?X) (A))) (exists (?Y) (B)))
     #[test]
-    fn test_imply_with_quantifiers() -> Result<(), LogicError> {
+    fn test_imply_with_quantifiers() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: Create typed variables (?x:100, ?y:101)

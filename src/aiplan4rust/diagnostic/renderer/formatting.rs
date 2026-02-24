@@ -109,7 +109,7 @@ pub(crate) fn format_ident_list(idents: &[SymbolId], interner: Option<&SymbolInt
 
 /// Converts a `Span` into a user-friendly string representation of its line range.
 ///
-/// This function is designed to simplify span information for end-user messages
+/// This function is designed to simplification span information for end-user messages
 /// by focusing only on line numbers. If the span covers a single line,
 /// it returns `"line N"`. If it spans multiple lines, it returns `"lines N–M"`.
 ///

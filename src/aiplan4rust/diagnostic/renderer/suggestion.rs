@@ -11,7 +11,7 @@
 //! - [`format_suggestion_debug`]: Formats a suggestion without an interner (for debugging).
 //!
 //! # Internal
-//! - `format_suggestion_internal`: Shared logic used by both public-facing functions.
+//! - `format_suggestion_internal`: Shared ops used by both public-facing functions.
 //!
 //! # Example
 //! ```rust

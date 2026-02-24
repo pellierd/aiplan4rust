@@ -50,7 +50,7 @@
 //! - `is_raw_domain`, `is_raw_problem`, `is_raw_pddl`, `is_raw_hddl`
 //! - `is_parsed_domain`, `is_parsed_problem`, `is_lifted_problem`
 //!
-//! These helpers make it easy to branch logic depending on the type of the source.
+//! These helpers make it easy to branch ops depending on the type of the source.
 //!
 //! # Example: Reading and accessing content
 //!

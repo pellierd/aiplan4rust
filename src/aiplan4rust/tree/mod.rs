@@ -11,7 +11,7 @@
 /// It also defines type aliases to decouple syntax-specific code
 /// from the underlying arena implementation, improving modularity and clarity.
 ///
-/// The following type aliases simplify the API by abstracting the generic
+/// The following type aliases simplification the API by abstracting the generic
 /// `ArenaTree` types for syntax-specific usage:
 /// - `NodeId`: Unique node identifier.
 /// - `NodeRef<'a, T>`: Immutable node reference.

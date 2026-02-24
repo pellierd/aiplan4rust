@@ -8,7 +8,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::tree::NodeId;
 
 #[derive(Error, Debug)]
-pub enum LogicError {
+pub enum ExprOpError {
 
     #[error(transparent)]
     Inertia(#[from] InertiaError),
@@ -69,7 +69,7 @@ pub enum LogicError {
 
 }
 
-impl LogicError {
+impl ExprOpError {
     /// Captures the current call site and backtrace for debugging purposes.
     ///
     /// This function logs the error, the location where capture() was called,
@@ -97,7 +97,7 @@ impl LogicError {
     /// Creates an `InvalidAstNode` error variant for a given `AstKind` and captures the call site.
     #[track_caller]
     pub fn invalid_ast_node(kind: AstKind) -> Self {
-        LogicError::InvalidAstNode { kind }.capture()
+        ExprOpError::InvalidAstNode { kind }.capture()
     }
 
     /// Creates an `ArithmeticEvaluationError` variant for a failed arithmetic operation and captures the call site.
@@ -106,26 +106,26 @@ impl LogicError {
         op: ArithmeticOp,
         values: Vec<OrderedFloat<f64>>,
     ) -> Self {
-        LogicError::ArithmeticEvaluationError { op, values }.capture()
+        ExprOpError::ArithmeticEvaluationError { op, values }.capture()
     }
 
     /// Creates an `InvalidExprNode` error variant for a node with an invalid kind and captures the call site.
     #[track_caller]
     pub fn invalid_expr_node(node_id: NodeId, kind: ExprKind) -> Self {
-        LogicError::InvalidExprNode { node_id, kind }.capture()
+        ExprOpError::InvalidExprNode { node_id, kind }.capture()
     }
 
     /// Creates a `MissingTimeSpecifier` error variant for a literal node and captures the call site.
     #[track_caller]
     pub fn missing_time_specifier(node_id: NodeId) -> Self {
-        LogicError::MissingTimeSpecifier { node_id }.capture()
+        ExprOpError::MissingTimeSpecifier { node_id }.capture()
     }
 
     /// Indicates that an unsupported or unexpected `AstContent` variant was encountered.
     /// Captures the call site for easier debugging of translation failures.
     #[track_caller]
     pub fn unsupported_content(content: AstContent) -> Self {
-        LogicError::UnsupportedContent { content }.capture()
+        ExprOpError::UnsupportedContent { content }.capture()
     }
 
 }

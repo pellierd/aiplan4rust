@@ -1,16 +1,24 @@
-
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::grounding::engine::{GroundingEngine, Substitution};
+use crate::aiplan4rust::grounding::substitution::Substitution;
 use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::iterator::DomainIterator;
+use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
+use crate::aiplan4rust::grounding::substitution;
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
+use crate::aiplan4rust::lir::expr::{ops, Expr, ExprContent, ExprKind};
+use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
 use crate::aiplan4rust::tree::NodeId;
-
 
 pub fn expand(
     expr: &mut Expr,
-    engine: &GroundingEngine,
+    value_registry: &ValueRegistry,
+) -> Result<(), GroundingError> {
+    expand_with(expr, value_registry, None)
+}
+pub fn expand_with(
+    expr: &mut Expr,
+    value_registry: &ValueRegistry,
+    evaluator: Option<& dyn StaticEvaluator>,
 ) -> Result<(), GroundingError> {
     let mut global_change = false;
 
@@ -41,14 +49,14 @@ pub fn expand(
             continue;
         }
 
-        if expand_quantified_expr(expr, node_id, engine)? {
-            engine.logic_engine().simplify_from(expr, node_id)?;
+        if expand_quantified_expr(expr, node_id, value_registry, evaluator)? {
+            ops::simplify_subexpr_with(expr, node_id, evaluator)?;
             global_change = true;
         }
 }
 
     if global_change {
-        engine.logic_engine().simplify(expr)?;
+        ops::simplify_with(expr, evaluator)?;
     }
 
     Ok(())
@@ -59,10 +67,11 @@ fn is_quantifier(kind: ExprKind) -> bool {
     matches!(kind, ExprKind::Forall | ExprKind::Exists)
 }
 
-pub fn expand_quantified_expr(
+fn expand_quantified_expr(
     expr: &mut Expr,
     node_id: NodeId,
-    engine: &GroundingEngine,
+    value_registry: &ValueRegistry,
+    evaluator: Option<& dyn StaticEvaluator>,
 ) -> Result<bool, GroundingError> {
     // --- 1. EXTRACTION ---
     let (variables, body_id, is_forall) = {
@@ -74,7 +83,7 @@ pub fn expand_quantified_expr(
     };
 
     // --- 2. RÉCUPÉRATION DES DOMAINES ---
-    let var_domains = engine.registry().get_variable_domains(&variables);
+    let var_domains = value_registry.get_variable_domains(&variables);
     let mut iterator = DomainIterator::new(var_domains)?;
 
     if handle_empty_domains(expr, node_id, &variables, is_forall, iterator.has_next())? {
@@ -92,7 +101,7 @@ pub fn expand_quantified_expr(
         }
 
         // Appel de la fonction de clonage qui renvoie un NodeId (simplifié)
-        let result_id = engine.instantiate_in_place(expr, body_id, &substitution)?;
+        let result_id = substitution::substitute_in_place_with(expr, body_id, &substitution, evaluator)?;
         let body_node = expr.try_node(result_id)?;
         // --- DÉTECTION DES CONSTANTES VIA L'ARÈNE ---
         if body_node.is_empty_or() { // Représente FALSE
@@ -131,7 +140,7 @@ pub fn expand_quantified_expr(
         *node_mut.children_mut() = instances;
 
         // Simplification finale du parent
-        engine.logic_engine().simplify_from(expr, node_id)?;
+        ops::simplify_subexpr_with(expr, node_id, evaluator)?;
     }
 
     Ok(true)
@@ -165,10 +174,8 @@ fn handle_empty_domains(
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{VariableId, TypeId, ObjectId, TypedList, Type, TypedSymbol, PredicateSymbolId};
-    use crate::aiplan4rust::grounding::engine::GroundingEngine;
     use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
     use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind};
-    use crate::aiplan4rust::lir::logic::LogicEngine;
 
     #[test]
     fn test_expand_forall_quantifier() -> Result<(), Box<dyn std::error::Error>> {
@@ -186,8 +193,6 @@ mod tests {
         object_list.push(TypedSymbol::new(obj_r2, Type::primitive(type_robot)));
 
         let registry = ValueRegistry::new().with_typed_list(object_list);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         // 3. Construct: (forall (?x - robot) (predicate_1 ?x))
         let mut typed_vars = TypedList::new();
@@ -200,9 +205,9 @@ mod tests {
         builder.set_root(forall_node)?;
         let mut expr = builder.finish();
 
-        // 4. Execute the expansion logic
+        // 4. Execute the expansion ops
         // This calls your `expand` function which iterates over quantifiers
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         // 5. Verification
         // The root was the Forall; it should now be an AND node
@@ -247,9 +252,6 @@ mod tests {
         // et type_domains sera [ValueDomain(vide), ValueDomain(999)]
         registry = registry.with_typed_list(objects);
 
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
-
         let mut variables_typees = TypedList::new();
         variables_typees.push(TypedSymbol::new(var_x, Type::primitive(type_vide)));
 
@@ -261,7 +263,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // L'exécution ne plantera plus car l'index 0 existe (même s'il est vide)
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root_id = expr.try_root_id()?;
         let node = expr.try_node(root_id)?;
@@ -317,9 +319,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 3. Exécution du Grounding
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         // 4. Analyse du résultat simplifié
         let root_id = expr.try_root_id()?;
@@ -343,8 +343,6 @@ mod tests {
         typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
 
         let registry = ValueRegistry::new().with_typed_list(typed_objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         let var_x = VariableId::from(1);
         let type_0 = TypeId::from(0);
@@ -360,7 +358,7 @@ mod tests {
         builder.set_root(exists_node)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
         assert!(root.is_empty_and(), "L'existence d'une instance vraie doit rendre le EXISTS vrai");
@@ -380,8 +378,6 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
         let registry = ValueRegistry::new().with_typed_list(objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         let v_x = builder.variable(var_x);
         let atom = builder.atomic_formula(PredicateSymbolId::from(10), vec![v_x]);
@@ -394,7 +390,7 @@ mod tests {
         builder.set_root(forall_node)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
         assert!(root.is_empty_and(), "∀x ∈ ∅ est toujours vrai (And vide)");
@@ -412,8 +408,6 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
         let registry = ValueRegistry::new().with_typed_list(objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         let mut variables_typees = TypedList::new();
         variables_typees.push(TypedSymbol::new(var_x, Type::primitive(type_vide)));
@@ -424,7 +418,7 @@ mod tests {
         builder.set_root(exists_node)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
         assert!(expr.try_node(expr.try_root_id()?)?.is_empty_or(), "∃x ∈ ∅ doit être FALSE");
         Ok(())
     }
@@ -438,8 +432,6 @@ mod tests {
         typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
 
         let registry = ValueRegistry::new().with_typed_list(typed_objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         let var_x = VariableId::from(1);
         let var_y = VariableId::from(2);
@@ -460,7 +452,7 @@ mod tests {
         builder.set_root(forall_x)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root_node = expr.try_node(expr.try_root_id()?)?;
         assert_eq!(root_node.kind(), ExprKind::And);
@@ -483,8 +475,6 @@ mod tests {
         typed_objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(TypeId::from(0))));
 
         let registry = ValueRegistry::new().with_typed_list(typed_objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         let var_x = VariableId::from(1);
         let type_0 = TypeId::from(0);
@@ -503,7 +493,7 @@ mod tests {
         builder.set_root(forall_node)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
         assert!(root.is_empty_or(), "Un Forall avec une instance Fausse doit être Faux");
@@ -519,8 +509,6 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(2), Type::primitive(type_u)));
 
         let registry = ValueRegistry::new().with_typed_list(objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         // Construct: (exists (?x ?y - type_u) (P ?x ?y))
         let mut vars = TypedList::new();
@@ -535,7 +523,7 @@ mod tests {
         builder.set_root(exists)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
         assert_eq!(root.kind(), ExprKind::Or);
@@ -553,8 +541,6 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(1), Type::primitive(type_u)));
 
         let registry = ValueRegistry::new().with_typed_list(objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         // Structure: (forall (?x) (exists (?y) (x == y)))
         // Pour x=1, il existe y=1 tel que 1==1 (True).
@@ -577,7 +563,7 @@ mod tests {
         builder.set_root(forall_node)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
         // L'imbrication doit résulter en une simplification totale vers TRUE (And vide)
@@ -598,8 +584,6 @@ mod tests {
         objects.push(TypedSymbol::new(ObjectId::from(999), Type::primitive(type_autre)));
 
         let registry = ValueRegistry::new().with_typed_list(objects);
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&registry, &logic_engine);
 
         // Structure: (forall (?x - type_u) (exists (?y - type_vide) P(x,y)))
         // L'Exists sur un domaine vide devient False.
@@ -624,7 +608,7 @@ mod tests {
         builder.set_root(forall_x)?;
         let mut expr = builder.finish();
 
-        expand(&mut expr, &engine)?;
+        expand_with(&mut expr, &registry, None)?;
 
         let root = expr.try_node(expr.try_root_id()?)?;
         // Un Forall dont l'instance est False (car l'exists était vide) doit être False (Or vide)

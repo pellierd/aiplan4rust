@@ -1,6 +1,6 @@
 //! PDDL Object Definitions Encoding
 //!
-//! This module provides the core logic for encoding global symbols into the LIR.
+//! This module provides the core ops for encoding global symbols into the LIR.
 //! It is used directly for parsing the `:objects` section of a PDDL problem,
 //! and is called by the `constants_def` module to parse domain constants.
 
@@ -70,7 +70,7 @@ fn collect_object_ids(
         let symbol_node = tree.try_node(symbol_node_id)?;
         let symbol_id = symbol_node.try_ident()?;
 
-        // Register the object. Your `register_object_symbol` logic handles
+        // Register the object. Your `register_object_symbol` ops handles
         // the NodeId mapping and ID generation.
         registry.register_object_symbol(symbol_id, symbol_node_id);
         ir.add_object_symbol(symbol_id);

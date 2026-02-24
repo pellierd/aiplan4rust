@@ -24,7 +24,7 @@
 //!
 //! # Re-exports
 //!
-//! To simplify access to key types, several items are re-exported:
+//! To simplification access to key types, several items are re-exported:
 //!
 //! - [`AstNode`] — alias of `node::AstNode`
 //! - [`AstKind`] — alias of `kind::Kind`

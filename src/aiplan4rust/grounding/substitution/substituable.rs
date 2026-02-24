@@ -1,5 +1,5 @@
-use crate::aiplan4rust::grounding::engine::error::GroundingEngineError;
-use crate::aiplan4rust::grounding::engine::Substitution;
+use crate::aiplan4rust::grounding::substitution::error::GroundingEngineError;
+use crate::aiplan4rust::grounding::substitution::Substitution;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 

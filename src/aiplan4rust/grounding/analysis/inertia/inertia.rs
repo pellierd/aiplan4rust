@@ -6,7 +6,7 @@
 //! grounding process.
 //!
 //! ### Pruning Logic
-//! By identifying static symbols, the planner can simplify complex logical expr
+//! By identifying static symbols, the planner can simplification complex logical expr
 //! (conjunctions, disjunctions, and quantifiers) before the search begins.
 //! For example, a precondition containing a `Negative` static predicate can never
 //! be satisfied, allowing the immediate removal of the associated action instance.
@@ -38,7 +38,7 @@ pub enum Inertia {
     ///
     /// Fluents cannot be pruned during the initial expansion phase based on the
     /// initial state alone, as their truth value changes over time. They are
-    /// passed to the Datalog grounding engine for reachability analysis.
+    /// passed to the Datalog grounding substitution for reachability analysis.
     Fluent,
 }
 

@@ -1,8 +1,7 @@
+use crate::aiplan4rust::lir::expr::ops;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::logic::{LogicError, LogicEngine};
-use crate::aiplan4rust::lir::normalization::{
-    action, derived_predicate, initial_task_network, method,
-};
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::normalization::{action, derived_predicate, initial_task_network, method};
 
 /// Normalizes all normalizable components of a `Problem` using the provided `LogicEngine`.
 ///
@@ -13,31 +12,30 @@ use crate::aiplan4rust::lir::normalization::{
 /// - All durative actions
 /// - All methods
 /// - Initial task network
-pub fn normalize(problem: &mut LiftedProblem) -> Result<(), LogicError> {
-    let engine = LogicEngine::new();
+pub fn normalize(problem: &mut LiftedProblem) -> Result<(), ExprOpError> {
     // Problem-level expr
-    engine.normalize(&mut problem.goal_mut())?;
-    engine.normalize(&mut problem.domain_constraints_mut())?;
-    engine.normalize(&mut problem.problem_constraints_mut())?;
-    engine.normalize(&mut problem.metric_spec_mut())?;
+    ops::normalize(&mut problem.goal_mut())?;
+    ops::normalize(&mut problem.domain_constraints_mut())?;
+    ops::normalize(&mut problem.problem_constraints_mut())?;
+    ops::normalize(&mut problem.metric_spec_mut())?;
 
     // Normalize all derived predicates
     for derived_predicate in problem.derived_predicate_defs_mut() {
-        derived_predicate::normalize(&engine, derived_predicate)?;
+        derived_predicate::normalize(derived_predicate)?;
     }
 
     // Normalize all actions
     for action in problem.action_defs_mut() {
-        action::normalize(&engine, action)?;
+        action::normalize(action)?;
     }
 
     // Normalize all methods
     for method in problem.method_def_mut() {
-        method::normalize(&engine, method)?;
+        method::normalize(method)?;
     }
 
     // Normalize the initial task network
-    initial_task_network::normalize(&engine, &mut problem.initial_task_network_mut())?;
+    initial_task_network::normalize(&mut problem.initial_task_network_mut())?;
 
     Ok(())
 }

@@ -3,7 +3,7 @@
 //! This module defines [`AstError`], an enum representing possible errors
 //! that may occur while working with the abstract syntax tree (AST).
 //! It reuses [`SyntaxTreeError`] for syntax tree-specific issues and
-//! introduces AST-specific errors such as unexpected content or internal logic faults.
+//! introduces AST-specific errors such as unexpected content or internal ops faults.
 
 use thiserror::Error;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;

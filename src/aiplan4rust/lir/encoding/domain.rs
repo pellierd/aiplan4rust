@@ -20,7 +20,7 @@ use crate::aiplan4rust::tree::{Node, SyntaxSubtree, Tree};
 /// This process is performed in two distinct normalization:
 /// 1. **Collection Pass**: Populates the IR with structural definitions (types, constants,
 ///    and signatures for predicates/functions) and maps their AST NodeIds to LIR indices.
-/// 2. **Logic Pass**: Encodes complex business logic (action bodies, durative actions,
+/// 2. **Logic Pass**: Encodes complex business ops (action bodies, durative actions,
 ///    and constraints) using the resolved symbol context from the first pass.
 ///
 /// # Arguments
@@ -107,7 +107,7 @@ fn collect_definitions(
     Ok(())
 }
 
-/// Performs the second pass of the domain encoding by processing the behavioral logic.
+/// Performs the second pass of the domain encoding by processing the behavioral ops.
 ///
 /// This function relies on the `EncodingContext` populated during the first pass
 /// (`collect_definitions`) to resolve predicate and function identifiers into their
@@ -122,7 +122,7 @@ fn collect_definitions(
 ///
 /// * `context` - The linked semantic context containing the domain AST.
 /// * `ctx` - The encoding context used to resolve symbols (predicates, functions, etc.).
-/// * `ir` - The mutable LiftedProblem where the encoded logic is stored.
+/// * `ir` - The mutable LiftedProblem where the encoded ops is stored.
 ///
 /// # Returns
 ///

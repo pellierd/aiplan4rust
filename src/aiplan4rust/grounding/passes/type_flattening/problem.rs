@@ -123,7 +123,7 @@ pub fn build_value_domains(problem: &LiftedProblem) -> Vec<ValueDomain> {
 /// type references using the provided mapping. This ensures that every
 /// signature, variable, and object now refers to the flattened pivot types.
 ///
-/// This function acts as a dispatcher, calling specific flattening logic for:
+/// This function acts as a dispatcher, calling specific flattening ops for:
 /// - Objects and Constants
 /// - Predicate and Function Skeletons
 /// - Actions (Instantaneous and Durative)
@@ -520,7 +520,7 @@ mod tests {
         println!("New pivot created: {}", pivot_name);
 
         assert!(pivot_name.starts_with("either_"), "Pivot name should start with 'either_'");
-        // Depending on your make_either_type_name logic, it might contain names or IDs
+        // Depending on your make_either_type_name ops, it might contain names or IDs
         assert!(pivot_name.contains("a") || pivot_name.contains("b") || pivot_name.contains("c"),
                 "Pivot name should be descriptive of its members");
 

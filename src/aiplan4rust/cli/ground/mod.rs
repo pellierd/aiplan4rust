@@ -7,7 +7,7 @@
 //! The `ground` subcommand is responsible for grounding a linked planning problem
 //! into a fully instantiated form. This module is split into two submodules:
 //!
-//! - [`handler`] — Contains the logic to execute the `ground` command, including
+//! - [`handler`] — Contains the ops to execute the `ground` command, including
 //!   grounding operations and any file manipulation required.
 //! - [`cli`] — Defines the CLI interface, arguments, help messages, and constants
 //!   for the `ground` subcommand.

@@ -4,7 +4,7 @@
 //!
 //! It is split into two submodules:
 //! - [`cli`]: defines the CLI interface, arguments, and help messages for the `parse` subcommand.
-//! - [`handler`]: contains the logic for executing the `parse` command, including file parsing
+//! - [`handler`]: contains the ops for executing the `parse` command, including file parsing
 //!   and output generation.
 //!
 //! # Public API

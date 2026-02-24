@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(root_node.kind(), ExprKind::Or);
 
         // After flattening and deduplication, we expect exactly 3 children: A, B, and C.
-        // Order in the final vector doesn't matter for logic, but the count must be 3.
+        // Order in the final vector doesn't matter for ops, but the count must be 3.
         assert_eq!(
             root_node.children().len(),
             3,
@@ -734,7 +734,7 @@ mod tests {
     /// Nested operation with non-constant child should remain unchanged:
     ///
     /// Input: (+ 2 (* A 3))
-    /// Expected: (+ 2 (* A 3))  (cannot simplify because A is variable)
+    /// Expected: (+ 2 (* A 3))  (cannot simplification because A is variable)
     #[test]
     fn test_nested_with_variable_child() -> Result<(), LogicError> {
         let mut builder = ExprBuilder::new();

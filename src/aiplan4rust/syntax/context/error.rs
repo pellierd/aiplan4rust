@@ -5,11 +5,11 @@
 //! or its related parsing context.
 //!
 //! The error type encapsulates lower-level issues such as arena allocation failures,
-//! syntax tree errors, and other internal logic errors that may arise during AST
+//! syntax tree errors, and other internal ops errors that may arise during AST
 //! construction or transformation.
 //!
 //! Errors from the arena allocator and syntax tree are wrapped to provide
-//! a unified error interface for higher-level parsing logic.
+//! a unified error interface for higher-level parsing ops.
 
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
@@ -20,7 +20,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 /// or its related parsing context.
 ///
 /// This error type encapsulates lower-level issues such as arena allocation failures,
-/// syntax tree errors, as well as internal logic errors that may arise during AST
+/// syntax tree errors, as well as internal ops errors that may arise during AST
 /// construction or transformation.
 #[derive(Error, Debug)]
 pub enum ParseContextError {

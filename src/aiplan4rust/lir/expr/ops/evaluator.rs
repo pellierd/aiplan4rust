@@ -17,7 +17,7 @@ pub enum StaticValue {
 
 /// Interface permettant à la logique du LIR d'interroger des informations
 /// extérieures (comme l'inertie) sans dépendre de l'implémentation du Grounding.
-pub trait StaticEvaluator {
+pub trait StaticEvaluator : Send + Sync {
     /// Évalue un nœud de l'expression (AtomicFormula ou FunctionTerm).
     ///
     /// Retourne `Some(StaticValue)` si l'analyse confirme que le nœud est statique/constant,

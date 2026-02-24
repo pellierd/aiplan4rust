@@ -82,7 +82,7 @@ pub enum ArenaError {
 
     /// A child was requested at an invalid index.
     ///
-    /// This typically indicates a logic error where a child is assumed to exist at a certain index,
+    /// This typically indicates a ops error where a child is assumed to exist at a certain index,
     /// but the actual number of children is lower.
     ///
     /// # Fields

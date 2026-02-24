@@ -15,7 +15,7 @@
 //!
 //! # Re-exports
 //!
-//! To simplify usage, the following types are re-exported:
+//! To simplification usage, the following types are re-exported:
 //! - `LinkedSemanticContext` from the `context` module.
 //! - `Linker` from the `linker` module.
 //! - `LinkerResult` from the `linker_result` module.

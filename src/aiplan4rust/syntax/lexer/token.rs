@@ -369,7 +369,7 @@ pub const HTN: &str = ":htn";
 /// This enum is used to categorize and parse the different types of tokens that can be encountered
 /// in a domain specification, such as keywords, identifiers, numbers, operators, and special
 /// symbols. Each variant corresponds to a specific type_checker of token that the lexer can identify, and
-/// some variants include regular expr and logic for parsing token values.
+/// some variants include regular expr and ops for parsing token values.
 ///
 /// This enum leverages the `Logos` crate for efficient lexical analysis, utilizing custom regex
 /// patterns for token recognition. The associated `lex()` function will match input tokens based on

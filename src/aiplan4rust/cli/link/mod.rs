@@ -7,7 +7,7 @@
 //! The `link` subcommand is responsible for performing linking operations within
 //! the AI planning workflow. This module is split into two submodules:
 //!
-//! - [`handler`] — Contains the logic to execute the `link` command, including
+//! - [`handler`] — Contains the ops to execute the `link` command, including
 //!   any processing or file manipulation required.
 //! - [`cli`] — Defines the CLI interface, arguments, help messages, and constants
 //!   for the `link` subcommand.

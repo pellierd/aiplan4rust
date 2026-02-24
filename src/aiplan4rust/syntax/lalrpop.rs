@@ -1,7 +1,7 @@
 //! This module provides parsing functions for PDDL and HDDL syntax.
 //!
 //! It serves as an abstraction layer over the LALRPOP-generated parsers,
-//! encapsulating parsing logic, error handling, and integration with
+//! encapsulating parsing ops, error handling, and integration with
 //! the parsing context and diagnostics management.
 //!
 //! # Overview

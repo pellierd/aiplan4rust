@@ -31,7 +31,7 @@ use crate::aiplan4rust::tree::SyntaxSubtree;
 /// # Errors
 ///
 /// This function returns an error if:
-/// * The mandatory child node representing the goal's logic is missing.
+/// * The mandatory child node representing the goal's ops is missing.
 /// * The underlying expression fails to encoding (e.g., unknown predicate).
 pub fn encode(
     subtree: &SyntaxSubtree<AstNode>,

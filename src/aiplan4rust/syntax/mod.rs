@@ -55,7 +55,7 @@
 //! - [`lexer`] — Tokenizer for input streams
 //! - [`parser`] — Entrypoint to the parsing pipeline
 //! - [`result`] — Output wrapper from the parsing process
-//! - [`grammar`] — Grammar-specific parsing logic
+//! - [`grammar`] — Grammar-specific parsing ops
 //! - [`ast`] — Abstract syntax tree arena definitions
 //! - [`display`] — Provides the [`SyntaxInternerDisplay`] trait and formatting utilities
 //! - [`span`] — Source position tracking using spans

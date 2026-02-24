@@ -1,4 +1,5 @@
-use crate::aiplan4rust::lir::logic::{LogicError, LogicEngine};
+use crate::aiplan4rust::lir::expr::ops;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::lir::task_network::TaskNetwork;
 
 /// Normalizes a `TaskNetwork` using the provided `LogicEngine`.
@@ -8,13 +9,13 @@ use crate::aiplan4rust::lir::task_network::TaskNetwork;
 ///
 /// # Arguments
 ///
-/// * `engine` - Reference to the `LogicEngine` to use for expr.
+/// * `substitution` - Reference to the `LogicEngine` to use for expr.
 /// * `network` - Mutable reference to the `TaskNetwork` to normalize.
 ///
 /// # Errors
 ///
 /// Returns a `LogicError` if expr of the `logical_constraints` fails.
-pub fn normalize(engine: &LogicEngine, network: &mut TaskNetwork) -> Result<(), LogicError> {
-    engine.normalize(network.logical_constraints_mut())?;
+pub fn normalize(network: &mut TaskNetwork) -> Result<(), ExprOpError> {
+    ops::normalize(network.logical_constraints_mut())?;
     Ok(())
 }

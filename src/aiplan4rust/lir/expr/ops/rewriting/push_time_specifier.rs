@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Recursively pushes temporal specifier nodes (`AtStart`, `AtEnd`, `Overall`)
@@ -58,7 +58,7 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 /// // Part of the expr pipeline managed by the `normalize` module
 /// push_time_specifier(root_id, &mut expr)?;
 /// ```
-pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     // Initialize a stack for depth-first traversal starting with the root
     let mut stack = vec![root_id];
     let mut modified = false;
@@ -103,7 +103,7 @@ pub fn push_time_specifier(root_id: NodeId, expr: &mut Expr) -> Result<bool, Log
                     continue;
                 }
                 _ => {
-                    return Err(LogicError::invalid_expr_node(child_id, child.kind()));
+                    return Err(ExprOpError::invalid_expr_node(child_id, child.kind()));
                 }
             }
         }
@@ -143,7 +143,7 @@ fn push_time_specifier_to_children(
     temporal_id: NodeId,      // ID of the initial temporal node (AtStart / AtEnd / Overall)
     kind: ExprKind,           // Temporal specifier type to push
     expr: &mut Expr,
-) -> Result<Vec<NodeId>, LogicError> {
+) -> Result<Vec<NodeId>, ExprOpError> {
     // Retrieve the temporal node and assert it has exactly one child
     let temporal_node = expr.try_node(temporal_id)?;
     debug_assert!(
@@ -204,7 +204,7 @@ fn push_time_specifier_to_children(
 fn push_time_specifier_into_quantifier(
     temporal_id: NodeId,
     expr: &mut Expr,
-) -> Result<NodeId, LogicError> {
+) -> Result<NodeId, ExprOpError> {
     // Retrieve the temporal node (AtStart / AtEnd / Overall)
     let temporal_node = expr.try_node(temporal_id)?;
     let kind = temporal_node.kind();
@@ -261,19 +261,19 @@ fn push_time_specifier_into_quantifier(
 /// Returns `ExprError::missing_time_specifier(node_id)` if any literal node
 /// does not have a temporal specifier as its parent.
 #[allow(dead_code)]
-fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), LogicError> {
+fn verify_temporal_consistency(expr: &Expr, root_id: NodeId) -> Result<(), ExprOpError> {
     // Traverse the tree in post-order starting from root_id
     for (node_id, node) in expr.postorder_from(root_id).ids() {
         // Check if the current node is a literal (atomic formula or FComp node)
         if expr.is_literal(node_id) {
             // Get the parent node; if none exists, that's an error
             let parent_id = node.parent()
-                .ok_or_else(|| LogicError::missing_time_specifier(node_id))?;
+                .ok_or_else(|| ExprOpError::missing_time_specifier(node_id))?;
 
             // Verify that the parent is a temporal specifier
             if !expr.is_time_specifier(parent_id)? {
                 // If not, return an error indicating missing temporal wrapper
-                return Err(LogicError::missing_time_specifier(node_id));
+                return Err(ExprOpError::missing_time_specifier(node_id));
             }
         }
         // Non-literal nodes are ignored
@@ -294,7 +294,7 @@ mod tests {
     /// Input: (at start (and (A) (B)))
     /// Expected Output: (and (at start A) (at start B))
     #[test]
-    fn test_push_at_start_and() -> Result<(), LogicError> {
+    fn test_push_at_start_and() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup : (at start (and A B))
@@ -330,7 +330,7 @@ mod tests {
     /// Input: (at_end (forall (?X) (A)))
     /// Expected Output: (forall (?X) (at end (A)))
     #[test]
-    fn test_push_at_end_forall() -> Result<(), LogicError> {
+    fn test_push_at_end_forall() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (at end (forall (?X - T) (A)))
@@ -370,7 +370,7 @@ mod tests {
     /// Input: (overall (A))
     /// Expected Output: (overall (A))  (no change needed)
     #[test]
-    fn test_push_overall_atomic() -> Result<(), LogicError> {
+    fn test_push_overall_atomic() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (overall (A))

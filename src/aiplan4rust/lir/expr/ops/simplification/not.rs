@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a `Not` node in a PDDL expression tree.
@@ -23,7 +23,7 @@ use crate::aiplan4rust::tree::NodeId;
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     // ÉTAPE 1 : Double Négation (Structurelle)
     // (not (not X)) -> X
     if simplify_double_negation(node_id, expr)? {
@@ -50,7 +50,7 @@ pub fn simplify(
 /// grandchild node.
 ///
 /// # Parameters
-/// - `node_id`: The `NodeId` of the node to simplify. Must be a `Not` node.
+/// - `node_id`: The `NodeId` of the node to simplification. Must be a `Not` node.
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Behavior
@@ -82,7 +82,7 @@ pub fn simplify(
 fn simplify_double_negation(
     node_id: NodeId,
     expr: &mut Expr, // Inutilisé ici mais conservé pour la signature
-) -> Result<bool, LogicError> {
+) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::Not, "Node must be a Not");
 
@@ -122,7 +122,7 @@ fn simplify_double_negation(
 /// - `(not (or))`  → `(and)`
 ///
 /// # Parameters
-/// - `node_id`: The `NodeId` of the `Not` node to simplify.
+/// - `node_id`: The `NodeId` of the `Not` node to simplification.
 /// - `expr`: A mutable reference to the expression tree.
 ///
 /// # Returns
@@ -140,11 +140,11 @@ fn simplify_double_negation(
 ///   to `None`.
 ///
 /// # Notes
-/// - This function does **not** recursively simplify; it is intended to be
+/// - This function does **not** recursively simplification; it is intended to be
 ///   called during a post-order traversal.
 /// - After simplification, the node is no longer a `Not`. The caller must
 ///   avoid applying further `Not`-specific rules to it.
-fn simplify_trivial_constant(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+fn simplify_trivial_constant(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::Not, "Node must be a Not");
     debug_assert!(node.children().len() == 1, "Not node must have exactly one child");
@@ -180,7 +180,7 @@ mod tests {
 
     /// Test simplification of a simple double negation: (not (not (A))) → (A)
     #[test]
-    fn test_double_negation_simple_predicate() -> Result<(), LogicError> {
+    fn test_double_negation_simple_predicate() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (not (not (A)))
@@ -206,7 +206,7 @@ mod tests {
     /// Test simplification of a nested double negation containing a subtree.
     /// Input: (not (not (and (A) (B)))) -> (and (A) (B))
     #[test]
-    fn test_double_negation_with_subtree() -> Result<(), LogicError> {
+    fn test_double_negation_with_subtree() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (not (not (and (A) (B))))
@@ -235,7 +235,7 @@ mod tests {
     /// Test that no simplification is applied when negation is not doubled.
     /// Input: (not (and (A) (B))) -> unchanged
     #[test]
-    fn test_not_node_no_simplification() -> Result<(), LogicError> {
+    fn test_not_node_no_simplification() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (not (and (A) (B)))
@@ -262,7 +262,7 @@ mod tests {
 
     /// Test simplification of `(not (and))` -> `(or)`
     #[test]
-    fn test_not_empty_and_becomes_or() -> Result<(), LogicError> {
+    fn test_not_empty_and_becomes_or() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (not (and)) -> ¬True
@@ -287,7 +287,7 @@ mod tests {
 
     /// Test simplification of `(not (or))` -> `(and)`
     #[test]
-    fn test_not_empty_or_becomes_and() -> Result<(), LogicError> {
+    fn test_not_empty_or_becomes_and() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (not (or)) -> ¬False
@@ -313,7 +313,7 @@ mod tests {
     /// Test that no simplification is applied on a NOT whose child is not a NOT or empty AND/OR.
     /// Input: (not (A)) -> unchanged
     #[test]
-    fn test_not_other_operator_no_simplification() -> Result<(), LogicError> {
+    fn test_not_other_operator_no_simplification() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (not (A))

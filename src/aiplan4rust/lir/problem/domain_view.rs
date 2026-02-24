@@ -195,7 +195,7 @@ impl<'a> DomainDef<'a> {
 /// Implements the standard [`Display`] trait for [`DomainDef`].
 ///
 /// This provides a default string representation of the domain, typically
-/// using the default rendering logic for the lifted problem (`renderers::default::render_problem`).
+/// using the default rendering ops for the lifted problem (`renderers::default::render_problem`).
 ///
 /// # Example
 ///

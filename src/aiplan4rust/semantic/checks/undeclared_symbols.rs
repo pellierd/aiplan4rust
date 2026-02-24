@@ -198,7 +198,7 @@ fn is_declaration_found(symbol: &SymbolEntry, usage: &Usage, context: &CheckCont
             .iter()
             .any(check_primitive_task_declaration),
         SymbolKind::PrimitiveType => {
-            // For PrimitiveType, we check the common declaration logic and also include checks
+            // For PrimitiveType, we check the common declaration ops and also include checks
             // or usages at the root scope. This ensures that PrimitiveTypes can be considered
             // even if they aren't explicitly declared in the current scope.
             symbol.declarations().iter().any(check_declarations)

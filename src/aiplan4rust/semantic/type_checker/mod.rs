@@ -6,7 +6,7 @@
 //!
 //! # Modules
 //!
-//! - [`type_checker`] — Contains the common logic of the [`TypeChecker`] struct, which traverses
+//! - [`type_checker`] — Contains the common ops of the [`TypeChecker`] struct, which traverses
 //!   the AST and performs type validation.
 //! - [`error`] — Defines [`TypeCheckError`], the error type used to report issues during type checking.
 //!

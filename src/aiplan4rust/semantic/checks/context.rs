@@ -3,7 +3,7 @@
 //! This module provides the `Context` struct, which serves as a minimal view into the semantic
 //! analysis components such as the AST, symbol table, interner, and requirements.
 //!
-//! It enables reuse of semantic verification logic in various scenarios, including
+//! It enables reuse of semantic verification ops in various scenarios, including
 //! single-file semantic checks and multi-file linking phases where components
 //! might come from different sources.
 //!
@@ -31,7 +31,7 @@ use crate::aiplan4rust::tree::Tree;
 /// against a domain file.
 ///
 /// `Context` provides a modular solution that allows:
-/// - Reuse of semantic checking logic across different phases
+/// - Reuse of semantic checking ops across different phases
 /// - Injection of custom or merged components (e.g., merged symbol tables)
 /// - Avoidance of unnecessary reconstruction or mutation of `SemanticContext`
 ///
@@ -42,7 +42,7 @@ use crate::aiplan4rust::tree::Tree;
 ///
 /// # Advantages
 /// - Simplifies function signatures for verification normalization
-/// - Makes verification logic more modular and testable
+/// - Makes verification ops more modular and testable
 /// - Clearly expresses a verification function’s data dependencies
 ///
 /// # Example

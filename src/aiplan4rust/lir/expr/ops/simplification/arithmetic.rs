@@ -2,7 +2,7 @@ use ordered_float::OrderedFloat;
 use crate::aiplan4rust::lang::ArithmeticOp;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
 /// Simplifies an arithmetic expression node.
@@ -22,7 +22,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 ///
 /// # Parameters
 ///
-/// * `node_id` - The ID of the arithmetic operation node to simplify.
+/// * `node_id` - The ID of the arithmetic operation node to simplification.
 /// * `expr` - The mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -39,7 +39,7 @@ use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::Operation {
@@ -85,7 +85,7 @@ pub fn simplify(
 fn flatten_arithmetic_expression(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     // Only arithmetic operation nodes can be flattened
@@ -131,7 +131,7 @@ fn flatten_arithmetic_expression(
 ///
 /// # Parameters
 ///
-/// * `node_id` - The ID of the node to simplify.
+/// * `node_id` - The ID of the node to simplification.
 /// * `expr` - The expression tree containing the node.
 ///
 /// # Returns
@@ -141,7 +141,7 @@ fn flatten_arithmetic_expression(
 fn reduce(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     let node = expr.try_node(node_id)?;
 
     if node.kind() != ExprKind::Operation {
@@ -168,7 +168,7 @@ fn reduce(
             }
 
             // --- Logic: Neutral Elements ---
-            // We skip them to simplify the node (e.g., x + 0 -> x)
+            // We skip them to simplification the node (e.g., x + 0 -> x)
             if is_neutral(val, op) {
                 continue;
             }
@@ -218,7 +218,7 @@ fn apply_partial_reduction(
     op: ArithmeticOp,
     constants: Vec<OrderedFloat<f64>>,
     mut non_constants: Vec<NodeId>,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     // 1. Evaluate the constant part (e.g., 10 + 20 -> 30)
     let final_constant = evaluate_arithmetic_expression(op, &constants)?;
 
@@ -315,9 +315,9 @@ fn apply_partial_reduction(
 fn evaluate_arithmetic_expression(
     op: ArithmeticOp,
     values: &[OrderedFloat<f64>],
-) -> Result<OrderedFloat<f64>, LogicError> {
+) -> Result<OrderedFloat<f64>, ExprOpError> {
     let (first, rest) = values.split_first()
-        .ok_or_else(|| LogicError::arithmetic_evaluation_error(op, values.to_vec()))?;
+        .ok_or_else(|| ExprOpError::arithmetic_evaluation_error(op, values.to_vec()))?;
 
     let result = match op {
         ArithmeticOp::Add => values.iter().copied().sum(),
@@ -325,7 +325,7 @@ fn evaluate_arithmetic_expression(
         ArithmeticOp::Sub => rest.iter().copied().fold(*first, |acc, x| acc - x),
         ArithmeticOp::Div => rest.iter().try_fold(*first, |acc, x| {
             if x.0 == 0.0 {
-                Err(LogicError::arithmetic_evaluation_error(op, values.to_vec()))
+                Err(ExprOpError::arithmetic_evaluation_error(op, values.to_vec()))
             } else {
                 Ok(acc / *x)
             }
@@ -345,7 +345,7 @@ mod simplify_arithmetic_operation_tests {
     /// Input: (+ 2 3)
     /// Expected output: 5
     #[test]
-    fn test_addition_of_constants() -> Result<(), LogicError> {
+    fn test_addition_of_constants() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (+ 2.0 3.0)
@@ -373,7 +373,7 @@ mod simplify_arithmetic_operation_tests {
     /// Input: (- 10 3 2)
     /// Expected output: 5
     #[test]
-    fn test_subtraction_of_constants() -> Result<(), LogicError> {
+    fn test_subtraction_of_constants() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (- 10.0 3.0 2.0)
@@ -402,7 +402,7 @@ mod simplify_arithmetic_operation_tests {
     /// Input: (* 2 3 4)
     /// Expected output: 24
     #[test]
-    fn test_multiplication_of_constants() -> Result<(), LogicError> {
+    fn test_multiplication_of_constants() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (* 2.0 3.0 4.0)
@@ -430,7 +430,7 @@ mod simplify_arithmetic_operation_tests {
     /// Input: (/ 20 2 2)
     /// Expected output: 5
     #[test]
-    fn test_division_of_constants() -> Result<(), LogicError> {
+    fn test_division_of_constants() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (/ 20.0 2.0 2.0)
@@ -476,7 +476,7 @@ mod simplify_arithmetic_operation_tests {
         assert!(result.is_err(), "Folding division by zero should fail");
 
         match result {
-            Err(LogicError::ArithmeticEvaluationError { op, values }) => {
+            Err(ExprOpError::ArithmeticEvaluationError { op, values }) => {
                 assert_eq!(op, ArithmeticOp::Div);
                 assert_eq!(values, vec![OrderedFloat(5.0), OrderedFloat(0.0)]);
             }

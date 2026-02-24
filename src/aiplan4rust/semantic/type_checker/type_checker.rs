@@ -1,12 +1,12 @@
 //! Provides semantic type checking for domain-specific symbols.
 //!
-//! This module defines the [`TypeChecker`] struct and its associated logic used for validating type
+//! This module defines the [`TypeChecker`] struct and its associated ops used for validating type
 //! relationships in PDDL-like languages. It ensures that type declarations and usages are consistent,
 //! and computes type hierarchies such as subtype and supertype relations.
 //!
 //! # Overview
 //!
-//! The type checking logic relies on a [`SymbolTable`] containing type declarations and their
+//! The type checking ops relies on a [`SymbolTable`] containing type declarations and their
 //! hierarchical relationships. The [`TypeChecker`] uses this information to answer questions like:
 //!
 //! - Is type `A` a subtype of `B`?

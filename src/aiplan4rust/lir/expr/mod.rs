@@ -46,6 +46,7 @@ pub mod kind;
 pub mod expr;
 pub mod error;
 pub mod builder;
+pub mod ops;
 
 pub use content::Content as ExprContent;
 pub use node::ExprNode;

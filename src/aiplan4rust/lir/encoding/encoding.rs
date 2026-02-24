@@ -9,7 +9,7 @@
 //! 2. **Problem Encoding**: Captures state-specific data (objects, initial state, and goals).
 //!
 //! It relies on a `LinkedSemanticContext` to resolve identifiers and maintains internal
-//! mappings to ensure that references in the logic (expr/effects) point to the
+//! mappings to ensure that references in the ops (expr/effects) point to the
 //! correct LIR indices.
 
 use crate::aiplan4rust::lir::LirError;

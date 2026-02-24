@@ -1,5 +1,5 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Simplifies a quantifier node (`forall` or `exists`) by applying a sequence of transformations.
@@ -43,7 +43,7 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     // Étape 1 : Mise en forme canonique (tri des variables)
     canonicalize_quantifier_vars(node_id, expr)?;
 
@@ -98,7 +98,7 @@ pub fn simplify(
 /// let node_id = expr.root_id().unwrap();
 /// canonicalize_quantifier_vars(node_id, &mut expr)?;
 /// ```
-pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
+pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     // 1. Vérification rapide en immuable
     {
         let node = expr.try_node(node_id)?;
@@ -136,7 +136,7 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
 /// to have already been simplified.
 ///
 /// # Parameters
-/// - `node_id`: The `NodeId` of the quantifier node (`Forall` or `Exists`) to simplify.
+/// - `node_id`: The `NodeId` of the quantifier node (`Forall` or `Exists`) to simplification.
 /// - `expr`: A mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -148,7 +148,7 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
 /// The function contains `debug_assert!` checks that will panic if:
 /// - The node is not a quantifier (`Forall` or `Exists`).
 /// - The node content is not `QuantifierVariables`.
-pub fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, LogicError> {
+pub fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool, ExprOpError> {
     // 1. Phase de lecture immuable (plus rapide et sécurisée pour les asserts)
     let (is_empty, body_id) = {
         let node = expr.try_node(node_id)?;
@@ -206,7 +206,7 @@ pub fn remove_empty_quantifier(node_id: NodeId, expr: &mut Expr) -> Result<bool,
 /// - The body of the inner quantifier replaces the body of the outer quantifier.
 /// - Inner quantifiers of a different kind are ignored.
 /// - Only immediate nested quantifiers are fused; deeper nesting is not handled recursively.
-pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), LogicError> {
+pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), ExprOpError> {
     // Étape 1 : Lecture immuable
     let (outer_kind, inner_id) = {
         let outer_node = expr.try_node(node_id)?;
@@ -267,7 +267,7 @@ pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), L
 /// The quantifier is replaced by its trivial body if these conditions are met.
 ///
 /// # Parameters
-/// - `node_id`: The `NodeId` of the quantifier node to simplify.
+/// - `node_id`: The `NodeId` of the quantifier node to simplification.
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -295,7 +295,7 @@ pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), L
 fn simplify_quantifier_trivial_body(
     node_id: NodeId,
     expr: &mut Expr
-) -> Result<bool, LogicError> {
+) -> Result<bool, ExprOpError> {
     // 1. On récupère l'ID de l'enfant et on valide le parent
     let body_id = {
         let node = expr.try_node(node_id)?;
@@ -335,14 +335,14 @@ mod tests {
     use crate::aiplan4rust::lang::TypedList;
     use crate::aiplan4rust::lir::expr::builder::ExprBuilder;
     use crate::aiplan4rust::lir::expr::{ExprError, ExprKind};
-    use crate::aiplan4rust::lir::logic::LogicError;
-    use crate::aiplan4rust::lir::logic::simplify::quantifier;
+    use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+    use crate::aiplan4rust::lir::expr::ops::simplification::quantifier;
 
     /// Test that an empty forall quantifier is replaced by its body.
     /// Input: (forall () (A))
     /// Expected: (A)
     #[test]
-    fn test_remove_empty_forall() -> Result<(), LogicError> {
+    fn test_remove_empty_forall() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (forall () (A))
@@ -353,7 +353,7 @@ mod tests {
         let mut expr = builder.finish();
         let root_id = expr.try_root_id()?;
 
-        // 2. Transformation: simplify (quantifier::simplify)
+        // 2. Transformation: simplification (quantifier::simplification)
         // Le quantificateur sans variables est élagué.
         quantifier::simplify(root_id, &mut expr)?;
 
@@ -370,7 +370,7 @@ mod tests {
        /// Input: (forall (?X - T2) (forall (?Y - T1) (A)))
        /// Expected: (forall (?X - T2 ?Y - T1) (A))
        #[test]
-       fn test_fuse_nested_forall_structured() -> Result<(), LogicError> {
+       fn test_fuse_nested_forall_structured() -> Result<(), ExprOpError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode recommandée)
@@ -407,7 +407,7 @@ mod tests {
        /// Input: (forall (?X - T) (and))
        /// Expected: (and)
        #[test]
-       fn test_trivial_body_exists_false() -> Result<(), LogicError> {
+       fn test_trivial_body_exists_false() -> Result<(), ExprOpError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode propre)
@@ -439,7 +439,7 @@ mod tests {
        /// Input: (forall (?X - T) (A))
        /// Expected unchanged
        #[test]
-       fn test_no_simplification_forall() -> Result<(), LogicError> {
+       fn test_no_simplification_forall() -> Result<(), ExprOpError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Ta méthode propre)
@@ -470,7 +470,7 @@ mod tests {
        /// Input: (exists () (A))
        /// Expected: (A)
        #[test]
-       fn test_remove_empty_exists() -> Result<(), LogicError> {
+       fn test_remove_empty_exists() -> Result<(), ExprOpError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation d'une liste de variables vide
@@ -500,7 +500,7 @@ mod tests {
        /// Input: (exists (?X - T2) (exists (?Y - T1) (A)))
        /// Expected: (exists (?Y - T1 ?X - T2) (A))
        #[test]
-       fn test_fuse_nested_exists() -> Result<(), LogicError> {
+       fn test_fuse_nested_exists() -> Result<(), ExprOpError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables séparément (Méthode recommandée)
@@ -519,7 +519,7 @@ mod tests {
            let mut expr = builder.finish();
            let root_id = expr.try_root_id()?;
 
-           // 3. Transformation : simplify
+           // 3. Transformation : simplification
            quantifier::simplify(root_id, &mut expr)?;
 
            // 4. Validation
@@ -538,7 +538,7 @@ mod tests {
        /// Input: (exists (?X - T) (and))
        /// Expected: (and)
        #[test]
-       fn test_trivial_body_exists() -> Result<(), LogicError> {
+       fn test_trivial_body_exists() -> Result<(), ExprOpError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode à plat)
@@ -570,7 +570,7 @@ mod tests {
        /// Input: (exists (?X - T) (A))
        /// Expected unchanged: (exists (?X - T) (A))
        #[test]
-       fn test_no_simplification_exists() -> Result<(), LogicError> {
+       fn test_no_simplification_exists() -> Result<(), ExprOpError> {
            let mut builder = ExprBuilder::new();
 
            // 1. Préparation des variables (Méthode à plat)

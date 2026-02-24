@@ -443,7 +443,7 @@ impl LinkedSemanticContext {
 
     /// Attempts to resolve a `Literal` into a string slice using the interner.
     ///
-    /// This internal helper function centralizes the lookup logic for any `Literal` identifier.
+    /// This internal helper function centralizes the lookup ops for any `Literal` identifier.
     ///
     /// # Arguments
     ///

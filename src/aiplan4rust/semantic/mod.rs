@@ -5,7 +5,7 @@
 //!
 //! It is organized into several submodules:
 //!
-//! - [`analyzer`]: Contains the main semantic analyzer logic.
+//! - [`analyzer`]: Contains the main semantic analyzer ops.
 //! - [`symbol`]: Defines symbol representations and utilities.
 //! - [`analyzer_result`]: Structures for representing analysis results.
 //! - [`symbol_table`]: Symbol table construction and management.
@@ -46,7 +46,7 @@
 //! [`InvalidNodeArityError`]: error::InvalidNodeArityError
 //! [`SemanticContext`]: context::Context
 
-/// Semantic analysis submodule managing the common analysis logic.
+/// Semantic analysis submodule managing the common analysis ops.
 pub mod analyzer;
 
 /// Module defining symbol representations and helper utilities.

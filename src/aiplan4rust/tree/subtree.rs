@@ -3,7 +3,7 @@
 //! This module defines the [`SyntaxSubtree`] type, a lightweight wrapper that represents
 //! a focused view over a node and its parent [`Tree`]. This abstraction is useful
 //! in contexts where operations require access to both a specific node and the tree
-//! structure it belongs to—such as analysis, transformation, or conversion logic.
+//! structure it belongs to—such as analysis, transformation, or conversion ops.
 //!
 //! # Purpose
 //!

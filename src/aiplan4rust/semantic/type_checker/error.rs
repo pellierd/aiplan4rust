@@ -5,7 +5,7 @@
 //!
 //! Type checking is a crucial part of semantic analysis, responsible for ensuring
 //! that operations, expr, and declarations conform to the language’s typing rules.
-//! During this process, a number of errors can occur — from internal logic inconsistencies
+//! During this process, a number of errors can occur — from internal ops inconsistencies
 //! to invalid or missing symbol declarations.
 //!
 //! # Contents
@@ -17,7 +17,7 @@
 //!
 //! - This module uses [`thiserror`] for ergonomic and structured error definitions.
 //! - Errors are composable: symbol table errors are transparently wrapped and reused.
-//! - Internal errors are captured using a catch-all variant for unexpected states or logic bugs.
+//! - Internal errors are captured using a catch-all variant for unexpected states or ops bugs.
 //!
 //! # Example
 //!
@@ -45,7 +45,7 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 ///
 /// `TypeCheckError` encapsulates all possible failure modes that can arise when
 /// performing type checking over an abstract syntax tree (AST). It includes:
-/// - Internal logic or invariant violations.
+/// - Internal ops or invariant violations.
 /// - Errors propagated from the symbol table construction phase.
 ///
 /// This enum is designed to work seamlessly with the [`thiserror`] crate,
@@ -54,7 +54,7 @@ use crate::aiplan4rust::semantic::symbol_table::SymbolTableError;
 /// # Variants
 ///
 /// - [`InternalError`]: A catch-all variant for unexpected internal issues,
-///   such as failed assumptions or unreachable logic paths.
+///   such as failed assumptions or unreachable ops paths.
 /// - [`SymbolTable`]: A wrapper for [`SymbolTableError`], allowing type check
 ///   code to transparently propagate symbol table errors.
 ///

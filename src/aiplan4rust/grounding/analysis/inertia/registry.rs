@@ -4,7 +4,7 @@ use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, ObjectId, Var
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::grounding::analysis::inertia::table::InertiaTable;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::logic::{StaticEvaluator, StaticValue};
+use crate::aiplan4rust::lir::expr::ops::{StaticEvaluator, StaticValue};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::tree::Node;
 
@@ -14,17 +14,17 @@ const MAX_ARITY: usize = 15;
 const MAX_PROJ: usize = 3;
 
 #[derive(Debug)]
-pub struct InertiaRegistry<'a> {
+pub struct InertiaRegistry {
     /// Mapping: PredicateID -> (Bitmask -> (Tuple de constantes -> Nombre d'occurrences))
     /// Le bitmask est un u8 (max 8 arguments, ce qui est énorme pour du PDDL).
     counting_predicates: HashMap<AtomSkeletonId, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], usize>>>,
     static_functions: HashMap<FunctionSkeletonId, HashMap<u16, HashMap<[ObjectId; MAX_PROJ], StaticValue>>>,
-    inertia: &'a InertiaTable,
+    inertia: InertiaTable,
 }
 
 
-impl<'a> InertiaRegistry<'a> {
-    pub fn new(inertia: &'a InertiaTable) -> Self {
+impl InertiaRegistry {
+    pub fn new(inertia: InertiaTable) -> Self {
         Self {
             counting_predicates: HashMap::new(),
             static_functions: HashMap::new(),
@@ -33,7 +33,7 @@ impl<'a> InertiaRegistry<'a> {
     }
 
 
-    pub fn build(problem: &LiftedProblem, inertia: &'a InertiaTable) -> Result<Self, InertiaError> {
+    pub fn build(problem: &LiftedProblem, inertia: InertiaTable) -> Result<Self, InertiaError> {
         // 1. Vérification des arités avant toute opération
         check_predicate_arity_limit(problem)?;
         check_function_arity_limit(problem)?;
@@ -227,6 +227,14 @@ impl<'a> InertiaRegistry<'a> {
         // aucune instance n'existe dans l'init avec ces objets constants précis.
         // Donc c'est FALSE.
         Ok(if count == 0 { Some(false) } else { None })
+    }
+
+    /// Retourne une vue d'évaluation du registre.
+    /// On utilise souvent une référence vers self qui implémente le trait.
+    pub fn evaluator(&self) -> &dyn StaticEvaluator {
+        // Comme InertiaRegistry implémente déjà StaticEvaluator,
+        // on se cast simplement en trait object.
+        self as &dyn StaticEvaluator
     }
 }
 
@@ -505,9 +513,12 @@ fn generate_function_masks(
         }
         if done { break; }
     }
+
+
+
 }
 
-impl<'a> StaticEvaluator for InertiaRegistry<'a> {
+impl StaticEvaluator for InertiaRegistry {
     fn evaluate(&self, node_id: NodeId, expr: &Expr) -> Option<StaticValue> {
         let node = expr.try_node(node_id).ok()?;
 

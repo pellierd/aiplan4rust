@@ -648,7 +648,7 @@ impl Table {
     /// - `symbol_name`: The name of the symbol to resolve. This should correspond to a declared
     ///   symbol.
     /// - `usage_kind`: The kind of usage for the symbol (e.g., `Predicate`, `Task`, `Action`). This
-    ///   guides the filtering and validation logic to pick an appropriate declaration.
+    ///   guides the filtering and validation ops to pick an appropriate declaration.
     /// - `scope`: The lexical or semantic scope in which the symbol usage occurs. Only declarations
     ///   within or compatible with this scope are considered.
     ///
@@ -776,11 +776,11 @@ impl Table {
     ) -> Result<Option<&'a Declaration>, SymbolTableError> {
         // Match on the usage kind to determine the appropriate validation strategy
         match usage_kind {
-            // For PrimitiveType or Predicate kinds, use specific validation logic
+            // For PrimitiveType or Predicate kinds, use specific validation ops
             SymbolKind::PrimitiveType | SymbolKind::Predicate => {
                 Self::validate_type_or_predicate_declarations(symbol_name, usage_kind, declarations)
             }
-            // For Task kind, use task-specific validation logic
+            // For Task kind, use task-specific validation ops
             SymbolKind::Task => {
                 Self::validate_task_declarations(symbol_name, declarations)
             }

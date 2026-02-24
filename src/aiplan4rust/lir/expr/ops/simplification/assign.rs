@@ -2,7 +2,7 @@ use ordered_float::OrderedFloat;
 use crate::aiplan4rust::lang::AssignOp;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::lir::expr::content::Content;
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::{NodeId, SyntaxContent};
 
 /// Represents the numeric value 0.0, used for detecting trivial `increase` or `decrease` assignments.
@@ -33,7 +33,7 @@ const ONE: OrderedFloat<f64> = OrderedFloat(1.0);
 pub fn simplify(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     simplify_trivial_assignments(node_id, expr)?;
     Ok(())
 }
@@ -44,7 +44,7 @@ pub fn simplify(
 /// into a trivial `(and)` node (always true), leaving other assignments untouched.
 ///
 /// # Parameters
-/// - `node_id`: ID of the node to simplify (must be of kind `Assign`).
+/// - `node_id`: ID of the node to simplification (must be of kind `Assign`).
 /// - `expr`: Mutable reference to the expression tree.
 ///
 /// # Returns
@@ -62,7 +62,7 @@ pub fn simplify(
 pub fn simplify_trivial_assignments(
     node_id: NodeId,
     expr: &mut Expr,
-) -> Result<bool, LogicError> {
+) -> Result<bool, ExprOpError> {
     let node = expr.try_node(node_id)?;
     debug_assert!(node.kind() == ExprKind::Assign, "Node must be an Assign");
 
@@ -102,7 +102,7 @@ pub fn simplify_trivial_assignments(
 fn is_trivial_assign_value(
     node: &ExprNode,
     assign_op: AssignOp,
-) -> Result<bool, LogicError> {
+) -> Result<bool, ExprOpError> {
     if node.kind() != ExprKind::Number {
         return Ok(false);
     }
@@ -124,7 +124,7 @@ mod tests {
 
     /// Test trivial (increase (F) 0) -> (and)
     #[test]
-    fn test_trivial_increase() -> Result<(), LogicError> {
+    fn test_trivial_increase() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (increase (F) 0.0)
@@ -150,7 +150,7 @@ mod tests {
 
     /// Test trivial (decrease (F) 0) -> (and)
     #[test]
-    fn test_trivial_decrease() -> Result<(), LogicError> {
+    fn test_trivial_decrease() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (decrease (F) 0.0)
@@ -175,7 +175,7 @@ mod tests {
 
     /// Test trivial (scale-up (F) 1) -> (and)
     #[test]
-    fn test_trivial_scale_up() -> Result<(), LogicError> {
+    fn test_trivial_scale_up() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (scale-up (F) 1.0)
@@ -200,7 +200,7 @@ mod tests {
 
     /// Test assign operator (Assign) is never simplified
     #[test]
-    fn test_assign_op_assign() -> Result<(), LogicError> {
+    fn test_assign_op_assign() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (assign (F) 0.0)
@@ -211,7 +211,7 @@ mod tests {
         builder.set_root(assign_node)?;
         let mut expr = builder.finish();
 
-        // 2. Transformation: simplify (should be a no-op for Assign)
+        // 2. Transformation: simplification (should be a no-op for Assign)
         simplify(expr.try_root_id()?, &mut expr)?;
 
         // 3. Validation
@@ -230,7 +230,7 @@ mod tests {
 
     /// Test assign with value as a function -> not simplified
     #[test]
-    fn test_assign_value_function() -> Result<(), LogicError> {
+    fn test_assign_value_function() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (increase (F) (V))
@@ -261,7 +261,7 @@ mod tests {
 
     /// Test assign with value as an arithmetic operation -> not simplified
     #[test]
-    fn test_assign_value_arithmetic() -> Result<(), LogicError> {
+    fn test_assign_value_arithmetic() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: (increase (F) (+ 2.0 3.0))

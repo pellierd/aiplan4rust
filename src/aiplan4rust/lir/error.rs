@@ -4,7 +4,7 @@ use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, LangError, ObjectId, SymbolId, TaskSkeletonId, Type, TypeId};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
 use crate::aiplan4rust::lir::expr::ExprError;
-use crate::aiplan4rust::lir::logic::LogicError;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::syntax::ast::{AstError, AstKind};
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 use crate::aiplan4rust::lir::symbol_registry::IndexTableError;
@@ -33,7 +33,7 @@ pub enum LirError {
 
     /// An error originating from the expression system.
     #[error(transparent)]
-    Logic(#[from] LogicError),
+    Logic(#[from] ExprOpError),
 
     /// An error originating from the expression system.
     #[error(transparent)]

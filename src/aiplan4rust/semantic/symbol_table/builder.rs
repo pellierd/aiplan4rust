@@ -1,6 +1,6 @@
 //! Module responsible for building a [`SymbolTable`] from an abstract syntax tree (AST).
 //!
-//! This module provides the [`SymbolTableBuilder`] struct, which encapsulates the logic
+//! This module provides the [`SymbolTableBuilder`] struct, which encapsulates the ops
 //! for traversing an [`ArenaAst`] and populating a [`SymbolTable`] with symbol
 //! declarations and usages found in the syntax tree.
 //!
@@ -30,7 +30,7 @@ use crate::aiplan4rust::tree::NodeRef;
 
 /// A builder for constructing a [`SymbolTable`] from an abstract syntax arena (AST).
 ///
-/// `SymbolTableBuilder` encapsulates the logic for traversing an [`ArenaAst`]
+/// `SymbolTableBuilder` encapsulates the ops for traversing an [`ArenaAst`]
 /// and populating a [`SymbolTable`] with symbols extracted from the arena. It
 /// identifies the root syntax kind (e.g., Domain or Problem), determines the source
 /// of the symbol table, and initializes it accordingly.
@@ -207,7 +207,7 @@ impl SymbolTableBuilder {
     /// # Behavior by AST syntax kind
     ///
     /// - `DomainName`, `ProblemName`: Add declaration symbols without further recursion.
-    /// - `TypedList`: Initialize symbol entries with specialized typed list logic.
+    /// - `TypedList`: Initialize symbol entries with specialized typed list ops.
     /// - `PrimitiveType`, `Constant`, `Variable`: Register symbols as usages.
     /// - `ActionDef`, `DurativeActionDef`: Initialize action-related symbols.
     /// - `AtomicFormulaSkeleton`: Special symbol table handling for formula skeletons.
@@ -239,7 +239,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<(), SymbolTableError> {
-        // Match on the AST node kind to determine the appropriate processing logic
+        // Match on the AST node kind to determine the appropriate processing ops
         match node_ref.node().kind() {
             // For domain and problem names, add declaration symbols directly without recursion
             AstKind::DomainName | AstKind::ProblemName => {
@@ -657,7 +657,7 @@ impl SymbolTableBuilder {
         scope: Scope,
         types: Type<SymbolId>,
     ) -> Result<(), SymbolTableError> {
-        // Match on the AST node kind to determine processing logic
+        // Match on the AST node kind to determine processing ops
         match node_ref.node().kind() {
             AstKind::PrimitiveType | AstKind::Constant | AstKind::Variable => {
                 // Add a declaration symbol with the provided types for simple typed elements
@@ -1347,7 +1347,7 @@ impl SymbolTableBuilder {
             AstKind::Constant | AstKind::Variable => {
                 // 1. Extract the symbol reference directly from the AstNode.
                 // We use the node() method to access the underlying AstNode which
-                // now holds the try_symbol semantic logic.
+                // now holds the try_symbol semantic ops.
                 let symbol_ref = elt.node().try_symbol()?;
                 let name = symbol_ref.id();
 
@@ -1449,7 +1449,7 @@ impl SymbolTableBuilder {
         ast: &Ast,
         scope: Scope,
     ) -> Result<Type<SymbolId>, SymbolTableError> {
-        // --- Extract the type identifiers using existing logic ---
+        // --- Extract the type identifiers using existing ops ---
         let super_types = self.extract_type(type_ref, ast)?; // Handles structure & kind checking internally
 
         // --- Register each primitive type as a symbol usage ---

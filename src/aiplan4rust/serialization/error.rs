@@ -3,7 +3,7 @@
 //! This module defines the [`SerializationError`] enum, used to report issues encountered
 //! when working with different serialization formats such as JSON, YAML, TOML, CBOR, and MessagePack.
 //!
-//! It includes errors for unsupported file formats, base64 decoding, file I/O, and serialization logic.
+//! It includes errors for unsupported file formats, base64 decoding, file I/O, and serialization ops.
 
 use thiserror::Error;
 

@@ -1,197 +1,182 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lir::expr::{Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{expr, ops, Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::grounding::engine::Substitution;
-use crate::aiplan4rust::grounding::engine::GroundingEngineError;
-use crate::aiplan4rust::grounding::engine::Substitutable;
-use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
-use crate::aiplan4rust::lir::logic::LogicEngine;
+use crate::aiplan4rust::grounding::substitution::Substitution;
+use crate::aiplan4rust::grounding::substitution::GroundingEngineError;
+use crate::aiplan4rust::grounding::substitution::Substitutable;
+use crate::aiplan4rust::lir::expr::ops::{simplify_subexpr, simplify_subexpr_with, ExprOpError, StaticEvaluator};
 
-pub struct GroundingEngine<'a> {
-    registry: &'a ValueRegistry,
-    logic_engine: &'a LogicEngine<'a>,
+/// Instancie une nouvelle Expr à partir d'un sous-arbre de la source.
+/// Si la source n'a pas de racine, retourne une expression vide sans erreur.
+
+pub fn substitute(
+    expr: &Expr,
+    substitution: &Substitution,
+) -> Result<Expr, GroundingEngineError> {
+    let root_id = match expr.root_id() {
+        Some(id) => id,
+        None => return Ok(Expr::new()),
+    };
+    substitute_with(expr, root_id, substitution, None)
 }
 
-impl<'a> GroundingEngine<'a> {
-    pub fn new(registry: &'a ValueRegistry, logic_engine: &'a LogicEngine<'a>) -> Self {
-        Self {
-            registry,
-            logic_engine,
-        }
-    }
 
-    /// Instancie une nouvelle Expr à partir d'un sous-arbre de la source.
-    /// Si la source n'a pas de racine, retourne une expression vide sans erreur.
-    pub fn instantiate(
-        &self,
-        source_expr: &Expr,
-        root_id: NodeId,
-        substitution: &Substitution,
-    ) -> Result<Expr, GroundingEngineError> {
-        // Si la source est vide, on retourne une nouvelle Expr vide "silencieusement"
-        if source_expr.root_id().is_none() {
-            return Ok(Expr::new());
-        }
-        // On effectue le grounding vers la nouvelle arène
-        Ok(self.instantiate_from(source_expr, root_id, substitution)?)
-    }
+pub fn substitute_with(
+    source: &Expr,
+    source_root: NodeId,
+    sub: &Substitution,
+    evaluator: Option<&dyn StaticEvaluator>,
+) -> Result<Expr, GroundingEngineError> {
+    let mut target = Expr::new();
+    let mut stack = vec![(source_root, false)];
+    let mut id_map: HashMap<NodeId, NodeId> = HashMap::new();
 
-    pub fn instantiate_from(
-        &self,
-        source: &Expr,
-        source_root: NodeId,
-        sub: &Substitution,
-    ) -> Result<Expr, GroundingEngineError> {
-        let mut target = Expr::new();
-        let mut stack = vec![(source_root, false)];
-        let mut id_map: HashMap<NodeId, NodeId> = HashMap::new();
+    while let Some((old_id, processed)) = stack.pop() {
+        let node = source.try_node(old_id)?;
+        let kind = node.kind();
 
-        while let Some((old_id, processed)) = stack.pop() {
-            let node = source.try_node(old_id)?;
-            let kind = node.kind();
+        if !processed {
+            if is_atomic_block(kind) {
+                // 1. Import du sous-arbre de source vers la target locale
+                let new_id = target.clone_subtree(old_id)?;
 
-            if !processed {
-                if self.is_atomic_block(kind) {
-                    // 1. Import du sous-arbre de source vers la target locale
-                    let new_id = target.clone_subtree(old_id)?;
+                // 2. Substitution
+                target.substitute(new_id, sub)?;
 
-                    // 2. Substitution
-                    target.substitute(new_id, sub)?;
+                // 3. Simplification
+                ops::simplify_subexpr_with(&mut target, new_id, evaluator)?;
 
-                    // 3. Simplification
-                    self.logic_engine.simplify_from(&mut target, new_id)?;
-
-                    id_map.insert(old_id, new_id);
-                } else {
-                    stack.push((old_id, true));
-                    for &child_id in node.children().iter().rev() {
-                        stack.push((child_id, false));
-                    }
-                }
-            } else {
-                // Reconstruction
-                let old_children = source.try_node(old_id)?.children();
-                let new_children: Vec<NodeId> = old_children.iter()
-                    .map(|c| *id_map.get(c).expect("Enfant manquant"))
-                    .collect();
-
-                let content = source.try_node(old_id)?.content().clone();
-
-                let new_id = target.alloc_with_children(
-                    ExprNode::new(kind, content, None),
-                    new_children
-                );
-
-                self.logic_engine.simplify_from(&mut target, new_id)?;
-                id_map.insert(old_id, new_id);
-            }
-        }
-
-        // On définit la racine de la nouvelle arène avant de la rendre
-        let final_root = *id_map.get(&source_root).unwrap();
-        target.set_root_id(final_root)?;
-
-        Ok(target)
-    }
-
-    /// Grounde une expression en clonant le sous-arbre et en simplifiant au fur et à mesure.
-    /// Idéal pour instancier des effets ou des préconditions depuis un domaine "lifted".
-    pub fn instantiate_in_place(
-        &self,
-        expr: &mut Expr,
-        root_id: NodeId,
-        substitution: &Substitution,
-    ) -> Result<NodeId, GroundingEngineError> {
-        // Pile de travail : (ID du noeud source, est_traité)
-        // On utilise un parcours de type Post-Order (reconstruction des parents après les enfants)
-        let mut stack = vec![(root_id, false)];
-        let mut id_map: HashMap<NodeId, NodeId> = HashMap::new();
-
-        while let Some((old_id, processed)) = stack.pop() {
-            let node = expr.try_node(old_id)?;
-            let kind = node.kind();
-
-            if !processed {
-                // --- 1. BLOCS ATOMIQUES ET FEUILLES ---
-                // Si c'est une feuille ou un bloc contenant des arguments à grounder
-                if self.is_atomic_block(kind) {
-                    // On clone tout le sous-arbre (arguments, etc.)
-                    let new_id = expr.clone_subtree(old_id)?;
-
-                    // On applique la substitution via notre Trait (modifie new_id en place)
-                    expr.substitute(new_id, substitution)?;
-
-                    // Simplification immédiate (Inertie / Évaluation statique)
-                    // Utilise le logic_engine interne
-                    self.logic_engine.simplify_from(expr, new_id)?;
-
-                    id_map.insert(old_id, new_id);
-                } else {
-                    // --- 2. NOEUDS COMPLEXES (Connecteurs logiques) ---
-                    // On marque le noeud comme "en attente de ses enfants"
-                    stack.push((old_id, true));
-
-                    // Empiler les enfants pour traitement
-                    let children = node.children().to_vec();
-                    for &child_id in children.iter().rev() {
-                        stack.push((child_id, false));
-                    }
-                }
-            } else {
-                // --- 3. RECONSTRUCTION (Remontée) ---
-                // Ici, tous les enfants de old_id ont déjà été créés dans target
-                let old_children = expr.try_node(old_id)?.children().to_vec();
-
-                let new_children: Vec<NodeId> = old_children.iter()
-                    .map(|c| *id_map.get(c).expect("L'enfant doit avoir été traité"))
-                    .collect();
-
-                // On alloue un nouveau noeud identique mais avec les nouveaux enfants
-                let content = expr.try_node(old_id)?.content().clone();
-                let new_id = expr.alloc_with_children(
-                    ExprNode::new(kind, content, None),
-                    new_children
-                );
-
-                // Simplification logique finale (ex: AND(True, True) -> True)
-                self.logic_engine.simplify_from(expr, new_id)?;
 
                 id_map.insert(old_id, new_id);
+            } else {
+                stack.push((old_id, true));
+                for &child_id in node.children().iter().rev() {
+                    stack.push((child_id, false));
+                }
             }
+        } else {
+            // Reconstruction
+            let old_children = source.try_node(old_id)?.children();
+            let new_children: Vec<NodeId> = old_children.iter()
+                .map(|c| *id_map.get(c).expect("Enfant manquant"))
+                .collect();
+
+            let content = source.try_node(old_id)?.content().clone();
+
+            let new_id = target.alloc_with_children(
+                ExprNode::new(kind, content, None),
+                new_children
+            );
+            ops::simplify_subexpr_with(&mut target, new_id, evaluator)?;
+
+            id_map.insert(old_id, new_id);
         }
-        Ok(*id_map.get(&root_id).unwrap())
     }
 
-    /// Définit la "frontière" : ce qui doit être cloné/substitué d'un bloc.
-    fn is_atomic_block(&self, kind: ExprKind) -> bool {
-        matches!(kind,
-            ExprKind::AtomicFormula |
-            ExprKind::FunctionTerm  |
-            ExprKind::Assign        |
-            ExprKind::FComp         |
-            ExprKind::Operation     |
-            ExprKind::Task          |
-            ExprKind::Variable      |
-            ExprKind::Constant      |
-            ExprKind::Number
-        )
-    }
+    // On définit la racine de la nouvelle arène avant de la rendre
+    let final_root = *id_map.get(&source_root).unwrap();
+    target.set_root_id(final_root)?;
 
-    pub fn registry(&self) -> &ValueRegistry {
-        self.registry
-    }
+    Ok(target)
+}
 
-    pub fn logic_engine(&self) -> &LogicEngine {
-        &self.logic_engine
+pub fn substitute_in_place(
+    expr: &mut Expr,
+    root_id: NodeId,
+    substitution: &Substitution,
+) -> Result<NodeId, GroundingEngineError> {
+    substitute_in_place_with(expr, root_id, substitution, None)
+}
+
+
+/// Grounde une expression en clonant le sous-arbre et en simplifiant au fur et à mesure.
+/// Idéal pour instancier des effets ou des préconditions depuis un domaine "lifted".
+pub fn substitute_in_place_with(
+    expr: &mut Expr,
+    root_id: NodeId,
+    substitution: &Substitution,
+    evaluator: Option<&dyn StaticEvaluator>,
+) -> Result<NodeId, GroundingEngineError> {
+    // Pile de travail : (ID du noeud source, est_traité)
+    // On utilise un parcours de type Post-Order (reconstruction des parents après les enfants)
+    let mut stack = vec![(root_id, false)];
+    let mut id_map: HashMap<NodeId, NodeId> = HashMap::new();
+
+    while let Some((old_id, processed)) = stack.pop() {
+        let node = expr.try_node(old_id)?;
+        let kind = node.kind();
+
+        if !processed {
+            // --- 1. BLOCS ATOMIQUES ET FEUILLES ---
+            // Si c'est une feuille ou un bloc contenant des arguments à grounder
+            if is_atomic_block(kind) {
+                // On clone tout le sous-arbre (arguments, etc.)
+                let new_id = expr.clone_subtree(old_id)?;
+
+                // On applique la substitution via notre Trait (modifie new_id en place)
+                expr.substitute(new_id, substitution)?;
+
+                // Simplification immédiate (Inertie / Évaluation statique)
+                // Utilise le logic_engine interne
+                ops::simplify_subexpr_with(expr, new_id, evaluator)?;
+
+
+                id_map.insert(old_id, new_id);
+            } else {
+                // --- 2. NOEUDS COMPLEXES (Connecteurs logiques) ---
+                // On marque le noeud comme "en attente de ses enfants"
+                stack.push((old_id, true));
+
+                // Empiler les enfants pour traitement
+                let children = node.children().to_vec();
+                for &child_id in children.iter().rev() {
+                    stack.push((child_id, false));
+                }
+            }
+        } else {
+            // --- 3. RECONSTRUCTION (Remontée) ---
+            // Ici, tous les enfants de old_id ont déjà été créés dans target
+            let old_children = expr.try_node(old_id)?.children().to_vec();
+
+            let new_children: Vec<NodeId> = old_children.iter()
+                .map(|c| *id_map.get(c).expect("L'enfant doit avoir été traité"))
+                .collect();
+
+            // On alloue un nouveau noeud identique mais avec les nouveaux enfants
+            let content = expr.try_node(old_id)?.content().clone();
+            let new_id = expr.alloc_with_children(
+                ExprNode::new(kind, content, None),
+                new_children
+            );
+
+            // Simplification logique finale (ex: AND(True, True) -> True)
+            ops::simplify_subexpr_with(expr, new_id, evaluator)?;
+            id_map.insert(old_id, new_id);
+        }
     }
+    Ok(*id_map.get(&root_id).unwrap())
+}
+
+/// Définit la "frontière" : ce qui doit être cloné/substitué d'un bloc.
+fn is_atomic_block(kind: ExprKind) -> bool {
+    matches!(kind,
+        ExprKind::AtomicFormula |
+        ExprKind::FunctionTerm  |
+        ExprKind::Assign        |
+        ExprKind::FComp         |
+        ExprKind::Operation     |
+        ExprKind::Task          |
+        ExprKind::Variable      |
+        ExprKind::Constant      |
+        ExprKind::Number
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use crate::aiplan4rust::lang::{VariableId, ObjectId, BinaryComp};
-    use crate::aiplan4rust::grounding::engine::{GroundingEngine, Substitution};
+    use crate::aiplan4rust::grounding::substitution::{apply, Substitution};
     use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
-    use crate::aiplan4rust::lir::logic::LogicEngine;
     use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent, ExprBuilder};
 
     #[test]
@@ -212,13 +197,11 @@ mod tests {
         sub.insert(var_x, obj_1);
 
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 3. Exécution du Grounding
         // On récupère explicitement le nouvel ID.
         // L'arène 'expr' contient maintenant l'ancien arbre ET le nouveau.
-        let new_root = engine.instantiate_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
 
         // 4. VALIDATIONS
         // On interroge le noeud retourné par la fonction
@@ -269,11 +252,9 @@ mod tests {
         substitution.insert(var_x, obj_truck);
 
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 3. Exécution via ground_from (Option A : On récupère le nouvel ID)
-        let new_root = engine.instantiate_in_place(&mut expr, root, &substitution)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &substitution)?;
 
         // 4. Validation récursive
         let fcomp_node = expr.try_node(new_root)?;
@@ -342,13 +323,11 @@ mod tests {
         sub.insert(var_x, ObjectId::from(100));
 
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 3. Appel du grounding
         // Rappel : ground_from parcourt les enfants, simplifie le (= 1 2) en False,
         // puis reconstruit le AND et le simplifie immédiatement.
-        let new_root = engine.instantiate_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
 
         // 4. Validation :
         let final_node = expr.try_node(new_root)?;
@@ -407,11 +386,9 @@ mod tests {
 
         // 3. Initialisation du moteur
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 4. Exécution du grounding (Option A : on récupère le nouveau NodeId)
-        let new_root = engine.instantiate_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
 
         // 5. Validation de la structure
 
@@ -484,15 +461,13 @@ mod tests {
         sub.insert(var_x, ObjectId::from(100));
 
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 3. Exécution
         // Processus attendu :
         // a) (= 1 2) -> False
         // b) And(at, False) -> False
         // c) Not(False) -> True (EmptyAnd)
-        let new_root = engine.instantiate_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
 
         // 4. Validation
         let final_node = expr.try_node(new_root)?;
@@ -527,11 +502,9 @@ mod tests {
 
         // 3. Moteur
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 4. Appel
-        let new_root = engine.instantiate_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
 
         // 5. Validation
         let node = expr.try_node(new_root)?;
@@ -571,11 +544,9 @@ mod tests {
 
         // 3. Moteur
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 4. Appel
-        let new_root = engine.instantiate_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
 
         // 5. Validation
         let node = expr.try_node(new_root)?;
@@ -627,11 +598,9 @@ mod tests {
         // 2. Paramètres neutres (Substitution vide)
         let sub = Substitution::new();
         let value_reg = ValueRegistry::new();
-        let logic_engine = LogicEngine::new();
-        let engine = GroundingEngine::new(&value_reg, &logic_engine);
 
         // 3. Appel de la fonction
-        let new_root = engine.instantiate_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
 
         // 4. Validation de l'indépendance structurelle
         assert_ne!(new_root, root, "La racine doit être un nouvel ID");

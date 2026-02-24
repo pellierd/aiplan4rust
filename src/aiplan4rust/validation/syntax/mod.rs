@@ -8,7 +8,7 @@
 //! - `check_well_formed_node`: Checks an individual AST node for correctness.
 //! - `is_well_formed`: Returns a boolean indicating if a node or AST satisfies well-formedness criteria.
 //!
-//! These utilities leverage the submodule [`checks`] for detailed validation logic.
+//! These utilities leverage the submodule [`checks`] for detailed validation ops.
 //!
 //! # Examples
 //!

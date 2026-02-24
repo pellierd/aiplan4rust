@@ -11,7 +11,7 @@ use crate::aiplan4rust::grounding::passes::type_flattening::{atomic_formula_skel
 /// 2. Flattening the **body** (the logical formula) via `expr`.
 ///
 /// This ensures that both the definition of the derived predicate and its
-/// underlying logic use the same canonical primitive types (pivots).
+/// underlying ops use the same canonical primitive types (pivots).
 ///
 /// # Parameters
 /// - `derived_predicate`: The derived predicate structure to modify.

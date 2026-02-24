@@ -1,6 +1,6 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind, ExprNode};
-use crate::aiplan4rust::lir::logic::LogicError;
-use crate::aiplan4rust::lir::logic::rewrite::push_time_specifier::push_time_specifier;
+use crate::aiplan4rust::lir::expr::ops::ExprOpError;
+use crate::aiplan4rust::lir::expr::ops::rewriting::push_time_specifier::push_time_specifier;
 use crate::aiplan4rust::tree::{NodeId, Node};
 
 /// Factorizes temporal specifiers in an expression tree.
@@ -45,7 +45,7 @@ use crate::aiplan4rust::tree::{NodeId, Node};
 pub fn factorize_time_specifier(
     root_id: NodeId,
     expr: &mut Expr,
-) -> Result<bool, LogicError> {
+) -> Result<bool, ExprOpError> {
     // 1. Push temporal specifiers down to atomic formulas
     // This uses the internal `push_time_specifier`, which depends on negations already being pushed.
     // If there are no temporal specifiers, exit early.
@@ -105,7 +105,7 @@ fn filter_temporal(
     root_id: NodeId,
     keep_kind: ExprKind,
     expr: &mut Expr,
-) -> Result<NodeId, LogicError> {
+) -> Result<NodeId, ExprOpError> {
     // Initialize a stack with the root node for DFS traversal
     let mut stack = vec![root_id];
 
@@ -169,7 +169,7 @@ mod tests {
     ///     (at end (or (and) (not (C))))
     ///     (over all (or (and (B)))))
     #[test]
-    fn test_normalize_temporal_complex() -> Result<(), LogicError> {
+    fn test_normalize_temporal_complex() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: Build elements step-by-step to avoid borrow conflicts
@@ -190,7 +190,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Transformation
-        // Note: We keep the logic where factorize_time_specifier might return false
+        // Note: We keep the ops where factorize_time_specifier might return false
         if !factorize_time_specifier(expr.try_root_id()?, &mut expr)? {
             return Ok(());
         }
@@ -241,7 +241,7 @@ mod tests {
     ///    (over all (and (or (B))))      // overall wrapped in And with Or(B)
     /// )
     #[test]
-    fn test_normalize_temporal_nested_overall_or() -> Result<(), LogicError> {
+    fn test_normalize_temporal_nested_overall_or() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: Prepare atoms
@@ -317,7 +317,7 @@ mod tests {
     ///    (over all (or (or (C) (D))))        // overall preserved, original Or preserved inside new Or
     /// )
     #[test]
-    fn test_normalize_temporal_deeply_nested() -> Result<(), LogicError> {
+    fn test_normalize_temporal_deeply_nested() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: Create atomic formulas
@@ -402,7 +402,7 @@ mod tests {
     ///    (over all (or (and (B))))       // overall wrapped in Or
     /// )
     #[test]
-    fn test_normalize_temporal_complex_nested() -> Result<(), LogicError> {
+    fn test_normalize_temporal_complex_nested() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: Create atomic formulas
@@ -485,7 +485,7 @@ mod tests {
     ///    (over all (and))                               // Overall empty but And
     /// )
     #[test]
-    fn test_normalize_temporal_atstart_forall() -> Result<(), LogicError> {
+    fn test_normalize_temporal_atstart_forall() -> Result<(), ExprOpError> {
         let mut builder = ExprBuilder::new();
 
         // 1. Setup: Prepare atoms and variables using IDs

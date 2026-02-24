@@ -1,6 +1,6 @@
 //! # LIR Expression Encoder
 //!
-//! This module provides the logic to transform a PDDL-based Abstract Syntax Tree (AST)
+//! This module provides the ops to transform a PDDL-based Abstract Syntax Tree (AST)
 //! into a Lifted Intermediate Representation (LIR) [`Expr`].
 //!
 //! ## Overview
@@ -193,7 +193,7 @@ fn alloc_node(
 ///   popped, they are processed in the original left-to-right order found in the PDDL source.
 /// * **Filtered Nodes:** Nodes of type [`AstKind::TypedList`] are ignored here. Because they
 ///   represent structural groupings (like variable declarations), they are typically
-///   collapsed or handled by the parent's `encode_content` logic.
+///   collapsed or handled by the parent's `encode_content` ops.
 fn push_children_to_stack<'a>(
     stack: &mut Vec<(&'a AstNode, NodeId, NodeId)>,
     subtree: &'a SyntaxSubtree<'a, AstNode>,

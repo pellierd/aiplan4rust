@@ -5,7 +5,7 @@
 //!
 //! - Detect and warn about implicit "either" type_checker declarations, which may indicate ambiguous or
 //!   overlapping type_checker definitions.
-//! - Merge duplicate type_checker declarations sharing the same primitive type_checker key to simplify and
+//! - Merge duplicate type_checker declarations sharing the same primitive type_checker key to simplification and
 //!   consolidate the AST.
 //!
 //! # Key Functions
@@ -272,7 +272,7 @@ fn emit_implicit_either_type_warnings(
                 ident,
                 duplicate_types,
                 duplicate_spans,
-                Provider::Normalizer, // Mark the simplify as the source of this warning
+                Provider::Normalizer, // Mark the simplification as the source of this warning
                 ast.source_id(),      // Source file name where the warning originates
                 first_span.clone(),   // Location span in the source code for the warning
             );

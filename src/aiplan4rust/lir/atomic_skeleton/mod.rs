@@ -13,7 +13,7 @@
 //! - `AtomicFunctionSkeleton`: Skeleton for atomic functions.
 //! - `AtomicTaskSkeleton`: Skeleton for atomic tasks.
 //!
-//! These skeletons simplify the definition and management of atomic elements
+//! These skeletons simplification the definition and management of atomic elements
 //! in PDDL domains and problems.
 //!
 //! # Example

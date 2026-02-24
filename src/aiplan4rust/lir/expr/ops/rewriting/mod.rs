@@ -1,4 +1,4 @@
-/// Module `rewrite`
+/// Module `rewriting`
 ///
 /// Contains low-level expression transformations used in the expr pipeline.
 /// Each module here represents a single atomic transformation step. Dependencies
@@ -23,7 +23,6 @@ pub mod eliminate_imply;
 pub mod push_negation;
 pub mod push_time_specifier;
 pub mod factorize_time_specifier;
-pub mod expand_quantifier;
 
 pub use eliminate_imply::eliminate_imply as eliminate_imply;
 pub use push_negation::push_negation as push_negation;

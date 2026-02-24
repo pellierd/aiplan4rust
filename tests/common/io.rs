@@ -272,7 +272,7 @@ pub fn write_ast_to_file(ast: &Ast, file_path: &Path, context: &str) {
 /// Writes a `.diag` file manually for fatal errors such as parsing or expr failures.
 ///
 /// This function is intended to handle critical errors where structured diagnostics (e.g., via a
-/// `DiagnosticManager`) may not be available—such as when the parser or simplify crashes early
+/// `DiagnosticManager`) may not be available—such as when the parser or simplification crashes early
 /// and cannot return diagnostics in the usual format.
 ///
 /// It creates a `.diag` file next to the original input file, containing:

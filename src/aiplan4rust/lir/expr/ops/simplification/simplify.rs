@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::lir::expr::kind::Kind;
-use crate::aiplan4rust::lir::logic::{LogicError, StaticEvaluator, StaticValue};
-use crate::aiplan4rust::lir::logic::simplify::{and_or, arithmetic, assign, comparison, not, quantifier, when};
+use crate::aiplan4rust::lir::expr::ops::{ExprOpError, StaticEvaluator, StaticValue};
+use crate::aiplan4rust::lir::expr::ops::simplification::{and_or, arithmetic, assign, comparison, not, quantifier, when};
 use crate::aiplan4rust::tree::NodeId;
 
 /// Simplifies a PDDL-like expression tree in a post-order traversal.
@@ -39,7 +39,7 @@ use crate::aiplan4rust::tree::NodeId;
 ///     - `And` / `Or`: flattening, deduplication, reducing single-child nodes.
 ///     - `Not`: already pushed down; can be further simplified if nested.
 ///     - `Forall` / `Exists`: body simplification and variable factoring.
-///     - `When`: simplify conditional effects.
+///     - `When`: simplification conditional effects.
 ///     - Temporal nodes (`AtStart`, `AtEnd`, `Overall`): already factorized, nothing more to do.
 ///
 /// # Returns
@@ -56,31 +56,49 @@ use crate::aiplan4rust::tree::NodeId;
 /// let mut expr = build_expr_tree();
 /// let root_id = expr.root_id().unwrap();
 ///
-/// // Preconditions must be satisfied before calling simplify:
+/// // Preconditions must be satisfied before calling simplification:
 /// // - All Implies removed
 /// // - Negations pushed down
 /// // - Temporal specifiers factorized
 ///
-/// simplify(root_id, &mut expr)?;
+/// simplification(root_id, &mut expr)?;
 /// ```
-pub fn simplify(
+pub fn simplify_with(
     expr: &mut Expr,
     evaluator: Option<&dyn StaticEvaluator>,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     if let Some(root_id) = expr.root_id() {
-        simplify_from(expr, root_id, evaluator)?;
+        simplify_subexpr_with(expr, root_id, evaluator)?;
     }
     Ok(())
 }
 
+pub fn simplify(
+    expr: &mut Expr,
+) -> Result<(), ExprOpError> {
+    if let Some(root_id) = expr.root_id() {
+        simplify_subexpr_with(expr, root_id, None)?;
+    }
+    Ok(())
+}
+
+pub fn simplify_subexpr(
+    expr: &mut Expr,
+    node_id: NodeId,
+) -> Result<(), ExprOpError> {
+    if let Some(root_id) = expr.root_id() {
+        simplify_subexpr_with(expr, node_id, None)?;
+    }
+    Ok(())
+}
 
 /// Réduit uniquement un sous-arbre à partir d'un noeud spécifique.
 /// C'est cette variante que tu appelles dans ta boucle d'expansion.
-pub fn simplify_from(
+pub fn simplify_subexpr_with(
     expr: &mut Expr,
     node_id: NodeId,
     evaluator: Option<&dyn StaticEvaluator>
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     let has_eval = evaluator.is_some();
 
     // 1. Collecte et filtrage (O(N))
@@ -127,7 +145,7 @@ fn is_simplifiable(kind: ExprKind, has_evaluator: bool) -> bool {
 /// Nodes of other kinds are left unchanged.
 ///
 /// # Parameters
-/// - `node_id`: The ID of the node to simplify.
+/// - `node_id`: The ID of the node to simplification.
 /// - `expr`: Mutable reference to the expression tree containing the node.
 ///
 /// # Returns
@@ -150,7 +168,7 @@ fn simplify_node(
     node_id: NodeId,
     expr: &mut Expr,
     evaluator: Option<&dyn StaticEvaluator>,
-) -> Result<(), LogicError> {
+) -> Result<(), ExprOpError> {
     let kind = expr.try_node(node_id)?.kind();
 
     match kind {
@@ -163,7 +181,7 @@ fn simplify_node(
         ExprKind::Operation => arithmetic::simplify(node_id, expr)?,
         ExprKind::When => when::simplify(node_id, expr)?,
 
-        ExprKind::Imply => return Err(LogicError::invalid_expr_node(node_id, ExprKind::Imply)),
+        ExprKind::Imply => return Err(ExprOpError::invalid_expr_node(node_id, ExprKind::Imply)),
 
         // Unification du traitement AtomicFormula (Prédicats) et FunctionTerm
         ExprKind::AtomicFormula | ExprKind::FunctionTerm => {

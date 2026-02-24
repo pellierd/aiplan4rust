@@ -9,9 +9,7 @@ mod registry;
 pub mod fluent;
 mod numeric_fluent;
 pub mod value_domain;
-mod context;
-mod engine;
-
+mod substitution;
 pub use result::Result as GroundingResult;
 pub use grounder::Grounder;
 pub use problem::Problem;

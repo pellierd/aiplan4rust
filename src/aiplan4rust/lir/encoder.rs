@@ -1,5 +1,5 @@
 //! This module defines the `LirBuilder` struct and associated functions to
-//! simplify a linked and semantically verified syntax domain and problem
+//! simplification a linked and semantically verified syntax domain and problem
 //! into a lifted intermediate representation (`LiftedProblem`).
 //!
 //! # Overview
@@ -175,11 +175,6 @@ pub fn encode_lifted_problem(
 
     // 5. Normalize all expr in the problem
     normalization::normalize_problem(&mut problem)?;
-
-    // Optional: print definitions for debugging
-    /*let domain_def = problem.domain_def();
-    println!("Domain: \n{}", domain_def.to_syntax_string());
-    println!("Problem : \n{}", problem.problem_def().to_syntax_string());*/
 
     // 6. Return the fully constructed and normalized problem
     Ok(problem)

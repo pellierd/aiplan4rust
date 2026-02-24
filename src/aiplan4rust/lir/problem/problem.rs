@@ -1241,7 +1241,7 @@ impl Problem {
     /// Returns a mutable reference to the global problem constraints.
     ///
     /// This allows for the manipulation of trajectory constraints, such as
-    /// simplifying temporal logic formulas or converting them into
+    /// simplifying temporal ops formulas or converting them into
     /// state-monitor automata.
     ///
     /// # Returns
