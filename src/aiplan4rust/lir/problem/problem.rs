@@ -1143,7 +1143,7 @@ impl Problem {
     ///
     /// # Returns
     /// A mutable slice of [`LiftedMethod`].
-    pub fn method_def_mut(&mut self) -> &mut [LiftedMethod] {
+    pub fn method_defs_mut(&mut self) -> &mut [LiftedMethod] {
         &mut self.method_defs
     }
 

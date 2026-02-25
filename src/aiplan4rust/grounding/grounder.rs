@@ -2,7 +2,7 @@ use crate::aiplan4rust::grounding::error::GroundingError;
 use crate::aiplan4rust::grounding::{analysis, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::grounding::problem::Problem;
-use crate::aiplan4rust::grounding::passes::type_flattening;
+use crate::aiplan4rust::grounding::passes::{quantifier_expansion, type_flattening};
 use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::DiagnosticManager;
@@ -55,14 +55,29 @@ impl Grounder {
         mut lifted_problem: LiftedProblem,
     ) -> Result<GroundingResult, GroundingError> {
 
-        // Perform type inference and flatten the lifted problem.
+        // 1. TYPE FLATTENING : On résout la hiérarchie (A est un B).
+        // Obligatoire avant tout car tout le reste en dépend.
         type_flattening::problem::flatten(&mut lifted_problem)?;
 
-        let table = analysis::inertia::analyzer::analyze(&lifted_problem)?;
-        println!("{}", table);
-        let inertia_registry = InertiaRegistry::build(&lifted_problem, table)?;
-        let mut registry = ValueRegistry::new().with_problem(&lifted_problem)?;
+        // 2. OBJECT FLUENT FLATTENING
+        // TO DO
 
+        // 3. ANALYSE D'INERTIE : On identifie ce qui ne change jamais.
+        let table = analysis::inertia::analyze::analyze(&lifted_problem)?;
+        let registry = ValueRegistry::new().with_problem(&lifted_problem)?;
+
+        // 4. OBJECT FLUENT FLATTENING (Si tu l'implémentes) :
+        // C'est ici qu'il intervient. Maintenant qu'on connaît les types
+        // et l'inertie, on peut transformer les "object fluents" constants
+        // en prédicats classiques ou simplifier les accès.
+        // object_fluent_flattening::process(&mut lifted_problem, &table)?;
+
+        let inertia_registry = InertiaRegistry::build(&lifted_problem, &table, &registry)?;
+
+        // 5. QUANTIFIER EXPANSION : On déploie les forall/exists.
+        // Il doit arriver APRES le flattening des types pour que le forall
+        // sache exactement sur quels objets itérer.
+        quantifier_expansion::problem::expand(&mut lifted_problem, &registry)?;
 
 
         let problem = Problem::from(lifted_problem);

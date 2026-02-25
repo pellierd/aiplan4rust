@@ -57,6 +57,7 @@ impl<ID: Id> Type<ID> {
     pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, ID> {
         self.members.iter_mut()
     }
+
 }
 
 /// Permet d'utiliser `for types in &my_type` directement.
@@ -88,6 +89,16 @@ impl Type<SymbolId> {
 
     pub fn is_object(&self) -> bool { self == Self::object() }
     pub fn is_number(&self) -> bool { self == Self::number() }
+}
+
+impl Type<TypeId> {
+    /// Returns true if this type represents a numeric value.
+    ///
+    /// A type is considered numeric if it is primitive and its
+    /// single member is the reserved TypeId::NUMBER_TYPE_ID.
+    pub fn is_number(&self) -> bool {
+        self.is_primitive() && self.members[0].is_number()
+    }
 }
 
 impl RemapSymbol for Type<SymbolId> {

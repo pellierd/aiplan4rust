@@ -13,6 +13,7 @@ use crate::aiplan4rust::lir::problem::LiftedProblem;
 /// # Internal Structure
 /// Domains are stored contiguously in a vector to maximize CPU cache locality during
 /// the intensive iterations required for quantifier expansion and action grounding.
+#[derive(Debug, Clone)]
 pub struct ValueRegistry {
     /// Main storage indexed by `TypeId`. Each [`ValueDomain`] contains a sorted 
     /// and unique list of [`ObjectId`]s.
@@ -84,55 +85,6 @@ impl ValueRegistry {
             init_size: self.init_size
         })
     }
-
-    /// Initializes the registry directly from a `TypedList`.
-    ///
-    /// # Note
-    /// This is a convenience method primarily intended for **unit testing**.
-    /// In a standard workflow, the registry should be initialized via `with_problem`
-    /// to ensure consistency with the global problem definition.
-    ///
-    /// This method handles cases where `ts.ty()` returns a union type (multiple `TypeId`).
-    /// Each object is added to the domain of every type present in its type union.
-    pub fn with_typed_list(mut self, objects: TypedList<ObjectId, TypeId>) -> Self {
-        // 1. Group objects by individual TypeId
-        let mut grouped: HashMap<TypeId, Vec<ObjectId>> = HashMap::new();
-
-        for ts in objects {
-            // ts.ty().members() provides an iter or slice of TypeId
-            for tid in ts.ty().members() {
-                grouped.entry(*tid)
-                    .or_default()
-                    .push(ts.symbol());
-            }
-        }
-
-        if grouped.is_empty() {
-            return self;
-        }
-
-        // 2. Determine the maximum ID for vector sizing
-        let max_id = grouped.keys()
-            .map(|&tid| usize::from(tid))
-            .max()
-            .unwrap_or(0);
-
-        // 3. Initialize the domain vector with padding for non-contiguous IDs
-        // We ensure the vector is large enough to be indexed by any valid TypeId
-        self.type_domains = vec![ValueDomain::new(Vec::new()); max_id + 1];
-
-        // 4. Fill the domains
-        for (tid, mut objs) in grouped {
-            // Sort and dedup is mandatory: an object might belong to multiple
-            // types in the hierarchy or be declared redundantly.
-            objs.sort_unstable();
-            objs.dedup();
-
-            self.type_domains[usize::from(tid)] = ValueDomain::new(objs);
-        }
-
-        self
-    }
     
     /// Scans the problem to extract raw objects categorized by type.
     ///
@@ -185,5 +137,37 @@ impl ValueRegistry {
     /// Panics if the `type_id` is out of bounds for this registry.
     pub fn get_primitive_type_domain(&self, type_id: TypeId) -> &ValueDomain {
         &self.type_domains[type_id.as_usize()]
+    }
+}
+
+#[cfg(test)]
+impl  ValueRegistry {
+    pub fn with_typed_list(mut self, objects: TypedList<ObjectId, TypeId>) -> Self {
+        let mut grouped: HashMap<TypeId, Vec<ObjectId>> = HashMap::new();
+
+        for ts in objects {
+            for tid in ts.ty().members() {
+                grouped.entry(*tid).or_default().push(ts.symbol());
+            }
+        }
+
+        // --- MODIFICATION ICI ---
+        // Au lieu de quitter si c'est vide, on regarde l'ID de type le plus élevé
+        // que l'on veut supporter, ou on s'assure d'une taille minimale.
+        let max_id = grouped.keys()
+            .map(|&tid| usize::from(tid))
+            .max()
+            .unwrap_or(0); // Par défaut 0, donc le vecteur aura au moins une taille de 1
+
+        // On initialise/agrandit le vecteur
+        self.type_domains = vec![ValueDomain::new(Vec::new()); max_id + 1];
+
+        for (tid, mut objs) in grouped {
+            objs.sort_unstable();
+            objs.dedup();
+            self.type_domains[usize::from(tid)] = ValueDomain::new(objs);
+        }
+
+        self
     }
 }

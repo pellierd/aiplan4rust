@@ -5,7 +5,8 @@
 //! representing the declaration of a predicate and its parameter signature.
 
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::lang::FunctionSymbolId;
+use crate::aiplan4rust::interner::SymbolInterner;
+use crate::aiplan4rust::lang::{FunctionSymbolId, SymbolId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
@@ -53,9 +54,16 @@ pub fn encode(
         registry
     )?;
 
-    // 3. Encodage du type de retour (troisième enfant : index 2)
+    // 3. Return type encoding (third child: index 2)
     let return_type_node_id = node.try_child(2)?;
     let return_type_node = ast.try_node(return_type_node_id)?;
+
+    // If the return type is explicitly "number", we ensure it's registered
+    // with the reserved TypeId::NUMBER_TYPE_ID (1) before encoding.
+    if return_type_node.try_ident().ok() == Some(SymbolInterner::NUMBER_SYMBOL_ID) {
+        registry.ensure_numeric_type();
+    }
+
     let return_type = ty::encode(
         &SyntaxSubtree::new(return_type_node, return_type_node_id, ast),
         registry

@@ -30,7 +30,7 @@ pub fn normalize(problem: &mut LiftedProblem) -> Result<(), ExprOpError> {
     }
 
     // Normalize all methods
-    for method in problem.method_def_mut() {
+    for method in problem.method_defs_mut() {
         method::normalize(method)?;
     }
 

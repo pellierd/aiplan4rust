@@ -5,6 +5,7 @@
 //! resolved intermediate representations (LIR) and manages symbol visibility.
 
 use std::collections::HashMap;
+use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, ObjectId, PredicateSymbolId, TaskSymbolId, TaskSkeletonId, TypeId, VariableId, PreferenceSymbolId, SymbolId, TaskLabelSymbolId};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::problem::SymbolRegistry;
@@ -94,6 +95,26 @@ impl EncodingRegistry {
             task_label_to_id: HashMap::new(),
             task_label_id_to_symbol: Vec::new(),
 
+        }
+    }
+
+    /// Ensures that the PDDL 'number' type is registered in the registry.
+    ///
+    /// If the type is not yet registered, it maps the `NUMBER_SYMBOL_ID`
+    /// to the reserved `TypeId::NUMBER_TYPE_ID` (1).
+    /// Returns the resolved `TypeId`.
+    pub fn ensure_numeric_type(&mut self) -> TypeId {
+        // Check if the symbol is already mapped to a TypeId
+        if let Some(&existing_id) = self.type_symbol_to_id.get(&SymbolInterner::NUMBER_SYMBOL_ID) {
+            existing_id
+        } else {
+            // Force the use of the constant TypeId(1)
+            let id = TypeId::NUMBER_TYPE_ID;
+            self.type_symbol_to_id.insert(SymbolInterner::NUMBER_SYMBOL_ID, id);
+
+            // Note: We don't necessarily have a NodeId here because it's
+            // a built-in type, so we only update the symbol-to-id map.
+            id
         }
     }
 

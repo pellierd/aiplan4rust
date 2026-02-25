@@ -5,6 +5,7 @@ use crate::aiplan4rust::lir::problem::symbol_registry::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
+use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistryError;
 use crate::aiplan4rust::grounding::binding::BindingError;
 use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
 use crate::aiplan4rust::lir::expr::ExprError;
@@ -16,7 +17,11 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 pub enum GroundingError {
 
     #[error(transparent)]
-    GroundingEngine(#[from] BindingError),
+    InertiaRegistry(#[from] InertiaRegistryError),
+
+
+    #[error(transparent)]
+    BindingEngine(#[from] BindingError),
 
     #[error(transparent)]
     Logic(#[from] ExprOpError),

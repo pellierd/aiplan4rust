@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 // Imports de ton projet
 use crate::aiplan4rust::interner::{InternerDisplay, InternerError, SymbolInterner};
-use crate::aiplan4rust::lang::LangError;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Trait pour tous les wrappers d'identifiants basés sur un index usize.
@@ -162,6 +161,21 @@ impl_display_prefix!(FunctionSkeletonId, "FS");
 // TS7 (Task Skeleton: Task + Arguments)
 impl_display_prefix!(TaskSkeletonId, "TS");
 // --- TRAITS INTERNER (RESOLUTION) ---
+
+impl TypeId {
+
+    /// Identifiant réservé pour le type "number" (fonctions numériques).
+    /// Correspond au SymbolId(1) dans le SymbolInterner.
+    pub const NUMBER_TYPE_ID: Self = Self::new(1);
+
+    /// Checks if this type represents a numeric value.
+    ///
+    /// In our system, the numeric type is globally identified
+    /// by the constant TypeId::NUMBER_TYPE_ID (index 1).
+    pub fn is_number(&self) -> bool {
+        self.as_usize() == Self::NUMBER_TYPE_ID.as_usize()
+    }
+}
 
 impl InternerDisplay for SymbolId {
     fn fmt_with_interner(&self, f: &mut Formatter<'_>, interner: &SymbolInterner) -> fmt::Result {

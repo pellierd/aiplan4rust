@@ -1,5 +1,5 @@
 use ordered_float::OrderedFloat;
-use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, BinaryComp, FunctionSymbolId, ObjectId, Optimization, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
+use crate::aiplan4rust::lang::{ArithmeticOp, AssignOp, AtomSkeletonId, BinaryComp, FunctionSkeletonId, FunctionSymbolId, ObjectId, Optimization, PredicateSymbolId, PreferenceSymbolId, TaskLabelSymbolId, TaskSymbolId, Type, TypeId, TypedList, TypedSymbol, VariableId};
 use crate::aiplan4rust::lang::BinaryComp::Less;
 use crate::aiplan4rust::lir::expr::{Expr, ExprNode, ExprKind, ExprContent, ExprError};
 use crate::aiplan4rust::tree::NodeId;
@@ -220,22 +220,45 @@ impl ExprBuilder {
         ))
     }
 
-    /// Creates a `FunctionTerm` node in the expression tree.
-    ///
-    /// A `FunctionTerm` represents the application of a function symbol to a list of arguments
-    /// (variables, constants, or other expr).
+    /// Creates a `FunctionTerm` node (Standard PDDL version).
     ///
     /// # Arguments
-    /// * `id` - The identifier of the function symbol (e.g., a [`FunctionSymbolId`] or `usize`).
-    /// * `args` - A vector of [`NodeId`] representing the argument nodes.
+    /// * `sym_id` - The function symbol identifier (accepts `FunctionSymbolId` or `usize`).
+    /// * `args` - The function's arguments.
+    pub fn function_term<FID: Into<FunctionSymbolId>>(&mut self, sym_id: FID, args: Vec<NodeId>) -> NodeId {
+        let sym_node = self.function_symbol(sym_id);
+        self.build_function_node(ExprContent::None, sym_node, args)
+    }
+
+    /// Creates a `FunctionTerm` node optimized for LIR (with Skeleton).
     ///
-    /// # Returns
-    /// The [`NodeId`] of the newly created `FunctionTerm` node.
-    pub fn function_term<I: Into<FunctionSymbolId>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
-        let func_symbol = self.function_symbol(id);
-        let mut children = vec![func_symbol];
+    /// # Arguments
+    /// * `sym_id` - The function symbol identifier.
+    /// * `args` - The function's arguments.
+    /// * `skel_id` - The function skeleton ID. Accepts `FunctionSkeletonId` or `usize`.
+    pub fn function_term_with_skeleton<FID, SID>(
+        &mut self,
+        sym_id: FID,
+        args: Vec<NodeId>,
+        skel_id: SID,
+    ) -> NodeId
+    where
+        FID: Into<FunctionSymbolId>,
+        SID: Into<FunctionSkeletonId>,
+    {
+        let sym_node = self.function_symbol(sym_id);
+        let content = ExprContent::FunctionSkeleton(skel_id.into());
+        self.build_function_node(content, sym_node, args)
+    }
+
+    /// Assembles a FunctionTerm node respecting child order: [Symbol, ...Args].
+    fn build_function_node(&mut self, content: ExprContent, sym_node: NodeId, args: Vec<NodeId>) -> NodeId {
+        let mut children = vec![sym_node];
         children.extend(args);
-        self.nary(ExprKind::FunctionTerm, children)
+        self.node(
+            ExprNode::new(ExprKind::FunctionTerm, content, None),
+            children
+        )
     }
 
     /// Creates a numeric literal node.
@@ -257,22 +280,51 @@ impl ExprBuilder {
         ))
     }
 
-    /// Creates an `AtomicFormula` node: (predicate arg1 arg2 ...)
+    /// Creates an `AtomicFormula` node (Standard PDDL version).
     ///
-    /// This represents a logical atom where a predicate is applied to a set of arguments.
-    /// The first child of the resulting node is always the predicate symbol.
+    /// This node represents a logical atom without attached inertia information.
+    /// The first child is the predicate symbol, followed by the arguments.
     ///
     /// # Arguments
-    /// * `id` - The identifier of the predicate (e.g., a [`PredicateSymbolId`] or `usize`).
-    /// * `args` - A vector of [`NodeId`] representing the terms/arguments of the formula.
+    /// * `sym_id` - The predicate symbol identifier (accepts `PredicateSymbolId` or `usize`).
+    /// * `args` - Nodes representing the predicate's terms/arguments.
+    pub fn atomic_formula<PID: Into<PredicateSymbolId>>(&mut self, sym_id: PID, args: Vec<NodeId>) -> NodeId {
+        let sym_node = self.predicate(sym_id);
+        self.build_atomic_node(ExprContent::None, sym_node, args)
+    }
+
+    /// Creates an `AtomicFormula` node optimized for LIR (with Skeleton).
     ///
-    /// # Returns
-    /// The [`NodeId`] of the newly created `AtomicFormula` node.
-    pub fn atomic_formula<I: Into<PredicateSymbolId>>(&mut self, id: I, args: Vec<NodeId>) -> NodeId {
-        let predicate_node = self.predicate(id);
-        let mut children = vec![predicate_node];
+    /// This version is used after inertia analysis. It attaches the skeleton ID
+    /// directly to the node's content to enable high-performance evaluation.
+    ///
+    /// # Arguments
+    /// * `sym_id` - The predicate symbol identifier.
+    /// * `args` - Nodes representing the arguments.
+    /// * `skel_id` - The skeleton ID (index in the inertia table). Accepts `AtomSkeletonId` or `usize`.
+    pub fn atomic_formula_with_skeleton<PID, SID>(
+        &mut self,
+        sym_id: PID,
+        args: Vec<NodeId>,
+        skel_id: SID,
+    ) -> NodeId
+    where
+        PID: Into<PredicateSymbolId>,
+        SID: Into<AtomSkeletonId>,
+    {
+        let sym_node = self.predicate(sym_id);
+        let content = ExprContent::AtomSkeleton(skel_id.into());
+        self.build_atomic_node(content, sym_node, args)
+    }
+
+    /// Assembles an AtomicFormula node respecting child order: [Symbol, ...Args].
+    fn build_atomic_node(&mut self, content: ExprContent, sym_node: NodeId, args: Vec<NodeId>) -> NodeId {
+        let mut children = vec![sym_node];
         children.extend(args);
-        self.nary(ExprKind::AtomicFormula, children)
+        self.node(
+            ExprNode::new(ExprKind::AtomicFormula, content, None),
+            children
+        )
     }
 
     /// Creates a logical `AND` node with one or more child expr.

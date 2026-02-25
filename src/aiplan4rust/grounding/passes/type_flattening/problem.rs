@@ -174,7 +174,7 @@ fn apply_map_to_problem_components(
     }
 
     // Update HTN Methods
-    for method in problem.method_def_mut() {
+    for method in problem.method_defs_mut() {
         method::flatten(method, map)?;
     }
 
