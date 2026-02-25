@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::ops;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::normalization::{action, derived_predicate, initial_task_network, method};
+use crate::aiplan4rust::lir::passes::normalization::{action, derived_predicate, initial_task_network, method};
 
 /// Normalizes all normalizable components of a `Problem` using the provided `LogicEngine`.
 ///

@@ -19,8 +19,8 @@ use std::ops::{Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 
 use crate::aiplan4rust::lang::{PredicateSymbolId, TypeId, TypedList, VariableId};
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
-use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::problem::symbol_registry::SymbolRegistry;
 
 /// Represents the signature of an atomic formula (predicate) in a PDDL-like domain.
 ///

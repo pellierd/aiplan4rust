@@ -22,7 +22,7 @@ use std::fmt::{self, Formatter};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::interner::SymbolInterner;
 use crate::aiplan4rust::lang::{ObjectId, Requirement, SymbolId, TypeId, TypedSymbol};
-use crate::aiplan4rust::lir::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
+use crate::aiplan4rust::lir::problem::atomic_skeleton::{AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton};
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::{renderers, LiftedAction, LiftedDerivedPredicate, LiftedMethod};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
@@ -82,11 +82,11 @@ impl<'a> DomainDef<'a> {
         self.problem.requirements()
     }
 
-    /// Returns an iterator over all types in the domain.
+    /// Returns an iter over all types in the domain.
     ///
     /// # Returns
     ///
-    /// An iterator over references to [`TypedSymbol`]s in the domain. Each
+    /// An iter over references to [`TypedSymbol`]s in the domain. Each
     /// [`TypedSymbol`] is associated with a unique type identifier (`Ident`).
     ///
     /// # Examples

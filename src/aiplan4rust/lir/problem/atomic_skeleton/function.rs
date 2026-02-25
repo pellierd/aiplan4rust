@@ -19,7 +19,7 @@
 //! ```
 
 use crate::aiplan4rust::lang::{Type, TypedList, TypeId, VariableId, FunctionSymbolId};
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::NamedTypedList;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::ops::{Deref, DerefMut};

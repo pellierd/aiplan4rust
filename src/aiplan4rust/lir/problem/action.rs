@@ -7,12 +7,12 @@ use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lang::{ActionSymbolId, TypeId, VariableId};
 use crate::aiplan4rust::lang::TypedList;
-use crate::aiplan4rust::lir::atomic_skeleton::NamedTypedList;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::NamedTypedList;
 use crate::aiplan4rust::lir::expr::Expr;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lir::renderers;
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
+use crate::aiplan4rust::lir::problem::symbol_registry::SymbolRegistry;
 
 /// Représente une action dans le LIR, qui peut être soit instantanée, soit durative.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

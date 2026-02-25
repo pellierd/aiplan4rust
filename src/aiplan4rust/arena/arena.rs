@@ -552,13 +552,13 @@ impl<T: ArenaNode> ArenaTree<T> {
         self.nodes.len()
     }
 
-    /// Returns an iterator that traverses the arena tree in preorder,
+    /// Returns an iter that traverses the arena tree in preorder,
     /// starting from the root node if it exists.
     ///
     /// Preorder traversal visits the current node before its children,
     /// recursively from left to right.
     ///
-    /// If the tree is empty (no root), returns an empty iterator.
+    /// If the tree is empty (no root), returns an empty iter.
     ///
     /// # Examples
     ///
@@ -574,7 +574,7 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
-    /// Returns a preorder iterator starting from the given `root` node ID.
+    /// Returns a preorder iter starting from the given `root` node ID.
     ///
     /// This allows traversal of any subtree within the arena, starting
     /// at the specified node.
@@ -598,13 +598,13 @@ impl<T: ArenaNode> ArenaTree<T> {
         PreorderIter::new(self, root)
     }
 
-    /// Returns an iterator that traverses the arena tree in postorder,
+    /// Returns an iter that traverses the arena tree in postorder,
     /// starting from the root node if it exists.
     ///
     /// Postorder traversal visits the children of a node before the node itself,
     /// recursively from left to right.
     ///
-    /// If the tree is empty (no root), returns an empty iterator.
+    /// If the tree is empty (no root), returns an empty iter.
     ///
     /// # Examples
     ///
@@ -620,7 +620,7 @@ impl<T: ArenaNode> ArenaTree<T> {
         }
     }
 
-    /// Returns a postorder iterator starting from the given `root` node ID.
+    /// Returns a postorder iter starting from the given `root` node ID.
     ///
     /// This allows traversal of any subtree within the arena, starting
     /// at the specified node.
@@ -714,7 +714,7 @@ impl<T: ArenaNode> ArenaTree<T> {
     /// - Each node has at most one parent (guaranteed by construction).
     /// - There are no cycles in the parent-child relationships.
     ///
-    /// This method uses the `preorder_from` iterator to traverse the tree
+    /// This method uses the `preorder_from` iter to traverse the tree
     /// starting from the root. A `visited` vector is used to detect cycles
     /// safely and prevent infinite loops.
     ///

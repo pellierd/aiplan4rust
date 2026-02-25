@@ -24,7 +24,7 @@ pub fn render(
 
     // 2. Parameters
     write!(f, "  :parameters (")?;
-    typed_list::render_typed_variable_list(f, method.parameters(), ctx)?;
+    typed_list::render_typed_variable_list(f, method.parameters().as_slice(), ctx)?;
     writeln!(f, ")")?;
 
     // 3. The task being decomposed (the "abstract task")

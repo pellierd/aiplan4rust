@@ -1,9 +1,9 @@
 use crate::aiplan4rust::arena::ArenaNode;
-use crate::aiplan4rust::grounding::substitution::Substitution;
+use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::iterator::DomainIterator;
-use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
-use crate::aiplan4rust::grounding::substitution;
+use crate::aiplan4rust::grounding::binding::iter::BindingsIterator;
+use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
+use crate::aiplan4rust::grounding::binding;
 use crate::aiplan4rust::lang::{TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::expr::{ops, Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
@@ -83,8 +83,10 @@ fn expand_quantified_expr(
     };
 
     // --- 2. RÉCUPÉRATION DES DOMAINES ---
-    let var_domains = value_registry.get_variable_domains(&variables);
-    let mut iterator = DomainIterator::new(var_domains)?;
+    //let vars = variables.iter().map(|v| v.symbol()).collect::<Vec<_>>();
+    //let vars = variables.symbols().to_vec();
+    //let var_domains = value_registry.get_variable_domains(&variables);
+    let mut iterator = BindingsIterator::new(&variables, &value_registry)?;
 
     if handle_empty_domains(expr, node_id, &variables, is_forall, iterator.has_next())? {
         return Ok(true);
@@ -92,16 +94,11 @@ fn expand_quantified_expr(
 
     // --- 3. GÉNÉRATION ---
     let mut instances = Vec::new();
-    let mut substitution = Substitution::with_capacity(variables.len());
 
-    while let Some(combo) = iterator.next() {
-        substitution.clear();
-        for (i, &obj_id) in combo.iter().enumerate() {
-            substitution.insert(variables[i].symbol(), obj_id);
-        }
+    while let Some(bindings) = iterator.next() {
 
         // Appel de la fonction de clonage qui renvoie un NodeId (simplifié)
-        let result_id = substitution::substitute_in_place_with(expr, body_id, &substitution, evaluator)?;
+        let result_id = binding::apply_in_place_with(expr, body_id, &bindings, evaluator)?;
         let body_node = expr.try_node(result_id)?;
         // --- DÉTECTION DES CONSTANTES VIA L'ARÈNE ---
         if body_node.is_empty_or() { // Représente FALSE
@@ -174,7 +171,7 @@ fn handle_empty_domains(
 mod tests {
     use super::*;
     use crate::aiplan4rust::lang::{VariableId, TypeId, ObjectId, TypedList, Type, TypedSymbol, PredicateSymbolId};
-    use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
+    use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
     use crate::aiplan4rust::lir::expr::{ExprBuilder, ExprKind};
 
     #[test]

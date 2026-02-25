@@ -7,7 +7,7 @@
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::LirError;
-use crate::aiplan4rust::lir::action::Action;
+use crate::aiplan4rust::lir::problem::action::Action;
 use crate::aiplan4rust::lir::encoding::{expr, typed_list, EncodingRegistry};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};

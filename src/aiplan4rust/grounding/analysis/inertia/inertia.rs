@@ -38,7 +38,7 @@ pub enum Inertia {
     ///
     /// Fluents cannot be pruned during the initial expansion phase based on the
     /// initial state alone, as their truth value changes over time. They are
-    /// passed to the Datalog grounding substitution for reachability analysis.
+    /// passed to the Datalog grounding binding for reachability analysis.
     Fluent,
 }
 

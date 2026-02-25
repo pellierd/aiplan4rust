@@ -194,7 +194,7 @@ impl Expr {
                     let var_node = self.try_node(current_id)?;
                     let var_id = var_node.try_variable()?;
 
-                    // Si elle est dans notre dictionnaire de substitution
+                    // Si elle est dans notre dictionnaire de binding
                     if let Some(&obj_id) = env.get(&var_id) {
                         // On transforme le nœud Variable en nœud Constant (ObjectID)
                         // Tu as probablement une méthode comme set_to_object ou replace_with_constant
@@ -374,7 +374,7 @@ impl Expr {
         self.tree.try_node_mut(id)
     }
 
-    /// Returns a preorder iterator starting at the root.
+    /// Returns a preorder iter starting at the root.
     ///
     /// # Returns
     /// A [`PreorderIter`] over all nodes from the root.
@@ -382,7 +382,7 @@ impl Expr {
         self.tree.preorder()
     }
 
-    /// Returns a preorder iterator starting at the specified node.
+    /// Returns a preorder iter starting at the specified node.
     ///
     /// # Arguments
     /// * `root` - The node ID to start traversal from.
@@ -393,7 +393,7 @@ impl Expr {
         self.tree.preorder_from(root)
     }
 
-    /// Returns a postorder iterator starting at the root.
+    /// Returns a postorder iter starting at the root.
     ///
     /// # Returns
     /// A [`PostorderIter`] over all nodes from the root.
@@ -401,7 +401,7 @@ impl Expr {
         self.tree.postorder()
     }
 
-    /// Returns a postorder iterator starting at the specified node.
+    /// Returns a postorder iter starting at the specified node.
     ///
     /// # Arguments
     /// * `root` - The node ID to start traversal from.

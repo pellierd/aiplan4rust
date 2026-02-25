@@ -1,38 +1,38 @@
 use std::collections::HashMap;
-use crate::aiplan4rust::lir::expr::{expr, ops, Expr, ExprKind, ExprNode};
+use crate::aiplan4rust::lir::expr::{ops, Expr, ExprKind, ExprNode};
 use crate::aiplan4rust::tree::NodeId;
-use crate::aiplan4rust::grounding::substitution::Substitution;
-use crate::aiplan4rust::grounding::substitution::GroundingEngineError;
-use crate::aiplan4rust::grounding::substitution::Substitutable;
-use crate::aiplan4rust::lir::expr::ops::{simplify_subexpr, simplify_subexpr_with, ExprOpError, StaticEvaluator};
+use crate::aiplan4rust::grounding::binding::Bindings;
+use crate::aiplan4rust::grounding::binding::BindingError;
+use crate::aiplan4rust::grounding::binding::Bindable;
+use crate::aiplan4rust::lir::expr::ops::StaticEvaluator;
 
 /// Instancie une nouvelle Expr à partir d'un sous-arbre de la source.
 /// Si la source n'a pas de racine, retourne une expression vide sans erreur.
 
-pub fn substitute(
+pub fn apply(
     expr: &Expr,
-    substitution: &Substitution,
-) -> Result<Expr, GroundingEngineError> {
+    bindings: &Bindings,
+) -> Result<Expr, BindingError> {
     let root_id = match expr.root_id() {
         Some(id) => id,
         None => return Ok(Expr::new()),
     };
-    substitute_with(expr, root_id, substitution, None)
+    apply_with(expr, root_id, bindings, None)
 }
 
 
-pub fn substitute_with(
-    source: &Expr,
-    source_root: NodeId,
-    sub: &Substitution,
+pub fn apply_with(
+    expr: &Expr,
+    node_id: NodeId,
+    bindings: &Bindings,
     evaluator: Option<&dyn StaticEvaluator>,
-) -> Result<Expr, GroundingEngineError> {
+) -> Result<Expr, BindingError> {
     let mut target = Expr::new();
-    let mut stack = vec![(source_root, false)];
+    let mut stack = vec![(node_id, false)];
     let mut id_map: HashMap<NodeId, NodeId> = HashMap::new();
 
     while let Some((old_id, processed)) = stack.pop() {
-        let node = source.try_node(old_id)?;
+        let node = expr.try_node(old_id)?;
         let kind = node.kind();
 
         if !processed {
@@ -41,7 +41,7 @@ pub fn substitute_with(
                 let new_id = target.clone_subtree(old_id)?;
 
                 // 2. Substitution
-                target.substitute(new_id, sub)?;
+                target.apply(new_id, bindings)?;
 
                 // 3. Simplification
                 ops::simplify_subexpr_with(&mut target, new_id, evaluator)?;
@@ -56,12 +56,12 @@ pub fn substitute_with(
             }
         } else {
             // Reconstruction
-            let old_children = source.try_node(old_id)?.children();
+            let old_children = expr.try_node(old_id)?.children();
             let new_children: Vec<NodeId> = old_children.iter()
                 .map(|c| *id_map.get(c).expect("Enfant manquant"))
                 .collect();
 
-            let content = source.try_node(old_id)?.content().clone();
+            let content = expr.try_node(old_id)?.content().clone();
 
             let new_id = target.alloc_with_children(
                 ExprNode::new(kind, content, None),
@@ -74,29 +74,29 @@ pub fn substitute_with(
     }
 
     // On définit la racine de la nouvelle arène avant de la rendre
-    let final_root = *id_map.get(&source_root).unwrap();
+    let final_root = *id_map.get(&node_id).unwrap();
     target.set_root_id(final_root)?;
 
     Ok(target)
 }
 
-pub fn substitute_in_place(
+pub fn apply_in_place(
     expr: &mut Expr,
     root_id: NodeId,
-    substitution: &Substitution,
-) -> Result<NodeId, GroundingEngineError> {
-    substitute_in_place_with(expr, root_id, substitution, None)
+    substitution: &Bindings,
+) -> Result<NodeId, BindingError> {
+    apply_in_place_with(expr, root_id, substitution, None)
 }
 
 
 /// Grounde une expression en clonant le sous-arbre et en simplifiant au fur et à mesure.
 /// Idéal pour instancier des effets ou des préconditions depuis un domaine "lifted".
-pub fn substitute_in_place_with(
+pub fn apply_in_place_with(
     expr: &mut Expr,
     root_id: NodeId,
-    substitution: &Substitution,
+    substitution: &Bindings,
     evaluator: Option<&dyn StaticEvaluator>,
-) -> Result<NodeId, GroundingEngineError> {
+) -> Result<NodeId, BindingError> {
     // Pile de travail : (ID du noeud source, est_traité)
     // On utilise un parcours de type Post-Order (reconstruction des parents après les enfants)
     let mut stack = vec![(root_id, false)];
@@ -113,8 +113,8 @@ pub fn substitute_in_place_with(
                 // On clone tout le sous-arbre (arguments, etc.)
                 let new_id = expr.clone_subtree(old_id)?;
 
-                // On applique la substitution via notre Trait (modifie new_id en place)
-                expr.substitute(new_id, substitution)?;
+                // On applique la binding via notre Trait (modifie new_id en place)
+                expr.apply(new_id, substitution)?;
 
                 // Simplification immédiate (Inertie / Évaluation statique)
                 // Utilise le logic_engine interne
@@ -175,8 +175,8 @@ fn is_atomic_block(kind: ExprKind) -> bool {
 #[cfg(test)]
 mod tests {
     use crate::aiplan4rust::lang::{VariableId, ObjectId, BinaryComp};
-    use crate::aiplan4rust::grounding::substitution::{apply, Substitution};
-    use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
+    use crate::aiplan4rust::grounding::binding::{apply, Bindings};
+    use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
     use crate::aiplan4rust::lir::expr::{ExprKind, ExprContent, ExprBuilder};
 
     #[test]
@@ -192,8 +192,8 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // 2. Préparation du moteur et de la substitution
-        let mut sub = Substitution::new();
+        // 2. Préparation du moteur et de la binding
+        let mut sub = Bindings::new();
         sub.insert(var_x, obj_1);
 
         let value_reg = ValueRegistry::new();
@@ -201,14 +201,14 @@ mod tests {
         // 3. Exécution du Grounding
         // On récupère explicitement le nouvel ID.
         // L'arène 'expr' contient maintenant l'ancien arbre ET le nouveau.
-        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 4. VALIDATIONS
         // On interroge le noeud retourné par la fonction
         let node = expr.try_node(new_root)?;
         assert_eq!(node.kind(), ExprKind::AtomicFormula);
 
-        // Vérification de la substitution de l'argument
+        // Vérification de la binding de l'argument
         let children = node.children();
         // On récupère le premier argument (index 1 si le predicate_id est en 0, sinon index 0)
         // Adapte l'index selon ton implémentation de builder.atomic_formula
@@ -248,13 +248,13 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Préparation du nouveau moteur de grounding
-        let mut substitution = Substitution::new();
+        let mut substitution = Bindings::new();
         substitution.insert(var_x, obj_truck);
 
         let value_reg = ValueRegistry::new();
 
         // 3. Exécution via ground_from (Option A : On récupère le nouvel ID)
-        let new_root = apply::substitute_in_place(&mut expr, root, &substitution)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &substitution)?;
 
         // 4. Validation récursive
         let fcomp_node = expr.try_node(new_root)?;
@@ -319,7 +319,7 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Préparation du nouveau moteur
-        let mut sub = Substitution::new();
+        let mut sub = Bindings::new();
         sub.insert(var_x, ObjectId::from(100));
 
         let value_reg = ValueRegistry::new();
@@ -327,7 +327,7 @@ mod tests {
         // 3. Appel du grounding
         // Rappel : ground_from parcourt les enfants, simplifie le (= 1 2) en False,
         // puis reconstruit le AND et le simplifie immédiatement.
-        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 4. Validation :
         let final_node = expr.try_node(new_root)?;
@@ -352,7 +352,7 @@ mod tests {
         // DESCRIPTION DU TEST
         // -------------------------------------------------------------------------
         // OBJECTIF : Vérifier la reconstruction d'un arbre profond et la
-        //            substitution multiple à différents niveaux.
+        //            binding multiple à différents niveaux.
         //
         // INPUT : (Not (And (at_10 ?x) (at_11 ?y)))
         //         Substitution : { ?x -> 100, ?y -> 200 }
@@ -379,8 +379,8 @@ mod tests {
         builder.set_root(root)?; // On définit la racine
         let mut expr = builder.finish();
 
-        // 2. Préparation de la substitution via ton nouveau type
-        let mut sub = Substitution::new();
+        // 2. Préparation de la binding via ton nouveau type
+        let mut sub = Bindings::new();
         sub.insert(x_id, ObjectId::from(100));
         sub.insert(y_id, ObjectId::from(200));
 
@@ -388,7 +388,7 @@ mod tests {
         let value_reg = ValueRegistry::new();
 
         // 4. Exécution du grounding (Option A : on récupère le nouveau NodeId)
-        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 5. Validation de la structure
 
@@ -456,8 +456,8 @@ mod tests {
         builder.set_root(root)?;
         let mut expr = builder.finish();
 
-        // 2. Préparation du moteur et substitution
-        let mut sub = Substitution::new();
+        // 2. Préparation du moteur et binding
+        let mut sub = Bindings::new();
         sub.insert(var_x, ObjectId::from(100));
 
         let value_reg = ValueRegistry::new();
@@ -467,7 +467,7 @@ mod tests {
         // a) (= 1 2) -> False
         // b) And(at, False) -> False
         // c) Not(False) -> True (EmptyAnd)
-        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 4. Validation
         let final_node = expr.try_node(new_root)?;
@@ -497,14 +497,14 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Substitution : ?x -> 100
-        let mut sub = Substitution::new();
+        let mut sub = Bindings::new();
         sub.insert(x_id, ObjectId::from(100));
 
         // 3. Moteur
         let value_reg = ValueRegistry::new();
 
         // 4. Appel
-        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 5. Validation
         let node = expr.try_node(new_root)?;
@@ -515,7 +515,7 @@ mod tests {
         if let ExprContent::Constant(id) = node.content() {
             assert_eq!(*id, ObjectId::from(100), "La variable racine aurait dû devenir l'objet 100");
         } else {
-            panic!("La racine devrait être une Constant après substitution, mais c'est un {:?}", node.kind());
+            panic!("La racine devrait être une Constant après binding, mais c'est un {:?}", node.kind());
         }
 
         Ok(())
@@ -539,14 +539,14 @@ mod tests {
         let mut expr = builder.finish();
 
         // 2. Substitution : Uniquement ?x
-        let mut sub = Substitution::new();
+        let mut sub = Bindings::new();
         sub.insert(x_id, ObjectId::from(100));
 
         // 3. Moteur
         let value_reg = ValueRegistry::new();
 
         // 4. Appel
-        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 5. Validation
         let node = expr.try_node(new_root)?;
@@ -596,11 +596,11 @@ mod tests {
         let old_child_id = expr.try_node(root)?.children()[1];
 
         // 2. Paramètres neutres (Substitution vide)
-        let sub = Substitution::new();
+        let sub = Bindings::new();
         let value_reg = ValueRegistry::new();
 
         // 3. Appel de la fonction
-        let new_root = apply::substitute_in_place(&mut expr, root, &sub)?;
+        let new_root = apply::apply_in_place(&mut expr, root, &sub)?;
 
         // 4. Validation de l'indépendance structurelle
         assert_ne!(new_root, root, "La racine doit être un nouvel ID");

@@ -3,7 +3,7 @@ use crate::aiplan4rust::grounding::{analysis, GroundingResult};
 use crate::aiplan4rust::grounding::analysis::inertia::registry::InertiaRegistry;
 use crate::aiplan4rust::grounding::problem::Problem;
 use crate::aiplan4rust::grounding::passes::type_flattening;
-use crate::aiplan4rust::grounding::registry::value::ValueRegistry;
+use crate::aiplan4rust::grounding::problem::registry::value::ValueRegistry;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 use crate::DiagnosticManager;
 

@@ -1,16 +1,16 @@
-use crate::aiplan4rust::grounding::substitution::error::GroundingEngineError;
-use crate::aiplan4rust::grounding::substitution::Substitution;
+use crate::aiplan4rust::grounding::binding::error::BindingError;
+use crate::aiplan4rust::grounding::binding::Bindings;
 use crate::aiplan4rust::lir::expr::{Expr, ExprKind};
 use crate::aiplan4rust::tree::NodeId;
 
-pub trait Substitutable {
+pub trait Bindable {
     /// Parcourt l'arbre à partir de `node_id` et remplace les variables par les objets
-    /// fournis dans la substitution. Retourne l'ID du nouveau nœud (ou l'existant).
-    fn substitute(&mut self, node_id: NodeId, sub: &Substitution) -> Result<(), GroundingEngineError>;
+    /// fournis dans la binding. Retourne l'ID du nouveau nœud (ou l'existant).
+    fn apply(&mut self, node_id: NodeId, sub: &Bindings) -> Result<(), BindingError>;
 }
 
-impl Substitutable for Expr {
-    fn substitute(&mut self, root_id: NodeId, sub: &Substitution) -> Result<(), GroundingEngineError>{
+impl Bindable for Expr {
+    fn apply(&mut self, root_id: NodeId, sub: &Bindings) -> Result<(), BindingError>{
         // On utilise un parcours post-order ou un simple stack
         let mut stack = vec![root_id];
 
@@ -25,7 +25,7 @@ impl Substitutable for Expr {
                     let var_node = self.try_node(current_id)?;
                     let var_id = var_node.try_variable()?;
 
-                    // Si elle est dans notre dictionnaire de substitution
+                    // Si elle est dans notre dictionnaire de binding
                     if let Some(obj_id) = sub.get(&var_id) {
                         // On transforme le nœud Variable en nœud Constant (ObjectID)
                         // Tu as probablement une méthode comme set_to_object ou replace_with_constant

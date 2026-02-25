@@ -39,8 +39,9 @@
 use crate::aiplan4rust::diagnostic::DiagnosticManager;
 use crate::aiplan4rust::linking::LinkedSemanticContext;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
-use crate::aiplan4rust::lir::{encoding, normalization, LirBuilderResult, LirError};
+use crate::aiplan4rust::lir::{encoding, LirBuilderResult, LirError};
 use crate::aiplan4rust::lir::encoding::{domain, EncodingRegistry};
+use crate::aiplan4rust::lir::passes::normalization;
 
 /// This module defines the `LirBuilder`, which transforms a parsed and linked
 /// syntax domain/problem into a *lifted intermediate representation* (LiftedProblem).

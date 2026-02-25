@@ -293,7 +293,7 @@ where
         self.arena.len()
     }
 
-    /// Returns a preorder iterator starting at the root.
+    /// Returns a preorder iter starting at the root.
     ///
     /// # Returns
     /// A [`PreorderIter`] over all nodes from the root.
@@ -301,7 +301,7 @@ where
         self.arena.preorder()
     }
 
-    /// Returns a preorder iterator starting at the specified node.
+    /// Returns a preorder iter starting at the specified node.
     ///
     /// # Arguments
     /// * `root` - The node ID to start traversal from.
@@ -312,7 +312,7 @@ where
         self.arena.preorder_from(root)
     }
 
-    /// Returns a postorder iterator starting at the root.
+    /// Returns a postorder iter starting at the root.
     ///
     /// # Returns
     /// A [`PostorderIter`] over all nodes from the root.
@@ -320,7 +320,7 @@ where
         self.arena.postorder()
     }
 
-    /// Returns a postorder iterator starting at the specified node.
+    /// Returns a postorder iter starting at the specified node.
     ///
     /// # Arguments
     /// * `root` - The node ID to start traversal from.

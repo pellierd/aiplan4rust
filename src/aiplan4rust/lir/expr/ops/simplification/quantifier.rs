@@ -120,7 +120,7 @@ pub fn canonicalize_quantifier_vars(node_id: NodeId, expr: &mut Expr) -> Result<
 
     // On trie par symbole pour garantir que (forall (?a ?b) ...)
     // soit identique à (forall (?b ?a) ...) après simplification.
-    vars.sort_by_key(|ts| ts.symbol());
+    vars.sort_by_symbol();
 
     Ok(())
 }
@@ -239,8 +239,8 @@ pub fn fuse_nested_quantifiers(node_id: NodeId, expr: &mut Expr) -> Result<(), E
         let outer_vars = outer_node_mut.content_mut().try_quantifier_vars_mut()?;
 
         outer_vars.extend(inner_vars);
-        outer_vars.sort_by_key(|v| v.symbol());
-        outer_vars.dedup_by_key(|v| v.symbol());
+        outer_vars.sort_by_symbol();
+        outer_vars.dedup_by_symbol();
     }
 
     // Étape 4 : Court-circuit (Le "Move" de structure)

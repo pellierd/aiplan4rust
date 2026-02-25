@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::grounding::error::GroundingError;
-use crate::aiplan4rust::grounding::value_domain::ValueDomain;
+use crate::aiplan4rust::grounding::problem::value_domain::ValueDomain;
 use crate::aiplan4rust::lang::{ObjectId, Type, TypeId, TypedList, VariableId};
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
@@ -99,7 +99,7 @@ impl ValueRegistry {
         let mut grouped: HashMap<TypeId, Vec<ObjectId>> = HashMap::new();
 
         for ts in objects {
-            // ts.ty().members() provides an iterator or slice of TypeId
+            // ts.ty().members() provides an iter or slice of TypeId
             for tid in ts.ty().members() {
                 grouped.entry(*tid)
                     .or_default()

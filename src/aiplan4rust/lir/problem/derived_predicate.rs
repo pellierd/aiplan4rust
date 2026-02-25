@@ -4,7 +4,7 @@
 //! A `DerivedPredicate` is a logical fact derived from other facts,
 //! consisting of a head (name and parameters) and a body (logical expression).
 
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::expr::Expr;
 use crate::aiplan4rust::lir::renderers;
 use serde::{Deserialize, Serialize};
@@ -12,7 +12,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use crate::aiplan4rust::lang::{AtomSkeletonId, VariableId};
 use crate::aiplan4rust::lir::renderers::{LiftedSyntaxDisplay, RenderContext};
-use crate::aiplan4rust::lir::symbol_registry::SymbolRegistry;
+use crate::aiplan4rust::lir::problem::symbol_registry::SymbolRegistry;
 
 /// Represents a derived predicate in a PDDL problem.
 ///

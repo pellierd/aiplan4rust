@@ -22,9 +22,9 @@
 
 use crate::aiplan4rust::arena::{ArenaNode, ArenaTree, NodeId, NodeRef};
 
-/// A generic postorder iterator over nodes in an `ArenaTree<T>`.
+/// A generic postorder iter over nodes in an `ArenaTree<T>`.
 ///
-/// This iterator yields `(NodeId, depth, &T)` for each node, starting from
+/// This iter yields `(NodeId, depth, &T)` for each node, starting from
 /// the specified root node and traversing children before their parent.
 ///
 /// Postorder traversal is useful for bottom-up processing of trees,
@@ -44,7 +44,7 @@ pub struct PostorderIter<'a, T: ArenaNode> {
 }
 
 impl<'a, T: ArenaNode> PostorderIter<'a, T> {
-    /// Creates a new postorder iterator starting from the given `root`.
+    /// Creates a new postorder iter starting from the given `root`.
     ///
     /// # Parameters
     ///
@@ -61,7 +61,7 @@ impl<'a, T: ArenaNode> PostorderIter<'a, T> {
         }
     }
 
-    /// Creates an empty postorder iterator.
+    /// Creates an empty postorder iter.
     ///
     /// Useful for cases where traversal is conditional.
     pub fn empty(arena: &'a ArenaTree<T>) -> Self {
@@ -71,31 +71,31 @@ impl<'a, T: ArenaNode> PostorderIter<'a, T> {
         }
     }
 
-    /// Transforms this iterator to yield `(NodeId, &T)` tuples,
+    /// Transforms this iter to yield `(NodeId, &T)` tuples,
     /// dropping depth information.
     pub fn with_id(self) -> impl Iterator<Item = (NodeId, &'a T)> {
         self.map(|(id, _, node)| (id, node))
     }
 
-    /// Transforms this iterator to yield `(depth, &T)` tuples,
+    /// Transforms this iter to yield `(depth, &T)` tuples,
     /// dropping node ID information.
     pub fn with_depth(self) -> impl Iterator<Item = (usize, &'a T)> {
         self.map(|(_, depth, node)| (depth, node))
     }
 
-    /// Transforms this iterator to yield `NodeRef` structs,
+    /// Transforms this iter to yield `NodeRef` structs,
     /// bundling node ID and node reference.
     pub fn node_refs(self) -> impl Iterator<Item = NodeRef<'a, T>> {
         self.map(|(id, _, node)| NodeRef::new(id, node))
     }
 
-    /// Transforms this iterator to yield only node references `&T`,
+    /// Transforms this iter to yield only node references `&T`,
     /// dropping node ID and depth.
     pub fn values(self) -> impl Iterator<Item = &'a T> {
         self.map(|(_, _, node)| node)
     }
 
-    /// Returns an iterator yielding only `(NodeId, &T)` pairs,
+    /// Returns an iter yielding only `(NodeId, &T)` pairs,
     /// discarding depth information.
     pub fn ids(self) -> impl Iterator<Item = (NodeId, &'a T)> {
         self.map(|(id, _depth, node)| (id, node))

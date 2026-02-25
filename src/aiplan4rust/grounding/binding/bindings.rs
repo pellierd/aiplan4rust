@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use crate::aiplan4rust::lang::{VariableId, ObjectId};
 
 #[derive(Debug, Clone, Default)]
-pub struct Substitution {
+pub struct Bindings {
     mapping: HashMap<VariableId, ObjectId>,
 }
 
-impl Substitution {
+impl Bindings {
     pub fn new() -> Self {
         Self::default()
     }
@@ -32,5 +32,9 @@ impl Substitution {
 
     pub fn clear(&mut self) {
         self.mapping.clear();
+    }
+
+    pub fn is_bound(&self, var: &VariableId) -> bool {
+        self.mapping.contains_key(var)
     }
 }

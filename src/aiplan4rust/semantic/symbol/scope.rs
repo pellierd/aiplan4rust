@@ -113,13 +113,13 @@ impl Scope {
         self.stack.starts_with(&prefix.stack)
     }
 
-    /// Returns an iterator over the `NodeId`s contained in this scope.
+    /// Returns an iter over the `NodeId`s contained in this scope.
     ///
-    /// The iterator yields references to the syntax node IDs from outermost to innermost.
+    /// The iter yields references to the syntax node IDs from outermost to innermost.
     ///
     /// # Returns
     ///
-    /// An iterator over `&NodeId`.
+    /// An iter over `&NodeId`.
     ///
     /// # Example
     ///

@@ -1,5 +1,5 @@
 use std::fmt::{self, Formatter};
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFormulaSkeleton;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFormulaSkeleton;
 use crate::aiplan4rust::lir::renderers::context::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::typed_list;
 
@@ -14,11 +14,11 @@ pub fn render(
     write!(f, "({}", ctx.resolve_predicate(formula.symbol()))?;
 
     // 2. Rendu des paramètres s'il y en a
-    let params = formula.parameters();
-    if !params.is_empty() {
+    let parameters = formula.parameters();
+    if !parameters.is_empty() {
         write!(f, " ")?;
         // On utilise la fonction de ton module typed_list qui gère le préfixe '?'
-        typed_list::render_typed_variable_list(f, params, ctx)?;
+        typed_list::render_typed_variable_list(f, parameters.as_slice(), ctx)?;
     }
 
     // 3. Fermeture

@@ -4,7 +4,7 @@ use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 use crate::aiplan4rust::tree::error::SyntaxTreeError;
 
 #[derive(Error, Debug)]
-pub enum GroundingEngineError {
+pub enum BindingError {
 
     #[error(transparent)]
     Logic(#[from] ExprOpError),
@@ -16,6 +16,6 @@ pub enum GroundingEngineError {
     Expr(#[from] ExprError),
 }
 
-impl GroundingEngineError {
+impl BindingError {
 
 }

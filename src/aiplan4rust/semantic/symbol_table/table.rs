@@ -150,27 +150,27 @@ impl Table {
         self.root_id = root_id;
     }
 
-    /// Returns an iterator over all symbols in the table as immutable references.
+    /// Returns an iter over all symbols in the table as immutable references.
     ///
     /// # Returns
-    /// An iterator yielding (`&Ident`, `&SymbolEntry`) pairs for all entries.
+    /// An iter yielding (`&Ident`, `&SymbolEntry`) pairs for all entries.
     pub fn iter(&self) -> impl Iterator<Item=(&SymbolId, &SymbolEntry)> {
         self.symbols.iter()
     }
 
-    /// Returns an iterator over all symbols in the table as mutable references.
+    /// Returns an iter over all symbols in the table as mutable references.
     ///
     /// # Returns
-    /// An iterator yielding (`&Ident`, `&mut SymbolEntry`) pairs,
+    /// An iter yielding (`&Ident`, `&mut SymbolEntry`) pairs,
     /// allowing in-place modification of symbols.
     pub fn iter_mut(&mut self) -> impl Iterator<Item=(&SymbolId, &mut SymbolEntry)> {
         self.symbols.iter_mut()
     }
 
-    /// Consumes the symbol table and returns an iterator over its entries.
+    /// Consumes the symbol table and returns an iter over its entries.
     ///
     /// # Returns
-    /// An iterator yielding `(Ident, SymbolEntry)` pairs, consuming the table.
+    /// An iter yielding `(Ident, SymbolEntry)` pairs, consuming the table.
     pub fn into_iter(self) -> impl Iterator<Item=(SymbolId, SymbolEntry)> {
         self.symbols.into_iter()
     }
@@ -206,18 +206,18 @@ impl Table {
         self.symbols.get_mut(&name)
     }
 
-    /// Returns an iterator over all symbols in the table as immutable references.
+    /// Returns an iter over all symbols in the table as immutable references.
     ///
     /// # Returns
-    /// An iterator yielding references to each `SymbolEntry` in the table.
+    /// An iter yielding references to each `SymbolEntry` in the table.
     pub fn values(&self) -> impl Iterator<Item=&SymbolEntry> {
         self.symbols.values()
     }
 
-    /// Returns a mutable iterator over all symbols in the table.
+    /// Returns a mutable iter over all symbols in the table.
     ///
     /// # Returns
-    /// An iterator yielding mutable references to each `SymbolEntry`.
+    /// An iter yielding mutable references to each `SymbolEntry`.
     pub fn values_mut(&mut self) -> impl Iterator<Item=&mut SymbolEntry> {
         self.symbols.iter_mut().map(|(_, symbol)| symbol)
     }

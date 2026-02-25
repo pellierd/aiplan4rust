@@ -59,23 +59,28 @@ pub(crate) fn writeln_centered(
     }
 }
 
-pub(crate) fn render_labeled_typed_list<T: std::fmt::Display>(
+pub(crate) fn render_labeled_typed_list<I, T>(
     f: &mut fmt::Formatter<'_>,
     label: &str,
-    items: &[T]
-) -> fmt::Result {
+    items: I
+) -> fmt::Result
+where
+    I: IntoIterator<Item = T>,
+    T: fmt::Display
+{
     writeln!(f, "{}:", label)?;
 
-    if items.is_empty() {
+    let mut iter = items.into_iter().peekable();
+
+    if iter.peek().is_none() {
         writeln!(f, "  <None>")?;
     } else {
-        for item in items {
+        for item in iter {
             writeln!(f, "  {}", item)?;
         }
     }
     Ok(())
 }
-
 pub(crate) fn render_labeled_expr(f: &mut fmt::Formatter<'_>, label: &str, expr: &Expr) -> fmt::Result {
     writeln!(f, "{}:", label)?;
 

@@ -112,7 +112,7 @@ impl DiagnosticManager {
         self.diagnostics.extend(diagnostics);
     }
 
-    /// Returns an iterator over all diagnostics sorted by position.
+    /// Returns an iter over all diagnostics sorted by position.
     ///
     /// Diagnostics are sorted by their starting character offset.
     pub fn diagnostics(&self) -> impl Iterator<Item = &Diagnostic> {

@@ -5,7 +5,7 @@ use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::encoding::{expr, task_network, typed_list};
 use crate::aiplan4rust::lir::encoding::registry::EncodingRegistry;
-use crate::aiplan4rust::lir::method::Method;
+use crate::aiplan4rust::lir::problem::method::Method;
 use crate::aiplan4rust::lir::problem::LiftedProblem;
 
 /// Encodes an HTN method from the syntax tree into the LIR.

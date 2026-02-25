@@ -10,7 +10,7 @@ use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::syntax::ast::AstNode;
 use crate::aiplan4rust::tree::SyntaxSubtree;
 use crate::aiplan4rust::lir::encoding::{ty, typed_list, EncodingRegistry};
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicFunctionSkeleton;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicFunctionSkeleton;
 
 /// Encodes an atomic formula skeleton from the syntax tree.
 ///

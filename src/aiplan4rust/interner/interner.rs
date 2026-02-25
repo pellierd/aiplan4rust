@@ -344,18 +344,18 @@ impl SymbolInterner {
             .ok_or_else(|| InternerError::unknown_ident_string(s))
     }
 
-    /// Returns an iterator over the interned `Ident`s (the indices).
-    /// Returns an iterator over all interned identifiers (`Ident`).
+    /// Returns an iter over the interned `Ident`s (the indices).
+    /// Returns an iter over all interned identifiers (`Ident`).
     pub fn symbol_keys(&self) -> impl Iterator<Item =SymbolId> + '_ {
         (0..self.symbol_string_pool.len()).map(SymbolId::new)
     }
 
-    /// Returns an iterator over interned strings (`&str`).
+    /// Returns an iter over interned strings (`&str`).
     pub fn symbol_values(&self) -> impl Iterator<Item = &str> + '_ {
         self.symbol_string_pool.iter().map(|s| s.as_ref())
     }
 
-    /// Returns an iterator over `(Ident, &str)` pairs.
+    /// Returns an iter over `(Ident, &str)` pairs.
     pub fn iter_symbol_entries(&self) -> impl Iterator<Item = (SymbolId, &str)> + '_ {
         self.symbol_string_pool
             .iter()
@@ -443,17 +443,17 @@ impl SymbolInterner {
             .ok_or_else(|| InternerError::unknown_literal_string(s))
     }
 
-    /// Returns an iterator over all literal `Literal`s.
+    /// Returns an iter over all literal `Literal`s.
     pub fn literal_keys(&self) -> impl Iterator<Item =LiteralId> + '_ {
         (0..self.literal_string_pool.len()).map(LiteralId::new)
     }
 
-    /// Returns an iterator over all interned literals (`&str`).
+    /// Returns an iter over all interned literals (`&str`).
     pub fn literal_values(&self) -> impl Iterator<Item = &str> + '_ {
         self.literal_string_pool.iter().map(|s| s.as_ref())
     }
 
-    /// Returns an iterator over `(Literal, &str)` pairs for literals.
+    /// Returns an iter over `(Literal, &str)` pairs for literals.
     pub fn iter_literal_entries(&self) -> impl Iterator<Item = (LiteralId, &str)> + '_ {
         self.literal_string_pool
             .iter()

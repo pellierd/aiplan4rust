@@ -22,9 +22,9 @@
 
 use crate::aiplan4rust::arena::{ArenaNode, ArenaTree, NodeId, NodeRef};
 
-/// A generic preorder iterator over nodes in an `ArenaTree<T>`.
+/// A generic preorder iter over nodes in an `ArenaTree<T>`.
 ///
-/// This iterator yields `(NodeId, depth, &T)` for each node, starting from
+/// This iter yields `(NodeId, depth, &T)` for each node, starting from
 /// the specified root node and traversing parents before their children.
 ///
 /// Preorder traversal is useful for top-down processing of trees,

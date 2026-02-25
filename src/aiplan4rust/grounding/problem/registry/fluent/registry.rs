@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use crate::aiplan4rust::lang::ids::{FluentId, NumericFluentId};
 use crate::aiplan4rust::grounding::problem::{Fluent, NumericFluent};
-use crate::aiplan4rust::grounding::registry::fluent::error::FluentRegistryError;
+use crate::aiplan4rust::grounding::problem::registry::fluent::error::FluentRegistryError;
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct FluentRegistry {

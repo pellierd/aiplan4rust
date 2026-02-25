@@ -29,7 +29,7 @@ pub fn render(
 
     // 2. Paramètres
     write!(f, "    :parameters (")?;
-    typed_list::render_typed_variable_list(f, action.parameters(), ctx)?;
+    typed_list::render_typed_variable_list(f, action.parameters().as_slice(), ctx)?;
     writeln!(f, ")")?;
 
     // 3. Durée (Uniquement si durative)

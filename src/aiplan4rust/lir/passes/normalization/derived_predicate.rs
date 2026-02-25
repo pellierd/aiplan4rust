@@ -9,7 +9,7 @@ use crate::aiplan4rust::lir::expr::ops::ExprOpError;
 ///
 /// # Arguments
 ///
-/// * `substitution` - The ops substitution to use for expr.
+/// * `binding` - The ops binding to use for expr.
 /// * `derived_predicate` - A mutable reference to the `DerivedPredicate` to normalize.
 ///
 /// # Errors

@@ -42,7 +42,7 @@
 
 use crate::aiplan4rust::interner::{InternerError, SymbolInterner};
 use crate::aiplan4rust::lang::{ActionSymbolId, AtomSkeletonId, FunctionSkeletonId, FunctionSymbolId, MethodSymbolId, ObjectId, PredicateSymbolId, Requirement, SymbolId, TaskSkeletonId, TaskSymbolId, Type, TypeId, TypedSymbol};
-use crate::aiplan4rust::lir::atomic_skeleton::{
+use crate::aiplan4rust::lir::problem::atomic_skeleton::{
     AtomicFormulaSkeleton, AtomicFunctionSkeleton, AtomicTaskSkeleton,
 };
 use crate::aiplan4rust::lir::expr::Expr;
@@ -288,10 +288,10 @@ impl Problem {
         self.requirements.insert(requirement);
     }
 
-    /// Adds multiple requirements from an iterator.
+    /// Adds multiple requirements from an iter.
     ///
     /// # Arguments
-    /// * `iter` - An iterator yielding [`Requirement`] items.
+    /// * `iter` - An iter yielding [`Requirement`] items.
     pub fn add_requirements<I>(&mut self, iter: I)
     where
         I: IntoIterator<Item = Requirement>,

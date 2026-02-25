@@ -54,7 +54,7 @@ pub fn render_init_task_network(
     // 1. Rendu des paramètres s'il y en a
     if !itn.parameters().is_empty() {
         write!(f, "\n    :parameters (")?;
-        typed_list::render_typed_variable_list(f, itn.parameters(), ctx)?;
+        typed_list::render_typed_variable_list(f, itn.parameters().as_slice(), ctx)?;
         write!(f, ")")?;
     }
 

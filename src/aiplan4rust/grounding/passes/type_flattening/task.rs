@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use crate::aiplan4rust::lang::{Type, TypeId};
-use crate::aiplan4rust::lir::atomic_skeleton::task::Task;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::task::Task;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::grounding::passes::type_flattening::typed_list;
 
@@ -20,7 +20,7 @@ use crate::aiplan4rust::grounding::passes::type_flattening::typed_list;
 ///
 /// # Implementation Note
 /// This relies on `typed_list::flatten_typed_variable_list` to handle the actual
-/// substitution within the `NamedTypedList` of the task.
+/// binding within the `NamedTypedList` of the task.
 pub fn flatten(
     task: &mut Task,
     map: &HashMap<Type<TypeId>, TypeId>,

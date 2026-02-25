@@ -1,7 +1,7 @@
 use crate::aiplan4rust::lir::expr::ops;
 use crate::aiplan4rust::lir::LiftedMethod;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
-use crate::aiplan4rust::lir::normalization::task_network;
+use crate::aiplan4rust::lir::passes::normalization::task_network;
 
 /// Normalizes a `Method` using the provided `LogicEngine`.
 ///
@@ -13,7 +13,7 @@ use crate::aiplan4rust::lir::normalization::task_network;
 ///
 /// # Arguments
 ///
-/// * `substitution` - The ops substitution to use for expr.
+/// * `binding` - The ops binding to use for expr.
 /// * `method` - A mutable reference to the `Method` to normalize.
 ///
 /// # Errors

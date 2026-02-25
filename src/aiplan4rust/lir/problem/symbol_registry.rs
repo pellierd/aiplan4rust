@@ -62,7 +62,7 @@ impl<ID: Id> SymbolRegistry<ID> {
         self.elements.is_empty()
     }
 
-    /// Returns an iterator over all `Ident`s in the table.
+    /// Returns an iter over all `Ident`s in the table.
     pub fn iter(&self) -> impl Iterator<Item = &SymbolId> {
         self.elements.iter()
     }

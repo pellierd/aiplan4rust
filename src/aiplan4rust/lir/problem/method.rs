@@ -27,7 +27,7 @@
 
 use crate::aiplan4rust::lang::typed_list::TypedList;
 use crate::aiplan4rust::lang::{MethodSymbolId, TaskLabelSymbolId, TypeId, VariableId};
-use crate::aiplan4rust::lir::atomic_skeleton::named_typed_list::NamedTypedList;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::named_typed_list::NamedTypedList;
 use crate::aiplan4rust::lir::expr::expr::Expr;
 use serde::{Deserialize, Serialize};
 use std::fmt;

@@ -1,12 +1,12 @@
 use std::backtrace::Backtrace;
 use thiserror::Error;
 use crate::aiplan4rust::arena::ArenaError;
-use crate::aiplan4rust::lir::symbol_registry::IndexTableError;
+use crate::aiplan4rust::lir::problem::symbol_registry::IndexTableError;
 use crate::aiplan4rust::interner::InternerError;
 use crate::aiplan4rust::lang::{SymbolId, Type};
 use crate::aiplan4rust::grounding::analysis::inertia::InertiaError;
-use crate::aiplan4rust::grounding::substitution::GroundingEngineError;
-use crate::aiplan4rust::grounding::iterator::DomainIteratorError;
+use crate::aiplan4rust::grounding::binding::BindingError;
+use crate::aiplan4rust::grounding::binding::iter::BindingsIteratorError;
 use crate::aiplan4rust::lir::expr::ExprError;
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::expr::ops::ExprOpError;
@@ -16,7 +16,7 @@ use crate::aiplan4rust::tree::error::SyntaxTreeError;
 pub enum GroundingError {
 
     #[error(transparent)]
-    GroundingEngine(#[from] GroundingEngineError),
+    GroundingEngine(#[from] BindingError),
 
     #[error(transparent)]
     Logic(#[from] ExprOpError),
@@ -37,7 +37,7 @@ pub enum GroundingError {
     IndexTable(#[from] IndexTableError),
 
     #[error(transparent)]
-    DomainIteratorError(#[from] DomainIteratorError),
+    DomainIteratorError(#[from] BindingsIteratorError),
 
 
     #[error(transparent)]

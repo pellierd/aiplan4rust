@@ -9,7 +9,7 @@ use crate::aiplan4rust::lang::{SymbolId, TaskSkeletonId};
 use crate::aiplan4rust::lir::expr::{Expr, ExprContent, ExprKind};
 use crate::aiplan4rust::lir::LirError;
 use crate::aiplan4rust::lir::encoding::{expr, EncodingRegistry};
-use crate::aiplan4rust::lir::task_network::TaskNetwork;
+use crate::aiplan4rust::lir::problem::task_network::TaskNetwork;
 use crate::aiplan4rust::syntax::ast::{AstKind, AstNode};
 use crate::aiplan4rust::tree::{NodeId, SyntaxSubtree};
 

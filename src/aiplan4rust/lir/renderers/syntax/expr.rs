@@ -298,7 +298,7 @@ fn render_exp_content(
 
         // --- Listes typées ---
         Content::QuantifierVariables(vars) =>
-            typed_list::render_typed_variable_list(f, vars, ctx),
+            typed_list::render_typed_variable_list(f, vars.as_slice(), ctx),
 
         // Pour les autres IDs techniques, on peut garder le Display par défaut ou enrichir
         Content::FunctionSkeleton(_) => Ok(()),

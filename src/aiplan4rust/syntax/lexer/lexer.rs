@@ -32,7 +32,7 @@ pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 
 /// `Lexer` struct that iterates over the input string and produces tokens.
 pub struct Lexer<'input> {
-    /// A token stream iterator that produces spanned tokens from the input.
+    /// A token stream iter that produces spanned tokens from the input.
     token_stream: SpannedIter<'input, Token>,
 }
 

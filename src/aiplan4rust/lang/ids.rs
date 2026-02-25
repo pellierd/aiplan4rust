@@ -10,7 +10,7 @@ use crate::aiplan4rust::lang::LangError;
 use crate::aiplan4rust::syntax::{write_indent, SyntaxInternerDisplay};
 
 /// Trait pour tous les wrappers d'identifiants basés sur un index usize.
-pub trait Id: Copy + Eq + Default + std::hash::Hash + Serialize + fmt::Display + From<usize> + Into<usize> {
+pub trait Id: Copy + Eq + Ord + Default + std::hash::Hash + Serialize + fmt::Display + From<usize> + Into<usize> {
     fn new(idx: usize) -> Self;
     fn as_usize(self) -> usize;
     fn is_valid(self) -> bool {

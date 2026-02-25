@@ -1,6 +1,6 @@
 use std::fmt;
 use std::fmt::Formatter;
-use crate::aiplan4rust::lir::atomic_skeleton::AtomicTaskSkeleton;
+use crate::aiplan4rust::lir::problem::atomic_skeleton::AtomicTaskSkeleton;
 use crate::aiplan4rust::lir::renderers::RenderContext;
 use crate::aiplan4rust::lir::renderers::syntax::typed_list;
 
@@ -15,7 +15,7 @@ pub fn render(
     let parameters = task.parameters();
     if !parameters.is_empty() {
         write!(f, " ")?;
-        typed_list::render_typed_variable_list(f, parameters, ctx)?;
+        typed_list::render_typed_variable_list(f, parameters.as_slice(), ctx)?;
     }
     write!(f, ")")?;
     write!(f, "\n  )")
