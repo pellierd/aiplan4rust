@@ -84,6 +84,13 @@ impl<'a> InertiaRegistry<'a> {
                 ExprKind::AtomicFormula | ExprKind::FComp => {
                     registry.process_init(node, init)?;
                     iter.skip_subtree();
+
+                }
+                ExprKind::Not => {
+                    // C'est un fait négatif (not (at x y))
+                    // On skip TOUT le sous-arbre (incluant l'AtomicFormula à l'intérieur)
+                    // car un fait négatif ne doit pas être compté dans N(p, a)
+                    iter.skip_subtree();
                 }
                 _ => {}
             }
@@ -101,44 +108,59 @@ impl<'a> InertiaRegistry<'a> {
 
     fn process_predicate(&mut self, node: &ExprNode, init: &Expr) -> Result<(), InertiaRegistryError> {
         let children = node.children();
-        let head_node = init.try_node(children[0])?;
-        let pred_id = head_node.try_atom_skeleton()?;
 
-        if self.inertia.is_predicate_positive(pred_id)? {
+        // 1. On récupère l'ID du SQUELETTE (la définition du prédicat)
+        // C'est cet ID qui permet de savoir si "at(truck, place)" est un prédicat d'inertie.
+        let skeleton_id = node.try_atom_skeleton()?;
+
+        if self.inertia.is_predicate_positive(skeleton_id)? {
+            // 2. L'arité réelle des données (les arguments du fait initial)
+            // Puisque le premier enfant est le "symbole" (le nom), on l'exclut.
             let arity = children.len().saturating_sub(1);
+
             if arity == 0 {
-                // Cas arité 0 : on appelle quand même pour enregistrer le fait (masque 0)
-                self.generate_predicate_masks(pred_id, 0, &[]);
+                // Prédicat propositionnel (arité 0 dans la définition)
+                self.generate_predicate_masks(skeleton_id, 0, &[]);
                 return Ok(());
             }
 
-            // --- CORRECTION ICI : On prend TOUS les arguments ---
+            // 3. Extraction des arguments (les constantes)
             let mut args = Vec::with_capacity(arity);
+
+            // On commence à 1 car children[0] est le symbole (le nom),
+            // pas une donnée membre de l'instance du prédicat.
             for &arg_id in &children[1..] {
-                args.push(init.try_node(arg_id)?.try_constant()?);
+                let arg_node = init.try_node(arg_id)?;
+                // On récupère la valeur concrète (ex: l'ID de l'objet 'truck1')
+                args.push(arg_node.try_constant()?);
             }
 
-            // C'est generate_predicate_masks qui filtrera selon max_proj
-            self.generate_predicate_masks(pred_id, arity, &args);
+            // 4. On lie la définition (skeleton_id) aux valeurs concrètes (args)
+            self.generate_predicate_masks(skeleton_id, arity, &args);
         }
         Ok(())
     }
 
     fn process_function(&mut self, node: &ExprNode, init: &Expr) -> Result<(), InertiaRegistryError> {
         let children = node.children();
-        let func_term_node = init.try_node(children[0])?;
-        let func_id = func_term_node.try_function_skeleton()?;
+        // 1. On récupère la définition de la fonction (le squelette)
+        let func_id = node.try_function_skeleton()?;
 
         if self.inertia.is_function_positive(func_id)? {
+            // 2. Dans un FComp (=), le premier enfant (children[0]) est le BasicFunctionTerm
+            let func_term_node = init.try_node(children[0])?;
             let func_children = func_term_node.children();
+
+            // L'arité exclut le symbole de la fonction (le nom) à l'index 0
             let arity = func_children.len().saturating_sub(1);
 
-            // --- CORRECTION ICI : On prend TOUS les arguments ---
+            // 3. Extraction des arguments de la fonction (ex: le 'x' dans '(f x)')
             let mut args = Vec::with_capacity(arity);
             for &arg_id in &func_children[1..] {
                 args.push(init.try_node(arg_id)?.try_constant()?);
             }
 
+            // 4. Extraction de la valeur (le membre de droite du '=' : children[1])
             let val_node = init.try_node(children[1])?;
             let value = if let Ok(num) = val_node.try_float() {
                 StaticValue::Number(num)
@@ -146,6 +168,7 @@ impl<'a> InertiaRegistry<'a> {
                 StaticValue::Object(val_node.try_constant()?)
             };
 
+            // 5. Enregistrement pour l'analyse d'inertie
             self.generate_function_masks(func_id, arity, &args, value);
         }
         Ok(())
@@ -183,10 +206,6 @@ impl<'a> InertiaRegistry<'a> {
         let mask = self.extract_mask_dynamic(node, expr, buffer);
         let n_limit = buffer.len().min(self.max_proj);
         let lookup_slice = &buffer[..n_limit];
-
-        println!("DEBUG TEST: arity = {}", node.arity());
-        println!("DEBUG TEST: mask calculé = {:b}", mask);
-        println!("DEBUG TEST: buffer utilisé = {:?}", lookup_slice);
 
         let n_p_a = self.counting_predicates.get(&pred_id)
             .and_then(|masks| masks.get(&mask))
