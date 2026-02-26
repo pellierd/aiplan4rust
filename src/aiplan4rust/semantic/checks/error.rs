@@ -92,12 +92,32 @@ pub enum SemanticCheckError {
 }
 
 impl SemanticCheckError {
+    #[track_caller] // Crucial pour que Location::caller() remonte à l'appelant de cette fonction
     pub fn unexpected_ast_kind(
         node_id: NodeId,
         expected: Vec<AstKind>,
         found: AstKind,
     ) -> Self {
-        // On utilise maintenant la struct commune UnexpectedAstKindError
+        let caller = Location::caller();
+
+        // Préparation du message pour le log
+        let msg = format!(
+            "[{}:{}] Unexpected child kind for node {:?}. Expected {:?}, found {:?}",
+            caller.file(),
+            caller.line(),
+            node_id,
+            expected,
+            found
+        );
+
+        // Capture du backtrace uniquement en mode debug
+        #[cfg(debug_assertions)]
+        {
+            let bt = Backtrace::capture();
+            debug!("{}\nStack backtrace:\n{}", msg, bt);
+        }
+
+        // Retourne l'erreur structurée (via votre conversion existante)
         UnexpectedNodeKindError::new(node_id, expected, found).into()
     }
 

@@ -23,6 +23,7 @@
 
 use crate::aiplan4rust::arena::ArenaNode;
 use crate::aiplan4rust::syntax::ast::{Ast, AstKind, AstNode};
+use crate::aiplan4rust::syntax::ast::AstKind::FunctionTerm;
 use crate::aiplan4rust::validation::common;
 use crate::aiplan4rust::validation::common::checks::{ContentKind, EXPRESSION};
 use crate::WellFormedError;
@@ -578,6 +579,7 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
                     AstKind::FunctionTerm,
                     AstKind::Variable,
                     AstKind::Constant,
+                    AstKind::Operation,
                 ],
             )
         }
@@ -588,6 +590,7 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
                     AstKind::FunctionTerm,
                     AstKind::Variable,
                     AstKind::Constant,
+                    AstKind::Operation,
                 ],
             )?;
             common::checks::check_child_kind(ast, node, 1, &[
@@ -596,6 +599,7 @@ pub fn check_fcomp_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForme
                     AstKind::FunctionTerm,
                     AstKind::Variable,
                     AstKind::Constant,
+                    AstKind::Operation,
                 ],
             )
         }
@@ -634,19 +638,18 @@ pub fn check_assign_expression(ast: &Ast, node: &AstNode) -> Result<(), WellForm
 ///
 /// # Errors
 /// Returns an error if the number of children is not 1 or 2,
-/// or if any child does not have kind `FComp`.
+/// or if any child does not have kind `Number` or 'FunctionTerm'.
 pub fn check_arithmetic_expression(ast: &Ast, node: &AstNode) -> Result<(), WellFormedError> {
-    let children_len = node.arity();
-    common::checks::check_children_count_range(children_len, 1, 2, node)?;
-
-    match children_len {
-        1 => common::checks::check_child_kind(ast, node, 0, &[AstKind::FComp]),
-        2 => {
-            common::checks::check_child_kind(ast, node, 0, &[AstKind::FComp])?;
-            common::checks::check_child_kind(ast, node, 1, &[AstKind::FComp])
-        }
-        _ => unreachable!(),
+    common::checks::check_min_children_count(node.arity(),  1, node)?;
+    for index in 0..node.arity() {
+        common::checks::check_child_kind(
+            ast,
+            node,
+            index,
+            &[AstKind::Number, AstKind::FunctionTerm]
+        )?;
     }
+    Ok(())
 }
 
 /// Checks that a `Within` or `HoldAfter` node has exactly two children:

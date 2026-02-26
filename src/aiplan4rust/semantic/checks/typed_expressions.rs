@@ -338,10 +338,13 @@ pub fn get_type(
         // Case 4: Function Term
         AstKind::FunctionTerm => get_function_term_type(node, context),
 
+        // Case 5: Arithmetic Operation
+        AstKind::Operation => get_number_type(),
+
         // Default case: Unexpected AST syntax kind
         found_kind => Err(SemanticCheckError::unexpected_ast_kind(
             index,
-            vec![AstKind::Number, AstKind::Variable, AstKind::Constant, AstKind::FunctionTerm],
+            vec![AstKind::Number, AstKind::Variable, AstKind::Constant, AstKind::FunctionTerm, AstKind::Operation],
             found_kind,
         )),
     }
