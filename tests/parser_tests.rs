@@ -124,6 +124,7 @@ pub fn test_parse_all_files(domain_dir: &Path) -> bool {
 #[test_case("tests/integration/hddl/ipc23/partial-order/ultralight-cockpit"; "ipc23_partial_order_ultralight_cockpit")]
 #[test_case("tests/integration/hddl/ipc23/partial-order/colouring"; "ipc23_partial_order_colouring")]
 #[test_case("tests/integration/hddl/ipc23/total-order/lamps"; "ipc23_total_order_lamps")]
+#[test_case("tests/integration/hddl/ipc23/total-order/sharpsat"; "ipc23_total_order_sharpsat")]
 pub fn test_hddl_parser(domain_path: &str) {
     let path = Path::new(domain_path);
     assert!(

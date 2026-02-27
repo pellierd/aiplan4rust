@@ -1,0 +1,107 @@
+
+; #SAT (model counting) problem
+; Generated via cnf2hddl.py by D. Schreiber
+
+; Encoded CNF: cnfs/9units.cnf
+; p cnf 9 9
+; 1 0
+; 2 0
+; 3 0
+; 4 0
+; 5 0
+; 6 0
+; 7 0
+; 8 0
+; 9 0
+
+(define (problem sharpsat-cnfs-9units-cnf)
+(:domain sharpsat)
+(:objects
+    n3 n4 n5 n6 n7 n8 n9 n10 n11 - number
+    l1p l1n l2p l2n l3p l3n l4p l4n l5p l5n l6p l6n l7p l7n l8p l8n l9p l9n - literal
+    c0 c1 c2 c3 c4 c5 c6 c7 c8 - clause
+)
+(:htn :parameters () :ordered-subtasks (and
+    (task1  (count-models n0))
+))
+(:init
+    (CLAUSE_COUNT n9)
+    (satisfied_clause_count n0)
+    (unit_clause_count n9)
+    (SUCCESSOR n0 n1)
+    (SUCCESSOR n1 n2)
+    (SUCCESSOR n2 n3)
+    (SUCCESSOR n3 n4)
+    (SUCCESSOR n4 n5)
+    (SUCCESSOR n5 n6)
+    (SUCCESSOR n6 n7)
+    (SUCCESSOR n7 n8)
+    (SUCCESSOR n8 n9)
+    (SUCCESSOR n9 n10)
+    (SUCCESSOR n10 n11)
+    (OPPOSITE l1p l1n)
+    (OPPOSITE l1n l1p)
+    (OPPOSITE l2p l2n)
+    (OPPOSITE l2n l2p)
+    (OPPOSITE l3p l3n)
+    (OPPOSITE l3n l3p)
+    (OPPOSITE l4p l4n)
+    (OPPOSITE l4n l4p)
+    (OPPOSITE l5p l5n)
+    (OPPOSITE l5n l5p)
+    (OPPOSITE l6p l6n)
+    (OPPOSITE l6n l6p)
+    (OPPOSITE l7p l7n)
+    (OPPOSITE l7n l7p)
+    (OPPOSITE l8p l8n)
+    (OPPOSITE l8n l8p)
+    (OPPOSITE l9p l9n)
+    (OPPOSITE l9n l9p)
+    (clause_length c0 n1)
+    (LIT_IN_CLAUSE l1p c0)
+    (clause_length c1 n1)
+    (LIT_IN_CLAUSE l2p c1)
+    (clause_length c2 n1)
+    (LIT_IN_CLAUSE l3p c2)
+    (clause_length c3 n1)
+    (LIT_IN_CLAUSE l4p c3)
+    (clause_length c4 n1)
+    (LIT_IN_CLAUSE l5p c4)
+    (clause_length c5 n1)
+    (LIT_IN_CLAUSE l6p c5)
+    (clause_length c6 n1)
+    (LIT_IN_CLAUSE l7p c6)
+    (clause_length c7 n1)
+    (LIT_IN_CLAUSE l8p c7)
+    (clause_length c8 n1)
+    (LIT_IN_CLAUSE l9p c8)
+    (OCCURRENCE_COUNT l1p n1)
+    (OCCURRENCE_INDEX l1p c0 n1)
+    (OCCURRENCE_COUNT l1n n0)
+    (OCCURRENCE_COUNT l2p n1)
+    (OCCURRENCE_INDEX l2p c1 n1)
+    (OCCURRENCE_COUNT l2n n0)
+    (OCCURRENCE_COUNT l3p n1)
+    (OCCURRENCE_INDEX l3p c2 n1)
+    (OCCURRENCE_COUNT l3n n0)
+    (OCCURRENCE_COUNT l4p n1)
+    (OCCURRENCE_INDEX l4p c3 n1)
+    (OCCURRENCE_COUNT l4n n0)
+    (OCCURRENCE_COUNT l5p n1)
+    (OCCURRENCE_INDEX l5p c4 n1)
+    (OCCURRENCE_COUNT l5n n0)
+    (OCCURRENCE_COUNT l6p n1)
+    (OCCURRENCE_INDEX l6p c5 n1)
+    (OCCURRENCE_COUNT l6n n0)
+    (OCCURRENCE_COUNT l7p n1)
+    (OCCURRENCE_INDEX l7p c6 n1)
+    (OCCURRENCE_COUNT l7n n0)
+    (OCCURRENCE_COUNT l8p n1)
+    (OCCURRENCE_INDEX l8p c7 n1)
+    (OCCURRENCE_COUNT l8n n0)
+    (OCCURRENCE_COUNT l9p n1)
+    (OCCURRENCE_INDEX l9p c8 n1)
+    (OCCURRENCE_COUNT l9n n0)
+)
+(:goal (and ))
+)

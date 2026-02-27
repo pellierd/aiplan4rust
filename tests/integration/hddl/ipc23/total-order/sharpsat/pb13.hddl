@@ -1,0 +1,55 @@
+
+; #SAT (model counting) problem
+; Generated via cnf2hddl.py by D. Schreiber
+
+; Encoded CNF: cnfs/3x2.cnf
+; p cnf 2 3
+; -1 2 0
+; -1 -2 0
+; 1 -2 0
+
+(define (problem sharpsat-cnfs-3x2-cnf)
+(:domain sharpsat)
+(:objects
+    n3 n4 n5 - number
+    l1p l1n l2p l2n - literal
+    c0 c1 c2 - clause
+)
+(:htn :parameters () :ordered-subtasks (and
+    (task1  (count-models n0))
+))
+(:init
+    (CLAUSE_COUNT n3)
+    (satisfied_clause_count n0)
+    (unit_clause_count n0)
+    (SUCCESSOR n0 n1)
+    (SUCCESSOR n1 n2)
+    (SUCCESSOR n2 n3)
+    (SUCCESSOR n3 n4)
+    (SUCCESSOR n4 n5)
+    (OPPOSITE l1p l1n)
+    (OPPOSITE l1n l1p)
+    (OPPOSITE l2p l2n)
+    (OPPOSITE l2n l2p)
+    (clause_length c0 n2)
+    (LIT_IN_CLAUSE l1n c0)
+    (LIT_IN_CLAUSE l2p c0)
+    (clause_length c1 n2)
+    (LIT_IN_CLAUSE l1n c1)
+    (LIT_IN_CLAUSE l2n c1)
+    (clause_length c2 n2)
+    (LIT_IN_CLAUSE l1p c2)
+    (LIT_IN_CLAUSE l2n c2)
+    (OCCURRENCE_COUNT l1p n1)
+    (OCCURRENCE_INDEX l1p c2 n1)
+    (OCCURRENCE_COUNT l1n n2)
+    (OCCURRENCE_INDEX l1n c0 n1)
+    (OCCURRENCE_INDEX l1n c1 n2)
+    (OCCURRENCE_COUNT l2p n1)
+    (OCCURRENCE_INDEX l2p c0 n1)
+    (OCCURRENCE_COUNT l2n n2)
+    (OCCURRENCE_INDEX l2n c1 n1)
+    (OCCURRENCE_INDEX l2n c2 n2)
+)
+(:goal (and ))
+)

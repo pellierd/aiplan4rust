@@ -1,0 +1,71 @@
+
+; #SAT (model counting) problem
+; Generated via cnf2hddl.py by D. Schreiber
+
+; Encoded CNF: cnfs/5units.cnf
+; p cnf 5 5
+; 1 0
+; 2 0
+; 3 0
+; 4 0
+; 5 0
+
+(define (problem sharpsat-cnfs-5units-cnf)
+(:domain sharpsat)
+(:objects
+    n3 n4 n5 n6 n7 - number
+    l1p l1n l2p l2n l3p l3n l4p l4n l5p l5n - literal
+    c0 c1 c2 c3 c4 - clause
+)
+(:htn :parameters () :ordered-subtasks (and
+    (task1  (count-models n0))
+))
+(:init
+    (CLAUSE_COUNT n5)
+    (satisfied_clause_count n0)
+    (unit_clause_count n5)
+    (SUCCESSOR n0 n1)
+    (SUCCESSOR n1 n2)
+    (SUCCESSOR n2 n3)
+    (SUCCESSOR n3 n4)
+    (SUCCESSOR n4 n5)
+    (SUCCESSOR n5 n6)
+    (SUCCESSOR n6 n7)
+    (OPPOSITE l1p l1n)
+    (OPPOSITE l1n l1p)
+    (OPPOSITE l2p l2n)
+    (OPPOSITE l2n l2p)
+    (OPPOSITE l3p l3n)
+    (OPPOSITE l3n l3p)
+    (OPPOSITE l4p l4n)
+    (OPPOSITE l4n l4p)
+    (OPPOSITE l5p l5n)
+    (OPPOSITE l5n l5p)
+    (clause_length c0 n1)
+    (LIT_IN_CLAUSE l1p c0)
+    (clause_length c1 n1)
+    (LIT_IN_CLAUSE l2p c1)
+    (clause_length c2 n1)
+    (LIT_IN_CLAUSE l3p c2)
+    (clause_length c3 n1)
+    (LIT_IN_CLAUSE l4p c3)
+    (clause_length c4 n1)
+    (LIT_IN_CLAUSE l5p c4)
+    (OCCURRENCE_COUNT l1p n1)
+    (OCCURRENCE_INDEX l1p c0 n1)
+    (OCCURRENCE_COUNT l1n n0)
+    (OCCURRENCE_COUNT l2p n1)
+    (OCCURRENCE_INDEX l2p c1 n1)
+    (OCCURRENCE_COUNT l2n n0)
+    (OCCURRENCE_COUNT l3p n1)
+    (OCCURRENCE_INDEX l3p c2 n1)
+    (OCCURRENCE_COUNT l3n n0)
+    (OCCURRENCE_COUNT l4p n1)
+    (OCCURRENCE_INDEX l4p c3 n1)
+    (OCCURRENCE_COUNT l4n n0)
+    (OCCURRENCE_COUNT l5p n1)
+    (OCCURRENCE_INDEX l5p c4 n1)
+    (OCCURRENCE_COUNT l5n n0)
+)
+(:goal (and ))
+)
